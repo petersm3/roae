@@ -1700,15 +1700,24 @@ PY
 # in the copy, `git diff HEAD` is empty in the base copy, as it is after the real commit, and is the
 # ablation alone in the ablated one. It also keeps the gates in the copies from touching this
 # checkout's index (a linked worktree's .git is only a pointer to it). The commit stays in DIR.
+# Q-998 (batch 51): the copy is staged from the SAME list it was copied from, `git add -f` of exactly
+# those paths, never `git add -A`. The copy's index starts empty, so `add -A` re-applied .gitignore to
+# every path and silently left out a file that is tracked here but matches an ignore rule: the
+# measured "committed state" lost that file with rc 0 and a clean status. The list check after the
+# commit makes any difference between the list and the committed tree an error, not a quiet drop.
 snapshot() {
-  local d="$1" head objs
+  local d="$1" head objs l
   head=$(git rev-parse --verify -q HEAD) && objs=$(cd "$(git rev-parse --git-common-dir)/objects" && pwd) || return 1
-  mkdir -p "$d" && git ls-files -z --cached --others --exclude-standard | xargs -0 cp --parents -a -t "$d" || return 1
-  git -C "$d" init -q && echo "$objs" > "$d/.git/objects/info/alternates" || return 1
+  mkdir -p "$d" && git -C "$d" init -q && echo "$objs" > "$d/.git/objects/info/alternates" || return 1
+  l="$d/.git/cmi_snapshot_paths.z"
+  git ls-files -z --cached --others --exclude-standard | LC_ALL=C sort -zu > "$l" || return 1
+  xargs -0 cp --parents -a -t "$d" < "$l" || return 1
   git for-each-ref --format='create %(refname) %(objectname)' | git -C "$d" update-ref --stdin || return 1
-  git -C "$d" update-ref --no-deref HEAD "$head" && git -C "$d" add -A || return 1
+  git -C "$d" update-ref --no-deref HEAD "$head" || return 1
+  git --literal-pathspecs -C "$d" add -f --pathspec-from-file="$l" --pathspec-file-nul || return 1  # Q-998 stage
   git -C "$d" -c user.name=correction_marker_inventory -c user.email=cmi@invalid -c commit.gpgsign=false \
     commit -q --no-verify --allow-empty -m 'correction_marker_inventory.sh: the tree as measured' || return 1
+  git -C "$d" ls-files -z | cmp -s - "$l" || { echo "snapshot: the committed tree is not the listed set" >&2; return 1; }  # Q-998 check
   [ -z "$(git -C "$d" status --porcelain)" ] && [ "$(git -C "$d" rev-parse HEAD~1)" = "$head" ]
 }
 

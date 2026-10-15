@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 5 place(s) over all 196 dated sections, 4 of them among the 120 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 5 place(s) over all 197 dated sections, 4 of them among the 121 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -216,6 +216,7 @@
 | 194 | 2026-10-10 | iso | 11316 | [open](HISTORY.md#2026-10-10--batch-47-the-corrections-inventory-is-checked-against-the-pushed-commits-real-history-at-push-time-and-doc-gates-runs-no-longer-leave-temp-directories-behind) 2026-10-10 — batch 47: the corrections inventory is checked against the pushed commit's real history at push time, and doc-gates runs no longer leave temp directories behind |
 | 195 | 2026-10-11 | iso | 11346 | [open](HISTORY.md#2026-10-11--batch-48-a-failing-tool-no-longer-reads-as-a-clean-result-at-45-gate-sites-the-published-ledger-check-runs-at-push-time-and-a-broken-self-test-fixture-is-told-apart-from-a-stale-one) 2026-10-11 — batch 48: a failing tool no longer reads as a clean result at ~45 gate sites, the published-ledger check runs at push time, and a broken self-test fixture is told apart from a stale one |
 | 196 | 2026-10-11 | iso | 11377 | [open](HISTORY.md#2026-10-11--batch-49-the-exhaustion-atlas-verdict-is-published-one-sided-after-its-hedge-is-fixed-the-atlas-loader-refuses-an-unchecked-atlas-and-this-files-out-of-order-headings-are-named) 2026-10-11 — batch 49: the Exhaustion Atlas verdict is published one-sided after its hedge is fixed, the atlas loader refuses an unchecked atlas, and this file's out-of-order headings are named |
+| 197 | 2026-10-11 | iso | 11416 | [open](HISTORY.md#2026-10-11--batch-51-three-line-pointers-in-two-doc-gates-comment-blocks-are-re-pointed-at-their-figure-and-one-that-never-landed-is-dropped) 2026-10-11 — batch 51: three line pointers in two doc-gates comment blocks are re-pointed at their figure, and one that never landed is dropped |
 
 ## Sections with no date in the heading, in file order
 

@@ -31519,3 +31519,79 @@ literature entry. `TestBatch49` measures the inversions above the note and requi
 exactly those.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 49, Q-686.
+
+## CX-352 — three `file:line` pointers in two doc-gates comment blocks had drifted off their figure, and a fourth never landed; each now points at the line that holds it (scripts/doc_gates.d/20_retract_links_status.sh; tests.py)
+
+**2026-10-11.** **Source.** The Q-474 measurement (the claim-shape sweep of doc-gates comments)
+sampled five live line references in gate comments and found two stale. Batch 51 fixes those two and
+the other pointers in the same two comment blocks. Q-474 itself stays open: the sweep of the whole
+population is not done.
+
+**No published number, count, sha or verdict moves.** Only comments in a gate script change; the
+gate's code is unchanged.
+
+**1. What was wrong.** Each pointer was checked against the current tree by content, and against the
+commit that wrote it.
+- `TR-2:650`, cited twice as the line that carries the retracted TR-2 sigma value twice, and "line 654", cited as the line
+  both allowlist anchors match. They were right when written (commit `2533bc89`). The report has since
+  grown (655 to 901 lines) and the two lines have moved down by 230, to 880 and 884.
+- `documentation/CORRECTIONS.md:2025`, cited as a place `1.3287e38` occurs. It was right when written
+  (commit `fcd9feab`). The figure is now at line 2050, which the same comment already cites three lines
+  further down.
+- `FH1_RESIDUAL_DOMINANCE.md:179`, listed with `:181` as two occurrences. Line 179 has never carried
+  the figure, at that commit or since, so the stated count "FOUR occurrences" was three.
+
+**2. What changed.** The pointers now read `TR-2:880`, `line 884` and `CORRECTIONS.md:2050`. `:179`
+is dropped and the count reads THREE, with a note that says why. Checked and still landing:
+`F1_ORBIT_QUOTIENT_2026_07.md:9`, `FH1_RESIDUAL_DOMINANCE.md:181` and `CORRECTIONS.md:2050` (the
+"quotes solver output" pointer).
+
+**3. Tests.** `TestBatch51` reads each pointer out of the comment and checks that the line it names
+holds the figure: the TR-2 sigma value twice, both anchors, or `1.3287e38`. It also checks that the stated count
+equals the number of pointers listed. For each fix, the old pointer is put back into the current text
+and the same check fails.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 51, Q-474 measurement.
+
+## CX-353 — the correction-marker inventory's `--snapshot` copy could silently leave out a file that is tracked but matches .gitignore; it now commits exactly the listed set and checks it (scripts/correction_marker_inventory.sh; tests.py)
+
+**2026-10-11.** **Source.** Q-998, from the Fable pre-publication review of batch 46 (an advisory on
+the `--snapshot` mode added there, CX-341 item 4).
+
+**No published number, count, sha or verdict moves.** No file on the tree is tracked and ignored at
+once (`git ls-files -ci --exclude-standard` lists none), so no inventory this script has written was
+affected. The defect was latent.
+
+**1. What was wrong.** `--snapshot` copies the working tree (tracked files plus untracked files that
+are not ignored) into a fresh git directory and commits it there, so that the gates measure the tree
+as it will be committed. The copy was staged with `git add -A` into an empty index. That re-applied
+the ignore rules to every path, so a file that is tracked here but matches an ignore rule was copied
+but not committed. The run still returned 0, and the copy's status was clean, so nothing reported the
+missing file.
+
+**2. What changed.** The list of paths is written once and used for both the copy and the staging:
+`git add -f` of exactly those paths, with literal pathspecs, never `git add -A`. After the commit, the
+copy's `git ls-files` must equal that list byte for byte, or the snapshot fails with an error.
+
+**3. Siblings checked.** Every other script in scripts/ that builds a copy of a tree was read:
+- `scripts/exec_lane.sh` copies the tracked files and then this repository's own git directory,
+  index included, before its `git add -A`. A tracked file is already in that index, and ignore rules
+  never apply to a tracked file, so it is kept. Not affected.
+- `scripts/pre_commit_repro_current_gate.sh` uses `git checkout-index`, and `scripts/pre_push_gate.sh`
+  and `scripts/doc_gates.sh` use `git worktree add` of a commit. Both give exactly the tracked set.
+  Not affected.
+- The `git add -A` calls in the self-tests of `scripts/history_currency_gate.sh`,
+  `scripts/tr12_output_paths_gate.sh`, `scripts/citation_line_gate.sh` and `scripts/doc_gates.sh`
+  build small repositories from scratch and commit what they just wrote. None copies this tree, and
+  none has a tracked file that is ignored. Not affected.
+- The `cp -a` calls in `scripts/f1c5_adopt_digest_gate.sh`, `scripts/q317_missing_shard_merge_gate.sh`
+  and `scripts/q908_join_accept.sh` copy solver output directories, not a git tree. Not affected.
+
+**4. Tests.** `TestQ998SnapshotTrackedIgnored` plants a file that is tracked and matches .gitignore,
+and first checks that it is both. Red: the old staging (`git add -A`, no list check), rebuilt from the
+current script, returns 0 and its commit lacks the file. A second variant keeps the list check but
+stages with `git add -A`, and must fail with an error. Green: the script as shipped commits the file
+with its content.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 51, Q-998. Advisory: Fable
+(claude-fable-5-1) pre-publication review of batch 46.

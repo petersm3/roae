@@ -11412,3 +11412,14 @@ Q-686=DONE
 
 - No count, t-unit figure or sha changed. One published verdict changed: `TR12_XA_CD`, from
   pending to one-sided INFEASIBLE.
+
+## 2026-10-11 — batch 51: three line pointers in two doc-gates comment blocks are re-pointed at their figure, and one that never landed is dropped
+
+- The Q-474 measurement found two stale `file:line` pointers in gate comments. They and the other
+  pointers in the same comment blocks were checked by content (CX-352). Three had drifted and now
+  point at the right line; one had never landed and is dropped. A test checks each pointer against its
+  line. Q-474, the sweep of the whole population, stays open.
+- The correction-marker inventory's `--snapshot` copy is now staged from the exact list of paths it
+  copied, and checked against it, so a file that is tracked but matches .gitignore can no longer drop
+  out of the measured tree without an error (CX-353, Q-998). No such file exists today, so no
+  inventory changes.

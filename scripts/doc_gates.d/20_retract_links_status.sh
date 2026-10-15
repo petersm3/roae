@@ -399,12 +399,12 @@ for m in mds + evid:
             c = max(clx[i-1].count(cfig), cld[i-1].count(cfig))
             if not c:
                 continue
-            n_online += c                   # OCCURRENCES, not lines: TR-2:650 carries
+            n_online += c                   # OCCURRENCES, not lines: TR-2:880 carries
                                             # "1.4σ" twice and would otherwise look short
             # MARK EVERY MATCHING ROW USED, not just the first (fixed on this gate's
             # first run, before it shipped). Two anchors can legitimately land on one
             # line: TR-2 v1.23 quotes v1.19's "not reconstructible from the stated
-            # errors" AND says where 1.4 came from, so both rows match line 654. A
+            # errors" AND says where 1.4 came from, so both rows match line 884. A
             # break-on-first left the second looking dead and printed a [note] that was
             # a pure false alarm — the drift audit crying wolf on its own first run is
             # exactly how a real dead row later gets ignored.
@@ -430,7 +430,7 @@ for m in mds + evid:
         # spacing is already single is counted identically on both sides.
         #
         # And the count is of OCCURRENCES, not of matching lines. The first version of this
-        # comparison counted lines, so a line carrying the figure twice (TR-2:650 does) read
+        # comparison counted lines, so a line carrying the figure twice (TR-2:880 does) read
         # as one and the file reported a phantom hard wrap. Caught by this batch's own
         # Phase-4 pass, three false [FAIL]s, before it shipped.
         #
@@ -1072,10 +1072,12 @@ for f in files:
             if re.fullmatch(r'[\d.]+', val) and ',' not in val:
                 # SIBLING OF GATE 26 LEG 2 (2026-09-02), and measured the same way. This
                 # required the SUPERSCRIPT form, so a registry value typed the way the solver
-                # PRINTS it -- 1.3287e38 -- was invisible to GATE 5/5b: FOUR occurrences
-                # (documentation/CORRECTIONS.md:2025, reports/evidence/f1/
-                # F1_ORBIT_QUOTIENT_2026_07.md:9, and FH1_RESIDUAL_DOMINANCE.md:179 and :181),
-                # none of them examined.
+                # PRINTS it -- 1.3287e38 -- was invisible to GATE 5/5b: THREE occurrences
+                # (documentation/CORRECTIONS.md:2050, the `--f1-exact-c1c2c4c5` transcript;
+                # reports/evidence/f1/F1_ORBIT_QUOTIENT_2026_07.md:9; and
+                # FH1_RESIDUAL_DOMINANCE.md:181), none of them examined. (Re-verified in CX-352:
+                # one FH1 line listed here never carried the figure, so the count was three, and
+                # the CORRECTIONS.md pointer had drifted with that file's growth.)
                 # 🔴 THE FIRST CUT OF THIS FIX WAS WRONG AND THE MEASUREMENT CAUGHT IT. Without
                 # the code-span condition below it added ONE [WARN], and that [WARN] was false:
                 # CORRECTIONS.md:2050 quotes solver output, and the only 'exact' token on the

@@ -44190,6 +44190,188 @@ class TestBatch49(unittest.TestCase):
 # end class TestBatch49 (batch 49, Q-433/Q-564/Q-686)
 
 
+class TestBatch51(unittest.TestCase):
+    """Batch 51 (CX-352, from the Q-474 measurement; Q-474 stays open). The file:line pointers in
+    two comment blocks of scripts/doc_gates.d/20_retract_links_status.sh must land on their figure:
+    TR-2:N carries "1.4σ" twice, "line N" carries both TR-2 1.4σ allowlist anchors, and each
+    CORRECTIONS / F1 / FH1 pointer carries 1.3287e38. The stated occurrence count equals the number
+    of pointers listed. Red: each pre-fix pointer (OLD below, built by _p so this file carries no
+    literal file-colon-line of its own) is put back into the current text, and the check must fail."""
+    GATE = os.path.join("scripts", "doc_gates.d", "20_retract_links_status.sh")
+    TR2 = os.path.join("reports", "TR2_THE_RULES_CONFLICT.md")
+    COR = os.path.join("documentation", "CORRECTIONS.md")
+    F1 = os.path.join("reports", "evidence", "f1", "F1_ORBIT_QUOTIENT_2026_07.md")
+    FH1 = os.path.join("reports", "evidence", "f1", "FH1_RESIDUAL_DOMINANCE.md")
+    ALLOW = os.path.join("documentation", "DOC_GATE_FIGURE_ALLOWLIST.txt")
+    FIG = "1.3287e38"
+    WORDS = {"TWO": 2, "THREE": 3, "FOUR": 4, "FIVE": 5}
+    _p = staticmethod(lambda f, n: f + ":" + str(n))
+    OLD = [(_p.__func__("TR-2", 880) + " carries", _p.__func__("TR-2", 650) + " carries"),
+           ("(" + _p.__func__("TR-2", 880) + " does)", "(" + _p.__func__("TR-2", 650) + " does)"),
+           ("both rows match line 884.", "both rows match line 654."),
+           (_p.__func__("documentation/CORRECTIONS.md", 2050) + ", the",
+            _p.__func__("documentation/CORRECTIONS.md", 2025) + ", the"),
+           ("THREE occurrences", "FOUR occurrences"),
+           (_p.__func__("FH1_RESIDUAL_DOMINANCE.md", 181) + "),",
+            _p.__func__("FH1_RESIDUAL_DOMINANCE.md", 179) + " and " + _p.__func__("", 181) + "),")]
+
+    @staticmethod
+    def _lines(path):
+        with open(path, encoding="utf-8") as fh:
+            return fh.read().split("\n")
+
+    def _line(self, path, n):
+        L = self._lines(path)
+        return L[n - 1] if 1 <= n <= len(L) else ""
+
+    def _check(self, text):
+        """Return a list of pointer failures for the gate text (comment lines only)."""
+        com = " ".join(l.split("#", 1)[1].strip() for l in text.split("\n") if "#" in l)
+        bad = []
+        tr2 = [int(n) for n in re.findall(r"TR-2:(\d+) carries", com) + re.findall(r"\(TR-2:(\d+) does\)", com)]
+        if len(tr2) != 2:
+            bad.append("tr2 pointers not found: %r" % tr2)
+        for n in tr2:
+            if self._line(self.TR2, n).count("1.4σ") < 2:
+                bad.append("TR-2:%d does not carry 1.4σ twice" % n)
+        anchors = [r.split("\t")[2] for r in self._lines(self.ALLOW)
+                   if r.startswith(self.TR2 + "\t1.4σ\t")]
+        if len(anchors) != 2:
+            bad.append("allowlist anchors: %r" % anchors)
+        m = re.findall(r"both rows match line (\d+)", com)
+        if len(m) != 1 or not all(a in self._line(self.TR2, int(m[0])) for a in anchors):
+            bad.append("'line %s' does not carry both anchors" % m)
+        m = re.search(r"GATE 5/5b: (\w+) occurrences \(documentation/CORRECTIONS\.md:(\d+), [^;]*; "
+                      r"reports/evidence/f1/F1_ORBIT_QUOTIENT_2026_07\.md:(\d+); and "
+                      r"FH1_RESIDUAL_DOMINANCE\.md:(\d+)((?: and :\d+)*)\)", com)
+        if not m:
+            return bad + ["1.3287e38 pointer list not found"]
+        ptrs = [(self.COR, int(m.group(2))), (self.F1, int(m.group(3))), (self.FH1, int(m.group(4)))]
+        ptrs += [(self.FH1, int(n)) for n in re.findall(r":(\d+)", m.group(5))]
+        if self.WORDS.get(m.group(1)) != len(ptrs):
+            bad.append("count %s != %d pointers" % (m.group(1), len(ptrs)))
+        for path, n in ptrs:
+            if self.FIG not in self._line(path, n):
+                bad.append("%s:%d does not carry %s" % (path, n, self.FIG))
+        m = re.findall(r"CORRECTIONS\.md:(\d+) quotes solver output", com)
+        if len(m) != 1 or not ("`--f1-exact-c1c2c4c5`" in self._line(self.COR, int(m[0]))
+                               and self.FIG in self._line(self.COR, int(m[0]))):
+            bad.append("'quotes solver output' pointer %r" % m)
+        return bad
+
+    def _text(self):
+        with open(self.GATE, encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_every_pointer_lands_on_its_figure(self):
+        self.assertEqual(self._check(self._text()), [])
+
+    def test_each_old_pointer_is_red(self):
+        t = self._text()
+        for new, old in self.OLD:
+            with self.subTest(old=old):
+                self.assertEqual(t.count(new), 1, "precondition: the fixed text is present")
+                self.assertNotEqual(self._check(t.replace(new, old)), [], old)
+        allold = t
+        for new, old in self.OLD:
+            allold = allold.replace(new, old)
+        self.assertGreaterEqual(len(self._check(allold)), 4)
+
+
+# end class TestBatch51 (batch 51, CX-352)
+class TestQ998SnapshotTrackedIgnored(unittest.TestCase):
+    """Q-998 (batch 51): correction_marker_inventory.sh --snapshot must commit EXACTLY the tracked set
+    (plus untracked, not-ignored files). It used to stage the copy with `git add -A` into an empty
+    index, which re-applied .gitignore and silently dropped a file that is tracked but ignored. Red:
+    the pre-fix staging (`add -A`, no list check) rebuilt as a mutant drops the planted file with rc 0;
+    a second mutant keeps the list check but stages with `add -A`, and must fail loudly. Green: the
+    script as shipped commits the file. Each red leg first asserts its precondition: the planted file
+    is tracked AND matches an ignore rule."""
+    SCRIPT = os.path.join("scripts", "correction_marker_inventory.sh")
+    STAGE = 'git --literal-pathspecs -C "$d" add -f --pathspec-from-file="$l" --pathspec-file-nul || return 1  # Q-998 stage'
+    CHECK_TAG = "# Q-998 check"
+    PLANT = "keep.log"
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    def _g(self, repo, *a, ok=True):
+        r = subprocess.run(["git", "-C", repo] + list(a), capture_output=True, text=True, timeout=60)
+        if ok:
+            self.assertEqual(r.returncode, 0, "git %s: %s" % (" ".join(a), r.stderr))
+        return r
+
+    def _src(self):
+        with open(os.path.join(self.ROOT, self.SCRIPT), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _mutant(self, keep_check):
+        src = self._src()
+        self.assertEqual(src.count(self.STAGE), 1, "the Q-998 staging line must be present exactly once")
+        m = src.replace(self.STAGE, 'git -C "$d" add -A || return 1')
+        if not keep_check:
+            lines = [l for l in m.split("\n") if self.CHECK_TAG not in l]
+            self.assertEqual(len(lines), len(m.split("\n")) - 1, "the Q-998 list check must be one line")
+            m = "\n".join(lines)
+        return m
+
+    def _run(self, script_text):
+        d = tempfile.mkdtemp(prefix="q998snap_")
+        self.addCleanup(shutil.rmtree, d, True)
+        repo = os.path.join(d, "repo")
+        os.makedirs(os.path.join(repo, "scripts"))
+        with open(os.path.join(repo, self.SCRIPT), "w", encoding="utf-8") as fh:
+            fh.write(script_text)
+        for f, t in ((".gitignore", "*.log\n"), ("a.md", "one\n"), (self.PLANT, "tracked but ignored\n")):
+            with open(os.path.join(repo, f), "w") as fh:
+                fh.write(t)
+        self._g(repo, "init", "-q")
+        self._g(repo, "add", "a.md", ".gitignore", self.SCRIPT)
+        self._g(repo, "add", "-f", self.PLANT)
+        self._g(repo, "-c", "user.name=t", "-c", "user.email=t@invalid", "commit", "-q", "--no-verify", "-m", "c0")
+        with open(os.path.join(repo, "a.md"), "w") as fh:
+            fh.write("one edited\n")
+        # Precondition: the planted file is tracked AND matches an ignore rule.
+        self._g(repo, "ls-files", "--error-unmatch", self.PLANT)
+        self.assertEqual(self._g(repo, "check-ignore", "--no-index", "-q", self.PLANT, ok=False).returncode, 0,
+                         "precondition: %s must match .gitignore" % self.PLANT)
+        self.assertEqual(self._g(repo, "ls-files", "-ci", "--exclude-standard").stdout.split(), [self.PLANT],
+                         "precondition: exactly the planted file is tracked-and-ignored")
+        snap = os.path.join(d, "snap")
+        r = subprocess.run(["timeout", "120", "bash", self.SCRIPT, "--snapshot", snap], cwd=repo,
+                           capture_output=True, text=True, timeout=180)
+        return r, snap
+
+    def _has(self, snap, path):
+        return self._g(snap, "cat-file", "-e", "HEAD:" + path, ok=False).returncode == 0
+
+    def test_q998_red_pre_fix_snapshot_drops_the_tracked_ignored_file_silently(self):
+        r, snap = self._run(self._mutant(keep_check=False))
+        self.assertEqual(r.returncode, 0, "the pre-fix snapshot reports success: %s" % r.stderr)
+        self.assertTrue(os.path.exists(os.path.join(snap, self.PLANT)), "the file is copied into the snapshot")
+        self.assertFalse(self._has(snap, self.PLANT), "red: the pre-fix snapshot's commit drops the file")
+        self.assertEqual(self._g(snap, "status", "--porcelain").stdout, "", "red: and its status is clean")
+
+    def test_q998_red_add_all_with_the_list_check_fails_loudly(self):
+        r, snap = self._run(self._mutant(keep_check=True))
+        self.assertNotEqual(r.returncode, 0, "the list check must refuse a commit that lost a tracked file")
+        self.assertIn("not the listed set", r.stderr)
+
+    def test_q998_green_snapshot_keeps_the_tracked_ignored_file(self):
+        r, snap = self._run(self._src())
+        self.assertEqual(r.returncode, 0, "--snapshot failed: %s%s" % (r.stdout, r.stderr))
+        self.assertTrue(self._has(snap, self.PLANT), "green: the tracked-but-ignored file is committed")
+        self.assertEqual(self._g(snap, "show", "HEAD:" + self.PLANT).stdout, "tracked but ignored\n")
+        self.assertEqual(self._g(snap, "show", "HEAD:a.md").stdout, "one edited\n", "the working-tree edit is committed")
+        self.assertEqual(self._g(snap, "status", "--porcelain").stdout, "", "the snapshot tree is committed")
+
+    def test_q998_no_add_all_in_snapshot(self):
+        src = self._src()
+        body = src[src.index("\nsnapshot() {"):]
+        body = body[:body.index("\n}\n")]
+        self.assertNotIn("add -A", body, "snapshot() must stage the exact list, never `git add -A`")
+
+# end class TestQ998SnapshotTrackedIgnored (batch 51, Q-998)
+
+
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))
