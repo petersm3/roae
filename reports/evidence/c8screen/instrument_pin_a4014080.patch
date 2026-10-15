@@ -1,0 +1,1655 @@
+diff --git a/solve.c b/solve.c
+index 493d0d9e..4643d8ba 100644
+--- a/solve.c
++++ b/solve.c
+@@ -5450,7 +5450,7 @@ typedef struct {
+     double dav2_sum[2];                   /* weighted sum of each wave-2 candidate's value over canonical leaves */
+     double dav2_sq_below[2], dav2_sq_at[2], dav2_sq_above[2]; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
+     double dav2_below[2], dav2_at[2], dav2_above[2];  /* weighted mass <KW / ==KW / >KW per wave-2 candidate */
+-    int dav2_min[2], dav2_max[2];         /* min/max wave-2 candidate value seen across canonical leaves */
++    int dav2_min[2], dav2_max[2];         /* min/max wave-2 candidate value seen across canonical leaves */ struct QoyAcc *qoy; /* SOLVE_KNUTH_SCORE_QOY=1: Q-OY1/Q-992 accumulator (heap; NULL otherwise) */ struct C8Acc *c8; /* SOLVE_KNUTH_SCORE_C8=1: Pilot A C8-screen accumulator (heap; NULL otherwise) */
+     /* SOLVE_KNUTH_SCORE_DB1=1 (Drasny "Rule of Ten" D-B1, Null B): weighted
+      * canonical-leaf mass of the conformity count X (see the DB1 block below).
+      * db1_hist[0..32] = exact-value histogram; below/at/above split at KW's X=22.
+@@ -6607,7 +6607,7 @@ static void score_dav2(const int seq[64], double W, KnuthArg *a){
+         }
+     }
+ }
+-
++/* Q-OY1/Q-992 scorer (SOLVE_KNUTH_SCORE_QOY): declared here, defined in the qoy_* block before solve_env_preflight (placed there so no cited line moves). */ static int knuth_score_qoy = 0; static void score_qoy(const int seq[64], double Wt, KnuthArg *a); static void qoy_alloc_arg(KnuthArg *a); static void qoy_report(KnuthArg *arg, int nthreads, double sC, double qC, unsigned long long N); static int qoy_verify_main(int argc, char *argv[]); /* Pilot A C8 screen (SOLVE_KNUTH_SCORE_C8; PREREG_C8SCREEN_2026_10_11 §7.1): defined in the c8_* block after the qoy_* block. */ static int knuth_score_c8 = 0; static void score_c8(const int seq[64], double Wt, KnuthArg *a); static void c8_alloc_arg(KnuthArg *a); static void c8_report(KnuthArg *arg, int nthreads, double sC, double qC, unsigned long long N); static int c8_verify_main(int argc, char *argv[]); static int c8_list_main(int argc, char *argv[]); static int c8_null0_main(int argc, char *argv[]);
+ /* ===================== Drasny "Rule of Ten" candidate D-B1 (SOLVE_KNUTH_SCORE_DB1) =====================
+  * Rule-of-Ten conformity count X = # of pair-slots whose functional group matches
+  * the group assigned to that slot's "room". Operational spec frozen in
+@@ -8168,7 +8168,7 @@ static void *knuth_worker(void *vp){
+                     if (knuth_score_reg) score_registry(seq, W, a);
+                     if (knuth_score_f4p) score_f4p(seq, W, a);
+                     if (knuth_score_dav) score_dav(seq, W, a);
+-                    if (knuth_score_dav2) score_dav2(seq, W, a);
++                    if (knuth_score_qoy) { score_qoy(seq, W, a); } if (knuth_score_c8) { score_c8(seq, W, a); } if (knuth_score_dav2) score_dav2(seq, W, a);
+                     if (knuth_score_db1)  score_db1(seq, W, a);
+                     if (knuth_score_f5)  score_f5(seq, W, a);
+                     if (knuth_score_f6)  score_f6(seq, W, a);
+@@ -8547,7 +8547,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
+             arg[i].dav2_hist = (double*)calloc(2 * 64, sizeof(double));
+             for (int k2 = 0; k2 < 2; k2++){ arg[i].dav2_min[k2] = INT_MAX; arg[i].dav2_max[k2] = INT_MIN; }
+         }
+-        if (knuth_score_db1) { arg[i].db1_min = INT_MAX; arg[i].db1_max = INT_MIN; }
++        if (knuth_score_qoy) { qoy_alloc_arg(&arg[i]); } if (knuth_score_c8) { c8_alloc_arg(&arg[i]); } if (knuth_score_db1) { arg[i].db1_min = INT_MAX; arg[i].db1_max = INT_MIN; }
+         if (knuth_score_f5) {
+             arg[i].f5_hist = (double*)calloc(11 * 64, sizeof(double));
+             for (int k2 = 0; k2 < 11; k2++){ arg[i].f5_min[k2] = INT_MAX; arg[i].f5_max[k2] = INT_MIN; }
+@@ -9004,7 +9004,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
+                                dav2_names[k2], dav2_lo[k2] + b2, dav2H[k2 * 64 + b2]/sC);
+     }
+     free(dav2H);
+-    if (knuth_score_db1 && sC > 0) {
++    if (knuth_score_qoy && sC > 0) { qoy_report(arg, nthreads, sC, qC, (unsigned long long)N); } if (knuth_score_c8 && sC > 0) { c8_report(arg, nthreads, sC, qC, (unsigned long long)N); } if (knuth_score_db1 && sC > 0) {
+         /* Drasny "Rule of Ten" D-B1 conformity count X, Null B (dispositive
+          * population null): weighted fraction of canonical mass with X below /
+          * at / above KW's X=22. Ground truth classifier solve.py db1_* /
+@@ -41817,7 +41817,7 @@ int main(int argc, char *argv[]) {
+             knuth_score_dav2 = 1;
+             fprintf(stderr, "[knuth] Davis-2012 wave-2 scoring ACTIVE (2 candidates: tquartet C-D9, xunslots C-D10; R8_DAVIS_PREREG_2026_07_10; ground truth solve.py dav2_*; C-D5 operator-declined)\n");
+         }
+-        if (getenv("SOLVE_KNUTH_SCORE_DB1") && atoi(getenv("SOLVE_KNUTH_SCORE_DB1")) == 1) {
++        if (getenv("SOLVE_KNUTH_SCORE_QOY") && atoi(getenv("SOLVE_KNUTH_SCORE_QOY")) == 1) { knuth_score_qoy = 1; fprintf(stderr, "[knuth] Q-OY1/Q-992 scoring ACTIVE (X cross-boundary swap adjacencies, D H16-coset-0 gap dispersion + descriptives; PREREG_QOY1_Q992_2026_10_09; ground truth solve.py q992_*/qoy1_* / --qoy-verify)\n"); } if (getenv("SOLVE_KNUTH_SCORE_C8") && atoi(getenv("SOLVE_KNUTH_SCORE_C8")) == 1) { knuth_score_c8 = 1; fprintf(stderr, "[knuth] Pilot A C8-screen scoring ACTIVE (1,349 label-free slot/adjacency statistics, PREREG_C8SCREEN_2026_10_11; ground truth solve.py C8_REFERENCE_SRC / --c8-verify; no KW line)\n"); } if (getenv("SOLVE_KNUTH_SCORE_DB1") && atoi(getenv("SOLVE_KNUTH_SCORE_DB1")) == 1) {
+             knuth_score_db1 = 1;
+             fprintf(stderr, "[knuth] Drasny Rule-of-Ten D-B1 scoring ACTIVE (conformity count X, Null B / dispositive population null; DRASNY_RULE_OF_TEN_SCOPING_2026_07_11; ground truth solve.py db1_* / --db1-verify; KW X=22)\n");
+         }
+@@ -41879,7 +41879,7 @@ int main(int argc, char *argv[]) {
+                 }
+             }
+             if (knuth_score || knuth_score_reg || knuth_score_f4p || knuth_score_dav ||
+-                knuth_score_dav2 || knuth_score_db1 || knuth_score_f5 || knuth_score_f6 ||
++                knuth_score_dav2 || knuth_score_qoy || knuth_score_c8 || knuth_score_db1 || knuth_score_f5 || knuth_score_f6 ||
+                 knuth_score_perm || knuth_moore_strict || knuth_gender_strict || knuth_h2 ||
+                 knuth_f11_hist || knuth_r11_hist || knuth_depth_profile || knuth_rc4b_t1 ||
+                 knuth_bcond) {
+@@ -42030,7 +42030,7 @@ int main(int argc, char *argv[]) {
+         if (failures == 0) printf("DAV2 VERIFY: PASS\n");
+         else printf("DAV2 VERIFY: %d FAILURES\n", failures);
+         return failures ? 1 : 0;
+-    } else if (argc > 1 && strcmp(argv[1], "--db1-verify") == 0) {
++    } else if (argc > 1 && strcmp(argv[1], "--qoy-verify") == 0) { return qoy_verify_main(argc, argv); } else if (argc > 1 && strcmp(argv[1], "--c8-verify") == 0) { return c8_verify_main(argc, argv); } else if (argc > 1 && strcmp(argv[1], "--c8-list") == 0) { return c8_list_main(argc, argv); } else if (argc > 1 && strcmp(argv[1], "--c8-null0") == 0) { return c8_null0_main(argc, argv); } else if (argc > 1 && strcmp(argv[1], "--db1-verify") == 0) {
+         /* Two-language gate for Drasny's "Rule of Ten" candidate D-B1: assert the
+          * bit-structural classifier reproduces Table 4.1 (all 64 hexagrams) and
+          * the KW conformity count X=22. Output format matches solve.py db1_verify
+@@ -51701,6 +51701,489 @@ static int solve_env_check(const SolveEnvSpec *s, const char *v) {
+     if (errno == ERANGE || !end || *end != '\0' || x < s->lo || x > s->hi) return solve_env_refused(s->name, v, want);
+     return 0;
+ }
++/* ===================== Q-OY1 / Q-992 scorer (SOLVE_KNUTH_SCORE_QOY) =====================
++ * C port of the frozen statistics of roae-private/review_2026_09_27/PREREG_QOY1_Q992_2026_10_09.md
++ * §2 (sha256 5e15192f..., frozen 2026-10-09 BEFORE any measurement). solve.py q992_* / qoy1_* is
++ * the SPEC; `--qoy-verify <KW|file>` prints one line per ordering in the same format as
++ * `solve.py --qoy-verify`, and `solve.py --qoy-gate <binary>` compares the two byte-for-byte
++ * (KW + 10^5 seeded C1∩C4 orderings). Estimator-only, sha-neutral: active only under
++ * SOLVE_KNUTH_SCORE_QOY=1 / --qoy-verify; zero effect on enumeration paths.
++ *
++ *   Q-992  X = # cross-boundary adjacencies (i odd) with swap(s[i]) == s[i+1]   (PRIMARY)
++ *          W = same, within-slot (i even; forced = 6 by C1), T = W + X, A = adjacent-slot couples
++ *   Q-OY1  D = circular gap dispersion sum (g-4)^2 of the H16-coset-0 pair slots (PRIMARY)
++ *          NSAME = same-coset slot boundaries; 32-bin weighted coset-0 occupancy
++ * swap = exchange upper/lower trigrams (verify.py _swap); H16 = {h : rev h == h or rev h == comp h}
++ * (Ouyang 1993 pp. 91/190); cosets labelled in ascending order of their least element.
++ *
++ * ATTRIBUTION: the H16 "backbone" reading is 欧阳维诚 (Ouyang Weicheng) 1993, pp. 190-191; the
++ * trigram-swap adjacency count is 韩仲民 (Han Zhongmin) 1984, p. 22 (see CITATIONS.md). The
++ * scalar operationalizations and the population measurement are ROAE's. */
++
++/* knuth_score_qoy (SOLVE_KNUTH_SCORE_QOY=1) is defined with the forward declarations after score_dav2. Estimator-only. */
++
++typedef struct { int X, W, T, A, D, NSAME, consistent, n0; int ids[32]; } QoyVals;
++/* Thread-local accumulator; heap-allocated only when SOLVE_KNUTH_SCORE_QOY=1. Every histogram
++ * carries its squared-weight twin so a tail mass at ANY threshold has a Q-374 delta-method SE. */
++typedef struct QoyAcc {
++    double hX[12], qX[12], hD[505], qD[505], hN[32], qN[32], hW[32], qW[32], hA[12], qA[12];
++    double occ[32], qocc[32];
++    unsigned long long leaves, w_not6, inconsistent, clamped;
++} QoyAcc;
++
++static int qoy_cid[64];
++static int qoy_ready = 0;
++static inline int qoy_swap(int h){ return ((h >> 3) & 7) | ((h & 7) << 3); }
++static inline int qoy_rev(int h){ int r = 0; for (int i = 0; i < 6; i++) if ((h >> i) & 1) r |= 1 << (5 - i); return r; }
++/* Coset table: coset id = rank (ascending) of the coset's least element. Called once before any
++ * thread starts (estimator setup) and by --qoy-verify. */
++static void qoy_init(void){
++    if (qoy_ready) return;
++    int h16[16], n = 0;
++    for (int h = 0; h < 64; h++){ int r = qoy_rev(h); if (r == h || r == (h ^ 63)) h16[n++] = h; }
++    if (n != 16){ fprintf(stderr, "FATAL: |H16| = %d, expected 16\n", n); exit(70); }
++    int rep[64], reps[64], nr = 0;
++    for (int h = 0; h < 64; h++){
++        int m = 64; for (int j = 0; j < 16; j++){ int x = h ^ h16[j]; if (x < m) m = x; }
++        rep[h] = m;
++        int seen = 0; for (int j = 0; j < nr; j++) if (reps[j] == m) seen = 1;
++        if (!seen) reps[nr++] = m;
++    }
++    if (nr != 4){ fprintf(stderr, "FATAL: %d H16 cosets, expected 4\n", nr); exit(70); }
++    for (int h = 0; h < 64; h++){ int id = 0; for (int j = 0; j < nr; j++) if (reps[j] < rep[h]) id++; qoy_cid[h] = id; }
++    qoy_ready = 1;
++}
++
++static void qoy_compute(const int s[64], QoyVals *v){
++    int x = 0, w = 0, t = 0;
++    for (int i = 0; i < 63; i++) if (qoy_swap(s[i]) == s[i+1]) t++;
++    for (int i = 0; i < 63; i += 2) if (qoy_swap(s[i]) == s[i+1]) w++;   /* QOY_W_PARITY within-slot */
++    for (int i = 1; i < 63; i += 2) if (qoy_swap(s[i]) == s[i+1]) x++;   /* QOY_X_PARITY cross-boundary */
++    v->X = x; v->W = w; v->T = t;
++    /* A: couples in adjacent slots, orientation ignored. Slot 2-sets are distinct in a
++     * permutation, so "slot of {swap a, swap b} == k+1" is "key of slot k+1 == that key". */
++    int keys[32], na = 0;
++    for (int k = 0; k < 32; k++){ int a = s[2*k], b = s[2*k+1]; keys[k] = (a < b ? a : b) << 6 | (a < b ? b : a); }
++    for (int k = 0; k + 1 < 32; k++){
++        int a = qoy_swap(s[2*k]), b = qoy_swap(s[2*k+1]);
++        if (keys[k+1] == ((a < b ? a : b) << 6 | (a < b ? b : a))) na++;
++    }
++    v->A = na;
++    int cons = 1, n0 = 0, pos[32];
++    for (int k = 0; k < 32; k++){
++        v->ids[k] = qoy_cid[s[2*k]];
++        if (qoy_cid[s[2*k]] != qoy_cid[s[2*k+1]]) cons = 0;
++        if (v->ids[k] == 0) pos[n0++] = k + 1;
++    }
++    v->consistent = cons; v->n0 = n0;
++    if (n0 == 0) v->D = -1;               /* undefined (no coset-0 slot; non-C1 orderings only) */
++    else {
++        int d = 0;
++        for (int i = 0; i + 1 < n0; i++){ int g = pos[i+1] - pos[i]; d += (g - 4) * (g - 4); }
++        { int g = 32 + pos[0] - pos[n0-1]; d += (g - 4) * (g - 4); }
++        v->D = d;
++    }
++    int ns = 0; for (int k = 0; k < 31; k++) if (v->ids[k] == v->ids[k+1]) ns++;
++    v->NSAME = ns;
++}
++
++/* One output line per ordering; solve.py qoy_line() is the byte-for-byte spec. */
++static void qoy_print_line(const int s[64]){
++    QoyVals v; qoy_compute(s, &v);
++    char ids[33]; for (int k = 0; k < 32; k++) ids[k] = (char)('0' + v.ids[k]); ids[32] = 0;
++    if (v.D < 0)
++        printf("qoy X=%d W=%d T=%d A=%d D=NA NSAME=%d CONSISTENT=%s IDS=%s\n", v.X, v.W, v.T, v.A, v.NSAME, v.consistent ? "YES" : "NO", ids);
++    else
++        printf("qoy X=%d W=%d T=%d A=%d D=%d NSAME=%d CONSISTENT=%s IDS=%s\n", v.X, v.W, v.T, v.A, v.D, v.NSAME, v.consistent ? "YES" : "NO", ids);
++}
++
++static inline void qoy_bin(double *h, double *q, int nb, int x, double Wt, unsigned long long *clamped){
++    if (x < 0){ x = 0; (*clamped)++; }
++    if (x >= nb){ x = nb - 1; (*clamped)++; }
++    h[x] += Wt; q[x] += Wt * Wt;
++}
++/* Evaluate the Q-OY1/Q-992 statistics on one canonical leaf (C1C2C4C5 + C3<=776); accumulate. */
++static void score_qoy(const int seq[64], double Wt, KnuthArg *a){
++    QoyAcc *q = a->qoy;
++    QoyVals v; qoy_compute(seq, &v);
++    q->leaves++;
++    if (v.W != 6) q->w_not6++;
++    if (!v.consistent || v.n0 != 8) q->inconsistent++;
++    qoy_bin(q->hX, q->qX, 12, v.X, Wt, &q->clamped);
++    qoy_bin(q->hD, q->qD, 505, v.D, Wt, &q->clamped);
++    qoy_bin(q->hN, q->qN, 32, v.NSAME, Wt, &q->clamped);
++    qoy_bin(q->hW, q->qW, 32, v.W, Wt, &q->clamped);
++    qoy_bin(q->hA, q->qA, 12, v.A, Wt, &q->clamped);
++    for (int k = 0; k < 32; k++) if (v.ids[k] == 0){ q->occ[k] += Wt; q->qocc[k] += Wt * Wt; }
++}
++
++/* Allocate one thread's accumulator (called from estimate_tree_knuth under SOLVE_KNUTH_SCORE_QOY=1). */
++static void qoy_alloc_arg(KnuthArg *a){
++    qoy_init();
++    a->qoy = (QoyAcc*)calloc(1, sizeof(QoyAcc));
++    if (!a->qoy) { fprintf(stderr, "FATAL: QoyAcc alloc\n"); exit(70); }
++}
++
++/* Pool the per-thread accumulators and print the QOY block (called from estimate_tree_knuth when sC > 0). */
++static void qoy_report(KnuthArg *arg, int nthreads, double sC, double qC, unsigned long long N){
++    /* Q-OY1 / Q-992 (PREREG_QOY1_Q992_2026_10_09 §2; ground truth solve.py q992_* and qoy1_*).
++     * RAW weighted sums at full precision so independent runs can be POOLED exactly:
++     * pooled mass = (sum_a + sum_b) / (sC_a + sC_b), SE via KNUTH_MASS_SE on the summed twins.
++     * KW's values are computed here from the KW table (no hardcoded constants). */
++    QoyAcc T; memset(&T, 0, sizeof T);
++    for (int i = 0; i < nthreads; i++) {
++        QoyAcc *q = arg[i].qoy; if (!q) continue;
++        for (int b = 0; b < 12; b++)  { T.hX[b] += q->hX[b]; T.qX[b] += q->qX[b]; T.hA[b] += q->hA[b]; T.qA[b] += q->qA[b]; }
++        for (int b = 0; b < 505; b++) { T.hD[b] += q->hD[b]; T.qD[b] += q->qD[b]; }
++        for (int b = 0; b < 32; b++)  { T.hN[b] += q->hN[b]; T.qN[b] += q->qN[b]; T.hW[b] += q->hW[b]; T.qW[b] += q->qW[b];
++                                        T.occ[b] += q->occ[b]; T.qocc[b] += q->qocc[b]; }
++        T.leaves += q->leaves; T.w_not6 += q->w_not6; T.inconsistent += q->inconsistent; T.clamped += q->clamped;
++        free(q); arg[i].qoy = NULL;
++    }
++    QoyVals kv; qoy_compute(KW, &kv);
++    printf("QOY_RAW_SC=%.17g\nQOY_RAW_QC=%.17g\nQOY_RAW_N=%llu\nQOY_LEAVES_SCORED=%llu\n",
++           sC, qC, (unsigned long long)N, T.leaves);
++    printf("QOY_W_NOT6_LEAVES=%llu\nQOY_INCONSISTENT_LEAVES=%llu\nQOY_CLAMPED=%llu\n",
++           T.w_not6, T.inconsistent, T.clamped);
++    printf("QOY_KW_X=%d\nQOY_KW_D=%d\n", kv.X, kv.D);
++    struct { const char *nm; double *h, *q; int nb, kw; } st[5] = {
++        {"X", T.hX, T.qX, 12, kv.X}, {"D", T.hD, T.qD, 505, kv.D}, {"NSAME", T.hN, T.qN, 32, kv.NSAME},
++        {"W", T.hW, T.qW, 32, kv.W}, {"A", T.hA, T.qA, 12, kv.A} };
++    for (int k = 0; k < 5; k++) {
++        double mean = 0, bel = 0, at = 0, abv = 0, sb = 0, sa = 0, sv = 0; int mn = -1, mx = -1;
++        for (int b = 0; b < st[k].nb; b++) {
++            double h = st[k].h[b];
++            if (h > 0) { if (mn < 0) mn = b; mx = b; printf("qoy_hist %s %d %.17g %.17g\n", st[k].nm, b, h, st[k].q[b]); }
++            mean += h * b;
++            if (b < st[k].kw) { bel += h; sb += st[k].q[b]; } else if (b == st[k].kw) { at += h; sa += st[k].q[b]; } else { abv += h; sv += st[k].q[b]; }
++        }
++        printf("  [qoy %-5s] mean=%.6f min=%d max=%d kw=%d below=%.10e at=%.10e above=%.10e se=%.3e/%.3e/%.3e\n",
++               st[k].nm, mean / sC, mn, mx, st[k].kw, bel / sC, at / sC, abv / sC,
++               KNUTH_MASS_SE(sb, bel / sC, sC, qC), KNUTH_MASS_SE(sa, at / sC, sC, qC), KNUTH_MASS_SE(sv, abv / sC, sC, qC));
++    }
++    for (int b = 0; b < 32; b++) printf("qoy_occ %d %.17g %.17g\n", b + 1, T.occ[b], T.qocc[b]);
++}
++
++/* --qoy-verify KW|FILE (dispatched from main). */
++static int qoy_verify_main(int argc, char *argv[]){
++    /* Two-language gate for the Q-OY1/Q-992 statistics (PREREG_QOY1_Q992_2026_10_09 §7.1):
++     * one `qoy ...` line per ordering, byte-for-byte the format of solve.py --qoy-verify.
++     * Source: the word KW, or a file of orderings (64 whitespace-separated integers per
++     * line, each line a permutation of 0..63). The comparison is solve.py --qoy-gate.
++     * Sha-neutral (argv-dispatched, never on the enum path). */
++    if (argc != 3) { fprintf(stderr, "ERROR: --qoy-verify takes exactly one argument (KW or a file of orderings); got %d.\nQOY_VERIFY_ARGS=REFUSED\n", argc - 2); return 2; }
++    qoy_init();
++    if (strcmp(argv[2], "KW") == 0) { qoy_print_line(KW); printf("QOY_VERIFY_N=1\n"); return 0; }
++    FILE *qf = fopen(argv[2], "r");
++    if (!qf) { fprintf(stderr, "ERROR: --qoy-verify cannot open '%s'\nQOY_VERIFY_ARGS=REFUSED\n", argv[2]); return 2; }
++    long nl = 0; int sq[64];
++    for (;;) {
++        int got = 0, seen[64] = {0}, bad = 0;
++        for (int j = 0; j < 64; j++) {
++            if (fscanf(qf, "%d", &sq[j]) != 1) break;
++            got++;
++            if (sq[j] < 0 || sq[j] > 63 || seen[sq[j]]++) bad = 1;
++        }
++        if (got == 0) break;
++        if (got != 64 || bad) { fprintf(stderr, "ERROR: --qoy-verify ordering %ld is not a permutation of 0..63\nQOY_VERIFY_INPUT=REFUSED\n", nl + 1); fclose(qf); return 2; }
++        qoy_print_line(sq); nl++;
++    }
++    fclose(qf);
++    printf("QOY_VERIFY_N=%ld\n", nl);
++    return 0;
++}
++
++/* ===================== Pilot A C8 screen scorer (SOLVE_KNUTH_SCORE_C8) =====================
++ * C port of the 1,349 frozen statistics of roae-private/PREREG_C8SCREEN_2026_10_11.md §2.4
++ * (sha256 2ba24ece..., locked 2026-10-11 BEFORE any measurement). The SPEC is the prereg's
++ * normative reference code (scripts/prereg_c8screen_defcheck.py, sha256 bb017ec5..., §2.5),
++ * which solve.py carries byte-for-byte (C8_REFERENCE_SRC). `--c8-verify FILE` prints one
++ * `c8 v1 ... v1349` line per C1 ordering in MEMBERS order; `solve.py --c8-verify <binary>`
++ * compares the two byte-for-byte on 10^5 seeded C1∩C4 orderings (prereg §7.1/§7.2). There is
++ * deliberately NO King Wen path in this block (prereg §7.1: KW's values come only from
++ * `solve.py --c8-kw`). `--c8-list members|subgroups` prints the member list and the 651-subgroup
++ * list whose sha256 are MEMBER_LIST_SHA256=486cac40... and SUBGROUP_LIST_SHA256=44e8a16b....
++ * `--c8-null0 N` is the pair-only N0 sampler of §4.1 ((63,0) pinned in slot 1). Estimator-only,
++ * sha-neutral: active only under SOLVE_KNUTH_SCORE_C8=1 / the --c8-* subcommands; zero effect
++ * on enumeration paths.
++ *
++ * ATTRIBUTION: the order-16 coset reading behind Class C is 欧阳维诚 (Ouyang Weicheng) 1993; the
++ * trigram-relation tradition behind Class B includes 韩仲民 (Han Zhongmin) 1984; Classes Y/P
++ * follow descriptions by 程頤 (Cheng Yi) and Schulz (CITATIONS.md). The member definitions, the
++ * family and the population measurement are ROAE's. */
++
++#define C8_K 1349
++#define C8_NSUB 651
++typedef struct C8Acc {
++    double *h, *q;                         /* c8_nbins weighted-mass bins + squared-weight twins */
++    unsigned long long *c;                 /* c8_nbins leaf counts (prereg §5.4 n_A/n_B: scored leaves in a tail) */
++    unsigned long long leaves, clamped, undefined;
++} C8Acc;
++static int c8_ready = 0, c8_nbins = 0, c8_h16 = -1;
++static int c8_sub[C8_NSUB][16];
++static uint64_t c8_mask[C8_NSUB];
++static unsigned char c8_pc[C8_NSUB];      /* pair-closed (h in H => partner(h) in H) */
++static int c8_lo[C8_K], c8_hi[C8_K], c8_off[C8_K];
++static char c8_ids[C8_K][16], c8_strat[C8_K];
++
++static inline int c8_y(int h){ return __builtin_popcount((unsigned)h); }
++static inline int c8_rev(int h){ int r = 0; for (int i = 0; i < 6; i++) if ((h >> i) & 1) r |= 1 << (5 - i); return r; }
++static inline int c8_partner(int h){ int r = c8_rev(h); return r != h ? r : (h ^ 63); }
++static inline int c8_rev3(int t){ return ((t & 1) << 2) | (t & 2) | (t >> 2); }
++static int c8_subcmp(const void *a, const void *b){
++    const int *x = (const int *)a, *y = (const int *)b;
++    for (int i = 0; i < 16; i++) if (x[i] != y[i]) return x[i] < y[i] ? -1 : 1;
++    return 0;
++}
++static void c8_add_member(int *n, const char *id, char st, int lo, int hi){
++    if (*n >= C8_K) { fprintf(stderr, "FATAL: C8 member overflow\n"); exit(70); }
++    snprintf(c8_ids[*n], sizeof c8_ids[*n], "%s", id);
++    c8_strat[*n] = st; c8_lo[*n] = lo; c8_hi[*n] = hi; c8_off[*n] = c8_nbins; c8_nbins += hi - lo + 1; (*n)++;
++}
++/* The 651 order-16 subgroups (prereg §2.3: RREF enumeration, column c <-> bit 5-c, each subgroup
++ * as its sorted 16-tuple, the list sorted lexicographically) and the member table (§2.4, the
++ * defcheck's MEMBERS order and declared ranges). Called once before any thread starts. */
++static void c8_init(void){
++    if (c8_ready) return;
++    int ns = 0;
++    for (int p0 = 0; p0 < 6; p0++) for (int p1 = p0 + 1; p1 < 6; p1++) for (int p2 = p1 + 1; p2 < 6; p2++) for (int p3 = p2 + 1; p3 < 6; p3++) {
++        int piv[4] = {p0, p1, p2, p3}, fr[12], fc[12], nf = 0;
++        for (int r = 0; r < 4; r++) for (int c = piv[r] + 1; c < 6; c++) {
++            int isp = 0; for (int j = 0; j < 4; j++) if (piv[j] == c) isp = 1;
++            if (!isp) { fr[nf] = r; fc[nf] = c; nf++; }
++        }
++        for (int bits = 0; bits < (1 << nf); bits++) {
++            int rows[4]; for (int r = 0; r < 4; r++) rows[r] = 1 << (5 - piv[r]);
++            for (int i = 0; i < nf; i++) if ((bits >> i) & 1) rows[fr[i]] |= 1 << (5 - fc[i]);
++            int el[16], ne = 1; el[0] = 0;
++            for (int r = 0; r < 4; r++) { int m = ne; for (int j = 0; j < m; j++) el[ne++] = el[j] ^ rows[r]; }
++            for (int i = 1; i < 16; i++) { int v = el[i], j = i - 1; while (j >= 0 && el[j] > v) { el[j+1] = el[j]; j--; } el[j+1] = v; }
++            if (ns >= C8_NSUB) { fprintf(stderr, "FATAL: more than %d subspaces\n", C8_NSUB); exit(70); }
++            memcpy(c8_sub[ns++], el, sizeof el);
++        }
++    }
++    if (ns != C8_NSUB) { fprintf(stderr, "FATAL: %d subspaces, expected %d\n", ns, C8_NSUB); exit(70); }
++    qsort(c8_sub, C8_NSUB, sizeof c8_sub[0], c8_subcmp);
++    int h16[16], n16 = 0;
++    for (int h = 0; h < 64; h++) { int r = c8_rev(h); if (r == h || r == (h ^ 63)) h16[n16++] = h; }
++    for (int i = 0; i < C8_NSUB; i++) {
++        c8_mask[i] = 0; for (int j = 0; j < 16; j++) c8_mask[i] |= 1ULL << c8_sub[i][j];
++        int pc = 1; for (int j = 0; j < 16; j++) if (!((c8_mask[i] >> c8_partner(c8_sub[i][j])) & 1)) pc = 0;
++        c8_pc[i] = (unsigned char)pc;
++        if (n16 == 16 && memcmp(c8_sub[i], h16, sizeof h16) == 0) c8_h16 = i;
++    }
++    if (c8_h16 < 0) { fprintf(stderr, "FATAL: H16 not among the 651 subgroups\n"); exit(70); }
++    int n = 0; char id[16];
++    for (int i = 0; i < C8_NSUB; i++) {
++        if (i != c8_h16) { snprintf(id, sizeof id, "C-N[%03d]", i); c8_add_member(&n, id, 'C', 0, 31); }
++        if (!c8_pc[i])   { snprintf(id, sizeof id, "C-M[%03d]", i); c8_add_member(&n, id, 'C', 0, 32); }
++        if (c8_pc[i] && i != c8_h16) { snprintf(id, sizeof id, "C-D[%03d]", i); c8_add_member(&n, id, 'C', 0, 504); }
++    }
++    static const char *brel[8] = {"SL", "SU", "CL", "CU", "RL", "RU", "XL", "XU"};
++    for (int w = 0; w < 8; w++) { snprintf(id, sizeof id, "B-%s", brel[w]); c8_add_member(&n, id, 'S', 0, 31); }
++    static const char *pc4[4] = {"2", "3", "4", "odd"};
++    for (int c = 0; c < 4; c++) {
++        snprintf(id, sizeof id, "P-CM[%s]", pc4[c]);   c8_add_member(&n, id, 'S', 0, 496);   /* amendment 1 A1: 496 = 1+..+31, the universal bound (frozen 31*15 = 465 was N1-only; N0 reaches 496) */
++        snprintf(id, sizeof id, "P-DISP[%s]", pc4[c]); c8_add_member(&n, id, 'S', 0, 30 * 30);
++    }
++    c8_add_member(&n, "P-MAXRUN", 'S', 1, 32);
++    c8_add_member(&n, "Y-AC", 'S', -279, 279); c8_add_member(&n, "Y-TV", 'S', 0, 186);
++    c8_add_member(&n, "Y-RUNS", 'S', 1, 64);   c8_add_member(&n, "Y-MAXRUN", 'S', 1, 64);
++    for (int v = 2; v <= 10; v += 2) {
++        snprintf(id, sizeof id, "Y-CM[%d]", v);   c8_add_member(&n, id, 'S', 0, 528);
++        snprintf(id, sizeof id, "Y-DISP[%d]", v); c8_add_member(&n, id, 'S', 0, 1024);
++    }
++    for (int t = 0; t < 8; t++) {
++        snprintf(id, sizeof id, "T-CM[%d]", t);   c8_add_member(&n, id, 'S', 0, 528);
++        snprintf(id, sizeof id, "T-DISP[%d]", t); c8_add_member(&n, id, 'S', 0, 1024);
++    }
++    c8_add_member(&n, "T-CM[pure]", 'S', 0, 528); c8_add_member(&n, "T-DISP[pure]", 'S', 0, 1024);
++    if (n != C8_K) { fprintf(stderr, "FATAL: %d C8 members, expected %d\n", n, C8_K); exit(70); }
++    c8_ready = 1;
++}
++/* circ_disp (defcheck): sum of squared circular gaps of sorted 1-based positions on the 32-cycle.
++ * Undefined (the reference raises) on an empty set, which no C1 ordering produces; *undef counts it. */
++static int c8_circ(const int *K, int m, int *undef){
++    if (m == 0) { (*undef)++; return 0; }
++    int d = 0; for (int i = 0; i + 1 < m; i++) { int g = K[i+1] - K[i]; d += g * g; }
++    { int g = 32 + K[0] - K[m-1]; d += g * g; }
++    return d;
++}
++static int c8_lin(const int *K, int m){ int d = 0; for (int i = 0; i + 1 < m; i++) { int g = K[i+1] - K[i]; d += g * g; } return d; }
++/* All 1,349 values of ordering s, in MEMBERS order. Returns the number of undefined evaluations
++ * (0 on every C1 ordering: empty position sets or a pair-closed K_H with |K_H| != 8). */
++static int c8_compute(const int s[64], int v[C8_K]){
++    int undef = 0, n = 0, bw[31], cnt[64] = {0};
++    uint64_t ent = 0;
++    for (int k = 0; k < 32; k++) ent |= 1ULL << s[2*k];      /* C8_CM_ENTRY: e_k = s[2k] */
++    for (int b = 0; b < 31; b++) { bw[b] = s[2*b+1] ^ s[2*b+2]; cnt[bw[b]]++; }
++    for (int i = 0; i < C8_NSUB; i++) {
++        if (i != c8_h16) { int c = 0; for (int j = 0; j < 16; j++) c += cnt[c8_sub[i][j]]; v[n++] = c; }
++        if (!c8_pc[i]) v[n++] = __builtin_popcountll(ent & c8_mask[i]);
++        if (c8_pc[i] && i != c8_h16) {
++            int K[32], m = 0;
++            for (int k = 0; k < 32; k++) if (((c8_mask[i] >> s[2*k]) & 1) && ((c8_mask[i] >> s[2*k+1]) & 1)) K[m++] = k + 1;
++            if (m != 8) { undef++; v[n++] = 0; }
++            else { int d = 0; for (int j = 0; j < 7; j++) { int g = K[j+1] - K[j]; d += (g - 4) * (g - 4); } { int g = 32 + K[0] - K[7]; d += (g - 4) * (g - 4); } v[n++] = d; }
++        }
++    }
++    int br[8] = {0};
++    for (int b = 0; b < 31; b++) {
++        int x = s[2*b+1], e = s[2*b+2], Lx = x & 7, Ux = (x >> 3) & 7, Le = e & 7, Ue = (e >> 3) & 7;
++        br[0] += Lx == Le; br[1] += Ux == Ue; br[2] += Lx == (Le ^ 7); br[3] += Ux == (Ue ^ 7);
++        br[4] += Le == c8_rev3(Lx); br[5] += Ue == c8_rev3(Ux); br[6] += Le == Ux; br[7] += Ue == Lx;
++    }
++    for (int w = 0; w < 8; w++) v[n++] = br[w];
++    for (int c = 0; c < 4; c++) {
++        int B[31], m = 0, cm = 0;
++        for (int b = 0; b < 31; b++) { int d = c8_y(bw[b]); if (c == 3 ? (d % 2 == 1) : (d == c + 2)) { B[m++] = b + 1; cm += b + 1; } }
++        v[n++] = cm; v[n++] = c8_lin(B, m);
++    }
++    { int best = 1, cur = 1; for (int k = 1; k < 32; k++) { cur = (c8_y(s[2*k]) % 2 == c8_y(s[2*k-2]) % 2) ? cur + 1 : 1; if (cur > best) best = cur; } v[n++] = best; }
++    { int ac = 0, tv = 0; for (int b = 0; b < 31; b++) { int yx = c8_y(s[2*b+1]), ye = c8_y(s[2*b+2]); ac += (yx - 3) * (ye - 3); tv += abs(ye - yx); } v[n++] = ac; v[n++] = tv; }
++    { int sg[64]; for (int i = 0; i < 64; i++) { int t = c8_y(s[i]); sg[i] = (t > 3) - (t < 3); }
++      int runs = 1, best = 1, cur = 1;
++      for (int i = 1; i < 64; i++) { if (sg[i] != sg[i-1]) { runs++; cur = 1; } else cur++; if (cur > best) best = cur; }
++      v[n++] = runs; v[n++] = best; }
++    for (int val = 2; val <= 10; val += 2) {
++        int K[32], m = 0, cm = 0;
++        for (int k = 0; k < 32; k++) if (c8_y(s[2*k]) + c8_y(s[2*k+1]) == val) { K[m++] = k + 1; cm += k + 1; }
++        v[n++] = cm; v[n++] = c8_circ(K, m, &undef);
++    }
++    for (int t = 0; t < 8; t++) {
++        int K[32], m = 0, cm = 0;
++        for (int k = 0; k < 32; k++) { int e = s[2*k], x = s[2*k+1];
++            if ((e & 7) == t || ((e >> 3) & 7) == t || (x & 7) == t || ((x >> 3) & 7) == t) { K[m++] = k + 1; cm += k + 1; } }
++        v[n++] = cm; v[n++] = c8_circ(K, m, &undef);
++    }
++    { int K[32], m = 0, cm = 0;
++      for (int k = 0; k < 32; k++) if ((s[2*k] & 7) == ((s[2*k] >> 3) & 7)) { K[m++] = k + 1; cm += k + 1; }
++      v[n++] = cm; v[n++] = c8_circ(K, m, &undef); }
++    if (n != C8_K) { fprintf(stderr, "FATAL: c8_compute produced %d values\n", n); exit(70); }
++    return undef;
++}
++static void c8_acc_alloc(C8Acc *q){
++    c8_init();
++    q->h = (double*)calloc((size_t)c8_nbins, sizeof(double));
++    q->q = (double*)calloc((size_t)c8_nbins, sizeof(double));
++    q->c = (unsigned long long*)calloc((size_t)c8_nbins, sizeof(unsigned long long));
++    if (!q->h || !q->q || !q->c) { fprintf(stderr, "FATAL: C8Acc alloc\n"); exit(70); }
++}
++static void c8_accumulate(C8Acc *q, const int s[64], double Wt){
++    int v[C8_K];
++    q->undefined += (unsigned long long)c8_compute(s, v);
++    q->leaves++;
++    for (int m = 0; m < C8_K; m++) {
++        int b = v[m] - c8_lo[m], nb = c8_hi[m] - c8_lo[m] + 1;
++        if (b < 0) { b = 0; q->clamped++; }
++        if (b >= nb) { b = nb - 1; q->clamped++; }
++        q->h[c8_off[m] + b] += Wt; q->q[c8_off[m] + b] += Wt * Wt; q->c[c8_off[m] + b]++;
++    }
++}
++/* Evaluate the 1,349 C8 statistics on one canonical leaf (C1C2C4C5 + C3<=776); accumulate. */
++static void score_c8(const int seq[64], double Wt, KnuthArg *a){ c8_accumulate(a->c8, seq, Wt); }
++static void c8_alloc_arg(KnuthArg *a){
++    a->c8 = (struct C8Acc*)calloc(1, sizeof(C8Acc));
++    if (!a->c8) { fprintf(stderr, "FATAL: C8Acc alloc\n"); exit(70); }
++    c8_acc_alloc(a->c8);
++}
++/* RAW weighted sums at full precision so independent runs can be POOLED exactly (prereg §7.1):
++ * one `c8_hist <member-id> <value> <sum_w> <sum_w2>` line per non-empty bin, in MEMBERS order,
++ * then one `c8_hcnt <member-id> <value> <leaves>` line per non-empty bin: §5.4's n_A/n_B (scored
++ * leaves in a tail) are counts, which the weighted sums cannot give. */
++static void c8_print_acc(const C8Acc *T, double sC, double qC, unsigned long long N){
++    printf("C8_MEMBERS=%d\nC8_RAW_SC=%.17g\nC8_RAW_QC=%.17g\nC8_RAW_N=%llu\nC8_LEAVES_SCORED=%llu\nC8_CLAMPED=%llu\nC8_UNDEFINED=%llu\n",
++           C8_K, sC, qC, N, T->leaves, T->clamped, T->undefined);
++    for (int m = 0; m < C8_K; m++)
++        for (int b = 0; b <= c8_hi[m] - c8_lo[m]; b++)
++            if (T->h[c8_off[m] + b] > 0)
++                printf("c8_hist %s %d %.17g %.17g\n", c8_ids[m], c8_lo[m] + b, T->h[c8_off[m] + b], T->q[c8_off[m] + b]);
++    for (int m = 0; m < C8_K; m++)
++        for (int b = 0; b <= c8_hi[m] - c8_lo[m]; b++)
++            if (T->c[c8_off[m] + b] > 0)
++                printf("c8_hcnt %s %d %llu\n", c8_ids[m], c8_lo[m] + b, T->c[c8_off[m] + b]);
++}
++/* Pool the per-thread accumulators and print the C8 block (called from estimate_tree_knuth when sC > 0).
++ * No King Wen line (prereg §7.1). */
++static void c8_report(KnuthArg *arg, int nthreads, double sC, double qC, unsigned long long N){
++    C8Acc T; memset(&T, 0, sizeof T); c8_acc_alloc(&T);
++    for (int i = 0; i < nthreads; i++) {
++        C8Acc *q = arg[i].c8; if (!q) continue;
++        for (int b = 0; b < c8_nbins; b++) { T.h[b] += q->h[b]; T.q[b] += q->q[b]; T.c[b] += q->c[b]; }
++        T.leaves += q->leaves; T.clamped += q->clamped; T.undefined += q->undefined;
++        free(q->h); free(q->q); free(q->c); free(q); arg[i].c8 = NULL;
++    }
++    c8_print_acc(&T, sC, qC, N);
++    free(T.h); free(T.q); free(T.c);
++}
++static int c8_is_c1(const int s[64]){ for (int k = 0; k < 32; k++) if (s[2*k+1] != c8_partner(s[2*k])) return 0; return 1; }
++/* --c8-null0 N: the pair-only N0 sampler (prereg §4.1). Uniform over the orientation-explicit
++ * orderings of the 32 C1 pairs with (63, 0) pinned in slot 1: Fisher-Yates over the 31 free pairs
++ * and a fair orientation coin per free pair. The pairs come from partner() (never from the KW
++ * table). Single-threaded splitmix64 seeded by SOLVE_KNUTH_SEED (required), so the output is a
++ * function of the seed alone. Every draw has weight 1, so C8_RAW_SC = C8_RAW_QC = N. */
++static uint64_t c8_sm64(uint64_t *x){ uint64_t z = (*x += 0x9E3779B97F4A7C15ULL); z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL; z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL; return z ^ (z >> 31); }
++static uint64_t c8_below(uint64_t *x, uint64_t n){ uint64_t lim = UINT64_MAX - (UINT64_MAX % n), r; do r = c8_sm64(x); while (r >= lim); return r % n; }
++static int c8_null0_main(int argc, char *argv[]){
++    if (argc != 3 || argv[2][0] == 0 || argv[2][strspn(argv[2], "0123456789")] != 0 || strlen(argv[2]) > 19 || strtoull(argv[2], NULL, 10) == 0) {
++        fprintf(stderr, "ERROR: --c8-null0 takes exactly ONE argument, a positive decimal draw count N.\nC8_NULL0_ARGS=REFUSED\n"); return 2; }
++    const char *se = getenv("SOLVE_KNUTH_SEED");
++    if (!se || !*se) { fprintf(stderr, "ERROR: --c8-null0 requires SOLVE_KNUTH_SEED (prereg §6 null0-draws seed); no default stream is used.\nC8_NULL0_SEED=REFUSED\n"); return 2; }
++    uint64_t seed = (uint64_t)strtoull(se, NULL, 0), st = seed, N = strtoull(argv[2], NULL, 10);
++    c8_init();
++    int pa[31], pb[31], np = 0;
++    for (int h = 0; h < 64; h++) { int p = c8_partner(h); if (h < p && !(h == 0 && p == 63)) { pa[np] = h; pb[np] = p; np++; } }
++    if (np != 31) { fprintf(stderr, "FATAL: %d free pairs, expected 31\n", np); return 70; }
++    C8Acc T; memset(&T, 0, sizeof T); c8_acc_alloc(&T);
++    unsigned long long notc1 = 0;
++    for (uint64_t t = 0; t < N; t++) {
++        int ord[31], s[64];
++        for (int i = 0; i < 31; i++) ord[i] = i;
++        for (int i = 30; i > 0; i--) { int j = (int)c8_below(&st, (uint64_t)i + 1); int tmp = ord[i]; ord[i] = ord[j]; ord[j] = tmp; }
++        uint64_t coin = c8_sm64(&st);
++        s[0] = 63; s[1] = 0;
++        for (int i = 0; i < 31; i++) {
++            int p = ord[i];
++            if ((coin >> i) & 1) { s[2*i+2] = pb[p]; s[2*i+3] = pa[p]; } else { s[2*i+2] = pa[p]; s[2*i+3] = pb[p]; }
++        }
++        if (!c8_is_c1(s)) notc1++;
++        c8_accumulate(&T, s, 1.0);
++    }
++    printf("C8_NULL0_DRAWS=%llu\nC8_NULL0_SEED=%llu\nC8_NULL0_NOT_C1=%llu\n", (unsigned long long)N, (unsigned long long)seed, notc1);
++    c8_print_acc(&T, (double)N, (double)N, (unsigned long long)N);
++    free(T.h); free(T.q); free(T.c);
++    return 0;
++}
++/* --c8-verify FILE: one `c8 v1 ... v1349` line per ordering (64 whitespace-separated integers per
++ * line, each a C1 permutation of 0..63), then C8_VERIFY_N=<count>; byte-for-byte the output of
++ * solve.py c8_lines. No KW argument exists (prereg §7.1). --c8-list members|subgroups prints the
++ * member table (`id TAB stratum TAB lo TAB hi`) or the subgroup list (comma-joined 16-tuples). */
++static int c8_verify_main(int argc, char *argv[]){
++    if (argc != 3) { fprintf(stderr, "ERROR: --c8-verify takes exactly one argument (a file of C1 orderings); got %d.\nC8_VERIFY_ARGS=REFUSED\n", argc - 2); return 2; }
++    c8_init();
++    FILE *f = fopen(argv[2], "r");
++    if (!f) { fprintf(stderr, "ERROR: --c8-verify cannot open '%s'\nC8_VERIFY_ARGS=REFUSED\n", argv[2]); return 2; }
++    long nl = 0; int sq[64], v[C8_K];
++    for (;;) {
++        int got = 0, seen[64] = {0}, bad = 0;
++        for (int j = 0; j < 64; j++) { if (fscanf(f, "%d", &sq[j]) != 1) break; got++; if (sq[j] < 0 || sq[j] > 63 || seen[sq[j]]++) bad = 1; }
++        if (got == 0) break;
++        if (got != 64 || bad || !c8_is_c1(sq)) { fprintf(stderr, "ERROR: --c8-verify ordering %ld is not a C1 permutation of 0..63\nC8_VERIFY_INPUT=REFUSED\n", nl + 1); fclose(f); return 2; }
++        if (c8_compute(sq, v)) { fprintf(stderr, "ERROR: --c8-verify ordering %ld has an undefined member\nC8_VERIFY_INPUT=REFUSED\n", nl + 1); fclose(f); return 2; }
++        fputs("c8", stdout); for (int m = 0; m < C8_K; m++) printf(" %d", v[m]); putchar('\n');
++        nl++;
++    }
++    fclose(f);
++    printf("C8_VERIFY_N=%ld\n", nl);
++    return 0;
++}
++static int c8_list_main(int argc, char *argv[]){
++    if (argc != 3 || (strcmp(argv[2], "members") && strcmp(argv[2], "subgroups"))) { fprintf(stderr, "ERROR: --c8-list takes exactly one argument, members or subgroups.\nC8_LIST_ARGS=REFUSED\n"); return 2; }
++    c8_init();
++    if (!strcmp(argv[2], "members")) for (int m = 0; m < C8_K; m++) printf("%s\t%c\t%d\t%d\n", c8_ids[m], c8_strat[m], c8_lo[m], c8_hi[m]);
++    else for (int i = 0; i < C8_NSUB; i++) { for (int j = 0; j < 16; j++) printf(j ? ",%d" : "%d", c8_sub[i][j]); putchar('\n'); }
++    return 0;
++}
+ static int solve_env_preflight(void) {
+     const long long IM = INT_MAX, LM = LLONG_MAX, TB = 1LL << 40;
+     const SolveEnvSpec specs[] = {
+@@ -51748,7 +52231,7 @@ static int solve_env_preflight(void) {
+         {"SOLVE_KNUTH_FIBER", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_H2", SENV_BOOL, 0, 1},
+         {"SOLVE_RC4B_ASSERT_T1", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE", SENV_BOOL, 0, 1},
+         {"SOLVE_KNUTH_SCORE_F4P", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE_DAV", SENV_BOOL, 0, 1},
+-        {"SOLVE_KNUTH_SCORE_DAV2", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE_DB1", SENV_BOOL, 0, 1},
++        {"SOLVE_KNUTH_SCORE_DAV2", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE_QOY", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE_C8", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE_DB1", SENV_BOOL, 0, 1},
+         {"SOLVE_KNUTH_F4P_HIST", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_DAV_HIST", SENV_BOOL, 0, 1},
+         {"SOLVE_KNUTH_DAV2_HIST", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_DB1_HIST", SENV_BOOL, 0, 1},
+         {"SOLVE_KNUTH_F5_HIST", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_F6_HIST", SENV_BOOL, 0, 1},
+diff --git a/solve.py b/solve.py
+index 8aa7bf08..ed96315b 100644
+--- a/solve.py
++++ b/solve.py
+@@ -18040,6 +18040,536 @@ def atlas_residual_rank(atlas_path):
+     return 0 if ok else 1
+ 
+ 
++# ---------------------------------------------------------------------------
++# Q-OY1 (Ouyang 1993 H16-coset slot spacing) and Q-992 (Han 1984 trigram-swap
++# adjacency) — frozen in roae-private/review_2026_09_27/
++# PREREG_QOY1_Q992_2026_10_09.md (sha256 5e15192f…, locked 2026-10-09 BEFORE
++# any measurement). The §2 definitions below are copied byte-for-byte from the
++# registration; solve.py is the SPEC and `--qoy-verify` is one side of the
++# two-language gate (`solve.c --qoy-verify` must reproduce its output
++# byte-for-byte; `--qoy-gate <binary>` compares them on KW + 10^5 seeded
++# C1∩C4 orderings). Primaries: q992_X and qoy1_D; everything else is
++# descriptive. ATTRIBUTION: the H16 "backbone" reading is 欧阳维诚 (Ouyang
++# Weicheng) 1993 pp. 190-191; the swap-adjacency count is 韩仲民 (Han Zhongmin)
++# 1984 p. 22 (CITATIONS.md). The scalar operationalizations and the population
++# measurement are ROAE's.
++# ---------------------------------------------------------------------------
++
++try:
++    import verify   # §2: the normative bit operations are verify.py's (_zong, _cuo)
++except ImportError:
++    # solve.py run from a directory without verify.py beside it (some gates copy solve.py alone into
++    # a scratch directory). Importing solve.py must not fail there, so the two operations §2 takes
++    # from verify.py are restated exactly as verify.py defines its _cuo and _zong. With verify.py
++    # importable (every normal run, and the recorded measurement) this branch is never taken.
++    class _QoyVerifyFallback:
++        @staticmethod
++        def _cuo(h):  return h ^ 0b111111                      # 错 complement
++        @staticmethod
++        def _zong(h): return int(format(h, '06b')[::-1], 2)    # 综 reversal
++    verify = _QoyVerifyFallback()
++
++# verify.py:905            swap: 上下互易, exchange upper and lower trigrams
++def swap(h):  return ((h >> 3) & 0b111) | ((h & 0b111) << 3)
++rev  = verify._zong         # 綜 / rev  (verify.py:500)
++comp = verify._cuo          # 錯 / comp (verify.py:499)
++def partner(h):             # SPECIFICATION.md C1; == verify._partner
++    r = rev(h); return r if r != h else comp(h)
++H16    = frozenset(h for h in range(64) if rev(h) == h or rev(h) == comp(h))     # Ouyang 1993 p. 91/190
++COSETS = sorted({frozenset(h ^ c for c in H16) for h in range(64)}, key=min)     # 4 cosets; COSETS[0] == H16
++def coset_id(h): return next(i for i, C in enumerate(COSETS) if h in C)
++
++def q992_T(s): return sum(swap(s[i]) == s[i+1] for i in range(0, 63))          # all 63 adjacencies
++def q992_W(s): return sum(swap(s[i]) == s[i+1] for i in range(0, 63, 2))       # within-slot  (i even)
++def q992_X(s): return sum(swap(s[i]) == s[i+1] for i in range(1, 63, 2))       # cross-boundary (i odd)  <- PRIMARY
++def q992_A(s):                                                                 # couples in adjacent slots, orientation ignored
++    slot = {}
++    for k in range(32): slot[frozenset((s[2*k], s[2*k+1]))] = k
++    n = 0
++    for k in range(32):
++        a, b = s[2*k], s[2*k+1]
++        q = frozenset((swap(a), swap(b)))
++        if q in slot and slot[q] == k + 1: n += 1
++    return n
++
++def qoy1_cosets(s):            # coset id per slot, from the slot's FIRST hexagram; consistency flag
++    ids = [coset_id(s[2*k]) for k in range(32)]
++    consistent = all(coset_id(s[2*k]) == coset_id(s[2*k+1]) for k in range(32))   # a theorem under C1 (§3.2)
++    return ids, consistent
++def qoy1_D(s):                 # PRIMARY: circular gap dispersion of the coset-0 slots
++    ids, _ = qoy1_cosets(s)
++    a = [k + 1 for k in range(32) if ids[k] == 0]                 # 1-based slots, ascending; |a| == 8 under C1
++    gaps = [a[i+1] - a[i] for i in range(len(a) - 1)] + [32 + a[0] - a[-1]]   # 8 circular gaps, sum 32
++    return sum((g - 4) ** 2 for g in gaps)
++def qoy1_NSAME(s):             # descriptive: same-coset slot boundaries (label-free clustering)
++    ids, _ = qoy1_cosets(s)
++    return sum(ids[k] == ids[k+1] for k in range(31))
++
++# KW's values, filled by the measurement lane AFTER the §9 instrument pin (prereg §7.1: this
++# fill is the first evaluation of either statistic on King Wen). Filled after §9-A1 (prereg §9-A2).
++QOY_KW_EXPECTED = "qoy X=0 W=6 T=6 A=0 D=94 NSAME=8 CONSISTENT=YES IDS=03223023033110023211211332012100"   # filled 2026-10-09T07:04:39Z
++
++
++def qoy_line(s):
++    """One `qoy ...` line for ordering s — the byte-for-byte format of solve.c --qoy-verify.
++    D is printed NA when no slot is in coset 0 (possible only for non-C1 orderings)."""
++    ids, cons = qoy1_cosets(s)
++    d = qoy1_D(s) if 0 in ids else "NA"
++    return ("qoy X=%d W=%d T=%d A=%d D=%s NSAME=%d CONSISTENT=%s IDS=%s"
++            % (q992_X(s), q992_W(s), q992_T(s), q992_A(s), d, qoy1_NSAME(s),
++               "YES" if cons else "NO", "".join(str(i) for i in ids)))
++
++
++def qoy_c1c4_draw(rng):
++    """One uniform draw from N0 (prereg §4.1): the 31 non-initial King Wen pairs shuffled into
++    slots 2..32, an independent fair orientation coin per pair (TR-8 idiom), (63, 0) in slot 1."""
++    pl = list(king_wen_pairs())
++    if pl[0] != (63, 0):
++        raise ValueError("qoy_c1c4_draw: King Wen pair 1 must be (63, 0) for the N0 draw, got %r" % (pl[0],))
++    rest = pl[1:]
++    rng.shuffle(rest)
++    seq = [63, 0]
++    for a, b in rest:
++        if rng.random() < 0.5:
++            seq.append(b); seq.append(a)
++        else:
++            seq.append(a); seq.append(b)
++    return seq
++
++
++def qoy_seed(purpose):
++    """Prereg §6 / A-4: uint64 = first 8 bytes, big-endian, of sha256(<ASCII string>)."""
++    import hashlib
++    return int.from_bytes(hashlib.sha256(purpose.encode()).digest()[:8], "big")
++
++
++QOY_GATE_SEED_STRING = "ROAE-QOY1-Q992-2026-10-09/gate-random-c1-orderings"
++
++
++def qoy_gate_orderings(n=100000, seed=None):
++    """The §7.1 gate's random C1∩C4 orderings, drawn with the frozen gate seed."""
++    rng = random.Random(qoy_seed(QOY_GATE_SEED_STRING) if seed is None else seed)
++    return [qoy_c1c4_draw(rng) for _ in range(n)]
++
++
++def qoy_verify(src):
++    """Print one qoy line per ordering of src (the word KW, or a file of orderings, 64 integers
++    per line) and QOY_VERIFY_N=<count>; byte-for-byte the output of solve.c --qoy-verify."""
++    if src == "KW":
++        seqs = [list(binary_hexagrams)]
++    else:
++        seqs = []
++        with open(src) as fh:
++            for ln in fh:
++                if ln.strip():
++                    s = [int(t) for t in ln.split()]
++                    if sorted(s) != list(range(64)):
++                        print("ERROR: --qoy-verify ordering %d is not a permutation of 0..63"
++                              % (len(seqs) + 1), file=sys.stderr)
++                        print("QOY_VERIFY_INPUT=REFUSED", file=sys.stderr)
++                        return 2
++                    seqs.append(s)
++    out = [qoy_line(s) for s in seqs]
++    out.append("QOY_VERIFY_N=%d" % len(seqs))
++    sys.stdout.write("\n".join(out) + "\n")
++    return 0
++
++
++def qoy_gate(binary, n=100000, include_kw=True, timeout=1800):
++    """The §7.1 two-language gate. Writes KW (unless include_kw is False — used only before the
++    §9 pin, when KW may not yet be evaluated) plus n gate-seed orderings to a temporary file,
++    runs `binary --qoy-verify <file>` and compares its stdout with qoy_verify's byte-for-byte.
++    With include_kw, KW's line must also match QOY_KW_EXPECTED. Prints QOY_VERIFY=PASS|FAIL."""
++    import hashlib, io, subprocess, tempfile, contextlib
++    seqs = ([list(binary_hexagrams)] if include_kw else []) + qoy_gate_orderings(n)
++    fd, path = tempfile.mkstemp(prefix="qoy_gate_", suffix=".txt")
++    try:
++        with os.fdopen(fd, "w") as fh:
++            for s in seqs:
++                fh.write(" ".join(map(str, s)) + "\n")
++        buf = io.StringIO()
++        with contextlib.redirect_stdout(buf):
++            prc = qoy_verify(path)
++        py = buf.getvalue().encode()
++        r = subprocess.run(["timeout", str(timeout), binary, "--qoy-verify", path],
++                           capture_output=True)
++        c = r.stdout
++    finally:
++        os.unlink(path)
++    ok = (prc == 0 and r.returncode == 0 and py == c)
++    print("QOY_GATE_ORDERINGS=%d" % len(seqs))
++    print("QOY_GATE_INCLUDES_KW=%s" % ("YES" if include_kw else "NO"))
++    print("QOY_GATE_PY_SHA256=%s" % hashlib.sha256(py).hexdigest())
++    print("QOY_GATE_C_SHA256=%s" % hashlib.sha256(c).hexdigest())
++    print("QOY_GATE_C_RC=%d" % r.returncode)
++    if py != c:
++        pl, cl = py.decode().splitlines(), c.decode(errors="replace").splitlines()
++        for i in range(max(len(pl), len(cl))):
++            a = pl[i] if i < len(pl) else "<none>"; b = cl[i] if i < len(cl) else "<none>"
++            if a != b:
++                print("QOY_GATE_FIRST_DIFF line=%d py=%s c=%s" % (i + 1, a, b))
++                break
++    if include_kw:
++        kw_line = py.decode().splitlines()[0]
++        if QOY_KW_EXPECTED is None:
++            print("QOY_KW_EXPECTED=UNSET")
++            ok = False
++        else:
++            m = kw_line == QOY_KW_EXPECTED
++            print("QOY_KW_EXPECTED_MATCH=%s" % ("YES" if m else "NO"))
++            ok = ok and m
++    print("QOY_VERIFY=%s" % ("PASS" if ok else "FAIL"))
++    return 0 if ok else 1
++
++# ---------------------------------------------------------------------------
++# Pilot A — the pre-registered C8 screen: 1,349 label-free slot/adjacency
++# statistics, frozen in roae-private/PREREG_C8SCREEN_2026_10_11.md (sha256
++# 2ba24ece…, locked 2026-10-11 BEFORE any measurement; lock-ledger lines 4-5).
++# §7.1 requires solve.py to carry the §2.5 normative reference code BYTE-FOR-BYTE:
++# C8_REFERENCE_SRC below is the exact text of the listed line ranges of the
++# defcheck as AMENDED by PREREG_C8SCREEN_AMENDMENT_1_2026_10_11.md §9-A1
++# (scripts/prereg_c8screen_defcheck_a1.py, sha256 28889b9f…; identical to the frozen
++# bb017ec5… on lines 1-163 except line 147, the four P-CM ranges 465 -> 496), with
++# the defcheck's chk()/print() verification lines left out. It is executed in a
++# private namespace, so its module-level names (rev, comp, partner, H16, PAIRS,
++# MEMBERS, ...) never rebind solve.py's own. TestC8Scorer pins its digest and,
++# when the frozen defcheck is readable, re-extracts it from that file.
++# solve.py is the SPEC; `--c8-verify <binary>` is the two-language gate
++# (solve.c --c8-verify must reproduce `--c8-print` byte-for-byte). King Wen is
++# evaluated ONLY by `--c8-kw`, which refuses to run without `--c8-pin` (the
++# prereg §9 instrument pin): no KW value exists in this file.
++# ATTRIBUTION: the order-16 coset reading behind Class C is 欧阳维诚 (Ouyang
++# Weicheng) 1993; the trigram-relation tradition behind Class B includes 韩仲民
++# (Han Zhongmin) 1984; Classes Y/P follow 程頤 (Cheng Yi) and Schulz
++# (CITATIONS.md). The member definitions and the measurement are ROAE's.
++# ---------------------------------------------------------------------------
++
++C8_DEFCHECK_SHA256 = "28889b9f4f50e02ccda9ea6359c7c7b1cdafd367fe3c678d0d325bda34022adb"   # prereg_c8screen_defcheck_a1.py (amendment 1)
++C8_DEFCHECK_LINES = ((11, 11), (15, 25), (37, 52), (55, 55), (57, 59), (83, 158), (163, 163))   # 1-based inclusive line ranges of the defcheck
++C8_REFERENCE_SHA256 = "6a1aa402697aca2a03091835dfb2f1d689396ca8ff38c18787f22652cb319983"
++C8_MEMBER_LIST_SHA256 = "529fb27a96ec9ebc422b64ef0f5d091319a85e859bb65fbc93f6f61aef6ff34a"     # prereg §2.4 as amended (§9-A1; frozen 486cac40…)
++C8_SUBGROUP_LIST_SHA256 = "44e8a16bd08c4caf0edd1619ca598b891e5515836ca6feb67ae59fd605d40d52"   # prereg §2.3
++C8_REFERENCE_SRC = r'''import sys, random, hashlib, itertools, re, os
++# ----------------------------------------------------------------------------- conventions (§2)
++def rev(h):  return int(format(h, '06b')[::-1], 2)        # 綜 reversal, == verify._zong
++def comp(h): return h ^ 63                                 # 錯 complement, == verify._cuo
++def partner(h):
++    r = rev(h); return r if r != h else comp(h)
++def y(h):    return bin(h).count('1')                      # yang count
++def L(h):    return h & 7                                  # lower trigram (bits 0..2)
++def U(h):    return (h >> 3) & 7                           # upper trigram (bits 3..5)
++def rev3(t): return ((t & 1) << 2) | (t & 2) | (t >> 2)    # 3-bit reversal
++PAIRS = sorted({frozenset((h, partner(h))) for h in range(64)}, key=min)   # 32 C1 pairs, from partner() only
++PAL   = frozenset(h for h in range(64) if rev(h) == h)                     # the 8 palindromes
++# ----------------------------------------------------------------------------- the 651 subgroups (§2.3)
++def rref_subspaces(n=6, k=4):
++    """All k-dim subspaces of F_2^n via reduced row echelon form: choose pivot columns (C(n,k)),
++    free entries right of each pivot in non-pivot columns. Bijective with the Grassmannian."""
++    out = []
++    for piv in itertools.combinations(range(n), k):
++        free = [(r, c) for r, p in enumerate(piv) for c in range(p + 1, n) if c not in piv]
++        for bits in range(1 << len(free)):
++            rows = [1 << (n - 1 - p) for p in piv]            # column c <-> bit (n-1-c): column 0 = MSB
++            for i, (r, c) in enumerate(free):
++                if (bits >> i) & 1: rows[r] |= 1 << (n - 1 - c)
++            elems = {0}
++            for v in rows: elems |= {e ^ v for e in elems}
++            out.append(tuple(sorted(elems)))
++    return out
++SUBS = sorted(rref_subspaces())
++LIST_SHA = hashlib.sha256("\n".join(",".join(map(str, S)) for S in SUBS).encode()).hexdigest()
++HP  = [i for i, S in enumerate(SUBS) if PAL <= set(S)]                     # PAL-containing: every pair lies in ONE coset (coset string well defined)
++HPC = [i for i, S in enumerate(SUBS) if all(partner(h) in set(S) for h in S)]   # pair-closed: H is a union of 8 C1 pairs (C-M forced = 8)
++H16 = tuple(sorted(h for h in range(64) if rev(h) == h or rev(h) == comp(h)))   # Ouyang 1993
++
++# ----------------------------------------------------------------------------- reference implementations (§2 code, normative)
++def slots(s):     return [(s[2*k], s[2*k+1]) for k in range(32)]           # (entry e_k, exit x_k), k = 0..31 (1-based k+1 in prose)
++def bwords(s):    return [s[2*b+1] ^ s[2*b+2] for b in range(31)]           # t_b = x_b XOR e_{b+1}, b = 0..30 (1-based b+1)
++def circ_disp(K, n=32):                                                     # K: sorted 1-based positions on an n-cycle; sum of squared circular gaps
++    g = [K[i+1] - K[i] for i in range(len(K)-1)] + [n + K[0] - K[-1]]
++    return sum(x * x for x in g)
++def lin_disp(K):                                                            # K: sorted positions on a line; sum of squared linear gaps
++    return sum((K[i+1] - K[i]) ** 2 for i in range(len(K)-1))
++def qoy_D(K):                                                               # K: 8 sorted 1-based slots; Q-OY1's D = sum (g-4)^2
++    g = [K[i+1] - K[i] for i in range(7)] + [32 + K[0] - K[-1]]
++    return sum((x - 4) ** 2 for x in g)
++
++def C_N(s, H):  Hs = set(H); return sum(1 for t in bwords(s) if t in Hs)                       # boundary words in H
++def C_M(s, H):  Hs = set(H); return sum(1 for e, x in slots(s) if e in Hs)                     # entry hexagrams in H
++def C_D(s, H):  Hs = set(H); return qoy_D([k+1 for k, (e, x) in enumerate(slots(s)) if e in Hs and x in Hs])
++def B_rel(s, which):
++    n = 0
++    for b in range(31):
++        x, e = s[2*b+1], s[2*b+2]
++        n += {"SL": L(x) == L(e), "SU": U(x) == U(e), "CL": L(x) == L(e) ^ 7, "CU": U(x) == U(e) ^ 7,
++              "RL": L(e) == rev3(L(x)), "RU": U(e) == rev3(U(x)), "XL": L(e) == U(x), "XU": U(e) == L(x)}[which]
++    return n
++def P_set(s, c):
++    d = [y(t) for t in bwords(s)]
++    return [b+1 for b in range(31) if (d[b] % 2 == 1 if c == "odd" else d[b] == c)]
++def P_CM(s, c):   return sum(P_set(s, c))
++def P_DISP(s, c): return lin_disp(P_set(s, c))
++def P_MAXRUN(s):                                                            # longest run of equal pair-parity class over slots 1..32
++    par = [y(e) % 2 for e, x in slots(s)]
++    best = cur = 1
++    for k in range(1, 32):
++        cur = cur + 1 if par[k] == par[k-1] else 1; best = max(best, cur)
++    return best
++def Y_AC(s):   return sum((y(s[2*b+1]) - 3) * (y(s[2*b+2]) - 3) for b in range(31))
++def Y_TV(s):   return sum(abs(y(s[2*b+2]) - y(s[2*b+1])) for b in range(31))
++def _sgn(v):   return (v > 3) - (v < 3)
++def Y_RUNS(s):
++    sg = [_sgn(y(h)) for h in s]; return 1 + sum(1 for i in range(63) if sg[i] != sg[i+1])
++def Y_MAXRUN(s):
++    sg = [_sgn(y(h)) for h in s]; best = cur = 1
++    for i in range(1, 64):
++        cur = cur + 1 if sg[i] == sg[i-1] else 1; best = max(best, cur)
++    return best
++def Y_set(s, v):  return [k+1 for k, (e, x) in enumerate(slots(s)) if y(e) + y(x) == v]
++def Y_CM(s, v):   return sum(Y_set(s, v))
++def Y_DISP(s, v): return circ_disp(Y_set(s, v))
++def T_set(s, t):  return [k+1 for k, (e, x) in enumerate(slots(s)) if t in (L(e), U(e), L(x), U(x))]
++def T_CM(s, t):   return sum(T_set(s, t))
++def T_DISP(s, t): return circ_disp(T_set(s, t))
++def PURE_set(s):  return [k+1 for k, (e, x) in enumerate(slots(s)) if L(e) == U(e)]
++def T_CM_pure(s):   return sum(PURE_set(s))
++def T_DISP_pure(s): return circ_disp(PURE_set(s))
++
++# ----------------------------------------------------------------------------- the family, member by member (§2.4) and its COUNT
++H16_IDX = SUBS.index(H16)
++MEMBERS = []                                                                # (id, stratum, callable, (lo, hi) declared range)
++for i, H in enumerate(SUBS):
++    if i != H16_IDX:        MEMBERS.append((f"C-N[{i:03d}]", "C", (lambda H: lambda s: C_N(s, H))(H), (0, 31)))
++    if i not in HPC:        MEMBERS.append((f"C-M[{i:03d}]", "C", (lambda H: lambda s: C_M(s, H))(H), (0, 32)))
++    if i in HPC and i != H16_IDX: MEMBERS.append((f"C-D[{i:03d}]", "C", (lambda H: lambda s: C_D(s, H))(H), (0, 504)))
++for w in ("SL", "SU", "CL", "CU", "RL", "RU", "XL", "XU"):
++    MEMBERS.append((f"B-{w}", "S", (lambda w: lambda s: B_rel(s, w))(w), (0, 31)))
++for c in (2, 3, 4, "odd"):
++    MEMBERS.append((f"P-CM[{c}]", "S", (lambda c: lambda s: P_CM(s, c))(c), (0, 496)))   # A1: 496 = sum(1..31), universal; frozen 31*15 = 465 was N1-only
++    MEMBERS.append((f"P-DISP[{c}]", "S", (lambda c: lambda s: P_DISP(s, c))(c), (0, 30 * 30)))
++MEMBERS.append(("P-MAXRUN", "S", P_MAXRUN, (1, 32)))
++MEMBERS += [("Y-AC", "S", Y_AC, (-279, 279)), ("Y-TV", "S", Y_TV, (0, 186)), ("Y-RUNS", "S", Y_RUNS, (1, 64)), ("Y-MAXRUN", "S", Y_MAXRUN, (1, 64))]
++for v in (2, 4, 6, 8, 10):
++    MEMBERS.append((f"Y-CM[{v}]", "S", (lambda v: lambda s: Y_CM(s, v))(v), (0, 528)))
++    MEMBERS.append((f"Y-DISP[{v}]", "S", (lambda v: lambda s: Y_DISP(s, v))(v), (0, 1024)))
++for t in range(8):
++    MEMBERS.append((f"T-CM[{t}]", "S", (lambda t: lambda s: T_CM(s, t))(t), (0, 528)))
++    MEMBERS.append((f"T-DISP[{t}]", "S", (lambda t: lambda s: T_DISP(s, t))(t), (0, 1024)))
++MEMBERS += [("T-CM[pure]", "S", T_CM_pure, (0, 528)), ("T-DISP[pure]", "S", T_DISP_pure, (0, 1024))]
++K_C = sum(1 for m in MEMBERS if m[1] == "C"); K_S = sum(1 for m in MEMBERS if m[1] == "S"); K = len(MEMBERS)
++MEMBER_SHA = hashlib.sha256("\n".join(f"{m[0]}\t{m[1]}\t{m[3][0]}\t{m[3][1]}" for m in MEMBERS).encode()).hexdigest()
++'''
++
++_C8 = {"__name__": "solve_c8_reference"}
++exec(compile(C8_REFERENCE_SRC, "<C8_REFERENCE_SRC: prereg_c8screen_defcheck_a1.py 11-11,15-25,37-52,55-55,57-59,83-158,163-163>", "exec"), _C8)
++C8_MEMBERS = _C8["MEMBERS"]            # (id, stratum, callable, (lo, hi)) in the frozen order
++C8_SUBS = _C8["SUBS"]                  # the 651 order-16 subgroups, H_000..H_650
++C8_GATE_SEED_STRING = "ROAE-C8SCREEN-2026-10-11/gate-random-c1-orderings"   # prereg §6
++
++
++def c8_member_list_text():
++    """The text whose sha256 is MEMBER_LIST_SHA256 (the defcheck's MEMBER_SHA preimage)."""
++    return "\n".join(f"{m[0]}\t{m[1]}\t{m[3][0]}\t{m[3][1]}" for m in C8_MEMBERS)
++
++
++def c8_subgroup_list_text():
++    """The text whose sha256 is SUBGROUP_LIST_SHA256 (the defcheck's LIST_SHA preimage)."""
++    return "\n".join(",".join(map(str, S)) for S in C8_SUBS)
++
++
++def c8_is_c1(seq):
++    """seq is a permutation of 0..63 whose every slot is a C1 pair (x_k = partner(e_k))."""
++    return (sorted(seq) == list(range(64))
++            and all(seq[2*k+1] == _C8["partner"](seq[2*k]) for k in range(32)))
++
++
++def c8_values(seq):
++    """The 1,349 member values of seq, in MEMBERS order (prereg §7.1)."""
++    return [m[2](seq) for m in C8_MEMBERS]
++
++
++def c8_line(seq, out=None):
++    """Print (to out, default stdout) and return the `c8 v1 ... v1349` line of seq: the
++    byte-for-byte format of solve.c --c8-verify."""
++    ln = "c8 " + " ".join(str(v) for v in c8_values(seq))
++    (out or sys.stdout).write(ln + "\n")
++    return ln
++
++
++def c8_seed(purpose):
++    """Prereg §6 / A-4: uint64 = first 8 bytes, big-endian, of sha256(<ASCII string>)."""
++    import hashlib
++    return int.from_bytes(hashlib.sha256(purpose.encode()).digest()[:8], "big")
++
++
++def c8_c1c4_draw(rng):
++    """One draw of the N0 type (prereg §4.1): (63, 0) in slot 1, the 31 other C1 pairs (from
++    partner(), never from the King Wen table) shuffled into slots 2..32, a fair orientation
++    coin per pair."""
++    rest = sorted((min(p), max(p)) for p in _C8["PAIRS"] if p != frozenset((0, 63)))
++    rng.shuffle(rest)
++    seq = [63, 0]
++    for a, b in rest:
++        seq += [b, a] if rng.random() < 0.5 else [a, b]
++    return seq
++
++
++def c8_gate_orderings(n=100000, seed=None):
++    """The §7.2 gate's random C1∩C4 orderings, drawn with the frozen §6 gate seed."""
++    rng = random.Random(c8_seed(C8_GATE_SEED_STRING) if seed is None else seed)
++    return [c8_c1c4_draw(rng) for _ in range(n)]
++
++
++def c8_print(src, out=None):
++    """SPEC side of the gate: one c8 line per ordering of the file src (64 integers per line,
++    each a C1 permutation of 0..63), then C8_VERIFY_N=<count>. No KW source exists here."""
++    out = out or sys.stdout
++    seqs = []
++    with open(src) as fh:
++        for ln in fh:
++            if ln.strip():
++                s = [int(t) for t in ln.split()]
++                if len(s) != 64 or not c8_is_c1(s):
++                    print("ERROR: --c8-print ordering %d is not a C1 permutation of 0..63"
++                          % (len(seqs) + 1), file=sys.stderr)
++                    print("C8_VERIFY_INPUT=REFUSED", file=sys.stderr)
++                    return 2
++                seqs.append(s)
++    for s in seqs:
++        c8_line(s, out)
++    out.write("C8_VERIFY_N=%d\n" % len(seqs))
++    return 0
++
++
++def c8_gate(binary, n=100000, timeout=3600, seqs=None):
++    """The prereg §7.1/§7.2 two-language gate: writes n gate-seed C1∩C4 orderings (or the given
++    seqs) to a temporary file, runs `binary --c8-verify <file>` under timeout and compares its
++    stdout with c8_print's byte-for-byte; also requires the binary's --c8-list member and
++    subgroup lists to hash to the frozen MEMBER_LIST_SHA256 / SUBGROUP_LIST_SHA256. King Wen is
++    never among the orderings. Prints C8_VERIFY=PASS|FAIL."""
++    import hashlib, io, subprocess, tempfile
++    seqs = c8_gate_orderings(n) if seqs is None else seqs
++    fd, path = tempfile.mkstemp(prefix="c8_gate_", suffix=".txt")
++    try:
++        with os.fdopen(fd, "w") as fh:
++            for s in seqs:
++                fh.write(" ".join(map(str, s)) + "\n")
++        buf = io.StringIO()
++        prc = c8_print(path, buf)
++        py = buf.getvalue().encode()
++        r = subprocess.run(["timeout", str(timeout), binary, "--c8-verify", path], capture_output=True)
++        c = r.stdout
++    finally:
++        os.unlink(path)
++    lists = {}
++    for what in ("members", "subgroups"):
++        q = subprocess.run(["timeout", "120", binary, "--c8-list", what], capture_output=True)
++        lists[what] = hashlib.sha256(q.stdout.decode(errors="replace").rstrip("\n").encode()).hexdigest() if q.returncode == 0 else "RC%d" % q.returncode
++    py_mem = hashlib.sha256(c8_member_list_text().encode()).hexdigest()
++    py_sub = hashlib.sha256(c8_subgroup_list_text().encode()).hexdigest()
++    ok = (prc == 0 and r.returncode == 0 and py == c and len(seqs) > 0
++          and py_mem == lists["members"] == C8_MEMBER_LIST_SHA256
++          and py_sub == lists["subgroups"] == C8_SUBGROUP_LIST_SHA256)
++    print("C8_GATE_ORDERINGS=%d" % len(seqs))
++    print("C8_GATE_INCLUDES_KW=NO")
++    print("C8_GATE_PY_SHA256=%s" % hashlib.sha256(py).hexdigest())
++    print("C8_GATE_C_SHA256=%s" % hashlib.sha256(c).hexdigest())
++    print("C8_GATE_C_RC=%d" % r.returncode)
++    print("C8_PY_MEMBER_LIST_SHA256=%s" % py_mem)
++    print("C8_C_MEMBER_LIST_SHA256=%s" % lists["members"])
++    print("C8_PY_SUBGROUP_LIST_SHA256=%s" % py_sub)
++    print("C8_C_SUBGROUP_LIST_SHA256=%s" % lists["subgroups"])
++    if py != c:
++        pl, cl = py.decode().splitlines(), c.decode(errors="replace").splitlines()
++        for i in range(max(len(pl), len(cl))):
++            a = pl[i] if i < len(pl) else "<none>"; b = cl[i] if i < len(cl) else "<none>"
++            if a != b:
++                pa, ca = a.split(), b.split()
++                j = next((j for j in range(max(len(pa), len(ca))) if (pa[j:j+1] != ca[j:j+1])), -1)
++                mid = C8_MEMBERS[j - 1][0] if 1 <= j <= len(C8_MEMBERS) else "-"
++                print("C8_GATE_FIRST_DIFF line=%d member=%s py=%s c=%s" % (i + 1, mid, pa[j:j+1], ca[j:j+1]))
++                break
++    print("C8_VERIFY=%s" % ("PASS" if ok else "FAIL"))
++    return 0 if ok else 1
++
++
++C8_CONTROL_NA_DECLARED = {"JINGFANG": 54, "MAWANGDUI": 54, "FUXI": 49}   # amendment 1 A2: pre-declared NA counts
++C8_P_FORCED = {2: 8, 3: 13, 4: 7, "odd": 15}                                 # |B_c| on every C1∩C5 leaf (prereg §2.4)
++
++
++def c8_defined(seq, mid):
++    """Amendment 1 A2 (PREREG_C8SCREEN_AMENDMENT_1_2026_10_11.md): a positional member (C-D, P-CM/DISP,
++    Y-CM/DISP, T-CM/DISP, T-*[pure]) is DEFINED on a sequence iff the slot/boundary set it positions has
++    the cardinality every N1 leaf forces; a count member is always defined. Vacuous on C1∩C5 input."""
++    import re
++    R = _C8
++    m = re.match(r"^(C-D|P-CM|P-DISP|Y-CM|Y-DISP|T-CM|T-DISP)\[(\w+)\]$", mid)
++    if not m:
++        return True
++    cls, arg = m.groups()
++    pairs = [tuple(p) for p in R["PAIRS"]]
++    if cls == "C-D":
++        H = set(R["SUBS"][int(arg)])
++        return sum(1 for e, x in R["slots"](seq) if e in H and x in H) == 8
++    if cls.startswith("P"):
++        c = "odd" if arg == "odd" else int(arg)
++        return len(R["P_set"](seq, c)) == C8_P_FORCED[c]
++    if cls.startswith("Y"):
++        return len(R["Y_set"](seq, int(arg))) == sum(1 for a, b in pairs if R["y"](a) + R["y"](b) == int(arg))
++    if arg == "pure":
++        return len(R["PURE_set"](seq)) == 4
++    t = int(arg)
++    return len(R["T_set"](seq, t)) == sum(1 for p in pairs if any(t in (R["L"](h), R["U"](h)) for h in p))
++
++
++def c8_control_values(seq):
++    """The §4.4 control values of seq under amendment 1 A2: the frozen callable where DEFINED, else 'NA'."""
++    return [m[2](seq) if c8_defined(seq, m[0]) else "NA" for m in C8_MEMBERS]
++
++
++def c8_controls():
++    """§4.4 corpus controls (amendment 1 A2): the Jing Fang, Mawangdui and Fu Xi orderings as held here
++    (_r7_jingfang/_r7_mawangdui/_r7_fuxi; non-C1), one `c8_ctrl <CTRL> <member-id> <value|NA>` line per
++    member, `C8_CTRL_IS_C1_<CTRL>`, `C8_CTRL_NA_<CTRL>` and `C8_CONTROLS_NA_MAP=PASS|FAIL` (the NA counts
++    must equal the pre-declared 54/54/49). No member is evaluated on King Wen here (the Mawangdui ordering
++    is built by KW-index lookup, the prereg §1 control definition)."""
++    ok = True
++    for name, seq in (("JINGFANG", _r7_jingfang()), ("MAWANGDUI", _r7_mawangdui()), ("FUXI", _r7_fuxi())):
++        if sorted(seq) != list(range(64)):
++            print("ERROR: control %s is not a permutation of 0..63" % name, file=sys.stderr)
++            return 2
++        vals = c8_control_values(seq)
++        print("C8_CTRL_IS_C1_%s=%s" % (name, "YES" if c8_is_c1(seq) else "NO"))
++        for m, v in zip(C8_MEMBERS, vals):
++            print("c8_ctrl %s %s %s" % (name, m[0], v))
++        na = sum(1 for v in vals if v == "NA")
++        print("C8_CTRL_NA_%s=%d" % (name, na))
++        ok = ok and na == C8_CONTROL_NA_DECLARED[name]
++    print("C8_CTRL_MEMBERS=%d" % len(C8_MEMBERS))
++    print("C8_CONTROLS_NA_MAP=%s" % ("PASS" if ok else "FAIL"))
++    return 0 if ok else 1
++
++
++def c8_kw(pin):
++    """THE FIRST EVALUATION OF THE FAMILY ON KING WEN (prereg §7.1). Run only after the §9
++    instrument pin is written; `pin` is that pin's text and is echoed into the output so the
++    measurement records which instrument it ran on. Refuses (exit 2, nothing evaluated) without it."""
++    if not pin or not pin.strip():
++        print("ERROR: --c8-kw requires --c8-pin '<the prereg §9 instrument pin>'; nothing was evaluated.",
++              file=sys.stderr)
++        print("C8_KW_PIN=REFUSED", file=sys.stderr)
++        return 2
++    import datetime
++    print("C8_KW_PIN=%s" % pin.strip())
++    print("C8_KW_DATE_UTC=%s" % datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
++    vals = c8_values(list(binary_hexagrams))
++    for m, v in zip(C8_MEMBERS, vals):
++        print("c8_kw %s %d" % (m[0], v))
++    print("C8_KW_MEMBERS=%d" % len(vals))
++    return 0
++
++
++
+ 
+ def main():
+     # 🔴 INTERCEPTED BEFORE argparse, deliberately. The detector takes `--atlas ATLAS.json`, and
+@@ -18309,6 +18839,37 @@ def main():
+     parser.add_argument("--dav2-verify", action="store_true",
+                         help="verify the 2 pre-registered Davis (2012) wave-2 candidates "
+                              "(tquartet C-D9, xunslots C-D10) on KW")
++    parser.add_argument("--qoy-verify", metavar="SRC", default=None,
++                        help="Q-OY1/Q-992 (PREREG_QOY1_Q992_2026_10_09): print the frozen "
++                             "statistics, one line per ordering of SRC (KW or a file of "
++                             "orderings) — the SPEC side of the two-language gate")
++    parser.add_argument("--qoy-gate", metavar="BINARY", default=None,
++                        help="Q-OY1/Q-992 two-language gate: compare BINARY --qoy-verify with "
++                             "--qoy-verify byte-for-byte on KW + 10^5 gate-seed C1∩C4 orderings; "
++                             "prints QOY_VERIFY=PASS|FAIL")
++    parser.add_argument("--qoy-gate-n", type=int, default=100000,
++                        help="number of random orderings for --qoy-gate (prereg: 100000)")
++    parser.add_argument("--qoy-gate-skip-kw", action="store_true",
++                        help="--qoy-gate without the KW line (pre-pin self-test only)")
++    parser.add_argument("--c8-print", metavar="FILE", default=None,
++                        help="Pilot A C8 screen (PREREG_C8SCREEN_2026_10_11): print the 1,349 frozen "
++                             "member values, one c8 line per C1 ordering of FILE — the SPEC side "
++                             "of the two-language gate (no King Wen source)")
++    parser.add_argument("--c8-verify", metavar="BINARY", default=None,
++                        help="Pilot A C8 two-language gate: compare BINARY --c8-verify with --c8-print "
++                             "byte-for-byte on 10^5 gate-seed C1∩C4 orderings (never King Wen) and "
++                             "check BINARY's member/subgroup lists; prints C8_VERIFY=PASS|FAIL")
++    parser.add_argument("--c8-verify-n", type=int, default=100000,
++                        help="number of random orderings for --c8-verify (prereg: 100000)")
++    parser.add_argument("--c8-kw", action="store_true",
++                        help="Pilot A: THE first evaluation of the 1,349 members on King Wen; "
++                             "refused without --c8-pin (run only after the prereg §9 pin)")
++    parser.add_argument("--c8-pin", metavar="TEXT", default=None,
++                        help="the prereg §9 instrument pin, required by --c8-kw and echoed into its output")
++    parser.add_argument("--c8-controls", action="store_true",
++                        help="Pilot A §4.4 corpus controls under amendment 1 (A2): the 1,349 members on the "
++                             "Jing Fang, Mawangdui and Fu Xi orderings, NA where a positional member's set "
++                             "lacks its C1-forced size; prints C8_CONTROLS_NA_MAP=PASS|FAIL")
+     parser.add_argument("--db1-verify", action="store_true",
+                         help="verify Drasny's 'Rule of Ten' D-B1 classifier (== Table 4.1, "
+                              "all 64 hexagrams) and KW conformity count (X=22) — the "
+@@ -18613,6 +19174,24 @@ def main():
+     if args.dav2_verify:
+         sys.exit(dav2_verify())
+ 
++    if args.qoy_verify is not None:
++        sys.exit(qoy_verify(args.qoy_verify))
++
++    if args.qoy_gate is not None:
++        sys.exit(qoy_gate(args.qoy_gate, n=args.qoy_gate_n, include_kw=not args.qoy_gate_skip_kw))
++
++    if args.c8_print is not None:
++        sys.exit(c8_print(args.c8_print))
++
++    if args.c8_verify is not None:
++        sys.exit(c8_gate(args.c8_verify, n=args.c8_verify_n))
++
++    if args.c8_kw:
++        sys.exit(c8_kw(args.c8_pin))
++
++    if args.c8_controls:
++        sys.exit(c8_controls())
++
+     if args.db1_verify:
+         sys.exit(db1_verify())
+ 
+diff --git a/tests.py b/tests.py
+index f98b8abe..8b0fae4a 100644
+--- a/tests.py
++++ b/tests.py
+@@ -19191,11 +19191,34 @@ class TestLaneHFRedactReproOutCompileRatchet(unittest.TestCase):
+         files = self._tracked("reports/evidence", "runs")
+         self.assertGreater(len(files), 100, "precondition: the sweep sees the evidence tree")
+         self.assertIn("reports/evidence/f5/c230_launch.log", files)
++        # CX-331 item 8: the same content-bound exemption as the private-pointer sweep (CX-331 item 7),
++        # for the two frozen Q-OY1/Q-992 files that carry the author's checkout path and must ship
++        # byte-identical to what was locked: the public pre-registration copy (005a0dab...) and the
++        # freeze-time defcheck (1540879a..., the lock-ledger digest; its README tells a reader to change
++        # line 7). A file is exempt only while its whole sha256 equals the value below; any edit re-arms
++        # the sweep on every line of it.
++        frozen = {"reports/evidence/qoy1_q992/PREREGISTRATION.md":
++                  "005a0dab66f77f5921e2cad9260a0310874cfc5ebd6e56a27195e67fc8d23fc2",
++                  "reports/evidence/qoy1_q992/prereg_qoy1_q992_defcheck.py":
++                  "1540879aa119724f380d5bd191652bea46dc330e85cdf5556c4b9a86c89b7bf7"}
++        def exempt(rel, b):
++            return frozen.get(rel) == hashlib.sha256(b).hexdigest()
++        with open(os.path.join(self.ROOT, "reports/evidence/qoy1_q992/README.md"), encoding="utf-8") as fh:
++            readme = fh.read()
++        for rel, sha in sorted(frozen.items()):
++            self.assertIn(rel, files, "precondition: drop the exemption for %s if it is no longer shipped" % rel)
++            self.assertIn(sha, readme, "the bundle README records the exempted digest of %s" % rel)
++            with open(os.path.join(self.ROOT, rel), "rb") as fh:
++                b = fh.read()
++            self.assertTrue(self.leaks(b.decode("utf-8", "replace")), "precondition: %s still carries a path" % rel)
++            self.assertTrue(exempt(rel, b), "%s: edited, so its exemption no longer applies" % rel)
++            self.assertFalse(exempt(rel, b + b"/home/alice/x\n"), "positive control: an edited copy is not exempt")
++            self.assertFalse(exempt("reports/evidence/other/" + os.path.basename(rel), b), "the exemption is per path")
+         hits = []
+         for rel in files:
+             with open(os.path.join(self.ROOT, rel), "rb") as fh:
+                 b = fh.read()
+-            if b"\0" in b:
++            if b"\0" in b or exempt(rel, b):
+                 continue
+             hits += ["%s:%d" % (rel, i) for i in self.leaks(b.decode("utf-8", "replace"))]
+         self.assertEqual(hits, [])
+@@ -27999,11 +28022,36 @@ class TestLaneHAJ(unittest.TestCase):
+         self.assertTrue(hit(ex_dir + "x.json", lit + b" roae-private/Y.md"), "positive control: a second pointer is still a hit")
+         self.assertFalse(hit(ex_dir + "x.json", lit), "the exempted literal alone is not a hit")
+         self.assertTrue(hit("runs/other/x.json", lit), "outside the run folder the literal is a hit")
++        # CX-331 item 7: the second exemption, bound to CONTENT, not to a path. Two Q-OY1/Q-992 files
++        # must ship exactly as recorded: the public copy of the frozen pre-registration (its sha256 is
++        # published in the bundle README, on PREREGISTRATION_ESCROW.md and in CX-331, and its README
++        # promises a diff of exactly the two cost hunks against the privately frozen 5e15192f...), and
++        # the instrument-pin patch (it must reproduce solve.c 60937db1... / solve.py a0ed4150... /
++        # tests.py f91b3e11... byte for byte, and those files name the private registration path). A
++        # file is exempt only while its whole sha256 equals the value below, so any edit, including a
++        # new private pointer, re-arms the sweep on every line of it.
++        frozen = {"reports/evidence/qoy1_q992/PREREGISTRATION.md":
++                  "005a0dab66f77f5921e2cad9260a0310874cfc5ebd6e56a27195e67fc8d23fc2",
++                  "reports/evidence/qoy1_q992/instrument_pin_4b590dfc.patch":
++                  "e4dd40aeb61258d02e9897da4d2f5af0dc7b82673c9f91c827314e7896588519"}
++        def exempt(rel, b):
++            return frozen.get(rel) == hashlib.sha256(b).hexdigest()
++        with open(os.path.join(self.ROOT, "reports/evidence/qoy1_q992/README.md"), encoding="utf-8") as fh:
++            readme = fh.read()
++        for rel, sha in sorted(frozen.items()):
++            self.assertIn(rel, files, "precondition: drop the exemption for %s if it is no longer shipped" % rel)
++            self.assertIn(sha, readme, "the bundle README records the exempted digest of %s" % rel)
++            with open(os.path.join(self.ROOT, rel), "rb") as fh:
++                b = fh.read()
++            self.assertTrue(any(pat.search(ln) for ln in b.split(b"\n")), "precondition: %s still carries a pointer" % rel)
++            self.assertTrue(exempt(rel, b), "%s: edited, so its exemption no longer applies" % rel)
++            self.assertFalse(exempt(rel, b + b"roae-private/Z.md\n"), "positive control: an edited copy is not exempt")
++            self.assertFalse(exempt("reports/evidence/other/" + os.path.basename(rel), b), "the exemption is per path")
+         hits = []
+         for rel in files:
+             with open(os.path.join(self.ROOT, rel), "rb") as fh:
+                 b = fh.read()
+-            if b"\0" in b:
++            if b"\0" in b or exempt(rel, b):
+                 continue
+             hits += ["%s:%d" % (rel, i) for i, ln in enumerate(b.split(b"\n"), 1) if hit(rel, ln)]
+         self.assertEqual(hits, [])
+@@ -41310,6 +41358,397 @@ class TestLit2xWangjunlong2007(unittest.TestCase):
+ 
+ # end class TestLit2xWangjunlong2007 (literature batch 2, extension)
+ 
++
++class TestQoyScorer(unittest.TestCase):
++    """PREREG_QOY1_Q992_2026_10_09 §7.1: the Q-OY1/Q-992 scorer's two-language gate and its
++    mutant leg as standing regressions. Leg 1: solve.c --qoy-verify reproduces solve.py's
++    output byte-for-byte on KW and on seeded C1∩C4 orderings (the gate's own seed; fewer
++    orderings than the recorded 10^5 run, which is `python3 solve.py --qoy-gate ./solve`).
++    Leg 2 (gates must discriminate): a build with the within/cross parity of X and W swapped
++    must make the same gate print QOY_VERIFY=FAIL. These test the INSTRUMENT, not King Wen."""
++
++    N = 3000
++
++    @classmethod
++    def setUpClass(cls):
++        cls.tmp = tempfile.mkdtemp(prefix="qoy_")
++        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
++        with open(src) as fh:
++            cls.text = fh.read()
++        cls.x_line = "for (int i = 1; i < 63; i += 2) if (qoy_swap(s[i]) == s[i+1]) x++;   /* QOY_X_PARITY"
++        cls.w_line = "for (int i = 0; i < 63; i += 2) if (qoy_swap(s[i]) == s[i+1]) w++;   /* QOY_W_PARITY"
++        mut = cls.text.replace(cls.x_line, cls.x_line.replace("i = 1;", "i = 0;")) \
++                      .replace(cls.w_line, cls.w_line.replace("i = 0;", "i = 1;"))
++        cls.mut_src = os.path.join(cls.tmp, "solve_qoy_mutant.c")
++        with open(cls.mut_src, "w") as fh:
++            fh.write(mut)
++        cls.bins = {}
++        for tag, path in (("good", src), ("mutant", cls.mut_src)):
++            b = os.path.join(cls.tmp, "solve_" + tag)
++            r = subprocess.run(["timeout", "600", "gcc", "-O1", "-fopenmp", "-o", b, path,
++                                "-lm", "-lpthread", "-lz"], capture_output=True, text=True)
++            cls.bins[tag] = b if r.returncode == 0 and os.path.exists(b) else None
++
++    @classmethod
++    def tearDownClass(cls):
++        shutil.rmtree(cls.tmp, ignore_errors=True)
++
++    def _gate(self, binary):
++        import io, contextlib
++        buf = io.StringIO()
++        with contextlib.redirect_stdout(buf):
++            rc = solve.qoy_gate(binary, n=self.N, include_kw=True, timeout=600)
++        return rc, buf.getvalue().splitlines()
++
++    def test_mutant_precondition(self):
++        # The mutation must actually change the source in both places, or leg 2 proves nothing.
++        self.assertEqual(self.text.count(self.x_line), 1)
++        self.assertEqual(self.text.count(self.w_line), 1)
++        with open(self.mut_src) as fh:
++            self.assertNotEqual(fh.read(), self.text)
++
++    def test_gate_passes_on_solve_c(self):
++        self.assertIsNotNone(self.bins["good"], "solve.c failed to build")
++        self.assertIsNotNone(solve.QOY_KW_EXPECTED, "QOY_KW_EXPECTED unset")
++        rc, out = self._gate(self.bins["good"])
++        self.assertIn("QOY_KW_EXPECTED_MATCH=YES", out)
++        self.assertIn("QOY_VERIFY=PASS", out)
++        self.assertEqual(rc, 0)
++
++    def test_gate_fails_on_parity_mutant(self):
++        self.assertIsNotNone(self.bins["mutant"], "mutant failed to build")
++        rc, out = self._gate(self.bins["mutant"])
++        self.assertIn("QOY_VERIFY=FAIL", out)
++        self.assertNotIn("QOY_VERIFY=PASS", out)
++        self.assertEqual(rc, 1)
++
++    def test_w_forced_and_x_range_on_c1_orderings(self):
++        # Prereg §3.1: every C1 ordering has W = 6; X is in 0..11; coset per slot consistent,
++        # eight coset-0 slots, slot 1 among them (C4).
++        for s in solve.qoy_gate_orderings(500, seed=20261009):
++            self.assertEqual(solve.q992_W(s), 6)
++            self.assertTrue(0 <= solve.q992_X(s) <= 11)
++            ids, cons = solve.qoy1_cosets(s)
++            self.assertTrue(cons)
++            self.assertEqual(ids.count(0), 8)
++            self.assertEqual(ids[0], 0)
++
++    def test_import_without_verify_beside_it(self):
++        # Some gates copy solve.py alone into a scratch directory (q422_ratio_columns_gate.sh). The
++        # module-level `import verify` of the QOY block must not break that, and its fallback must be
++        # verify.py's _cuo/_zong exactly (all 64), so King Wen's line is unchanged there.
++        d = tempfile.mkdtemp(prefix="qoy_nover_")
++        try:
++            shutil.copy("solve.py", d)
++            probe = ("import solve; print(type(solve.verify).__name__); "
++                     "print(solve.qoy_line(list(solve.binary_hexagrams)) == solve.QOY_KW_EXPECTED)")
++            r = subprocess.run(["timeout", "300", sys.executable, "-c", probe], cwd=d,
++                               capture_output=True, text=True)
++            self.assertEqual(r.returncode, 0, r.stderr[-400:])
++            self.assertEqual(r.stdout.split(), ["_QoyVerifyFallback", "True"])
++        finally:
++            shutil.rmtree(d, ignore_errors=True)
++        self.assertEqual(type(solve.verify).__name__, "module")   # the normal path uses verify.py itself
++
++# end class TestQoyScorer (PREREG_QOY1_Q992_2026_10_09 §7.1)
++
++
++class TestC8Scorer(unittest.TestCase):
++    """PREREG_C8SCREEN_2026_10_11 §7.1 (Pilot A, the C8 screen): the 1,349-member scorer's
++    two-language gate and its mutant legs as standing regressions. Leg 1: solve.c --c8-verify
++    reproduces solve.py's --c8-print byte-for-byte on synthetic and seeded random C1∩C4
++    orderings (the §6 gate seed; fewer orderings than the recorded 10^5 run, which is
++    `python3 solve.py --c8-verify ./solve`). Leg 2 (gates must discriminate): a build with
++    e_k <-> x_k swapped in C-M (the prereg's own mutant) and a build with the circular-gap wrap
++    off by one must each make the same gate print C8_VERIFY=FAIL. The member list and the
++    651-subgroup list must hash to the frozen MEMBER_LIST_SHA256 / SUBGROUP_LIST_SHA256 in BOTH
++    languages. These test the INSTRUMENT, never King Wen: no ordering here is King Wen, and
++    --c8-kw is exercised only on its refusal path."""
++
++    N = 600
++    MEMBER_SHA = "529fb27a96ec9ebc422b64ef0f5d091319a85e859bb65fbc93f6f61aef6ff34a"      # amendment 1 A1 (frozen 486cac40...)
++    SUBGROUP_SHA = "44e8a16bd08c4caf0edd1619ca598b891e5515836ca6feb67ae59fd605d40d52"
++    REFERENCE_SHA = "6a1aa402697aca2a03091835dfb2f1d689396ca8ff38c18787f22652cb319983"   # amendment 1 A1 (frozen e07e64a4...)
++    DEFCHECK_SHA = "28889b9f4f50e02ccda9ea6359c7c7b1cdafd367fe3c678d0d325bda34022adb"    # prereg_c8screen_defcheck_a1.py (amendment 1; frozen bb017ec5...)
++    CM_LINE = "for (int k = 0; k < 32; k++) ent |= 1ULL << s[2*k];      /* C8_CM_ENTRY"
++    WRAP_LINE = "{ int g = 32 + K[0] - K[m-1]; d += g * g; }"
++
++    @classmethod
++    def setUpClass(cls):
++        cls.tmp = tempfile.mkdtemp(prefix="c8_")
++        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
++        with open(src) as fh:
++            cls.text = fh.read()
++        muts = {"cm_exit": cls.text.replace(cls.CM_LINE, cls.CM_LINE.replace("s[2*k];", "s[2*k+1];")),
++                "wrap": cls.text.replace(cls.WRAP_LINE, cls.WRAP_LINE.replace("32 + K[0]", "31 + K[0]"))}
++        cls.srcs = {"good": src}
++        for tag, body in muts.items():
++            p = os.path.join(cls.tmp, "solve_c8_%s.c" % tag)
++            with open(p, "w") as fh:
++                fh.write(body)
++            cls.srcs[tag] = p
++        cls.bins = {}
++        for tag, path in cls.srcs.items():
++            b = os.path.join(cls.tmp, "solve_" + tag)
++            r = subprocess.run(["timeout", "600", "gcc", "-O1", "-fopenmp", "-o", b, path,
++                                "-lm", "-lpthread", "-lz"], capture_output=True, text=True)
++            cls.bins[tag] = b if r.returncode == 0 and os.path.exists(b) else None
++        # Synthetic orderings (never King Wen): the defcheck's designed sequence (pairs sorted by
++        # their least element, least first), the same with every free pair's orientation flipped,
++        # and the pair order reversed, then seeded random C1∩C4 draws.
++        P = solve._C8["PAIRS"]
++        rest = sorted((min(p), max(p)) for p in P if p != frozenset((0, 63)))
++        des = [63, 0] + [h for p in rest for h in p]
++        flip = [63, 0] + [h for a, b in rest for h in (b, a)]
++        rev = [63, 0] + [h for p in reversed(rest) for h in p]
++        cls.synthetic = [des, flip, rev]
++        cls.seqs = cls.synthetic + solve.c8_gate_orderings(cls.N)
++
++    @classmethod
++    def tearDownClass(cls):
++        shutil.rmtree(cls.tmp, ignore_errors=True)
++
++    def _gate(self, binary, seqs=None):
++        import io, contextlib
++        buf = io.StringIO()
++        with contextlib.redirect_stdout(buf):
++            rc = solve.c8_gate(binary, timeout=600, seqs=self.seqs if seqs is None else seqs)
++        return rc, buf.getvalue().splitlines()
++
++    # --- the frozen definitions, carried byte-for-byte --------------------------------------
++    def test_reference_src_digest_pinned(self):
++        self.assertEqual(hashlib.sha256(solve.C8_REFERENCE_SRC.encode("utf-8")).hexdigest(), self.REFERENCE_SHA)
++        self.assertEqual(solve.C8_REFERENCE_SHA256, self.REFERENCE_SHA)
++        self.assertEqual(solve.C8_DEFCHECK_SHA256, self.DEFCHECK_SHA)
++        self.assertEqual(solve.C8_DEFCHECK_LINES, ((11, 11), (15, 25), (37, 52), (55, 55), (57, 59), (83, 158), (163, 163)))
++        self.assertNotIn("chk(", solve.C8_REFERENCE_SRC, "the defcheck's verification lines are not part of §2.5")
++        self.assertNotIn("binary_hexagrams", solve.C8_REFERENCE_SRC)
++        self.assertNotIn("V.KW", solve.C8_REFERENCE_SRC)
++
++    def test_reference_src_is_the_frozen_defcheck_excerpt(self):
++        # The frozen defcheck lives in the private repository until the publish-regardless batch;
++        # ROAE_C8_DEFCHECK names it. Without it, the pinned digest above (measured from the frozen
++        # file, bb017ec5...) carries the guarantee.
++        path = os.environ.get("ROAE_C8_DEFCHECK")
++        if not path:
++            self.skipTest("ROAE_C8_DEFCHECK unset: the frozen defcheck is not shipped with this tree")
++        with open(path, "rb") as fh:
++            raw = fh.read()
++        self.assertEqual(hashlib.sha256(raw).hexdigest(), self.DEFCHECK_SHA, "not the frozen defcheck")
++        lines = raw.decode("utf-8").split("\n")
++        exc = "".join(l + "\n" for a, b in solve.C8_DEFCHECK_LINES for l in lines[a - 1:b])
++        self.assertEqual(exc, solve.C8_REFERENCE_SRC)
++        self.assertNotEqual(exc.replace("(0, 496)", "(0, 497)"), solve.C8_REFERENCE_SRC, "positive control")
++        self.assertIn("(0, 496)))", exc, "amendment 1 A1: the four P-CM ranges are 0..496")
++
++    def test_reference_namespace_does_not_rebind_solve(self):
++        # The excerpt defines rev, comp, partner, H16 ... at its own module level; executed in a
++        # private namespace they must not replace solve.py's (H16 there is the QOY frozenset).
++        self.assertIsInstance(solve.H16, frozenset)
++        self.assertIs(solve.rev, solve.verify._zong)
++        self.assertIsInstance(solve._C8["H16"], tuple)
++        self.assertNotIn("C_N", vars(solve))
++
++    def test_member_and_subgroup_lists_hash_to_the_frozen_values(self):
++        self.assertEqual(len(solve.C8_MEMBERS), 1349)
++        self.assertEqual(sum(m[1] == "C" for m in solve.C8_MEMBERS), 1300)
++        self.assertEqual(sum(m[1] == "S" for m in solve.C8_MEMBERS), 49)
++        self.assertEqual(len(solve.C8_SUBS), 651)
++        self.assertEqual(hashlib.sha256(solve.c8_member_list_text().encode()).hexdigest(), self.MEMBER_SHA)
++        self.assertEqual(hashlib.sha256(solve.c8_subgroup_list_text().encode()).hexdigest(), self.SUBGROUP_SHA)
++        self.assertEqual(solve._C8["MEMBER_SHA"], self.MEMBER_SHA)
++        self.assertEqual(solve._C8["LIST_SHA"], self.SUBGROUP_SHA)
++        self.assertEqual(solve.C8_MEMBER_LIST_SHA256, self.MEMBER_SHA)
++        self.assertEqual(solve.C8_SUBGROUP_LIST_SHA256, self.SUBGROUP_SHA)
++        self.assertEqual(solve._C8["H16_IDX"], 644)
++        self.assertEqual(solve._C8["HPC"], [83, 115, 127, 197, 229, 244, 279, 368, 378, 401, 404, 484, 518, 564, 584, 614, 632, 641, 644])
++
++    def test_c_lists_hash_to_the_frozen_values(self):
++        self.assertIsNotNone(self.bins["good"], "solve.c failed to build")
++        for what, want in (("members", self.MEMBER_SHA), ("subgroups", self.SUBGROUP_SHA)):
++            r = subprocess.run(["timeout", "120", self.bins["good"], "--c8-list", what], capture_output=True, text=True)
++            self.assertEqual(r.returncode, 0)
++            self.assertEqual(hashlib.sha256(r.stdout.rstrip("\n").encode()).hexdigest(), want, what)
++        r = subprocess.run(["timeout", "60", self.bins["good"], "--c8-list", "kw"], capture_output=True, text=True)
++        self.assertEqual(r.returncode, 2)
++        self.assertIn("C8_LIST_ARGS=REFUSED", r.stderr)
++
++    # --- the two-language gate and its mutants ------------------------------------------------
++    def test_gate_seed_and_orderings(self):
++        self.assertEqual(solve.c8_seed(solve.C8_GATE_SEED_STRING), 8109856556285410379)   # prereg §6
++        for s in self.seqs:
++            self.assertTrue(solve.c8_is_c1(s))
++            self.assertEqual(s[:2], [63, 0])
++        self.assertNotIn(list(solve.binary_hexagrams), self.seqs, "the gate never scores King Wen")
++        self.assertEqual(solve.c8_gate_orderings(5), solve.c8_gate_orderings(5), "seeded, reproducible")
++
++    def test_values_in_declared_ranges(self):
++        for s in self.seqs:
++            for m, v in zip(solve.C8_MEMBERS, solve.c8_values(s)):
++                self.assertTrue(m[3][0] <= v <= m[3][1], (m[0], v))
++
++    def test_mutant_preconditions(self):
++        self.assertEqual(self.text.count(self.CM_LINE), 1)
++        self.assertEqual(self.text.count(self.WRAP_LINE), 1)
++        for tag in ("cm_exit", "wrap"):
++            with open(self.srcs[tag]) as fh:
++                self.assertNotEqual(fh.read(), self.text, tag)
++
++    def test_gate_passes_on_solve_c(self):
++        self.assertIsNotNone(self.bins["good"], "solve.c failed to build")
++        rc, out = self._gate(self.bins["good"])
++        self.assertIn("C8_GATE_ORDERINGS=%d" % (self.N + 3), out)
++        self.assertIn("C8_GATE_INCLUDES_KW=NO", out)
++        self.assertIn("C8_VERIFY=PASS", out)
++        self.assertEqual(rc, 0)
++
++    def test_gate_fails_on_entry_exit_mutant(self):
++        # Prereg §7.1: e_k <-> x_k swapped in C-M must make the gate FAIL, and on a C-M member.
++        self.assertIsNotNone(self.bins["cm_exit"], "mutant failed to build")
++        rc, out = self._gate(self.bins["cm_exit"])
++        self.assertIn("C8_VERIFY=FAIL", out)
++        self.assertNotIn("C8_VERIFY=PASS", out)
++        self.assertEqual(rc, 1)
++        diff = [l for l in out if l.startswith("C8_GATE_FIRST_DIFF")]
++        self.assertEqual(len(diff), 1)
++        self.assertIn("member=C-M[", diff[0])
++
++    def test_gate_fails_on_wrap_mutant(self):
++        self.assertIsNotNone(self.bins["wrap"], "mutant failed to build")
++        rc, out = self._gate(self.bins["wrap"])
++        self.assertIn("C8_VERIFY=FAIL", out)
++        self.assertEqual(rc, 1)
++
++    def test_gate_refuses_an_empty_population(self):
++        rc, out = self._gate(self.bins["good"], seqs=[])
++        self.assertIn("C8_VERIFY=FAIL", out)
++
++    def test_c_verify_refuses_non_c1_and_kw_word(self):
++        d = tempfile.mkdtemp(prefix="c8_in_", dir=self.tmp)
++        p = os.path.join(d, "x.txt")
++        with open(p, "w") as fh:
++            fh.write(" ".join(map(str, range(64))) + "\n")          # a permutation, not C1
++        r = subprocess.run(["timeout", "60", self.bins["good"], "--c8-verify", p], capture_output=True, text=True)
++        self.assertEqual(r.returncode, 2)
++        self.assertIn("C8_VERIFY_INPUT=REFUSED", r.stderr)
++        self.assertEqual(r.stdout, "")
++        import io, contextlib
++        err = io.StringIO()
++        with contextlib.redirect_stderr(err):
++            prc = solve.c8_print(p, io.StringIO())
++        self.assertEqual(prc, 2, "the SPEC side refuses it too")
++        self.assertIn("C8_VERIFY_INPUT=REFUSED", err.getvalue())
++        r = subprocess.run(["timeout", "60", self.bins["good"], "--c8-verify", "KW"], capture_output=True, text=True)
++        self.assertEqual(r.returncode, 2, "there is no KW source on the C side (prereg §7.1)")
++
++    def test_no_king_wen_in_the_c8_block(self):
++        a = self.text.index("/* ===================== Pilot A C8 screen scorer")
++        b = self.text.index("static int solve_env_preflight(void) {", a)
++        blk = self.text[a:b]
++        self.assertGreater(len(blk), 5000, "precondition: the block was found")
++        self.assertIsNone(re.search(r"\bKW\s*[\[,)]", blk), "the C8 block must not read the KW table")
++        self.assertIsNotNone(re.search(r"\bKW\s*[\[,)]", self.text), "positive control: the KW table is read elsewhere")
++
++    def test_kw_refused_without_pin_and_evaluates_nothing(self):
++        import io, contextlib
++        orig = solve.c8_values
++        solve.c8_values = lambda s: (_ for _ in ()).throw(AssertionError("evaluated"))
++        try:
++            err, out = io.StringIO(), io.StringIO()
++            with contextlib.redirect_stderr(err), contextlib.redirect_stdout(out):
++                rc1 = solve.c8_kw(None)
++                rc2 = solve.c8_kw("   ")
++        finally:
++            solve.c8_values = orig
++        self.assertEqual((rc1, rc2), (2, 2))
++        self.assertIn("C8_KW_PIN=REFUSED", err.getvalue())
++        self.assertNotIn("c8_kw ", out.getvalue())
++
++    # --- amendment 1 A2: the corpus controls -----------------------------------------------
++    def test_controls_producer_amendment_1(self):
++        # The three corpus orderings are non-C1; the DEFINED rule marks the pre-declared 54/54/49 members
++        # NA (every positional member on all three; the count members are all defined); no control is
++        # King Wen and nothing is evaluated on King Wen. On C1 input the rule is vacuous for every
++        # non-P member (the class-P sets are C5-forced, which random C1∩C4 draws lack).
++        import io, contextlib
++        buf = io.StringIO()
++        with contextlib.redirect_stdout(buf):
++            rc = solve.c8_controls()
++        out = buf.getvalue().splitlines()
++        tok = dict(l.split("=", 1) for l in out if "=" in l and not l.startswith("c8_ctrl "))
++        self.assertEqual(rc, 0)
++        self.assertEqual(tok["C8_CONTROLS_NA_MAP"], "PASS")
++        self.assertEqual((tok["C8_CTRL_NA_JINGFANG"], tok["C8_CTRL_NA_MAWANGDUI"], tok["C8_CTRL_NA_FUXI"]), ("54", "54", "49"))
++        self.assertEqual({tok["C8_CTRL_IS_C1_" + c] for c in ("JINGFANG", "MAWANGDUI", "FUXI")}, {"NO"})
++        rows = [l.split() for l in out if l.startswith("c8_ctrl ")]
++        self.assertEqual(len(rows), 3 * 1349)
++        na = {(r[1], r[2]) for r in rows if r[3] == "NA"}
++        self.assertTrue(all(("FUXI", "Y-DISP[%d]" % v) in na for v in (2, 4, 6, 8, 10)), "Fu Xi: every S_v is empty")
++        self.assertTrue(all((c, m[0]) not in na for c in ("JINGFANG", "MAWANGDUI", "FUXI") for m in solve.C8_MEMBERS
++                            if not re.match(r"^(C-D|P-CM|P-DISP|Y-CM|Y-DISP|T-CM|T-DISP)\[", m[0])), "count members are always defined")
++        self.assertFalse(any(l.startswith("c8_kw ") for l in out))
++        kw = list(solve.binary_hexagrams)
++        self.assertTrue(all(seq != kw for seq in (solve._r7_jingfang(), solve._r7_mawangdui(), solve._r7_fuxi())))
++        for s in self.seqs[:50]:
++            self.assertTrue(all(solve.c8_defined(s, m[0]) for m in solve.C8_MEMBERS if not m[0].startswith("P-")))
++
++    # --- the estimator and N0 paths -------------------------------------------------------
++    def _hist(self, text):
++        sums, tok = {}, {}
++        self._cnt = {}
++        for l in text.splitlines():
++            if l.startswith("c8_hist "):
++                _, m, v, w, w2 = l.split()
++                sums[m] = sums.get(m, 0.0) + float(w)
++            elif l.startswith("c8_hcnt "):
++                _, m, v, c = l.split()
++                self._cnt[m] = self._cnt.get(m, 0) + int(c)
++            elif l.startswith("C8_") and "=" in l:
++                k, v = l.split("=", 1); tok[k] = v
++        return sums, tok
++
++    def test_estimator_scores_c8_and_prints_no_kw_line(self):
++        self.assertIsNotNone(self.bins["good"])
++        env = dict(os.environ, SOLVE_THREADS="2", SOLVE_KNUTH_SCORE="1", SOLVE_KNUTH_SCORE_C8="1", SOLVE_KNUTH_SEED="12345")
++        r = subprocess.run(["bash", "-c", "ulimit -s unlimited; exec timeout 600 \"$0\" --estimate-knuth 200000", self.bins["good"]],
++                           capture_output=True, text=True, env=env)
++        self.assertEqual(r.returncode, 0, r.stderr[-400:])
++        sums, tok = self._hist(r.stdout)
++        self.assertEqual(tok.get("C8_MEMBERS"), "1349")
++        self.assertGreater(int(tok["C8_LEAVES_SCORED"]), 0, "precondition: some canonical leaves were scored")
++        self.assertEqual(tok["C8_CLAMPED"], "0")
++        self.assertEqual(tok["C8_UNDEFINED"], "0")
++        self.assertEqual(len(sums), 1349)
++        sc = float(tok["C8_RAW_SC"])
++        for m, s in sums.items():
++            self.assertAlmostEqual(s / sc, 1.0, places=9, msg=m)
++        self.assertEqual(set(self._cnt.values()), {int(tok["C8_LEAVES_SCORED"])}, "c8_hcnt counts every scored leaf once per member")
++        self.assertFalse(any(k.startswith("C8_KW") for k in tok), "the estimator prints no KW line")
++
++    def test_null0_sampler(self):
++        self.assertIsNotNone(self.bins["good"])
++        env = dict(os.environ, SOLVE_KNUTH_SEED="9")
++        run = lambda n: subprocess.run(["timeout", "300", self.bins["good"], "--c8-null0", str(n)],
++                                       capture_output=True, text=True, env=env)
++        a, b = run(3000), run(3000)
++        self.assertEqual(a.returncode, 0, a.stderr[-300:])
++        self.assertEqual(a.stdout, b.stdout, "a function of the seed alone")
++        sums, tok = self._hist(a.stdout)
++        self.assertEqual(tok["C8_NULL0_DRAWS"], "3000")
++        self.assertEqual(tok["C8_NULL0_NOT_C1"], "0")
++        self.assertEqual(tok["C8_UNDEFINED"], "0")
++        self.assertEqual(set(sums.values()), {3000.0})
++        self.assertEqual(set(self._cnt.values()), {3000})
++        env.pop("SOLVE_KNUTH_SEED")
++        r = subprocess.run(["timeout", "60", self.bins["good"], "--c8-null0", "10"], capture_output=True, text=True, env=env)
++        self.assertEqual(r.returncode, 2)
++        self.assertIn("C8_NULL0_SEED=REFUSED", r.stderr)
++        r = subprocess.run(["timeout", "60", self.bins["good"], "--c8-null0", "0"], capture_output=True, text=True, env=dict(env, SOLVE_KNUTH_SEED="9"))
++        self.assertIn("C8_NULL0_ARGS=REFUSED", r.stderr)
++
++# end class TestC8Scorer (PREREG_C8SCREEN_2026_10_11 §7.1)
++
++
+ if __name__ == "__main__":
+     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
+     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))

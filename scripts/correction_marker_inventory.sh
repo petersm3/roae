@@ -1294,6 +1294,12 @@ REVIEWED = {
         ('n/a', 'reviewed:corpus-byte-count-moves-on-any-edit;the-DOC-GATES-summary-follows-FAILs-tied-elsewhere'),
     ('-', 'pop:GATE 94 (ADVISORY)'):
         ('n/a', 'reviewed:advisory-live-count-falls-with-phrasings-quoted-inside-deleted-spans;CAMPAIGN_METHODOLOGY-GUIDE-viz_kc_river-runs'),
+    # batch 50 (CX-354 item 5): "now reads" narration in the c8screen bundle README describing a
+    # code-comment edit between the pinned instrument and the committed scorer (solve.c:51905); the
+    # frozen digest 486cac40... is stated beside the amended 529fb27a..., so nothing withdrawn can be
+    # re-derived and no public claim rests on the phrase.
+    ('reports/evidence/c8screen/README.md', '0b049652ee25'):
+        ('1', 'reviewed:narration-inside-a-code-change-note;both-digests-stated-and-correct;CX-354-item-5-carries-the-change'),
 }
 
 # SOLO_ANCHORED — markers a one-file ablation (Q-936 (a)) named for a gate finding that cites no

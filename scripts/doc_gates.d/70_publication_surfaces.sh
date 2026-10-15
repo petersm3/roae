@@ -473,6 +473,9 @@ gate_script_paths() {
     scripts/ouyang1993_ch4_check.py)
       at=(reports/evidence/qoy1_q992/PREREGISTRATION.md)
       _why="the public copy of a frozen pre-registration (CX-331, 2026-10-09) quoting its §1 table verbatim: the check script it names is in the private repository, and the copy's README says private paths are left as written. Rewording it would change the copy beyond the two disclosed cost removals";;
+    scripts/prereg_c8screen_defcheck.py|scripts/prereg_c8screen_defcheck_a1.py|scripts/c8screen_analyze.py)
+      at=(reports/evidence/c8screen/PREREGISTRATION.md reports/evidence/c8screen/PREREGISTRATION_AMENDMENT_1.md)
+      _why="the public copy of a frozen pre-registration and its amendment, published byte for byte (CX-354, 2026-10-11), naming the private-repository paths of the check scripts and the verdict script. All three ship in reports/evidence/c8screen/ (the verdict script as analyze.py), and the bundle README says private paths are left as written. Rewording them would move the amendment's locked digest or add a fourth hunk to the copy";;
     example/report.pdf)
       _why="CORRECTIONS.md's 2026-09-04 withdrawal entry naming the artifact it withdraws; the ledger is append-only so the text cannot be rewritten, and a withdrawal that could not name its own subject would be unreadable";;
     tr12/q9_negatives.md)
@@ -646,6 +649,8 @@ gate_hex_prefix() {
       echo "not a sha256: the mathlib git revision pinned by lake-manifest.json (lean/README.md:652)";;
     df3d92ba)
       echo "not a real sha: the head of the elided trailing 56 characters of the HALLUCINATED phantom 11.2T value, which HISTORY.md:4804 states correspond to no artifact anywhere";;
+    4b590dfc|a4014080)
+      echo "not a sha256: a git TREE id (40 nibbles), quoted in the Pilot A registration copy and amendment (CX-354); both are given in full in reports/evidence/c8screen/README.md";;
     0d10944dda|10aa1f84|163a7660|188ce945|1ce20ff3|2954b271|2db60543|4ad70a0f|4ad70a0fb9|4f1cd8b3|76ada31e|86a74da5|8c35a854|95c2f8f0|98b8c0ef|9ab1cd08|b415c8ec|b82a2f48|daab1c48|e353086e|e5cfc6cd|f6b554ea|fc1e921e|fe98e58a)
       echo "sha256 of a build artifact / intermediate run / --selftest output, published only in truncated form";;
     *) echo "";; esac; }

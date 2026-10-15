@@ -3986,3 +3986,60 @@ and `QOY_VERIFY_ARGS=REFUSED`, and an input line that is not a permutation is re
 | Variable | Default | Effect |
 |---|---|---|
 | `SOLVE_KNUTH_SCORE_QOY` | 0 | `=1` (with `SOLVE_KNUTH_SCORE=1`): score the pre-registered Q-OY1 / Q-992 statistics per canonical leaf ([reports/evidence/qoy1_q992/PREREGISTRATION.md](../reports/evidence/qoy1_q992/PREREGISTRATION.md) §2): `X` (cross-boundary trigram-swap adjacencies, 0..11), `D` (circular gap dispersion of the eight H16-coset-0 pair slots, 0..504), and the descriptive `W`, `A`, `NSAME` and coset-0 slot occupancy. Prints the raw weighted sums `QOY_RAW_SC`, `QOY_RAW_QC` and `QOY_RAW_N` and the `qoy_hist` and `qoy_occ` lines at full precision so that runs can be pooled; `QOY_LEAVES_SCORED`; the counters `QOY_W_NOT6_LEAVES`, `QOY_INCONSISTENT_LEAVES` and `QOY_CLAMPED` (each must be 0 on a C1 population); King Wen's own values `QOY_KW_X` and `QOY_KW_D`, computed from the KW table; and one `[qoy …]` summary line per statistic. Ground truth / two-language gate: `--qoy-verify`. Estimator-only, sha-neutral. |
+
+## Pilot A C8-screen scorer — added 2026-10-11
+
+The scorer and two-language gate of the pre-registered Pilot A screen: a family of 1,349 label-free
+slot and adjacency statistics (the boundary and entry membership counts under all 651 order-16 XOR
+subgroups, the eight trigram relations across the 31 slot boundaries, and the positional structure of
+the difference wave, the yang-count walk, the pair yang-sum classes and the trigram content of the
+slots), counted and frozen in the private pre-registration before any measurement. This section sits
+at the end of the file so that no line of this document that other files cite by number moves. None
+of the four paths below reads the King Wen table: King Wen's values come only from
+`solve.py --c8-kw`.
+
+### --c8-verify
+
+```
+solve --c8-verify FILE
+```
+
+The C side of the two-language gate. `FILE` holds orderings, 64 whitespace-separated integers per
+line, each a permutation of 0..63 whose every slot is a C1 pair. One line per ordering,
+`c8 v1 … v1349` (the 1,349 member values in the frozen member order), then `C8_VERIFY_N=<count>`.
+The SPEC side is `solve.py --c8-print`, and `solve.py --c8-verify <binary>` compares the two
+byte-for-byte. Anything but exactly one argument is refused with exit 2 and `C8_VERIFY_ARGS=REFUSED`;
+an input line that is not a C1 permutation, or one on which a member is undefined, is refused with
+exit 2 and `C8_VERIFY_INPUT=REFUSED`. There is no `KW` argument. Sha-neutral.
+
+### --c8-list
+
+```
+solve --c8-list members|subgroups
+```
+
+`members` prints the member table, one `id TAB stratum TAB lo TAB hi` line per member (the declared
+range); `subgroups` prints the 651 order-16 subgroups, each as its comma-joined sorted 16-tuple, in
+the canonical order. With the final newline removed, the two outputs hash (sha256) to the frozen
+`MEMBER_LIST_SHA256=529fb27a…` (as amended by amendment 1 A1; the frozen value was `486cac40…`) and `SUBGROUP_LIST_SHA256=44e8a16b…`. Any other argument is refused
+with exit 2 and `C8_LIST_ARGS=REFUSED`.
+
+### --c8-null0
+
+```
+SOLVE_KNUTH_SEED=<u64> solve --c8-null0 N
+```
+
+The pair-only null N0: `N` uniform draws from the orientation-explicit orderings of the 32 C1 pairs
+with (63, 0) pinned in slot 1 (Fisher–Yates over the 31 free pairs, a fair orientation coin per free
+pair; the pairs come from the reversal/complement rule, not from the King Wen table). Single-threaded,
+so the output is a function of the seed alone. `SOLVE_KNUTH_SEED` is required (no default stream;
+refused with exit 2 and `C8_NULL0_SEED=REFUSED`), and `N` must be one positive decimal integer
+(else exit 2 and `C8_NULL0_ARGS=REFUSED`). Prints `C8_NULL0_DRAWS`, `C8_NULL0_SEED`,
+`C8_NULL0_NOT_C1` (must be 0) and then the same block as the estimator below, every draw with weight 1.
+
+### Environment variable
+
+| Variable | Default | Effect |
+|---|---|---|
+| `SOLVE_KNUTH_SCORE_C8` | 0 | `=1` (with `SOLVE_KNUTH_SCORE=1`): score the 1,349 Pilot A members per canonical leaf of `--estimate-knuth`. Prints `C8_MEMBERS=1349`; the raw weighted sums `C8_RAW_SC`, `C8_RAW_QC` and `C8_RAW_N` at full precision so that runs can be pooled; `C8_LEAVES_SCORED`; `C8_CLAMPED`, the number of values outside a member's declared range (each is binned at the nearer end; the pre-registration requires 0); `C8_UNDEFINED`, the number of member evaluations whose reference definition is undefined (an empty position set; 0 on every C1 ordering); and one `c8_hist <member-id> <value> <sum_w> <sum_w2>` line per non-empty bin, the squared-weight twin giving the delta-method SE of any tail mass; then one `c8_hcnt <member-id> <value> <leaves>` line per non-empty bin, the number of scored leaves in it (the pre-registration's leaf-count condition counts leaves, which weighted sums cannot give). No King Wen line. Ground truth and two-language gate: `--c8-verify`. Estimator-only, sha-neutral. |

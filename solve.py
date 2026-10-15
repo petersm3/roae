@@ -18321,6 +18321,354 @@ def qoy_gate(binary, n=100000, include_kw=True, timeout=1800):
     print("QOY_VERIFY=%s" % ("PASS" if ok else "FAIL"))
     return 0 if ok else 1
 
+# ---------------------------------------------------------------------------
+# Pilot A — the pre-registered C8 screen: 1,349 label-free slot/adjacency
+# statistics, frozen in the private PREREG_C8SCREEN_2026_10_11.md (public copy reports/evidence/c8screen/PREREGISTRATION.md; sha256
+# 2ba24ece…, locked 2026-10-11 BEFORE any measurement; lock-ledger lines 4-5).
+# §7.1 requires solve.py to carry the §2.5 normative reference code BYTE-FOR-BYTE:
+# C8_REFERENCE_SRC below is the exact text of the listed line ranges of the
+# defcheck as AMENDED by PREREG_C8SCREEN_AMENDMENT_1_2026_10_11.md §9-A1
+# (reports/evidence/c8screen/prereg_c8screen_defcheck_a1.py, sha256 28889b9f…; identical to the frozen
+# bb017ec5… on lines 1-163 except line 147, the four P-CM ranges 465 -> 496), with
+# the defcheck's chk()/print() verification lines left out. It is executed in a
+# private namespace, so its module-level names (rev, comp, partner, H16, PAIRS,
+# MEMBERS, ...) never rebind solve.py's own. TestC8Scorer pins its digest and,
+# when the frozen defcheck is readable, re-extracts it from that file.
+# solve.py is the SPEC; `--c8-verify <binary>` is the two-language gate
+# (solve.c --c8-verify must reproduce `--c8-print` byte-for-byte). King Wen is
+# evaluated ONLY by `--c8-kw`, which refuses to run without `--c8-pin` (the
+# prereg §9 instrument pin): no KW value exists in this file.
+# ATTRIBUTION: the order-16 coset reading behind Class C is 欧阳维诚 (Ouyang
+# Weicheng) 1993; the trigram-relation tradition behind Class B includes 韩仲民
+# (Han Zhongmin) 1984; Classes Y/P follow 程頤 (Cheng Yi) and Schulz
+# (CITATIONS.md). The member definitions and the measurement are ROAE's.
+# ---------------------------------------------------------------------------
+
+C8_DEFCHECK_SHA256 = "28889b9f4f50e02ccda9ea6359c7c7b1cdafd367fe3c678d0d325bda34022adb"   # prereg_c8screen_defcheck_a1.py (amendment 1)
+C8_DEFCHECK_LINES = ((11, 11), (15, 25), (37, 52), (55, 55), (57, 59), (83, 158), (163, 163))   # 1-based inclusive line ranges of the defcheck
+C8_REFERENCE_SHA256 = "6a1aa402697aca2a03091835dfb2f1d689396ca8ff38c18787f22652cb319983"
+C8_MEMBER_LIST_SHA256 = "529fb27a96ec9ebc422b64ef0f5d091319a85e859bb65fbc93f6f61aef6ff34a"     # prereg §2.4 as amended (§9-A1; frozen 486cac40…)
+C8_SUBGROUP_LIST_SHA256 = "44e8a16bd08c4caf0edd1619ca598b891e5515836ca6feb67ae59fd605d40d52"   # prereg §2.3
+C8_REFERENCE_SRC = r'''import sys, random, hashlib, itertools, re, os
+# ----------------------------------------------------------------------------- conventions (§2)
+def rev(h):  return int(format(h, '06b')[::-1], 2)        # 綜 reversal, == verify._zong
+def comp(h): return h ^ 63                                 # 錯 complement, == verify._cuo
+def partner(h):
+    r = rev(h); return r if r != h else comp(h)
+def y(h):    return bin(h).count('1')                      # yang count
+def L(h):    return h & 7                                  # lower trigram (bits 0..2)
+def U(h):    return (h >> 3) & 7                           # upper trigram (bits 3..5)
+def rev3(t): return ((t & 1) << 2) | (t & 2) | (t >> 2)    # 3-bit reversal
+PAIRS = sorted({frozenset((h, partner(h))) for h in range(64)}, key=min)   # 32 C1 pairs, from partner() only
+PAL   = frozenset(h for h in range(64) if rev(h) == h)                     # the 8 palindromes
+# ----------------------------------------------------------------------------- the 651 subgroups (§2.3)
+def rref_subspaces(n=6, k=4):
+    """All k-dim subspaces of F_2^n via reduced row echelon form: choose pivot columns (C(n,k)),
+    free entries right of each pivot in non-pivot columns. Bijective with the Grassmannian."""
+    out = []
+    for piv in itertools.combinations(range(n), k):
+        free = [(r, c) for r, p in enumerate(piv) for c in range(p + 1, n) if c not in piv]
+        for bits in range(1 << len(free)):
+            rows = [1 << (n - 1 - p) for p in piv]            # column c <-> bit (n-1-c): column 0 = MSB
+            for i, (r, c) in enumerate(free):
+                if (bits >> i) & 1: rows[r] |= 1 << (n - 1 - c)
+            elems = {0}
+            for v in rows: elems |= {e ^ v for e in elems}
+            out.append(tuple(sorted(elems)))
+    return out
+SUBS = sorted(rref_subspaces())
+LIST_SHA = hashlib.sha256("\n".join(",".join(map(str, S)) for S in SUBS).encode()).hexdigest()
+HP  = [i for i, S in enumerate(SUBS) if PAL <= set(S)]                     # PAL-containing: every pair lies in ONE coset (coset string well defined)
+HPC = [i for i, S in enumerate(SUBS) if all(partner(h) in set(S) for h in S)]   # pair-closed: H is a union of 8 C1 pairs (C-M forced = 8)
+H16 = tuple(sorted(h for h in range(64) if rev(h) == h or rev(h) == comp(h)))   # Ouyang 1993
+
+# ----------------------------------------------------------------------------- reference implementations (§2 code, normative)
+def slots(s):     return [(s[2*k], s[2*k+1]) for k in range(32)]           # (entry e_k, exit x_k), k = 0..31 (1-based k+1 in prose)
+def bwords(s):    return [s[2*b+1] ^ s[2*b+2] for b in range(31)]           # t_b = x_b XOR e_{b+1}, b = 0..30 (1-based b+1)
+def circ_disp(K, n=32):                                                     # K: sorted 1-based positions on an n-cycle; sum of squared circular gaps
+    g = [K[i+1] - K[i] for i in range(len(K)-1)] + [n + K[0] - K[-1]]
+    return sum(x * x for x in g)
+def lin_disp(K):                                                            # K: sorted positions on a line; sum of squared linear gaps
+    return sum((K[i+1] - K[i]) ** 2 for i in range(len(K)-1))
+def qoy_D(K):                                                               # K: 8 sorted 1-based slots; Q-OY1's D = sum (g-4)^2
+    g = [K[i+1] - K[i] for i in range(7)] + [32 + K[0] - K[-1]]
+    return sum((x - 4) ** 2 for x in g)
+
+def C_N(s, H):  Hs = set(H); return sum(1 for t in bwords(s) if t in Hs)                       # boundary words in H
+def C_M(s, H):  Hs = set(H); return sum(1 for e, x in slots(s) if e in Hs)                     # entry hexagrams in H
+def C_D(s, H):  Hs = set(H); return qoy_D([k+1 for k, (e, x) in enumerate(slots(s)) if e in Hs and x in Hs])
+def B_rel(s, which):
+    n = 0
+    for b in range(31):
+        x, e = s[2*b+1], s[2*b+2]
+        n += {"SL": L(x) == L(e), "SU": U(x) == U(e), "CL": L(x) == L(e) ^ 7, "CU": U(x) == U(e) ^ 7,
+              "RL": L(e) == rev3(L(x)), "RU": U(e) == rev3(U(x)), "XL": L(e) == U(x), "XU": U(e) == L(x)}[which]
+    return n
+def P_set(s, c):
+    d = [y(t) for t in bwords(s)]
+    return [b+1 for b in range(31) if (d[b] % 2 == 1 if c == "odd" else d[b] == c)]
+def P_CM(s, c):   return sum(P_set(s, c))
+def P_DISP(s, c): return lin_disp(P_set(s, c))
+def P_MAXRUN(s):                                                            # longest run of equal pair-parity class over slots 1..32
+    par = [y(e) % 2 for e, x in slots(s)]
+    best = cur = 1
+    for k in range(1, 32):
+        cur = cur + 1 if par[k] == par[k-1] else 1; best = max(best, cur)
+    return best
+def Y_AC(s):   return sum((y(s[2*b+1]) - 3) * (y(s[2*b+2]) - 3) for b in range(31))
+def Y_TV(s):   return sum(abs(y(s[2*b+2]) - y(s[2*b+1])) for b in range(31))
+def _sgn(v):   return (v > 3) - (v < 3)
+def Y_RUNS(s):
+    sg = [_sgn(y(h)) for h in s]; return 1 + sum(1 for i in range(63) if sg[i] != sg[i+1])
+def Y_MAXRUN(s):
+    sg = [_sgn(y(h)) for h in s]; best = cur = 1
+    for i in range(1, 64):
+        cur = cur + 1 if sg[i] == sg[i-1] else 1; best = max(best, cur)
+    return best
+def Y_set(s, v):  return [k+1 for k, (e, x) in enumerate(slots(s)) if y(e) + y(x) == v]
+def Y_CM(s, v):   return sum(Y_set(s, v))
+def Y_DISP(s, v): return circ_disp(Y_set(s, v))
+def T_set(s, t):  return [k+1 for k, (e, x) in enumerate(slots(s)) if t in (L(e), U(e), L(x), U(x))]
+def T_CM(s, t):   return sum(T_set(s, t))
+def T_DISP(s, t): return circ_disp(T_set(s, t))
+def PURE_set(s):  return [k+1 for k, (e, x) in enumerate(slots(s)) if L(e) == U(e)]
+def T_CM_pure(s):   return sum(PURE_set(s))
+def T_DISP_pure(s): return circ_disp(PURE_set(s))
+
+# ----------------------------------------------------------------------------- the family, member by member (§2.4) and its COUNT
+H16_IDX = SUBS.index(H16)
+MEMBERS = []                                                                # (id, stratum, callable, (lo, hi) declared range)
+for i, H in enumerate(SUBS):
+    if i != H16_IDX:        MEMBERS.append((f"C-N[{i:03d}]", "C", (lambda H: lambda s: C_N(s, H))(H), (0, 31)))
+    if i not in HPC:        MEMBERS.append((f"C-M[{i:03d}]", "C", (lambda H: lambda s: C_M(s, H))(H), (0, 32)))
+    if i in HPC and i != H16_IDX: MEMBERS.append((f"C-D[{i:03d}]", "C", (lambda H: lambda s: C_D(s, H))(H), (0, 504)))
+for w in ("SL", "SU", "CL", "CU", "RL", "RU", "XL", "XU"):
+    MEMBERS.append((f"B-{w}", "S", (lambda w: lambda s: B_rel(s, w))(w), (0, 31)))
+for c in (2, 3, 4, "odd"):
+    MEMBERS.append((f"P-CM[{c}]", "S", (lambda c: lambda s: P_CM(s, c))(c), (0, 496)))   # A1: 496 = sum(1..31), universal; frozen 31*15 = 465 was N1-only
+    MEMBERS.append((f"P-DISP[{c}]", "S", (lambda c: lambda s: P_DISP(s, c))(c), (0, 30 * 30)))
+MEMBERS.append(("P-MAXRUN", "S", P_MAXRUN, (1, 32)))
+MEMBERS += [("Y-AC", "S", Y_AC, (-279, 279)), ("Y-TV", "S", Y_TV, (0, 186)), ("Y-RUNS", "S", Y_RUNS, (1, 64)), ("Y-MAXRUN", "S", Y_MAXRUN, (1, 64))]
+for v in (2, 4, 6, 8, 10):
+    MEMBERS.append((f"Y-CM[{v}]", "S", (lambda v: lambda s: Y_CM(s, v))(v), (0, 528)))
+    MEMBERS.append((f"Y-DISP[{v}]", "S", (lambda v: lambda s: Y_DISP(s, v))(v), (0, 1024)))
+for t in range(8):
+    MEMBERS.append((f"T-CM[{t}]", "S", (lambda t: lambda s: T_CM(s, t))(t), (0, 528)))
+    MEMBERS.append((f"T-DISP[{t}]", "S", (lambda t: lambda s: T_DISP(s, t))(t), (0, 1024)))
+MEMBERS += [("T-CM[pure]", "S", T_CM_pure, (0, 528)), ("T-DISP[pure]", "S", T_DISP_pure, (0, 1024))]
+K_C = sum(1 for m in MEMBERS if m[1] == "C"); K_S = sum(1 for m in MEMBERS if m[1] == "S"); K = len(MEMBERS)
+MEMBER_SHA = hashlib.sha256("\n".join(f"{m[0]}\t{m[1]}\t{m[3][0]}\t{m[3][1]}" for m in MEMBERS).encode()).hexdigest()
+'''
+
+_C8 = {"__name__": "solve_c8_reference"}
+exec(compile(C8_REFERENCE_SRC, "<C8_REFERENCE_SRC: prereg_c8screen_defcheck_a1.py 11-11,15-25,37-52,55-55,57-59,83-158,163-163>", "exec"), _C8)
+C8_MEMBERS = _C8["MEMBERS"]            # (id, stratum, callable, (lo, hi)) in the frozen order
+C8_SUBS = _C8["SUBS"]                  # the 651 order-16 subgroups, H_000..H_650
+C8_GATE_SEED_STRING = "ROAE-C8SCREEN-2026-10-11/gate-random-c1-orderings"   # prereg §6
+
+
+def c8_member_list_text():
+    """The text whose sha256 is MEMBER_LIST_SHA256 (the defcheck's MEMBER_SHA preimage)."""
+    return "\n".join(f"{m[0]}\t{m[1]}\t{m[3][0]}\t{m[3][1]}" for m in C8_MEMBERS)
+
+
+def c8_subgroup_list_text():
+    """The text whose sha256 is SUBGROUP_LIST_SHA256 (the defcheck's LIST_SHA preimage)."""
+    return "\n".join(",".join(map(str, S)) for S in C8_SUBS)
+
+
+def c8_is_c1(seq):
+    """seq is a permutation of 0..63 whose every slot is a C1 pair (x_k = partner(e_k))."""
+    return (sorted(seq) == list(range(64))
+            and all(seq[2*k+1] == _C8["partner"](seq[2*k]) for k in range(32)))
+
+
+def c8_values(seq):
+    """The 1,349 member values of seq, in MEMBERS order (prereg §7.1)."""
+    return [m[2](seq) for m in C8_MEMBERS]
+
+
+def c8_line(seq, out=None):
+    """Print (to out, default stdout) and return the `c8 v1 ... v1349` line of seq: the
+    byte-for-byte format of solve.c --c8-verify."""
+    ln = "c8 " + " ".join(str(v) for v in c8_values(seq))
+    (out or sys.stdout).write(ln + "\n")
+    return ln
+
+
+def c8_seed(purpose):
+    """Prereg §6 / A-4: uint64 = first 8 bytes, big-endian, of sha256(<ASCII string>)."""
+    import hashlib
+    return int.from_bytes(hashlib.sha256(purpose.encode()).digest()[:8], "big")
+
+
+def c8_c1c4_draw(rng):
+    """One draw of the N0 type (prereg §4.1): (63, 0) in slot 1, the 31 other C1 pairs (from
+    partner(), never from the King Wen table) shuffled into slots 2..32, a fair orientation
+    coin per pair."""
+    rest = sorted((min(p), max(p)) for p in _C8["PAIRS"] if p != frozenset((0, 63)))
+    rng.shuffle(rest)
+    seq = [63, 0]
+    for a, b in rest:
+        seq += [b, a] if rng.random() < 0.5 else [a, b]
+    return seq
+
+
+def c8_gate_orderings(n=100000, seed=None):
+    """The §7.2 gate's random C1∩C4 orderings, drawn with the frozen §6 gate seed."""
+    rng = random.Random(c8_seed(C8_GATE_SEED_STRING) if seed is None else seed)
+    return [c8_c1c4_draw(rng) for _ in range(n)]
+
+
+def c8_print(src, out=None):
+    """SPEC side of the gate: one c8 line per ordering of the file src (64 integers per line,
+    each a C1 permutation of 0..63), then C8_VERIFY_N=<count>. No KW source exists here."""
+    out = out or sys.stdout
+    seqs = []
+    with open(src) as fh:
+        for ln in fh:
+            if ln.strip():
+                s = [int(t) for t in ln.split()]
+                if len(s) != 64 or not c8_is_c1(s):
+                    print("ERROR: --c8-print ordering %d is not a C1 permutation of 0..63"
+                          % (len(seqs) + 1), file=sys.stderr)
+                    print("C8_VERIFY_INPUT=REFUSED", file=sys.stderr)
+                    return 2
+                seqs.append(s)
+    for s in seqs:
+        c8_line(s, out)
+    out.write("C8_VERIFY_N=%d\n" % len(seqs))
+    return 0
+
+
+def c8_gate(binary, n=100000, timeout=3600, seqs=None):
+    """The prereg §7.1/§7.2 two-language gate: writes n gate-seed C1∩C4 orderings (or the given
+    seqs) to a temporary file, runs `binary --c8-verify <file>` under timeout and compares its
+    stdout with c8_print's byte-for-byte; also requires the binary's --c8-list member and
+    subgroup lists to hash to the frozen MEMBER_LIST_SHA256 / SUBGROUP_LIST_SHA256. King Wen is
+    never among the orderings. Prints C8_VERIFY=PASS|FAIL."""
+    import hashlib, io, subprocess, tempfile
+    seqs = c8_gate_orderings(n) if seqs is None else seqs
+    fd, path = tempfile.mkstemp(prefix="c8_gate_", suffix=".txt")
+    try:
+        with os.fdopen(fd, "w") as fh:
+            for s in seqs:
+                fh.write(" ".join(map(str, s)) + "\n")
+        buf = io.StringIO()
+        prc = c8_print(path, buf)
+        py = buf.getvalue().encode()
+        r = subprocess.run(["timeout", str(timeout), binary, "--c8-verify", path], capture_output=True)
+        c = r.stdout
+    finally:
+        os.unlink(path)
+    lists = {}
+    for what in ("members", "subgroups"):
+        q = subprocess.run(["timeout", "120", binary, "--c8-list", what], capture_output=True)
+        lists[what] = hashlib.sha256(q.stdout.decode(errors="replace").rstrip("\n").encode()).hexdigest() if q.returncode == 0 else "RC%d" % q.returncode
+    py_mem = hashlib.sha256(c8_member_list_text().encode()).hexdigest()
+    py_sub = hashlib.sha256(c8_subgroup_list_text().encode()).hexdigest()
+    ok = (prc == 0 and r.returncode == 0 and py == c and len(seqs) > 0
+          and py_mem == lists["members"] == C8_MEMBER_LIST_SHA256
+          and py_sub == lists["subgroups"] == C8_SUBGROUP_LIST_SHA256)
+    print("C8_GATE_ORDERINGS=%d" % len(seqs))
+    print("C8_GATE_INCLUDES_KW=NO")
+    print("C8_GATE_PY_SHA256=%s" % hashlib.sha256(py).hexdigest())
+    print("C8_GATE_C_SHA256=%s" % hashlib.sha256(c).hexdigest())
+    print("C8_GATE_C_RC=%d" % r.returncode)
+    print("C8_PY_MEMBER_LIST_SHA256=%s" % py_mem)
+    print("C8_C_MEMBER_LIST_SHA256=%s" % lists["members"])
+    print("C8_PY_SUBGROUP_LIST_SHA256=%s" % py_sub)
+    print("C8_C_SUBGROUP_LIST_SHA256=%s" % lists["subgroups"])
+    if py != c:
+        pl, cl = py.decode().splitlines(), c.decode(errors="replace").splitlines()
+        for i in range(max(len(pl), len(cl))):
+            a = pl[i] if i < len(pl) else "<none>"; b = cl[i] if i < len(cl) else "<none>"
+            if a != b:
+                pa, ca = a.split(), b.split()
+                j = next((j for j in range(max(len(pa), len(ca))) if (pa[j:j+1] != ca[j:j+1])), -1)
+                mid = C8_MEMBERS[j - 1][0] if 1 <= j <= len(C8_MEMBERS) else "-"
+                print("C8_GATE_FIRST_DIFF line=%d member=%s py=%s c=%s" % (i + 1, mid, pa[j:j+1], ca[j:j+1]))
+                break
+    print("C8_VERIFY=%s" % ("PASS" if ok else "FAIL"))
+    return 0 if ok else 1
+
+
+C8_CONTROL_NA_DECLARED = {"JINGFANG": 54, "MAWANGDUI": 54, "FUXI": 49}   # amendment 1 A2: pre-declared NA counts
+C8_P_FORCED = {2: 8, 3: 13, 4: 7, "odd": 15}                                 # |B_c| on every C1∩C5 leaf (prereg §2.4)
+
+
+def c8_defined(seq, mid):
+    """Amendment 1 A2 (PREREG_C8SCREEN_AMENDMENT_1_2026_10_11.md): a positional member (C-D, P-CM/DISP,
+    Y-CM/DISP, T-CM/DISP, T-*[pure]) is DEFINED on a sequence iff the slot/boundary set it positions has
+    the cardinality every N1 leaf forces; a count member is always defined. Vacuous on C1∩C5 input."""
+    import re
+    R = _C8
+    m = re.match(r"^(C-D|P-CM|P-DISP|Y-CM|Y-DISP|T-CM|T-DISP)\[(\w+)\]$", mid)
+    if not m:
+        return True
+    cls, arg = m.groups()
+    pairs = [tuple(p) for p in R["PAIRS"]]
+    if cls == "C-D":
+        H = set(R["SUBS"][int(arg)])
+        return sum(1 for e, x in R["slots"](seq) if e in H and x in H) == 8
+    if cls.startswith("P"):
+        c = "odd" if arg == "odd" else int(arg)
+        return len(R["P_set"](seq, c)) == C8_P_FORCED[c]
+    if cls.startswith("Y"):
+        return len(R["Y_set"](seq, int(arg))) == sum(1 for a, b in pairs if R["y"](a) + R["y"](b) == int(arg))
+    if arg == "pure":
+        return len(R["PURE_set"](seq)) == 4
+    t = int(arg)
+    return len(R["T_set"](seq, t)) == sum(1 for p in pairs if any(t in (R["L"](h), R["U"](h)) for h in p))
+
+
+def c8_control_values(seq):
+    """The §4.4 control values of seq under amendment 1 A2: the frozen callable where DEFINED, else 'NA'."""
+    return [m[2](seq) if c8_defined(seq, m[0]) else "NA" for m in C8_MEMBERS]
+
+
+def c8_controls():
+    """§4.4 corpus controls (amendment 1 A2): the Jing Fang, Mawangdui and Fu Xi orderings as held here
+    (_r7_jingfang/_r7_mawangdui/_r7_fuxi; non-C1), one `c8_ctrl <CTRL> <member-id> <value|NA>` line per
+    member, `C8_CTRL_IS_C1_<CTRL>`, `C8_CTRL_NA_<CTRL>` and `C8_CONTROLS_NA_MAP=PASS|FAIL` (the NA counts
+    must equal the pre-declared 54/54/49). No member is evaluated on King Wen here (the Mawangdui ordering
+    is built by KW-index lookup, the prereg §1 control definition)."""
+    ok = True
+    for name, seq in (("JINGFANG", _r7_jingfang()), ("MAWANGDUI", _r7_mawangdui()), ("FUXI", _r7_fuxi())):
+        if sorted(seq) != list(range(64)):
+            print("ERROR: control %s is not a permutation of 0..63" % name, file=sys.stderr)
+            return 2
+        vals = c8_control_values(seq)
+        print("C8_CTRL_IS_C1_%s=%s" % (name, "YES" if c8_is_c1(seq) else "NO"))
+        for m, v in zip(C8_MEMBERS, vals):
+            print("c8_ctrl %s %s %s" % (name, m[0], v))
+        na = sum(1 for v in vals if v == "NA")
+        print("C8_CTRL_NA_%s=%d" % (name, na))
+        ok = ok and na == C8_CONTROL_NA_DECLARED[name]
+    print("C8_CTRL_MEMBERS=%d" % len(C8_MEMBERS))
+    print("C8_CONTROLS_NA_MAP=%s" % ("PASS" if ok else "FAIL"))
+    return 0 if ok else 1
+
+
+def c8_kw(pin):
+    """THE FIRST EVALUATION OF THE FAMILY ON KING WEN (prereg §7.1). Run only after the §9
+    instrument pin is written; `pin` is that pin's text and is echoed into the output so the
+    measurement records which instrument it ran on. Refuses (exit 2, nothing evaluated) without it."""
+    if not pin or not pin.strip():
+        print("ERROR: --c8-kw requires --c8-pin '<the prereg §9 instrument pin>'; nothing was evaluated.",
+              file=sys.stderr)
+        print("C8_KW_PIN=REFUSED", file=sys.stderr)
+        return 2
+    import datetime
+    print("C8_KW_PIN=%s" % pin.strip())
+    print("C8_KW_DATE_UTC=%s" % datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    vals = c8_values(list(binary_hexagrams))
+    for m, v in zip(C8_MEMBERS, vals):
+        print("c8_kw %s %d" % (m[0], v))
+    print("C8_KW_MEMBERS=%d" % len(vals))
+    return 0
+
+
 
 
 def main():
@@ -18603,6 +18951,25 @@ def main():
                         help="number of random orderings for --qoy-gate (prereg: 100000)")
     parser.add_argument("--qoy-gate-skip-kw", action="store_true",
                         help="--qoy-gate without the KW line (pre-pin self-test only)")
+    parser.add_argument("--c8-print", metavar="FILE", default=None,
+                        help="Pilot A C8 screen (PREREG_C8SCREEN_2026_10_11): print the 1,349 frozen "
+                             "member values, one c8 line per C1 ordering of FILE — the SPEC side "
+                             "of the two-language gate (no King Wen source)")
+    parser.add_argument("--c8-verify", metavar="BINARY", default=None,
+                        help="Pilot A C8 two-language gate: compare BINARY --c8-verify with --c8-print "
+                             "byte-for-byte on 10^5 gate-seed C1∩C4 orderings (never King Wen) and "
+                             "check BINARY's member/subgroup lists; prints C8_VERIFY=PASS|FAIL")
+    parser.add_argument("--c8-verify-n", type=int, default=100000,
+                        help="number of random orderings for --c8-verify (prereg: 100000)")
+    parser.add_argument("--c8-kw", action="store_true",
+                        help="Pilot A: THE first evaluation of the 1,349 members on King Wen; "
+                             "refused without --c8-pin (run only after the prereg §9 pin)")
+    parser.add_argument("--c8-pin", metavar="TEXT", default=None,
+                        help="the prereg §9 instrument pin, required by --c8-kw and echoed into its output")
+    parser.add_argument("--c8-controls", action="store_true",
+                        help="Pilot A §4.4 corpus controls under amendment 1 (A2): the 1,349 members on the "
+                             "Jing Fang, Mawangdui and Fu Xi orderings, NA where a positional member's set "
+                             "lacks its C1-forced size; prints C8_CONTROLS_NA_MAP=PASS|FAIL")
     parser.add_argument("--db1-verify", action="store_true",
                         help="verify Drasny's 'Rule of Ten' D-B1 classifier (== Table 4.1, "
                              "all 64 hexagrams) and KW conformity count (X=22) — the "
@@ -18926,6 +19293,18 @@ def main():
 
     if args.qoy_gate is not None:
         sys.exit(qoy_gate(args.qoy_gate, n=args.qoy_gate_n, include_kw=not args.qoy_gate_skip_kw))
+
+    if args.c8_print is not None:
+        sys.exit(c8_print(args.c8_print))
+
+    if args.c8_verify is not None:
+        sys.exit(c8_gate(args.c8_verify, n=args.c8_verify_n))
+
+    if args.c8_kw:
+        sys.exit(c8_kw(args.c8_pin))
+
+    if args.c8_controls:
+        sys.exit(c8_controls())
 
     if args.db1_verify:
         sys.exit(db1_verify())

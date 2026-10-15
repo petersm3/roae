@@ -447,3 +447,28 @@ claim, not a proof. Its result (UNINFORMATIVE for both queries) and the full run
 values above. A reader cannot check that the public copy differs from the frozen original only by
 the two listed removals, because the original is private. If the original is ever disclosed, it can be
 hashed against `5e15192f…` and diffed against the copy.
+
+## 2026-10-11 — the Pilot A C8-screen pre-registration and its amendment: frozen privately before measurement, published with the result
+
+Added 2026-10-11, after the run. **Nothing above is altered.** This registration, its amendment and
+their two check scripts were frozen and committed in the private repository before any member of the
+family was evaluated on King Wen, and their digests were **not** published here before the run. So,
+like the Q-OY1 / Q-992 rows above, their freeze timing is **attested, not checkable**. The commit and
+lock times below come from the private history and are a claim, not a proof. The result
+(`FAMILY=UNINFORMATIVE`; no claim) and the full run record are in
+[reports/evidence/c8screen/](../reports/evidence/c8screen/README.md) and
+[CORRECTIONS.md](CORRECTIONS.md) CX-354.
+
+| file | sha256 | bytes | committed privately | published |
+|---|---|---|---|---|
+| `PREREG_C8SCREEN_2026_10_11.md` (frozen original, private) | `2ba24eceb2bddcba3c14f40231c1024c9a94d79c1ba37225eece1c84a969f161` | 45,464 | private commit `b2fa6f9d`; lock-ledger 2026-10-11 01:03:24 UTC | not published byte-identically; see the next row |
+| [`reports/evidence/c8screen/PREREGISTRATION.md`](../reports/evidence/c8screen/PREREGISTRATION.md) (public copy) | `de89498bb6df51fe55b271f22ac26fcec919653203e5a92677d39075cbca1d67` | 44,113 | — | 2026-10-11; the frozen text with three cost passages removed (three hunks, listed in the bundle README) |
+| [`reports/evidence/c8screen/PREREGISTRATION_AMENDMENT_1.md`](../reports/evidence/c8screen/PREREGISTRATION_AMENDMENT_1.md) (amendment 1, §9-A1 … §9-A4) | `3429f1d2272a74344fd6af06cde4e6ba2fcd3c0f57c798053c2f8c0eec6ba8b5` | 23,335 | private commit `d7e2eb23`; lock-ledger 2026-10-11 05:01:23 UTC, before any measurement | 2026-10-11, byte-identical |
+| [`reports/evidence/c8screen/prereg_c8screen_defcheck.py`](../reports/evidence/c8screen/prereg_c8screen_defcheck.py) | `bb017ec5fc57f20acd0e6e20fff4053fe46e29ce1c13659994cbf019080e8091` | 16,485 | same private commit and lock-ledger entry as the frozen original | 2026-10-11, byte-identical |
+| [`reports/evidence/c8screen/prereg_c8screen_defcheck_a1.py`](../reports/evidence/c8screen/prereg_c8screen_defcheck_a1.py) | `28889b9f4f50e02ccda9ea6359c7c7b1cdafd367fe3c678d0d325bda34022adb` | 26,543 | same private commit and lock-ledger entry as the amendment | 2026-10-11, byte-identical |
+
+**What a reader can check.** That the amendment and the two check scripts hash to the values above,
+which are the locked values, and that the public copy hashes to its own value above. A reader cannot
+check that the public copy differs from the frozen original only by the three listed removals, because
+the original is private. If the original is ever disclosed, it can be hashed against `2ba24ece…` and
+diffed against the copy.

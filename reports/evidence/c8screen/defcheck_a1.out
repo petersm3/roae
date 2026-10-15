@@ -1,0 +1,56 @@
+PASS A1 rev/comp agree with verify._zong/_cuo on all 64
+PASS A2 32 C1 pairs; 8 pairs have XOR product 63 (4 palindromic comp pairs + 4 anti-palindromic rev pairs); (0,63) is one
+PASS A3 PAL = span{12,18,33} is an XOR subgroup of order 8 containing 0 and 63
+PASS A4 h XOR partner(h) in PAL for all h (pair XOR products are palindromes)
+PASS B1 651 distinct order-16 XOR subgroups (Gaussian binomial [6,2]_2 = 63*31/3 = 651)
+PASS B2 every listed set is closed under XOR, has 16 elements, contains 0
+SUBGROUP_LIST_SHA256=44e8a16bd08c4caf0edd1619ca598b891e5515836ca6feb67ae59fd605d40d52
+PASS B3 exactly 7 subgroups contain PAL (= (64-8)/(16-8)); Ouyang's H16 is one of them  HP indices [127, 244, 368, 404, 484, 564, 644] H16 index 644
+PASS B4 for H containing PAL: a C1 pair is inside H or disjoint from H (C-M forced = 8 pairs)
+PASS B5 exactly 19 pair-closed subgroups (unions of 8 C1 pairs); the 7 PAL-containing ones are among them; the other 12 do not contain PAL  HPC indices [83, 115, 127, 197, 229, 244, 279, 368, 378, 401, 404, 484, 518, 564, 584, 614, 632, 641, 644]
+PASS B6 for every H NOT pair-closed: some C1 pair has exactly one member in H (C-M is orientation-driven there)
+PASS B7 for every pair-closed H, exactly 8 C1 pairs lie inside H
+PASS C1 within-pair distances form {2:12, 4:12, 6:8} (so the boundary-distance multiset is C1&C5-forced, TrigramTheorems.lean)
+PASS C2 the number of C1 pairs containing trigram t is a constant of the pair set (position-free trigram counts are forced)  {0: 8, 1: 15, 2: 8, 3: 15, 4: 15, 5: 8, 6: 15, 7: 8}
+PASS C3 pair yang-sum multiset is forced by C1  {2:3, 4:6, 6:14, 8:6, 10:3}
+PASS C4 exactly 4 pure (upper==lower) pairs; (0,63) is one
+PASS C5 slot 1 is pinned by C4 and belongs to every H containing PAL (63 in PAL)
+PASS C6 W = 6 forced: exactly 6 C1 pairs are swap pairs (Q-992 premise, cited not registered)
+PASS D1 family count K = 1349 = K_C 1300 (650 C-N + 632 C-M + 18 C-D) + K_S 49 (8 B + 9 P + 14 Y + 18 T)
+PASS D2 member ids are unique
+FAMILY_K=1349
+FAMILY_K_C=1300
+FAMILY_K_S=49
+MEMBER_LIST_SHA256=529fb27a96ec9ebc422b64ef0f5d091319a85e859bb65fbc93f6f61aef6ff34a
+ALPHA=0.01
+ALPHA_C=0.005
+ALPHA_S=0.005
+BAR_C=3.846154e-06
+BAR_S=1.020408e-04
+PASS E1 every member stays inside its declared range on 300 random C1&C4 orderings
+PASS E2 forced members are NOT in the family: C-M(H) == 8 on every sample for all 19 pair-closed H
+PASS E3 |T_t| and |S_v| are constant over the samples (position-free counts forced; CM/DISP are the positional members)
+PASS E4 sum identities: sum_v Y-CM[v] = 528; |B_2|,|B_3|,|B_4|,|B_odd| vary WITHOUT C5 (C5 is what fixes them; N0 does not impose it)
+PASS E5 for H containing PAL, C-N(H) equals the coset-equality count of consecutive slots (QOY's NSAME definition) on every sample
+PASS E6 C-D(H16) equals PREREG_QOY1's qoy1_D (coset-0 slot dispersion) on every sample
+PASS E7 B-XL and B-XU jointly: #{b: XL and XU} equals PREREG_QOY1's q992_X on every sample (X itself is measured and excluded)
+PASS E8 no non-excluded member is constant over the samples (nothing registered is vacuous on N0)
+PASS E9 designed sequence is a C1&C4 ordering
+PASS E10 known answers on the designed sequence: Y-RUNS/Y-MAXRUN/T-CM[pure]/T-DISP[pure] agree with an independent inline computation
+PASS E11 one orientation flip changes some C-M and some C-N value (members see orientation and boundary words)
+PASS G1 pair parity is a pair property; 16 even and 16 odd pairs; the pinned pair (63,0) is even
+PASS G2 exact N0 law of P-CM[odd]: C(31,15) arrangements; max 496 attained by exactly one; P(>465) = 684/300540195 (22.8 expected clamps in 1e7 draws); P(>496) = 0  P_EXCEED_465=2.275902e-06
+PASS G3 POSITIVE CONTROL: a C1&C4 ordering (alternating parity) has P-CM[odd] = 496 > 465, so the frozen range IS breached by a legal N0 draw; no member exceeds 496 on 20000 random C1&C4 draws
+PASS G4 P-CM[3] also attains 496: a C1&C4 ordering with all 31 boundaries at distance 3 exists (2 and 4: not searched to exhaustion, not claimed, not needed: 496 bounds them)
+PASS G5 every declared range equals the universal bound of its member class (no range is population-dependent any more)
+PASS G6 the amended preimage differs from the frozen one in exactly the four P-CM rows: re-substituting 465 reproduces MEMBER_LIST_SHA256 = 486cac40...
+MEMBER_LIST_SHA256_FROZEN=486cac40f85c1639bd4e05915541525e48b05a5097c589121ac28962a82db06c
+MEMBER_LIST_SHA256_AMENDED=529fb27a96ec9ebc422b64ef0f5d091319a85e859bb65fbc93f6f61aef6ff34a
+PASS H1 on C1&C4 samples every positional set has its C1-forced cardinality except the class-P sets (C5-forced; N0 lacks C5): the DEFINED rule is total on every C1&C5 leaf and changes nothing for KW or N1
+PASS H2 Fu Xi is not C1; every v_k is odd so all five S_v are empty; the rule marks exactly 49 members NA on it (15 C-D + all 8 P + all 10 Y-positional + 16 T-positional; T-*[pure] and C-D[083/115/127] are defined); the 1295 count members evaluate without raising  FUXI_NA=C-D[197],C-D[229],C-D[244],C-D[279],C-D[368],C-D[378],C-D[401],C-D[404],C-D[484],C-D[518],C-D[564],C-D[584],C-D[614],C-D[632],C-D[641],P-CM[2],P-DISP[2],P-CM[3],P-DISP[3],P-CM[4],P-DISP[4],P-CM[odd],P-DISP[odd],Y-CM[2],Y-DISP[2],Y-CM[4],Y-DISP[4],Y-CM[6],Y-DISP[6],Y-CM[8],Y-DISP[8],Y-CM[10],Y-DISP[10],T-CM[0],T-DISP[0],T-CM[1],T-DISP[1],T-CM[2],T-DISP[2],T-CM[3],T-DISP[3],T-CM[4],T-DISP[4],T-CM[5],T-DISP[5],T-CM[6],T-DISP[6],T-CM[7],T-DISP[7]
+PASS H3 POSITIVE CONTROL: the frozen callables themselves raise on Fu Xi for all five Y-DISP members (the undefinedness the scorer lane reported), which the DEFINED rule turns into NA rather than a number
+PASS H4 on a synthetic random permutation (non-C1) the rule yields a value or NA for every member and never raises
+AMENDMENT=1 (A1 ranges, A2 DEFINED rule; A3/A4 are analyze-side, see PREREG_C8SCREEN_AMENDMENT_1_2026_10_11.md)
+PASS F1 this script never names the KW table (verify's list or solve's) outside this guard line
+KW_TOUCHED=NO
+DEFCHECK=PASS

@@ -5450,7 +5450,7 @@ typedef struct {
     double dav2_sum[2];                   /* weighted sum of each wave-2 candidate's value over canonical leaves */
     double dav2_sq_below[2], dav2_sq_at[2], dav2_sq_above[2]; /* squared-weight twins: delta-method SE for the mass ratios (Q-374) */
     double dav2_below[2], dav2_at[2], dav2_above[2];  /* weighted mass <KW / ==KW / >KW per wave-2 candidate */
-    int dav2_min[2], dav2_max[2];         /* min/max wave-2 candidate value seen across canonical leaves */ struct QoyAcc *qoy; /* SOLVE_KNUTH_SCORE_QOY=1: Q-OY1/Q-992 accumulator (heap; NULL otherwise) */
+    int dav2_min[2], dav2_max[2];         /* min/max wave-2 candidate value seen across canonical leaves */ struct QoyAcc *qoy; /* SOLVE_KNUTH_SCORE_QOY=1: Q-OY1/Q-992 accumulator (heap; NULL otherwise) */ struct C8Acc *c8; /* SOLVE_KNUTH_SCORE_C8=1: Pilot A C8-screen accumulator (heap; NULL otherwise) */
     /* SOLVE_KNUTH_SCORE_DB1=1 (Drasny "Rule of Ten" D-B1, Null B): weighted
      * canonical-leaf mass of the conformity count X (see the DB1 block below).
      * db1_hist[0..32] = exact-value histogram; below/at/above split at KW's X=22.
@@ -6607,7 +6607,7 @@ static void score_dav2(const int seq[64], double W, KnuthArg *a){
         }
     }
 }
-/* Q-OY1/Q-992 scorer (SOLVE_KNUTH_SCORE_QOY): declared here, defined in the qoy_* block before solve_env_preflight (placed there so no cited line moves). */ static int knuth_score_qoy = 0; static void score_qoy(const int seq[64], double Wt, KnuthArg *a); static void qoy_alloc_arg(KnuthArg *a); static void qoy_report(KnuthArg *arg, int nthreads, double sC, double qC, unsigned long long N); static int qoy_verify_main(int argc, char *argv[]);
+/* Q-OY1/Q-992 scorer (SOLVE_KNUTH_SCORE_QOY): declared here, defined in the qoy_* block before solve_env_preflight (placed there so no cited line moves). */ static int knuth_score_qoy = 0; static void score_qoy(const int seq[64], double Wt, KnuthArg *a); static void qoy_alloc_arg(KnuthArg *a); static void qoy_report(KnuthArg *arg, int nthreads, double sC, double qC, unsigned long long N); static int qoy_verify_main(int argc, char *argv[]); /* Pilot A C8 screen (SOLVE_KNUTH_SCORE_C8; PREREG_C8SCREEN_2026_10_11 §7.1): defined in the c8_* block after the qoy_* block. */ static int knuth_score_c8 = 0; static void score_c8(const int seq[64], double Wt, KnuthArg *a); static void c8_alloc_arg(KnuthArg *a); static void c8_report(KnuthArg *arg, int nthreads, double sC, double qC, unsigned long long N); static int c8_verify_main(int argc, char *argv[]); static int c8_list_main(int argc, char *argv[]); static int c8_null0_main(int argc, char *argv[]);
 /* ===================== Drasny "Rule of Ten" candidate D-B1 (SOLVE_KNUTH_SCORE_DB1) =====================
  * Rule-of-Ten conformity count X = # of pair-slots whose functional group matches
  * the group assigned to that slot's "room". Operational spec frozen in
@@ -8168,7 +8168,7 @@ static void *knuth_worker(void *vp){
                     if (knuth_score_reg) score_registry(seq, W, a);
                     if (knuth_score_f4p) score_f4p(seq, W, a);
                     if (knuth_score_dav) score_dav(seq, W, a);
-                    if (knuth_score_qoy) { score_qoy(seq, W, a); } if (knuth_score_dav2) score_dav2(seq, W, a);
+                    if (knuth_score_qoy) { score_qoy(seq, W, a); } if (knuth_score_c8) { score_c8(seq, W, a); } if (knuth_score_dav2) score_dav2(seq, W, a);
                     if (knuth_score_db1)  score_db1(seq, W, a);
                     if (knuth_score_f5)  score_f5(seq, W, a);
                     if (knuth_score_f6)  score_f6(seq, W, a);
@@ -8547,7 +8547,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
             arg[i].dav2_hist = (double*)calloc(2 * 64, sizeof(double));
             for (int k2 = 0; k2 < 2; k2++){ arg[i].dav2_min[k2] = INT_MAX; arg[i].dav2_max[k2] = INT_MIN; }
         }
-        if (knuth_score_qoy) { qoy_alloc_arg(&arg[i]); } if (knuth_score_db1) { arg[i].db1_min = INT_MAX; arg[i].db1_max = INT_MIN; }
+        if (knuth_score_qoy) { qoy_alloc_arg(&arg[i]); } if (knuth_score_c8) { c8_alloc_arg(&arg[i]); } if (knuth_score_db1) { arg[i].db1_min = INT_MAX; arg[i].db1_max = INT_MIN; }
         if (knuth_score_f5) {
             arg[i].f5_hist = (double*)calloc(11 * 64, sizeof(double));
             for (int k2 = 0; k2 < 11; k2++){ arg[i].f5_min[k2] = INT_MAX; arg[i].f5_max[k2] = INT_MIN; }
@@ -9004,7 +9004,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
                                dav2_names[k2], dav2_lo[k2] + b2, dav2H[k2 * 64 + b2]/sC);
     }
     free(dav2H);
-    if (knuth_score_qoy && sC > 0) { qoy_report(arg, nthreads, sC, qC, (unsigned long long)N); } if (knuth_score_db1 && sC > 0) {
+    if (knuth_score_qoy && sC > 0) { qoy_report(arg, nthreads, sC, qC, (unsigned long long)N); } if (knuth_score_c8 && sC > 0) { c8_report(arg, nthreads, sC, qC, (unsigned long long)N); } if (knuth_score_db1 && sC > 0) {
         /* Drasny "Rule of Ten" D-B1 conformity count X, Null B (dispositive
          * population null): weighted fraction of canonical mass with X below /
          * at / above KW's X=22. Ground truth classifier solve.py db1_* /
@@ -41817,7 +41817,7 @@ int main(int argc, char *argv[]) {
             knuth_score_dav2 = 1;
             fprintf(stderr, "[knuth] Davis-2012 wave-2 scoring ACTIVE (2 candidates: tquartet C-D9, xunslots C-D10; R8_DAVIS_PREREG_2026_07_10; ground truth solve.py dav2_*; C-D5 operator-declined)\n");
         }
-        if (getenv("SOLVE_KNUTH_SCORE_QOY") && atoi(getenv("SOLVE_KNUTH_SCORE_QOY")) == 1) { knuth_score_qoy = 1; fprintf(stderr, "[knuth] Q-OY1/Q-992 scoring ACTIVE (X cross-boundary swap adjacencies, D H16-coset-0 gap dispersion + descriptives; PREREG_QOY1_Q992_2026_10_09; ground truth solve.py q992_*/qoy1_* / --qoy-verify)\n"); } if (getenv("SOLVE_KNUTH_SCORE_DB1") && atoi(getenv("SOLVE_KNUTH_SCORE_DB1")) == 1) {
+        if (getenv("SOLVE_KNUTH_SCORE_QOY") && atoi(getenv("SOLVE_KNUTH_SCORE_QOY")) == 1) { knuth_score_qoy = 1; fprintf(stderr, "[knuth] Q-OY1/Q-992 scoring ACTIVE (X cross-boundary swap adjacencies, D H16-coset-0 gap dispersion + descriptives; PREREG_QOY1_Q992_2026_10_09; ground truth solve.py q992_*/qoy1_* / --qoy-verify)\n"); } if (getenv("SOLVE_KNUTH_SCORE_C8") && atoi(getenv("SOLVE_KNUTH_SCORE_C8")) == 1) { knuth_score_c8 = 1; fprintf(stderr, "[knuth] Pilot A C8-screen scoring ACTIVE (1,349 label-free slot/adjacency statistics, PREREG_C8SCREEN_2026_10_11; ground truth solve.py C8_REFERENCE_SRC / --c8-verify; no KW line)\n"); } if (getenv("SOLVE_KNUTH_SCORE_DB1") && atoi(getenv("SOLVE_KNUTH_SCORE_DB1")) == 1) {
             knuth_score_db1 = 1;
             fprintf(stderr, "[knuth] Drasny Rule-of-Ten D-B1 scoring ACTIVE (conformity count X, Null B / dispositive population null; DRASNY_RULE_OF_TEN_SCOPING_2026_07_11; ground truth solve.py db1_* / --db1-verify; KW X=22)\n");
         }
@@ -41879,7 +41879,7 @@ int main(int argc, char *argv[]) {
                 }
             }
             if (knuth_score || knuth_score_reg || knuth_score_f4p || knuth_score_dav ||
-                knuth_score_dav2 || knuth_score_qoy || knuth_score_db1 || knuth_score_f5 || knuth_score_f6 ||
+                knuth_score_dav2 || knuth_score_qoy || knuth_score_c8 || knuth_score_db1 || knuth_score_f5 || knuth_score_f6 ||
                 knuth_score_perm || knuth_moore_strict || knuth_gender_strict || knuth_h2 ||
                 knuth_f11_hist || knuth_r11_hist || knuth_depth_profile || knuth_rc4b_t1 ||
                 knuth_bcond) {
@@ -42030,7 +42030,7 @@ int main(int argc, char *argv[]) {
         if (failures == 0) printf("DAV2 VERIFY: PASS\n");
         else printf("DAV2 VERIFY: %d FAILURES\n", failures);
         return failures ? 1 : 0;
-    } else if (argc > 1 && strcmp(argv[1], "--qoy-verify") == 0) { return qoy_verify_main(argc, argv); } else if (argc > 1 && strcmp(argv[1], "--db1-verify") == 0) {
+    } else if (argc > 1 && strcmp(argv[1], "--qoy-verify") == 0) { return qoy_verify_main(argc, argv); } else if (argc > 1 && strcmp(argv[1], "--c8-verify") == 0) { return c8_verify_main(argc, argv); } else if (argc > 1 && strcmp(argv[1], "--c8-list") == 0) { return c8_list_main(argc, argv); } else if (argc > 1 && strcmp(argv[1], "--c8-null0") == 0) { return c8_null0_main(argc, argv); } else if (argc > 1 && strcmp(argv[1], "--db1-verify") == 0) {
         /* Two-language gate for Drasny's "Rule of Ten" candidate D-B1: assert the
          * bit-structural classifier reproduces Table 4.1 (all 64 hexagrams) and
          * the KW conformity count X=22. Output format matches solve.py db1_verify
@@ -51893,6 +51893,297 @@ static int qoy_verify_main(int argc, char *argv[]){
     return 0;
 }
 
+/* ===================== Pilot A C8 screen scorer (SOLVE_KNUTH_SCORE_C8) =====================
+ * C port of the 1,349 frozen statistics of the pre-registration (public copy: reports/evidence/c8screen/PREREGISTRATION.md) §2.4
+ * (sha256 2ba24ece..., locked 2026-10-11 BEFORE any measurement). The SPEC is the prereg's
+ * normative reference code (reports/evidence/c8screen/prereg_c8screen_defcheck.py, sha256 bb017ec5..., §2.5; amended: _a1.py, 28889b9f...),
+ * which solve.py carries byte-for-byte (C8_REFERENCE_SRC). `--c8-verify FILE` prints one
+ * `c8 v1 ... v1349` line per C1 ordering in MEMBERS order; `solve.py --c8-verify <binary>`
+ * compares the two byte-for-byte on 10^5 seeded C1∩C4 orderings (prereg §7.1/§7.2). There is
+ * deliberately NO King Wen path in this block (prereg §7.1: KW's values come only from
+ * `solve.py --c8-kw`). `--c8-list members|subgroups` prints the member list and the 651-subgroup
+ * list whose sha256 are MEMBER_LIST_SHA256=529fb27a... (amendment 1 A1; frozen 486cac40...) and SUBGROUP_LIST_SHA256=44e8a16b....
+ * `--c8-null0 N` is the pair-only N0 sampler of §4.1 ((63,0) pinned in slot 1). Estimator-only,
+ * sha-neutral: active only under SOLVE_KNUTH_SCORE_C8=1 / the --c8-* subcommands; zero effect
+ * on enumeration paths.
+ *
+ * ATTRIBUTION: the order-16 coset reading behind Class C is 欧阳维诚 (Ouyang Weicheng) 1993; the
+ * trigram-relation tradition behind Class B includes 韩仲民 (Han Zhongmin) 1984; Classes Y/P
+ * follow descriptions by 程頤 (Cheng Yi) and Schulz (CITATIONS.md). The member definitions, the
+ * family and the population measurement are ROAE's. */
+
+#define C8_K 1349
+#define C8_NSUB 651
+typedef struct C8Acc {
+    double *h, *q;                         /* c8_nbins weighted-mass bins + squared-weight twins */
+    unsigned long long *c;                 /* c8_nbins leaf counts (prereg §5.4 n_A/n_B: scored leaves in a tail) */
+    unsigned long long leaves, clamped, undefined;
+} C8Acc;
+static int c8_ready = 0, c8_nbins = 0, c8_h16 = -1;
+static int c8_sub[C8_NSUB][16];
+static uint64_t c8_mask[C8_NSUB];
+static unsigned char c8_pc[C8_NSUB];      /* pair-closed (h in H => partner(h) in H) */
+static int c8_lo[C8_K], c8_hi[C8_K], c8_off[C8_K];
+static char c8_ids[C8_K][16], c8_strat[C8_K];
+
+static inline int c8_y(int h){ return __builtin_popcount((unsigned)h); }
+static inline int c8_rev(int h){ int r = 0; for (int i = 0; i < 6; i++) if ((h >> i) & 1) r |= 1 << (5 - i); return r; }
+static inline int c8_partner(int h){ int r = c8_rev(h); return r != h ? r : (h ^ 63); }
+static inline int c8_rev3(int t){ return ((t & 1) << 2) | (t & 2) | (t >> 2); }
+static int c8_subcmp(const void *a, const void *b){
+    const int *x = (const int *)a, *y = (const int *)b;
+    for (int i = 0; i < 16; i++) if (x[i] != y[i]) return x[i] < y[i] ? -1 : 1;
+    return 0;
+}
+static void c8_add_member(int *n, const char *id, char st, int lo, int hi){
+    if (*n >= C8_K) { fprintf(stderr, "FATAL: C8 member overflow\n"); exit(70); }
+    snprintf(c8_ids[*n], sizeof c8_ids[*n], "%s", id);
+    c8_strat[*n] = st; c8_lo[*n] = lo; c8_hi[*n] = hi; c8_off[*n] = c8_nbins; c8_nbins += hi - lo + 1; (*n)++;
+}
+/* The 651 order-16 subgroups (prereg §2.3: RREF enumeration, column c <-> bit 5-c, each subgroup
+ * as its sorted 16-tuple, the list sorted lexicographically) and the member table (§2.4, the
+ * defcheck's MEMBERS order and declared ranges). Called once before any thread starts. */
+static void c8_init(void){
+    if (c8_ready) return;
+    int ns = 0;
+    for (int p0 = 0; p0 < 6; p0++) for (int p1 = p0 + 1; p1 < 6; p1++) for (int p2 = p1 + 1; p2 < 6; p2++) for (int p3 = p2 + 1; p3 < 6; p3++) {
+        int piv[4] = {p0, p1, p2, p3}, fr[12], fc[12], nf = 0;
+        for (int r = 0; r < 4; r++) for (int c = piv[r] + 1; c < 6; c++) {
+            int isp = 0; for (int j = 0; j < 4; j++) if (piv[j] == c) isp = 1;
+            if (!isp) { fr[nf] = r; fc[nf] = c; nf++; }
+        }
+        for (int bits = 0; bits < (1 << nf); bits++) {
+            int rows[4]; for (int r = 0; r < 4; r++) rows[r] = 1 << (5 - piv[r]);
+            for (int i = 0; i < nf; i++) if ((bits >> i) & 1) rows[fr[i]] |= 1 << (5 - fc[i]);
+            int el[16], ne = 1; el[0] = 0;
+            for (int r = 0; r < 4; r++) { int m = ne; for (int j = 0; j < m; j++) el[ne++] = el[j] ^ rows[r]; }
+            for (int i = 1; i < 16; i++) { int v = el[i], j = i - 1; while (j >= 0 && el[j] > v) { el[j+1] = el[j]; j--; } el[j+1] = v; }
+            if (ns >= C8_NSUB) { fprintf(stderr, "FATAL: more than %d subspaces\n", C8_NSUB); exit(70); }
+            memcpy(c8_sub[ns++], el, sizeof el);
+        }
+    }
+    if (ns != C8_NSUB) { fprintf(stderr, "FATAL: %d subspaces, expected %d\n", ns, C8_NSUB); exit(70); }
+    qsort(c8_sub, C8_NSUB, sizeof c8_sub[0], c8_subcmp);
+    int h16[16], n16 = 0;
+    for (int h = 0; h < 64; h++) { int r = c8_rev(h); if (r == h || r == (h ^ 63)) h16[n16++] = h; }
+    for (int i = 0; i < C8_NSUB; i++) {
+        c8_mask[i] = 0; for (int j = 0; j < 16; j++) c8_mask[i] |= 1ULL << c8_sub[i][j];
+        int pc = 1; for (int j = 0; j < 16; j++) if (!((c8_mask[i] >> c8_partner(c8_sub[i][j])) & 1)) pc = 0;
+        c8_pc[i] = (unsigned char)pc;
+        if (n16 == 16 && memcmp(c8_sub[i], h16, sizeof h16) == 0) c8_h16 = i;
+    }
+    if (c8_h16 < 0) { fprintf(stderr, "FATAL: H16 not among the 651 subgroups\n"); exit(70); }
+    int n = 0; char id[16];
+    for (int i = 0; i < C8_NSUB; i++) {
+        if (i != c8_h16) { snprintf(id, sizeof id, "C-N[%03d]", i); c8_add_member(&n, id, 'C', 0, 31); }
+        if (!c8_pc[i])   { snprintf(id, sizeof id, "C-M[%03d]", i); c8_add_member(&n, id, 'C', 0, 32); }
+        if (c8_pc[i] && i != c8_h16) { snprintf(id, sizeof id, "C-D[%03d]", i); c8_add_member(&n, id, 'C', 0, 504); }
+    }
+    static const char *brel[8] = {"SL", "SU", "CL", "CU", "RL", "RU", "XL", "XU"};
+    for (int w = 0; w < 8; w++) { snprintf(id, sizeof id, "B-%s", brel[w]); c8_add_member(&n, id, 'S', 0, 31); }
+    static const char *pc4[4] = {"2", "3", "4", "odd"};
+    for (int c = 0; c < 4; c++) {
+        snprintf(id, sizeof id, "P-CM[%s]", pc4[c]);   c8_add_member(&n, id, 'S', 0, 496);   /* amendment 1 A1: 496 = 1+..+31, the universal bound (frozen 31*15 = 465 was N1-only; N0 reaches 496) */
+        snprintf(id, sizeof id, "P-DISP[%s]", pc4[c]); c8_add_member(&n, id, 'S', 0, 30 * 30);
+    }
+    c8_add_member(&n, "P-MAXRUN", 'S', 1, 32);
+    c8_add_member(&n, "Y-AC", 'S', -279, 279); c8_add_member(&n, "Y-TV", 'S', 0, 186);
+    c8_add_member(&n, "Y-RUNS", 'S', 1, 64);   c8_add_member(&n, "Y-MAXRUN", 'S', 1, 64);
+    for (int v = 2; v <= 10; v += 2) {
+        snprintf(id, sizeof id, "Y-CM[%d]", v);   c8_add_member(&n, id, 'S', 0, 528);
+        snprintf(id, sizeof id, "Y-DISP[%d]", v); c8_add_member(&n, id, 'S', 0, 1024);
+    }
+    for (int t = 0; t < 8; t++) {
+        snprintf(id, sizeof id, "T-CM[%d]", t);   c8_add_member(&n, id, 'S', 0, 528);
+        snprintf(id, sizeof id, "T-DISP[%d]", t); c8_add_member(&n, id, 'S', 0, 1024);
+    }
+    c8_add_member(&n, "T-CM[pure]", 'S', 0, 528); c8_add_member(&n, "T-DISP[pure]", 'S', 0, 1024);
+    if (n != C8_K) { fprintf(stderr, "FATAL: %d C8 members, expected %d\n", n, C8_K); exit(70); }
+    c8_ready = 1;
+}
+/* circ_disp (defcheck): sum of squared circular gaps of sorted 1-based positions on the 32-cycle.
+ * Undefined (the reference raises) on an empty set, which no C1 ordering produces; *undef counts it. */
+static int c8_circ(const int *K, int m, int *undef){
+    if (m == 0) { (*undef)++; return 0; }
+    int d = 0; for (int i = 0; i + 1 < m; i++) { int g = K[i+1] - K[i]; d += g * g; }
+    { int g = 32 + K[0] - K[m-1]; d += g * g; }
+    return d;
+}
+static int c8_lin(const int *K, int m){ int d = 0; for (int i = 0; i + 1 < m; i++) { int g = K[i+1] - K[i]; d += g * g; } return d; }
+/* All 1,349 values of ordering s, in MEMBERS order. Returns the number of undefined evaluations
+ * (0 on every C1 ordering: empty position sets or a pair-closed K_H with |K_H| != 8). */
+static int c8_compute(const int s[64], int v[C8_K]){
+    int undef = 0, n = 0, bw[31], cnt[64] = {0};
+    uint64_t ent = 0;
+    for (int k = 0; k < 32; k++) ent |= 1ULL << s[2*k];      /* C8_CM_ENTRY: e_k = s[2k] */
+    for (int b = 0; b < 31; b++) { bw[b] = s[2*b+1] ^ s[2*b+2]; cnt[bw[b]]++; }
+    for (int i = 0; i < C8_NSUB; i++) {
+        if (i != c8_h16) { int c = 0; for (int j = 0; j < 16; j++) c += cnt[c8_sub[i][j]]; v[n++] = c; }
+        if (!c8_pc[i]) v[n++] = __builtin_popcountll(ent & c8_mask[i]);
+        if (c8_pc[i] && i != c8_h16) {
+            int K[32], m = 0;
+            for (int k = 0; k < 32; k++) if (((c8_mask[i] >> s[2*k]) & 1) && ((c8_mask[i] >> s[2*k+1]) & 1)) K[m++] = k + 1;
+            if (m != 8) { undef++; v[n++] = 0; }
+            else { int d = 0; for (int j = 0; j < 7; j++) { int g = K[j+1] - K[j]; d += (g - 4) * (g - 4); } { int g = 32 + K[0] - K[7]; d += (g - 4) * (g - 4); } v[n++] = d; }
+        }
+    }
+    int br[8] = {0};
+    for (int b = 0; b < 31; b++) {
+        int x = s[2*b+1], e = s[2*b+2], Lx = x & 7, Ux = (x >> 3) & 7, Le = e & 7, Ue = (e >> 3) & 7;
+        br[0] += Lx == Le; br[1] += Ux == Ue; br[2] += Lx == (Le ^ 7); br[3] += Ux == (Ue ^ 7);
+        br[4] += Le == c8_rev3(Lx); br[5] += Ue == c8_rev3(Ux); br[6] += Le == Ux; br[7] += Ue == Lx;
+    }
+    for (int w = 0; w < 8; w++) v[n++] = br[w];
+    for (int c = 0; c < 4; c++) {
+        int B[31], m = 0, cm = 0;
+        for (int b = 0; b < 31; b++) { int d = c8_y(bw[b]); if (c == 3 ? (d % 2 == 1) : (d == c + 2)) { B[m++] = b + 1; cm += b + 1; } }
+        v[n++] = cm; v[n++] = c8_lin(B, m);
+    }
+    { int best = 1, cur = 1; for (int k = 1; k < 32; k++) { cur = (c8_y(s[2*k]) % 2 == c8_y(s[2*k-2]) % 2) ? cur + 1 : 1; if (cur > best) best = cur; } v[n++] = best; }
+    { int ac = 0, tv = 0; for (int b = 0; b < 31; b++) { int yx = c8_y(s[2*b+1]), ye = c8_y(s[2*b+2]); ac += (yx - 3) * (ye - 3); tv += abs(ye - yx); } v[n++] = ac; v[n++] = tv; }
+    { int sg[64]; for (int i = 0; i < 64; i++) { int t = c8_y(s[i]); sg[i] = (t > 3) - (t < 3); }
+      int runs = 1, best = 1, cur = 1;
+      for (int i = 1; i < 64; i++) { if (sg[i] != sg[i-1]) { runs++; cur = 1; } else cur++; if (cur > best) best = cur; }
+      v[n++] = runs; v[n++] = best; }
+    for (int val = 2; val <= 10; val += 2) {
+        int K[32], m = 0, cm = 0;
+        for (int k = 0; k < 32; k++) if (c8_y(s[2*k]) + c8_y(s[2*k+1]) == val) { K[m++] = k + 1; cm += k + 1; }
+        v[n++] = cm; v[n++] = c8_circ(K, m, &undef);
+    }
+    for (int t = 0; t < 8; t++) {
+        int K[32], m = 0, cm = 0;
+        for (int k = 0; k < 32; k++) { int e = s[2*k], x = s[2*k+1];
+            if ((e & 7) == t || ((e >> 3) & 7) == t || (x & 7) == t || ((x >> 3) & 7) == t) { K[m++] = k + 1; cm += k + 1; } }
+        v[n++] = cm; v[n++] = c8_circ(K, m, &undef);
+    }
+    { int K[32], m = 0, cm = 0;
+      for (int k = 0; k < 32; k++) if ((s[2*k] & 7) == ((s[2*k] >> 3) & 7)) { K[m++] = k + 1; cm += k + 1; }
+      v[n++] = cm; v[n++] = c8_circ(K, m, &undef); }
+    if (n != C8_K) { fprintf(stderr, "FATAL: c8_compute produced %d values\n", n); exit(70); }
+    return undef;
+}
+static void c8_acc_alloc(C8Acc *q){
+    c8_init();
+    q->h = (double*)calloc((size_t)c8_nbins, sizeof(double));
+    q->q = (double*)calloc((size_t)c8_nbins, sizeof(double));
+    q->c = (unsigned long long*)calloc((size_t)c8_nbins, sizeof(unsigned long long));
+    if (!q->h || !q->q || !q->c) { fprintf(stderr, "FATAL: C8Acc alloc\n"); exit(70); }
+}
+static void c8_accumulate(C8Acc *q, const int s[64], double Wt){
+    int v[C8_K];
+    q->undefined += (unsigned long long)c8_compute(s, v);
+    q->leaves++;
+    for (int m = 0; m < C8_K; m++) {
+        int b = v[m] - c8_lo[m], nb = c8_hi[m] - c8_lo[m] + 1;
+        if (b < 0) { b = 0; q->clamped++; }
+        if (b >= nb) { b = nb - 1; q->clamped++; }
+        q->h[c8_off[m] + b] += Wt; q->q[c8_off[m] + b] += Wt * Wt; q->c[c8_off[m] + b]++;
+    }
+}
+/* Evaluate the 1,349 C8 statistics on one canonical leaf (C1C2C4C5 + C3<=776); accumulate. */
+static void score_c8(const int seq[64], double Wt, KnuthArg *a){ c8_accumulate(a->c8, seq, Wt); }
+static void c8_alloc_arg(KnuthArg *a){
+    a->c8 = (struct C8Acc*)calloc(1, sizeof(C8Acc));
+    if (!a->c8) { fprintf(stderr, "FATAL: C8Acc alloc\n"); exit(70); }
+    c8_acc_alloc(a->c8);
+}
+/* RAW weighted sums at full precision so independent runs can be POOLED exactly (prereg §7.1):
+ * one `c8_hist <member-id> <value> <sum_w> <sum_w2>` line per non-empty bin, in MEMBERS order,
+ * then one `c8_hcnt <member-id> <value> <leaves>` line per non-empty bin: §5.4's n_A/n_B (scored
+ * leaves in a tail) are counts, which the weighted sums cannot give. */
+static void c8_print_acc(const C8Acc *T, double sC, double qC, unsigned long long N){
+    printf("C8_MEMBERS=%d\nC8_RAW_SC=%.17g\nC8_RAW_QC=%.17g\nC8_RAW_N=%llu\nC8_LEAVES_SCORED=%llu\nC8_CLAMPED=%llu\nC8_UNDEFINED=%llu\n",
+           C8_K, sC, qC, N, T->leaves, T->clamped, T->undefined);
+    for (int m = 0; m < C8_K; m++)
+        for (int b = 0; b <= c8_hi[m] - c8_lo[m]; b++)
+            if (T->h[c8_off[m] + b] > 0)
+                printf("c8_hist %s %d %.17g %.17g\n", c8_ids[m], c8_lo[m] + b, T->h[c8_off[m] + b], T->q[c8_off[m] + b]);
+    for (int m = 0; m < C8_K; m++)
+        for (int b = 0; b <= c8_hi[m] - c8_lo[m]; b++)
+            if (T->c[c8_off[m] + b] > 0)
+                printf("c8_hcnt %s %d %llu\n", c8_ids[m], c8_lo[m] + b, T->c[c8_off[m] + b]);
+}
+/* Pool the per-thread accumulators and print the C8 block (called from estimate_tree_knuth when sC > 0).
+ * No King Wen line (prereg §7.1). */
+static void c8_report(KnuthArg *arg, int nthreads, double sC, double qC, unsigned long long N){
+    C8Acc T; memset(&T, 0, sizeof T); c8_acc_alloc(&T);
+    for (int i = 0; i < nthreads; i++) {
+        C8Acc *q = arg[i].c8; if (!q) continue;
+        for (int b = 0; b < c8_nbins; b++) { T.h[b] += q->h[b]; T.q[b] += q->q[b]; T.c[b] += q->c[b]; }
+        T.leaves += q->leaves; T.clamped += q->clamped; T.undefined += q->undefined;
+        free(q->h); free(q->q); free(q->c); free(q); arg[i].c8 = NULL;
+    }
+    c8_print_acc(&T, sC, qC, N);
+    free(T.h); free(T.q); free(T.c);
+}
+static int c8_is_c1(const int s[64]){ for (int k = 0; k < 32; k++) if (s[2*k+1] != c8_partner(s[2*k])) return 0; return 1; }
+/* --c8-null0 N: the pair-only N0 sampler (prereg §4.1). Uniform over the orientation-explicit
+ * orderings of the 32 C1 pairs with (63, 0) pinned in slot 1: Fisher-Yates over the 31 free pairs
+ * and a fair orientation coin per free pair. The pairs come from partner() (never from the KW
+ * table). Single-threaded splitmix64 seeded by SOLVE_KNUTH_SEED (required), so the output is a
+ * function of the seed alone. Every draw has weight 1, so C8_RAW_SC = C8_RAW_QC = N. */
+static uint64_t c8_sm64(uint64_t *x){ uint64_t z = (*x += 0x9E3779B97F4A7C15ULL); z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL; z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL; return z ^ (z >> 31); }
+static uint64_t c8_below(uint64_t *x, uint64_t n){ uint64_t lim = UINT64_MAX - (UINT64_MAX % n), r; do r = c8_sm64(x); while (r >= lim); return r % n; }
+static int c8_null0_main(int argc, char *argv[]){
+    if (argc != 3 || argv[2][0] == 0 || argv[2][strspn(argv[2], "0123456789")] != 0 || strlen(argv[2]) > 19 || strtoull(argv[2], NULL, 10) == 0) {
+        fprintf(stderr, "ERROR: --c8-null0 takes exactly ONE argument, a positive decimal draw count N.\nC8_NULL0_ARGS=REFUSED\n"); return 2; }
+    const char *se = getenv("SOLVE_KNUTH_SEED");
+    if (!se || !*se) { fprintf(stderr, "ERROR: --c8-null0 requires SOLVE_KNUTH_SEED (prereg §6 null0-draws seed); no default stream is used.\nC8_NULL0_SEED=REFUSED\n"); return 2; }
+    uint64_t seed = (uint64_t)strtoull(se, NULL, 0), st = seed, N = strtoull(argv[2], NULL, 10);
+    c8_init();
+    int pa[31], pb[31], np = 0;
+    for (int h = 0; h < 64; h++) { int p = c8_partner(h); if (h < p && !(h == 0 && p == 63)) { pa[np] = h; pb[np] = p; np++; } }
+    if (np != 31) { fprintf(stderr, "FATAL: %d free pairs, expected 31\n", np); return 70; }
+    C8Acc T; memset(&T, 0, sizeof T); c8_acc_alloc(&T);
+    unsigned long long notc1 = 0;
+    for (uint64_t t = 0; t < N; t++) {
+        int ord[31], s[64];
+        for (int i = 0; i < 31; i++) ord[i] = i;
+        for (int i = 30; i > 0; i--) { int j = (int)c8_below(&st, (uint64_t)i + 1); int tmp = ord[i]; ord[i] = ord[j]; ord[j] = tmp; }
+        uint64_t coin = c8_sm64(&st);
+        s[0] = 63; s[1] = 0;
+        for (int i = 0; i < 31; i++) {
+            int p = ord[i];
+            if ((coin >> i) & 1) { s[2*i+2] = pb[p]; s[2*i+3] = pa[p]; } else { s[2*i+2] = pa[p]; s[2*i+3] = pb[p]; }
+        }
+        if (!c8_is_c1(s)) notc1++;
+        c8_accumulate(&T, s, 1.0);
+    }
+    printf("C8_NULL0_DRAWS=%llu\nC8_NULL0_SEED=%llu\nC8_NULL0_NOT_C1=%llu\n", (unsigned long long)N, (unsigned long long)seed, notc1);
+    c8_print_acc(&T, (double)N, (double)N, (unsigned long long)N);
+    free(T.h); free(T.q); free(T.c);
+    return 0;
+}
+/* --c8-verify FILE: one `c8 v1 ... v1349` line per ordering (64 whitespace-separated integers per
+ * line, each a C1 permutation of 0..63), then C8_VERIFY_N=<count>; byte-for-byte the output of
+ * solve.py c8_lines. No KW argument exists (prereg §7.1). --c8-list members|subgroups prints the
+ * member table (`id TAB stratum TAB lo TAB hi`) or the subgroup list (comma-joined 16-tuples). */
+static int c8_verify_main(int argc, char *argv[]){
+    if (argc != 3) { fprintf(stderr, "ERROR: --c8-verify takes exactly one argument (a file of C1 orderings); got %d.\nC8_VERIFY_ARGS=REFUSED\n", argc - 2); return 2; }
+    c8_init();
+    FILE *f = fopen(argv[2], "r");
+    if (!f) { fprintf(stderr, "ERROR: --c8-verify cannot open '%s'\nC8_VERIFY_ARGS=REFUSED\n", argv[2]); return 2; }
+    long nl = 0; int sq[64], v[C8_K];
+    for (;;) {
+        int got = 0, seen[64] = {0}, bad = 0;
+        for (int j = 0; j < 64; j++) { if (fscanf(f, "%d", &sq[j]) != 1) break; got++; if (sq[j] < 0 || sq[j] > 63 || seen[sq[j]]++) bad = 1; }
+        if (got == 0) break;
+        if (got != 64 || bad || !c8_is_c1(sq)) { fprintf(stderr, "ERROR: --c8-verify ordering %ld is not a C1 permutation of 0..63\nC8_VERIFY_INPUT=REFUSED\n", nl + 1); fclose(f); return 2; }
+        if (c8_compute(sq, v)) { fprintf(stderr, "ERROR: --c8-verify ordering %ld has an undefined member\nC8_VERIFY_INPUT=REFUSED\n", nl + 1); fclose(f); return 2; }
+        fputs("c8", stdout); for (int m = 0; m < C8_K; m++) printf(" %d", v[m]); putchar('\n');
+        nl++;
+    }
+    fclose(f);
+    printf("C8_VERIFY_N=%ld\n", nl);
+    return 0;
+}
+static int c8_list_main(int argc, char *argv[]){
+    if (argc != 3 || (strcmp(argv[2], "members") && strcmp(argv[2], "subgroups"))) { fprintf(stderr, "ERROR: --c8-list takes exactly one argument, members or subgroups.\nC8_LIST_ARGS=REFUSED\n"); return 2; }
+    c8_init();
+    if (!strcmp(argv[2], "members")) for (int m = 0; m < C8_K; m++) printf("%s\t%c\t%d\t%d\n", c8_ids[m], c8_strat[m], c8_lo[m], c8_hi[m]);
+    else for (int i = 0; i < C8_NSUB; i++) { for (int j = 0; j < 16; j++) printf(j ? ",%d" : "%d", c8_sub[i][j]); putchar('\n'); }
+    return 0;
+}
 static int solve_env_preflight(void) {
     const long long IM = INT_MAX, LM = LLONG_MAX, TB = 1LL << 40;
     const SolveEnvSpec specs[] = {
@@ -51940,7 +52231,7 @@ static int solve_env_preflight(void) {
         {"SOLVE_KNUTH_FIBER", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_H2", SENV_BOOL, 0, 1},
         {"SOLVE_RC4B_ASSERT_T1", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE", SENV_BOOL, 0, 1},
         {"SOLVE_KNUTH_SCORE_F4P", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE_DAV", SENV_BOOL, 0, 1},
-        {"SOLVE_KNUTH_SCORE_DAV2", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE_QOY", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE_DB1", SENV_BOOL, 0, 1},
+        {"SOLVE_KNUTH_SCORE_DAV2", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE_QOY", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE_C8", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_SCORE_DB1", SENV_BOOL, 0, 1},
         {"SOLVE_KNUTH_F4P_HIST", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_DAV_HIST", SENV_BOOL, 0, 1},
         {"SOLVE_KNUTH_DAV2_HIST", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_DB1_HIST", SENV_BOOL, 0, 1},
         {"SOLVE_KNUTH_F5_HIST", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_F6_HIST", SENV_BOOL, 0, 1},

@@ -1,0 +1,4 @@
+[knuth] RNG SEED OVERRIDE ACTIVE: base=0x04fe8e27592ab0f4 (R11 Phase-2 independent-seed replicate; estimator-only, sha-neutral)
+[knuth] attributed-rule scoring ACTIVE (Cook 2006: R-C1/R-C2; classical+Hacker-Moore 2003: R-C5; Moore 2005: R-M1)
+[knuth] Pilot A C8-screen scoring ACTIVE (1,349 label-free slot/adjacency statistics, PREREG_C8SCREEN_2026_10_11; ground truth solve.py C8_REFERENCE_SRC / --c8-verify; no KW line)
+[knuth] 10000000000 probes, 16 threads, 0 prefix level(s)

@@ -19201,15 +19201,27 @@ class TestLaneHFRedactReproOutCompileRatchet(unittest.TestCase):
         # freeze-time defcheck (1540879a..., the lock-ledger digest; its README tells a reader to change
         # line 7). A file is exempt only while its whole sha256 equals the value below; any edit re-arms
         # the sweep on every line of it.
+        # CX-354 item 6: four Pilot A C8-screen files, on the same terms: the public pre-registration
+        # copy (line 53 names the author's checkout), the frozen and the amended defcheck (line 12 of
+        # each, digests = lock-ledger lines 5 and 7), and the instrument-pin patch (a positive-control
+        # path inside the pinned tests.py). Each digest is recorded in that bundle's README.
         frozen = {"reports/evidence/qoy1_q992/PREREGISTRATION.md":
                   "005a0dab66f77f5921e2cad9260a0310874cfc5ebd6e56a27195e67fc8d23fc2",
                   "reports/evidence/qoy1_q992/prereg_qoy1_q992_defcheck.py":
-                  "1540879aa119724f380d5bd191652bea46dc330e85cdf5556c4b9a86c89b7bf7"}
+                  "1540879aa119724f380d5bd191652bea46dc330e85cdf5556c4b9a86c89b7bf7",
+                  "reports/evidence/c8screen/PREREGISTRATION.md":
+                  "de89498bb6df51fe55b271f22ac26fcec919653203e5a92677d39075cbca1d67",
+                  "reports/evidence/c8screen/prereg_c8screen_defcheck.py":
+                  "bb017ec5fc57f20acd0e6e20fff4053fe46e29ce1c13659994cbf019080e8091",
+                  "reports/evidence/c8screen/prereg_c8screen_defcheck_a1.py":
+                  "28889b9f4f50e02ccda9ea6359c7c7b1cdafd367fe3c678d0d325bda34022adb",
+                  "reports/evidence/c8screen/instrument_pin_a4014080.patch":
+                  "ba30dd4ec1e2243259fc44637173f46d0e43623a4617d7dc620b046e34edcb66"}
         def exempt(rel, b):
             return frozen.get(rel) == hashlib.sha256(b).hexdigest()
-        with open(os.path.join(self.ROOT, "reports/evidence/qoy1_q992/README.md"), encoding="utf-8") as fh:
-            readme = fh.read()
         for rel, sha in sorted(frozen.items()):
+            with open(os.path.join(self.ROOT, os.path.dirname(rel), "README.md"), encoding="utf-8") as fh:
+                readme = fh.read()
             self.assertIn(rel, files, "precondition: drop the exemption for %s if it is no longer shipped" % rel)
             self.assertIn(sha, readme, "the bundle README records the exempted digest of %s" % rel)
             with open(os.path.join(self.ROOT, rel), "rb") as fh:
@@ -28037,15 +28049,25 @@ class TestLaneHAJ(unittest.TestCase):
         # tests.py f91b3e11... byte for byte, and those files name the private registration path). A
         # file is exempt only while its whole sha256 equals the value below, so any edit, including a
         # new private pointer, re-arms the sweep on every line of it.
+        # CX-354 item 6: three Pilot A C8-screen files on the same terms: the public pre-registration
+        # copy (cost passages removed; lines 6, 54 and 454 name the private repository), the amendment,
+        # shipped byte-identical to its lock-ledger digest 3429f1d2... (line 180), and the
+        # instrument-pin patch (it must reproduce the pinned solve.c / solve.py / tests.py byte for byte).
         frozen = {"reports/evidence/qoy1_q992/PREREGISTRATION.md":
                   "005a0dab66f77f5921e2cad9260a0310874cfc5ebd6e56a27195e67fc8d23fc2",
                   "reports/evidence/qoy1_q992/instrument_pin_4b590dfc.patch":
-                  "e4dd40aeb61258d02e9897da4d2f5af0dc7b82673c9f91c827314e7896588519"}
+                  "e4dd40aeb61258d02e9897da4d2f5af0dc7b82673c9f91c827314e7896588519",
+                  "reports/evidence/c8screen/PREREGISTRATION.md":
+                  "de89498bb6df51fe55b271f22ac26fcec919653203e5a92677d39075cbca1d67",
+                  "reports/evidence/c8screen/PREREGISTRATION_AMENDMENT_1.md":
+                  "3429f1d2272a74344fd6af06cde4e6ba2fcd3c0f57c798053c2f8c0eec6ba8b5",
+                  "reports/evidence/c8screen/instrument_pin_a4014080.patch":
+                  "ba30dd4ec1e2243259fc44637173f46d0e43623a4617d7dc620b046e34edcb66"}
         def exempt(rel, b):
             return frozen.get(rel) == hashlib.sha256(b).hexdigest()
-        with open(os.path.join(self.ROOT, "reports/evidence/qoy1_q992/README.md"), encoding="utf-8") as fh:
-            readme = fh.read()
         for rel, sha in sorted(frozen.items()):
+            with open(os.path.join(self.ROOT, os.path.dirname(rel), "README.md"), encoding="utf-8") as fh:
+                readme = fh.read()
             self.assertIn(rel, files, "precondition: drop the exemption for %s if it is no longer shipped" % rel)
             self.assertIn(sha, readme, "the bundle README records the exempted digest of %s" % rel)
             with open(os.path.join(self.ROOT, rel), "rb") as fh:
@@ -37601,6 +37623,36 @@ class TestB39DReviewerSelfcheckVerdicts(unittest.TestCase):
 # end class TestB39DReviewerSelfcheckVerdicts (batch 39, lane B39D)
 
 
+# GATE 22's allowlist (hex_allow in 70_publication_surfaces.sh) is DATA about the corpus, not the cure.
+# Each row names a truncated token in the tracked docs and says why it cannot expand, so it pairs with
+# the corpus the leg reads, and a later batch that publishes such a token adds its row in the same
+# commit. The uncured halves of TestQ968NumberLexer, TestQ966WordMatcher and TestQ976Q977Q978Batch43
+# run their PINNED scripts over THIS tree's docs; with the pinned table, batch 50's two git tree ids
+# (`4b590dfc…`, `a4014080…`, frozen in reports/evidence/c8screen/PREREGISTRATION*.md) made uncured
+# hex-prefix rc 1 before any plant, which measures the pinned table's age, not the plants. So the
+# uncured scripts read the CURRENT table (the counterpart of TestQ970's DATA tuple, where the data
+# pairs with the pinned script and so comes from the pinned tree). The transplant is loud: the block
+# must be found exactly once on both sides, and every line of the current one must be a case arm or
+# its echo, so no code can travel with the data.
+_HEX_ALLOW_FILE = "scripts/doc_gates.d/70_publication_surfaces.sh"
+_HEX_ALLOW_RX = re.compile(rb'\n  hex_allow\(\) \{ case "\$1" in\n(.*?)\n    \*\) echo "";; esac; \}\n', re.S)
+_HEX_ALLOW_ROW = re.compile(rb'    [0-9a-f]+(\|[0-9a-f]+)*\)|      echo "[^"\n]*";;')
+
+
+def _uncured_with_current_hex_allow(uncured, fixed):
+    u, f = uncured[_HEX_ALLOW_FILE], fixed[_HEX_ALLOW_FILE]
+    mu, mf = list(_HEX_ALLOW_RX.finditer(u)), list(_HEX_ALLOW_RX.finditer(f))
+    if len(mu) != 1 or len(mf) != 1:
+        raise AssertionError("precondition: hex_allow's table is found once in the pinned (%d) and the current "
+                             "(%d) %s" % (len(mu), len(mf), _HEX_ALLOW_FILE))
+    bad = [l for l in mf[0].group(1).split(b"\n") if not _HEX_ALLOW_ROW.fullmatch(l)]
+    if bad:
+        raise AssertionError("precondition: the current hex_allow table is data only; not a row: %r" % bad[:3])
+    out = dict(uncured)
+    out[_HEX_ALLOW_FILE] = u[:mu[0].start()] + mf[0].group(0) + u[mu[0].end():]
+    return out
+
+
 class TestQ965MarkdownNormaliser(unittest.TestCase):
     """Q-965 (batch 40; R1 of review_2026_09_27/Q962_ADJUDICATION_REPORT.md, from the Q-835 Codex
     lens-A push-path review). The prose and number legs scanned RAW LINES, so ordinary Markdown hid
@@ -38046,6 +38098,7 @@ class TestQ968NumberLexer(unittest.TestCase):
             for f in names + ["scripts/doc_gates.sh"]:
                 cls.uncured[f] = subprocess.run(["git", "-C", cls.ROOT, "show", "%s:%s" % (cls.PIN, f)],
                                                 capture_output=True, check=True).stdout
+            cls.uncured = _uncured_with_current_hex_allow(cls.uncured, cls.fixed)   # GATE 22's table is corpus data
 
     @classmethod
     def tearDownClass(cls):
@@ -38665,6 +38718,7 @@ class TestQ966WordMatcher(unittest.TestCase):
             for f in names + list(cls.SCRIPTS):
                 cls.uncured[f] = subprocess.run(["git", "-C", cls.ROOT, "show", "%s:%s" % (cls.PIN, f)],
                                                 capture_output=True, check=True).stdout
+            cls.uncured = _uncured_with_current_hex_allow(cls.uncured, cls.fixed)   # GATE 22's table is corpus data
 
     @classmethod
     def tearDownClass(cls):
@@ -40935,6 +40989,7 @@ class TestQ976Q977Q978Batch43(unittest.TestCase):
             for f in names + list(cls.SCRIPTS):
                 cls.uncured[f] = subprocess.run(["git", "-C", cls.ROOT, "show", "%s:%s" % (cls.PIN, f)],
                                                 capture_output=True, check=True).stdout
+            cls.uncured = _uncured_with_current_hex_allow(cls.uncured, cls.fixed)   # GATE 22's table is corpus data
 
     @classmethod
     def tearDownClass(cls):
@@ -44370,6 +44425,334 @@ class TestQ998SnapshotTrackedIgnored(unittest.TestCase):
         self.assertNotIn("add -A", body, "snapshot() must stage the exact list, never `git add -A`")
 
 # end class TestQ998SnapshotTrackedIgnored (batch 51, Q-998)
+
+
+class TestC8Scorer(unittest.TestCase):
+    """PREREG_C8SCREEN_2026_10_11 §7.1 (Pilot A, the C8 screen): the 1,349-member scorer's
+    two-language gate and its mutant legs as standing regressions. Leg 1: solve.c --c8-verify
+    reproduces solve.py's --c8-print byte-for-byte on synthetic and seeded random C1∩C4
+    orderings (the §6 gate seed; fewer orderings than the recorded 10^5 run, which is
+    `python3 solve.py --c8-verify ./solve`). Leg 2 (gates must discriminate): a build with
+    e_k <-> x_k swapped in C-M (the prereg's own mutant) and a build with the circular-gap wrap
+    off by one must each make the same gate print C8_VERIFY=FAIL. The member list and the
+    651-subgroup list must hash to the frozen MEMBER_LIST_SHA256 / SUBGROUP_LIST_SHA256 in BOTH
+    languages. These test the INSTRUMENT, never King Wen: no ordering here is King Wen, and
+    --c8-kw is exercised only on its refusal path."""
+
+    N = 600
+    MEMBER_SHA = "529fb27a96ec9ebc422b64ef0f5d091319a85e859bb65fbc93f6f61aef6ff34a"      # amendment 1 A1 (frozen 486cac40...)
+    SUBGROUP_SHA = "44e8a16bd08c4caf0edd1619ca598b891e5515836ca6feb67ae59fd605d40d52"
+    REFERENCE_SHA = "6a1aa402697aca2a03091835dfb2f1d689396ca8ff38c18787f22652cb319983"   # amendment 1 A1 (frozen e07e64a4...)
+    DEFCHECK_SHA = "28889b9f4f50e02ccda9ea6359c7c7b1cdafd367fe3c678d0d325bda34022adb"    # prereg_c8screen_defcheck_a1.py (amendment 1; frozen bb017ec5...)
+    FROZEN_DEFCHECK_SHA = "bb017ec5fc57f20acd0e6e20fff4053fe46e29ce1c13659994cbf019080e8091"   # prereg_c8screen_defcheck.py (lock ledger line 5)
+    CM_LINE = "for (int k = 0; k < 32; k++) ent |= 1ULL << s[2*k];      /* C8_CM_ENTRY"
+    WRAP_LINE = "{ int g = 32 + K[0] - K[m-1]; d += g * g; }"
+
+    SCORER = ("_C8", "c8_gate", "c8_gate_orderings", "C8_REFERENCE_SRC")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="c8_")
+        # Red-leg precondition: on a tree without the scorer every test here must FAIL on one stated
+        # assertion (setUp below), not ERROR in this fixture on an AttributeError, so nothing that
+        # needs solve.py's C8 block runs until it is known to be there.
+        cls.missing = [a for a in cls.SCORER if not hasattr(solve, a)]
+        if cls.missing:
+            return
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        with open(src) as fh:
+            cls.text = fh.read()
+        muts = {"cm_exit": cls.text.replace(cls.CM_LINE, cls.CM_LINE.replace("s[2*k];", "s[2*k+1];")),
+                "wrap": cls.text.replace(cls.WRAP_LINE, cls.WRAP_LINE.replace("32 + K[0]", "31 + K[0]"))}
+        cls.srcs = {"good": src}
+        for tag, body in muts.items():
+            p = os.path.join(cls.tmp, "solve_c8_%s.c" % tag)
+            with open(p, "w") as fh:
+                fh.write(body)
+            cls.srcs[tag] = p
+        cls.bins = {}
+        for tag, path in cls.srcs.items():
+            b = os.path.join(cls.tmp, "solve_" + tag)
+            r = subprocess.run(["timeout", "600", "gcc", "-O1", "-fopenmp", "-o", b, path,
+                                "-lm", "-lpthread", "-lz"], capture_output=True, text=True)
+            cls.bins[tag] = b if r.returncode == 0 and os.path.exists(b) else None
+        # Synthetic orderings (never King Wen): the defcheck's designed sequence (pairs sorted by
+        # their least element, least first), the same with every free pair's orientation flipped,
+        # and the pair order reversed, then seeded random C1∩C4 draws.
+        P = solve._C8["PAIRS"]
+        rest = sorted((min(p), max(p)) for p in P if p != frozenset((0, 63)))
+        des = [63, 0] + [h for p in rest for h in p]
+        flip = [63, 0] + [h for a, b in rest for h in (b, a)]
+        rev = [63, 0] + [h for p in reversed(rest) for h in p]
+        cls.synthetic = [des, flip, rev]
+        cls.seqs = cls.synthetic + solve.c8_gate_orderings(cls.N)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def setUp(self):
+        self.assertEqual(self.missing, [], "precondition: solve.py carries the C8 scorer; this tree lacks %s"
+                         % ", ".join("solve." + a for a in self.missing))
+
+    def _gate(self, binary, seqs=None):
+        import io, contextlib
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = solve.c8_gate(binary, timeout=600, seqs=self.seqs if seqs is None else seqs)
+        return rc, buf.getvalue().splitlines()
+
+    # --- the frozen definitions, carried byte-for-byte --------------------------------------
+    def test_reference_src_digest_pinned(self):
+        self.assertEqual(hashlib.sha256(solve.C8_REFERENCE_SRC.encode("utf-8")).hexdigest(), self.REFERENCE_SHA)
+        self.assertEqual(solve.C8_REFERENCE_SHA256, self.REFERENCE_SHA)
+        self.assertEqual(solve.C8_DEFCHECK_SHA256, self.DEFCHECK_SHA)
+        self.assertEqual(solve.C8_DEFCHECK_LINES, ((11, 11), (15, 25), (37, 52), (55, 55), (57, 59), (83, 158), (163, 163)))
+        self.assertNotIn("chk(", solve.C8_REFERENCE_SRC, "the defcheck's verification lines are not part of §2.5")
+        self.assertNotIn("binary_hexagrams", solve.C8_REFERENCE_SRC)
+        self.assertNotIn("V.KW", solve.C8_REFERENCE_SRC)
+
+    def test_reference_src_is_the_frozen_defcheck_excerpt(self):
+        # The amended defcheck ships verbatim in the evidence bundle (batch 50, CX-354), so the
+        # re-extraction runs on every tree; ROAE_C8_DEFCHECK may name another copy of it.
+        path = os.environ.get("ROAE_C8_DEFCHECK") or os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "reports/evidence/c8screen/prereg_c8screen_defcheck_a1.py")
+        self.assertTrue(os.path.isfile(path), "precondition: the amended defcheck is shipped at %s" % path)
+        with open(path, "rb") as fh:
+            raw = fh.read()
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), self.DEFCHECK_SHA, "not the frozen defcheck")
+        lines = raw.decode("utf-8").split("\n")
+        exc = "".join(l + "\n" for a, b in solve.C8_DEFCHECK_LINES for l in lines[a - 1:b])
+        self.assertEqual(exc, solve.C8_REFERENCE_SRC)
+        self.assertNotEqual(exc.replace("(0, 496)", "(0, 497)"), solve.C8_REFERENCE_SRC, "positive control")
+        self.assertIn("(0, 496)))", exc, "amendment 1 A1: the four P-CM ranges are 0..496")
+
+    def test_shipped_defchecks_differ_inside_the_extract_only_at_line_147(self):
+        # Amendment 1 §9-A0 says the a1 defcheck equals the frozen bb017ec5... on lines 1-163 except
+        # line 147. Measured (CX-354 item 4): the module docstring, lines 2-10, differs as well. Those
+        # lines are outside the §2.5 extract ranges, so inside the extract only line 147 (the P-CM
+        # range line) differs, and the extract still names the frozen code.
+        d = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports/evidence/c8screen")
+        with open(os.path.join(d, "prereg_c8screen_defcheck.py"), "rb") as fh:
+            fz = fh.read()
+        with open(os.path.join(d, "prereg_c8screen_defcheck_a1.py"), "rb") as fh:
+            a1 = fh.read()
+        self.assertEqual(hashlib.sha256(fz).hexdigest(), self.FROZEN_DEFCHECK_SHA, "not the frozen defcheck")
+        self.assertEqual(hashlib.sha256(a1).hexdigest(), self.DEFCHECK_SHA, "not the amended defcheck")
+        fl, al = fz.decode("utf-8").split("\n"), a1.decode("utf-8").split("\n")
+        diff = [i + 1 for i in range(163) if fl[i] != al[i]]
+        self.assertEqual(diff, list(range(2, 11)) + [147], "the docstring and the P-CM line, nothing else")
+        inside = {n for a, b in solve.C8_DEFCHECK_LINES for n in range(a, b + 1)}
+        self.assertEqual([n for n in diff if n in inside], [147])
+        self.assertIn("31 * 15", fl[146])
+        self.assertIn("(0, 496)", al[146])
+
+    def test_reference_namespace_does_not_rebind_solve(self):
+        # The excerpt defines rev, comp, partner, H16 ... at its own module level; executed in a
+        # private namespace they must not replace solve.py's (H16 there is the QOY frozenset).
+        self.assertIsInstance(solve.H16, frozenset)
+        self.assertIs(solve.rev, solve.verify._zong)
+        self.assertIsInstance(solve._C8["H16"], tuple)
+        self.assertNotIn("C_N", vars(solve))
+
+    def test_member_and_subgroup_lists_hash_to_the_frozen_values(self):
+        self.assertEqual(len(solve.C8_MEMBERS), 1349)
+        self.assertEqual(sum(m[1] == "C" for m in solve.C8_MEMBERS), 1300)
+        self.assertEqual(sum(m[1] == "S" for m in solve.C8_MEMBERS), 49)
+        self.assertEqual(len(solve.C8_SUBS), 651)
+        self.assertEqual(hashlib.sha256(solve.c8_member_list_text().encode()).hexdigest(), self.MEMBER_SHA)
+        self.assertEqual(hashlib.sha256(solve.c8_subgroup_list_text().encode()).hexdigest(), self.SUBGROUP_SHA)
+        self.assertEqual(solve._C8["MEMBER_SHA"], self.MEMBER_SHA)
+        self.assertEqual(solve._C8["LIST_SHA"], self.SUBGROUP_SHA)
+        self.assertEqual(solve.C8_MEMBER_LIST_SHA256, self.MEMBER_SHA)
+        self.assertEqual(solve.C8_SUBGROUP_LIST_SHA256, self.SUBGROUP_SHA)
+        self.assertEqual(solve._C8["H16_IDX"], 644)
+        self.assertEqual(solve._C8["HPC"], [83, 115, 127, 197, 229, 244, 279, 368, 378, 401, 404, 484, 518, 564, 584, 614, 632, 641, 644])
+
+    def test_c_lists_hash_to_the_frozen_values(self):
+        self.assertIsNotNone(self.bins["good"], "solve.c failed to build")
+        for what, want in (("members", self.MEMBER_SHA), ("subgroups", self.SUBGROUP_SHA)):
+            r = subprocess.run(["timeout", "120", self.bins["good"], "--c8-list", what], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0)
+            self.assertEqual(hashlib.sha256(r.stdout.rstrip("\n").encode()).hexdigest(), want, what)
+        r = subprocess.run(["timeout", "60", self.bins["good"], "--c8-list", "kw"], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("C8_LIST_ARGS=REFUSED", r.stderr)
+
+    # --- the two-language gate and its mutants ------------------------------------------------
+    def test_gate_seed_and_orderings(self):
+        self.assertEqual(solve.c8_seed(solve.C8_GATE_SEED_STRING), 8109856556285410379)   # prereg §6
+        for s in self.seqs:
+            self.assertTrue(solve.c8_is_c1(s))
+            self.assertEqual(s[:2], [63, 0])
+        self.assertNotIn(list(solve.binary_hexagrams), self.seqs, "the gate never scores King Wen")
+        self.assertEqual(solve.c8_gate_orderings(5), solve.c8_gate_orderings(5), "seeded, reproducible")
+
+    def test_values_in_declared_ranges(self):
+        for s in self.seqs:
+            for m, v in zip(solve.C8_MEMBERS, solve.c8_values(s)):
+                self.assertTrue(m[3][0] <= v <= m[3][1], (m[0], v))
+
+    def test_mutant_preconditions(self):
+        self.assertEqual(self.text.count(self.CM_LINE), 1)
+        self.assertEqual(self.text.count(self.WRAP_LINE), 1)
+        for tag in ("cm_exit", "wrap"):
+            with open(self.srcs[tag]) as fh:
+                self.assertNotEqual(fh.read(), self.text, tag)
+
+    def test_gate_passes_on_solve_c(self):
+        self.assertIsNotNone(self.bins["good"], "solve.c failed to build")
+        rc, out = self._gate(self.bins["good"])
+        self.assertIn("C8_GATE_ORDERINGS=%d" % (self.N + 3), out)
+        self.assertIn("C8_GATE_INCLUDES_KW=NO", out)
+        self.assertIn("C8_VERIFY=PASS", out)
+        self.assertEqual(rc, 0)
+
+    def test_gate_fails_on_entry_exit_mutant(self):
+        # Prereg §7.1: e_k <-> x_k swapped in C-M must make the gate FAIL, and on a C-M member.
+        self.assertIsNotNone(self.bins["cm_exit"], "mutant failed to build")
+        rc, out = self._gate(self.bins["cm_exit"])
+        self.assertIn("C8_VERIFY=FAIL", out)
+        self.assertNotIn("C8_VERIFY=PASS", out)
+        self.assertEqual(rc, 1)
+        diff = [l for l in out if l.startswith("C8_GATE_FIRST_DIFF")]
+        self.assertEqual(len(diff), 1)
+        self.assertIn("member=C-M[", diff[0])
+
+    def test_gate_fails_on_wrap_mutant(self):
+        self.assertIsNotNone(self.bins["wrap"], "mutant failed to build")
+        rc, out = self._gate(self.bins["wrap"])
+        self.assertIn("C8_VERIFY=FAIL", out)
+        self.assertEqual(rc, 1)
+
+    def test_gate_refuses_an_empty_population(self):
+        rc, out = self._gate(self.bins["good"], seqs=[])
+        self.assertIn("C8_VERIFY=FAIL", out)
+
+    def test_c_verify_refuses_non_c1_and_kw_word(self):
+        d = tempfile.mkdtemp(prefix="c8_in_", dir=self.tmp)
+        p = os.path.join(d, "x.txt")
+        with open(p, "w") as fh:
+            fh.write(" ".join(map(str, range(64))) + "\n")          # a permutation, not C1
+        r = subprocess.run(["timeout", "60", self.bins["good"], "--c8-verify", p], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("C8_VERIFY_INPUT=REFUSED", r.stderr)
+        self.assertEqual(r.stdout, "")
+        import io, contextlib
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            prc = solve.c8_print(p, io.StringIO())
+        self.assertEqual(prc, 2, "the SPEC side refuses it too")
+        self.assertIn("C8_VERIFY_INPUT=REFUSED", err.getvalue())
+        r = subprocess.run(["timeout", "60", self.bins["good"], "--c8-verify", "KW"], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 2, "there is no KW source on the C side (prereg §7.1)")
+
+    def test_no_king_wen_in_the_c8_block(self):
+        a = self.text.index("/* ===================== Pilot A C8 screen scorer")
+        b = self.text.index("static int solve_env_preflight(void) {", a)
+        blk = self.text[a:b]
+        self.assertGreater(len(blk), 5000, "precondition: the block was found")
+        self.assertIsNone(re.search(r"\bKW\s*[\[,)]", blk), "the C8 block must not read the KW table")
+        self.assertIsNotNone(re.search(r"\bKW\s*[\[,)]", self.text), "positive control: the KW table is read elsewhere")
+
+    def test_kw_refused_without_pin_and_evaluates_nothing(self):
+        import io, contextlib
+        orig = solve.c8_values
+        solve.c8_values = lambda s: (_ for _ in ()).throw(AssertionError("evaluated"))
+        try:
+            err, out = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stderr(err), contextlib.redirect_stdout(out):
+                rc1 = solve.c8_kw(None)
+                rc2 = solve.c8_kw("   ")
+        finally:
+            solve.c8_values = orig
+        self.assertEqual((rc1, rc2), (2, 2))
+        self.assertIn("C8_KW_PIN=REFUSED", err.getvalue())
+        self.assertNotIn("c8_kw ", out.getvalue())
+
+    # --- amendment 1 A2: the corpus controls -----------------------------------------------
+    def test_controls_producer_amendment_1(self):
+        # The three corpus orderings are non-C1; the DEFINED rule marks the pre-declared 54/54/49 members
+        # NA (every positional member on all three; the count members are all defined); no control is
+        # King Wen and nothing is evaluated on King Wen. On C1 input the rule is vacuous for every
+        # non-P member (the class-P sets are C5-forced, which random C1∩C4 draws lack).
+        import io, contextlib
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = solve.c8_controls()
+        out = buf.getvalue().splitlines()
+        tok = dict(l.split("=", 1) for l in out if "=" in l and not l.startswith("c8_ctrl "))
+        self.assertEqual(rc, 0)
+        self.assertEqual(tok["C8_CONTROLS_NA_MAP"], "PASS")
+        self.assertEqual((tok["C8_CTRL_NA_JINGFANG"], tok["C8_CTRL_NA_MAWANGDUI"], tok["C8_CTRL_NA_FUXI"]), ("54", "54", "49"))
+        self.assertEqual({tok["C8_CTRL_IS_C1_" + c] for c in ("JINGFANG", "MAWANGDUI", "FUXI")}, {"NO"})
+        rows = [l.split() for l in out if l.startswith("c8_ctrl ")]
+        self.assertEqual(len(rows), 3 * 1349)
+        na = {(r[1], r[2]) for r in rows if r[3] == "NA"}
+        self.assertTrue(all(("FUXI", "Y-DISP[%d]" % v) in na for v in (2, 4, 6, 8, 10)), "Fu Xi: every S_v is empty")
+        self.assertTrue(all((c, m[0]) not in na for c in ("JINGFANG", "MAWANGDUI", "FUXI") for m in solve.C8_MEMBERS
+                            if not re.match(r"^(C-D|P-CM|P-DISP|Y-CM|Y-DISP|T-CM|T-DISP)\[", m[0])), "count members are always defined")
+        self.assertFalse(any(l.startswith("c8_kw ") for l in out))
+        kw = list(solve.binary_hexagrams)
+        self.assertTrue(all(seq != kw for seq in (solve._r7_jingfang(), solve._r7_mawangdui(), solve._r7_fuxi())))
+        for s in self.seqs[:50]:
+            self.assertTrue(all(solve.c8_defined(s, m[0]) for m in solve.C8_MEMBERS if not m[0].startswith("P-")))
+
+    # --- the estimator and N0 paths -------------------------------------------------------
+    def _hist(self, text):
+        sums, tok = {}, {}
+        self._cnt = {}
+        for l in text.splitlines():
+            if l.startswith("c8_hist "):
+                _, m, v, w, w2 = l.split()
+                sums[m] = sums.get(m, 0.0) + float(w)
+            elif l.startswith("c8_hcnt "):
+                _, m, v, c = l.split()
+                self._cnt[m] = self._cnt.get(m, 0) + int(c)
+            elif l.startswith("C8_") and "=" in l:
+                k, v = l.split("=", 1); tok[k] = v
+        return sums, tok
+
+    def test_estimator_scores_c8_and_prints_no_kw_line(self):
+        self.assertIsNotNone(self.bins["good"])
+        env = dict(os.environ, SOLVE_THREADS="2", SOLVE_KNUTH_SCORE="1", SOLVE_KNUTH_SCORE_C8="1", SOLVE_KNUTH_SEED="12345")
+        r = subprocess.run(["bash", "-c", "ulimit -s unlimited; exec timeout 600 \"$0\" --estimate-knuth 200000", self.bins["good"]],
+                           capture_output=True, text=True, env=env)
+        self.assertEqual(r.returncode, 0, r.stderr[-400:])
+        sums, tok = self._hist(r.stdout)
+        self.assertEqual(tok.get("C8_MEMBERS"), "1349")
+        self.assertGreater(int(tok["C8_LEAVES_SCORED"]), 0, "precondition: some canonical leaves were scored")
+        self.assertEqual(tok["C8_CLAMPED"], "0")
+        self.assertEqual(tok["C8_UNDEFINED"], "0")
+        self.assertEqual(len(sums), 1349)
+        sc = float(tok["C8_RAW_SC"])
+        for m, s in sums.items():
+            self.assertAlmostEqual(s / sc, 1.0, places=9, msg=m)
+        self.assertEqual(set(self._cnt.values()), {int(tok["C8_LEAVES_SCORED"])}, "c8_hcnt counts every scored leaf once per member")
+        self.assertFalse(any(k.startswith("C8_KW") for k in tok), "the estimator prints no KW line")
+
+    def test_null0_sampler(self):
+        self.assertIsNotNone(self.bins["good"])
+        env = dict(os.environ, SOLVE_KNUTH_SEED="9")
+        run = lambda n: subprocess.run(["timeout", "300", self.bins["good"], "--c8-null0", str(n)],
+                                       capture_output=True, text=True, env=env)
+        a, b = run(3000), run(3000)
+        self.assertEqual(a.returncode, 0, a.stderr[-300:])
+        self.assertEqual(a.stdout, b.stdout, "a function of the seed alone")
+        sums, tok = self._hist(a.stdout)
+        self.assertEqual(tok["C8_NULL0_DRAWS"], "3000")
+        self.assertEqual(tok["C8_NULL0_NOT_C1"], "0")
+        self.assertEqual(tok["C8_UNDEFINED"], "0")
+        self.assertEqual(set(sums.values()), {3000.0})
+        self.assertEqual(set(self._cnt.values()), {3000})
+        env.pop("SOLVE_KNUTH_SEED")
+        r = subprocess.run(["timeout", "60", self.bins["good"], "--c8-null0", "10"], capture_output=True, text=True, env=env)
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("C8_NULL0_SEED=REFUSED", r.stderr)
+        r = subprocess.run(["timeout", "60", self.bins["good"], "--c8-null0", "0"], capture_output=True, text=True, env=dict(env, SOLVE_KNUTH_SEED="9"))
+        self.assertIn("C8_NULL0_ARGS=REFUSED", r.stderr)
+
+# end class TestC8Scorer (PREREG_C8SCREEN_2026_10_11 §7.1)
 
 
 if __name__ == "__main__":

@@ -316,6 +316,7 @@ documentation/PREREGISTRATION_ESCROW.md	359	ledger-link	CORRECTION	n/a	-	not-a-m
 documentation/PREREGISTRATION_ESCROW.md	380	ledger-link	CORRECTION	n/a	-	not-a-marker	72b7489475c1
 documentation/PREREGISTRATION_ESCROW.md	427	ledger-link	CORRECTION	n/a	-	not-a-marker	4f56990fed9d
 documentation/PREREGISTRATION_ESCROW.md	437	ledger-link	CORRECTION	n/a	-	not-a-marker	c9e2570fd0a0
+documentation/PREREGISTRATION_ESCROW.md	460	ledger-link	CORRECTION	n/a	-	not-a-marker	814d52154210
 documentation/PREREG_CLASSA_QUERY_SET.md	58	marker	CORRECTED	3	GATE 86(file)	gate-anchored	ee4dfed3e343
 documentation/PREREG_CLASSA_QUERY_SET.md	166	marker	CORRECTED	3	GATE 86(file)	gate-anchored	21fdbd99b0b4
 documentation/PREREG_CLASSA_QUERY_SET.md	235	marker	CORRECTED	3	GATE 86(file)	gate-anchored	05d0f5c9b0a2
@@ -480,12 +481,12 @@ documentation/SOLVE_PY_CLI.md	403	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	
 documentation/SOLVE_PY_CLI.md	434	marker	Corrected	1	-	reviewed:dated-label;sentence-already-reads-correctly	69dfe1571f39
 documentation/SOLVE_PY_CLI.md	570	marker	CORRECTED	1	-	reviewed:sentence-already-true-since-the-gate-moved-to-the-emitter	388d511cb961
 documentation/SOLVE_PY_CLI.md	1163	marker	Corrected	1	-	reviewed:row-already-names-flow_div_24	07976c4b6454
-documentation/SOLVE_PY_CLI.md	1465	ledger-link	CORRECTION	n/a	-	not-a-marker	2b526e83b072
-documentation/SOLVE_PY_CLI.md	1465	marker	Corrected	1	-	reviewed:paragraph-already-gives-the-measured-4.349-percent	2b526e83b072
-documentation/SOLVE_PY_CLI.md	1467	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	f4d16d863d12
-documentation/SOLVE_PY_CLI.md	1594	marker	Corrected	3	GATE 18	reanchored:GATE-18=ruling-token	dd82609b73e9
-documentation/SOLVE_PY_CLI.md	1671	marker	CORRECTED	1	-	reviewed:paragraph-above-already-omits-F5	adef18abb0c4
-documentation/SOLVE_PY_CLI.md	1731	ledger-link	CORRECTION	n/a	-	not-a-marker	468da51ea775
+documentation/SOLVE_PY_CLI.md	1469	ledger-link	CORRECTION	n/a	-	not-a-marker	2b526e83b072
+documentation/SOLVE_PY_CLI.md	1469	marker	Corrected	1	-	reviewed:paragraph-already-gives-the-measured-4.349-percent	2b526e83b072
+documentation/SOLVE_PY_CLI.md	1471	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	f4d16d863d12
+documentation/SOLVE_PY_CLI.md	1598	marker	Corrected	3	GATE 18	reanchored:GATE-18=ruling-token	dd82609b73e9
+documentation/SOLVE_PY_CLI.md	1675	marker	CORRECTED	1	-	reviewed:paragraph-above-already-omits-F5	adef18abb0c4
+documentation/SOLVE_PY_CLI.md	1735	ledger-link	CORRECTION	n/a	-	not-a-marker	468da51ea775
 documentation/SOLVE_SUMMARY.md	85	marker	CORRECTED	1	-	reviewed:sentence-already-names-the-distance-5-block	ee32cf8d5224
 documentation/SOLVE_SUMMARY.md	178	marker	WITHDRAWN	3	GATE 26,GATE 27	reanchored:GATE-26=ledger-anchor+GATE-27=ledger-anchor	9a9b7c6e5eaf
 documentation/SOLVE_SUMMARY.md	191	marker	CORRECTED	1	-	reviewed:table-text-already-re-derived-from-the-logs	3c5b8586e07b
@@ -772,6 +773,8 @@ reports/TR9_PRICING_THE_CONSTRAINTS.md	367	marker	CORRECTED	1	-	reviewed:text-al
 reports/TR9_PRICING_THE_CONSTRAINTS.md	386	marker	CORRECTED	3	GATE 3b	reanchored:GATE-3b=allowlist-row	d3a78462a29b
 reports/TR9_PRICING_THE_CONSTRAINTS.md	498	changelog	CORRECTION	keep	-	revision-row	7b4d7668fa0c
 reports/certificates/README.md	103	marker	CORRECTED	1	-	reviewed:cell-already-describes-the-fixed-check	2052b944c6ed
+reports/evidence/c8screen/README.md	9	ledger-link	CORRECTION	n/a	-	not-a-marker	5700ea31a5d4
+reports/evidence/c8screen/README.md	196	narration	now reads	1	-	reviewed:narration-inside-a-code-change-note;both-digests-stated-and-correct;CX-354-item-5-carries-the-change	0b049652ee25
 reports/evidence/decoy/README.md	33	marker	CORRECTED	1	-	reviewed:paragraph-already-gives-the-relerr-distribution	debafc91e8e8
 reports/evidence/f11/README.md	5	ledger-link	CORRECTION	n/a	-	not-a-marker	cccf54d463ad
 reports/evidence/f11/README.md	7	ledger-link	CORRECTION	n/a	-	not-a-marker	583f0a8a3aa2

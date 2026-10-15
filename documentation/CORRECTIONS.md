@@ -31595,3 +31595,122 @@ with its content.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 51, Q-998. Advisory: Fable
 (claude-fable-5-1) pre-publication review of batch 46.
+
+## CX-354 — the pre-registered C8 screen (Pilot A) came back UNINFORMATIVE: no survivor, 680 testable members null, 669 unattainable by design; the registration, its amendment, the instrument and the run record are published, and no follow-up run is planned (solve.c; solve.py; tests.py; documentation/SOLVE_C_CLI.md; documentation/SOLVE_PY_CLI.md; documentation/PREREGISTRATION_ESCROW.md; reports/evidence/c8screen/)
+
+**2026-10-11.** Origin: Pilot A of the 2026-10-11 workstation assessment, queued by the operator the
+same day. The screen was pre-registered, amended once before measurement, run, and read against its
+frozen rules by a verdict review (gate P4, Claude Fable 5.1). The registration requires every outcome
+to be published (§8.4, "publish-regardless"). Batch 50.
+
+**No published number, count, sha or certificate moves.** Nothing is withdrawn. This entry adds a
+measurement and the code that makes it. SPECIFICATION.md, the counts, the ladders, README and the
+scoreboard are unchanged, because the registration's §8.4 allows no such change for this outcome.
+
+**1. The result.** `FAMILY=UNINFORMATIVE`. Of the 1,349 members, 0 are SURVIVOR, 680 are NULL, 669 are
+UNINFORMATIVE (all for the reason `ATTAIN`) and 0 are FORCED; `SURVIVORS=NONE`; `C8_CLAMPED_TOTAL=0`.
+The family-wise two-sided Bonferroni correction is at α = 0.01, split equally between the 1,300
+subgroup-scan members (bar 3.846154×10⁻⁶) and the 49 structural members (bar 1.020408×10⁻⁴). The smallest
+operative two-sided p in the family is `C-N[392]` at 4.118954×10⁻⁴, 107 times its bar. One member of 1,349
+at that level is what a null family produces (expected count about 0.55). The estimator ran 2×10¹⁰
+weighted-Knuth probes in two seed-disjoint halves, scored 35,942,553 leaves, and its self-validation
+agreed with the published C1–C5 count within 0.03 %. The bundle README quotes the verdict review's
+public wording in full. The family's classes operationalise features described by Ouyang 1993
+([CITATIONS.md](CITATIONS.md#ouyang1993); the coset idea, generalised here to all 651 subgroups),
+the trigram-relation tradition Han 1984 describes ([CITATIONS.md](CITATIONS.md#hanzhongmin1984)), and
+程頤 and Schulz for the yang-count structure. The member definitions, the family and the measurement are
+ROAE's. No novelty is claimed for any member.
+
+**2. The design lesson, stated plainly: the null outcome could not happen.** The rule was that more than
+67 untestable members (5 %) makes the family UNINFORMATIVE. 632 members, every entry-in-subgroup count
+`C-M[H]`, were untestable from the start. A pair wholly inside or wholly outside `H` adds a fixed amount
+whatever its orientation. Only a pair split by `H` moves the count, by one fair coin under the pair-only
+null, and no subgroup splits more than 13 of the 31 free pairs. So each `C-M` member takes at most 14
+consecutive values, its extreme has probability at least 2⁻¹³, and its smallest two-sided p is
+2·2⁻¹³ = 2.44×10⁻⁴, 63 times the bar. The registration's own §2.4 makes this argument to exclude
+single-slot statistics. It was not applied to `C-M`, and the registration's minimum-attainable-p
+output, which needs only synthetic draws, was left to the measurement instead of being computed before
+the freeze. So `FAMILY=NULL` was out of reach at freeze, whatever King Wen's values. The 632 members
+also cost power: they nearly doubled the bar every other subgroup-scan member paid (0.005/1300 instead
+of 0.005/668). The other 37 untestable members (31 `C-N`, six stratum-S members) have similarly coarse
+laws. **Rule for future screens:** before a family-wise cap is frozen, compute each member's minimum
+attainable two-sided p under the cheapest null (closed form or synthetic draws), and either exclude the
+members that cannot reach the bar or price the cap against them. "Flat is a result" also requires the
+flat outcome to be reachable.
+
+**3. What the result supports, and no follow-up run.** The frozen file ties "the C8 route is closed
+for this class" to `FAMILY=NULL`, which did not occur, so that sentence is not used. What holds is
+member-wise: the screen is closed for the 680 testable members at the declared power, and the family
+is formally unresolved. For the 632 `C-M` members the result says nothing about King Wen: the class
+cannot single out any ordering at a bar of this size. King Wen's operative p on every one of the 669
+untestable members is at least 3.6×10⁻³ (median 0.59); that is description, not a verdict. **No
+follow-up run is planned.** The registration allows only a new dated registration. No run length moves
+the `C-M` floor, because the extreme bins already hold hundreds to millions of scored leaves. The other
+37 could at most move from `ATTAIN` to `NULL`, since King Wen's operative p on each is at least 0.038. A
+re-registration chosen after seeing these values would be selection on the data. The one follow-up is
+documentary: the `2·2⁻¹³` arithmetic is recorded here, and the next registration on this class excludes
+`C-M` at freeze.
+
+**4. The registration and the amendment.** The frozen registration is sha256
+`2ba24eceb2bddcba3c14f40231c1024c9a94d79c1ba37225eece1c84a969f161`, locked 2026-10-11 01:03:24 UTC. Amendment 1
+(`3429f1d2272a74344fd6af06cde4e6ba2fcd3c0f57c798053c2f8c0eec6ba8b5`, locked 05:01:23 UTC, before any measurement)
+widens the four `P-CM` ranges to the universal bound 496 (A1), adds a set-size rule for when a corpus
+control counts (A2), declares added output lines (A3) and makes the independence annotation
+exhaustive (A4). Both check scripts ship byte for byte (`bb017ec5…`, `28889b9f…`), and so does the
+amendment. The public copy of the registration is
+[reports/evidence/c8screen/PREREGISTRATION.md](../reports/evidence/c8screen/PREREGISTRATION.md),
+sha256 `de89498bb6df51fe55b271f22ac26fcec919653203e5a92677d39075cbca1d67`, with three cost passages removed. All three
+are listed in the bundle README, and all digests are on PREREGISTRATION_ESCROW.md. Freeze timing is
+attested, not checkable. Three departures from the registration's §8.4 are disclosed. The §8.4 sentence for the UNINFORMATIVE
+outcome says the family was unresolved "at this size"; the published wording drops that phrase, because
+the limit does not depend on the run length (item 2), and the bundle README records the prescribed
+sentence beside it. The copy sits in
+the evidence bundle rather than under `documentation/`, as the Q-OY1/Q-992 copy does (CX-331). Its
+private paths are left as written rather than glossed, so that its diff against the frozen file stays
+exactly the three cost hunks. **One locked sentence is measured to be inexact:** amendment §9-A0 says
+the amended check script equals the frozen one "on lines 1–163 except line 147". The module docstring,
+lines 2–10, also differs. Those lines lie outside the reference-code ranges, so inside them only line
+147 differs, which is what the sentence was there to establish. `TestC8Scorer` now checks both.
+
+**5. The instrument.** The runs used a staged tree, `a40140806206cb9ef13bcb2efd40d62a90a8a7fb` on `9967ec14`, with
+`solve.c` `eab41a10…`, `solve.py` `5d194b32…` and `tests.py` `a4eed282…`.
+`reports/evidence/c8screen/instrument_pin_a4014080.patch` reproduces those three files byte for byte
+from `9967ec14`. The committed scorer is the same code in the same places, where no cited line moves.
+It differs from the pinned scorer only in five comment lines: three in `solve.c` and two in `solve.py`
+now name the public copy and the shipped check scripts instead of private paths, and one of the
+`solve.c` lines gives the member-list digest as amended (`529fb27a…`) beside the frozen `486cac40…`.
+`SOLVE_C_CLI.md`'s `--c8-list` paragraph had the same stale digest and is corrected the same way.
+`TestC8Scorer` (19 tests) now re-extracts the scorer's reference code from the shipped amended check
+script on every run, where before it skipped without a private file. A new test checks the two check
+scripts against each other (item 4). The equivalence checks, on the committed tree (gcc 13,
+`-O2 -fopenmp`):
+- `SOLVE_KNUTH_SEED=9041319306645778315 ./solve --c8-null0 10000000` reproduces the recorded `N0.out` byte
+  for byte (sha256 `04970dd0…`). N0 is single-threaded, so this is a full re-run of one of the five runs.
+- `python3 solve.py --c8-verify ./solve` on the 10⁵ gate orderings gives `C8_VERIFY=PASS`, with both
+  output digests `3d5d8ea8…`, the recorded value.
+
+**6. The two evidence sweeps exempt seven bundle files by content.** These are the CX-331 items 7 and 8
+idiom. `TestLaneHAJ.test_no_private_repository_pointer_in_public_evidence` bars `roae-private` from the
+evidence tree; three files carry it. They are the registration copy (lines 6, 54, 454), the amendment
+(line 180) and the instrument-pin patch (comments in the pinned code).
+`TestLaneHFRedactReproOutCompileRatchet.test_no_machine_absolute_user_path_in_evidence_or_runs` bars
+machine-absolute user paths; four files carry one. They are the registration copy (line 53), both check
+scripts (line 12) and the instrument-pin patch (a positive-control path in the pinned `tests.py`). None
+can change without breaking what it is for: a locked digest, the promise of a three-hunk diff, or
+byte-for-byte reproduction. A file is skipped only while its whole sha256 equals the value recorded in
+the bundle README. Any edit re-arms the sweep on every line of it, and a pointer or path planted in any
+other evidence file is still a hit. The tests' positive controls check both cases. The bundle README
+tells a reader to change line 12 of each check script to their own checkout.
+
+**7. Run record.** The unfiltered outputs of the five runs (the four estimator halves and N0), the
+first interrupted attempt at N1_A (kept and labelled, not pooled), the King Wen and control
+evaluations, the gates, the verdict script and its tokens are in
+[reports/evidence/c8screen/](../reports/evidence/c8screen/README.md). The six large outputs are
+`gzip -9`, each under 1 MB. They were copied unchanged, and checked uncompressed for machine names,
+addresses, account identifiers and costs; none were found. The machine-lifecycle files, the lane log
+and the captured `tests.py` output were left out, because they name the temporary machine or its paths.
+A laptop re-derives every verdict token from the shipped files in under a minute
+(`python3 analyze.py . | diff - TOKENS.txt` on an uncompressed copy).
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, Pilot A scorer, measurement and
+publication lanes. Registration, amendment and verdict review: Fable (claude-fable-5-1).

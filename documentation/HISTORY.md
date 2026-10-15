@@ -11423,3 +11423,38 @@ Q-686=DONE
   copied, and checked against it, so a file that is tracked but matches .gitignore can no longer drop
   out of the measured tree without an error (CX-353, Q-998). No such file exists today, so no
   inventory changes.
+
+## 2026-10-11 — batch 50: the pre-registered C8 screen (Pilot A) came back UNINFORMATIVE, and it is published with its registration, amendment, instrument and run record
+
+**What was tested (CX-354).**
+
+- A family of 1,349 label-free statistics of the pair-slot sequence was counted and frozen before
+  any of them was computed on King Wen. The family has membership counts under all 651 order-16
+  subgroups, the trigram relations across the 31 slot boundaries, and the positions of the difference
+  wave, the yang-count walk and the trigram slots.
+- The question was whether any of them singles out King Wen in the C1–C5 population after a
+  family-wise correction. One dated amendment fixed four binning ranges and the rule for corpus
+  controls before the run.
+
+**What came out.**
+
+- No member fell below its bar. All 680 members that could be tested were null. The smallest p in
+  the family is the size a null family of 1,349 produces by chance.
+- The other 669 members could not have passed for any ordering, because their laws are too coarse
+  for a bar this strict. For 632 of them this follows from one line of arithmetic (at most 13 fair
+  coins), which the registration's own method would have shown before the freeze. More than 5 % of
+  the family was untestable, so by the frozen rule the verdict is UNINFORMATIVE, not NULL: no claim
+  is made.
+- The lesson is written down. Before a family is frozen, each member's smallest reachable p is
+  computed, and members that cannot reach the bar are left out. No follow-up run is planned, because
+  no run length changes the result.
+
+**What was published.**
+
+- The scorer in `solve.c` and `solve.py`, in the places where no cited line moves, and `TestC8Scorer`.
+  The exact code the runs used is shipped as a patch.
+- In `reports/evidence/c8screen/`: a public copy of the registration with three cost passages
+  removed, the amendment and both check scripts byte for byte, every run output and token, and the
+  verdict script. The verdict tokens can be re-derived from the shipped files on a laptop in under a
+  minute.
+- No published number, count, sha or verdict changed. No scoreboard row was added.
