@@ -471,7 +471,7 @@ typedef struct {
     int8_t  reserved;
 } DFSStackFrame_v2;
 static Pair pairs[32];
-static int n_pairs = 0; static int sol_pidx_scan(const unsigned char *buf, long long n, long long first, const char *path, const char *token); /* Q-520, defined at end of file */ static int show_record_flag(const unsigned char *rec, long long idx, const char *path, char *flag, size_t fsz); /* Q-855, defined at end of file */ static int argv_refuse_extra(int argc, char *argv[], int maxc, const char *takes); static int argv_refuse_arg(const char *mode, const char *arg, const char *accepted); static int kc_cli_positionals(const char *cmd); /* Q-852, defined at end of file */ static int argv_refuse_repeat(int argc, char *argv[], int start, const char *spec); static int argv_ll(const char *mode, const char *what, const char *s, long long lo, long long hi, long long *out); static int argv_int(const char *mode, const char *what, const char *s, int lo, int hi, int *out); static int argv_u64(const char *mode, const char *what, const char *s, int base, uint64_t *out); static int argv_dbl(const char *mode, const char *what, const char *s, double *out); static const int kc_cache_mb_max = 4194304; /* Q-864, Q-865: defined at end of file; the --kc-cache-mb ceiling is --kc-gcache-mb-per-thread's */ static int g_build_sha_defer = 0; static char g_build_sha_pending[80]; static void build_sha_write_pending(void); /* Q-866: the enumeration defers a first-run build.sha until after its refusals */ static int solve_env_preflight(void); /* SOLVE_* numeric environment validation (lane HE); defined at end of file */ static void selftest_relay_child_stderr(const char *dir, int failed); /* Q-886 (3): defined at end of file */ static int f1c5_parse_b0_override(const char *s, int npairs, int b0[5]); /* Q-918: --f1-b0, defined at end of file */
+static int n_pairs = 0; static int sol_pidx_scan(const unsigned char *buf, long long n, long long first, const char *path, const char *token); /* Q-520, defined at end of file */ static int show_record_flag(const unsigned char *rec, long long idx, const char *path, char *flag, size_t fsz); /* Q-855, defined at end of file */ static int argv_refuse_extra(int argc, char *argv[], int maxc, const char *takes); static int argv_refuse_arg(const char *mode, const char *arg, const char *accepted); static int kc_cli_positionals(const char *cmd); /* Q-852, defined at end of file */ static int argv_refuse_repeat(int argc, char *argv[], int start, const char *spec); static int argv_ll(const char *mode, const char *what, const char *s, long long lo, long long hi, long long *out); static int argv_int(const char *mode, const char *what, const char *s, int lo, int hi, int *out); static int argv_u64(const char *mode, const char *what, const char *s, int base, uint64_t *out); static int argv_dbl(const char *mode, const char *what, const char *s, double *out); static const int kc_cache_mb_max = 4194304; /* Q-864, Q-865: defined at end of file; the --kc-cache-mb ceiling is --kc-gcache-mb-per-thread's */ static int g_build_sha_defer = 0; static char g_build_sha_pending[80]; static void build_sha_write_pending(void); /* Q-866: the enumeration defers a first-run build.sha until after its refusals */ static int solve_env_preflight(void); /* SOLVE_* numeric environment validation (lane HE); defined at end of file */ static void selftest_relay_child_stderr(const char *dir, int failed); /* Q-886 (3): defined at end of file */ static int f1c5_parse_b0_override(const char *s, int npairs, int b0[5]); /* Q-918: --f1-b0, defined at end of file */ static int kc_midjoin_main(int argc, char *argv[]); static int kc_midjoin_selftest(void); /* S5 --kc-midjoin, defined at end of file */
 
 /* ---------- Bitmask domain representation (task #72, Phase A) ----------
  * Compact representation of the "remaining pair pool" used by the DFS hot
@@ -38767,7 +38767,7 @@ static int kc_cli(int argc, char *argv[]) {
     /* KC-D / KC-W: atlas queries 7 and 9 (module headers above). argv[2]=FDIR
      * argv[3]=GDIR, so they belong in this explicit-argv block too. */
     if (strcmp(cmd, "--kc-dead-census-selftest") == 0) return kc_dead_census_selftest();
-    if (strcmp(cmd, "--kc-dead-census") == 0) return kc_dead_census_main(argc, argv);
+    if (strcmp(cmd, "--kc-dead-census") == 0) { return kc_dead_census_main(argc, argv); } if (strcmp(cmd, "--kc-midjoin-selftest") == 0) { return kc_midjoin_selftest(); } if (strcmp(cmd, "--kc-midjoin") == 0) { return kc_midjoin_main(argc, argv); }  /* S5 KC-MJ (module at the end of the file) */
     if (strcmp(cmd, "--kc-witness-walks-selftest") == 0) return kc_witness_walks_selftest();
     if (strcmp(cmd, "--kc-witness-walks") == 0) return kc_witness_walks_main(argc, argv);
     /* KC-X: the TR-12 Q5 per-functional DP extremal sweep + witness (KC-X module
@@ -52224,7 +52224,7 @@ static int solve_env_preflight(void) {
         {"SOLVE_F1_OOC_READ_MB", SENV_LL, 0, TB}, {"SOLVE_F1_OOC_SCRATCH_MB", SENV_LL, 0, TB},
         {"SOLVE_F1_OOC_GAP_KB", SENV_LL, 0, TB},
         {"SOLVE_KC_G_HEARTBEAT_SEC", SENV_DBL, -1, 0}, {"SOLVE_KC_CACHE_MB", SENV_INT, 0, kc_cache_mb_max},
-        {"SOLVE_KC_G_STOP_AT_K", SENV_INT, 0, IM}, {"SOLVE_KC_T_STOP_AT_K", SENV_INT, 0, IM},
+        {"SOLVE_KC_G_STOP_AT_K", SENV_INT, 0, IM}, {"SOLVE_KC_T_STOP_AT_K", SENV_INT, 0, IM}, {"SOLVE_KC_MIDJOIN_KILL_AT", SENV_INT, -1, IM},
         {"SOLVE_KNUTH_RELAX_C5", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_GENDER_STRICT", SENV_BOOL, 0, 1},
         {"SOLVE_KNUTH_MOORE_STRICT", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_DEPTH_PROFILE", SENV_BOOL, 0, 1},
         {"SOLVE_KNUTH_BOUNDARY_COND", SENV_BOOL, 0, 1}, {"SOLVE_KNUTH_C67", SENV_BOOL, 0, 1},
@@ -53253,4 +53253,1968 @@ static int q941_gate_unrecognized_rc(int r, const char *ctx) {
                     "       walks the cell again (A11R #7), but the line stays, and this gate reads every line.\n"
                     "MERGE_INPUT=UNRECOGNIZED_STATUS\n", ctx);
     return 20;
+}
+
+/* ===================== KC-MJ — --kc-midjoin (S5: mid-ladder per-state marginals) =====
+ *
+ * WHAT THIS IS. Layer k of the f and g ladders holds the canonical states s = (cm, lastc, rid)
+ * with popcount(cm) = k, and exactly f(s)*g(s) full walks cross s (the prefix x suffix
+ * bijection, GT_LADDER_FORMAT.md "The cross-ladder identities"). This mode reads that identity
+ * out PER MASK and PER STATE instead of summed, one same-layer pass over f and g in step:
+ *
+ *   (a) W_k(cm) = orbit(cm) * SUM_{(lastc,rid) in both ladders} f*g, the exact number of full
+ *       walks whose depth-k pair-set lies in the orbit of cm. SUM_cm W_k(cm) = N at every layer
+ *       (MIDJOIN_CUT_IDENTITY). Per layer: the top-K masks, Lorenz masses, a log2 histogram of
+ *       W, the entropy of W/N (display-only double) and the walk's own pair-set (W, 1-based rank
+ *       by descending W with ties by ascending mask, mass below / equal).
+ *   (b) the walk's f-percentile among the layer-k states as exact integer triples (lt, eq, gt)
+ *       of f(s) against f_walk under three weightings: state (1 per stored canonical state),
+ *       orbit (orbit(cm) per state = raw states) and mass (orbit*f*g per state = walks; mid-rank
+ *       mean exactly 1/2 for a uniformly random walk). The same triples for g(s) and for the
+ *       through-mass w(s) = orbit*f*g. All three range over the f-stored states; a missing g key
+ *       reads g = 0 (a dead state). A 1/8-octave histogram of f under the three weightings,
+ *       the dead count and the g-only count (stored-domain superset) come free.
+ *
+ * Nothing here is new mathematics: it is the f*g cut identity --kc-g-check asserts, read out per
+ * state. Design: Claude (Fable 5.1), S5_MIDJOIN_DESIGN 2026-10-15 (gate M1); implementation by
+ * Claude (Opus), 2026-10-15, developed with AI assistance (Claude, Anthropic). Corrections invited.
+ *
+ * READER. Its own spec-level reader (F1C5_LAYER_FORMAT.md), not the KcOoc block cache: the v2
+ * layout puts every key block before every value block, so a pass that consumes keys and values
+ * in step has two cursors per file, and a block-by-block read seeks between the two regions every
+ * block. Each section is read in --kc-read-mb windows (default 64 MB), so a seek happens once per
+ * window. Blocks are decoded in file order; --kc-inflate-threads 0 decodes them on the merge
+ * thread (the reference path), T >= 1 moves the reads to one producer thread per ladder that
+ * inflates batches of T blocks in parallel into a bounded ring. Both paths call the same fetch
+ * and decode functions in the same block order, and the selftest requires byte-identical JSON.
+ * The block size of a v2 file is taken from its header (the spec's rule), so the selftest can
+ * exercise many-block streams on small ladders; v1 files are cut into logical blocks the same way.
+ * Opening never aborts: every refusal is a FAIL:<reason> token and rc 1 (see failure list below).
+ *
+ * RESUME. Unit = one layer. midjoin_layer_<kk>.json reaches its final name only by tmp -> fsync ->
+ * rename. On start a layer whose JSON exists with an identical resume_key (instance, N, input
+ * names and sizes, walk, K, masks-out, engine identity) is RESUMED; one that exists with another
+ * key is refused (MIDJOIN=FAIL:stale-result-<k>, rc 1) unless --kc-force. The summary TSV is
+ * regenerated from the JSONs at the end.
+ *
+ * FAILURE-LOUD (each a FAIL:<reason> token, no JSON for the layer, rc 1, the run stops): manifest
+ * or header context mismatch between the ladders, a mask-list mismatch, a key out of order or
+ * outside its domain (last > 63, rid digit sum != k), a zero f value, a g-only key at k = 0, an
+ * inflate error or size mismatch, a file size that is not the format's, a short read, SUM W != N,
+ * the stream never visiting the walk's state or visiting it with another value than the point
+ * read, a pinned-profile mismatch (--kc-kw-f-tsv), a profile table that is malformed or missing a
+ * step, t geometry differing from f's, a 192-bit
+ * overflow (f1_overflow_abort, exit 70). Nothing is warn-and-continue.
+ *
+ * GATE. --kc-midjoin-selftest: G1 n=9 against an independent forward brute force over the whole
+ * prefix tree (every W_k(cm), every triple under all three weightings, the histogram, the dead
+ * count, the walk's f/g/w/t and the per-mask f*t marginal); G2 the identities (SUM W = N, dead ==
+ * --kc-dead-census, lt+eq+gt == the f entry count, joined + g-only == the g entry count); G3 the
+ * in-memory reader (kc_load arrays) against the streaming reader, gated JSON byte-identical, n=9
+ * and n=13; G4 the same over v2 ladders re-blocked at 61 entries per block with a 4 KB window,
+ * synchronous and 1- and 3-thread producers; G5 the profile pin; negatives N1/N2 (a corrupted cell
+ * and a corrupted JSON line are caught). Emits KC_MIDJOIN_SELFTEST=PASS|FAIL. Sha-neutral, never
+ * inside --selftest. tests.py adds verify.py --check-midjoin (independent Python), the red tests
+ * and the mutants.
+ *
+ * CLI (argv-dispatched beside --kc-dead-census; never inside --selftest):
+ *   --kc-midjoin FDIR GDIR OUTDIR [--kc-layers A B] [--kc-walk KW|WALK] [--kc-tdir TDIR]
+ *                [--kc-top K] [--kc-kw-f-tsv TSV] [--kc-masks-out DIR] [--kc-read-mb MB]
+ *                [--kc-inflate-threads T] [--kc-force]
+ *   --kc-midjoin-selftest
+ * Documented in SOLVE_C_CLI.md section "--kc-midjoin". This module sits at the END of the file
+ * so that adding it moved no line above it (line-pinned citations into solve.c stay valid). */
+
+#define MJ_HBINS 1560                    /* 8 sub-octave bins per bit: every value below 2^195 */
+#define MJ_TOP_DEFAULT 64
+#define MJ_READ_MB_DEFAULT 64
+#define MJ_WHY 128
+
+typedef struct { uint64_t s[3], o[3]; F1U192 m[3]; } MjTri;     /* lt, eq, gt */
+
+typedef struct {
+    char path[4300], base[96];
+    int fd, kind, is_v2;
+    uint64_t nm, ne, nblk, blk, fsize;
+    uint32_t *masks;
+    uint64_t *off, *kidx, *vidx;
+    uint64_t kbase, vbase, ksec, vsec;   /* section bases and lengths (bytes) */
+} MjLayer;
+
+static const char *mj_pfx(int kind) { return kind == 2 ? "t" : (kind ? "g" : "f1c5"); }
+
+static int mj_pread_full(int fd, void *buf, uint64_t len, uint64_t off) {
+    uint8_t *p = (uint8_t *)buf;
+    while (len) {
+        const size_t want = len > (1ull << 30) ? (size_t)(1ull << 30) : (size_t)len;
+        const ssize_t r = pread(fd, p, want, (off_t)off);
+        if (r < 0) { if (errno == EINTR) continue; return -1; }
+        if (r == 0) return -1;
+        p += r; len -= (uint64_t)r; off += (uint64_t)r;
+    }
+    return 0;
+}
+
+/* one zlib stream that fills dst exactly and consumes every source byte (f1c5_inflate_block's
+ * contract), returning -1 instead of exiting so the caller can print its FAIL token */
+static int mj_inflate(const uint8_t *src, uint64_t sl, uint8_t *dst, uint64_t dl) {
+    z_stream zs;
+    memset(&zs, 0, sizeof zs);
+    if (inflateInit(&zs) != Z_OK) return -1;
+    zs.next_in = (Bytef *)src; zs.avail_in = (uInt)sl;
+    zs.next_out = dst; zs.avail_out = (uInt)dl;
+    const int rc = inflate(&zs, Z_FINISH);
+    const uLong out = zs.total_out;
+    const uInt left = zs.avail_in;
+    inflateEnd(&zs);
+    return (rc == Z_STREAM_END && out == dl && left == 0) ? 0 : -1;
+}
+
+static void mj_layer_close(MjLayer *L) {
+    if (L->fd >= 0) close(L->fd);
+    free(L->masks); free(L->off); free(L->kidx); free(L->vidx);
+    memset(L, 0, sizeof(*L));
+    L->fd = -1;
+}
+
+#define MJ_FAIL(...) do { snprintf(why, wz, __VA_ARGS__); return -1; } while (0)
+
+/* Open one layer file of ladder `kind` (0 f, 1 g, 2 t) against the context `ctx`. load_index = 0
+ * checks the header and the exact file size only (the preflight); 1 also loads and validates
+ * masks/off (+ kidx/vidx). v1_blk = the logical block size a v1 file is cut into. */
+static int mj_layer_open(MjLayer *L, const char *dir, int kind, int k, const KC *ctx,
+                         int load_index, uint64_t v1_blk, char *why, size_t wz) {
+    memset(L, 0, sizeof(*L));
+    L->fd = -1;
+    L->kind = kind;
+    snprintf(L->base, sizeof(L->base), "%s_layer_%02d.bin", mj_pfx(kind), k);
+    snprintf(L->path, sizeof(L->path), "%s/%s", dir, L->base);
+    L->fd = open(L->path, O_RDONLY);
+    if (L->fd < 0) MJ_FAIL("missing-layer");
+    F1C5LayerHdr h;
+    struct stat st;
+    if (fstat(L->fd, &st) != 0) MJ_FAIL("io");
+    L->fsize = (uint64_t)st.st_size;
+    if (L->fsize < sizeof(h) || mj_pread_full(L->fd, &h, sizeof(h), 0) != 0) MJ_FAIL("file-size");
+    const int v1 = memcmp(h.magic, f1c5_kind_magic(kind, 0), 8) == 0 && h.version == 1;
+    const int v2 = memcmp(h.magic, f1c5_kind_magic(kind, 1), 8) == 0 && h.version == 2;
+    if (!v1 && !v2) MJ_FAIL("bad-magic");
+    if ((int)h.n != ctx->n || (int)h.k != k || (int)h.start_exit != ctx->start_exit ||
+        h.pl_hash != f1_pl_hash(&ctx->c))
+        MJ_FAIL("header-context");
+    for (int d = 0; d < 5; d++) if ((int)h.b0[d] != ctx->b0v[d]) MJ_FAIL("header-context");
+    L->is_v2 = v2;
+    L->nm = h.n_masks;
+    L->ne = h.n_entries;
+    if (L->nm == 0 || L->nm > 0xffffffffull || L->ne > (1ull << 42))
+        MJ_FAIL("header-geometry");
+    if (v2 && (h.pad < 1 || h.pad > (1u << 24))) MJ_FAIL("block-size");
+    L->blk = v2 ? h.pad : (v1_blk ? v1_blk : F1C5_OOC_BLK);
+    L->nblk = (L->ne + L->blk - 1) / L->blk;
+    const uint64_t idx0 = sizeof(F1C5LayerHdr) + 4ull * L->nm + 8ull * (L->nm + 1);
+    uint64_t want;
+    if (!v2) {
+        L->kbase = idx0; L->ksec = 4ull * L->ne;
+        L->vbase = idx0 + L->ksec; L->vsec = 24ull * L->ne;
+        want = L->vbase + L->vsec;
+    } else {
+        const uint64_t ilen = 16ull * (L->nblk + 1);
+        if (L->fsize < idx0 + ilen) MJ_FAIL("file-size");
+        uint64_t klast = 0, vlast = 0;
+        if (mj_pread_full(L->fd, &klast, 8, idx0 + 8ull * L->nblk) != 0 ||
+            mj_pread_full(L->fd, &vlast, 8, idx0 + 8ull * (L->nblk + 1) + 8ull * L->nblk) != 0)
+            MJ_FAIL("file-size");
+        L->kbase = idx0 + ilen; L->ksec = klast;
+        L->vbase = L->kbase + klast; L->vsec = vlast;
+        want = L->vbase + vlast;
+        if (want < L->vbase) MJ_FAIL("file-size");
+    }
+    if (L->fsize != want) MJ_FAIL("file-size");
+    if (!load_index) return 0;
+    L->masks = (uint32_t *)malloc(4ull * L->nm);
+    L->off = (uint64_t *)malloc(8ull * (L->nm + 1));
+    if (!L->masks || !L->off) MJ_FAIL("oom");
+    if (mj_pread_full(L->fd, L->masks, 4ull * L->nm, sizeof(F1C5LayerHdr)) != 0 ||
+        mj_pread_full(L->fd, L->off, 8ull * (L->nm + 1), sizeof(F1C5LayerHdr) + 4ull * L->nm) != 0)
+        MJ_FAIL("short-read");
+    { const char *ixw = a11r_layer_index_why(L->masks, L->off, NULL, L->nm, L->ne);
+      if (ixw) MJ_FAIL("index"); }
+    for (uint64_t i = 0; i < L->nm; i++)
+        if (__builtin_popcount(L->masks[i]) != k || (ctx->n < 32 && (L->masks[i] >> ctx->n)))
+            MJ_FAIL("index");
+    if (v2) {
+        L->kidx = (uint64_t *)malloc(8ull * (L->nblk + 1));
+        L->vidx = (uint64_t *)malloc(8ull * (L->nblk + 1));
+        if (!L->kidx || !L->vidx) MJ_FAIL("oom");
+        if (mj_pread_full(L->fd, L->kidx, 8ull * (L->nblk + 1), idx0) != 0 ||
+            mj_pread_full(L->fd, L->vidx, 8ull * (L->nblk + 1), idx0 + 8ull * (L->nblk + 1)) != 0)
+            MJ_FAIL("short-read");
+        const uint64_t kmax = (uint64_t)compressBound((uLong)(4ull * L->blk));
+        const uint64_t vmax = (uint64_t)compressBound((uLong)(24ull * L->blk));
+        if (L->kidx[0] != 0 || L->vidx[0] != 0) MJ_FAIL("index");
+        for (uint64_t b = 0; b < L->nblk; b++)
+            if (L->kidx[b + 1] < L->kidx[b] || L->vidx[b + 1] < L->vidx[b] ||
+                L->kidx[b + 1] - L->kidx[b] > kmax || L->vidx[b + 1] - L->vidx[b] > vmax)
+                MJ_FAIL("index");
+    }
+    return 0;
+}
+
+/* ---------- the block source: in-memory arrays, or a windowed stream (sync or producer) ---------- */
+typedef struct {
+    uint32_t *keys; F1U192 *vals;
+    uint8_t *ck, *cv;                    /* staged compressed bytes (v2) */
+    uint64_t ckl, cvl, e0, bn;
+} MjSlot;
+
+typedef struct { uint8_t *buf; uint64_t cap, off, len; } MjWin;
+
+typedef struct {
+    int mem;
+    MjLayer *L;                          /* streaming only */
+    uint64_t nm, ne, nblk, blk;
+    const uint32_t *masks;
+    const uint64_t *off;
+    const uint32_t *keys;                /* current block view */
+    const F1U192 *vals;
+    uint64_t e0, bn, e;                  /* view covers entries [e0, e0+bn); e = next entry */
+    /* streaming */
+    MjWin wk, wv;
+    uint64_t win_bytes, next_blk, bytes_read;
+    MjSlot sync_slot;
+    int threads, depth, head, filled, holding, stop, done, started;
+    MjSlot *ring;
+    pthread_t tid;
+    pthread_mutex_t mu;
+    pthread_cond_t cv_full, cv_free;
+    char err[MJ_WHY];
+} MjSrc;
+
+static int mj_slot_alloc(MjSlot *T, uint64_t blk) {
+    memset(T, 0, sizeof(*T));
+    T->keys = (uint32_t *)malloc(4ull * blk);
+    T->vals = (F1U192 *)malloc(24ull * blk);
+    T->ck = (uint8_t *)malloc(compressBound((uLong)(4ull * blk)));
+    T->cv = (uint8_t *)malloc(compressBound((uLong)(24ull * blk)));
+    return (T->keys && T->vals && T->ck && T->cv) ? 0 : -1;
+}
+static void mj_slot_free(MjSlot *T) { free(T->keys); free(T->vals); free(T->ck); free(T->cv); memset(T, 0, sizeof(*T)); }
+
+/* bytes [base+rel, base+rel+len) of a section through its window; NULL on a short read */
+static const uint8_t *mj_win_get(MjSrc *S, MjWin *W, uint64_t base, uint64_t sec, uint64_t rel,
+                                 uint64_t len) {
+    const uint64_t a = base + rel;
+    if (rel + len > sec) return NULL;
+    if (W->buf && a >= W->off && a + len <= W->off + W->len) return W->buf + (a - W->off);
+    uint64_t want = sec - rel;
+    if (want > S->win_bytes) want = S->win_bytes;
+    if (want < len) want = len;
+    if (want > W->cap) {
+        uint8_t *nb = (uint8_t *)realloc(W->buf, want);
+        if (!nb) return NULL;
+        W->buf = nb;
+        W->cap = want;
+    }
+    if (mj_pread_full(S->L->fd, W->buf, want, a) != 0) { W->len = 0; return NULL; }
+    W->off = a;
+    W->len = want;
+    __atomic_add_fetch(&S->bytes_read, want, __ATOMIC_RELAXED);
+    return W->buf;
+}
+
+/* stage block b into slot T: raw bytes straight into keys/vals (v1), compressed bytes (v2) */
+static int mj_fetch(MjSrc *S, uint64_t b, MjSlot *T) {
+    const MjLayer *L = S->L;
+    T->e0 = b * S->blk;
+    T->bn = (T->e0 + S->blk <= S->ne) ? S->blk : S->ne - T->e0;
+    if (!L->is_v2) {
+        const uint8_t *pk = mj_win_get(S, &S->wk, L->kbase, L->ksec, 4ull * T->e0, 4ull * T->bn);
+        if (!pk) { snprintf(S->err, MJ_WHY, "short-read"); return -1; }
+        memcpy(T->keys, pk, 4ull * T->bn);
+        const uint8_t *pv = mj_win_get(S, &S->wv, L->vbase, L->vsec, 24ull * T->e0, 24ull * T->bn);
+        if (!pv) { snprintf(S->err, MJ_WHY, "short-read"); return -1; }
+        memcpy(T->vals, pv, 24ull * T->bn);
+        T->ckl = T->cvl = 0;
+        return 0;
+    }
+    T->ckl = L->kidx[b + 1] - L->kidx[b];
+    T->cvl = L->vidx[b + 1] - L->vidx[b];
+    const uint8_t *pk = mj_win_get(S, &S->wk, L->kbase, L->ksec, L->kidx[b], T->ckl);
+    if (!pk) { snprintf(S->err, MJ_WHY, "short-read"); return -1; }
+    memcpy(T->ck, pk, T->ckl);
+    const uint8_t *pv = mj_win_get(S, &S->wv, L->vbase, L->vsec, L->vidx[b], T->cvl);
+    if (!pv) { snprintf(S->err, MJ_WHY, "short-read"); return -1; }
+    memcpy(T->cv, pv, T->cvl);
+    return 0;
+}
+
+static int mj_decode(const MjSrc *S, MjSlot *T) {
+    if (!S->L->is_v2) return 0;
+    if (mj_inflate(T->ck, T->ckl, (uint8_t *)T->keys, 4ull * T->bn) != 0) return -1;
+    if (mj_inflate(T->cv, T->cvl, (uint8_t *)T->vals, 24ull * T->bn) != 0) return -1;
+    return 0;
+}
+
+static void *mj_producer(void *arg) {
+    MjSrc *S = (MjSrc *)arg;
+    uint64_t b = 0;
+    while (b < S->nblk) {
+        pthread_mutex_lock(&S->mu);
+        while (!S->stop && S->filled >= S->depth) pthread_cond_wait(&S->cv_free, &S->mu);
+        if (S->stop) { pthread_mutex_unlock(&S->mu); break; }
+        const int nfree = S->depth - S->filled, first = (S->head + S->filled) % S->depth;
+        pthread_mutex_unlock(&S->mu);
+        int batch = S->threads < nfree ? S->threads : nfree;
+        if ((uint64_t)batch > S->nblk - b) batch = (int)(S->nblk - b);
+        int bad = 0;
+        for (int i = 0; i < batch && !bad; i++)
+            if (mj_fetch(S, b + (uint64_t)i, &S->ring[(first + i) % S->depth]) != 0) bad = 1;
+        if (!bad) {
+            if (batch > 1) {
+                #pragma omp parallel for num_threads(batch) schedule(static,1) reduction(|:bad)
+                for (int i = 0; i < batch; i++)
+                    bad |= mj_decode(S, &S->ring[(first + i) % S->depth]) != 0;
+            } else bad = mj_decode(S, &S->ring[first]) != 0;
+            if (bad) snprintf(S->err, MJ_WHY, "inflate");
+        }
+        if (bad) break;
+        pthread_mutex_lock(&S->mu);
+        S->filled += batch;
+        pthread_cond_signal(&S->cv_full);
+        pthread_mutex_unlock(&S->mu);
+        b += (uint64_t)batch;
+    }
+    pthread_mutex_lock(&S->mu);
+    S->done = 1;
+    pthread_cond_broadcast(&S->cv_full);
+    pthread_mutex_unlock(&S->mu);
+    return NULL;
+}
+
+static void mj_src_view(MjSrc *S, const MjSlot *T) {
+    S->keys = T->keys; S->vals = T->vals; S->e0 = T->e0; S->bn = T->bn;
+}
+
+/* the next block into the view; -1 with S->err on any failure */
+static int mj_src_next(MjSrc *S) {
+    if (S->mem) { snprintf(S->err, MJ_WHY, "stream-overrun"); return -1; }
+    if (!S->threads) {
+        if (S->next_blk >= S->nblk) { snprintf(S->err, MJ_WHY, "stream-overrun"); return -1; }
+        if (mj_fetch(S, S->next_blk, &S->sync_slot) != 0) return -1;
+        if (mj_decode(S, &S->sync_slot) != 0) { snprintf(S->err, MJ_WHY, "inflate"); return -1; }
+        S->next_blk++;
+        mj_src_view(S, &S->sync_slot);
+    } else {
+        pthread_mutex_lock(&S->mu);
+        if (S->holding) {
+            S->head = (S->head + 1) % S->depth;
+            S->filled--;
+            S->holding = 0;
+            pthread_cond_signal(&S->cv_free);
+        }
+        while (!S->filled && !S->done) pthread_cond_wait(&S->cv_full, &S->mu);
+        if (!S->filled) {
+            if (!S->err[0]) snprintf(S->err, MJ_WHY, "stream-overrun");
+            pthread_mutex_unlock(&S->mu);
+            return -1;
+        }
+        S->holding = 1;
+        const MjSlot *T = &S->ring[S->head];
+        pthread_mutex_unlock(&S->mu);
+        mj_src_view(S, T);
+    }
+    if (S->e0 != S->e) { snprintf(S->err, MJ_WHY, "stream-order"); return -1; }
+    return 0;
+}
+
+static inline int mj_ensure(MjSrc *S) { return (S->e - S->e0 < S->bn) ? 0 : mj_src_next(S); }
+
+static void mj_src_init_mem(MjSrc *S, const F1C5Layer *L) {
+    memset(S, 0, sizeof(*S));
+    S->mem = 1;
+    S->nm = L->nm; S->ne = L->ne; S->masks = L->masks; S->off = L->off;
+    S->keys = L->keys; S->vals = L->vals; S->e0 = 0; S->bn = L->ne;
+}
+
+static int mj_src_init_stream(MjSrc *S, MjLayer *L, uint64_t win_bytes, int threads) {
+    memset(S, 0, sizeof(*S));
+    S->L = L;
+    S->nm = L->nm; S->ne = L->ne; S->nblk = L->nblk; S->blk = L->blk;
+    S->masks = L->masks; S->off = L->off;
+    S->win_bytes = win_bytes ? win_bytes : (uint64_t)MJ_READ_MB_DEFAULT << 20;
+    S->threads = threads;
+    if (!threads) return mj_slot_alloc(&S->sync_slot, S->blk);
+    S->depth = 2 * threads < 4 ? 4 : 2 * threads;
+    S->ring = (MjSlot *)calloc((size_t)S->depth, sizeof(MjSlot));
+    if (!S->ring) return -1;
+    for (int i = 0; i < S->depth; i++) if (mj_slot_alloc(&S->ring[i], S->blk) != 0) return -1;
+    pthread_mutex_init(&S->mu, NULL);
+    pthread_cond_init(&S->cv_full, NULL);
+    pthread_cond_init(&S->cv_free, NULL);
+    if (pthread_create(&S->tid, NULL, mj_producer, S) != 0) return -1;
+    S->started = 1;
+    return 0;
+}
+
+static void mj_src_free(MjSrc *S) {
+    if (S->mem) { memset(S, 0, sizeof(*S)); return; }
+    if (S->started) {
+        pthread_mutex_lock(&S->mu);
+        S->stop = 1;
+        pthread_cond_broadcast(&S->cv_free);
+        pthread_cond_broadcast(&S->cv_full);
+        pthread_mutex_unlock(&S->mu);
+        pthread_join(S->tid, NULL);
+        pthread_mutex_destroy(&S->mu);
+        pthread_cond_destroy(&S->cv_full);
+        pthread_cond_destroy(&S->cv_free);
+    }
+    if (S->ring) for (int i = 0; i < S->depth; i++) mj_slot_free(&S->ring[i]);
+    free(S->ring);
+    mj_slot_free(&S->sync_slot);
+    free(S->wk.buf); free(S->wv.buf);
+    memset(S, 0, sizeof(*S));
+}
+
+/* point read of (mask index mi, key) through single-block reads; found = 0 when absent */
+static int mj_point_key(MjSrc *S, int64_t *cur, uint64_t e, uint32_t *key, F1U192 *val) {
+    const int64_t b = (int64_t)(e / S->blk);
+    if (b != *cur) {
+        if (mj_fetch(S, (uint64_t)b, &S->sync_slot) != 0) return -1;
+        if (mj_decode(S, &S->sync_slot) != 0) { snprintf(S->err, MJ_WHY, "inflate"); return -1; }
+        *cur = b;
+    }
+    *key = S->sync_slot.keys[e - S->sync_slot.e0];
+    if (val) *val = S->sync_slot.vals[e - S->sync_slot.e0];
+    return 0;
+}
+
+static int mj_point(MjLayer *L, uint64_t mi, uint32_t key, F1U192 *out, int *found, char *why, size_t wz) {
+    MjSrc S;
+    *found = 0;
+    if (mj_src_init_stream(&S, L, 1, 0) != 0) { mj_src_free(&S); MJ_FAIL("oom"); }
+    uint64_t lo = L->off[mi], hi = L->off[mi + 1];
+    int64_t cur = -1;
+    uint32_t ke;
+    int rc = 0;
+    while (lo < hi) {   /* keys strictly ascending within a mask's span */
+        const uint64_t mid = (lo + hi) >> 1;
+        if (mj_point_key(&S, &cur, mid, &ke, NULL) != 0) { rc = -1; break; }
+        if (ke < key) lo = mid + 1; else hi = mid;
+    }
+    if (rc == 0 && lo < L->off[mi + 1]) {
+        F1U192 v;
+        if (mj_point_key(&S, &cur, lo, &ke, &v) != 0) rc = -1;
+        else if (ke == key) { *found = 1; *out = v; }
+    }
+    if (rc != 0) snprintf(why, wz, "%s", S.err[0] ? S.err : "inflate");
+    mj_src_free(&S);
+    return rc;
+}
+
+/* ---------- the walk ---------- */
+typedef struct {
+    int n;
+    uint8_t E[KC_MAX_PAIRS];
+    uint32_t rids[KC_MAX_PAIRS + 1], m[KC_MAX_PAIRS + 1];
+    int last[KC_MAX_PAIRS + 1];
+    char str[512], label[16];
+} MjWalk;
+
+static int mj_walk_resolve(const KC *kc, const char *arg, MjWalk *W) {
+    memset(W, 0, sizeof(*W));
+    W->n = kc->n;
+    if (kc_h_resolve_walk(kc, arg, W->E) != 0) return -1;
+    if (kc_validate(kc, W->E, W->rids, NULL) != 0) {
+        fprintf(stderr, "ERROR: [kc-midjoin] the walk is not a member of this instance\n");
+        return -1;
+    }
+    W->m[0] = 0;
+    W->last[0] = kc->start_exit;
+    for (int k = 1; k <= kc->n; k++) {
+        W->m[k] = W->m[k - 1] | (1u << kc->pair_of_sub[W->E[k - 1]]);
+        W->last[k] = W->E[k - 1];
+    }
+    int o = 0;
+    for (int k = 0; k < kc->n; k++)
+        o += snprintf(W->str + o, sizeof(W->str) - (size_t)o, "%s%d,%d", k ? "," : "",
+                      kc->partner[W->E[k]], W->E[k]);
+    snprintf(W->label, sizeof(W->label), "%s", strcmp(arg, "KW") == 0 ? "KW" : "explicit");
+    return 0;
+}
+
+/* ---------- per-layer accumulator ---------- */
+typedef struct {
+    int k, has_t;
+    uint64_t nm, ne_f, ne_g, ne_t;
+    const uint32_t *masks;
+    F1U192 *W, *FT;
+    F1U192 acc, ft_acc;
+    uint64_t n_f, n_joined, dead, g_only, g_zero;
+    MjTri tf, tg, tw;
+    uint64_t hs[MJ_HBINS], ho[MJ_HBINS];
+    F1U192 hm[MJ_HBINS];
+    /* the walk's state at depth k (canonical frame) */
+    uint32_t w_raw_m, w_cm, w_rid, w_key;
+    int w_raw_last, w_lastc, w_seen;
+    int64_t w_mi;
+    uint32_t w_orb;
+    F1U192 fK, gK, wK, tK;
+    char pin[16];
+} MjRes;
+
+static void mj_res_free(MjRes *R) { free(R->W); free(R->FT); R->W = R->FT = NULL; }
+
+static inline void mj_tri(MjTri *T, const F1U192 *v, const F1U192 *ref, uint32_t orb, const F1U192 *mass) {
+    const int c = f1_cmp(v, ref);
+    const int j = c < 0 ? 0 : (c == 0 ? 1 : 2);   /* MJ-M3: mid-rank ties land in eq */
+    T->s[j]++;
+    T->o[j] += orb;
+    f1_add(&T->m[j], mass);
+}
+
+/* sub-octave bin: 8*(bits-1) + the 3 bits after the leading one (bits >= 4); -1 for zero */
+static inline int mj_bin(const F1U192 *v) {
+    if (f1_is_zero(v)) return -1;
+    const int bits = f1_log2(v) + 1;
+    if (bits < 4) return 8 * (bits - 1);
+    const F1U192 s = f1_shr(*v, bits - 4);
+    return 8 * (bits - 1) + (int)(s.l0 & 7);
+}
+
+/* the walk's canonical state at depth k; sets w_* and returns the key */
+static void mj_walk_state(const KC *kc, const MjWalk *Wk, int k, MjRes *R) {
+    int gi = 0;
+    const uint32_t m = Wk->m[k];
+    const int last = Wk->last[k];
+    const uint32_t cm = f1_canon(&kc->c, m, &gi);
+    const int lastc = kc->c.el[gi].hmap[last];   /* MJ-M4: the hexagram lift of the canonicalising element */
+    R->w_raw_m = m;
+    R->w_raw_last = last;
+    R->w_cm = cm;
+    R->w_lastc = lastc;
+    R->w_rid = Wk->rids[k];
+    R->w_key = ((uint32_t)lastc << 16) | (Wk->rids[k] & 0xffffu);
+    R->w_orb = (uint32_t)f1_orbit_size(&kc->c, cm);
+}
+
+/* heartbeat / kill hook state (one run per process) */
+static struct {
+    int on, k;
+    double t0, last;
+    const MjSrc *F, *G, *T;
+    uint64_t fsz, gsz, tsz;
+    const char *outdir;
+} mj_hb;
+static int mj_kill_at = -1;   /* SOLVE_KC_MIDJOIN_KILL_AT: test-only SIGKILL halfway through layer k */
+
+static void mj_progress_write(const char *phase);
+
+#define MJ_LFAIL(...) do { snprintf(why, wz, __VA_ARGS__); return -1; } while (0)
+#define MJ_SFAIL(S) do { snprintf(why, wz, "%s", (S)->err[0] ? (S)->err : "stream"); return -1; } while (0)
+
+/* one layer, streamed: F and G (and T) positioned at entry 0. R->fK/gK/w_* are set by the caller. */
+static int mj_layer_compute(const KC *kc, int k, const F1U192 *N, MjSrc *F, MjSrc *G, MjSrc *T,
+                            MjRes *R, char *why, size_t wz) {
+    const uint64_t nm = F->nm;
+    const uint32_t *masks = F->masks;
+    const uint32_t Rr = kc->B.R;
+    R->k = k; R->nm = nm; R->masks = masks;
+    R->ne_f = F->ne; R->ne_g = G->ne; R->ne_t = T ? T->ne : 0; R->has_t = T != NULL;
+    R->W = (F1U192 *)calloc((size_t)nm, sizeof(F1U192));
+    R->FT = T ? (F1U192 *)calloc((size_t)nm, sizeof(F1U192)) : NULL;
+    if (!R->W || (T && !R->FT)) MJ_LFAIL("oom");
+    {   F1U192 p = kc_u192_mul(&R->fK, &R->gK);
+        R->wK = f1_mul_small(p, R->w_orb); }
+    for (uint64_t mi = 0; mi < nm; mi++) {
+        const uint32_t cm = masks[mi];
+        const uint32_t orb = (uint32_t)f1_orbit_size(&kc->c, cm);
+        F1U192 msum = {0, 0, 0}, tsum = {0, 0, 0};
+        const uint64_t ef1 = F->off[mi + 1], eg1 = G->off[mi + 1];
+        if (F->e != F->off[mi] || G->e != G->off[mi] || (T && T->e != T->off[mi])) MJ_LFAIL("stream-order");
+        uint32_t pf = 0, pg = 0;
+        int hpf = 0, hpg = 0;
+        while (F->e < ef1) {
+            if (mj_ensure(F) != 0) MJ_SFAIL(F);
+            const uint32_t kf = F->keys[F->e - F->e0];
+            const F1U192 fv = F->vals[F->e - F->e0];
+            if (hpf && kf <= pf) MJ_LFAIL("key-order");
+            pf = kf; hpf = 1;
+            if ((kf >> 16) > 63 || (kf & 0xffffu) >= Rr || kc->B.rsum[kf & 0xffffu] != k) MJ_LFAIL("key-domain");
+            if (f1_is_zero(&fv)) MJ_LFAIL("f-zero");
+            F1U192 gv = {0, 0, 0};
+            int matched = 0;
+            while (G->e < eg1) {
+                if (mj_ensure(G) != 0) MJ_SFAIL(G);
+                const uint32_t kg = G->keys[G->e - G->e0];
+                if (hpg && kg <= pg) MJ_LFAIL("key-order");
+                if (kg < kf) {
+                    if (k == 0) MJ_LFAIL("g-only-at-k0");
+                    pg = kg; hpg = 1;
+                    R->g_only++;
+                    G->e++;
+                    continue;
+                }
+                if (kg == kf) {
+                    gv = G->vals[G->e - G->e0];
+                    matched = 1;
+                    R->n_joined++;
+                    pg = kg; hpg = 1;
+                    G->e++;                      /* MJ-M2: an equal key advances BOTH cursors */
+                }
+                break;
+            }
+            if (T) {
+                if (mj_ensure(T) != 0) MJ_SFAIL(T);
+                if (T->e != F->e || T->keys[T->e - T->e0] != kf) MJ_LFAIL("t-geometry");
+                const F1U192 tv = T->vals[T->e - T->e0];
+                if (f1_is_zero(&tv)) MJ_LFAIL("t-zero");
+                const F1U192 ft = kc_u192_mul(&fv, &tv);
+                f1_add(&tsum, &ft);
+                if ((int64_t)mi == R->w_mi && kf == R->w_key) R->tK = tv;
+                T->e++;
+            }
+            const F1U192 p = kc_u192_mul(&fv, &gv);
+            const F1U192 wv = f1_mul_small(p, orb);   /* MJ-M5: the through-mass orbit*f*g */
+            if (f1_is_zero(&gv)) { R->dead++; if (matched) R->g_zero++; }
+            f1_add(&msum, &p);
+            mj_tri(&R->tf, &fv, &R->fK, orb, &wv);
+            mj_tri(&R->tg, &gv, &R->gK, orb, &wv);
+            mj_tri(&R->tw, &wv, &R->wK, orb, &wv);
+            {   const int bin = mj_bin(&fv);
+                R->hs[bin]++;
+                R->ho[bin] += orb;
+                f1_add(&R->hm[bin], &wv); }
+            if ((int64_t)mi == R->w_mi && kf == R->w_key) {
+                if (!f1_eq(&fv, &R->fK) || !f1_eq(&gv, &R->gK)) MJ_LFAIL("kw-state-value");
+                R->w_seen = 1;
+            }
+            R->n_f++;
+            F->e++;
+        }
+        while (G->e < eg1) {
+            if (mj_ensure(G) != 0) MJ_SFAIL(G);
+            const uint32_t kg = G->keys[G->e - G->e0];
+            if (hpg && kg <= pg) MJ_LFAIL("key-order");
+            if (k == 0) MJ_LFAIL("g-only-at-k0");
+            pg = kg; hpg = 1;
+            R->g_only++;
+            G->e++;
+        }
+        R->W[mi] = f1_mul_small(msum, orb);   /* MJ-M1: W = orbit(cm) * SUM f*g */
+        f1_add(&R->acc, &R->W[mi]);
+        if (T) { R->FT[mi] = f1_mul_small(tsum, orb); f1_add(&R->ft_acc, &R->FT[mi]); }
+        if (mj_hb.on && (mi & 4095) == 4095) {
+            const double now = omp_get_wtime();
+            if (now - mj_hb.last >= 60.0) { mj_hb.last = now; mj_progress_write("stream"); }
+        }
+        if (mj_kill_at == k && mi == nm / 2) { fflush(NULL); raise(SIGKILL); }
+    }
+    if (F->e != F->ne || G->e != G->ne || (T && T->e != T->ne)) MJ_LFAIL("stream-length");
+    if (!R->w_seen) MJ_LFAIL("kw-state-missing");
+    if (R->n_joined + R->g_only != G->ne) MJ_LFAIL("g-partition");
+    if (!f1_eq(&R->acc, N)) MJ_LFAIL("cut-identity");
+    return 0;
+}
+
+/* ---------- per-mask statistics (from the whole W vector) ---------- */
+static const F1U192 *mj_sort_V;
+static int mj_sort_cmp(const void *a, const void *b) {   /* descending value, ties by ascending index (= mask) */
+    const uint32_t i = *(const uint32_t *)a, j = *(const uint32_t *)b;
+    const int c = f1_cmp(&mj_sort_V[j], &mj_sort_V[i]);
+    if (c) return c;
+    return i < j ? -1 : (i > j);
+}
+
+static long double mj_ld(const F1U192 *v) {
+    return (long double)v->l0 + ldexpl((long double)v->l1, 64) + ldexpl((long double)v->l2, 128);
+}
+
+typedef struct {
+    uint32_t *idx;                       /* the descending order */
+    F1U192 lor[7];
+    uint64_t lor_n[7];
+    uint64_t rank, n_gt, n_eq, n_lt, n_nonzero;
+    F1U192 m_lt, m_eq;
+    uint64_t hist[200];
+    double H;
+} MjMaskStats;
+
+static int mj_mask_stats(const F1U192 *V, uint64_t nm, int64_t kmi, const F1U192 *N, MjMaskStats *S) {
+    memset(S, 0, sizeof(*S));
+    S->idx = (uint32_t *)malloc(4ull * (nm ? nm : 1));
+    if (!S->idx) return -1;
+    for (uint64_t i = 0; i < nm; i++) S->idx[i] = (uint32_t)i;
+    mj_sort_V = V;
+    qsort(S->idx, (size_t)nm, sizeof(uint32_t), mj_sort_cmp);
+    const uint64_t cuts[7] = {1, 10, 100, 1000, (nm + 99) / 100, (nm + 9) / 10, (nm + 1) / 2};
+    for (int c = 0; c < 7; c++) S->lor_n[c] = cuts[c] < nm ? cuts[c] : nm;
+    F1U192 run = {0, 0, 0};
+    for (uint64_t r = 0; r < nm; r++) {
+        f1_add(&run, &V[S->idx[r]]);
+        for (int c = 0; c < 7; c++) if (r + 1 == S->lor_n[c]) S->lor[c] = run;
+    }
+    const long double Nd = mj_ld(N);
+    long double H = 0.0L;
+    for (uint64_t i = 0; i < nm; i++) {
+        const int bits = f1_is_zero(&V[i]) ? 0 : f1_log2(&V[i]) + 1;
+        S->hist[bits]++;
+        if (bits) {
+            S->n_nonzero++;
+            const long double p = mj_ld(&V[i]) / Nd;
+            H -= p * log2l(p);
+        }
+        if (kmi >= 0) {
+            const int c = f1_cmp(&V[i], &V[kmi]);
+            if (c > 0) S->n_gt++;
+            else if (c == 0) { S->n_eq++; f1_add(&S->m_eq, &V[i]); }
+            else { S->n_lt++; f1_add(&S->m_lt, &V[i]); }
+        }
+    }
+    if (kmi >= 0) {
+        uint64_t before = 0;
+        for (uint64_t i = 0; i < (uint64_t)kmi; i++) before += f1_eq(&V[i], &V[kmi]);
+        S->rank = S->n_gt + before + 1;
+    }
+    S->H = (double)H;
+    return 0;
+}
+
+static double mj_pmid(const F1U192 *lt, const F1U192 *eq, const F1U192 *tot) {
+    const long double t = mj_ld(tot);
+    return t > 0 ? (double)((mj_ld(lt) + mj_ld(eq) / 2.0L) / t) : 0.0;
+}
+static double mj_pmid_u(uint64_t lt, uint64_t eq, uint64_t tot) {
+    return tot ? ((double)lt + (double)eq / 2.0) / (double)tot : 0.0;
+}
+
+static void mj_tri_json(FILE *o, const char *name, const MjTri *T) {
+    char a[64], b[64], c[64];
+    f1_dec(T->m[0], a); f1_dec(T->m[1], b); f1_dec(T->m[2], c);
+    fprintf(o, "\"%s\": {\"state\": [%llu, %llu, %llu], \"orbit\": [%llu, %llu, %llu], "
+               "\"mass\": [\"%s\", \"%s\", \"%s\"]}", name,
+            (unsigned long long)T->s[0], (unsigned long long)T->s[1], (unsigned long long)T->s[2],
+            (unsigned long long)T->o[0], (unsigned long long)T->o[1], (unsigned long long)T->o[2], a, b, c);
+}
+
+typedef struct {
+    const F1U192 *N;
+    const MjWalk *Wk;
+    int top;
+    const char *rkey, *inputs, *prov, *dump;   /* whole JSON values (one line each) */
+    double wall_s;
+    uint64_t bytes;
+} MjJsonCtx;
+
+/* The layer JSON. Lines that start with "  \"resume_key\"", "  \"inputs\"", "  \"provenance\"",
+ * "  \"masks_dump\"" or "  \"summary_row\"" carry the run, not the result: the byte-identity
+ * gates compare every other line (mj_json_gated). */
+static int mj_json(FILE *o, const KC *kc, const MjRes *R, const MjJsonCtx *J) {
+    char d1[64], d2[64], d3[64];
+    MjMaskStats S;
+    if (mj_mask_stats(R->W, R->nm, R->w_mi, J->N, &S) != 0) return -1;
+    f1_dec(*J->N, d1);
+    fprintf(o, "{\n  \"schema\": \"midjoin_v1\", \"n\": %d, \"k\": %d, \"start_exit\": %d, "
+               "\"pl_hash\": \"%016llx\", \"b0\": [%d, %d, %d, %d, %d],\n",
+            kc->n, R->k, kc->start_exit, (unsigned long long)f1_pl_hash(&kc->c),
+            kc->b0v[0], kc->b0v[1], kc->b0v[2], kc->b0v[3], kc->b0v[4]);
+    fprintf(o, "  \"N\": \"%s\",\n", d1);
+    fprintf(o, "  \"resume_key\": \"%s\",\n", J->rkey);
+    fprintf(o, "  \"inputs\": %s,\n", J->inputs);
+    fprintf(o, "  \"provenance\": %s,\n", J->prov);
+    fprintf(o, "  \"masks_dump\": %s,\n", J->dump ? J->dump : "null");
+    f1_dec(R->acc, d1);
+    fprintf(o, "  \"identity\": {\"sum_orbit_f_g\": \"%s\", \"cut_identity\": \"OK\"},\n", d1);
+    f1_dec(R->fK, d1); f1_dec(R->gK, d2); f1_dec(R->wK, d3);
+    fprintf(o, "  \"walk\": {\"label\": \"%s\", \"walk\": \"%s\", \"state\": {\"cm\": \"0x%x\", \"lastc\": %d, "
+               "\"rid\": %u, \"raw_mask\": \"0x%x\", \"raw_last\": %d, \"orbit\": %u}, \"f\": \"%s\", "
+               "\"g\": \"%s\", \"w\": \"%s\", \"f_pin\": \"%s\"},\n",
+            J->Wk->label, J->Wk->str, R->w_cm, R->w_lastc, R->w_rid, R->w_raw_m, R->w_raw_last,
+            R->w_orb, d1, d2, d3, R->pin);
+    fprintf(o, "  \"states\": {\"n_f\": %llu, \"n_joined\": %llu, \"dead\": %llu, \"g_zero\": %llu, "
+               "\"g_only\": %llu, \"n_entries_f\": %llu, \"n_entries_g\": %llu,\n",
+            (unsigned long long)R->n_f, (unsigned long long)R->n_joined, (unsigned long long)R->dead,
+            (unsigned long long)R->g_zero, (unsigned long long)R->g_only,
+            (unsigned long long)R->ne_f, (unsigned long long)R->ne_g);
+    fprintf(o, "    "); mj_tri_json(o, "f_pct", &R->tf); fprintf(o, ",\n");
+    fprintf(o, "    "); mj_tri_json(o, "g_pct", &R->tg); fprintf(o, ",\n");
+    fprintf(o, "    "); mj_tri_json(o, "w_pct", &R->tw); fprintf(o, ",\n");
+    for (int w = 0; w < 3; w++) {
+        fprintf(o, "    %s\"%s\": [", w == 0 ? "\"f_hist_log2x8\": {" : "  ", w == 0 ? "state" : (w == 1 ? "orbit" : "mass"));
+        int first = 1;
+        for (int b = 0; b < MJ_HBINS; b++) {
+            if (!R->hs[b]) continue;
+            if (w == 2) { f1_dec(R->hm[b], d1); fprintf(o, "%s[%d, \"%s\"]", first ? "" : ", ", b, d1); }
+            else fprintf(o, "%s[%d, %llu]", first ? "" : ", ", b,
+                         (unsigned long long)(w == 0 ? R->hs[b] : R->ho[b]));
+            first = 0;
+        }
+        fprintf(o, "]%s\n", w == 2 ? "}}," : ",");
+    }
+    fprintf(o, "  \"masks\": {\"n\": %llu, \"n_nonzero_W\": %llu, \"W_hist_log2\": [",
+            (unsigned long long)R->nm, (unsigned long long)S.n_nonzero);
+    { int first = 1;
+      for (int b = 0; b < 200; b++)
+          if (S.hist[b]) { fprintf(o, "%s[%d, %llu]", first ? "" : ", ", b, (unsigned long long)S.hist[b]); first = 0; } }
+    fprintf(o, "],\n    \"top\": [\n");
+    const uint64_t K = (uint64_t)J->top < R->nm ? (uint64_t)J->top : R->nm;
+    for (uint64_t r = 0; r < K; r++) {
+        const uint32_t i = S.idx[r];
+        f1_dec(R->W[i], d1);
+        fprintf(o, "      {\"cm\": \"0x%x\", \"orbit\": %d, \"W\": \"%s\"}%s\n", R->masks[i],
+                f1_orbit_size(&kc->c, R->masks[i]), d1, r + 1 < K ? "," : "");
+    }
+    fprintf(o, "    ],\n    \"lorenz\": {");
+    { static const char *nm7[7] = {"top1", "top10", "top100", "top1000", "top_1pct", "top_10pct", "top_50pct"};
+      for (int c = 0; c < 7; c++) {
+          f1_dec(S.lor[c], d1);
+          fprintf(o, "%s\"%s\": [%llu, \"%s\"]", c ? ", " : "", nm7[c], (unsigned long long)S.lor_n[c], d1);
+      } }
+    fprintf(o, "},\n    \"entropy_bits\": %.6f,\n", S.H);
+    f1_dec(R->W[R->w_mi], d1); f1_dec(S.m_lt, d2); f1_dec(S.m_eq, d3);
+    fprintf(o, "    \"kw\": {\"cm\": \"0x%x\", \"orbit\": %u, \"W\": \"%s\", \"rank\": %llu, \"n_gt\": %llu, "
+               "\"n_eq\": %llu, \"n_lt\": %llu, \"mass_lt\": \"%s\", \"mass_eq\": \"%s\"}},\n",
+            R->w_cm, R->w_orb, d1, (unsigned long long)S.rank, (unsigned long long)S.n_gt,
+            (unsigned long long)S.n_eq, (unsigned long long)S.n_lt, d2, d3);
+    double kw_t_P = 0.0;
+    uint64_t kw_t_rank = 0;
+    if (R->has_t) {
+        MjMaskStats T;
+        if (mj_mask_stats(R->FT, R->nm, R->w_mi, &R->ft_acc, &T) != 0) { free(S.idx); return -1; }
+        f1_dec(R->ft_acc, d1); f1_dec(R->tK, d2);
+        fprintf(o, "  \"t\": {\"n_entries_t\": %llu, \"sum_orbit_f_t\": \"%s\", \"walk_t\": \"%s\", \"top\": [\n",
+                (unsigned long long)R->ne_t, d1, d2);
+        for (uint64_t r = 0; r < K; r++) {
+            const uint32_t i = T.idx[r];
+            f1_dec(R->FT[i], d1);
+            fprintf(o, "      {\"cm\": \"0x%x\", \"FT\": \"%s\"}%s\n", R->masks[i], d1, r + 1 < K ? "," : "");
+        }
+        f1_dec(R->FT[R->w_mi], d1); f1_dec(T.m_lt, d2); f1_dec(T.m_eq, d3);
+        fprintf(o, "    ],\n    \"kw\": {\"FT\": \"%s\", \"rank\": %llu, \"mass_lt\": \"%s\", \"mass_eq\": \"%s\"}},\n",
+                d1, (unsigned long long)T.rank, d2, d3);
+        kw_t_P = mj_pmid(&T.m_lt, &T.m_eq, &R->ft_acc);
+        kw_t_rank = T.rank;
+        free(T.idx);
+    } else fprintf(o, "  \"t\": null,\n");
+    (void)kw_t_P; (void)kw_t_rank;
+    f1_dec(R->fK, d1);
+    fprintf(o, "  \"summary_row\": \"%d\\t%llu\\t%llu\\t%s\\t%.6f\\t%.6f\\t%.6f\\t%.6f\\t%.6f\\t%.6f\\t%.6f\\t%llu\\t%.6f\\t%.1f\\t%.1f\",\n",
+            R->k, (unsigned long long)R->nm, (unsigned long long)R->n_f, d1,
+            mj_pmid_u(R->tf.s[0], R->tf.s[1], R->n_f),
+            mj_pmid_u(R->tf.o[0], R->tf.o[1], R->tf.o[0] + R->tf.o[1] + R->tf.o[2]),
+            mj_pmid(&R->tf.m[0], &R->tf.m[1], J->N), mj_pmid(&R->tg.m[0], &R->tg.m[1], J->N),
+            mj_pmid(&R->tw.m[0], &R->tw.m[1], J->N),
+            (double)(mj_ld(&S.lor[0]) / mj_ld(J->N)), (double)(mj_ld(&S.lor[1]) / mj_ld(J->N)),
+            (unsigned long long)S.rank, mj_pmid(&S.m_lt, &S.m_eq, J->N), J->wall_s,
+            J->wall_s > 0 ? (double)J->bytes / 1e6 / J->wall_s : 0.0);
+    fprintf(o, "  \"MIDJOIN_LAYER\": \"OK\"\n}\n");
+    free(S.idx);
+    return 0;
+}
+
+static int mj_json_text(const KC *kc, const MjRes *R, const MjJsonCtx *J, char **txt, size_t *len) {
+    *txt = NULL; *len = 0;
+    FILE *o = open_memstream(txt, len);
+    if (!o) return -1;
+    const int rc = mj_json(o, kc, R, J);
+    if (fclose(o) != 0) return -1;
+    return rc;
+}
+
+/* the gated content: every line except the five run-describing ones */
+static int mj_json_line_gated(const char *s) {
+    static const char *skip[5] = {"  \"resume_key\"", "  \"inputs\"", "  \"provenance\"",
+                                  "  \"masks_dump\"", "  \"summary_row\""};
+    for (int i = 0; i < 5; i++) if (strncmp(s, skip[i], strlen(skip[i])) == 0) return 0;
+    return 1;
+}
+static char *mj_json_gated(const char *txt) {
+    const size_t n = strlen(txt);
+    char *out = (char *)malloc(n + 1);
+    if (!out) return NULL;
+    size_t o = 0;
+    for (const char *p = txt; *p; ) {
+        const char *e = strchr(p, '\n');
+        const size_t l = e ? (size_t)(e - p) + 1 : strlen(p);
+        if (mj_json_line_gated(p)) { memcpy(out + o, p, l); o += l; }
+        p += l;
+    }
+    out[o] = '\0';
+    return out;
+}
+
+/* ---------- files ---------- */
+static int mj_fsync_dir(const char *dir) {
+    const int fd = open(dir, O_RDONLY | O_DIRECTORY);
+    if (fd < 0) return -1;
+    const int rc = fsync(fd);
+    close(fd);
+    return rc;
+}
+
+static int mj_write_atomic(const char *dir, const char *name, const void *data, size_t len) {
+    char fin[4400], tmp[4410];
+    snprintf(fin, sizeof(fin), "%s/%s", dir, name);
+    snprintf(tmp, sizeof(tmp), "%s.tmp", fin);
+    FILE *f = fopen(tmp, "wb");
+    if (!f) { fprintf(stderr, "ERROR: [kc-midjoin] cannot write %s: %s\n", tmp, strerror(errno)); return -1; }
+    if (len && fwrite(data, 1, len, f) != len) { fclose(f); unlink(tmp); return -1; }
+    if (kc_h_close_artifact(f, tmp, "kc-midjoin") != 0) return -1;
+    if (rename(tmp, fin) != 0 || mj_fsync_dir(dir) != 0) {
+        fprintf(stderr, "ERROR: [kc-midjoin] rename/fsync of %s failed: %s\n", fin, strerror(errno));
+        return -1;
+    }
+    return 0;
+}
+
+static char *mj_slurp(const char *path, size_t *len) {
+    FILE *f = fopen(path, "rb");
+    if (!f) return NULL;
+    char *buf = NULL;
+    size_t cap = 0, n = 0;
+    for (;;) {
+        if (n + 65536 + 1 > cap) {
+            cap = cap ? cap * 2 : 131072;
+            char *nb = (char *)realloc(buf, cap);
+            if (!nb) { free(buf); fclose(f); return NULL; }
+            buf = nb;
+        }
+        const size_t got = fread(buf + n, 1, 65536, f);
+        n += got;
+        if (got < 65536) break;
+    }
+    const int bad = ferror(f);
+    fclose(f);
+    if (bad) { free(buf); return NULL; }
+    buf[n] = '\0';
+    if (len) *len = n;
+    return buf;
+}
+
+/* the value of a one-line `  "<key>": "<value>"` field (string fields only); 0 ok */
+static int mj_json_field(const char *txt, const char *key, char *out, size_t cap) {
+    char pat[96];
+    snprintf(pat, sizeof(pat), "\n  \"%s\": \"", key);
+    const char *p = strstr(txt, pat);
+    if (!p) return -1;
+    p += strlen(pat);
+    const char *e = strchr(p, '"');
+    if (!e || (size_t)(e - p) >= cap) return -1;
+    memcpy(out, p, (size_t)(e - p));
+    out[e - p] = '\0';
+    return 0;
+}
+
+/* inside the "walk" line: the decimal string after `"<name>": "` */
+static int mj_walk_value(const char *txt, const char *name, F1U192 *v) {
+    const char *w = strstr(txt, "\n  \"walk\": {");
+    if (!w) return -1;
+    const char *e = strchr(w + 1, '\n');
+    char pat[32];
+    snprintf(pat, sizeof(pat), "\"%s\": \"", name);
+    const char *p = strstr(w, pat);
+    if (!p || (e && p > e)) return -1;
+    p += strlen(pat);
+    char dec[80];
+    size_t i = 0;
+    while (p[i] && p[i] != '"' && i + 1 < sizeof(dec)) { dec[i] = p[i]; i++; }
+    dec[i] = '\0';
+    return kc_u192_from_dec(dec, v);
+}
+
+/* ---------- context (manifest) without opening any layer; never aborts on bad input ---------- */
+static int mj_ctx_open(KC *kc, const char *dir, int kind, char *why, size_t wz) {
+    f1_binom_init();
+    f1_build_group();
+    const char *pfx = kind == 2 ? "t" : (kind ? "g" : "f1c5");
+    char path[4300], expect1[64], line[2048];
+    snprintf(path, sizeof(path), "%s/%s_manifest.txt", dir, pfx);
+    snprintf(expect1, sizeof(expect1), "%s_manifest_v1", pfx);
+    FILE *f = fopen(path, "r");
+    if (!f) MJ_FAIL("missing-manifest");
+    int n = -1, start_exit = -1, last_k = -2, b0v[5] = {-1, -1, -1, -1, -1}, pl[33], npl = 0, first = 1, hdr_ok = 0, have_mph = 0;
+    unsigned long long mph = 0;
+    while (fgets(line, sizeof(line), f)) {
+        if (first) { hdr_ok = strncmp(line, expect1, strlen(expect1)) == 0; first = 0; }
+        if (sscanf(line, "n=%d", &n) == 1) continue;
+        if (sscanf(line, "start_exit=%d", &start_exit) == 1) continue;
+        if (sscanf(line, "b0=%d,%d,%d,%d,%d", &b0v[0], &b0v[1], &b0v[2], &b0v[3], &b0v[4]) == 5) continue;
+        if (sscanf(line, "last_complete_k=%d", &last_k) == 1) continue;
+        if (sscanf(line, "pl_hash=%llx", &mph) == 1) { have_mph = 1; continue; }
+        if (strncmp(line, "pl=", 3) == 0)
+            for (char *tok = strtok(line + 3, ",\n"); tok && npl < 33; tok = strtok(NULL, ",\n")) pl[npl++] = atoi(tok);
+    }
+    fclose(f);
+    if (!hdr_ok) MJ_FAIL("bad-manifest");
+    int bsum = 0;
+    for (int d = 0; d < 5; d++) { if (b0v[d] < 0) MJ_FAIL("bad-manifest"); bsum += b0v[d]; }
+    if (n < 1 || n > KC_MAX_PAIRS || npl != n || (start_exit != 0 && start_exit != 63) || bsum != n)
+        MJ_FAIL("bad-manifest");
+    for (int i = 0; i < n; i++) if (pl[i] < 1 || pl[i] > 31) MJ_FAIL("bad-manifest");
+    if (last_k != (kind ? 0 : n)) MJ_FAIL("incomplete-ladder");
+    if (n == 31) {
+        static const int prod_b0[5] = {2, 8, 13, 7, 1};
+        int ok = start_exit == 0 && memcmp(b0v, prod_b0, sizeof(prod_b0)) == 0;
+        for (int i = 0; i < 31; i++) ok &= pl[i] == i + 1;
+        if (!ok) MJ_FAIL("not-production-tuple");
+    }
+    kc->n = n;
+    kc->start_exit = start_exit;
+    f1_ctx_init(&kc->c, n, pl, start_exit);
+    kc_finish_init(kc, b0v);
+    if (!have_mph || mph != (unsigned long long)f1_pl_hash(&kc->c)) MJ_FAIL("manifest-pl-hash");
+    return 0;
+}
+
+/* N = SUM of f's layer n (the single full mask, every residual = B0) == g's layer-0 anchor value */
+static int mj_total(const KC *kc, const char *fdir, const char *gdir, F1U192 *N, char *why, size_t wz) {
+    MjLayer L;
+    MjSrc S;
+    F1U192 fs = {0, 0, 0}, gs = {0, 0, 0};
+    for (int side = 0; side < 2; side++) {
+        const int k = side ? 0 : kc->n;
+        if (mj_layer_open(&L, side ? gdir : fdir, side, k, kc, 1, 0, why, wz) != 0) {
+            char w2[MJ_WHY]; snprintf(w2, sizeof(w2), "%s-%s%d", why, side ? "g" : "f", k); snprintf(why, wz, "%s", w2);
+            mj_layer_close(&L); return -1;
+        }
+        const uint32_t full = (kc->n == 32) ? 0xffffffffu : ((1u << kc->n) - 1u);
+        int ok = side ? (L.nm == 1 && L.masks[0] == 0 && L.ne == 1) : (L.nm == 1 && L.masks[0] == full);
+        if (ok && mj_src_init_stream(&S, &L, 0, 0) == 0) {
+            for (uint64_t e = 0; e < L.ne && ok; e++) {
+                if (mj_ensure(&S) != 0) { ok = 0; break; }
+                const uint32_t key = S.keys[e - S.e0];
+                if (side ? key != ((uint32_t)kc->start_exit << 16) : (key & 0xffffu) != kc->B.rid_full) ok = 0;
+                f1_add(side ? &gs : &fs, &S.vals[e - S.e0]);
+                S.e++;
+            }
+        } else ok = 0;
+        mj_src_free(&S);
+        mj_layer_close(&L);
+        if (!ok) MJ_FAIL("total-layer-%s%d", side ? "g" : "f", k);
+    }
+    if (!f1_eq(&fs, &gs) || f1_is_zero(&fs)) MJ_FAIL("total-mismatch");
+    *N = fs;
+    return 0;
+}
+
+/* ---------- the --kc-kw-f-tsv pin (a --kc-profile table: step, entry, exit, f, g columns) ---------- */
+typedef struct {
+    int have;
+    int has[KC_MAX_PAIRS + 1], entry[KC_MAX_PAIRS + 1], exitx[KC_MAX_PAIRS + 1];
+    F1U192 f[KC_MAX_PAIRS + 1], g[KC_MAX_PAIRS + 1];
+} MjPinTab;
+
+static int mj_pin_load(const char *path, int n, MjPinTab *P, char *why, size_t wz) {
+    memset(P, 0, sizeof(*P));
+    FILE *f = fopen(path, "r");
+    if (!f) MJ_FAIL("kw-tsv-unreadable");
+    char line[8192];
+    int cs = -1, ce = -1, cx = -1, cf = -1, cg = -1, rows = 0, bad = 0;
+    while (fgets(line, sizeof(line), f)) {
+        line[strcspn(line, "\r\n")] = '\0';
+        if (strncmp(line, "step\t", 5) == 0) {
+            int c = 0;
+            for (char *t = strtok(line, "\t"); t; t = strtok(NULL, "\t"), c++) {
+                if (!strcmp(t, "step")) cs = c; else if (!strcmp(t, "entry")) ce = c;
+                else if (!strcmp(t, "exit")) cx = c; else if (!strcmp(t, "f")) cf = c; else if (!strcmp(t, "g")) cg = c;
+            }
+            continue;
+        }
+        { const char *np = strstr(line, "\tn=");
+          if (np && atoi(np + 3) != n) bad = 1; }
+        if (cs < 0 || line[0] < '0' || line[0] > '9') continue;
+        char *col[64];
+        int nc = 0;
+        for (char *t = strtok(line, "\t"); t && nc < 64; t = strtok(NULL, "\t")) col[nc++] = t;
+        if (cs >= nc || ce >= nc || cx >= nc || cf >= nc || cg >= nc || ce < 0 || cx < 0 || cf < 0 || cg < 0) { bad = 1; continue; }
+        const int s = atoi(col[cs]);
+        if (s < 1 || s > n || P->has[s]) { bad = 1; continue; }
+        if (kc_u192_from_dec(col[cf], &P->f[s]) != 0 || kc_u192_from_dec(col[cg], &P->g[s]) != 0) { bad = 1; continue; }
+        P->entry[s] = atoi(col[ce]);
+        P->exitx[s] = atoi(col[cx]);
+        P->has[s] = 1;
+        rows++;
+    }
+    fclose(f);
+    if (bad || rows == 0) MJ_FAIL("kw-tsv-malformed");
+    for (int s = 1; s <= n; s++) if (!P->has[s]) MJ_FAIL("kw-tsv-incomplete");   /* every step 1..n: SKIP then arises only at k = 0 */
+    P->have = 1;
+    return 0;
+}
+
+/* "OK" / "MISMATCH" / "SKIP" for layer k */
+static const char *mj_pin_check(const KC *kc, const MjPinTab *P, const MjWalk *Wk, int k,
+                                const F1U192 *fK, const F1U192 *gK) {
+    if (!P->have || k < 1 || !P->has[k]) return "SKIP";
+    if (P->exitx[k] != Wk->E[k - 1] || P->entry[k] != kc->partner[Wk->E[k - 1]]) return "MISMATCH";
+    if (!f1_eq(&P->f[k], fK) || !f1_eq(&P->g[k], gK)) return "MISMATCH";
+    return "OK";
+}
+
+/* ---------- the driver ---------- */
+typedef struct {
+    const char *fdir, *gdir, *tdir, *outdir, *walk_arg, *tsv, *masks_out;
+    int k_lo, k_hi, top, read_mb, threads, force;
+    uint64_t win_bytes, v1_blk;          /* 0 = from --kc-read-mb / the default block (selftest overrides) */
+} MjOpts;
+
+
+static void mj_utc(char *out, size_t cap) {
+    time_t t = time(NULL);
+    struct tm tm;
+    gmtime_r(&t, &tm);
+    strftime(out, cap, "%Y-%m-%dT%H:%M:%SZ", &tm);
+}
+
+static void mj_progress_write(const char *phase) {
+    if (!mj_hb.on || !mj_hb.outdir) return;
+    const uint64_t bf = mj_hb.F ? __atomic_load_n(&mj_hb.F->bytes_read, __ATOMIC_RELAXED) : 0;
+    const uint64_t bg = mj_hb.G ? __atomic_load_n(&mj_hb.G->bytes_read, __ATOMIC_RELAXED) : 0;
+    const uint64_t bt = mj_hb.T ? __atomic_load_n(&mj_hb.T->bytes_read, __ATOMIC_RELAXED) : 0;
+    const double dt = omp_get_wtime() - mj_hb.t0;
+    const double rate = dt > 0 ? (double)(bf + bg + bt) / 1e6 / dt : 0.0;
+    const double fr = mj_hb.fsz ? (double)bf / (double)mj_hb.fsz : 1.0, gr = mj_hb.gsz ? (double)bg / (double)mj_hb.gsz : 1.0;
+    const double done = fr < gr ? fr : gr;
+    const double eta = (done > 0 && done < 1) ? dt * (1.0 - done) / done : 0.0;
+    char utc[32], buf[1024];
+    mj_utc(utc, sizeof(utc));
+    const int n = snprintf(buf, sizeof(buf),
+        "{\"layer\": %d, \"phase\": \"%s\", \"utc\": \"%s\", \"bytes_f\": %llu, \"bytes_f_total\": %llu, "
+        "\"bytes_g\": %llu, \"bytes_g_total\": %llu, \"bytes_t\": %llu, \"bytes_t_total\": %llu, "
+        "\"rate_MBs\": %.1f, \"layer_eta_s\": %.0f}\n", mj_hb.k, phase, utc,
+        (unsigned long long)bf, (unsigned long long)mj_hb.fsz, (unsigned long long)bg, (unsigned long long)mj_hb.gsz,
+        (unsigned long long)bt, (unsigned long long)mj_hb.tsz, rate, eta);
+    mj_write_atomic(mj_hb.outdir, "midjoin_progress.json", buf, (size_t)n);
+    if (strcmp(phase, "stream") == 0) fprintf(stderr, "[kc-midjoin] k=%d %s f=%.2fGB/%.2fGB g=%.2fGB/%.2fGB rate=%.1f MB/s layer_eta=%.2fh\n",
+            mj_hb.k, phase, bf / 1e9, mj_hb.fsz / 1e9, bg / 1e9, mj_hb.gsz / 1e9, rate, eta / 3600.0);
+}
+
+static void mj_resume_key(const KC *kc, const MjOpts *O, int k, const F1U192 *N, const MjWalk *Wk,
+                          const MjLayer *pf, const MjLayer *pg, const MjLayer *pt, char *out, size_t cap) {
+    char nd[64];
+    f1_dec(*N, nd);
+    const char *eng = strcmp(SOURCE_SHA, "unknown") != 0 ? SOURCE_SHA : kc_h_exe_sha();
+    char tpart[160];
+    if (pt) snprintf(tpart, sizeof(tpart), "%s:%llu", pt->base, (unsigned long long)pt->fsize);
+    else snprintf(tpart, sizeof(tpart), "-");
+    snprintf(out, cap, "midjoin_v1;n=%d;k=%d;start_exit=%d;pl_hash=%016llx;b0=%d,%d,%d,%d,%d;N=%s;"
+                       "f=%s:%llu;g=%s:%llu;t=%s;walk=%s;top=%d;masks_out=%d;engine=%s",
+             kc->n, k, kc->start_exit, (unsigned long long)f1_pl_hash(&kc->c), kc->b0v[0], kc->b0v[1],
+             kc->b0v[2], kc->b0v[3], kc->b0v[4], nd, pf->base, (unsigned long long)pf->fsize,
+             pg->base, (unsigned long long)pg->fsize, tpart, Wk->str, O->top, O->masks_out ? 1 : 0, eng);
+}
+
+static void mj_inputs_line(const MjLayer *f, const MjLayer *g, const MjLayer *t, char *out, size_t cap) {
+    char tl[400];
+    if (t) snprintf(tl, sizeof(tl), "{\"file\": \"%s\", \"bytes\": %llu, \"format\": \"%s\", \"n_masks\": %llu, \"n_entries\": %llu}",
+                    t->base, (unsigned long long)t->fsize, t->is_v2 ? "v2" : "v1", (unsigned long long)t->nm, (unsigned long long)t->ne);
+    else snprintf(tl, sizeof(tl), "null");
+    snprintf(out, cap, "{\"f\": {\"file\": \"%s\", \"bytes\": %llu, \"format\": \"%s\", \"n_masks\": %llu, \"n_entries\": %llu}, "
+                       "\"g\": {\"file\": \"%s\", \"bytes\": %llu, \"format\": \"%s\", \"n_masks\": %llu, \"n_entries\": %llu}, \"t\": %s}",
+             f->base, (unsigned long long)f->fsize, f->is_v2 ? "v2" : "v1", (unsigned long long)f->nm, (unsigned long long)f->ne,
+             g->base, (unsigned long long)g->fsize, g->is_v2 ? "v2" : "v1", (unsigned long long)g->nm, (unsigned long long)g->ne, tl);
+}
+
+/* the per-mask dump: nm x (u32 mask LE, 3 x u64 LE W) */
+static int mj_masks_dump(const char *dir, const MjRes *R, char *line, size_t cap) {
+    const size_t len = (size_t)R->nm * 28;
+    uint8_t *buf = (uint8_t *)malloc(len ? len : 1);
+    if (!buf) return -1;
+    for (uint64_t i = 0; i < R->nm; i++) {
+        memcpy(buf + 28 * i, &R->masks[i], 4);
+        memcpy(buf + 28 * i + 4, &R->W[i], 24);
+    }
+    char name[64], hex[65];
+    snprintf(name, sizeof(name), "midjoin_masks_%02d.bin", R->k);
+    int rc = (mkdir(dir, 0755) == 0 || errno == EEXIST) ? 0 : -1;
+    if (rc == 0) rc = mj_write_atomic(dir, name, buf, len);
+    if (rc == 0 && kc_h_sha256_mem(buf, len, hex) != 0) rc = -1;
+    free(buf);
+    if (rc == 0) snprintf(line, cap, "{\"file\": \"%s\", \"bytes\": %llu, \"sha256\": \"%s\"}", name, (unsigned long long)len, hex);
+    return rc;
+}
+
+/* One layer through the streaming reader: open, locate the walk, point reads, pin, stream,
+ * JSON. 0 ok (JSON durable), -1 FAIL (why). */
+static int mj_stream_layer(const KC *kc, const MjOpts *O, int k, const F1U192 *N, const MjWalk *Wk,
+                           const MjPinTab *P, const char *rkey, char *why, size_t wz) {
+    MjLayer LF, LG, LT;
+    MjSrc F, G, T;
+    MjRes *R = (MjRes *)calloc(1, sizeof(MjRes));
+    int rc = -1, have_t = O->tdir != NULL;
+    char *txt = NULL;
+    size_t tlen = 0;
+    memset(&LF, 0, sizeof(LF)); memset(&LG, 0, sizeof(LG)); memset(&LT, 0, sizeof(LT));
+    LF.fd = LG.fd = LT.fd = -1;
+    memset(&F, 0, sizeof(F)); memset(&G, 0, sizeof(G)); memset(&T, 0, sizeof(T));
+    F.mem = G.mem = T.mem = 1;               /* mj_src_free is a no-op until initialised */
+    const double t0 = omp_get_wtime();
+    char utc0[32], utc1[32];
+    mj_utc(utc0, sizeof(utc0));
+    if (!R) { snprintf(why, wz, "oom"); return -1; }
+    if (mj_layer_open(&LF, O->fdir, 0, k, kc, 1, O->v1_blk, why, wz) != 0 ||
+        mj_layer_open(&LG, O->gdir, 1, k, kc, 1, O->v1_blk, why, wz) != 0 ||
+        (have_t && mj_layer_open(&LT, O->tdir, 2, k, kc, 1, O->v1_blk, why, wz) != 0)) goto out;
+    if (LF.nm != LG.nm || memcmp(LF.masks, LG.masks, 4ull * LF.nm) != 0) { snprintf(why, wz, "mask-list"); goto out; }
+    if (have_t && (LT.nm != LF.nm || LT.ne != LF.ne || memcmp(LT.masks, LF.masks, 4ull * LF.nm) != 0 ||
+                   memcmp(LT.off, LF.off, 8ull * (LF.nm + 1)) != 0)) { snprintf(why, wz, "t-geometry"); goto out; }
+    mj_walk_state(kc, Wk, k, R);
+    R->w_mi = f1_bsearch_u32(LF.masks, LF.nm, R->w_cm);
+    if (R->w_mi < 0) { snprintf(why, wz, "kw-mask-missing"); goto out; }
+    {   int found = 0;
+        if (mj_point(&LF, (uint64_t)R->w_mi, R->w_key, &R->fK, &found, why, wz) != 0) goto out;
+        if (!found || f1_is_zero(&R->fK)) { snprintf(why, wz, "kw-state-missing"); goto out; }
+        if (mj_point(&LG, (uint64_t)R->w_mi, R->w_key, &R->gK, &found, why, wz) != 0) goto out;
+        if (!found || f1_is_zero(&R->gK)) { snprintf(why, wz, "kw-g-missing"); goto out; }
+        if (have_t) {
+            if (mj_point(&LT, (uint64_t)R->w_mi, R->w_key, &R->tK, &found, why, wz) != 0) goto out;
+            if (!found) { snprintf(why, wz, "kw-t-missing"); goto out; }
+        } }
+    snprintf(R->pin, sizeof(R->pin), "%s", mj_pin_check(kc, P, Wk, k, &R->fK, &R->gK));
+    if (strcmp(R->pin, "MISMATCH") == 0) { snprintf(why, wz, "kw-f-pin"); goto out; }
+    {   const uint64_t wb = O->win_bytes ? O->win_bytes : ((uint64_t)O->read_mb << 20);
+        if (mj_src_init_stream(&F, &LF, wb, O->threads) != 0 || mj_src_init_stream(&G, &LG, wb, O->threads) != 0 ||
+            (have_t && mj_src_init_stream(&T, &LT, wb, O->threads) != 0)) { snprintf(why, wz, "oom"); goto out; } }
+    mj_hb.on = 1; mj_hb.k = k; mj_hb.t0 = t0; mj_hb.last = t0; mj_hb.F = &F; mj_hb.G = &G; mj_hb.T = have_t ? &T : NULL;
+    mj_hb.fsz = LF.fsize; mj_hb.gsz = LG.fsize; mj_hb.tsz = have_t ? LT.fsize : 0; mj_hb.outdir = O->outdir;
+    mj_progress_write("start");
+    if (mj_layer_compute(kc, k, N, &F, &G, have_t ? &T : NULL, R, why, wz) != 0) goto out;
+    {   const uint64_t bf = F.bytes_read, bg = G.bytes_read, bt = have_t ? T.bytes_read : 0;
+        mj_progress_write("end");
+        mj_src_free(&F); mj_src_free(&G); mj_src_free(&T);
+        F.mem = G.mem = T.mem = 1;
+        mj_hb.F = mj_hb.G = mj_hb.T = NULL;
+        mj_utc(utc1, sizeof(utc1));
+        const double wall = omp_get_wtime() - t0;
+        char inputs[1400], prov[1400], dump[400];
+        mj_inputs_line(&LF, &LG, have_t ? &LT : NULL, inputs, sizeof(inputs));
+        snprintf(prov, sizeof(prov), "{\"source_sha\": \"%s\", \"git\": \"%s\", \"binary_sha256\": \"%s\", "
+                 "\"utc_start\": \"%s\", \"utc_end\": \"%s\", \"wall_s\": %.3f, \"bytes_read_f\": %llu, "
+                 "\"bytes_read_g\": %llu, \"bytes_read_t\": %llu, \"inflate_threads\": %d, \"read_mb\": %d, \"reader\": \"stream\"}",
+                 SOURCE_SHA, GIT_HASH, kc_h_exe_sha(), utc0, utc1, wall, (unsigned long long)bf,
+                 (unsigned long long)bg, (unsigned long long)bt, O->threads, O->read_mb);
+        if (O->masks_out && mj_masks_dump(O->masks_out, R, dump, sizeof(dump)) != 0) { snprintf(why, wz, "masks-out-io"); goto out; }
+        MjJsonCtx J = {N, Wk, O->top, rkey, inputs, prov, O->masks_out ? dump : NULL, wall, bf + bg + bt};
+        if (mj_json_text(kc, R, &J, &txt, &tlen) != 0) { snprintf(why, wz, "json"); goto out; }
+        char name[64];
+        snprintf(name, sizeof(name), "midjoin_layer_%02d.json", k);
+        if (mj_write_atomic(O->outdir, name, txt, tlen) != 0) { snprintf(why, wz, "io-write"); goto out; }
+    }
+    rc = 0;
+out:
+    mj_src_free(&F); mj_src_free(&G); mj_src_free(&T);
+    mj_hb.on = 0;
+    mj_layer_close(&LF); mj_layer_close(&LG); mj_layer_close(&LT);
+    mj_res_free(R);
+    free(R);
+    free(txt);
+    return rc;
+}
+
+static int mj_usage(void) {
+    fprintf(stderr,
+        "Usage: solve --kc-midjoin FDIR GDIR OUTDIR [--kc-layers A B] [--kc-walk KW|\"e,x,...\"]\n"
+        "                          [--kc-tdir TDIR] [--kc-top K] [--kc-kw-f-tsv PROFILE.tsv]\n"
+        "                          [--kc-masks-out DIR] [--kc-read-mb MB] [--kc-inflate-threads T]\n"
+        "                          [--kc-force]\n"
+        "  S5 same-layer streaming join (KC-MJ module header): per layer k, W_k(cm) = orbit(cm) *\n"
+        "  SUM f*g for every canonical mask (top-K, Lorenz, log2 histogram, the walk's mask rank)\n"
+        "  and the walk's f / g / w percentile among the layer-k states as exact (lt, eq, gt)\n"
+        "  triples under the state, orbit and mass weightings. --kc-layers A B: HALF-OPEN [A, B),\n"
+        "  default [0, n+1). --kc-walk: default KW (n = 31 only). --kc-tdir adds SUM orbit*f*t.\n"
+        "  Writes OUTDIR/midjoin_layer_<kk>.json (tmp -> fsync -> rename; a finished layer is\n"
+        "  RESUMED on restart), midjoin_summary.tsv and midjoin_progress.json. Tokens:\n"
+        "  MIDJOIN_LAYER=<k>:OK|RESUMED|FAIL:<reason>, MIDJOIN_CUT_IDENTITY=OK|FAIL,\n"
+        "  MIDJOIN_KW_F_PIN=OK|MISMATCH|SKIP, MIDJOIN=OK|FAIL:<reason>. Exit 0 / 1 / 2.\n"
+        "  Gate: --kc-midjoin-selftest.\n");
+    return 2;
+}
+
+static int mj_run(const MjOpts *O0) {
+    MjOpts Ov = *O0;
+    MjOpts *O = &Ov;
+    char why[MJ_WHY] = "";
+    int rc = 1, pin_bad = 0, pin_ok = 0, cut_ok = 1, ndone = 0;
+    KC *fkc = (KC *)calloc(1, sizeof(KC)), *gkc = (KC *)calloc(1, sizeof(KC)), *tkc = O->tdir ? (KC *)calloc(1, sizeof(KC)) : NULL;
+    MjLayer *pre = NULL;
+    MjPinTab *P = (MjPinTab *)calloc(1, sizeof(MjPinTab));
+    MjWalk Wk;
+    F1U192 N = {0, 0, 0};
+    if (!fkc || !gkc || (O->tdir && !tkc) || !P) { printf("MIDJOIN=FAIL:oom\n"); return 1; }
+    /* OUTDIR first: an unwritable OUTDIR refuses before any ladder is opened */
+    if (mkdir(O->outdir, 0755) != 0 && errno != EEXIST) {
+        fprintf(stderr, "ERROR: [kc-midjoin] cannot create OUTDIR %s: %s\n", O->outdir, strerror(errno));
+        printf("MIDJOIN=FAIL:outdir\n"); rc = 2; goto done;
+    }
+    {   char probe[4400];
+        snprintf(probe, sizeof(probe), "%s/.midjoin_probe", O->outdir);
+        FILE *pf = fopen(probe, "wb");
+        if (!pf || fclose(pf) != 0) {
+            fprintf(stderr, "ERROR: [kc-midjoin] OUTDIR %s is not writable: %s\n", O->outdir, strerror(errno));
+            printf("MIDJOIN=FAIL:outdir\n"); rc = 2; goto done;
+        }
+        unlink(probe); }
+    if (mj_ctx_open(fkc, O->fdir, 0, why, sizeof(why)) != 0 || mj_ctx_open(gkc, O->gdir, 1, why, sizeof(why)) != 0 ||
+        (tkc && mj_ctx_open(tkc, O->tdir, 2, why, sizeof(why)) != 0)) {
+        fprintf(stderr, "ERROR: [kc-midjoin] cannot open a ladder manifest: %s\n", why);
+        printf("MIDJOIN=FAIL:%s\n", why); rc = 1; goto done;
+    }
+    if (!kc_fg_ctx_same(fkc, gkc, "kc-midjoin") || (tkc && !kc_fg_ctx_same(fkc, tkc, "kc-midjoin"))) {
+        printf("MIDJOIN=FAIL:context-mismatch\n"); rc = 1; goto done;
+    }
+    const int n = fkc->n;
+    if (O->k_lo < 0) { O->k_lo = 0; O->k_hi = n + 1; }
+    if (O->k_lo >= O->k_hi || O->k_hi > n + 1) {
+        fprintf(stderr, "ERROR: [kc-midjoin] --kc-layers %d %d is not a non-empty subrange of [0, %d)\n", O->k_lo, O->k_hi, n + 1);
+        printf("MIDJOIN=FAIL:usage\n"); rc = 2; goto done;
+    }
+    if (mj_walk_resolve(fkc, O->walk_arg, &Wk) != 0) { printf("MIDJOIN=FAIL:walk\n"); rc = 2; goto done; }
+    if (O->tsv && mj_pin_load(O->tsv, n, P, why, sizeof(why)) != 0) {
+        fprintf(stderr, "ERROR: [kc-midjoin] --kc-kw-f-tsv %s: %s\n", O->tsv, why);
+        printf("MIDJOIN_KW_F_PIN=MISMATCH\nMIDJOIN=FAIL:%s\n", why); rc = 1; goto done;
+    }
+    if (mj_total(fkc, O->fdir, O->gdir, &N, why, sizeof(why)) != 0) {
+        printf("MIDJOIN=FAIL:%s\n", why); rc = 1; goto done;
+    }
+    /* preflight: every requested layer's header and exact size, before any stream */
+    pre = (MjLayer *)calloc((size_t)3 * (n + 1), sizeof(MjLayer));
+    if (!pre) { printf("MIDJOIN=FAIL:oom\n"); goto done; }
+    for (int k = O->k_lo; k < O->k_hi; k++)
+        for (int side = 0; side < (O->tdir ? 3 : 2); side++) {
+            MjLayer *L = &pre[3 * k + side];
+            const int ok = mj_layer_open(L, side == 0 ? O->fdir : (side == 1 ? O->gdir : O->tdir), side, k, fkc, 0, O->v1_blk, why, sizeof(why)) == 0;
+            if (L->fd >= 0) { close(L->fd); L->fd = -1; }
+            if (!ok) {
+                fprintf(stderr, "ERROR: [kc-midjoin] %s: %s\n", L->path, why);
+                printf("MIDJOIN_LAYER=%d:FAIL:%s\nMIDJOIN_CUT_IDENTITY=FAIL\nMIDJOIN_KW_F_PIN=%s\nMIDJOIN=FAIL:%s-%d\n",
+                       k, why, P->have ? "MISMATCH" : "SKIP", why, k);
+                rc = 1; goto done;
+            }
+        }
+    for (int k = O->k_lo; k < O->k_hi; k++) {
+        char rkey[2048], name[64], path[4400];
+        mj_resume_key(fkc, O, k, &N, &Wk, &pre[3 * k], &pre[3 * k + 1], O->tdir ? &pre[3 * k + 2] : NULL, rkey, sizeof(rkey));
+        snprintf(name, sizeof(name), "midjoin_layer_%02d.json", k);
+        snprintf(path, sizeof(path), "%s/%s", O->outdir, name);
+        if (!O->force) {
+            size_t len = 0;
+            char *old = mj_slurp(path, &len);
+            if (old) {
+                char okey[2048];
+                int same = mj_json_field(old, "resume_key", okey, sizeof(okey)) == 0 && strcmp(okey, rkey) == 0 &&
+                           len > 30 && strstr(old, "\n  \"MIDJOIN_LAYER\": \"OK\"\n}\n") != NULL;
+                if (same && O->masks_out) {
+                    char dp[4400];
+                    struct stat st;
+                    snprintf(dp, sizeof(dp), "%s/midjoin_masks_%02d.bin", O->masks_out, k);
+                    if (stat(dp, &st) != 0) same = -1;   /* the dump is missing: recompute the layer */
+                }
+                if (same == 1) {
+                    F1U192 fK, gK;
+                    if (mj_walk_value(old, "f", &fK) != 0 || mj_walk_value(old, "g", &gK) != 0) same = 0;
+                    else {
+                        const char *ps = mj_pin_check(fkc, P, &Wk, k, &fK, &gK);
+                        if (!strcmp(ps, "MISMATCH")) {
+                            free(old);
+                            printf("MIDJOIN_LAYER=%d:FAIL:kw-f-pin\n", k);
+                            pin_bad = 1; cut_ok = 0; snprintf(why, sizeof(why), "kw-f-pin-%d", k);
+                            goto finish;
+                        }
+                        pin_ok += !strcmp(ps, "OK");
+                        free(old);
+                        printf("MIDJOIN_LAYER=%d:RESUMED\n", k);
+                        fflush(stdout);
+                        ndone++;
+                        continue;
+                    }
+                }
+                if (same == 0) {
+                    free(old);
+                    fprintf(stderr, "ERROR: [kc-midjoin] %s exists from another run (resume_key differs: another "
+                            "instance, input, walk, K or engine); refusing to reuse or overwrite it. --kc-force "
+                            "recomputes every layer.\n", path);
+                    printf("MIDJOIN_LAYER=%d:FAIL:stale-result\n", k);
+                    cut_ok = 0; snprintf(why, sizeof(why), "stale-result-%d", k);
+                    goto finish;
+                }
+                free(old);
+            }
+        }
+        char lwhy[MJ_WHY] = "";
+        if (mj_stream_layer(fkc, O, k, &N, &Wk, P, rkey, lwhy, sizeof(lwhy)) != 0) {
+            fprintf(stderr, "ERROR: [kc-midjoin] layer %d: %s\n", k, lwhy);
+            printf("MIDJOIN_LAYER=%d:FAIL:%s\n", k, lwhy);
+            cut_ok = 0;
+            if (!strcmp(lwhy, "kw-f-pin")) pin_bad = 1;
+            snprintf(why, sizeof(why), "%s-%d", lwhy, k);
+            goto finish;
+        }
+        {   size_t len = 0;
+            char *now = mj_slurp(path, &len);
+            F1U192 fK, gK;
+            if (now && mj_walk_value(now, "f", &fK) == 0 && mj_walk_value(now, "g", &gK) == 0)
+                pin_ok += !strcmp(mj_pin_check(fkc, P, &Wk, k, &fK, &gK), "OK");
+            free(now); }
+        printf("MIDJOIN_LAYER=%d:OK\n", k);
+        fflush(stdout);
+        ndone++;
+    }
+    /* the summary, regenerated from the JSONs (never appended blindly) */
+    {   char *buf = NULL;
+        size_t blen = 0;
+        FILE *o = open_memstream(&buf, &blen);
+        char nd[64];
+        f1_dec(N, nd);
+        if (o) {
+            fprintf(o, "#midjoin_summary\tn=%d\tN=%s\tlayers=[%d,%d)\twalk=%s\tP_cols=mid-rank(lt+eq/2)/total,display-only\n",
+                    n, nd, O->k_lo, O->k_hi, Wk.label);
+            fprintf(o, "k\tn_masks\tn_states\tf_KW\tP_f_state\tP_f_orbit\tP_f_mass\tP_g_mass\tP_w_mass\ttop1_share\t"
+                       "top10_share\tkw_mask_rank\tkw_mask_P_mass\twall_s\tMB_s\n");
+            for (int k = O->k_lo; k < O->k_hi; k++) {
+                char path[4400], row[1024];
+                snprintf(path, sizeof(path), "%s/midjoin_layer_%02d.json", O->outdir, k);
+                char *txt = mj_slurp(path, NULL);
+                if (!txt || mj_json_field(txt, "summary_row", row, sizeof(row)) != 0) { free(txt); fclose(o); free(buf); snprintf(why, sizeof(why), "summary"); cut_ok = 0; goto finish; }
+                for (char *p = row; *p; p++) if (p[0] == '\\' && p[1] == 't') { p[0] = '\t'; memmove(p + 1, p + 2, strlen(p + 2) + 1); }
+                fprintf(o, "%s\n", row);
+                free(txt);
+            }
+            fclose(o);
+            if (mj_write_atomic(O->outdir, "midjoin_summary.tsv", buf, blen) != 0) { free(buf); snprintf(why, sizeof(why), "io-summary"); cut_ok = 0; goto finish; }
+            free(buf);
+        } else { snprintf(why, sizeof(why), "oom"); cut_ok = 0; goto finish; }
+    }
+finish:
+    printf("MIDJOIN_CUT_IDENTITY=%s\n", cut_ok && ndone == O->k_hi - O->k_lo ? "OK" : "FAIL");
+    printf("MIDJOIN_KW_F_PIN=%s\n", pin_bad ? "MISMATCH" : (P->have && pin_ok > 0 ? "OK" : "SKIP"));
+    if (cut_ok && ndone == O->k_hi - O->k_lo && !pin_bad) { printf("MIDJOIN=OK\n"); rc = 0; }
+    else { printf("MIDJOIN=FAIL:%s\n", why[0] ? why : "incomplete"); rc = 1; }
+done:
+    fflush(stdout);
+    free(pre);
+    free(P);
+    if (fkc) { if (fkc->n) kc_free(fkc); free(fkc); }
+    if (gkc) { if (gkc->n) kc_free(gkc); free(gkc); }
+    if (tkc) { if (tkc->n) kc_free(tkc); free(tkc); }
+    return rc;
+}
+
+/* --kc-midjoin FDIR GDIR OUTDIR [options] */
+static int kc_midjoin_main(int argc, char *argv[]) {
+    if (argc < 5) return mj_usage();
+    MjOpts O;
+    memset(&O, 0, sizeof(O));
+    O.fdir = argv[2]; O.gdir = argv[3]; O.outdir = argv[4];
+    O.k_lo = O.k_hi = -1; O.top = MJ_TOP_DEFAULT; O.read_mb = MJ_READ_MB_DEFAULT; O.walk_arg = "KW";
+    {   long np = sysconf(_SC_NPROCESSORS_ONLN);
+        int t = (int)(np / 3);
+        O.threads = t > 2 ? 2 : (t < 0 ? 0 : t); }
+    if (argv_refuse_repeat(argc, argv, 5, "--kc-layers:2 --kc-walk --kc-tdir --kc-top --kc-kw-f-tsv "
+                                          "--kc-masks-out --kc-read-mb --kc-inflate-threads")) return 2;  /* Q-864 */
+    for (int ai = 5; ai < argc; ai++) {
+        if (strcmp(argv[ai], "--kc-force") == 0) O.force = 1;
+        else if (ai + 2 < argc && strcmp(argv[ai], "--kc-layers") == 0) {
+            if (argv_int(argv[1], "--kc-layers A", argv[ai + 1], 0, KC_MAX_PAIRS + 1, &O.k_lo) ||
+                argv_int(argv[1], "--kc-layers B", argv[ai + 2], 0, KC_MAX_PAIRS + 1, &O.k_hi)) return 2;  /* Q-865 */
+            ai += 2;
+            if (O.k_lo >= O.k_hi) {
+                fprintf(stderr, "ERROR: --kc-midjoin --kc-layers A B is the HALF-OPEN range [A, B); got A=%d >= B=%d.\n"
+                        "KC_MIDJOIN_ARGS=REFUSED\n", O.k_lo, O.k_hi);
+                return 2;
+            }
+        }
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-walk") == 0) O.walk_arg = argv[++ai];
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-tdir") == 0) O.tdir = argv[++ai];
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-kw-f-tsv") == 0) O.tsv = argv[++ai];
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-masks-out") == 0) O.masks_out = argv[++ai];
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-top") == 0) { if (argv_int(argv[1], "--kc-top", argv[++ai], 1, 1000000, &O.top)) return 2; }
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-read-mb") == 0) { if (argv_int(argv[1], "--kc-read-mb", argv[++ai], 1, 4096, &O.read_mb)) return 2; }
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-inflate-threads") == 0) { if (argv_int(argv[1], "--kc-inflate-threads", argv[++ai], 0, 64, &O.threads)) return 2; }
+        else {
+            argv_refuse_arg(argv[1], argv[ai], "FDIR GDIR OUTDIR, then --kc-layers A B, --kc-walk W, --kc-tdir TDIR, "
+                            "--kc-top K, --kc-kw-f-tsv TSV, --kc-masks-out DIR, --kc-read-mb MB, "
+                            "--kc-inflate-threads T and --kc-force");
+            return 2;
+        }
+    }
+    {   const char *e = getenv("SOLVE_KC_MIDJOIN_KILL_AT");
+        mj_kill_at = (e && *e) ? atoi(e) : -1; }
+    return mj_run(&O);
+}
+
+/* ---------- --kc-midjoin-selftest ---------- */
+#define MJ_GATE(name, cond) do { \
+    const int ok_ = (cond); \
+    printf("[kc-midjoin-selftest] %-78s %s\n", (name), ok_ ? "PASS" : "FAIL"); \
+    if (!ok_) fails++; \
+} while (0)
+
+/* the brute side: every node of the prefix tree, forward, with its own residual arithmetic */
+typedef struct { uint64_t key, f, g, t; } MjBr;
+typedef struct { MjBr *v; uint64_t n, cap; int rad[5]; } MjBrTab;
+
+static uint64_t mjb_pack(int d, uint32_t m, int last, uint32_t rid) {
+    return ((uint64_t)d << 48) | ((uint64_t)m << 22) | ((uint64_t)last << 16) | (uint64_t)rid;
+}
+
+static void mjb_push(MjBrTab *T, uint64_t key, uint64_t g, uint64_t t) {
+    if (T->n == T->cap) {
+        T->cap = T->cap ? T->cap * 2 : 65536;
+        T->v = (MjBr *)realloc(T->v, T->cap * sizeof(MjBr));
+        F1_CHECK(T->v != NULL, "[kc-midjoin-selftest] OOM");
+    }
+    T->v[T->n].key = key; T->v[T->n].f = 1; T->v[T->n].g = g; T->v[T->n].t = t;
+    T->n++;
+}
+
+/* returns the leaves under the node; *nodes = the subtree's node count (the node included) */
+static uint64_t mjb_rec1(const KC *kc, int depth, uint32_t m, int last, int *used, MjBrTab *T, uint64_t *nodes) {
+    uint64_t leaves = 0, nn = 1;
+    if (depth == kc->n) leaves = 1;
+    else
+        for (int q = 0; q < kc->n; q++) {
+            if ((m >> q) & 1) continue;
+            for (int o = 0; o < 2; o++) {
+                const int entry = o ? kc->c.pa[q] : kc->c.pb[q];
+                const int exitx = o ? kc->c.pb[q] : kc->c.pa[q];
+                const int hd = __builtin_popcount((unsigned)(last ^ entry));
+                if (hd == 5) continue;
+                const int d = hd == 6 ? 4 : hd - 1;
+                if (used[d] >= kc->b0v[d]) continue;
+                used[d]++;
+                uint64_t cn = 0;
+                leaves += mjb_rec1(kc, depth + 1, m | (1u << q), exitx, used, T, &cn);
+                nn += cn;
+                used[d]--;
+            }
+        }
+    uint32_t rid = 0;
+    for (int d = 0; d < 5; d++) rid += (uint32_t)used[d] * (uint32_t)T->rad[d];
+    mjb_push(T, mjb_pack(depth, m, last, rid), leaves, nn);
+    *nodes = nn;
+    return leaves;
+}
+
+static int mjb_cmp(const void *a, const void *b) {
+    const uint64_t x = ((const MjBr *)a)->key, y = ((const MjBr *)b)->key;
+    return x < y ? -1 : x > y;
+}
+
+static const MjBr *mjb_find(const MjBrTab *T, uint64_t key) {
+    uint64_t lo = 0, hi = T->n;
+    while (lo < hi) { const uint64_t mid = (lo + hi) >> 1; if (T->v[mid].key < key) lo = mid + 1; else hi = mid; }
+    return (lo < T->n && T->v[lo].key == key) ? &T->v[lo] : NULL;
+}
+
+typedef struct {
+    uint64_t W[1u << 13], FT[1u << 13];      /* by canonical mask */
+    uint64_t ts[3][3], to[3][3], tm[3][3];   /* [f|g|w][lt|eq|gt] */
+    uint64_t hs[MJ_HBINS], ho[MJ_HBINS], hm[MJ_HBINS];
+    uint64_t n_f, dead, fK, gK, wK, tK;
+} MjBrLayer;
+
+typedef struct { const KC *kc; const MjBrTab *T; MjBrLayer *L; uint32_t m[KC_MAX_PAIRS + 1]; int last[KC_MAX_PAIRS + 1]; int used[5]; } MjBrWalk;
+
+static inline int mjb_j(uint64_t v, uint64_t ref) { return v < ref ? 0 : (v == ref ? 1 : 2); }
+
+static void mjb_rec2(MjBrWalk *B, int depth, uint32_t m, int last) {
+    const KC *kc = B->kc;
+    B->m[depth] = m; B->last[depth] = last;
+    if (depth == kc->n) {   /* one walk: its state at every depth */
+        int used[5] = {0, 0, 0, 0, 0};
+        for (int d = 0; d <= kc->n; d++) {
+            if (d > 0) {
+                const int x = B->last[d], entry = kc->partner[x], prev = B->last[d - 1];
+                const int hd = __builtin_popcount((unsigned)(prev ^ entry));
+                used[hd == 6 ? 4 : hd - 1]++;
+            }
+            uint32_t rid = 0;
+            for (int c = 0; c < 5; c++) rid += (uint32_t)used[c] * (uint32_t)B->T->rad[c];
+            const MjBr *s = mjb_find(B->T, mjb_pack(d, B->m[d], B->last[d], rid));
+            F1_CHECK(s != NULL, "[kc-midjoin-selftest] brute: a walk state is not a tree node");
+            int gi;
+            const uint32_t cm = f1_canon(&kc->c, B->m[d], &gi);
+            const uint64_t orb = (uint64_t)f1_orbit_size(&kc->c, cm);
+            MjBrLayer *L = &B->L[d];
+            const uint64_t w = orb * s->f * s->g;
+            L->W[cm]++;
+            L->tm[0][mjb_j(s->f, L->fK)]++;
+            L->tm[1][mjb_j(s->g, L->gK)]++;
+            L->tm[2][mjb_j(w, L->wK)]++;
+            const F1U192 fv = {s->f, 0, 0};
+            L->hm[mj_bin(&fv)]++;
+        }
+        return;
+    }
+    for (int q = 0; q < kc->n; q++) {
+        if ((m >> q) & 1) continue;
+        for (int o = 0; o < 2; o++) {
+            const int entry = o ? kc->c.pa[q] : kc->c.pb[q];
+            const int exitx = o ? kc->c.pb[q] : kc->c.pa[q];
+            const int hd = __builtin_popcount((unsigned)(last ^ entry));
+            if (hd == 5) continue;
+            const int d = hd == 6 ? 4 : hd - 1;
+            if (B->used[d] >= kc->b0v[d]) continue;
+            B->used[d]++;
+            mjb_rec2(B, depth + 1, m | (1u << q), exitx);
+            B->used[d]--;
+        }
+    }
+}
+
+/* the whole brute census for walk Wk; L[0..n] */
+static void mjb_census(const KC *kc, const MjWalk *Wk, MjBrLayer *L) {
+    MjBrTab T;
+    memset(&T, 0, sizeof(T));
+    T.rad[0] = 1;
+    for (int c = 1; c < 5; c++) T.rad[c] = T.rad[c - 1] * (kc->b0v[c - 1] + 1);
+    int used[5] = {0, 0, 0, 0, 0};
+    uint64_t nodes = 0;
+    mjb_rec1(kc, 0, 0, kc->start_exit, used, &T, &nodes);
+    qsort(T.v, T.n, sizeof(MjBr), mjb_cmp);
+    uint64_t w = 0;
+    for (uint64_t r = 0; r < T.n; r++) {        /* collapse: f = prefixes at the state; g, t must agree */
+        if (w && T.v[w - 1].key == T.v[r].key) {
+            F1_CHECK(T.v[w - 1].g == T.v[r].g && T.v[w - 1].t == T.v[r].t, "[kc-midjoin-selftest] brute: one state, two subtrees");
+            T.v[w - 1].f++;
+        } else T.v[w++] = T.v[r];
+    }
+    T.n = w;
+    for (int d = 0; d <= kc->n; d++) {          /* the walk's own state */
+        const MjBr *s = mjb_find(&T, mjb_pack(d, Wk->m[d], Wk->last[d], Wk->rids[d]));
+        F1_CHECK(s != NULL, "[kc-midjoin-selftest] brute: the walk's state is not a tree node");
+        int gi;
+        const uint32_t cm = f1_canon(&kc->c, Wk->m[d], &gi);
+        L[d].fK = s->f; L[d].gK = s->g; L[d].tK = s->t;
+        L[d].wK = (uint64_t)f1_orbit_size(&kc->c, cm) * s->f * s->g;
+    }
+    for (uint64_t r = 0; r < T.n; r++) {        /* state / orbit weightings, the dead count, f*t */
+        const MjBr *s = &T.v[r];
+        const int d = (int)(s->key >> 48);
+        const uint32_t m = (uint32_t)((s->key >> 22) & 0x3ffffffu);
+        int gi;
+        const uint32_t cm = f1_canon(&kc->c, m, &gi);
+        const uint64_t orb = (uint64_t)f1_orbit_size(&kc->c, cm);
+        MjBrLayer *Y = &L[d];
+        Y->FT[cm] += s->f * s->t;
+        if (cm != m) continue;
+        const uint64_t wv = orb * s->f * s->g;
+        Y->n_f++;
+        Y->dead += s->g == 0;
+        const int j[3] = {mjb_j(s->f, Y->fK), mjb_j(s->g, Y->gK), mjb_j(wv, Y->wK)};
+        for (int x = 0; x < 3; x++) { Y->ts[x][j[x]]++; Y->to[x][j[x]] += orb; }
+        const F1U192 fv = {s->f, 0, 0};
+        const int b = mj_bin(&fv);
+        Y->hs[b]++;
+        Y->ho[b] += orb;
+    }
+    MjBrWalk B;
+    memset(&B, 0, sizeof(B));
+    B.kc = kc; B.T = &T; B.L = L;
+    mjb_rec2(&B, 0, 0, kc->start_exit);
+    free(T.v);
+}
+
+static int mjb_u(const F1U192 *a, uint64_t b) { return a->l1 == 0 && a->l2 == 0 && a->l0 == b; }
+
+/* every gated count of R against the brute layer; 0 = agree */
+static int mjb_compare(const KC *kc, const MjRes *R, const MjBrLayer *B) {
+    for (uint64_t i = 0; i < R->nm; i++) {
+        if (!mjb_u(&R->W[i], B->W[R->masks[i]])) return 1;
+        if (R->has_t && !mjb_u(&R->FT[i], B->FT[R->masks[i]])) return 2;
+    }
+    {   uint64_t sw = 0, sb = 0;               /* no walk crosses an unstored canonical mask */
+        for (uint64_t i = 0; i < R->nm; i++) sw += R->W[i].l0;
+        for (uint32_t m = 0; m < (1u << kc->n); m++) sb += B->W[m];
+        if (sw != sb) return 3; }
+    const MjTri *T3[3] = {&R->tf, &R->tg, &R->tw};
+    for (int x = 0; x < 3; x++)
+        for (int j = 0; j < 3; j++)
+            if (T3[x]->s[j] != B->ts[x][j] || T3[x]->o[j] != B->to[x][j] || !mjb_u(&T3[x]->m[j], B->tm[x][j])) return 4;
+    for (int b = 0; b < MJ_HBINS; b++)
+        if (R->hs[b] != B->hs[b] || R->ho[b] != B->ho[b] || !mjb_u(&R->hm[b], B->hm[b])) return 5;
+    if (R->n_f != B->n_f || R->dead != B->dead) return 6;
+    if (!mjb_u(&R->fK, B->fK) || !mjb_u(&R->gK, B->gK) || !mjb_u(&R->wK, B->wK)) return 7;
+    if (R->has_t && !mjb_u(&R->tK, B->tK)) return 8;
+    return 0;
+}
+
+/* the in-memory reader: kc_load arrays, kc_flookup / kc_glookup point reads */
+static int mj_compute_mem(const KC *f, const KC *g, const KC *t, int k, const F1U192 *N, const MjWalk *Wk, MjRes *R) {
+    char why[MJ_WHY];
+    MjSrc F, G, T;
+    memset(R, 0, sizeof(*R));
+    mj_src_init_mem(&F, &f->L[k]);
+    mj_src_init_mem(&G, &g->L[k]);
+    if (t) mj_src_init_mem(&T, &t->L[k]);
+    mj_walk_state(f, Wk, k, R);
+    R->w_mi = f1_bsearch_u32(f->L[k].masks, f->L[k].nm, R->w_cm);
+    if (R->w_mi < 0) return -1;
+    R->fK = kc_flookup(f, k, Wk->m[k], Wk->last[k], Wk->rids[k]);
+    R->gK = kc_glookup(g, k, Wk->m[k], Wk->last[k], Wk->rids[k]);
+    if (t) R->tK = kc_flookup(t, k, Wk->m[k], Wk->last[k], Wk->rids[k]);
+    snprintf(R->pin, sizeof(R->pin), "SKIP");
+    if (f1_is_zero(&R->fK) || f1_is_zero(&R->gK)) return -1;
+    const int rc = mj_layer_compute(f, k, N, &F, &G, t ? &T : NULL, R, why, sizeof(why));
+    if (rc != 0) printf("[kc-midjoin-selftest] in-memory layer %d: %s\n", k, why);
+    return rc;
+}
+
+/* re-block a v1 layer dir as v2 with `blk` entries per block (the spec's layout, compress2) */
+static int mj_st_reblock(const char *src, const char *dst, int kind, int n, uint32_t blk) {
+    if (mkdir(dst, 0755) != 0 && errno != EEXIST) return -1;
+    const char *pfx = mj_pfx(kind);
+    char p[4400], q[4400];
+    snprintf(p, sizeof(p), "%s/%s_manifest.txt", src, pfx);
+    snprintf(q, sizeof(q), "%s/%s_manifest.txt", dst, pfx);
+    size_t ml = 0;
+    char *man = mj_slurp(p, &ml);
+    if (!man) return -1;
+    FILE *mo = fopen(q, "wb");
+    if (!mo || fwrite(man, 1, ml, mo) != ml || fclose(mo) != 0) { free(man); return -1; }
+    free(man);
+    for (int k = 0; k <= n; k++) {
+        snprintf(p, sizeof(p), "%s/%s_layer_%02d.bin", src, pfx, k);
+        snprintf(q, sizeof(q), "%s/%s_layer_%02d.bin", dst, pfx, k);
+        size_t len = 0;
+        uint8_t *raw = (uint8_t *)mj_slurp(p, &len);
+        if (!raw || len < sizeof(F1C5LayerHdr)) { free(raw); return -1; }
+        F1C5LayerHdr h;
+        memcpy(&h, raw, sizeof(h));
+        const uint64_t nm = h.n_masks, ne = h.n_entries, nblk = (ne + blk - 1) / blk;
+        const uint8_t *keys = raw + sizeof(h) + 4 * nm + 8 * (nm + 1), *vals = keys + 4 * ne;
+        memcpy(h.magic, f1c5_kind_magic(kind, 1), 8);
+        h.version = 2;
+        h.pad = blk;
+        uint64_t *kidx = (uint64_t *)calloc(nblk + 1, 8), *vidx = (uint64_t *)calloc(nblk + 1, 8);
+        uLong cap = compressBound(24ul * blk);
+        uint8_t *kb = (uint8_t *)malloc(cap * (nblk ? nblk : 1)), *vb = (uint8_t *)malloc(cap * (nblk ? nblk : 1));
+        if (!kidx || !vidx || !kb || !vb) { free(raw); return -1; }
+        for (uint64_t b = 0; b < nblk; b++) {
+            const uint64_t e0 = b * blk, bn = (e0 + blk <= ne) ? blk : ne - e0;
+            uLongf kl = cap, vl = cap;
+            if (compress2(kb + kidx[b], &kl, keys + 4 * e0, 4 * bn, 6) != Z_OK ||
+                compress2(vb + vidx[b], &vl, vals + 24 * e0, 24 * bn, 6) != Z_OK) { free(raw); return -1; }
+            kidx[b + 1] = kidx[b] + kl;
+            vidx[b + 1] = vidx[b] + vl;
+        }
+        FILE *o = fopen(q, "wb");
+        int bad = !o;
+        if (o) {
+            bad |= fwrite(&h, sizeof(h), 1, o) != 1;
+            bad |= fwrite(raw + sizeof(h), 1, 4 * nm + 8 * (nm + 1), o) != 4 * nm + 8 * (nm + 1);
+            bad |= fwrite(kidx, 8, nblk + 1, o) != nblk + 1;
+            bad |= fwrite(vidx, 8, nblk + 1, o) != nblk + 1;
+            bad |= fwrite(kb, 1, kidx[nblk], o) != kidx[nblk];
+            bad |= fwrite(vb, 1, vidx[nblk], o) != vidx[nblk];
+            bad |= fclose(o) != 0;
+        }
+        free(raw); free(kidx); free(vidx); free(kb); free(vb);
+        if (bad) return -1;
+    }
+    return 0;
+}
+
+/* run the streaming driver in-process; 0 = rc 0 */
+static int mj_st_run(const char *f, const char *g, const char *t, const char *out, const char *walk,
+                     int threads, uint64_t win, uint64_t v1_blk, const char *tsv) {
+    MjOpts O;
+    memset(&O, 0, sizeof(O));
+    O.fdir = f; O.gdir = g; O.tdir = t; O.outdir = out; O.walk_arg = walk; O.tsv = tsv;
+    O.k_lo = O.k_hi = -1; O.top = MJ_TOP_DEFAULT; O.read_mb = MJ_READ_MB_DEFAULT;
+    O.threads = threads; O.win_bytes = win; O.v1_blk = v1_blk; O.force = 1;
+    return mj_run(&O);
+}
+
+/* every layer's gated JSON in OUT equals want[k] */
+static int mj_st_same(const char *out, int n, char **want) {
+    for (int k = 0; k <= n; k++) {
+        char p[4400];
+        snprintf(p, sizeof(p), "%s/midjoin_layer_%02d.json", out, k);
+        char *txt = mj_slurp(p, NULL);
+        char *gt = txt ? mj_json_gated(txt) : NULL;
+        const int same = gt && strcmp(gt, want[k]) == 0;
+        if (!same && gt) printf("[kc-midjoin-selftest] gated JSON of layer %d differs in %s\n", k, out);
+        free(txt); free(gt);
+        if (!same) return 0;
+    }
+    return 1;
+}
+
+static int kc_midjoin_selftest(void) {
+    int fails = 0;
+    printf("[kc-midjoin-selftest] S5 same-layer join vs exhaustive brute force (n=9) and across readers (n=9, n=13)\n");
+    char dir[4096];
+    if (kc_h_scratch(dir, sizeof(dir)) != 0) {
+        printf("[kc-midjoin-selftest] FAIL (no scratch dir)\nKC_MIDJOIN_SELFTEST=FAIL\n");
+        return 1;
+    }
+    static const char *W9 = "1,32,8,4,2,16,31,62,55,59,61,47,45,18,33,30,12,51";            /* unrank_O3(floor(N/2)), N = 26112 */
+    static const char *W13 = "8,4,49,35,16,2,25,38,13,44,41,37,42,21,7,56,32,1,19,50,11,52,22,26,28,14";  /* rank 1,031,697,803,520 */
+    const int NS[2] = {9, 13};
+    const char *WS[2] = {W9, W13};
+    char tsv[4400];
+    snprintf(tsv, sizeof(tsv), "%s/profile9.tsv", dir);
+    for (int inst = 0; inst < 2; inst++) {
+        const int n = NS[inst];
+        char f[4300], g[4300], t[4300], fp[4300], gp[4300], fr[4300], gr[4300], tr[4300], out[4300], lbl[200];
+        snprintf(f, sizeof(f), "%s/f%d", dir, n);   snprintf(g, sizeof(g), "%s/g%d", dir, n);
+        snprintf(t, sizeof(t), "%s/t%d", dir, n);   snprintf(fp, sizeof(fp), "%s/fp%d", dir, n);
+        snprintf(gp, sizeof(gp), "%s/gp%d", dir, n); snprintf(fr, sizeof(fr), "%s/fr%d", dir, n);
+        snprintf(gr, sizeof(gr), "%s/gr%d", dir, n); snprintf(tr, sizeof(tr), "%s/tr%d", dir, n);
+        {   KC *kc = (KC *)calloc(1, sizeof(KC));
+            F1_CHECK(kc != NULL && kc_init(kc, n) == 0, "[kc-midjoin-selftest] init");
+            kc_build(kc, 0);
+            kc_write(kc, f);
+            kc_write_v2(kc, fp);
+            kc_free(kc);
+            free(kc); }
+        snprintf(lbl, sizeof(lbl), "n=%d ladders: f v1+v2, g v1 (in-memory) + v2 (OOC builder), t v1", n);
+        MJ_GATE(lbl, kc_g_build_main(g, n, 0) == 0 && kc_g_build_main(gp, n, 1) == 0 && kc_t_build_main(f, t, 0, 0) == 0);
+        snprintf(lbl, sizeof(lbl), "n=%d f/g/t re-blocked as v2 at 61 entries per block (many-block streams)", n);
+        MJ_GATE(lbl, mj_st_reblock(f, fr, 0, n, 61) == 0 && mj_st_reblock(g, gr, 1, n, 61) == 0 && mj_st_reblock(t, tr, 2, n, 61) == 0);
+        KC *fk = (KC *)calloc(1, sizeof(KC)), *gk = (KC *)calloc(1, sizeof(KC)), *tk = (KC *)calloc(1, sizeof(KC));
+        F1_CHECK(fk && gk && tk, "[kc-midjoin-selftest] alloc");
+        F1_CHECK(kc_load_as(fk, f, "f1c5", 0) == 0 && kc_load_as(gk, g, "g", 1) == 0 && kc_load_as(tk, t, "t", 2) == 0,
+                 "[kc-midjoin-selftest] load");
+        MjWalk Wk;
+        F1_CHECK(mj_walk_resolve(fk, WS[inst], &Wk) == 0, "[kc-midjoin-selftest] the anchor walk is not a member");
+        const F1U192 N = fk->total;
+        snprintf(lbl, sizeof(lbl), "n=%d f total == g(anchor)", n);
+        MJ_GATE(lbl, f1_eq(&fk->total, &gk->total));
+        MjRes *R = (MjRes *)calloc((size_t)n + 1, sizeof(MjRes));
+        char **want = (char **)calloc((size_t)n + 1, sizeof(char *));
+        F1_CHECK(R && want, "[kc-midjoin-selftest] alloc");
+        int mem_ok = 1, id_ok = 1, lift = 0;
+        for (int k = 0; k <= n; k++) {
+            if (mj_compute_mem(fk, gk, tk, k, &N, &Wk, &R[k]) != 0) { mem_ok = 0; continue; }
+            const uint64_t lt = R[k].tf.s[0] + R[k].tf.s[1] + R[k].tf.s[2];
+            if (lt != R[k].ne_f || R[k].n_f != R[k].ne_f || R[k].n_joined + R[k].g_only != R[k].ne_g) id_ok = 0;
+            lift += R[k].w_lastc != R[k].w_raw_last;
+            MjJsonCtx J = {&N, &Wk, MJ_TOP_DEFAULT, "mem", "null", "null", NULL, 0.0, 0};
+            char *txt = NULL;
+            size_t len = 0;
+            if (mj_json_text(fk, &R[k], &J, &txt, &len) != 0) { mem_ok = 0; free(txt); continue; }
+            want[k] = mj_json_gated(txt);
+            free(txt);
+        }
+        snprintf(lbl, sizeof(lbl), "n=%d in-memory reader: every layer computes, SUM W == N (cut identity)", n);
+        MJ_GATE(lbl, mem_ok);
+        snprintf(lbl, sizeof(lbl), "n=%d G2 lt+eq+gt == n_entries(f), joined + g_only == n_entries(g)", n);
+        MJ_GATE(lbl, mem_ok && id_ok);
+        if (n == 9) {
+            MJ_GATE("n=9 the anchor walk needs a hexagram lift on some layer (the M4 precondition)", lift > 0);
+            MjBrLayer *B = (MjBrLayer *)calloc((size_t)n + 1, sizeof(MjBrLayer));
+            F1_CHECK(B != NULL, "[kc-midjoin-selftest] alloc");
+            mjb_census(fk, &Wk, B);
+            int bad = 0, why = 0, dead_any = 0, gonly_any = 0;
+            for (int k = 0; k <= n && mem_ok; k++) {
+                const int c = mjb_compare(fk, &R[k], &B[k]);
+                if (c && !bad) { bad = k + 1; why = c; }
+                dead_any += R[k].dead > 0;
+                gonly_any += R[k].g_only > 0;
+            }
+            if (bad) printf("[kc-midjoin-selftest] brute disagreement at layer %d (class %d)\n", bad - 1, why);
+            MJ_GATE("G1 n=9 every W_k(cm), triple (f/g/w x state/orbit/mass), histogram, dead, walk f/g/w/t, f*t == brute",
+                    mem_ok && !bad);
+            MJ_GATE("G1 n=9 the gate is not vacuous: dead states and g-only keys occur", dead_any > 0 && gonly_any > 0);
+            {   const uint64_t save = B[4].W[R[4].masks[0]];
+                B[4].W[R[4].masks[0]] ^= 1;
+                MJ_GATE("NEGATIVE N1: a corrupted brute W cell IS caught", mjb_compare(fk, &R[4], &B[4]) != 0);
+                B[4].W[R[4].masks[0]] = save;
+                const uint64_t s2 = B[4].tm[0][1];
+                B[4].tm[0][1]++;
+                MJ_GATE("NEGATIVE N1b: a corrupted brute mass triple IS caught", mjb_compare(fk, &R[4], &B[4]) != 0);
+                B[4].tm[0][1] = s2;
+                MJ_GATE("NEGATIVE N1: restored cells agree again", mjb_compare(fk, &R[4], &B[4]) == 0); }
+            free(B);
+            {   KC *fo = (KC *)calloc(1, sizeof(KC)), *go = (KC *)calloc(1, sizeof(KC));
+                F1_CHECK(fo && go && kc_open(fo, f, 0, 0) == 0 && kc_open_as(go, g, "g", 1, 0, 0) == 0, "[kc-midjoin-selftest] open");
+                KcDeadTab TG;
+                F1_CHECK(kc_dead_tab_init(&TG, n, 0, n) == 0, "[kc-midjoin-selftest] alloc");
+                int ok = kc_dead_census_run(fo, go, &TG) == 0;
+                for (int k = 0; k < n && ok; k++) ok = TG.L[k].dead_states == R[k].dead;
+                ok = ok && R[n].dead == 0;
+                MJ_GATE("G2 n=9 dead == --kc-dead-census dead_states on every layer", ok && mem_ok);
+                kc_dead_tab_free(&TG);
+                kc_free(fo); kc_free(go); free(fo); free(go); }
+        }
+        struct { const char *f, *g, *t; int th; uint64_t win, blk; const char *what; } V[] = {
+            {f, g, t, 0, 0, 0, "G3 stream v1, synchronous, 64 MB window"},
+            {f, g, t, 0, 4096, 61, "G4 stream v1 cut at 61 entries, 4 KB window, synchronous"},
+            {f, g, t, 3, 4096, 61, "G4 stream v1 cut at 61 entries, 4 KB window, 3-thread producers"},
+            {fr, gr, tr, 0, 4096, 0, "G4 stream v2 re-blocked at 61, 4 KB window, synchronous"},
+            {fr, gr, tr, 1, 4096, 0, "G4 stream v2 re-blocked at 61, 4 KB window, 1-thread producers"},
+            {fr, gr, tr, 3, 4096, 0, "G4 stream v2 re-blocked at 61, 4 KB window, 3-thread producers"},
+            {fr, gr, tr, 2, 1u << 20, 0, "G4 stream v2 re-blocked at 61, 1 MB window, 2-thread producers"},
+            {fp, gp, NULL, 0, 0, 0, "G4 stream v2 as the engine writes it (production BLK), synchronous, no t"},
+            {fp, gp, NULL, 2, 0, 0, "G4 stream v2 as the engine writes it, 2-thread producers, no t"},
+        };
+        char **want_nt = (char **)calloc((size_t)n + 1, sizeof(char *));
+        F1_CHECK(want_nt != NULL, "[kc-midjoin-selftest] alloc");
+        for (int k = 0; k <= n && mem_ok; k++) {   /* the same layers without t, for the no-t legs */
+            MjRes Q;
+            if (mj_compute_mem(fk, gk, NULL, k, &N, &Wk, &Q) == 0) {
+                MjJsonCtx J = {&N, &Wk, MJ_TOP_DEFAULT, "mem", "null", "null", NULL, 0.0, 0};
+                char *txt = NULL;
+                size_t len = 0;
+                if (mj_json_text(fk, &Q, &J, &txt, &len) == 0) want_nt[k] = mj_json_gated(txt);
+                free(txt);
+            }
+            mj_res_free(&Q);
+        }
+        for (size_t v = 0; v < sizeof(V) / sizeof(V[0]); v++) {
+            snprintf(out, sizeof(out), "%s/out%d_%zu", dir, n, v);
+            const int rc = mem_ok ? mj_st_run(V[v].f, V[v].g, V[v].t, out, WS[inst], V[v].th, V[v].win, V[v].blk, NULL) : -1;
+            snprintf(lbl, sizeof(lbl), "n=%d %s == in-memory", n, V[v].what);
+            MJ_GATE(lbl, rc == 0 && mj_st_same(out, n, V[v].t ? want : want_nt));
+        }
+        if (n == 9 && mem_ok) {
+            {   char *pav[7] = {(char *)"solve", (char *)"--kc-profile", f, g, (char *)W9, (char *)"--kc-tsv", tsv};
+                const int prc = kc_profile_entry(7, pav);
+                snprintf(out, sizeof(out), "%s/outpin", dir);
+                MJ_GATE("G5 --kc-kw-f-tsv: the walk's --kc-profile table pins f and g on every layer",
+                        prc == 0 && mj_st_run(f, g, NULL, out, W9, 0, 0, 0, tsv) == 0); }
+            {   /* the same table with step 4's f off by one */
+                char bad[4400];
+                snprintf(bad, sizeof(bad), "%s/profile9_bad.tsv", dir);
+                int planted = 0;
+                char *txt = mj_slurp(tsv, NULL);
+                FILE *o = fopen(bad, "w");
+                for (char *line = txt ? strtok(txt, "\n") : NULL; line && o; line = strtok(NULL, "\n")) {
+                    if (strncmp(line, "4\t", 2) == 0) {
+                        char cp[4096], *sv = NULL, *col[64];
+                        int nc = 0;
+                        snprintf(cp, sizeof(cp), "%s", line);
+                        for (char *tk2 = strtok_r(cp, "\t", &sv); tk2 && nc < 64; tk2 = strtok_r(NULL, "\t", &sv)) col[nc++] = tk2;
+                        F1U192 v, one = {1, 0, 0};
+                        char dec[64];
+                        if (nc > 7 && kc_u192_from_dec(col[7], &v) == 0) { f1_add(&v, &one); f1_dec(v, dec); col[7] = dec; planted = 1; }
+                        for (int c = 0; c < nc; c++) fprintf(o, "%s%s", c ? "\t" : "", col[c]);
+                        fprintf(o, "\n");
+                    } else fprintf(o, "%s\n", line);
+                }
+                if (o) fclose(o);
+                free(txt);
+                snprintf(out, sizeof(out), "%s/outpin_bad", dir);
+                MJ_GATE("NEGATIVE G5: step 4's f off by one -> rc != 0 (MIDJOIN_KW_F_PIN=MISMATCH)",
+                        planted && mj_st_run(f, g, NULL, out, W9, 0, 0, 0, bad) != 0); }
+            {   char *txt = want[5] ? strdup(want[5]) : NULL;
+                char *p = txt ? strstr(txt, "\"n_f\": ") : NULL;
+                if (p) p[7] = p[7] == '9' ? '8' : '9';
+                snprintf(out, sizeof(out), "%s/out9_0", dir);
+                char *sv = want[5];
+                want[5] = txt;
+                MJ_GATE("NEGATIVE N2: a corrupted gated JSON line IS caught by the byte comparison", p && !mj_st_same(out, n, want));
+                want[5] = sv;
+                free(txt); }
+        }
+        for (int k = 0; k <= n; k++) { mj_res_free(&R[k]); free(want[k]); free(want_nt[k]); }
+        free(R); free(want); free(want_nt);
+        kc_free(fk); kc_free(gk); kc_free(tk); free(fk); free(gk); free(tk);
+    }
+    kc_h_rm_rf(dir);
+    printf("[kc-midjoin-selftest] %s (%d failure%s)\n", fails ? "FAIL" : "PASS", fails, fails == 1 ? "" : "s");
+    printf("KC_MIDJOIN_SELFTEST=%s\n", fails ? "FAIL" : "PASS");
+    return fails ? 1 : 0;
 }

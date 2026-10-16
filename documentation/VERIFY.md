@@ -1518,3 +1518,15 @@ the trace does not name. The review's residuals R1 and R2 get smaller; they are 
 
 *Section by Claude (Opus 5.5), 2026-09-28. Developed with AI assistance (Claude, Anthropic).
 Errors are Claude's; corrections invited.*
+
+## S5: `--check-midjoin` (added 2026-10-15)
+
+```
+python3 verify.py --check-midjoin FDIR GDIR OUTDIR [--midjoin-walk WALK] [--midjoin-tdir TDIR]
+```
+
+**the independent leg of `solve --kc-midjoin`**. It recomputes every gated integer of each `midjoin_layer_<kk>.json` in OUTDIR and diffs them field by field. f comes from this file's plain budgeted recurrence (no symmetry quotient), and is checked state for state against the f layer file. g, and t when given, are read from their layer files through this file's own reader of `F1C5_LAYER_FORMAT.md` (v1 or v2, block size from the header, every block inflated to its exact size). Canonical masks and orbit sizes come from the group derived here. The walk's canonical `last` must be the image of its raw `last` under one of the 48 commuting bit-permutations that carries its raw mask to the canonical one, and every such image must read the same f and g. With t, each layer's `Σ orbit·f·t` must equal the number of search-tree nodes at depth ≥ k, from the recurrence's own layer masses. At n = 9 it also runs an exhaustive brute force over every walk: the walks through each raw state give `W` per orbit and every mass-weighted triple, and through/f gives g at every raw state for the state weighting. The entropy, a display double, is checked to 1e-5. The walk defaults to the one recorded in the JSONs and is re-validated from the rules. Tokens, whole-line: `MIDJOIN_CHECK_LAYERS=<n>`, `MIDJOIN_CHECK_BRUTE=PASS|FAIL|SKIP`, `MIDJOIN_CHECK=PASS|FAIL|ERROR`; exit 0 / 1 / 2. ERROR, never PASS, when OUTDIR holds no layer JSON, a file is unreadable or names another instance, or n > 13. Measured 2026-10-15 on a 2-core host: n=9 0.4 s, n=13 1.9 s. Nothing is imported from `solve.py`. Shown able to fail by `tests.py::TestS5MidjoinQ822` (a JSON with one count edited is FAIL, naming the field).
+
+*Section by Claude (Opus 5.5), 2026-10-15, porting the n=9 prototype of the S5 design by Claude
+(Fable 5.1). Developed with AI assistance (Claude, Anthropic). Errors are Claude's; corrections
+invited.*

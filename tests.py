@@ -17799,7 +17799,7 @@ class TestQ852ArgRefusalLastRingAndShowIoSnapshot(unittest.TestCase):
            "--kc-t-selftest", "--kc-oracle-selftest", "--kc-ladder-selftest", "--kc-cert-selftest",
            "--kc-scan-selftest", "--kc-scan-par-selftest", "--kc-layers-selftest",
            "--kc-profile-selftest", "--kc-walks-selftest", "--kc-dead-census-selftest",
-           "--kc-witness-walks-selftest", "--kc-extremal-selftest", "--kc-ar2-selftest"]
+           "--kc-witness-walks-selftest", "--kc-extremal-selftest", "--kc-ar2-selftest", "--kc-midjoin-selftest"]
     ENUM_ENV = dict(SOLVE_ALLOW_SUB_CANONICAL="1", SOLVE_PER_SUB_BRANCH_LIMIT="30",
                     SOLVE_SKIP_CANONICAL_LOCK="1", SOLVE_SKIP_AUTO_SELFTEST="1", SOLVE_THREADS="2",
                     SOLVE_NODE_LIMIT="3030000")
@@ -18464,7 +18464,7 @@ class TestQ864Q865Q866RepeatedAndNumericArgsHostFingerprint(unittest.TestCase):
         (["--kc-profile", "F", "G", "KW", "--kc-tsv", "a", "--kc-tsv", "b"], ""),
         (["--kc-profile", "F", "G", "--kc-walks", "w", "--kc-tsv", "a", "--kc-tsv", "b"], ""),
         (["--kc-dead-census", "F", "G", "--kc-out", "a", "--kc-out", "b"], ""),
-        (["--kc-dead-census", "F", "G", "--kc-layers", "0", "4", "--kc-layers", "4", "9"], ""),
+        (["--kc-dead-census", "F", "G", "--kc-layers", "0", "4", "--kc-layers", "4", "9"], ""), (["--kc-midjoin", "F", "G", "O", "--kc-top", "1", "--kc-top", "2"], ""), (["--kc-midjoin", "F", "G", "O", "--kc-layers", "0", "4", "--kc-layers", "4", "9"], ""),  # S5
         (["--kc-witness-walks", "F", "G", "A", "--kc-out", "a", "--kc-out", "b"], ""),
         (["--kc-extremal", "fn", "F", "max", "--kc-json", "a", "--kc-json", "b"], ""),
         (["--kc-midn", "9", "--kc-roundtrips", "2", "--kc-roundtrips", "3"], ""),
@@ -18524,7 +18524,7 @@ class TestQ864Q865Q866RepeatedAndNumericArgsHostFingerprint(unittest.TestCase):
         (["--kc-profile", "F", "G", "--kc-walks", "w", "--kc-cache-mb", "1x"], "1x", ""),
         (["--kc-dead-census", "F", "G", "--kc-local-max", "5x"], "5x", ""),
         (["--kc-dead-census", "F", "G", "--kc-layers", "0", "4x"], "4x", ""),
-        (["--kc-dead-census", "F", "G", "--kc-cache-mb", "-5"], "-5", ""),
+        (["--kc-dead-census", "F", "G", "--kc-cache-mb", "-5"], "-5", ""), (["--kc-midjoin", "F", "G", "O", "--kc-read-mb", "1x"], "1x", ""), (["--kc-midjoin", "F", "G", "O", "--kc-layers", "0", "4x"], "4x", ""),  # S5
         (["--kc-witness-walks", "F", "G", "A", "--kc-cache-mb", "1x"], "1x", ""),
         (["--kc-extremal", "fn", "F", "max", "--kc-cache-mb", "1x"], "1x", ""),
         (["--kc-o3-rank", "F", "G", "KW", "--kc-cache-mb", "1x"], "1x", ""),
@@ -45110,6 +45110,428 @@ class TestCleanupM1Followup(unittest.TestCase):
                 fh.write(src)
 
 # end class TestCleanupM1Followup (cleanup M1 follow-up, CX-356)
+
+class TestS5MidjoinQ822(unittest.TestCase):
+    """S5 (Q-822): solve --kc-midjoin, the same-layer streaming join (design S5_MIDJOIN_DESIGN by
+    Claude Fable 5.1; build by Claude Opus, 2026-10-15). Green: the in-binary gate
+    --kc-midjoin-selftest (n=9 brute force G1, identities G2, readers G3/G4, pin G5); the CLI at
+    n=9 and n=13 against verify.py --check-midjoin, the independent Python leg (raw-frame
+    recurrence for f, spec reader for g and t, own group action, n=9 walk brute force); the
+    synchronous and threaded readers byte-identical; read-only ladders. Red (each asserts its
+    precondition first): R1 a g value rewritten -> cut-identity FAIL at that layer, no JSON; R2 a
+    stale layer JSON from another walk refused, --kc-force recomputes; R3 f and g from different
+    instances refused before any stream; R4 a truncated g layer refused at open; R5 a profile pin
+    off by one -> MISMATCH; R6 SIGKILL mid-layer then restart -> finished layers RESUMED and every
+    JSON identical to an uninterrupted run. Plus the argv refusals and an unwritable OUTDIR
+    refused before any ladder is opened. ROAE_TESTS_SOLVE_SRC builds another source (never set by
+    the harness). Every run has a timeout."""
+
+    W9 = "1,32,8,4,2,16,31,62,55,59,61,47,45,18,33,30,12,51"          # unrank_O3(floor(N/2)), n=9
+    W9B = "8,4,1,32,2,16,31,62,55,59,61,47,45,18,33,30,12,51"         # another member walk
+    W9X = "12,51,33,30,45,18,61,47,55,59,31,62,2,16,8,4,1,32"         # W9 reversed: not a member
+    W13 = "8,4,49,35,16,2,25,38,13,44,41,37,42,21,7,56,32,1,19,50,11,52,22,26,28,14"
+    RUNLINES = ('  "provenance"', '  "summary_row"')
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="s5mj_")
+        cls.sbin = os.path.join(cls.tmp, "solve_s5mj")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src, "-lm", "-lz"],
+                           capture_output=True, text=True, timeout=900)
+        cls.build_ok = r.returncode == 0 and os.path.exists(cls.sbin)
+        cls.build_err = "gcc rc %d: %s" % (r.returncode, r.stderr[-2000:])
+        if not cls.build_ok:
+            return
+        d = lambda x: os.path.join(cls.tmp, x)
+        for argv in (["--kc-build", d("f9"), "--f1-pairs", "9"], ["--kc-g-build", d("g9"), "--f1-pairs", "9"],
+                     ["--kc-t-build", d("f9"), d("t9")], ["--kc-g-build", d("g10"), "--f1-pairs", "10"],
+                     ["--kc-build", d("f13"), "--f1-pairs", "13"],
+                     ["--kc-g-build", d("g13"), "--f1-pairs", "13", "--kc-g-ooc"],
+                     ["--kc-t-build", d("f13"), d("t13")]):
+            r = subprocess.run([cls.sbin] + argv, capture_output=True, text=True, timeout=600)
+            if r.returncode != 0:
+                cls.build_ok = False
+                cls.build_err = "%s rc %d: %s" % (" ".join(argv[:2]), r.returncode, (r.stdout + r.stderr)[-1500:])
+                return
+
+    @classmethod
+    def tearDownClass(cls):
+        tmp = getattr(cls, "tmp", None)
+        if tmp and os.path.basename(tmp).startswith("s5mj_"):
+            subprocess.run(["chmod", "-R", "u+w", tmp], capture_output=True)
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def setUp(self):
+        self.assertTrue(self.build_ok, self.build_err)
+
+    def _p(self, *x):
+        return os.path.join(self.tmp, *x)
+
+    def _run(self, *args, env=None, timeout=600):
+        e = dict(os.environ)
+        e.pop("SOLVE_KC_MIDJOIN_KILL_AT", None)
+        if env:
+            e.update(env)
+        return subprocess.run([self.sbin] + list(args), capture_output=True, text=True, env=e, timeout=timeout)
+
+    def _mj(self, f, g, out, *opts, env=None):
+        return self._run("--kc-midjoin", self._p(f), self._p(g), self._p(out), *opts, env=env)
+
+    def _verify(self, f, g, out, *opts):
+        here = os.path.dirname(os.path.abspath(__file__))
+        return subprocess.run([sys.executable, os.path.join(here, "verify.py"), "--check-midjoin",
+                               self._p(f), self._p(g), self._p(out)] + list(opts),
+                              capture_output=True, text=True, timeout=900)
+
+    def _gated(self, path, drop=None):
+        drop = self.RUNLINES if drop is None else drop
+        with open(path, encoding="utf-8") as fh:
+            return "".join(l for l in fh if not l.startswith(drop))
+
+    @staticmethod
+    def _txt(path):
+        with open(path, encoding="utf-8") as fh:
+            return fh.read()
+
+    def _fresh(self, name):
+        p = self._p(name)
+        shutil.rmtree(p, ignore_errors=True)
+        return name
+
+    def _copy(self, src, dst):
+        shutil.rmtree(self._p(dst), ignore_errors=True)
+        shutil.copytree(self._p(src), self._p(dst))
+        return dst
+
+    def _layer_v1(self, path):
+        import struct
+        with open(path, "rb") as fh:
+            raw = fh.read()
+        h = struct.unpack_from("<8sIIIIQQQ5II", raw, 0)
+        nm, ne = h[6], h[7]
+        masks = struct.unpack_from("<%dI" % nm, raw, 72)
+        off = struct.unpack_from("<%dQ" % (nm + 1), raw, 72 + 4 * nm)
+        kb = 72 + 4 * nm + 8 * (nm + 1)
+        keys = struct.unpack_from("<%dI" % ne, raw, kb)
+        return h[0], masks, off, keys, kb + 4 * ne
+
+    # ---- green ----
+    def test_selftest_passes(self):
+        r = self._run("--kc-midjoin-selftest", env={"SOLVE_KC_SCRATCH": self.tmp}, timeout=900)
+        self.assertEqual(r.returncode, 0, r.stdout[-3000:])
+        self.assertIn("KC_MIDJOIN_SELFTEST=PASS", r.stdout.splitlines())
+        for gate in ("G1 n=9 every W_k(cm)", "G2 n=9 dead == --kc-dead-census", "n=13 G3 stream v1",
+                     "n=13 G4 stream v2 re-blocked at 61, 4 KB window, 3-thread producers", "G5 --kc-kw-f-tsv"):
+            self.assertTrue(any(l.startswith("[kc-midjoin-selftest] " + gate) and l.endswith("PASS")
+                                for l in r.stdout.splitlines()), gate)
+
+    def test_n9_cli_matches_the_independent_python_leg_with_brute_force(self):
+        out = self._fresh("o9")
+        r = self._mj("f9", "g9", out, "--kc-walk", self.W9, "--kc-tdir", self._p("t9"))
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr[-1500:])
+        lines = r.stdout.splitlines()
+        self.assertEqual([l for l in lines if l.startswith("MIDJOIN_LAYER=")], ["MIDJOIN_LAYER=%d:OK" % k for k in range(10)])
+        self.assertEqual(lines[-3:], ["MIDJOIN_CUT_IDENTITY=OK", "MIDJOIN_KW_F_PIN=SKIP", "MIDJOIN=OK"])
+        v = self._verify("f9", "g9", out, "--midjoin-tdir", self._p("t9"))
+        self.assertEqual(v.returncode, 0, v.stdout[-2500:])
+        self.assertIn("MIDJOIN_CHECK=PASS", v.stdout.splitlines())
+        self.assertIn("MIDJOIN_CHECK_BRUTE=PASS", v.stdout.splitlines())
+        self.assertIn("MIDJOIN_CHECK_LAYERS=10", v.stdout.splitlines())
+        import json
+        J = json.loads(self._txt(self._p(out, "midjoin_layer_04.json")))
+        # the prototype's k=4 row (S5 design section 5): P_state 0.9928, top mask 0xf with W 7680
+        st = J["states"]["f_pct"]["state"]
+        self.assertAlmostEqual((st[0] + st[1] / 2) / sum(st), 0.9928, places=4)
+        self.assertEqual(J["masks"]["top"][0], {"cm": "0xf", "orbit": 3, "W": "7680"})
+        tsv = self._txt(self._p(out, "midjoin_summary.tsv")).splitlines()
+        self.assertEqual(len(tsv), 12)
+        self.assertTrue(tsv[1].startswith("k\tn_masks\tn_states\tf_KW\tP_f_state"))
+
+    def test_n13_v2_synchronous_and_threaded_readers_agree_and_verify(self):
+        a, b = self._fresh("o13a"), self._fresh("o13b")
+        ra = self._mj("f13", "g13", a, "--kc-walk", self.W13, "--kc-tdir", self._p("t13"), "--kc-inflate-threads", "0")
+        rb = self._mj("f13", "g13", b, "--kc-walk", self.W13, "--kc-tdir", self._p("t13"), "--kc-inflate-threads", "3",
+                      "--kc-read-mb", "1")
+        self.assertEqual((ra.returncode, rb.returncode), (0, 0), ra.stdout[-800:] + rb.stdout[-800:])
+        with open(self._p("g13", "g_layer_06.bin"), "rb") as fh:
+            self.assertEqual(fh.read(8), b"F1C5GLY2", "precondition: the n=13 g ladder is v2")
+        for k in range(14):
+            n = "midjoin_layer_%02d.json" % k
+            self.assertEqual(self._gated(self._p(a, n)), self._gated(self._p(b, n)), n)
+        v = self._verify("f13", "g13", a, "--midjoin-tdir", self._p("t13"))
+        self.assertEqual(v.returncode, 0, v.stdout[-2500:])
+        self.assertIn("MIDJOIN_CHECK=PASS", v.stdout.splitlines())
+        self.assertIn("MIDJOIN_CHECK_LAYERS=14", v.stdout.splitlines())
+
+    def test_the_python_leg_rejects_a_tampered_json(self):
+        out = self._fresh("o9tj")
+        self.assertEqual(self._mj("f9", "g9", out, "--kc-walk", self.W9).returncode, 0)
+        self.assertEqual(self._verify("f9", "g9", out).returncode, 0, "precondition: the untouched JSONs pass")
+        p = self._p(out, "midjoin_layer_05.json")
+        txt = self._txt(p)
+        i = txt.index('"dead": ') + len('"dead": ')
+        j = txt.index(",", i)
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(txt[:i] + str(int(txt[i:j]) + 1) + txt[j:])
+        v = self._verify("f9", "g9", out)
+        self.assertEqual(v.returncode, 1, v.stdout[-1500:])
+        self.assertIn("MIDJOIN_CHECK=FAIL", v.stdout.splitlines())
+        self.assertIn("layer 5 field states.counts", v.stdout)
+
+    def test_read_only_ladders_are_readable(self):
+        f, g = self._copy("f9", "f9ro"), self._copy("g9", "g9ro")
+        subprocess.run(["chmod", "-R", "a-w", self._p(f), self._p(g)], check=True)
+        out = self._fresh("o9ro")
+        r = self._mj(f, g, out, "--kc-walk", self.W9)
+        self.assertEqual(r.returncode, 0, r.stdout[-800:] + r.stderr[-800:])
+        self.assertEqual(r.stdout.splitlines()[-1], "MIDJOIN=OK")
+
+    # ---- red ----
+    def test_r1_a_rewritten_g_value_fails_the_cut_identity_at_its_layer(self):
+        g = self._copy("g9", "g9r1")
+        out = self._fresh("o9r1")
+        self.assertEqual(self._mj("f9", g, out, "--kc-walk", self.W9).returncode, 0, "precondition: the copy is OK")
+        _, fm, fo, fk, _ = self._layer_v1(self._p("f9", "f1c5_layer_05.bin"))
+        magic, gm, go, gk, vbase = self._layer_v1(self._p(g, "g_layer_05.bin"))
+        self.assertEqual(magic, b"F1C5GLY1")
+        fset = {(fm[i], fk[e]) for i in range(len(fm)) for e in range(fo[i], fo[i + 1])}
+        joined = [e for i in range(len(gm)) for e in range(go[i], go[i + 1]) if (gm[i], gk[e]) in fset]
+        self.assertTrue(joined, "precondition: layer 5 has a g entry with an f partner")
+        e = joined[-1]
+        path = self._p(g, "g_layer_05.bin")
+        with open(path, "rb") as fh:
+            raw = bytearray(fh.read())
+        raw[vbase + 24 * e] = (raw[vbase + 24 * e] + 1) % 256
+        with open(path, "wb") as fh:
+            fh.write(bytes(raw))
+        shutil.rmtree(self._p(out))
+        r = self._mj("f9", g, out, "--kc-walk", self.W9)
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn("MIDJOIN_LAYER=5:FAIL:cut-identity", r.stdout.splitlines())
+        self.assertIn("MIDJOIN=FAIL:cut-identity-5", r.stdout.splitlines())
+        self.assertFalse(os.path.exists(self._p(out, "midjoin_layer_05.json")))
+        self.assertTrue(os.path.exists(self._p(out, "midjoin_layer_04.json")))
+
+    def test_r2_a_stale_layer_json_from_another_walk_is_refused(self):
+        other, out = self._fresh("o9r2b"), self._fresh("o9r2")
+        self.assertEqual(self._mj("f9", "g9", other, "--kc-walk", self.W9B).returncode, 0, "precondition: the other walk runs")
+        os.makedirs(self._p(out))
+        shutil.copy(self._p(other, "midjoin_layer_03.json"), self._p(out, "midjoin_layer_03.json"))
+        r = self._mj("f9", "g9", out, "--kc-walk", self.W9)
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn("MIDJOIN_LAYER=3:FAIL:stale-result", r.stdout.splitlines())
+        self.assertEqual(r.stdout.splitlines()[-1], "MIDJOIN=FAIL:stale-result-3")
+        self.assertIn(self.W9B, self._txt(self._p(out, "midjoin_layer_03.json")), "the stale file is left untouched")
+        r = self._mj("f9", "g9", out, "--kc-walk", self.W9, "--kc-force")
+        self.assertEqual(r.returncode, 0, r.stdout)
+        txt = self._txt(self._p(out, "midjoin_layer_03.json"))
+        self.assertIn('"walk": "%s"' % self.W9, txt)
+
+    def test_r3_ladders_from_different_instances_are_refused_before_any_stream(self):
+        out = self._fresh("o9r3")
+        r = self._mj("f9", "g10", out, "--kc-walk", self.W9)
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertEqual(r.stdout.splitlines(), ["MIDJOIN=FAIL:context-mismatch"])
+        self.assertIn("f/g ladder context mismatch", r.stderr)
+        self.assertEqual([x for x in os.listdir(self._p(out)) if x.endswith(".json")], [])
+
+    def test_r4_a_truncated_layer_is_refused_at_open(self):
+        g = self._copy("g9", "g9r4")
+        path = self._p(g, "g_layer_06.bin")
+        self.assertGreater(os.path.getsize(path), 2048, "precondition: the layer is larger than the cut")
+        out = self._fresh("o9r4")
+        self.assertEqual(self._mj("f9", g, out, "--kc-walk", self.W9).returncode, 0, "precondition: the copy is OK")
+        with open(path, "r+b") as fh:
+            fh.truncate(os.path.getsize(path) - 1024)
+        shutil.rmtree(self._p(out))
+        r = self._mj("f9", g, out, "--kc-walk", self.W9)
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn("MIDJOIN_LAYER=6:FAIL:file-size", r.stdout.splitlines())
+        self.assertEqual(r.stdout.splitlines()[-1], "MIDJOIN=FAIL:file-size-6")
+        self.assertEqual([x for x in os.listdir(self._p(out)) if x.endswith(".json")], [],
+                         "refused at the preflight, before any layer streams")
+
+    def test_r5_a_profile_pin_off_by_one_is_a_mismatch(self):
+        tsv = self._p("prof9.tsv")
+        r = self._run("--kc-profile", self._p("f9"), self._p("g9"), self.W9, "--kc-tsv", tsv)
+        self.assertEqual(r.returncode, 0, r.stdout[-800:])
+        out = self._fresh("o9r5")
+        r = self._mj("f9", "g9", out, "--kc-walk", self.W9, "--kc-kw-f-tsv", tsv)
+        self.assertEqual(r.returncode, 0, "precondition: the true profile pins")
+        self.assertIn("MIDJOIN_KW_F_PIN=OK", r.stdout.splitlines())
+        rows = self._txt(tsv).splitlines()
+        hdr = next(l for l in rows if l.startswith("step\t")).split("\t")
+        fcol = hdr.index("f")
+        bad = []
+        for l in rows:
+            c = l.split("\t")
+            if c[0] == "4":
+                c[fcol] = str(int(c[fcol]) + 1)
+            bad.append("\t".join(c))
+        btsv = self._p("prof9_bad.tsv")
+        with open(btsv, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(bad) + "\n")
+        out = self._fresh("o9r5b")
+        r = self._mj("f9", "g9", out, "--kc-walk", self.W9, "--kc-kw-f-tsv", btsv)
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn("MIDJOIN_LAYER=4:FAIL:kw-f-pin", r.stdout.splitlines())
+        self.assertIn("MIDJOIN_KW_F_PIN=MISMATCH", r.stdout.splitlines())
+        self.assertFalse(os.path.exists(self._p(out, "midjoin_layer_04.json")))
+
+    def test_r5b_a_profile_table_missing_a_step_is_refused(self):
+        tsv = self._p("prof9.tsv")
+        if not os.path.exists(tsv):
+            r = self._run("--kc-profile", self._p("f9"), self._p("g9"), self.W9, "--kc-tsv", tsv)
+            self.assertEqual(r.returncode, 0, r.stdout[-800:])
+        out = self._fresh("o9r5b0")
+        self.assertEqual(self._mj("f9", "g9", out, "--kc-walk", self.W9, "--kc-kw-f-tsv", tsv).returncode, 0,
+                         "precondition: the complete table pins")
+        rows = self._txt(tsv).splitlines()
+        part = [l for l in rows if not (l[:1].isdigit() and int(l.split("\t")[0]) > 4)]
+        self.assertEqual(sum(1 for l in part if l[:1].isdigit()), 4, "precondition: steps 1..4 remain")
+        ptsv = self._p("prof9_part.tsv")
+        with open(ptsv, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(part) + "\n")
+        out = self._fresh("o9r5b")
+        r = self._mj("f9", "g9", out, "--kc-walk", self.W9, "--kc-kw-f-tsv", ptsv)
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertEqual(r.stdout.splitlines()[-2:], ["MIDJOIN_KW_F_PIN=MISMATCH", "MIDJOIN=FAIL:kw-tsv-incomplete"])
+        self.assertEqual([x for x in os.listdir(self._p(out)) if x.endswith(".json")], [], "refused before any layer")
+
+    def test_r6_sigkill_mid_layer_then_restart_resumes_byte_identically(self):
+        ref, out = self._fresh("o13ref"), self._fresh("o13kill")
+        opts = ("--kc-walk", self.W13, "--kc-tdir", self._p("t13"))
+        self.assertEqual(self._mj("f13", "g13", ref, *opts).returncode, 0)
+        r = self._mj("f13", "g13", out, *opts, env={"SOLVE_KC_MIDJOIN_KILL_AT": "2"})
+        self.assertEqual(r.returncode, -9, "killed by SIGKILL inside layer 2: " + r.stdout[-500:])
+        have = sorted(x for x in os.listdir(self._p(out)) if x.startswith("midjoin_layer_"))
+        self.assertEqual([x for x in have if x.endswith(".json")], ["midjoin_layer_00.json", "midjoin_layer_01.json"])
+        r = self._mj("f13", "g13", out, *opts)
+        self.assertEqual(r.returncode, 0, r.stdout[-800:])
+        toks = [l for l in r.stdout.splitlines() if l.startswith("MIDJOIN_LAYER=")]
+        self.assertEqual(toks, ["MIDJOIN_LAYER=0:RESUMED", "MIDJOIN_LAYER=1:RESUMED"] +
+                         ["MIDJOIN_LAYER=%d:OK" % k for k in range(2, 14)])
+        for k in range(14):
+            n = "midjoin_layer_%02d.json" % k
+            self.assertEqual(self._gated(self._p(ref, n)), self._gated(self._p(out, n)), n)
+
+    # ---- argv ----
+    def test_argv_refusals(self):
+        f, g = self._p("f9"), self._p("g9")
+        o = self._p("o9argv")
+        for argv, needle in (
+                (["--kc-top", "3", "--kc-top", "4"], "takes --kc-top once"),
+                (["--kc-layers", "0", "4", "--kc-layers", "4", "9"], "takes --kc-layers once"),
+                (["--kc-layers", "0", "4x"], "must be "),
+                (["--kc-layers", "3", "3"], "HALF-OPEN"),
+                (["--kc-top", "0"], "must be "),
+                (["--kc-inflate-threads", "-1"], "must be "),
+                (["--kc-read-mb", "64MB"], "must be "),
+                (["--kc-bogus"], "does not accept '--kc-bogus'"),
+                (["--kc-walk"], "does not accept '--kc-walk'")):
+            with self.subTest(argv=argv):
+                r = self._run("--kc-midjoin", f, g, o, *argv)
+                self.assertEqual(r.returncode, 2, r.stderr[-500:])
+                self.assertIn("KC_MIDJOIN_ARGS=REFUSED", r.stderr.splitlines())
+                self.assertIn(needle, r.stderr)
+                self.assertEqual(r.stdout, "", "refused before any work")
+        r = self._run("--kc-midjoin", f, g, o, "--kc-walk", self.W9, "--kc-layers", "0", "11")
+        self.assertEqual((r.returncode, r.stdout.splitlines()[-1]), (2, "MIDJOIN=FAIL:usage"), "B > n+1")
+        r = self._run("--kc-midjoin", f, g, o, "--kc-walk", self.W9X)
+        self.assertEqual((r.returncode, r.stdout.splitlines()[-1]), (2, "MIDJOIN=FAIL:walk"), "a non-member walk")
+        r = self._run("--kc-midjoin", f, g, o)
+        self.assertEqual((r.returncode, r.stdout.splitlines()[-1]), (2, "MIDJOIN=FAIL:walk"), "KW at n=9")
+        self.assertIn("requires a full-31 ladder", r.stderr)
+        r = self._run("--kc-midjoin-selftest", "x")
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("KC_MIDJOIN_SELFTEST_ARGS=REFUSED", r.stderr.splitlines())
+
+    def test_an_unwritable_outdir_is_refused_before_any_ladder_is_opened(self):
+        ro = self._p("ro_out")
+        os.makedirs(ro, exist_ok=True)
+        os.chmod(ro, 0o555)
+        if os.access(ro, os.W_OK):
+            self.skipTest("running as a user that can write a 0555 directory")
+        r = self._run("--kc-midjoin", self._p("no_such_f"), self._p("no_such_g"), os.path.join(ro, "x"), "--kc-walk", self.W9)
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertEqual(r.stdout.splitlines(), ["MIDJOIN=FAIL:outdir"])
+        self.assertNotIn("manifest", r.stderr, "no ladder was opened")
+
+# end class TestS5MidjoinQ822
+
+
+class TestS5MidjoinMutants(unittest.TestCase):
+    """S5 (Q-822): five source mutants of the --kc-midjoin accumulator, each compiled from a copy
+    of solve.c and required to turn --kc-midjoin-selftest red (S5 design section 8): M1 drops the
+    orbit weight from W, M2 leaves the g cursor in place on an equal key, M3 folds ties into lt, M4
+    builds the walk's key from the raw `last` instead of its hexagram lift, M5 drops the orbit
+    from the mass weight. Each marker is asserted to occur exactly once first, so a renamed line
+    fails here instead of silently testing the unmutated source."""
+
+    MUTANTS = {
+        "M1": ("        R->W[mi] = f1_mul_small(msum, orb);   /* MJ-M1: W = orbit(cm) * SUM f*g */",
+               "        R->W[mi] = msum;"),
+        "M2": ("                    G->e++;                      /* MJ-M2: an equal key advances BOTH cursors */",
+               "                    ;"),
+        "M3": ("    const int j = c < 0 ? 0 : (c == 0 ? 1 : 2);   /* MJ-M3: mid-rank ties land in eq */",
+               "    const int j = c <= 0 ? 0 : 2;"),
+        "M4": ("    const int lastc = kc->c.el[gi].hmap[last];   /* MJ-M4: the hexagram lift of the canonicalising element */",
+               "    const int lastc = last;"),
+        "M5": ("            const F1U192 wv = f1_mul_small(p, orb);   /* MJ-M5: the through-mass orbit*f*g */",
+               "            const F1U192 wv = p;"),
+    }
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="s5mjmut_")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c")
+        with open(src, encoding="utf-8") as fh:
+            cls.src = fh.read()
+
+    @classmethod
+    def tearDownClass(cls):
+        if os.path.basename(cls.tmp).startswith("s5mjmut_"):
+            shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _mutant(self, mid):
+        old, new = self.MUTANTS[mid]
+        self.assertEqual(self.src.count(old), 1, "%s: the marker line must occur exactly once" % mid)
+        csrc = os.path.join(self.tmp, "solve_%s.c" % mid)
+        with open(csrc, "w", encoding="utf-8") as fh:
+            fh.write(self.src.replace(old, new))
+        sbin = os.path.join(self.tmp, "solve_%s" % mid)
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", sbin, csrc, "-lm", "-lz"],
+                           capture_output=True, text=True, timeout=900)
+        self.assertEqual(r.returncode, 0, "%s did not build: %s" % (mid, r.stderr[-1500:]))
+        env = dict(os.environ, SOLVE_KC_SCRATCH=self.tmp)
+        r = subprocess.run([sbin, "--kc-midjoin-selftest"], capture_output=True, text=True, timeout=900, env=env)
+        self.assertNotEqual(r.returncode, 0, "%s survived the selftest:\n%s" % (mid, r.stdout[-2000:]))
+        self.assertNotIn("KC_MIDJOIN_SELFTEST=PASS", r.stdout.splitlines(), mid)
+        red = [l for l in r.stdout.splitlines() if l.startswith("[kc-midjoin-selftest] ") and l.endswith(" FAIL")]
+        self.assertTrue(red or r.returncode not in (0, 1), "%s: no gate named itself red" % mid)
+        return red
+
+    def test_m1_orbit_weight_dropped_from_W(self):
+        red = self._mutant("M1")
+        self.assertTrue(any("G1 n=9" in l or "in-memory reader" in l for l in red), red)
+
+    def test_m2_g_cursor_left_on_an_equal_key(self):
+        self._mutant("M2")
+
+    def test_m3_ties_folded_into_lt(self):
+        red = self._mutant("M3")
+        self.assertTrue(any("G1 n=9" in l or "G2" in l for l in red), red)
+
+    def test_m4_walk_key_without_the_hexagram_lift(self):
+        self._mutant("M4")
+
+    def test_m5_orbit_dropped_from_the_mass_weight(self):
+        red = self._mutant("M5")
+        self.assertTrue(any("G1 n=9" in l for l in red), red)
+
+# end class TestS5MidjoinMutants (S5, Q-822)
+
 
 
 if __name__ == "__main__":

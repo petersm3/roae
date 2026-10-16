@@ -11471,3 +11471,32 @@ Q-686=DONE
 - PROJECT_OVERVIEW.md:121 no longer states the withdrawn ≈3×10³⁷ distinct-canonical figure. It gives
   the ≈1.33×10³⁸ raw estimate and the bounds on the distinct canonical count, and GATE 27 now fails a
   withdrawn figure on any of the four front-door pages, marked or not (CX-356).
+
+## 2026-10-15 — S5: a same-layer streaming join reads the f·g cut identity per mask and per state (`--kc-midjoin`), built and gated at n = 9 and n = 13
+
+- The atlas answered two questions only at octave resolution: which pair-sets carry the walk mass
+  at layer k, and where King Wen's state sits among the layer-k states. `solve --kc-midjoin`
+  answers both exactly, in one sequential pass over the f and g ladders in step. For every
+  canonical mask it gives the number of full walks whose depth-k pair-set lies in that mask's
+  orbit; these sum to N on every layer. For the walk it gives exact (lt, eq, gt) counts of the
+  states below, at and above its own f, g and through-mass, weighted by state, by orbit and by
+  walks. Only the walk-weighted count has a known null (a mid-rank mean of exactly 1/2). Nothing
+  here is new mathematics: it is the cut identity that `--kc-g-check` sums, read out per state.
+  Design by Claude Fable 5.1, build by Claude Opus, developed with AI assistance (Claude,
+  Anthropic).
+- It reads the layer files from the published format in large windows, so the v2 layout (all key
+  blocks before all value blocks) costs one seek per window rather than one per block. A
+  synchronous reader and a threaded one are required to give byte-identical output. Each layer's
+  result is written atomically and is resumed after a kill. Every inconsistency stops the run with
+  a named FAIL token.
+- Gates: an exhaustive brute force at n = 9, byte-identity across the in-memory, v1, v2 and
+  threaded readers at n = 9 and n = 13, an independent Python recomputation (`verify.py
+  --check-midjoin`), six red tests, and five source mutants that each turn the gate red
+  (SOLVE_C_CLI.md, VERIFY.md).
+
+**What did not change.**
+
+- No published number, count, sha or verdict changed. The `--selftest` sha is unchanged. The
+  full-31 pass has not been run, and nothing from it is published. The TR-12 battery row for this
+  mode (`a0_midjoin`, an n = 9 golden with the five run-describing lines masked) is deferred to a
+  later batch; the mode is gated by the tests and the selftest above, not by `tr12_repro.sh`.

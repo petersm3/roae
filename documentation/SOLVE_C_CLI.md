@@ -4043,3 +4043,176 @@ refused with exit 2 and `C8_NULL0_SEED=REFUSED`), and `N` must be one positive d
 | Variable | Default | Effect |
 |---|---|---|
 | `SOLVE_KNUTH_SCORE_C8` | 0 | `=1` (with `SOLVE_KNUTH_SCORE=1`): score the 1,349 Pilot A members per canonical leaf of `--estimate-knuth`. Prints `C8_MEMBERS=1349`; the raw weighted sums `C8_RAW_SC`, `C8_RAW_QC` and `C8_RAW_N` at full precision so that runs can be pooled; `C8_LEAVES_SCORED`; `C8_CLAMPED`, the number of values outside a member's declared range (each is binned at the nearer end; the pre-registration requires 0); `C8_UNDEFINED`, the number of member evaluations whose reference definition is undefined (an empty position set; 0 on every C1 ordering); and one `c8_hist <member-id> <value> <sum_w> <sum_w2>` line per non-empty bin, the squared-weight twin giving the delta-method SE of any tail mass; then one `c8_hcnt <member-id> <value> <leaves>` line per non-empty bin, the number of scored leaves in it (the pre-registration's leaf-count condition counts leaves, which weighted sums cannot give). No King Wen line. Ground truth and two-language gate: `--c8-verify`. Estimator-only, sha-neutral. |
+
+## S5 same-layer join — added 2026-10-15
+
+### --kc-midjoin
+
+```
+solve --kc-midjoin FDIR GDIR OUTDIR [--kc-layers A B] [--kc-walk KW|"e,x,..."]
+                   [--kc-tdir TDIR] [--kc-top K] [--kc-kw-f-tsv PROFILE.tsv]
+                   [--kc-masks-out DIR] [--kc-read-mb MB] [--kc-inflate-threads T] [--kc-force]
+solve --kc-midjoin-selftest
+```
+
+**S5**, the same-layer streaming join (design by Claude Fable 5.1, built by Claude Opus,
+2026-10-15; backlog Q-822). Layer *k* of the f and g ladders holds the canonical states
+`s = (cm, lastc, rid)` with `popcount(cm) = k`, and exactly `f(s)·g(s)` full walks cross `s`.
+`--kc-g-check` sums that identity over a layer and checks it equals the walk count `N`. This
+subcommand reads the same identity out **per mask** and **per state**, in one sequential pass
+over the f and g layer files in step. Nothing here is new mathematics.
+
+Per layer it computes:
+
+- **Which pair-sets carry the mass.** For every canonical mask,
+  `W_k(cm) = orbit(cm) · Σ f·g` over the states stored in both ladders. That is the exact number
+  of full walks whose depth-*k* pair-set lies in the orbit of `cm`, and `Σ_cm W_k(cm) = N` on
+  every layer (`MIDJOIN_CUT_IDENTITY`). The JSON gives the top-K masks, Lorenz masses (top 1, 10,
+  100 and 1000 masks, and the top 1 %, 10 % and 50 % of masks, each rounded up), a log2
+  histogram of `W`, the entropy of `W/N` (a display-only double), and the walk's own mask: its
+  `W`, its 1-based rank by descending `W` (ties by ascending mask), and the mass below and equal.
+- **The walk's percentile among the layer-k states.** `f(s)` is compared with the walk's own
+  `f` and counted as exact integer triples `(lt, eq, gt)` under three weightings: `state` (one per
+  stored canonical state), `orbit` (`orbit(cm)` per state, i.e. raw states) and `mass`
+  (`orbit·f·g` per state, i.e. walks). Only the `mass` weighting has a known null: its mid-rank
+  `(lt + eq/2)/N` averages exactly 1/2 over a uniformly random walk. The `state` and `orbit`
+  weightings do not, because any walk tends to pass through well-trodden states. The same triples
+  are given for `g(s)` and for the through-mass `w(s) = orbit·f·g`. All three range over the
+  f-stored states, and a state with no g entry reads `g = 0`.
+- Also: a 1/8-octave histogram of `f` under the three weightings, so any other walk can be
+  bracketed later without another pass; the dead-state count (`f > 0`, `g = 0`, the same number
+  as `--kc-dead-census`'s `dead_states`); and the g-only count (g keys with no f partner, the
+  stored-domain superset of `GT_LADDER_FORMAT.md`).
+
+`--kc-tdir` adds a third stream with the per-mask search-cost marginal `orbit · Σ f·t`. The t
+ladder has f's geometry, and a mismatch is a failure. Without it the `t` block is `null`.
+
+**Options.** `--kc-layers A B` is the half-open range `[A, B)`; the default is `[0, n+1)`, so
+layer `n` (the degenerate `Σ f = N` layer) is included. `--kc-walk` defaults to `KW`, which
+needs a full-31 ladder; a reduced instance takes an explicit walk, `2n` hexagrams, entry then
+exit per pair. The walk must be a member. `--kc-top` is K for the top lists (default 64).
+`--kc-kw-f-tsv` takes a `--kc-profile` table of the same walk (for example the committed
+`reports/evidence/tr12/banked_n31_20260922/q3_profile_exact.tsv`) and requires its `f` and `g`
+columns, and its entry and exit hexagrams, to equal the values read from the ladders at every
+layer from 1 up. The table must carry every step `1..n`; one that does not is refused before any
+layer streams (`MIDJOIN=FAIL:kw-tsv-incomplete`, exit 1), so `MIDJOIN_KW_F_PIN=OK` means every
+requested layer from 1 up was pinned (layer 0 has no row and reads `SKIP` in its own JSON). A
+difference is `MIDJOIN_KW_F_PIN=MISMATCH`, and the run stops.
+`--kc-masks-out DIR` writes the full per-mask table of each layer to
+`DIR/midjoin_masks_<kk>.bin` as `nm × (u32 mask, 3 × u64 W)`, little-endian. Its sha256 goes
+into the JSON. This dump is off by default, is meant to stay on the machine that ran it, and is
+about 2.5 GB over a full-31 run.
+
+**Reader.** The layer files are read from `F1C5_LAYER_FORMAT.md` directly, not through the
+out-of-core block cache. In a v2 file every key block comes before every value block, so a
+pass that reads keys and values in step has two cursors per file. Each section is therefore read
+in `--kc-read-mb` windows (default 64 MB), and a seek happens once per window rather than once
+per block. `--kc-inflate-threads 0` decodes on the merge thread. This is the reference path.
+`T ≥ 1` gives each ladder one producer thread that reads the windows and inflates batches of `T`
+blocks in parallel into a bounded ring. The default is `min(2, nproc/3)`. Both paths call the
+same fetch and decode code in the same block order, and the selftest requires their JSON to be
+byte-identical. A v2 file's block size is taken from its header, as the format document requires.
+Opening never aborts: a bad header, a size that is not the format's, a corrupt index or a short
+read is a `FAIL:<reason>` token. All ladder files are opened read-only, and nothing is written
+outside OUTDIR (and `--kc-masks-out`).
+
+**Outputs**, all in OUTDIR:
+
+- `midjoin_layer_<kk>.json`, one per layer, schema `midjoin_v1`. Integers that can exceed 2⁵³
+  are decimal strings. Five lines describe the run rather than the result: `resume_key`,
+  `inputs`, `provenance` (engine identity, UTC times, wall seconds, bytes read, reader settings),
+  `masks_dump` and `summary_row`. Every other line is result, and is what the byte-identity gates
+  compare.
+- `midjoin_summary.tsv`, one row per layer: `k n_masks n_states f_KW P_f_state P_f_orbit P_f_mass
+  P_g_mass P_w_mass top1_share top10_share kw_mask_rank kw_mask_P_mass wall_s MB_s`. The `P_*`
+  columns are mid-rank doubles for display; the JSON holds the integers. The file is regenerated
+  from the JSONs at the end of every run.
+- `midjoin_progress.json`, rewritten atomically at the start and end of each layer and every
+  60 s during it (bytes read, rate, a layer ETA). A wrapper should key on its `layer` field, not
+  on its age. The 60 s heartbeat also goes to stderr.
+
+**Resume and failure.** The unit of resume is one layer. A layer's JSON reaches its final name
+only by tmp, fsync, rename. On restart, a layer whose JSON has the same `resume_key` (instance,
+`N`, input file names and sizes, walk, K, whether the dump was asked for, and the engine identity:
+`SOURCE_SHA`, or the running binary's sha256 when that is `unknown`) prints
+`MIDJOIN_LAYER=<k>:RESUMED` and is skipped. A JSON with another key is refused,
+`MIDJOIN=FAIL:stale-result-<k>`, and the file is left alone. `--kc-force` recomputes every
+layer. At most one layer is lost to a kill. Every requested layer's header and exact file size is
+checked before any layer streams. Each of these stops the run with
+`MIDJOIN_LAYER=<k>:FAIL:<reason>`, no JSON for that layer, and exit 1: an f/g or f/t context
+mismatch (refused before any stream), a mask-list mismatch, a key out of order or outside its
+domain, a zero f value, a g-only key at layer 0, an inflate error, a file size that is not the
+format's, a short read, `Σ W ≠ N`, the stream never reaching the walk's state or reaching it with
+another value than the point read, a pin mismatch, a profile table that is malformed or missing a
+step, t geometry different from f's. A 192-bit
+overflow exits 70, as everywhere in the engine. Nothing is warn-and-continue.
+
+**Tokens**, whole lines on stdout: `MIDJOIN_LAYER=<k>:OK|RESUMED|FAIL:<reason>` per layer, then
+`MIDJOIN_CUT_IDENTITY=OK|FAIL`, `MIDJOIN_KW_F_PIN=OK|MISMATCH|SKIP` and last
+`MIDJOIN=OK|FAIL:<reason>`. Exit **0** only on `MIDJOIN=OK`; **1** on any failure; **2** on
+usage, an unwritable OUTDIR (refused before any ladder is opened), a range outside `[0, n+1)`,
+or a walk that is not a member. Unknown, repeated or non-numeric options are refused with
+`KC_MIDJOIN_ARGS=REFUSED`.
+
+`--kc-midjoin-selftest` builds n=9 and n=13 ladders in a scratch directory and checks:
+
+- **G1**, at n=9: every `W_k(cm)`, every triple (f, g and w under all three weightings), the
+  histogram, the dead count, the walk's f, g, w and t, and the per-mask f·t marginal, against an
+  **independent forward brute force** over the whole prefix tree. The brute force has its own
+  residual arithmetic and reads no ladder.
+- **G2**: `Σ W = N`, dead equals `--kc-dead-census`, `lt+eq+gt` equals the f entry count, and
+  joined plus g-only equals the g entry count.
+- **G3**, at n=9 and n=13: the streaming reader against an in-memory reader of the same layers
+  (`kc_load` arrays and `kc_flookup` point reads), gated JSON byte-identical.
+- **G4**: the same over v1 cut into 61-entry blocks, over v2 re-blocked at 61 entries per block
+  with a 4 KB window (synchronous, 1-, 2- and 3-thread producers), and over v2 as the engine
+  writes it.
+- **G5**: the pin against the walk's own `--kc-profile` table, and its refusal of a table whose
+  step-4 `f` is off by one.
+- Negatives: a corrupted brute cell, and a corrupted JSON line, are caught.
+
+It ends with `KC_MIDJOIN_SELFTEST=PASS|FAIL`, exit **0** / **1**, in a few seconds. It is
+argv-dispatched only and **never** reached from `--selftest`, whose canonical sha is unchanged.
+`tests.py::TestS5MidjoinQ822` adds the independent Python leg
+(`verify.py --check-midjoin`, see VERIFY.md), the red tests (a rewritten g value, a stale JSON, a
+context mismatch, a truncated layer, a pin off by one, and a `SIGKILL` mid-layer followed by a
+byte-identical resume) and the argv refusals. `tests.py::TestS5MidjoinMutants` compiles five
+source mutants of the accumulator (orbit weight dropped from `W`, the g cursor left in place on
+an equal key, ties folded into `lt`, the walk's key built without its hexagram lift, the orbit
+dropped from the mass weight). Each one turns the selftest red.
+
+**JSON schema (`midjoin_v1`).** Every key the files carry:
+
+| key | meaning |
+|---|---|
+| `schema`, `n`, `k`, `start_exit`, `pl_hash`, `b0`, `N` | the instance, the layer and the walk count |
+| `resume_key` | the string a restart compares (see Resume) |
+| `inputs` → `f`, `g`, `t` → `file`, `bytes`, `format`, `n_masks`, `n_entries` | the three input layer files (`t` is `null` without `--kc-tdir`) |
+| `provenance` → `source_sha`, `git`, `binary_sha256`, `utc_start`, `utc_end`, `wall_s`, `bytes_read_f`, `bytes_read_g`, `bytes_read_t`, `inflate_threads`, `read_mb`, `reader` | the run that wrote the file |
+| `masks_dump` → `file`, `bytes`, `sha256` | the `--kc-masks-out` file of this layer, or `null` |
+| `identity` → `sum_orbit_f_g`, `cut_identity` | `Σ_cm W_k(cm)`, equal to `N`, and `OK` |
+| `walk` → `label`, `walk`, `state` (`cm`, `lastc`, `rid`, `raw_mask`, `raw_last`, `orbit`), `f`, `g`, `w`, `f_pin` | the walk, its raw and canonical state at depth k, its f, g and through-mass `w = orbit·f·g`, and the pin verdict (`OK` or `SKIP`) |
+| `states` → `n_f`, `n_joined`, `dead`, `g_zero`, `g_only`, `n_entries_f`, `n_entries_g` | f-stored states; those with a g key; those with g = 0 (absent or zero); those with an explicit zero g; g keys with no f partner; the two entry counts |
+| `states` → `f_pct`, `g_pct`, `w_pct` → `state`, `orbit`, `mass` | the `(lt, eq, gt)` triples; the `mass` entries are decimal strings |
+| `states` → `f_hist_log2x8` → `state`, `orbit`, `mass` | `[bin, weight]` pairs; bin `8·(bits−1) + (the 3 bits after the leading one)`, or `8·(bits−1)` below 4 bits; integer only |
+| `masks` → `n`, `n_nonzero_W`, `W_hist_log2` | the mask count, the masks with `W > 0`, and `[bitlength(W), count]` pairs |
+| `masks` → `top` → `cm`, `orbit`, `W` | the K masks with the largest `W`, ties by ascending mask |
+| `masks` → `lorenz` → `top1`, `top10`, `top100`, `top1000`, `top_1pct`, `top_10pct`, `top_50pct` | `[masks counted, their total W]` |
+| `masks` → `entropy_bits` | `−Σ (W/N) log2 (W/N)`, a display-only double |
+| `masks` → `kw` → `cm`, `orbit`, `W`, `rank`, `n_gt`, `n_eq`, `n_lt`, `mass_lt`, `mass_eq` | the walk's mask: its `W`, its 1-based rank, how many masks have larger, equal and smaller `W`, and the total `W` below and equal |
+| `t` → `n_entries_t`, `sum_orbit_f_t`, `walk_t`, `top` (`cm`, `FT`), `kw` (`FT`, `rank`, `mass_lt`, `mass_eq`) | with `--kc-tdir` only: `FT = orbit·Σ f·t` per mask, its layer total (the number of search-tree nodes at depth ≥ k), the walk's t, the top K masks by `FT`, and the walk's mask among them; `null` otherwise |
+| `summary_row` | this layer's row of `midjoin_summary.tsv`, tabs escaped |
+| `MIDJOIN_LAYER` | `OK`, the last key; a file without it is not a finished layer |
+
+`midjoin_progress.json` carries `layer`, `phase` (`start`, `stream` or `end`), `utc`, `bytes_f`,
+`bytes_f_total`, `bytes_g`, `bytes_g_total`, `bytes_t`, `bytes_t_total`, `rate_MBs` and
+`layer_eta_s` (the layer's remaining seconds, from the slower of the f and g fractions read).
+
+**Environment.** `SOLVE_KC_MIDJOIN_KILL_AT=k` is a test hook: the process sends itself `SIGKILL`
+halfway through the masks of layer `k`, so the resume path can be exercised on a ladder small
+enough to stream in milliseconds (`tests.py` red test R6). Never set it on a real run. An
+unparsable value is refused with exit 2.
+
+What is not built: an intra-layer checkpoint (the largest full-31 layer is hours of g-side I/O),
+and any run on the full-31 ladders. The full pass has not been run, and no result from it is
+published.

@@ -6944,7 +6944,7 @@ def check_kc_transition(n, b0_arg=None, layers_dir=None, solve_bin=None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Independent two-language constraint verifier for solutions.bin")
+    parser = argparse.ArgumentParser(description="Independent two-language constraint verifier for solutions.bin"); _mj_add_args(parser)  # S5 --check-midjoin (defined after main)
     parser.add_argument('path', nargs='?', default='solutions.bin', help='solutions.bin path')
     parser.add_argument('--expect-kw', action='store_true',
                         help='require the King Wen sequence to be present in the '
@@ -7290,7 +7290,7 @@ def main():
                              'mass=unweighted raw walk count. This is the operational DEFINITION '
                              'of reading (B) -- the prose is not: it rejected two implementations '
                              'written from the prose. Emits Q6_EXTREMES_ORACLE=OK|FAIL.')
-    args = parser.parse_args()
+    args = parser.parse_args(); _mj_dispatch(args, parser)  # S5 --check-midjoin
 
     if args.t3_stats is not None:
         sys.exit(t3_stats(args.t3_stats))
@@ -7604,6 +7604,469 @@ def _inflate_exact(path, what, b, blob, want_len):
         raise RuntimeError(f"{path}: {what} block {b} inflates to {len(out)} bytes, "
                            f"expected {want_len}")
     return out
+
+# ---------------------------------------------------------------------------------------------
+# --check-midjoin FDIR GDIR OUTDIR [--midjoin-walk WALK] [--midjoin-tdir TDIR]  (S5, Q-822)
+#
+# The independent leg of solve.c's --kc-midjoin (design S5_MIDJOIN_DESIGN, Claude Fable 5.1;
+# this port of its n=9 prototype by Claude Opus, 2026-10-15, developed with AI assistance).
+# It recomputes every gated integer of each midjoin_layer_<kk>.json in OUTDIR and diffs them:
+#   * f from THIS file's plain budgeted recurrence (_kc_raw_layers, no symmetry quotient), checked
+#     state for state against the f layer file, which is read from F1C5_LAYER_FORMAT.md here
+#     (v1 or v2, block size from the header, each block inflated to its exact size);
+#   * g read from its layer file through the same spec reader (g_layer_*, F1C5GLY1/2);
+#   * canonical masks and orbit sizes from the group derived here (_rung_pair_perms,
+#     _rung_orbit_size_fn); the walk's canonical `last` checked against every lift by one of the
+#     48 commuting bit-permutations that carries its raw mask to the canonical one;
+#   * t, when given: per-mask SUM orbit*f*t from the t file, and its layer total against the
+#     identity SUM orbit*f*t (layer k) = number of search-tree nodes at depth >= k, the raw f
+#     masses of layers k..n from the recurrence;
+#   * at n = 9 additionally an exhaustive forward brute force over every walk (the prototype):
+#     the walks through each raw state give W per orbit and every mass-weighted triple, and
+#     through/f gives g at every raw state for the state and orbit weightings.
+# Nothing is imported from solve.py. Tokens: MIDJOIN_CHECK_LAYERS=<n checked>,
+# MIDJOIN_CHECK_BRUTE=PASS|FAIL|SKIP, MIDJOIN_CHECK=PASS|FAIL|ERROR. Exit 0 / 1 / 2.
+# ---------------------------------------------------------------------------------------------
+
+_MJ_MAGIC = {"f": ("F1C5LAY1", "F1C5LAY2"), "g": ("F1C5GLY1", "F1C5GLY2"), "t": ("F1C5TLY1", "F1C5TLY2")}
+_MJ_PFX = {"f": "f1c5", "g": "g", "t": "t"}
+
+
+def _mj_read_layer(path, kind):
+    """One layer file of ladder `kind` from the published byte layout. Returns a dict with the
+    header fields, masks, off, keys and vals. Raises on any structural disagreement."""
+    import struct, zlib
+    raw = open(path, "rb").read()
+    if len(raw) < 72:
+        raise RuntimeError(f"{path}: shorter than the 72-byte header")
+    h = struct.unpack_from(_F1C5_HDR, raw, 0)
+    magic = h[0].decode("ascii", "replace")
+    version, n, k, start, plh, nm, ne = h[1:8]
+    b0, pad = tuple(h[8:13]), h[13]
+    v1m, v2m = _MJ_MAGIC[kind]
+    if not ((magic == v1m and version == 1) or (magic == v2m and version == 2)):
+        raise RuntimeError(f"{path}: magic {magic!r} version {version} is not a {kind} layer")
+    masks = list(struct.unpack_from("<%dI" % nm, raw, 72))
+    off = list(struct.unpack_from("<%dQ" % (nm + 1), raw, 72 + 4 * nm))
+    base = 72 + 4 * nm + 8 * (nm + 1)
+    if off[0] != 0 or off[nm] != ne or any(off[i] > off[i + 1] for i in range(nm)):
+        raise RuntimeError(f"{path}: offsets are not a monotone partition of {ne} entries")
+    if version == 1:
+        if len(raw) != base + 28 * ne:
+            raise RuntimeError(f"{path}: {len(raw)} bytes, v1 layout needs {base + 28 * ne}")
+        keys = list(struct.unpack_from("<%dI" % ne, raw, base))
+        vb = raw[base + 4 * ne:]
+    else:
+        blk = pad
+        if blk <= 0:
+            raise RuntimeError(f"{path}: v2 block size {blk}")
+        nblk = (ne + blk - 1) // blk
+        kidx = struct.unpack_from("<%dQ" % (nblk + 1), raw, base)
+        vidx = struct.unpack_from("<%dQ" % (nblk + 1), raw, base + 8 * (nblk + 1))
+        kbase = base + 16 * (nblk + 1)
+        vbase = kbase + kidx[nblk]
+        if len(raw) != vbase + vidx[nblk] or kidx[0] or vidx[0]:
+            raise RuntimeError(f"{path}: {len(raw)} bytes, v2 index implies {vbase + vidx[nblk]}")
+
+        def inflate(blob, want):
+            d = zlib.decompressobj()
+            out = d.decompress(blob)
+            if not d.eof or d.unused_data or len(out) != want:
+                raise RuntimeError(f"{path}: a block inflates to {len(out)} bytes, expected {want}")
+            return out
+        kb, vparts = [], []
+        for b in range(nblk):
+            e0, e1 = b * blk, min((b + 1) * blk, ne)
+            kb.append(inflate(raw[kbase + kidx[b]: kbase + kidx[b + 1]], 4 * (e1 - e0)))
+            vparts.append(inflate(raw[vbase + vidx[b]: vbase + vidx[b + 1]], 24 * (e1 - e0)))
+        keys = list(struct.unpack("<%dI" % ne, b"".join(kb)))
+        vb = b"".join(vparts)
+    vals = [a | (b << 64) | (c << 128) for a, b, c in struct.iter_unpack("<QQQ", vb[:24 * ne])]
+    for i in range(nm):
+        ks = keys[off[i]:off[i + 1]]
+        if any(ks[j] >= ks[j + 1] for j in range(len(ks) - 1)):
+            raise RuntimeError(f"{path}: keys of mask {masks[i]:#x} are not strictly ascending")
+    return {"n": n, "k": k, "start": start, "pl_hash": plh, "b0": b0, "fmt": version,
+            "masks": masks, "off": off, "keys": keys, "vals": vals, "ne": ne, "nm": nm}
+
+
+def _mj_pl_hash(n, start, pl):
+    """F1C5_LAYER_FORMAT.md 'pl_hash algorithm' (FNV-1a-64 over 64-bit words)."""
+    h = 0xcbf29ce484222325
+    for x in [n, start] + list(pl):
+        h ^= x
+        h = (h * 0x100000001b3) % (1 << 64)
+    return h
+
+
+def _mj_bin(v):
+    bits = v.bit_length()
+    return 8 * (bits - 1) if bits < 4 else 8 * (bits - 1) + ((v >> (bits - 4)) & 7)
+
+
+def _mj_tri(items, ref):
+    """items: (value, orbit, mass) per state -> {'state': [lt,eq,gt], 'orbit': [...], 'mass': [...]}"""
+    s, o, m = [0, 0, 0], [0, 0, 0], [0, 0, 0]
+    for v, orb, w in items:
+        j = 0 if v < ref else (1 if v == ref else 2)
+        s[j] += 1
+        o[j] += orb
+        m[j] += w
+    return {"state": s, "orbit": o, "mass": m}
+
+
+def check_midjoin(fdir, gdir, outdir, walk=None, tdir=None):
+    import json, time
+    t0 = time.time()
+    verdict, nchecked, brute = "ERROR", 0, "SKIP"
+
+    def finish(reason=None):
+        if reason:
+            print(f"*{verdict}* {reason}")
+        print(f"MIDJOIN_CHECK_LAYERS={nchecked}")
+        print(f"MIDJOIN_CHECK_BRUTE={brute}")
+        print(f"MIDJOIN_CHECK={verdict}")
+        return {"PASS": 0, "FAIL": 1}.get(verdict, 2)
+
+    try:
+        man = {}
+        with open(os.path.join(fdir, "f1c5_manifest.txt"), encoding="utf-8") as fh:
+            for line in fh:
+                if "=" in line:
+                    a, b = line.rstrip("\n").split("=", 1)
+                    man[a] = b
+        n, start = int(man["n"]), int(man["start_exit"])
+        pl = [int(x) for x in man["pl"].split(",")]
+        b0 = tuple(int(x) for x in man["b0"].split(","))
+    except Exception as e:
+        return finish(f"cannot read the f manifest: {e}")
+    if n > 13:
+        return finish(f"n={n}: this leg's plain recurrence and per-layer JSON diff are sized for "
+                      f"n <= 13 (the gate rungs 9 and 13); larger instances are out of scope")
+    plh = _mj_pl_hash(n, start, pl)
+    if man.get("pl_hash") != "%016x" % plh:
+        return finish(f"manifest pl_hash {man.get('pl_hash')} != {plh:016x} derived here")
+    pairs = [PAIRS[i] for i in pl]
+    G = _rung_pair_perms(pairs)
+    size, gord = _rung_orbit_size_fn(pairs)
+    if len(G) != gord:
+        return finish(f"group derivations disagree: {len(G)} vs {gord}")
+    pos = {frozenset(p): i for i, p in enumerate(pairs)}
+
+    def canon(m):
+        best = m
+        for r in G:
+            o, mm = 0, m
+            while mm:
+                i = (mm & -mm).bit_length() - 1
+                mm &= mm - 1
+                o |= 1 << r[i]
+            best = min(best, o)
+        return best
+
+    rad = [1] * 5
+    for c in range(1, 5):
+        rad[c] = rad[c - 1] * (b0[c - 1] + 1)
+    raw = dict(_kc_raw_layers(pairs, start, b0))
+    N = sum(sum(s.values()) for s in raw[n].values())
+    mass = {k: sum(sum(s.values()) for s in raw[k].values()) for k in range(n + 1)}
+    # the walk: 2n hexagrams, entry then exit per pair, validated here from the rules
+    files = sorted(x for x in os.listdir(outdir) if x.startswith("midjoin_layer_") and x.endswith(".json"))
+    if not files:
+        return finish(f"no midjoin_layer_*.json in {outdir}: nothing to check is a failure, not a pass")
+    try:
+        docs = {int(x[14:16]): json.load(open(os.path.join(outdir, x), encoding="utf-8")) for x in files}
+    except Exception as e:
+        return finish(f"a layer JSON does not parse: {e}")
+    wstr = walk if walk is not None else next(iter(docs.values()))["walk"]["walk"]
+    try:
+        hx = [int(x) for x in wstr.split(",")]
+    except ValueError:
+        return finish(f"walk {wstr!r} is not a comma-separated hexagram list")
+    if len(hx) != 2 * n:
+        return finish(f"walk has {len(hx)} hexagrams, an n={n} walk needs {2 * n}")
+    st = [(0, start, 0)]
+    m, last, rid, used = 0, start, 0, [0] * 5
+    for j in range(n):
+        e, x = hx[2 * j], hx[2 * j + 1]
+        i = pos.get(frozenset((e, x)))
+        if i is None or (m >> i) & 1:
+            return finish(f"walk slot {j}: ({e},{x}) is not an unused pair of this instance")
+        ci = _CLS_IX.get(hamming(last, e), -1)
+        if ci < 0 or used[ci] >= b0[ci]:
+            return finish(f"walk slot {j}: the transition {last}->{e} is not admissible (C2/C5)")
+        used[ci] += 1
+        rid += rad[ci]
+        m |= 1 << i
+        last = x
+        st.append((m, last, rid))
+    if raw[n].get(m, {}).get((last << 16) | rid, 0) == 0:
+        return finish("the walk does not reach the full layer of the recurrence: not a member")
+    bitperms = _commuting_bitperms()
+
+    def lifts(m, last):
+        """canonical-frame `last` values: every commuting bit-perm carrying m to canon(m)"""
+        cm, out = canon(m), set()
+        for gp in bitperms:
+            im = 0
+            for i in range(n):
+                if (m >> i) & 1:
+                    a, b = pairs[i]
+                    im |= 1 << pos[frozenset((_apply_bitperm(gp, a), _apply_bitperm(gp, b)))]
+            if im == cm:
+                out.add(_apply_bitperm(gp, last))
+        return cm, out
+
+    # n = 9: the brute force over every walk (the S5 prototype)
+    through = None
+    if n == 9:
+        cls = [[_CLS_IX.get(hamming(x, y), -1) for y in range(64)] for x in range(64)]
+        through = [dict() for _ in range(n + 1)]
+        nwalks = [0]
+        path = [(0, start, 0)]
+
+        def dfs(m, last, rid):
+            if m == (1 << n) - 1:
+                nwalks[0] += 1
+                for d, s in enumerate(path):
+                    through[d][s] = through[d].get(s, 0) + 1
+                return
+            for i in range(n):
+                if (m >> i) & 1:
+                    continue
+                for (e, x) in ((pairs[i][0], pairs[i][1]), (pairs[i][1], pairs[i][0])):
+                    ci = cls[last][e]
+                    if ci < 0 or (rid // rad[ci]) % (b0[ci] + 1) >= b0[ci]:
+                        continue
+                    path.append((m | 1 << i, x, rid + rad[ci]))
+                    dfs(m | 1 << i, x, rid + rad[ci])
+                    path.pop()
+        dfs(0, start, 0)
+        if nwalks[0] != N:
+            brute = "FAIL"
+            verdict = "FAIL"
+            return finish(f"brute force counts {nwalks[0]} walks, the recurrence {N}")
+        brute = "PASS"
+
+    def dec(x):
+        return str(x)
+
+    for k in sorted(docs):
+        J = docs[k]
+        path_ = None
+        try:
+            F = _mj_read_layer(os.path.join(fdir, f"f1c5_layer_{k:02d}.bin"), "f")
+            Gl = _mj_read_layer(os.path.join(gdir, f"g_layer_{k:02d}.bin"), "g")
+            T = _mj_read_layer(os.path.join(tdir, f"t_layer_{k:02d}.bin"), "t") if tdir else None
+        except Exception as e:
+            return finish(f"layer {k}: {e}")
+        for L in (F, Gl) + ((T,) if T else ()):
+            if (L["n"], L["k"], L["start"], L["pl_hash"], L["b0"]) != (n, k, start, plh, b0):
+                return finish(f"layer {k}: a header names another instance")
+        if F["masks"] != Gl["masks"] or (T and (T["masks"] != F["masks"] or T["off"] != F["off"] or T["keys"] != F["keys"])):
+            verdict = "FAIL"
+            return finish(f"layer {k}: f/g mask lists (or f/t geometry) differ")
+        if any(canon(cm) != cm for cm in F["masks"]):
+            verdict = "FAIL"
+            return finish(f"layer {k}: a stored mask is not canonical under the group derived here")
+        canon_masks = sorted(cm for cm in raw[k] if raw[k][cm] and canon(cm) == cm)
+        if [cm for cm in F["masks"] if raw[k].get(cm)] != canon_masks:
+            verdict = "FAIL"
+            return finish(f"layer {k}: the stored masks are not the recurrence's canonical masks")
+        exp, W, FT, states, nj, dead, gz, go = {}, [], [], [], 0, 0, 0, 0
+        wm, wl, wr = st[k]
+        cmK, lastcs = lifts(wm, wl)
+        fK = raw[k].get(wm, {}).get((wl << 16) | wr, 0)
+        js = J["walk"]["state"]
+        lastc = js["lastc"]
+        if lastc not in lastcs:
+            verdict = "FAIL"
+            return finish(f"layer {k}: the JSON's canonical last {lastc} is not a lift of raw "
+                          f"last {wl} by any element carrying {wm:#x} to {cmK:#x} ({sorted(lastcs)})")
+        gK = tK = None
+        for i, cm in enumerate(F["masks"]):
+            orb = size(cm)
+            fsp = dict(zip(F["keys"][F["off"][i]:F["off"][i + 1]], F["vals"][F["off"][i]:F["off"][i + 1]]))
+            if fsp != raw[k].get(cm, {}):
+                verdict = "FAIL"
+                return finish(f"layer {k} mask {cm:#x}: the f file differs from the recurrence")
+            gsp = dict(zip(Gl["keys"][Gl["off"][i]:Gl["off"][i + 1]], Gl["vals"][Gl["off"][i]:Gl["off"][i + 1]]))
+            tsp = dict(zip(T["keys"][T["off"][i]:T["off"][i + 1]], T["vals"][T["off"][i]:T["off"][i + 1]])) if T else {}
+            if cm == cmK:
+                cand = {gsp.get((lc << 16) | wr, 0) for lc in lastcs}
+                fc = {fsp.get((lc << 16) | wr, 0) for lc in lastcs}
+                if len(cand) != 1 or fc != {fK}:
+                    verdict = "FAIL"
+                    return finish(f"layer {k}: the walk's lifts disagree (f {fc} vs {fK}, g {cand})")
+                gK = cand.pop()
+                if T:
+                    tK = tsp.get((lastc << 16) | wr, 0)
+            s = sft = 0
+            go += sum(1 for key in gsp if key not in fsp)
+            for key, fv in fsp.items():
+                gv = gsp.get(key, 0)
+                if key in gsp:
+                    nj += 1
+                    gz += gv == 0
+                dead += gv == 0
+                s += fv * gv
+                if T:
+                    sft += fv * tsp[key]
+                states.append((fv, gv, orb))
+            W.append(orb * s)
+            FT.append(orb * sft)
+        if gK is None or fK == 0 or gK == 0:
+            verdict = "FAIL"
+            return finish(f"layer {k}: the walk's state is not stored (f={fK}, g={gK})")
+        orbK = size(cmK)
+        wK = orbK * fK * gK
+        nm = len(F["masks"])
+        if sum(W) != N:
+            verdict = "FAIL"
+            return finish(f"layer {k}: SUM W = {sum(W)} != N = {N}")
+        tri = {}
+        for x, ref in (("f", fK), ("g", gK), ("w", wK)):
+            tri[x] = _mj_tri([((f if x == "f" else g if x == "g" else o * f * g), o, o * f * g)
+                              for (f, g, o) in states], ref)
+        if n == 9:   # brute: W per orbit and the walk-weighted triples
+            Wb = {}
+            bm = {"f": [0, 0, 0], "g": [0, 0, 0], "w": [0, 0, 0]}
+            for (rm, rl, rr), c in through[k].items():
+                Wb[canon(rm)] = Wb.get(canon(rm), 0) + c
+                fr = raw[k][rm][(rl << 16) | rr]
+                gr_ = c // fr
+                if c % fr:
+                    brute = "FAIL"
+                for nm_, v, ref in (("f", fr, fK), ("g", gr_, gK), ("w", size(canon(rm)) * c, wK)):
+                    bm[nm_][0 if v < ref else (1 if v == ref else 2)] += c
+            if {cm: w for cm, w in zip(F["masks"], W) if w} != Wb:
+                brute = "FAIL"
+            bs = {"f": [0, 0, 0], "g": [0, 0, 0], "w": [0, 0, 0]}
+            for rm, span in raw[k].items():
+                if canon(rm) != rm:
+                    continue
+                for key, fv in span.items():
+                    gr_ = through[k].get((rm, key >> 16, key & 0xffff), 0) // fv
+                    for nm_, v, ref in (("f", fv, fK), ("g", gr_, gK), ("w", size(rm) * fv * gr_, wK)):
+                        bs[nm_][0 if v < ref else (1 if v == ref else 2)] += 1
+            for x in ("f", "g", "w"):
+                if tri[x]["mass"] != bm[x] or tri[x]["state"] != bs[x]:
+                    brute = "FAIL"
+            if brute == "FAIL":
+                verdict = "FAIL"
+                return finish(f"layer {k}: the brute force disagrees with the recurrence + g file")
+        # expected JSON
+        hs, ho, hm = {}, {}, {}
+        for (f, g, o) in states:
+            b = _mj_bin(f)
+            hs[b] = hs.get(b, 0) + 1
+            ho[b] = ho.get(b, 0) + o
+            hm[b] = hm.get(b, 0) + o * f * g
+        order = sorted(range(nm), key=lambda i: (-W[i], i))
+        try:
+            K = int(J["resume_key"].split(";top=")[1].split(";")[0])
+        except Exception:
+            return finish(f"layer {k}: no top=K in the resume_key")
+        cuts = [1, 10, 100, 1000, -(-nm // 100), -(-nm // 10), -(-nm // 2)]
+        lor = {}
+        for name, c in zip(("top1", "top10", "top100", "top1000", "top_1pct", "top_10pct", "top_50pct"), cuts):
+            c = min(c, nm)
+            lor[name] = [c, dec(sum(W[i] for i in order[:c]))]
+        kmi = F["masks"].index(cmK)
+        WK = W[kmi]
+        whist = {}
+        for w in W:
+            whist[w.bit_length()] = whist.get(w.bit_length(), 0) + 1
+        exp = {
+            "schema": "midjoin_v1", "n": n, "k": k, "start_exit": start, "pl_hash": "%016x" % plh,
+            "b0": list(b0), "N": dec(N),
+            "identity": {"sum_orbit_f_g": dec(N), "cut_identity": "OK"},
+            "walk.state": {"cm": "0x%x" % cmK, "lastc": lastc, "rid": wr, "raw_mask": "0x%x" % wm,
+                           "raw_last": wl, "orbit": orbK},
+            "walk.fgw": [dec(fK), dec(gK), dec(wK)],
+            "states.counts": [len(states), nj, dead, gz, go, F["ne"], Gl["ne"]],
+            "f_pct": {a: (b if a != "mass" else [dec(v) for v in b]) for a, b in tri["f"].items()},
+            "g_pct": {a: (b if a != "mass" else [dec(v) for v in b]) for a, b in tri["g"].items()},
+            "w_pct": {a: (b if a != "mass" else [dec(v) for v in b]) for a, b in tri["w"].items()},
+            "f_hist": {"state": [[b, hs[b]] for b in sorted(hs)], "orbit": [[b, ho[b]] for b in sorted(ho)],
+                       "mass": [[b, dec(hm[b])] for b in sorted(hm)]},
+            "masks.head": [nm, sum(1 for w in W if w), [[b, whist[b]] for b in sorted(whist)]],
+            "masks.top": [{"cm": "0x%x" % F["masks"][i], "orbit": size(F["masks"][i]), "W": dec(W[i])} for i in order[:min(K, nm)]],
+            "masks.lorenz": lor,
+            "masks.kw": {"cm": "0x%x" % cmK, "orbit": orbK, "W": dec(WK),
+                         "rank": 1 + sum(1 for w in W if w > WK) + sum(1 for i in range(kmi) if W[i] == WK),
+                         "n_gt": sum(1 for w in W if w > WK), "n_eq": sum(1 for w in W if w == WK),
+                         "n_lt": sum(1 for w in W if w < WK), "mass_lt": dec(sum(w for w in W if w < WK)),
+                         "mass_eq": dec(sum(w for w in W if w == WK))},
+        }
+        S = J["states"]
+        got = {
+            "schema": J["schema"], "n": J["n"], "k": J["k"], "start_exit": J["start_exit"], "pl_hash": J["pl_hash"],
+            "b0": J["b0"], "N": J["N"], "identity": J["identity"], "walk.state": js,
+            "walk.fgw": [J["walk"]["f"], J["walk"]["g"], J["walk"]["w"]],
+            "states.counts": [S["n_f"], S["n_joined"], S["dead"], S["g_zero"], S["g_only"], S["n_entries_f"], S["n_entries_g"]],
+            "f_pct": S["f_pct"], "g_pct": S["g_pct"], "w_pct": S["w_pct"], "f_hist": S["f_hist_log2x8"],
+            "masks.head": [J["masks"]["n"], J["masks"]["n_nonzero_W"], J["masks"]["W_hist_log2"]],
+            "masks.top": J["masks"]["top"], "masks.lorenz": J["masks"]["lorenz"], "masks.kw": J["masks"]["kw"],
+        }
+        if T:
+            if J.get("t") is None:
+                verdict = "FAIL"
+                return finish(f"layer {k}: --midjoin-tdir given but the JSON has no t block")
+            ft_total = sum(FT)
+            if ft_total != sum(mass[j] for j in range(k, n + 1)):
+                verdict = "FAIL"
+                return finish(f"layer {k}: SUM orbit*f*t = {ft_total} != tree nodes at depth >= {k}")
+            tord = sorted(range(nm), key=lambda i: (-FT[i], i))
+            FK = FT[kmi]
+            exp["t"] = {"n": T["ne"], "sum": dec(ft_total), "walk_t": dec(tK),
+                        "top": [{"cm": "0x%x" % F["masks"][i], "FT": dec(FT[i])} for i in tord[:min(K, nm)]],
+                        "kw": {"FT": dec(FK), "rank": 1 + sum(1 for v in FT if v > FK) + sum(1 for i in range(kmi) if FT[i] == FK),
+                               "mass_lt": dec(sum(v for v in FT if v < FK)), "mass_eq": dec(sum(v for v in FT if v == FK))}}
+            jt = J["t"]
+            got["t"] = {"n": jt["n_entries_t"], "sum": jt["sum_orbit_f_t"], "walk_t": jt["walk_t"], "top": jt["top"], "kw": jt["kw"]}
+        for key in exp:
+            if exp[key] != got.get(key):
+                verdict = "FAIL"
+                return finish(f"layer {k} field {key}: JSON {got.get(key)!r} != recomputed {exp[key]!r}")
+        import math
+        H = -sum((w / N) * math.log2(w / N) for w in W if w)
+        if abs(H - J["masks"]["entropy_bits"]) > 1e-5:
+            verdict = "FAIL"
+            return finish(f"layer {k}: entropy {J['masks']['entropy_bits']} != {H:.6f}")
+        nchecked += 1
+        print(f"  layer {k:2d}: {nm} masks, {len(states)} states, SUM W = N, walk f={fK} g={gK} -- every gated field agrees")
+    if set(docs) != set(range(min(docs), max(docs) + 1)):
+        return finish(f"the layer JSONs are not a contiguous range: {sorted(docs)}")
+    verdict = "PASS"
+    print(f"n={n} N={N}: {nchecked} layer(s) checked  [{time.time() - t0:.1f}s]")
+    return finish()
+
+
+def _mj_add_args(parser):
+    """--check-midjoin's options, registered from one appended statement in main() so that adding
+    this leg moved no line above it (line-pinned citations into verify.py stay valid)."""
+    parser.add_argument('--check-midjoin', nargs=3, metavar=('FDIR', 'GDIR', 'OUTDIR'), default=None,
+                        help="S5 (Q-822): recompute every gated integer of solve --kc-midjoin's "
+                             "midjoin_layer_<kk>.json files in OUTDIR -- f from this file's plain "
+                             "recurrence (checked state for state against the f file), g and t read "
+                             "from their layer files through the published format, canonical masks, "
+                             "orbits and the walk's lift from the group derived here, plus an "
+                             "exhaustive walk brute force at n=9 -- and diff them field by field. "
+                             "Prints MIDJOIN_CHECK=PASS|FAIL|ERROR with _LAYERS and _BRUTE lines. "
+                             "n <= 13.")
+    parser.add_argument('--midjoin-walk', metavar='WALK', default=None,
+                        help='With --check-midjoin: the walk (2n hexagrams, entry then exit per pair); '
+                             'default: the walk recorded in the JSONs, re-validated here.')
+    parser.add_argument('--midjoin-tdir', metavar='TDIR', default=None,
+                        help='With --check-midjoin: the t ladder the run was given (--kc-tdir).')
+
+
+def _mj_dispatch(args, parser):
+    if args.check_midjoin is not None:
+        sys.exit(check_midjoin(*args.check_midjoin, walk=args.midjoin_walk, tdir=args.midjoin_tdir))
+    if args.midjoin_walk is not None or args.midjoin_tdir is not None:
+        parser.error("--midjoin-walk and --midjoin-tdir only make sense with --check-midjoin")
 
 if __name__ == "__main__":
     main()
