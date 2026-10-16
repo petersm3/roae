@@ -69,13 +69,13 @@ result — see §5.)
 1. **The question and the instrument.** The literature's rules were established by inspection of one
    object; population measurement asks how much of the C1–C5-satisfying space (≈1.33×10³⁸ orderings —
    [SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md)) shares each property. Method: weighted Knuth random probes
-   (`SOLVE_KNUTH_SCORE=1`, 2×10¹⁰ probes) — each probe walks a uniformly-random constraint-satisfying
-   completion, weighting by the product of branching factors; per-leaf rule predicates accumulate weighted
+   (`SOLVE_KNUTH_SCORE=1`, 2×10¹⁰ probes) — each probe descends by a uniform random child choice and
+   stops at a dead end or a leaf (≈0.18 % reach a C1–C5 leaf), weighting a surviving leaf by the product of branching factors; per-leaf rule predicates accumulate weighted
    mass; fractions are ratios of canonical-leaf masses. Consistency check: the instrument reproduced the
    previously-published total space size estimate to 0.03% (agreement within the same estimator family,
    since that figure is itself a Knuth estimate — the
-   absolute validation of the estimator is TR-11's exact anchors; that run's own total is not archived, see the Verification Guide). Every formalization was verified to reproduce its
-   source's stated King Wen values exactly before measurement (Moore's 16/18 with violations at pair
+   absolute validation of the estimator is TR-11's exact anchors; that run's own total is not archived, see the Verification Guide). Every formalization was verified to reproduce its registry King Wen value exactly before measurement
+   — a source-stated value for 26 of the 31, a KW-derived one for the other five (headline 3) — (Moore's 16/18 with violations at pair
    positions 22–23; rhythm breaks at (7,8) and (22,23)); rule predicates are two-language verified
    (independent C and Python implementations). Caveats stated up front:
    **(a) the KW-value gate constrains each formalization at one point.** Reproducing a source's stated
@@ -155,10 +155,10 @@ result — see §5.)
    attestation, not statistical rarity.
 3. **The extended scoreboard: 31 further rules (2026-07-03 batch, 2×10¹⁰ probes).** The full candidate
    inventory from the Schulz corpus (1990/2011/2016/2018 + the 1982 dissertation's Lai Zhide rules),
-   McKenna & Mair 1979, Drasny, and Schöter — 31 rules formalized (two-language verified, **27 of the
-   31** reproducing its source's stated KW values; the other **four** — MM-T3, MM-T6, C1 and the C2
-   histogram — are **KW-measured anchors**, because the registry states only qualitative or percentile
-   expectations for those), measured in one run. ⚠ **[CORRECTED 2026-09-02 — this clause claimed the
+   McKenna & Mair 1979, Drasny, and Schöter — 31 rules formalized (two-language verified, **26 of the 31** reproducing its source's stated KW values; the other **five** are KW-derived — MM-T3, MM-T6, C1 and the C2 histogram are **KW-measured anchors**, because
+   the registry states only qualitative or percentile expectations for those, and d7's registry value 8 is read off King Wen's own xiaoxi positions, so 8/8 holds by construction
+   ([CLAIM_TO_ARTIFACT.md](../documentation/CLAIM_TO_ARTIFACT.md) row 16, 2026-09-07)), measured in one run. ⚠ **[CORRECTED 2026-10-16 — this read "27 of the 31" and
+   "four"; the 2026-09-02 note that follows counted the anchors only (Codex gpt-6-astra, final review, F11-008#3, F07-006#5, CAL-011; fast-track batch FT2a, CX-381).]** ⚠ **[CORRECTED 2026-09-02 — this clause claimed the
    provenance for *each* of the 31. `solve.py`'s own comment directly above `REGISTRY_KW_EXPECTED`
    (`solve.py:8096-8100`) says otherwise for four of them, and the 31-entry list below it is what
    `--registry-verify` checks: 31 entries, 4 anchors, so 27. The same wording was corrected in
@@ -215,7 +215,7 @@ result — see §5.)
    measured level by construction of the threshold forms; the eight **1.0 (theorem)** entries are the
    proven C1 constants of (2) — exact by theorem, not estimates): rs1 6.6×10⁻⁴ · rs2 3.0×10⁻³ (max seen 26/26 vs
    KW 20) · ccn1 3.4×10⁻⁵ · ccn2 1.5×10⁻³ · ccn3 6.6×10⁻⁶ · **ccn4 2×10⁻⁸** (*data-like* — see headline 1) · ccn6 0.427 · ccn7 1.1×10⁻³
-   · **ccn8 2.6×10⁻⁷** · c2011n1 <10⁻⁹ (0 hits) · c2011n2 5.9×10⁻⁵ · c2011n4 1.1×10⁻² · mmt3 0.953 (min
+   · **ccn8 2.6×10⁻⁷** · c2011n1 0 hits in 2×10¹⁰ probes (starvation — no bound, METHODS §Statistics conventions) · c2011n2 5.9×10⁻⁵ · c2011n4 1.1×10⁻² · mmt3 0.953 (min
    Gray-transitions seen 0 vs KW 4) · mmt4 **1.0 (theorem)** · mmt5 0.9998 · mmt6 0.993 ·
    p1c4 **1.0 (theorem)** · p2c3 6.7×10⁻² · p2c4 1.0×10⁻³ · p2c5 2.3×10⁻³ · p2c6 4.1×10⁻⁴ · d4 5.7×10⁻⁴
    · d7 1.7×10⁻⁴ (KW 8/8 — *data-like*: 8 borrowed dof, 8 is the range ceiling; see headline 3) · s1 **1.0 (theorem)** · s6 **1.0 (theorem)** · m2 8.0×10⁻² ·
@@ -273,7 +273,7 @@ result — see §5.)
    the Lean leg proves. The retraction reached README.md, CLAIMS_DECIDED.md, CLAIM_TO_ARTIFACT.md and
    LITERATURE_RULES_POPULATION_TESTS.md but not this site, which spans a line wrap and was invisible to
    every line-based grep for it. The THEOREM, the DRAT certificates and every figure here are
-   UNAFFECTED. See CORRECTIONS.md]**; joint-strict population size (pinned-walk estimate) ≈1.13×10²⁹ canonical orderings (95% CI [1.09, 1.17]×10²⁹; relerr 1.66%) ⚠ **[CORRECTED 2026-08-28 — the ±4.7% was a PREREGISTERED ANCHOR TOLERANCE BAND, not an error bar: `reports/evidence/f11/compute_f11_bf.py:85` names its check "Moore-joint size outside the +/-4.7% anchor band". The published 1.13×10²⁹ comes from `reports/evidence/r11/r11_moore_strict.out` (`est=1.131036e+29`, 95%CI [1.0942e+29, 1.1679e+29], relerr 1.66%), NOT from `f11_runB.out`, which reports 1.16583e29. See CORRECTIONS.md]**. The encoder round-trip validation's first solver model, pleasingly, is King Wen
+   UNAFFECTED. See CORRECTIONS.md]**; joint-strict population size (pinned-walk estimate) ≈1.13×10²⁹ orientation-explicit (raw) orderings (95% CI [1.09, 1.17]×10²⁹; relerr 1.66%) ⚠ **[CORRECTED 2026-08-28 — the ±4.7% was a PREREGISTERED ANCHOR TOLERANCE BAND, not an error bar: `reports/evidence/f11/compute_f11_bf.py:85` names its check "Moore-joint size outside the +/-4.7% anchor band". The published 1.13×10²⁹ comes from `reports/evidence/r11/r11_moore_strict.out` (`est=1.131036e+29`, 95%CI [1.0942e+29, 1.1679e+29], relerr 1.66%), NOT from `f11_runB.out`, which reports 1.16583e29. See CORRECTIONS.md]**. The encoder round-trip validation's first solver model, pleasingly, is King Wen
    itself.
 5. **The conflict theorem (2026-07-04, SAT-decided, drat-trim verified): perfection was never available.**
    The literature's four strongest rules are **jointly unsatisfiable**: no C1∩C2∩C4∩C5-valid ordering achieves
@@ -284,7 +284,7 @@ result — see §5.)
    2 breaks, 2 violations) ⚠ **[CORRECTED 2026-08-28 — "minimal" is UNSUPPORTED: `reports/evidence/f11/f11_runA.out` carries `f11_hist 1 1 0` and `f11_hist 2 1 1`, both componentwise better than KW's `2 2 2` with nonzero mass, and the histogram is not CC-N4-conditioned so no extremal check exists. See CORRECTIONS.md]**; the 3-edit grand precursor satisfies those three **perfectly** — and breaks
    the trigram configuration. Both cannot be had: **the rules compete**, and any ordering must choose
    which to satisfy. Consequence for the corruption hypothesis: an "uncorrupted precursor" perfect under
-   the literature's full rule inventory **never existed** — the corruption reading survives only in the
+   the **strict, zero-exception forms** of the literature's full rule inventory **never existed** (scope: the SCOPED note at the end of this paragraph — no claim is made for the gender rule's source-stated exception form) — the corruption reading survives only in the
    restricted sense (perfect under Moore's two rules alone, breaking the trigram structure KW keeps). King
    Wen's profile now reads naturally as a **trade-off position**: exact on one strong rule, missing the
    other three by 2 each — a measured margin, with no extremal check (see the correction marker
@@ -329,7 +329,7 @@ result — see §5.)
    measurement of this inventory — corrections welcome via CITATIONS.md. Honest closing caveats: rule
    classes differ in kind — forced rules explain nothing beyond C1–C5; data-like rules (exact
    positions/configurations, e.g. ccn4, Cook's level-3 positions, and d7 — classified 2026-08-02, §3
-   headline 3) carry rarity that is partly specification, not principle; none of these rules, singly or jointly, approaches uniqueness (§4's joint-strict population, `SOLVE_KNUTH_MOORE_STRICT`, still holds ≈1.13×10²⁹ canonical orderings; for scale, the full
+   headline 3) carry rarity that is partly specification, not principle; none of these rules, singly or jointly, approaches uniqueness (§4's joint-strict population, `SOLVE_KNUTH_MOORE_STRICT`, still holds ≈1.13×10²⁹ orientation-explicit (raw) orderings; for scale, the full
    C1–C7 space holds ≈5.2×10³¹ orderings). Accordingly **none is promoted into the formal constraint
    system**; they are measured properties of King Wen's position in the population, with
    description-length and attestation recorded for each (see [TR-9](TR9_PRICING_THE_CONSTRAINTS.md)).
@@ -610,4 +610,5 @@ All values are the reports' stated numbers; generated by
 | v1.36 | 2026-09-25 | **Wording sweep from the Codex v3 E3 batch-5 adjudication, and five figures sourced or labelled (Q-759; Codex V3B-04).** (i) "The four strongest rules" is defined at first use: the four named-author rules of TR-2, not a scoreboard ranking (#18). (ii) "Near their joint Pareto frontier" becomes "scoring well on all four at once", with the frontier stated as unverified (#19). (iii) The Schulz gender rule's ×11,364 carries the "≤2 violations anywhere" relaxation (#22). (iv) The closing caveat's scale note cites §4's joint-strict population, not only the C1–C7 count (#23). (v) Van den Berghe: an exception is forced, but not his particular one. With pairs 3/4 and 5/6 both reversed the ordering stays C1–C5-valid at C3 = 776 and still scores 29, with the miss moved (#29, executed with `sat.verify_seq` and `solve.vdb_nucorient`). (vi) Zero population hits at X ≥ 29 are called silent, not corroborating (#30). (vii) Figures without a runnable source are labelled: the 0.03% (the run's own total is not archived, #4), the ±10–15% (an estimate; no `se=` is on record, #7), and the 17 of 19 (a private audit, #31). "Dead-typical" becomes "typical", with the exact-fiber p-values (#28). The ~50× gauge attenuation is sourced to the archived fiber histogram, with the awk line that gives ×49.8 and the caveat that it is not a p-value (#33). ⚠ notes in place. (viii) Also, the stack-frame sizes in the `--estimate-knuth` stack note are re-measured with `gcc -fstack-usage` (`main` ≈7.24 MiB, `estimate_tree_knuth` ≈1.48 MiB; the note had ~7.23 MB and about one megabyte), with a ⚠ note in place; the 16 MB requirement stands (Q-826). No other figure changes. **The effective-sample-size symbol is subscripted to match METHODS (Q-713).** §7's note on the F5 sample size cites METHODS' n_eff = 1/relerr². METHODS now writes that quantity as n_eff,rel, because TR-12 uses the bare symbol for a different one, the Kish n_eff,Kish = (Σw)²/Σw². The note is updated to the subscripted name. No number changes |
 | v1.37 | 2026-09-28 | **The trade-off figure is a four-row table (Q-900; Codex VIZ H2-01, H2-02; figure and wording only — no count changed).** The bar chart told King Wen from the precursor by red against green alone, every precursor bar had zero length, and the green value labels measured 4.12:1 on white. The figure is now a table with a King Wen column and a precursor column, each cell giving its count in its own unit (2 misses (16/18) … satisfied / violated); the trigram row names stations 25–28 and a note defines a station as one of Lai Zhide's 36 consolidated units. §Figure's alt-text and caption describe the table. |
 | v1.38 | 2026-09-29 | **The 3-edit result is a minimum, not an event (an adversarial review by Codex (gpt-6-astra) of the Lean, SAT and DRAT surface, triaged by Fable; CX-232).** §4 said the deviation from a compliant precursor was one small 3-edit event, and the executive summary and §4's heading called the grand precursor's repair a 3-edit "event". The SAT results establish the minimum distance; compliant orderings at 4 edits exist too (the grand-strict witness with slot 5 reversed). Wording only. |
-| v1.39 *(current)* | 2026-10-01 | **The cover's reproduction promise is rescoped (Codex v3 review, finding V3B-08 #22 against TR-5, triaged by Fable; backlog Q-759).** The banner said every MEASURED result carries a reproduction command, while the reports themselves flag results that have none. It now says each one carries a command or says at the claim that it has none, which is what the reports index already said. GATE 9 holds the banner byte-identical across all twelve reports, so the same edit is made in each. Wording only; no figure, count or theorem changed. |
+| v1.39 | 2026-10-01 | **The cover's reproduction promise is rescoped (Codex v3 review, finding V3B-08 #22 against TR-5, triaged by Fable; backlog Q-759).** The banner said every MEASURED result carries a reproduction command, while the reports themselves flag results that have none. It now says each one carries a command or says at the claim that it has none, which is what the reports index already said. GATE 9 holds the banner byte-identical across all twelve reports, so the same edit is made in each. Wording only; no figure, count or theorem changed. |
+| v1.40 *(current)* | 2026-10-16 | **Seven sites corrected from Codex's final review (gpt-6-astra; findings F11-006#1/#3/#10/#17, CAL-006, F11-008#3, F07-006#5, CAL-011; triaged by Fable; fast-track batch FT2a).** (i) The "uncorrupted precursor never existed" sentence now carries the strict, zero-exception scope that the SCOPED note at the end of its paragraph states. (ii) The method sentence describes the probe as it runs: a uniform random descent that stops at a dead end or a leaf, ≈0.18 % reaching a C1–C5 leaf. (iii) The joint-strict population ≈1.13×10²⁹ is orientation-explicit (raw), not canonical. (iv) c2011n1's zero-hit cell is reported as starvation, not as the bound <10⁻⁹. (v) §3 and the method sentence give the registry split as 26 source-stated and five KW-derived — the four KW-measured anchors plus d7, whose registry value is read off King Wen's own xiaoxi positions (CLAIM_TO_ARTIFACT.md row 16, 2026-09-07); they read 27 and four, and each site carries a dated note. No figure, verdict or certificate changes. See CORRECTIONS.md (fast-track batch FT2a). |

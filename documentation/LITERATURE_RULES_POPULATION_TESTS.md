@@ -278,7 +278,7 @@ with `python3 sat.py --witness plain` and
 
 The full candidate inventory from the Schulz corpus (1990/2011/2016/2018 + the 1982 dissertation's
 Lai Zhide rules), [McKenna & Mair 1979](CITATIONS.md#mckenna-mair1979), [Drasny](CITATIONS.md#drasny2007), and [Schöter](CITATIONS.md#schoter1998) — 31 rules formalized (two-language verified,
-**27 of them reproducing its source's stated King Wen values**), measured in one run. ⚠ **[CORRECTED 2026-08-28 — this read "each reproducing its source's stated King Wen values". `solve.py`'s own comment above `REGISTRY_KW_EXPECTED` says otherwise for four: MM-T3, MM-T6, C1 and the C2 histogram are **KW-measured anchors** because the registry states only qualitative or percentile expectations for them, and `reg_c1`/`reg_c2` additionally carry "exact formulation pending full-paper access, registry proxy used" in their docstrings. See CORRECTIONS.md]** Full per-rule registry and
+**26 of them reproducing its source's stated King Wen values; five are KW-derived** — MM-T3, MM-T6, C1 and the C2 histogram are KW-measured anchors, and d7's registry value 8 is read off King Wen's own twelve xiaoxi positions, so KW's 8/8 holds by construction ([CLAIM_TO_ARTIFACT.md](CLAIM_TO_ARTIFACT.md) row 16, 2026-09-07)), measured in one run. ⚠ **[CORRECTED 2026-10-16 — this read "27 of them"; the 2026-08-28 note that follows counted the four anchors and not d7 (Codex gpt-6-astra, final review, F11-008#3, F07-006#5, CAL-011; fast-track batch FT2a, CX-381).]** ⚠ **[CORRECTED 2026-08-28 — this read "each reproducing its source's stated King Wen values". `solve.py`'s own comment above `REGISTRY_KW_EXPECTED` says otherwise for four: MM-T3, MM-T6, C1 and the C2 histogram are **KW-measured anchors** because the registry states only qualitative or percentile expectations for them, and `reg_c1`/`reg_c2` additionally carry "exact formulation pending full-paper access, registry proxy used" in their docstrings. See CORRECTIONS.md]** Full per-rule registry and
 attribution: solve.py `--registry-verify` section.
 
 > **The rule predicates are code-resident, and that is a replication limit** (stated 2026-08-01, lens
@@ -352,7 +352,7 @@ see §"Method and caveats"; KW satisfies each at its measured level by construct
 threshold forms; the eight **1.0 (theorem)** entries are the proven C1 constants of headline 2 — exact by
 theorem, not estimates): rs1 6.6×10⁻⁴ · rs2 3.0×10⁻³ (max seen 26/26 vs KW 20) · ccn1 3.4×10⁻⁵ ·
 ccn2 1.5×10⁻³ · ccn3 6.6×10⁻⁶ · **ccn4 2×10⁻⁸** (*data-like* — see finding 1) · ccn6 0.427 · ccn7 1.1×10⁻³ · **ccn8 2.6×10⁻⁷** ·
-c2011n1 <10⁻⁹ (0 hits) · c2011n2 5.9×10⁻⁵ · c2011n4 1.1×10⁻² · mmt3 0.953 (min Gray-transitions seen 0
+c2011n1 0 hits in 2×10¹⁰ probes (starvation — no bound, METHODS §Statistics conventions) · c2011n2 5.9×10⁻⁵ · c2011n4 1.1×10⁻² · mmt3 0.953 (min Gray-transitions seen 0
 vs KW 4) · mmt4 **1.0 (theorem)** · mmt5 0.9998 · mmt6 0.993 · p1c4 **1.0 (theorem)** · p2c3 6.7×10⁻² ·
 p2c4 1.0×10⁻³ · p2c5 2.3×10⁻³ · p2c6 4.1×10⁻⁴ · d4 5.7×10⁻⁴ · d7 1.7×10⁻⁴ (KW 8/8 — *data-like*: 8
 borrowed dof, 8 is the range ceiling; see headline 3) ·
@@ -384,8 +384,8 @@ C3; certificate independently verified). The pieces fit together sharply:
 - The 3-edit "grand precursor" satisfies those three **perfectly** — and breaks the trigram configuration.
 - Both cannot be had: **the rules compete**, and any ordering must choose which to satisfy.
 
-Consequence for the corruption hypothesis: an "uncorrupted precursor" perfect under the literature's full
-rule inventory **never existed** — the corruption reading survives only in the restricted sense (perfect
+Consequence for the corruption hypothesis: an "uncorrupted precursor" perfect under the **strict,
+zero-exception forms** of the literature's full rule inventory **never existed** (no claim is made for the gender rule's source-stated exception form — the convention-stability note above; TR-1 §3's SCOPED note) — the corruption reading survives only in the restricted sense (perfect
 under Moore's two rules alone, breaking the trigram structure KW keeps). King Wen's profile now reads
 naturally as a **trade-off position**: exact on one strong rule, imperfect by two on each of the others
 (*corrected 2026-09-01 from "minimally imperfect" — the same withdrawn superlative as the bullet above,

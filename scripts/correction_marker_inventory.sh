@@ -412,8 +412,8 @@ REVIEWED = {
         ('1', 'reviewed:caveat-already-says-the-fraction-is-weighted'),
     ('documentation/LITERATURE_RULES_POPULATION_TESTS.md', '5903a37c4c44'):
         ('1', 'reviewed:text-already-gives-the-C1-C5-mean-16159'),
-    ('documentation/LITERATURE_RULES_POPULATION_TESTS.md', '5e81ed48b99c'):
-        ('1', 'reviewed:sentence-already-reads-27-of-them'),
+    ('documentation/LITERATURE_RULES_POPULATION_TESTS.md', 'f08fe673dc9c'):  # re-keyed FT2a (CX-381): the line now reads 26/5 and carries the 2026-10-16 note before the 2026-08-28 one; re-keyed at the FT1 rebase, the note's CX id renumbered only
+        ('1', 'reviewed:registry-split-26-5-note-2026-10-16'),
     ('documentation/LITERATURE_RULES_POPULATION_TESTS.md', '7fdaba50b9bd'):
         ('1', 'reviewed:item-already-points-to-the-witness-and-estimate'),
     ('documentation/LITERATURE_RULES_POPULATION_TESTS.md', '85d80a1ac4ee'):
@@ -940,7 +940,7 @@ REVIEWED = {
         ('1', 'reviewed:text-already-reads-estimate-withdrawn'),
     ('reports/TR12_QUERY_PROGRAM.md', 'ffa7e6e73b5e'):
         ('1', 'reviewed:text-already-pins-the-tag'),
-    ('reports/TR1_EIGHT_CENTURIES_MEASURED.md', '0b0c6d3c48e3'):
+    ('reports/TR1_EIGHT_CENTURIES_MEASURED.md', '8011578ecdf0'):  # re-keyed FT2a (CX-373): "canonical" -> "orientation-explicit (raw)" on this line; verdict re-read, unchanged
         ('1', 'reviewed:text-already-cites-r11-and-the-CI'),
     ('reports/TR1_EIGHT_CENTURIES_MEASURED.md', '117db48bd83b'):
         ('1', 'reviewed:text-already-reads-correctly'),
@@ -968,8 +968,10 @@ REVIEWED = {
         ('1', 'reviewed:caveat-already-says-the-fraction-is-weighted'),
     ('reports/TR1_EIGHT_CENTURIES_MEASURED.md', 'e58c453b01b8'):
         ('1', 'reviewed:sentence-already-says-not-his-particular-one'),
-    ('reports/TR1_EIGHT_CENTURIES_MEASURED.md', 'fb1338767194'):
-        ('1', 'reviewed:clause-already-reads-27-of-the-31'),
+    ('reports/TR1_EIGHT_CENTURIES_MEASURED.md', '0c587d1ca3fa'):  # FT2a (CX-381): the 2026-10-16 note opens on this line
+        ('1', 'reviewed:registry-split-26-5-note-2026-10-16'),
+    ('reports/TR1_EIGHT_CENTURIES_MEASURED.md', 'ebadde92c1ed'):  # re-keyed FT2a (CX-381): the 2026-09-02 marker now follows the 2026-10-16 note; the clause reads 26/5; re-keyed at the FT1 rebase, the note's CX id renumbered only
+        ('1', 'reviewed:registry-split-26-5-note-2026-10-16'),
     ('reports/TR2_THE_RULES_CONFLICT.md', '16f3dd64e012'):
         ('1', 'reviewed:sentence-already-withdraws-the-superlative-in-its-own-words'),
     ('reports/TR2_THE_RULES_CONFLICT.md', '352d885dffbc'):

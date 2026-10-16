@@ -32358,3 +32358,482 @@ No published number, count, sha or verdict moves.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, fast-track batch FT1; the sites were
 found by Codex (gpt-6-astra), final review, AIF-002#1 and AIF-002#2.
+
+## CX-366 — the canonical-value registry still carried the two labels METHODS.md corrected on 2026-09-19: the 0.02% beside the C1–C5 estimate is its relative standard error, not a 95% interval, and N/24 is twice the sequence-level orbit count (documentation/CANONICAL_VALUE_STATUS.tsv; tests.py)
+
+**2026-10-16.** **Source.** Codex (gpt-6-astra), final review, CAL-012#76 and #81, with the same two
+rows named as out-of-scope entries by ten calibration runs (CAL-001 to CAL-006, CAL-010, CAL-011,
+CAL-013); confirmed by Fable's fast-track triage. Fast-track batch FT2a. Line numbers are those of the
+parent tree.
+
+**What was published.** CANONICAL_VALUE_STATUS.tsv, the machine-readable mirror of METHODS.md
+§"Canonical quantities" that GATE 5 reads:
+- line 29: `1.3287 estimate C1-C5 space size, Knuth estimator, 95% CI 0.02%`;
+- line 24: `45,710,…,112 exact orbit count = N/24`.
+
+METHODS.md corrected both labels on 2026-09-19 (Q-663 and Q-642) and the registry rows were missed.
+`reports/evidence/knuth_whole_tree_5e10.out` line 5 prints `est=1.328729e+38 95%CI=[1.3283e+38,
+1.3292e+38] relerr=0.02%`: the interval's half-width is (1.3292 − 1.3283)/2 / 1.328729 = 0.0339%,
+printed 0.03%, and 0.02% is the relative standard error. N counts orientation-explicit sequences, on
+which the acting group has order 48, so N/24 is 2× the sequence-level orbit count; a record-level orbit
+count is bounded by 31!/24.
+
+**What it says now.** Line 29 gives the interval [1.3283, 1.3292]×10³⁸ with "half-width 0.03%; relerr
+0.02%". Line 24 says N/24 is 2× the sequence-level orbit count and that record-level orbits are bounded
+by 31!/24 (METHODS, Q-642). The integer and the estimate are unchanged.
+
+**Receipts kept as written.** `runs/20260716_f1c5_c1c2c4c5_d128westus3/README.md:16` and
+`count_result.json:10` name the same integer an "orbit count"; they are the run's own receipt and are
+not edited. METHODS.md and TR-11 §9 state the level.
+
+**Tests.** `TestBatchFT2a.test_cvs_rows_*` re-derive both percentages from the archived line and fail
+on the old rows.
+
+No published number, count, sha or verdict moves.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, fast-track batch FT2a; the rows were
+found by Codex (gpt-6-astra), final review, CAL-012#76/#81.
+
+## CX-367 — two rows of TR-12's confidence ledger misquoted their source: the Van den Berghe row put the C4-oriented count beside the pair-only fiber's probability, and the transition-rank row dropped the tie correction from its null (reports/TR12_QUERY_PROGRAM.md; tests.py)
+
+**2026-10-16.** **Source.** Codex (gpt-6-astra), final review: F11-005#3, F07-005#1, CAP-002#2, CAL-005#10
+(the first row); F11-005#4, F07-005#2, CRZ-001#1, CAP-002#5, CAL-005#20 (the second); confirmed by Fable's
+fast-track triage. Fast-track batch FT2a.
+
+**What was published.** TR12_QUERY_PROGRAM.md §12.9, two rows:
+- line 2683: "KW **29/30**; **12 of 1,720,320** at X=29; P(X ≥ 29) = **1.1097×10⁻⁵** one-sided". The count
+  is from the C4-oriented fiber (N = 1,720,320); the probability is from the pair-only fiber (30 of
+  2,703,360). On the fiber the row names, `reports/evidence/f5/f5_modec_fiber.out` line 20 prints
+  P ≥ kw = 6.975446×10⁻⁶ = 12/1,720,320, and TR-1 §3 states both figures, each on its own fiber.
+- line 2712: "mean percentile **0.219** vs null 0.5". §12.3 and the probe's token
+  `CELL_PERCENTILE_NULL_MEAN_PER_STEP` state the null as 0.5 less half the tie mass, stated and not measured.
+
+**What it says now.** The first row gives P(X ≥ 29) = 6.9754×10⁻⁶ on the C4-oriented fiber and the
+pair-only figure separately, where two vectors reach 30. The second gives the null as §12.3 does and
+names the token. No figure in §12 or TR-1 changes. TR-12 v1.30.
+
+**Tests.** `test_vdb_row_*` parse the fiber output and require the row's probability to equal its
+numerator over the fiber it names; `test_rank_row_*` require the tie correction. Both fail on the old rows.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, fast-track batch FT2a; the rows were
+found by Codex (gpt-6-astra), final review, F11-005#3/#4 and the twins listed above.
+
+## CX-368 — two TR-12 promises had already been narrowed elsewhere in the same document: the §12.9 banner still promised every figure in §12.1–§12.8, and two sentences still gave the ladder checks as proof of mathematical correctness (reports/TR12_QUERY_PROGRAM.md; tests.py)
+
+**2026-10-16.** **Source.** Codex (gpt-6-astra), final review: F11-005#9, F07-005#7, CAL-005#5 (the banner);
+F11-004#13 (rated High by Codex), F11-005#2, CAL-005#27/#33 (the ladder checks); confirmed by Fable's
+fast-track triage, which rated both Medium. Fast-track batch FT2a.
+
+**What was published.**
+- TR12:2218: "**One command reproduces every figure in §12.1–§12.8**". The Verification Guide corrected
+  the same promise on 2026-09-26 (TR12:2751): §12.7's cost figures are derived, not printed, and §12.8
+  quotes none. The banner was left.
+- TR12:1667-1668: "It does not prove the ladders are mathematically correct — that is `--kc-t-check` and
+  `--kc-g-check`", and TR12:2791-2792: "it does **not** say the ladder is mathematically sound — that is
+  `--kc-g-check` and `--kc-t-check`". GT_LADDER_FORMAT.md §"The cross-ladder identities" says those
+  identities "constrain the FILES, not the shared transition relation", and the paragraph at :1671-1672
+  says the same.
+
+**What it says now.** The banner promises every §12.1–§12.6 figure that §12.9 maps to a token and names
+the two exceptions. Both sentences say no battery row proves the ladders correct and call the two
+checks file-integrity identities. TR-12 v1.30.
+
+**Siblings left as written.** TR-12's v1.3 revision row, HISTORY.md's 2026-09-17 entry and the run
+receipt `runs/20260906_kc_ladders_n31/STAGE_T_RAW_VERIFY.md:32` use the same "mathematically
+sound/correct — that is `--kc-t-check`" shape; they are dated history or a run receipt.
+
+**Tests.** `test_banner_*` require the banner's exception list to match the guide's; `test_kc_checks_*`
+forbid "mathematically (correct|sound) — that is `--kc" outside the revision table. Both fail on the
+old text.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, fast-track batch FT2a; the sites
+were found by Codex (gpt-6-astra), final review, F11-005#9 and F11-004#13.
+
+## CX-369 — "the positional pair field is flat to ~3 %" survived in TR-12's executive summary, its Q9 note, the §12.5 heading and reports/README.md after the V1 caption withdrew it on 2026-09-26 (reports/TR12_QUERY_PROGRAM.md; reports/README.md; viz/README.md; viz/viz_kc_field.md; documentation/CLAIMS.tsv; scripts/citation_line_gate.sh; tests.py)
+
+**2026-10-16.** **Source.** Codex (gpt-6-astra), final review, F11-004#4, F07-004#3, F07-005#3;
+confirmed by Fable's fast-track triage. Fast-track batch FT2a.
+
+**What was published.** TR-12 v1.16 (2026-09-26, Codex VIZ1 F02) corrected the V1 caption: 0.0329 is a
+total-variation distance, not a cell-wise spread, interior cells run 0.0297–0.0345 against 1/31 =
+0.0323, and the two end slots run 0.0205–0.0636. The same wording stayed at TR12:83 ("flat to ~3 %"),
+TR12:848 (Q9's 2026-09-21 note), the §12.5 heading ("flat to about 3 %") and TR12:2403 ("marginals carry
+essentially no information about membership"). reports/README.md:52 carried "flat to ~3 %" too.
+
+**What it says now.** Each site says the interior rows are within total-variation 0.0329 of uniform,
+with cells from −8 % to +7 % of 1/31 and the end slots forced and far from flat (0.0297/0.0323 = −7.9 %,
+0.0345/0.0323 = +6.9 %); §12.5 says the interior marginals carry little information about membership.
+The abstract's "flat to about 3 % (interior total-variation distance from uniform ≤ 0.0329)" already
+names its measure and is kept. The §12.5 anchor changed with its heading, and its two links
+(viz/README.md, viz/viz_kc_field.md) were updated. The typed claim ledger's row `TR12_ABS_POSITIONAL_PCT`
+(documentation/CLAIMS.tsv), which read the abstract's line as "3" rendered as a whole percent, now carries the
+value the line prints, 0.0329, rendered exact (the key keeps its name `TR12_ABS_POSITIONAL_PCT`; its unit column now names the measure), and its edited citation of TR12:83 is attested by content
+in the citation gate's pin table. TR-12 v1.30.
+
+**Tests.** `test_flat_*` forbid "flat to ~3 %" without "total-variation" and "essentially no
+information" outside markers and revision rows, in TR-12 and reports/README.md.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, fast-track batch FT2a; the sites were
+found by Codex (gpt-6-astra), final review, F11-004#4.
+
+## CX-370 — TR-12 listed four suite-level inconsistencies; three were misreadings, and the fourth, TR-2's executive summary leading with its withdrawn Bayes factor, is cured (reports/TR12_QUERY_PROGRAM.md; reports/TR2_THE_RULES_CONFLICT.md; tests.py)
+
+**2026-10-16.** **Source.** Codex (gpt-6-astra), final review: F11-005#17/#18/#19, F07-005#11 and CAP-002#1
+(the four-item block; CAP-002 recorded the belief behind it as CONTRADICTED); F11-007#15 and #16, rated
+High by Codex, with #17 and #19 as riders (TR-2). Confirmed by Fable's fast-track triage, which rated
+them Medium. Fast-track batch FT2a.
+
+**What was published.**
+- TR12:2737-2743: "🔴 **Four suite-level inconsistencies this audit surfaced, none adjudicated here.**"
+  (i) TR-5's abstract reads "the record-level orbit count is exactly N/24" while METHODS.md says N/24 is
+  2× the sequence-orbit count; (ii) TR-9 publishes two C5 ranges; (iii) TR-2's executive summary still
+  leads with the Bayes factor v1.27 withdraws; (iv) the estimator self-consistency figure is 0.03 % in
+  TR-1 and 0.09 % in TR-10.
+- TR2:30-43, in the executive summary: "a pre-registered Bayesian comparison finds the received order far
+  better explained as a corrupted rule-perfect ordering … (Bayes factor ≈ 6.6×10³–7.9×10³ …)" and "the
+  Bayes factor above excludes only the soft-preference arranger". The v1.27 withdrawal (CX-26) was
+  fifteen lines below. TR2:533 gave the ≈0.9998 posterior with no mark, and TR2:693 called the v1.12
+  figure the "live" headline.
+
+**The three that are not inconsistencies.** (i) TR-5's abstract states both levels in one sentence:
+record-level N/24, and divisor 48 at the orientation-explicit sequence level (TR5:38-41). (ii) TR-9
+publishes −6.3 to −13.9 over the three marginal-consistent codings and −6.3 to −20.6 when the literal
+per-count encoding is admitted, and says the two are not in conflict (TR9:250-257). (iv) 0.03 % is TR-1's
+2×10¹⁰-probe run and 0.09 % is TR-10's 2×10⁹-probe run (TR1:47-50, TR10:105-107): two runs, not one
+figure.
+
+**What it says now.** TR-12's block names one inconsistency, TR-2's executive summary, says it is cured
+in TR-2 v1.41, and lists the other three as misreadings with their sources. TR-2's v1.7 paragraph now
+opens "**Withdrawn as a claimed result (v1.27, CX-26) — the paragraph that follows is the as-computed
+record.**", the posterior bullet reads "(as-computed; withdrawn as a claim, CX-26)", and the Verification
+Guide's "live v1.12 headline" is "as-computed". The withdrawal itself is unchanged. TR-12 v1.30, TR-2 v1.41.
+
+**Tests.** `test_inconsistencies_*` require the block's open items to be (iii) alone and TR-2's;
+`test_tr2_exec_*` require the withdrawal before the first Bayes-factor figure in the executive summary
+and the mark on the posterior bullet. Both fail on the old text.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, fast-track batch FT2a; the sites were
+found by Codex (gpt-6-astra), final review, F11-005#17 and F11-007#15/#16.
+
+## CX-371 — TR-11 said the retained run.out prints only layers k10..k31 and that six palindrome pairs are recoverable from it; it prints every layer k = 1..31, and all fifteen pairs hold (reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md; tests.py)
+
+**2026-10-16.** **Source.** Codex (gpt-6-astra), final review, F11-003#9, F07-003#6, CAL-003#155; confirmed
+by Fable's fast-track triage. Fast-track batch FT2a.
+
+**What was published.** TR11:427-432: "the six palindrome pairs recoverable from the retained run log (k10..k21
+through k15..k16) all hold exactly. The retained `run.out` (final eviction-resume session) carries only
+prints k10..k31 — the k0..k9 prints scrolled out on resume — but the full 32-layer table reconstructs by
+the palindrome …".
+
+**Measured.** `runs/20260716_f1c5_c1c2c4c5_d128westus3/run.out` (385 lines) prints a `[f1c5] layer k=`
+line for every k = 1..31, one value per layer across its twelve `RESUME intra-layer checkpoint` lines;
+masks(k) = masks(31 − k) for all fifteen pairs k = 1..15; and 1 + Σ masks(k) over k = 1..31 = 93,939,712.
+
+**What it says now.** The run.out carries every layer k = 1..31 (k = 0 is implicit); all fifteen pairs
+are directly checkable and hold; Σ masks(k) over k = 0..31 (masks(0) = 1) = 93,939,712, the canonical-mask count. TR-11 v1.34.
+
+**Receipts kept as written.** The run's `count_result.json:12` ("pairs_verified": 6), its README.md:18
+("6/6 recoverable pairs") and `layer_curve.md:7` carry the old account. They are the run's own receipt
+and are not edited; TR-11 states the measured account.
+
+**Tests.** `test_runout_layers_and_tr11` parses run.out and re-checks the layer set, the fifteen pairs and
+the total; `test_runout_red_on_old` puts the old sentence back and the check fails.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, fast-track batch FT2a; the site was
+found by Codex (gpt-6-astra), final review, F11-003#9.
+
+## CX-372 — TR-2 said four of the six rule violations cluster at pair-slots 22–23; five do, because the two gender violations at inversion-class positions 25–26 are pair-slots 22–23 (reports/TR2_THE_RULES_CONFLICT.md; tests.py)
+
+**2026-10-16.** **Source.** Codex (gpt-6-astra), V3A-088 #4 (2026-09-24, confirmed at head and not landed
+then), and again in the final review, F11-007#7 and CAL-007#103; confirmed by Fable's fast-track
+triage. Fast-track batch FT2a.
+
+**What was published.** TR2:438-439: "Four of the six cluster at the flagged locus; two do not."
+
+**Measured.** `python3 -B solve.py --r11-verify` prints parity(pair-slots) = [22, 23],
+rhythm(adjacent-pairs) = [(7, 8), (22, 23)], gender(inversion-class-pos) = [25, 26]. TR-1 §3 equates
+0-based slots 21/22 with class positions 25/26, which are 1-based pair-slots 22/23. So two parity, one
+rhythm and two gender violations sit at the locus, and one rhythm break, at (7,8), does not.
+
+**What it says now.** "Five of the six cluster at the flagged locus (the two gender violations at
+inversion-class positions 25–26 are pair-slots 22–23 in the other coordinate system, TR-1 §3); one — the
+rhythm break at pair-slots (7,8) — does not". The F-46 caution that follows is
+unchanged and now covers one more violation. TR-2 v1.41.
+
+**Tests.** `test_cluster_five_of_six` runs `--r11-verify`, maps the class positions through TR-1's stated
+equivalence and requires TR-2's count word to match; `test_cluster_red_on_old` puts "Four" back.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, fast-track batch FT2a; found by Codex
+(gpt-6-astra), V3A-088 #4, and again in the final review, F11-007#7.
+
+## CX-373 — three estimator-wording slips in TR-1, TR-2 and TR-12: the probe was described as walking a uniformly random valid completion, the ≈1.13×10²⁹ joint-strict estimate and two population objects were called canonical, and a zero-hit cell was reported as a bound (reports/TR1_EIGHT_CENTURIES_MEASURED.md; reports/TR2_THE_RULES_CONFLICT.md; reports/TR12_QUERY_PROGRAM.md; documentation/LITERATURE_RULES_POPULATION_TESTS.md; reports/evidence/decoy/README.md; reports/evidence/f5/README.md; tests.py)
+
+**2026-10-16.** **Source.** Codex (gpt-6-astra), final review: F11-006#3 and CAL-006#165 (the probe);
+F11-006#10, CAL-006#167, F11-007#6, F11-004#9 (the labels); F11-006#17, CAL-006#181 and a CAL-010
+out-of-scope entry (the bound); confirmed by Fable's fast-track triage. Fast-track batch FT2a.
+
+**What was published, and what it says now.**
+- TR1:72: "each probe walks a uniformly-random constraint-satisfying completion, weighting by the product
+  of branching factors". Probes dead-end; ≈0.18 % reach a C1–C5 leaf (`reports/evidence/f11/f11_runA.out`
+  line 4, `hitrate=0.0018`), and LITERATURE_RULES_POPULATION_TESTS.md §"Method and caveats" was corrected
+  on 2026-09-01. It now reads as that section does: a uniform random descent that stops at a dead end or a
+  leaf, ≈0.18 % reaching a C1–C5 leaf, a surviving leaf weighted by the product of branching factors.
+- TR1:276 and :332: "≈1.13×10²⁹ canonical orderings". The figure is `reports/evidence/r11/r11_moore_strict.out`
+  line 8, the estimator's `leaves_canonical_C1C5` field, whose name TR-10 recorded on 2026-09-03 as a
+  misnomer for the orientation-explicit leaf mass. Both now say "orientation-explicit (raw) orderings".
+  TR2:518 ("full generative models over the canonical C1–C5 space") now says orientation-explicit, and
+  TR12:1173 ("population fractions are of C15 canonical mass") now says raw, fiber-weighted C15 mass.
+- TR1:218 and its sibling in LITERATURE_RULES_POPULATION_TESTS.md:355: "c2011n1 <10⁻⁹ (0 hits)". METHODS.md
+  §"Statistics conventions" reports a zero-hit estimate as starvation, not a bound. Both now read
+  "c2011n1 0 hits in 2×10¹⁰ probes (starvation — no bound, METHODS §Statistics conventions)". The
+  caveats at TR1:228 and LRPT:366, which quote the old cell to say it is starvation, are kept.
+  `reports/evidence/decoy/README.md:48` said a zero estimate "bounds its count loosely from above"; it
+  now says that is starvation, not a bound.
+
+**Not changed.** `reports/evidence/f5/f5_modec_fiber.py:315-317` prints "report as bound" for a sampled
+zero; Fable's triage asked for that string to change. The script is a frozen evidence instrument and its
+archived output `f5_modec_fiber.out:194` carries the string, so editing it would part the script from
+its own receipt. Ruled 2026-10-16 (Fable, pre-publication review): the string stays, because `reports/evidence/f5/README.md` pins the script to reproduce that output byte-identically; the README's row for the output now says the line reports starvation, not a bound. The line concerns the sampled tier, which the file's exact
+Mode C enumeration supersedes.
+
+TR-1 v1.40, TR-2 v1.41, TR-12 v1.30. No figure changes.
+
+**Tests.** `test_probe_method_*`, `test_raw_labels_*` and `test_starvation_*`; each fails on the old wording.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, fast-track batch FT2a; the sites were
+found by Codex (gpt-6-astra), final review, F11-006#3/#10/#17.
+
+## CX-374 — the conflict theorem's corollary was restated without its scope: TR-1's "never existed" sentence, LITERATURE_RULES_POPULATION_TESTS.md, the README, viz/README.md and CLAIMS_DECIDED.md now say it covers the strict, zero-exception forms of the rules (reports/TR1_EIGHT_CENTURIES_MEASURED.md; documentation/LITERATURE_RULES_POPULATION_TESTS.md; README.md; viz/README.md; documentation/CLAIMS_DECIDED.md; tests.py)
+
+**2026-10-16.** **Source.** Codex (gpt-6-astra), final review, F11-006#1 (rated High by Codex), with
+CAL-006#168, CAL-001#30, CAL-014#112 and F11-009#1; confirmed by Fable's fast-track triage, which rated
+it Medium. Fast-track batch FT2a.
+
+**What was published.** TR1:286-288: "an 'uncorrupted precursor' perfect under the literature's full rule
+inventory **never existed**". The SCOPED note at the end of the same paragraph (2026-09-24, v1.34; Codex
+V3A-087#7, Q-742; registered as RP-6086b15a) limits the theorem to the strict, zero-exception forms as
+encoded, since the sources state the gender rule with one admitted exception pair. The same corollary
+stood unscoped in LITERATURE_RULES_POPULATION_TESTS.md:387-388, README.md:195-198 ("no
+C1∩C2∩C4∩C5-valid ordering can be perfect under all four"; "no such original could exist"),
+viz/README.md:22-23 ("cannot all hold at once in any ordering of the superspace") and CLAIMS_DECIDED.md:35
+("no such precursor can exist").
+
+**What it says now.** Each site says the conflict, and so the corollary, is of the strict, zero-exception
+forms, and that no claim is made for the gender rule's source-stated exception form. The theorem, the
+certificates and every figure are unchanged. TR-1 v1.40.
+
+**Wording source.** Fable's triage gave the direction (scope to the strict forms, as the SCOPED note does)
+and no replacement text; the wording is the SCOPED note's own. TR-2's scope paragraph (TR2:270) states
+more: that under the exception form "the fourth core does not arise; the four-rule conflict survives
+through the Moore cores". The sites above keep to TR-1's narrower statement.
+
+**Tests.** `test_strict_scope_*` require "strict" near each restatement and fail when it is removed.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, fast-track batch FT2a; the sites were
+found by Codex (gpt-6-astra), final review, F11-006#1.
+
+## CX-375 — CLAIMS_DECIDED.md said the McKenna–Mair Gray-code construction is impossible; the parity proof excludes a fully smooth ordering, and their hybrid construction is not what it excludes (documentation/CLAIMS_DECIDED.md; tests.py)
+
+**2026-10-16.** **Source.** Codex (gpt-6-astra), final review, F11-008#1, F07-006#1, CAL-011#3, and two
+CAP out-of-scope entries; confirmed by Fable's fast-track triage. Fast-track batch FT2a.
+
+**What was published.** CLAIMS_DECIDED.md:33, the finding cell for "A better King Wen exists via
+reordering": "the required Gray-code construction is impossible under the pairing (2-line parity
+proof)". The verdict cell beside it says prong 2 is not refuted (TR-8 v1.16), and TR8:99-114 says the
+authors' published ordering is hybrid by design and that the theorem does not refute it.
+
+**What it says now.** "a *fully smooth* ordering (every adjacent transition one line) is impossible under
+the pairing (2-line parity proof); the authors' hybrid construction is not what the theorem excludes
+(TR-8 v1.16)". The cell's first clause is unchanged.
+
+**Tests.** `test_gray_cell`.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, fast-track batch FT2a; the site was
+found by Codex (gpt-6-astra), final review, F11-008#1.
+
+## CX-376 — TR-4 said King Wen is unique within the budgeted datasets; within them it is singled out only by the five-boundary identifying set, and C1–C7 alone leave 14 non-King-Wen records at 560T (reports/TR4_SIZE_OF_THE_SPACE.md; tests.py)
+
+**2026-10-16.** **Source.** Codex (gpt-6-astra), final review, F02-004#2 and CAL-002#95; confirmed by Fable's
+fast-track triage. Fast-track batch FT2a.
+
+**What was published.** TR4:43-44, the abstract: "King Wen is unique only within budgeted slices"; and
+TR4:90-91, §Sections item 3: "uniqueness holds only within enumerated budgeted datasets". Every record of
+an enumerated dataset satisfies C1–C5, and C6 and C7 pin boundaries 27 and 25 (SPECIFICATION.md
+§Constraints). BOUNDARY_MINIMUM.md's 560T row gives the greedy set {4, 27, 25, 21, 1} with cumulative
+non-King-Wen survivors 51,404 → 481 → 14 → 1 → 0, and its §[7] note says the best triple {4, 25, 27} leaves
+15 survivors, King Wen included. SPECIFICATION.md:35 already says C1–C7 alone do not single King Wen out,
+not even within the enumerated datasets.
+
+**What it says now.** Both sites: within the enumerated datasets King Wen is singled out only by the
+five-boundary identifying set, not by C1–C7 alone; at 560T, C6, C7 and boundary 4 together still leave
+14 non-King-Wen records. TR-4 v1.40.
+
+**Rebase note.** Fast-track batch FT1 also bumps TR-4 to v1.39, on other lines; the later of the two
+takes v1.40 at rebase.
+
+**Tests.** `test_tr4_uniqueness_*` read the survivor curve from BOUNDARY_MINIMUM.md and fail on the old
+sentences.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, fast-track batch FT2a; the site was
+found by Codex (gpt-6-astra), final review, F02-004#2.
+
+## CX-377 — CAPSTONE_GUIDE.md said there is no checked conversion between catalog units and search-program nodes; a one-sided lower-bound mapping was published on 2026-10-11 (reports/CAPSTONE_GUIDE.md; tests.py)
+
+**2026-10-16.** **Source.** Codex (gpt-6-astra), final review, F11-010#1, CAP-002#4, CRZ-001#2; confirmed
+by Fable's fast-track triage. Fast-track batch FT2a.
+
+**What was published.** CAPSTONE_GUIDE.md:894-896, under "Open": "the catalog and the search program
+count different kinds of nodes, and there is no checked conversion between them yet." TR-12 v1.28
+(CX-348, CX-349) published the lower-bound mapping certificate and `reports/tr12/xa_verdict.md`: production
+nodes ≥ t-units on all 56 first-level branches.
+
+**What it says now.** The only checked bridge is one-sided: a lower-bound mapping from catalog units to
+production nodes (TR-12 §3, `reports/tr12/xa_verdict.md`), under which every branch reads INFEASIBLE at
+any ceiling below ~8×10²⁴ hours; no exact conversion exists. Measured from the verdict table: all 56 rows
+read INFEASIBLE and the smallest fast-end wall time is 8.07×10²⁴ hours.
+
+**Tests.** `test_guide_*` parse the 56 rows of xa_verdict.md and fail on the old sentence.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, fast-track batch FT2a; the site was
+found by Codex (gpt-6-astra), final review, F11-010#1.
+
+## CX-378 — two restatements outran their scope: viz/README.md said the 48 symmetries keep "the project's rules" true, which on that page means C1–C7, and TR-9's sensitivity table restated the C5 verdict as holding "under any defensible statement convention" after it was scoped on 2026-09-24 (viz/README.md; reports/TR9_PRICING_THE_CONSTRAINTS.md; tests.py)
+
+**2026-10-16.** **Source.** Codex (gpt-6-astra), final review: CAP-001#2 and CAP-002#3 (viz); CAL-010#100 with
+CAL-010#85 as a rider and CAP-001/CAP-002 out-of-scope entries (TR-9); confirmed by Fable's fast-track
+triage. Fast-track batch FT2a.
+
+**What was published.**
+- viz/README.md:65-66: "There are 48 ways to reshuffle and flip the six lines of every hexagram at once that
+  keep the project's rules true." The page introduces the project's rules as C1–C7 (line 5); the
+  symmetry theorem is about C1–C5 (TR-5; CAPSTONE_GUIDE.md:345-349).
+- TR9:431-432: "C5's cost exceeds its compression under any defensible statement convention". The
+  2026-09-24 SCOPED note in §Sections item 5 (v1.29; Codex V3A-095#1, Q-742; registered as RP-16fc7cf8)
+  withdrew the universal: a King-Wen-independent multinomial code prices C5 below its compression. The
+  registered phrase reads "every" where this one reads "any … statement", so the restatement's other spelling
+  passed the retracted-phrase gate. TR9:136 called the verdict "coding-independent" without naming the codings.
+
+**What it says now.** viz: "that keep rules C1 to C5 true (C6 and C7 pin particular pairs and are left
+out; TR-5)". TR-9: "under both declared conventions — not under every convention: a King-Wen-independent
+multinomial code prices it below the compression (§Sections item 5, SCOPED 2026-09-24)", and "coding-independent
+across the three marginal-consistent codings". TR-9 v1.34.
+
+**Tests.** `test_viz_orbit_names_c1_c5`; `test_tr9_scope_*` match both spellings of the universal outside
+the SCOPED note and fail on the old sentences.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, fast-track batch FT2a; the sites were
+found by Codex (gpt-6-astra), final review, CAP-001#2 and CAL-010#100.
+
+## CX-379 — METHODS and TR-8 said TR-8's rarity clears the global bar under every reading; that was at the frozen 91-observable count, and the ledger's own first-registration rule has since admitted at least 1,355 more — at n ≥ 1,446 the Bonferroni bar is below the rarity (reports/METHODS.md; reports/TR8_REORDERING_REVISITED.md; tests.py)
+
+**2026-10-16.** **Source.** Codex (gpt-6-astra), final review, F02-006#1 with F02-001#2, F02-003#1,
+F02-004#8 and F02-002#4; confirmed by Fable's fast-track triage; ruled at pre-publication review.
+Fast-track batch FT2a.
+
+**What was published.** METHODS.md:424-425 and TR8_REORDERING_REVISITED.md:73, each the last sentence of
+a dated 2026-09-24 SIDEDNESS marker: "No verdict moves: the rarity clears the global bar under every
+reading." "Every reading" ranged over sidedness and Bonferroni/BH at the frozen n = 91, and at n = 91 it
+is true.
+
+**Measured.** METHODS §"Global observable ledger" freezes the count at 91 (82 distinct observables on the
+distinct-id reading of scope disclosure (i)), and its counting rule admits an observable at first
+registration. Since the freeze the suite has registered: the H1/H3 family's four predicates T1–T4
+(METHODS scope disclosure (iii)); two primaries in `reports/evidence/qoy1_q992/PREREGISTRATION.md` §5.2
+("registers **k = 2 primaries**"); and 1,349 members in `reports/evidence/c8screen/PREREGISTRATION.md`
+§2.4 ("K = 1349"). No rule de-registers, so n ≥ 91 + 4 + 2 + 1,349 = 1,446 (≥ 82 + 4 + 2 + 1,349 = 1,437
+distinct), and further registrations only lower the bar. With Fractions: 0.05/1,446 = 3.46×10⁻⁵ and
+0.05/1,437 = 3.48×10⁻⁵; the rarity 47/445,740 = 1.054426×10⁻⁴ is 3.05× above the first bar, and two-sided
+2.108853×10⁻⁴ is the same 3.05× above 6.92×10⁻⁵. A BH reading would need the rarity at rank 4 or lower
+(⌈1.054426×10⁻⁴ · 1,446 / 0.05⌉ = 4) among every registered observable, which no roster yet gives.
+
+**What it says now.** Both markers are kept as written. A dated note follows each: ⚠ **[LEDGER SCOPED
+2026-10-16 …]** states that "every reading" ranged over the frozen n = 91, gives the floor n ≥ 1,446
+(≥ 1,437) with its three registration sources, the bar 3.46×10⁻⁵ (3.48×10⁻⁵), the 3.05× shortfall on
+both sidedness readings and the rank BH would need, and says that against the enterprise ledger as it now
+stands TR-8's rarity is a family-level NOTABLE and not an enterprise-wide one; "no verdict moves" is
+withdrawn for that one global-bar statement. TR-8 v1.22.
+
+**Not changed.** The 91 roster and its itemization in CRITIQUE.md §"Observable-selection accounting",
+CLAIMS_DECIDED.md:37 and CLAIM_TO_ARTIFACT.md:26/52. The total is not re-frozen: METHODS' rule requires
+it to be derived from the itemised roster, never stated independently of it, and the roster rebuild — a
+ruling for every escrowed registration, then the corpus-wide restatement METHODS (iii) describes — is a
+separate item. TR-10 §3's statements are explicitly about the 91-observable ledger and are true as written.
+
+**Tests.** `test_ledger_floor` re-derives 1,446 and 1,437 from the three registration records and METHODS,
+and the bar, the ratio and the BH rank with Fractions; `test_ledger_note_cured` requires the note after the
+sentence in METHODS and TR-8; `test_ledger_note_red_on_old` strips the note and the check fails.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, fast-track batch FT2a; the site was
+found by Codex (gpt-6-astra), final review, F02-006#1; the note's text was ruled by Fable.
+
+## CX-380 — TR-11 and SEARCH_SPACE_SIZE.md said the estimator's error on the C2 anchor was unresolved but "well within ±0.01%"; the rounding interval allows more than that, and the archived re-draw measures 1.15 relative SE (reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md; documentation/SEARCH_SPACE_SIZE.md; reports/TR4_SIZE_OF_THE_SPACE.md; tests.py)
+
+**2026-10-16.** **Source.** Codex (gpt-6-astra), final review, F11-003#1, F07-003#1, CAL-003#147/#148;
+confirmed by Fable's fast-track triage; ruled at pre-publication review. Fast-track batch FT2a.
+
+**What was published.** TR11:25-26: "(The estimate was published to four significant figures, so its
+exact deviation is unmeasured at that precision — bounded well within the envelope, not resolved to it;
+see §9's note.)" TR11:197-198: "not a measurement of the estimator's error, which is unresolved at the
+published precision but bounded well within ±0.01%." SEARCH_SPACE_SIZE.md:241-243: "the true error is
+unresolved at the published precision but well within ±0.01% — mirrors TR-11 v1.4 / TR-4's hedge."
+
+**Measured.** With Fractions from `reports/evidence/knuth_relax_c5_1e7.out:9` (est 7.571405×10⁴¹, 95 %
+interval [7.5700, 7.5728]×10⁴¹) and `reports/evidence/f1/f1_exact.out:1` (the exact count): the re-draw is
+0.0108 % above the exact value; its SE from the archived interval, (hi − lo)/2/1.96/est, is 0.009434 %, so
+the deviation is 1.15 SE (1.11–1.19 under the interval's five-significant-figure rounding), and the exact
+value lies inside the interval. The published 7.571×10⁴¹ is 0.0055 % from the exact value, and a
+four-significant-figure rounding interval allows up to 0.012 %, more than the 0.01 % SE — so the original
+draw's error was not bounded "well within" the envelope. The SE comes from the archived interval, not from
+the rounded relerr: METHODS (Q-663) forbids recovering an interval from a rounded published relerr.
+
+**What it says now.** All three sites say the original draw's deviation is unmeasured (its rounding
+interval allows up to 0.012 %) and quote the archived 2026-09-25 re-draw: 0.0108 % above the exact value,
+1.15 relative SE by its archived interval, inside its 95 % interval. TR-4's calibration paragraph
+(TR4:224), after "whose unrounded output is not archived;", now adds "the archived 2026-09-25 re-draw of
+that layer, 7.571405×10⁴¹, is 0.0108 % above the exact value, 1.15 relative SE by its archived interval
+and inside it — TR-11 §9;". TR-11 v1.34, TR-4 v1.40; SEARCH_SPACE_SIZE.md has no revision table.
+
+**Not changed.** TR11:55-56 ("the estimate's rounding gap rather than a resolved error") is true as
+written. TR-4's calibration row 1 cell ("yes"), as fast-track batch FT1 rewrote it, stands; the TR-4
+sentence above was added when this batch was rebased onto FT1.
+
+**Tests.** `test_calibration_row1_from_archived_redraw` re-derives the deviation, z, its rounding range
+and the published-estimate distance with Fractions and requires the new wording at both TR-11 sites and in
+SEARCH_SPACE_SIZE.md; `test_calibration_row1_red_on_old` puts the old parentheticals back and the check
+fails. `test_tr4_calibration_redraw_cured` requires the TR-4 sentence once, beside the same re-derivation;
+`test_tr4_calibration_redraw_red_on_old` removes it and the check fails.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, fast-track batch FT2a; the sites were
+found by Codex (gpt-6-astra), final review, F11-003#1; the text was ruled by Fable.
+
+## CX-381 — TR-1 and LITERATURE_RULES_POPULATION_TESTS.md said 27 of the 31 registry rules reproduce a source-stated King Wen value and four are anchors; CLAIM_TO_ARTIFACT row 16 had corrected that to 26 and 5 on 2026-09-07 — d7's value is King Wen's own by construction (reports/TR1_EIGHT_CENTURIES_MEASURED.md; documentation/LITERATURE_RULES_POPULATION_TESTS.md; tests.py)
+
+**2026-10-16.** **Source.** Codex (gpt-6-astra), final review, F11-008#3, F07-006#5, CAL-011 (out of
+scope there); confirmed by Fable's fast-track triage; ruled at pre-publication review. Fast-track batch
+FT2a.
+
+**What was published.** LITERATURE_RULES_POPULATION_TESTS.md:281: "**27 of them reproducing its
+source's stated King Wen values**"; TR1:157-160: "27 of the 31 reproducing its source's stated KW values;
+the other four — MM-T3, MM-T6, C1 and the C2 histogram — are KW-measured anchors"; TR1:77-78: "Every
+formalization was verified to reproduce its source's stated King Wen values exactly before measurement".
+
+**Measured.** `solve.py:8096-8100`, the comment above `REGISTRY_KW_EXPECTED`, lists D7=8 among the values
+"the registry gives … explicitly" and names four KW-measured anchors (MM-T3, MM-T6, C1, the C2 histogram).
+CLAIM_TO_ARTIFACT.md row 16 (2026-09-07): "26 of 31 reproduce a source-stated KW value; 5 are KW-derived",
+because d7's eight slots are hard-coded from King Wen's own twelve xiaoxi positions, so KW's 8/8 holds by
+construction; LITERATURE_RULES_POPULATION_TESTS.md:357 and TR1:221 classify d7 *data-like*. The 2026-08-28
+and 2026-09-02 notes counted the four anchors and not d7.
+
+**What it says now.** Both sites state 26 source-stated and five KW-derived — the four KW-measured anchors
+and d7 by construction — citing CLAIM_TO_ARTIFACT row 16, and each carries a dated ⚠ **[CORRECTED
+2026-10-16 …]** note before the earlier one; TR-1's method sentence says each formalization reproduces its
+registry King Wen value, source-stated for 26 of the 31 and KW-derived for the other five. The 2026-08-28
+and 2026-09-02 notes are left as written. TR-1 v1.40 item (v).
+
+**Tests.** `test_registry_split_26_5` counts the four anchors in `solve.py`'s comment, finds D7=8 in its
+"explicitly" list, d7 *data-like* in LITERATURE_RULES_POPULATION_TESTS.md and 26/5 in CLAIM_TO_ARTIFACT
+row 16, and requires the 26/5 wording at all three sites; `test_registry_split_red_on_old` puts the 27/4
+wording back and the check fails.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, fast-track batch FT2a; the sites were
+found by Codex (gpt-6-astra), final review, F11-008#3; the text was ruled by Fable.

@@ -43,7 +43,7 @@ and the 31 free pairs share seven distinct rows, their symmetry orbits. The full
   total-variation distance 0.0329 of uniform, and King Wen's own pair at its own slot carries
   0.0299–0.0337 at every interior slot: close to uniform, though the exact cells differ
   ([TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5), V1 caption;
-  [§12.5](../reports/TR12_QUERY_PROGRAM.md#125-the-positional-pair-field-is-flat-to-about-3---the-reading-of-v1-and-it-is-negative)).
+  [§12.5](../reports/TR12_QUERY_PROGRAM.md#125-the-interior-positional-pair-field-is-within-total-variation-00329-of-uniform--the-reading-of-v1-and-it-is-negative)).
 - **Does not establish.** Anything about the joint placement pattern, which pairs sit where
   together: flat marginals do not test it, and §12.5 says it is not asked. The space is the
   C1C2C4C5 superspace, so C3 is not imposed and this is not the C1–C5 population. Bands of equal

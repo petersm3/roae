@@ -264,7 +264,7 @@ documentation/LITERATURE_RULES_POPULATION_TESTS.md	181	marker	CORRECTED	1	-	revi
 documentation/LITERATURE_RULES_POPULATION_TESTS.md	181	marker	Corrected	1	-	reviewed:item-already-says-oriented-leaves-and-cites-r11	c8013674f4fb
 documentation/LITERATURE_RULES_POPULATION_TESTS.md	231	marker	Corrected	1	-	reviewed:item-already-scopes-the-discriminator-claim	c1cac008ca87
 documentation/LITERATURE_RULES_POPULATION_TESTS.md	268	marker	Corrected	1	-	reviewed:item-already-names-all-three-edits	85d80a1ac4ee
-documentation/LITERATURE_RULES_POPULATION_TESTS.md	281	marker	CORRECTED	1	-	reviewed:sentence-already-reads-27-of-them	5e81ed48b99c
+documentation/LITERATURE_RULES_POPULATION_TESTS.md	281	marker	CORRECTED	1	-	reviewed:registry-split-26-5-note-2026-10-16	f08fe673dc9c
 documentation/LITERATURE_RULES_POPULATION_TESTS.md	312	marker	CORRECTED	1	-	reviewed:text-already-says-sharing-the-locus	b6060d49c0b2
 documentation/LITERATURE_RULES_POPULATION_TESTS.md	377	marker	Corrected	1	-	reviewed:bullet-already-reads-by-two-each	9dbb34dcd8c9
 documentation/LITERATURE_RULES_POPULATION_TESTS.md	389	narration	now reads	1	-	reviewed:ordinary-present-tense-prose;not-a-correction-note	9ee222ffc7bf
@@ -674,10 +674,11 @@ reports/TR1_EIGHT_CENTURIES_MEASURED.md	55	narration	now reads	1	-	reviewed:ordi
 reports/TR1_EIGHT_CENTURIES_MEASURED.md	96	marker	Corrected	1	-	reviewed:caveat-already-says-the-fraction-is-weighted	e5524bd1cd03
 reports/TR1_EIGHT_CENTURIES_MEASURED.md	141	marker	Corrected	1	-	reviewed:entry-already-prices-against-the-measured-6.52-percent	c60b3819912d
 reports/TR1_EIGHT_CENTURIES_MEASURED.md	146	marker	Corrected	1	-	reviewed:entry-already-prices-against-the-measured-6.52-percent	b1fe3a45cdb9
-reports/TR1_EIGHT_CENTURIES_MEASURED.md	161	marker	CORRECTED	1	-	reviewed:clause-already-reads-27-of-the-31	fb1338767194
+reports/TR1_EIGHT_CENTURIES_MEASURED.md	160	marker	CORRECTED	1	-	reviewed:registry-split-26-5-note-2026-10-16	0c587d1ca3fa
+reports/TR1_EIGHT_CENTURIES_MEASURED.md	161	marker	CORRECTED	1	-	reviewed:registry-split-26-5-note-2026-10-16	ebadde92c1ed
 reports/TR1_EIGHT_CENTURIES_MEASURED.md	177	marker	CORRECTED	1	-	reviewed:text-already-says-sharing-the-locus	dc64c08cacb1
 reports/TR1_EIGHT_CENTURIES_MEASURED.md	267	marker	CORRECTED	1	-	reviewed:text-already-calls-the-SAT-leg-a-corroboration	234e2ea62a8f
-reports/TR1_EIGHT_CENTURIES_MEASURED.md	276	marker	CORRECTED	1	-	reviewed:text-already-cites-r11-and-the-CI	0b0c6d3c48e3
+reports/TR1_EIGHT_CENTURIES_MEASURED.md	276	marker	CORRECTED	1	-	reviewed:text-already-cites-r11-and-the-CI	8011578ecdf0
 reports/TR1_EIGHT_CENTURIES_MEASURED.md	284	marker	CORRECTED	1	-	reviewed:text-already-gives-the-margins-without-minimal	9103015c1bee
 reports/TR1_EIGHT_CENTURIES_MEASURED.md	289	narration	now reads	1	-	reviewed:ordinary-present-tense-prose;not-a-correction-note	6f5d3afbea04
 reports/TR1_EIGHT_CENTURIES_MEASURED.md	419	marker	Corrected	1	-	reviewed:sentence-already-says-not-his-particular-one	e58c453b01b8
@@ -742,7 +743,7 @@ reports/TR4_SIZE_OF_THE_SPACE.md	445	changelog	CORRECTION	keep	-	revision-row	e6
 reports/TR4_SIZE_OF_THE_SPACE.md	449	changelog	CORRECTION	keep	-	revision-row	c54bef47aed1
 reports/TR4_SIZE_OF_THE_SPACE.md	451	changelog	CORRECTION	keep	-	revision-row	c59abd0b09d1
 reports/TR4_SIZE_OF_THE_SPACE.md	453	changelog	CORRECTION	keep	-	revision-row	602d6e6ea05e
-reports/TR4_SIZE_OF_THE_SPACE.md	460	changelog	CORRECTION	keep	-	revision-row	6c5ccda8eb3a
+reports/TR4_SIZE_OF_THE_SPACE.md	460	changelog	CORRECTION	keep	-	revision-row	8fdfaa832e35
 reports/TR5_SYMMETRY.md	24	marker	CORRECTED	1	-	reviewed:text-already-says-the-absence-alone-shows-nothing	b90c0e2836b9
 reports/TR5_SYMMETRY.md	118	marker	CORRECTED	1	-	reviewed:text-already-says-the-replacement-shipped	21ce077c312e
 reports/TR5_SYMMETRY.md	135	marker	CORRECTED	1	-	reviewed:text-already-says-the-inputs-are-public	9b0c1f76bf72
@@ -769,7 +770,7 @@ reports/TR8_REORDERING_REVISITED.md	259	changelog	CORRECTION	keep	-	revision-row
 reports/TR8_REORDERING_REVISITED.md	259	changelog	now reads	keep	-	revision-row	14ab84548018
 reports/TR8_REORDERING_REVISITED.md	261	changelog	CORRECTION	keep	-	revision-row	c66811892af4
 reports/TR8_REORDERING_REVISITED.md	262	changelog	CORRECTION	keep	-	revision-row	129ca2ceb2c8
-reports/TR8_REORDERING_REVISITED.md	266	changelog	CORRECTION	keep	-	revision-row	6ff6477495e1
+reports/TR8_REORDERING_REVISITED.md	266	changelog	CORRECTION	keep	-	revision-row	890d9440b923
 reports/TR9_PRICING_THE_CONSTRAINTS.md	146	marker	CORRECTED	1	-	reviewed:bare-dated-tag;following-sentences-carry-the-correction	36ac98e5990d
 reports/TR9_PRICING_THE_CONSTRAINTS.md	158	narration	now reads	1	-	reviewed:narration-inside-a-correction-note;text-reads-correctly	b3ddf61963b0
 reports/TR9_PRICING_THE_CONSTRAINTS.md	231	marker	CORRECTED	1	-	reviewed:bare-dated-tag;following-sentences-carry-the-correction	a5298cb36fc2
@@ -777,6 +778,7 @@ reports/TR9_PRICING_THE_CONSTRAINTS.md	358	marker	Corrected	1	-	reviewed:sentenc
 reports/TR9_PRICING_THE_CONSTRAINTS.md	367	marker	CORRECTED	1	-	reviewed:text-already-reads-62-bit-primes	b96b726f4220
 reports/TR9_PRICING_THE_CONSTRAINTS.md	386	marker	CORRECTED	3	GATE 3b	reanchored:GATE-3b=allowlist-row	d3a78462a29b
 reports/TR9_PRICING_THE_CONSTRAINTS.md	498	changelog	CORRECTION	keep	-	revision-row	7b4d7668fa0c
+reports/TR9_PRICING_THE_CONSTRAINTS.md	504	changelog	now reads	keep	-	revision-row	edc2436825ae
 reports/certificates/README.md	103	marker	CORRECTED	1	-	reviewed:cell-already-describes-the-fixed-check	2052b944c6ed
 reports/evidence/c8screen/README.md	9	ledger-link	CORRECTION	n/a	-	not-a-marker	5700ea31a5d4
 reports/evidence/c8screen/README.md	196	narration	now reads	1	-	reviewed:narration-inside-a-code-change-note;both-digests-stated-and-correct;CX-354-item-5-carries-the-change	0b049652ee25

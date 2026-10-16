@@ -27,7 +27,7 @@ Bayesian comparison concerns only the *three graded* rules, whose joint perfecti
 corollary: an "uncorrupted original" perfect under the full four-rule inventory never existed — though
 this does not touch Moore's narrower conjecture, whose rule-compliant precursor (§3) does exist and sits
 three edits away.
-New in v1.7: within the three graded rules — where perfection **is** achievable — a pre-registered
+**Withdrawn as a claimed result (v1.27, CX-26) — the paragraph that follows is the as-computed record.** New in v1.7: within the three graded rules — where perfection **is** achievable — a pre-registered
 Bayesian comparison finds the received order far better explained as a corrupted rule-perfect ordering
 than as the work of an arranger holding the rules as soft preferences (Bayes factor ≈ 6.6×10³–7.9×10³,
 "strong" on the Jeffreys scale — [Jeffreys 1961](../documentation/CITATIONS.md#jeffreys1961), with the
@@ -435,8 +435,8 @@ Its six rule-violations are **not** all at one locus (an earlier version of this
 corrected 2026-07-20 by direct computation against the scorers; reproduce via `python3 solve.py --r11-verify`). Exactly: the two Moore-parity breaks and
 one of the two Moore-rhythm breaks fall at **pair-slots 22–23** — the anomaly Moore identified — while the
 second rhythm break is at **pair-slots (7,8)** and the two Schulz-gender violations are at
-**inversion-class positions 25–26** (a different coordinate system from the pair-slots). Four of the six
-cluster at the flagged locus; two do not.
+**inversion-class positions 25–26** (a different coordinate system from the pair-slots). Five of the six
+cluster at the flagged locus (the two gender violations at inversion-class positions 25–26 are pair-slots 22–23 in the other coordinate system, TR-1 §3); one — the rhythm break at pair-slots (7,8) — does not.
 **A definitional caution (F-46):** the *clustering* at 22–23 is less surprising than it first reads. Moore
 and Schulz each described their rules' exceptions *with reference to* that anomaly, so parity and one
 rhythm break landing there is partly a property of how the rules were stated, not solely a discovered
@@ -516,7 +516,7 @@ result's favor. (Contrast the four-class comparison below, whose frozen design w
 in v1.9 on 2026-07-10, ten days before its calibration measurement — the publicly-anchored form of the
 discipline.)
 
-**The result.** Both models are full generative models over the canonical C1–C5 space (the shared
+**The result.** Both models are full generative models over the orientation-explicit C1–C5 space (the shared
 substrate, which cancels), evaluated at the exact received sequence. **Status (2026-08-07,
 [CORRECTIONS](../documentation/CORRECTIONS.md) CX-26): every figure in this section is the
 as-computed record, retained under this suite's append-only convention; the Bayes factors and the
@@ -530,7 +530,7 @@ posterior are WITHDRAWN as claimed results — see the calibration bullet below.
   **BF ≈ 5.2×10³ (U) / 6.3×10³ (A)** — see §"Stop-flag resolution" below, and the same banner on
   [evidence/f11/RESULTS.md](evidence/f11/RESULTS.md). Direction and Jeffreys band unchanged; the
   headline is ×0.79 smaller. Pointer added 2026-08-04 — the correction previously sat 88 lines away.)*
-- Under the frozen 50:50 model prior, **posterior P(corruption | data) ≈ 0.9998**.
+- Under the frozen 50:50 model prior, **posterior P(corruption | data) ≈ 0.9998** (as-computed; withdrawn as a claim, CX-26).
 - **Scope of these figures.** The Bayes factor and posterior are *pairwise*: corruption versus
   soft-preference arranger, and nothing else. They exclude neither a **greedy/local builder** (M_G) nor a
   **uniform-valid null** in which the three rules are post-hoc regularities rather than generative ones
@@ -690,7 +690,7 @@ paragraph gave probe counts and flags but no thread counts, and a Knuth draw rep
 Two commands, because two different N_gs are in play and the script must be told which. Run bare —
 `cd reports/evidence/f11 && python3 compute_f11_bf.py` (~1 s, stdlib-only) — it reproduces the **v1.7
 as-computed record**: BF **6625** (U) / **7901** (A), the 6.6×10³ / 7.9×10³ figures, plus the full
-sensitivity grid, deriving N_gs internally from the bundled runs (3.5686×10²⁵). The **live v1.12
+sensitivity grid, deriving N_gs internally from the bundled runs (3.5686×10²⁵). The **as-computed v1.12
 headline** rests on the *directly measured* N_gs from [evidence/r11/](evidence/r11/) instead; add
 `--ngs-measured` and the same script pools that measurement over its four published seeds
 (4.5031×10²⁵) and re-emits BF **5250** (U) / **6261** (A) — the ≈5.2×10³ / ≈6.3×10³ figures quoted
@@ -898,4 +898,5 @@ developed with AI assistance (Claude, Anthropic). Corrections welcome via
 | v1.37 | 2026-09-25 | **The last unswept site of the 2026-09-07 narrowing, three wording repairs, and five recipe gaps (Q-759; Codex V3B-05).** (i) The "What follows" paragraph still stated the forced trade-off as fact. The sentence is split across two lines, so the line-based sweep missed it. It now reads "consistent with", scoped to C1∩C2∩C4∩C5, with a ⚠ note (#8). (ii) "The four strongest" is defined at first use; "near their joint Pareto frontier" is replaced at two sites; "the next-strongest discriminating rule" becomes "a fifth discriminating rule" (#4, #12). (iii) Present-tense passages about the Bayes factor now say it was withdrawn on 2026-08-07 (CX-26) at all four cited sites (#28). (iv) Recipe gaps, each with a dated ⚠ note in place. The CC-N4 replica checks are named as import-time checks of `sat.py` (#6). The satisfiable-alone halves and the lattice census are stated to be unarchived (#6, #9). The derived bracket's two operands are named with file and line (#19). The N_gs pooling rule and per-run errors are stated and recomputed from the archived outputs (#21). The zero-mismatch line and the three audited subtrees are sourced (#22). No figure changes. **The gate-3 1.9σ is scoped to the range its interval is calibrated in (Q-713).** §"The three convergence gates" quoted the derived-path cross-check as 1.9σ with no note that its input carries a 65% relerr. The figure is reproduced from the archived inputs: DERIVED-N_gs 1.977×10²⁵ at relerr 64.99% (SE 1.285×10²⁵, `reports/evidence/r11/derived_ci.out`) against the pooled direct 4.503×10²⁵ with SE 0.277×10²⁵ gives (4.503 − 1.977) / √(1.285² + 0.277²) = 1.92. That is a Wald distance, and [METHODS](METHODS.md) calibrates the printed interval only at 5–30% relerr, so a ⚠ note in place reads it as order-of-magnitude only. On a log scale the distance is 1.26σ with each relerr taken as the SE of ln N, or 1.38σ with √ln(1 + relerr²), and gate 3 (within 2.5σ) passes either way. The same note is added to `reports/evidence/r11/PHASE2_README.md` gate 3 and pointed to from `reports/evidence/r11/README.md`. No figure, gate verdict or threshold changes |
 | v1.38 | 2026-09-28 | **The shared trade-off figure is a four-row table (Q-900; Codex VIZ H2-01, H2-02; figure and wording only).** See TR-1 v1.37: named columns replace the red/green bars, and the trigram row names stations 25–28 (Lai Zhide's 36 consolidated units). §Figure's alt-text and caption describe the table. |
 | v1.39 | 2026-09-29 | **Scope of five sentences, one recipe and one count (an adversarial review by Codex (gpt-6-astra) of the Lean, SAT and DRAT surface, triaged by Fable; CX-232).** (i) The two-way encoding validation narrows the encoding-fidelity gap but does not close it, and the battery is evidence at King Wen and on the 300 sampled permutations only. (ii) The conflict theorem is about the strict rule forms encoded here, not Schulz's exception-admitting source form of the gender rule. (iii) The fourth core's certificate refutes only an exception-free gender ordering under S25–28; the locus 25/26 is the hand check. (iv) The two Moore cores are decidable by hand from the four pinned faces; the solver certified them. (v) The §3 footprint names the third edit, an orientation flip of pair 22 in its new slot. (vi) The certificate directory holds 24 proofs today. No verdict or certificate changed. |
-| v1.40 *(current)* | 2026-10-01 | **The cover's reproduction promise is rescoped (Codex v3 review, finding V3B-08 #22 against TR-5, triaged by Fable; backlog Q-759).** The banner said every MEASURED result carries a reproduction command, while the reports themselves flag results that have none. It now says each one carries a command or says at the claim that it has none, which is what the reports index already said. GATE 9 holds the banner byte-identical across all twelve reports, so the same edit is made in each. Wording only; no figure, count or theorem changed. |
+| v1.40 | 2026-10-01 | **The cover's reproduction promise is rescoped (Codex v3 review, finding V3B-08 #22 against TR-5, triaged by Fable; backlog Q-759).** The banner said every MEASURED result carries a reproduction command, while the reports themselves flag results that have none. It now says each one carries a command or says at the claim that it has none, which is what the reports index already said. GATE 9 holds the banner byte-identical across all twelve reports, so the same edit is made in each. Wording only; no figure, count or theorem changed. |
+| v1.41 *(current)* | 2026-10-16 | **Four sites corrected from Codex's final review (gpt-6-astra; findings F11-007#6/#7/#15/#16/#17/#19, CAL-007; and Codex V3A-088 #4 of 2026-09-24; triaged by Fable; fast-track batch FT2a).** (i) The executive summary's v1.7 Bayes-factor paragraph now opens with its v1.27 withdrawal, which had stood fifteen lines below it; the posterior bullet and the Verification Guide's "live" headline are marked as-computed. (ii) The six rule violations: five of six cluster at the flagged locus, not four — the two gender violations at inversion-class positions 25–26 are pair-slots 22–23 (TR-1 §3). (iii) The model comparison is over the orientation-explicit C1–C5 space. No figure or verdict changes. See CORRECTIONS.md (fast-track batch FT2a). |

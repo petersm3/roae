@@ -1,5 +1,5 @@
 # TR-11 — Exact Counting by Symmetry Quotient: The Orbit-DP, a 42-Digit Integer, and the Exactness Program
-*Technical report — **v1.33** (2026-10-01; the cover line read v1.25 while the history had reached v1.30 — the [Revision history](#revision-history) is authoritative for what each version changed, including v1.25's §6 footprint refill and v1.30's footprint-awk selector.).*
+*Technical report — **v1.34** (2026-10-16; the cover line read v1.25 while the history had reached v1.30 — the [Revision history](#revision-history) is authoritative for what each version changed, including v1.25's §6 footprint refill and v1.30's footprint-awk selector.).*
 *Technical report — not peer-reviewed. Every MEASURED result carries a reproduction command, or says at
 the claim that it has none; every proof cited as machine-checked names its certificate or Lean theorem;
 claims of scope, attribution and interpretation are argued, not verified. One caveat is structural, and
@@ -22,8 +22,8 @@ digit in about four minutes. The computation is only feasible because of the sym
 in memory — and the theorem then predicts, and the result confirms, that the integer is divisible by 24
 exactly. The same run gave the project's statistical estimator its first full-scale check against ground truth
 at a scale (10⁴¹) where nothing exact previously existed on this suite's validation ladder: the exact value falls **inside** the estimate's
-stated ±0.01% (relative standard error) envelope. (The estimate was published to four significant figures, so its exact deviation
-is unmeasured at that precision — bounded well within the envelope, not resolved to it; see §9's note.)
+stated ±0.01% (relative standard error) envelope. (The estimate was published to four significant figures, 0.0055 % from the exact value; a four-significant-figure rounding interval allows up to 0.012 %, more than the 0.01 % SE, so the original draw's deviation is unmeasured and its unrounded output is not archived. The archived
+2026-09-25 re-draw, `evidence/knuth_relax_c5_1e7.out` — 7.571405×10⁴¹, 95 % interval [7.5700, 7.5728]×10⁴¹ — is 0.0108 % above the exact value: 1.15 relative standard errors by that interval (1.11–1.19 under the interval's own rounding), inside its 95 % interval; see §9's note.)
 The report closes with the extension of exactness to the next constraint — its mathematics now closed at the model level (both halves machine-checked in Lean; the no-further-collapse half additionally independently reviewed, 2026-07-21, and found **not load-bearing** for the landed integer — §10(iv)), and
 now engineered: the computation's terabyte-scale layers (measured: the peak layer packs to 2.34 TB, and
 the two adjacent layers the DP holds live peak together at 4.51 TB — §6) are
@@ -194,8 +194,8 @@ Luo's question.*
      stated ±0.01%; ⚠ *labelled 2026-09-25, Codex v3 review, V3B-02#7 and #8: ±0.01% is the estimator's printed `relerr`, a relative standard error, not a 95% half-width. The original draw's probe and thread counts were not recorded. `SOLVE_THREADS=32 SOLVE_KNUTH_RELAX_C5=1 ./solve --estimate-knuth 10000000` gives the same figure, `est=7.571405e+41 95%CI=[7.5700e+41, 7.5728e+41] relerr=0.01%`, archived as [evidence/knuth_relax_c5_1e7.out](evidence/knuth_relax_c5_1e7.out)*) is confirmed to contain the exact value inside its envelope — the estimator's first
      validation against full-scale ground truth (previously nothing exact existed above brute-force scale
      on TR-4's ladder). The apparent 5.5×10⁻⁵ gap is the distance from the exact value to the estimate's
-     own four-significant-figure rounding, not a measurement of the estimator's error, which is unresolved
-     at the published precision but bounded well within ±0.01%. This upgrades TR-9's C2 ledger
+     own four-significant-figure rounding, not a measurement of the estimator's error, which is unresolved at the published precision (the rounding interval allows up to 0.012 %, more than the 0.01 % SE). The archived
+     2026-09-25 re-draw (`evidence/knuth_relax_c5_1e7.out`, 7.571405×10⁴¹) is 0.0108 % above the exact value — 1.15 relative SE by its archived interval, inside its 95 % interval. This upgrades TR-9's C2 ledger
      row from estimate to exact arithmetic (C2's marginal 4.54 bits and its net — restated ≈ 0 / break-even in TR-9 v1.7, superseding the earlier +1.6 — now rest on an exact
      numerator).
 5. **The exactness frontier: C5, the irreducibility theorem, and the staged program.** The next layer,
@@ -423,13 +423,13 @@ Luo's question.*
    exact previously (the 0.0044% figure is the estimate's five-sig-fig rounding gap, not a resolved error)
    existed. Per-layer canonical-mask integrity: every printed layer matched the Burnside palindrome
    masks(k) = masks(31−k) — terminal tail k23..k31 = 369,823 · 128,414 · 38,262 · 9,707 · 2,087 · 378 ·
-   56 · 7 · 1; peak k15 = k16 = 13,047,760 — and the six palindrome pairs recoverable from the retained
-   run log (k10..k21 through k15..k16) all hold exactly. The retained `run.out` (final eviction-resume
-   session) carries only prints k10..k31 — the k0..k9 prints scrolled out on resume — but the full
-   32-layer table reconstructs by the palindrome (k0..k9 = mirror of k22..k31) and **its total is
-   confirmed independently: Σ masks(k) over k = 0..31 = 93,939,712, exactly the known canonical-mask
-   count (§3)** — so the reconstructed k0..k9 values are pinned, not merely assumed (and those layers were
-   also integrity-checked live during the campaign). **This integer passed operator review
+   56 · 7 · 1; peak k15 = k16 = 13,047,760. The retained `run.out` carries every layer
+   k = 1..31 (k = 0 is implicit); all fifteen palindrome pairs
+   masks(k) = masks(31−k) are directly checkable and hold;
+   **Σ masks(k) over k = 0..31, with masks(0) = 1, is 93,939,712, exactly the known canonical-mask count (§3)**. The run's own
+   `count_result.json` and README still say six pairs were recoverable; they are kept as the run
+   wrote them.
+   **This integer passed operator review
    (2026-07-16) and is published with this report; the downstream ledgers ([TR-9](TR9_PRICING_THE_CONSTRAINTS.md),
    [TR-4](TR4_SIZE_OF_THE_SPACE.md), and their documentation mirrors) now carry it as exact.**
 10. **Honest limits — what stays estimated, and why.** (i) The flagship **1.3287×10³⁸ (|C1–C5|) remains
@@ -827,4 +827,5 @@ likewise classical systems methodology — no novelty is claimed for it.
 | v1.30 | 2026-09-25 | **§6's footprint awk now selects only the 31-row table, and §9 gets the landing run's measured RSS (Q-758; Codex v3 E3 batch 5, V3B-02#10 and #12).** (1) The published awk printed `rows=40 unit-mismatches=9` against the tree, because its selector also matched FULL31's three-column mass table. The added `$8 ~ /\./` term restores the advertised `rows=31 unit-mismatches=0`, and a one-digit mutant of a `layer GB` cell makes it print `unit-mismatches=1`. The peak figures were right under both selectors. (2) The 2026-07-16 landing run's peak `rss_peak` was 24,122.0 MB at `SOLVE_F1_OOC_SCRATCH_MB=16384`, about 1.47× the setting. The run README's old two-digit figure came from no-op relaunches after the landing and is corrected there. That run's `run.out` is now published. No count changes. |
 | v1.31 | 2026-09-25 | **Cover version, three wording repairs, and eight recipe gaps (Q-759; Codex V3B-02).** (i) The cover read v1.25 while this table had reached v1.30. It now reads v1.31 and defers to this table (#25). (ii) "Corrected in this version (v1.5)" becomes "Corrected in v1.5", and "a single full-scale anchor" becomes the two that §4 and §9 report (#25). (iii) "No lost work" is made precise: no completed layer was lost (#16). (iv) The G-channel's update is stated: each placement adds the number of couples with exactly one member placed, a function of the mask (#17). (v) Recipe gaps, each with a dated ⚠ note in place. The three 8-pair validation instances are named from the archived working note and recounted with `verify.py` (#5). The 259 s wall time is sourced to the archived run log; host, build and RSS were not recorded (#6). The ±0.01% is labelled a relative standard error, and a 10⁷-probe re-draw of 7.571×10⁴¹ is archived as evidence/knuth_relax_c5_1e7.out (#7, #8). §8's out-of-core engineering figures are labelled unarchived history (#15). The C3 = 16 + 8·G agreement check gets a command over 5,000 seeded orderings (#18). A small-n `--ie-count` ladder is archived as evidence/ie_small_n_ladder.out (#21). The ten `--f1-pairs` sizes without a published count are listed with their unions (#23). No count, theorem or canonical integer changed. |
 | v1.32 | 2026-09-29 | **§4's N/24 labelled as an integer, not an orbit count (an adversarial review by Codex (gpt-6-astra) of the Lean, SAT and DRAT surface, triaged by Fable; CX-232).** The validation-stack bullet called the 42-digit N/24 an orbit count. It is the integer that 24 ∣ N guarantees; it is twice the sequence-orbit count and exceeds any record-level orbit count, as §9's Q-642 note already says. Wording only; no number changed. |
-| v1.33 *(current)* | 2026-10-01 | **The cover's reproduction promise is rescoped (Codex v3 review, finding V3B-08 #22 against TR-5, triaged by Fable; backlog Q-759).** The banner said every MEASURED result carries a reproduction command, while the reports themselves flag results that have none. It now says each one carries a command or says at the claim that it has none, which is what the reports index already said. GATE 9 holds the banner byte-identical across all twelve reports, so the same edit is made in each. Wording only; no figure, count or theorem changed. |
+| v1.33 | 2026-10-01 | **The cover's reproduction promise is rescoped (Codex v3 review, finding V3B-08 #22 against TR-5, triaged by Fable; backlog Q-759).** The banner said every MEASURED result carries a reproduction command, while the reports themselves flag results that have none. It now says each one carries a command or says at the claim that it has none, which is what the reports index already said. GATE 9 holds the banner byte-identical across all twelve reports, so the same edit is made in each. Wording only; no figure, count or theorem changed. |
+| v1.34 *(current)* | 2026-10-16 | **The evidence-availability account of the full-31 run is corrected (Codex's final review, gpt-6-astra; F11-003#9, F07-003#6, CAL-003#155; triaged by Fable; fast-track batch FT2a).** §9 said the retained `run.out` prints only layers k10..k31 and that six palindrome pairs were recoverable; the file prints every layer k = 1..31, all fifteen pairs masks(k) = masks(31−k) are directly checkable and hold, and Σ masks(k) over k = 0..31 (masks(0) = 1) = 93,939,712. The run's `count_result.json` and README carry the old six-pair wording and are kept as written. The C2 validation's error statement (the summary and §9; F11-003#1, F07-003#1, CAL-003#147/#148) now quotes the archived 2026-09-25 re-draw, `evidence/knuth_relax_c5_1e7.out`: 0.0108 % above the exact value, 1.15 relative SE by its archived interval, inside its 95 % interval; the original four-significant-figure draw's deviation stays unmeasured, since its rounding interval allows up to 0.012 %. No figure changes. See CORRECTIONS.md (fast-track batch FT2a). |

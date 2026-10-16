@@ -20,7 +20,7 @@ than that section does. The other six figures come from the earlier reports, TR-
 **What the figures show, taken together.** The space of valid orderings is far too large to list,
 and even agreeing with King Wen at a few chosen boundaries is rare in it (TR-4). Its symmetries sort
 valid records into groups of 24 that no test invariant under those symmetries can tell apart (TR-5). Four rules proposed for
-the sequence in published studies cannot all hold at once in any ordering of the superspace, so
+the sequence in published studies cannot all hold at once, in their strict zero-exception forms, in any ordering of the superspace, so
 each such ordering, King Wen's included, trades some of them off (TR-1). Counted exactly over the superspace rather than sampled, King Wen's
 pair positions sit close to the even share (V1, a negative result, TR-12 §12.5); the mix of
 transition sizes stays nearly level along the walk (V2, TR-12 §2 and §12.6), with three-line joins
@@ -62,8 +62,8 @@ Full description, provenance and review history: [viz_tr4_boundary_information.m
 
 [![Diagram of the order-48 group B₃ quotienting by {±I} to a free order-24 S₄ action on canonical pair-order records, with a ring showing King Wen's record and the 23 other records in its orbit.](../reports/figures/fig_tr5_orbit_collapse.png)](../reports/figures/fig_tr5_orbit_collapse.svg)
 
-**In plain terms.** There are 48 ways to reshuffle and flip the six lines of every hexagram at once that keep the
-project's rules true. One of them, turning every hexagram upside down, changes nothing in a record (a
+**In plain terms.** There are 48 ways to reshuffle and flip the six lines of every hexagram at once that keep
+rules C1 to C5 true (C6 and C7 pin particular pairs and are left out; TR-5). One of them, turning every hexagram upside down, changes nothing in a record (a
 record lists the order of the 32 pairs, not which member of each pair comes first), so only 24
 different changes are left. The picture shows that these 24 turn King Wen's record into 24 different
 records, and TR-5 proves the same holds for every valid record. Any test that gives the same answer
@@ -124,7 +124,7 @@ Full description, provenance and review history: [viz_scale.md](viz_scale.md) ·
 
 ### V1 — the positional-marginal field
 
-*From [TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5); its reading is [§12.5](../reports/TR12_QUERY_PROGRAM.md#125-the-positional-pair-field-is-flat-to-about-3---the-reading-of-v1-and-it-is-negative). C1C2C4C5-SUPERSPACE; C3 not imposed.*
+*From [TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5); its reading is [§12.5](../reports/TR12_QUERY_PROGRAM.md#125-the-interior-positional-pair-field-is-within-total-variation-00329-of-uniform--the-reading-of-v1-and-it-is-negative). C1C2C4C5-SUPERSPACE; C3 not imposed.*
 
 [![Heat matrix of the exact positional-marginal field over the C1C2C4C5 superspace: 32 rows, one per pair, against pair-slots 2 to 32, with King Wen's own 31 placements outlined along the diagonal.](../reports/figures/fig_tr12_kc_field.png)](../reports/figures/fig_tr12_kc_field.svg)
 

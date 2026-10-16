@@ -238,9 +238,9 @@ masses starve below ~10⁻¹³ hit rates); it was completed 2026-07-05 (S(6)–S
 The estimator now has a full-scale ground-truth anchor: |C1∩C2∩C4| was computed EXACTLY
 (757,058,601,340,255,440,651,419,713,405,330,315,358,208, via the S4-orbit-quotient dynamic program — see
 [DESCRIPTION_LENGTH.md](DESCRIPTION_LENGTH.md) and [reports/TR5](../reports/TR5_SYMMETRY.md)). The Knuth estimate of the same quantity (7.571×10⁴¹, stated
-±0.01%) contains the exact value inside its stated envelope. (The apparent 5.5×10⁻⁵ gap is the distance
-to the estimate's four-sig-fig rounding, not a measured estimator error; the true error is unresolved at
-the published precision but well within ±0.01% — mirrors TR-11 v1.4 / TR-4's hedge.) Every other estimate in this document uses the same
+±0.01%) contains the exact value inside its stated envelope. (The apparent 5.5×10⁻⁵ gap is the distance to the estimate's four-sig-fig rounding, not a measured estimator error; the original draw's error is unresolved at
+the published precision — the rounding interval allows up to 0.012 %, more than the 0.01 % SE — and the archived 2026-09-25 re-draw, 7.571405×10⁴¹ (`reports/evidence/knuth_relax_c5_1e7.out`),
+is 0.0108 % above the exact value, 1.15 relative SE by its archived interval, inside its 95 % interval; mirrors TR-11 §9.) Every other estimate in this document uses the same
 machinery, but ⚠ **NOT at comparable hit rates, and this sentence claimed otherwise until
 2026-09-07.** Measured from the archived probes: the C5 calibration runs at
 `hitrate=0.0144` (`reports/evidence/knuth_whole_tree_5e10.out`) while the C1–C7 estimate runs at

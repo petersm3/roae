@@ -892,8 +892,8 @@ settle each open question.
 - The exact counts for C1 to C5 and for C1 to C7. An exact method exists, and the full run was
   declined, so both stay **estimated**.
 - Whether the search space could ever be fully listed. We cannot yet use the catalog to predict
-  how long that would take: the catalog and the search program count different kinds of nodes, and
-  there is no checked conversion between them yet.
+  how long that would take: the catalog and the search program count different kinds of nodes. The only checked bridge is one-sided: a lower-bound mapping from catalog units to production nodes
+  (TR-12 §3, `reports/tr12/xa_verdict.md`), under which every branch reads INFEASIBLE at any ceiling below ~8×10²⁴ hours; no exact conversion exists.
 - One proposed comparison, of King Wen's position under smaller symmetry groups, still needs a
   precise definition: which groups to use, and what to measure about King Wen.
 - A direct test of whether C3 explains the two disagreements in Section 6.

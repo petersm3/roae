@@ -21,9 +21,9 @@
 757,058,601,340,255,440,651,419,713,405,330,315,358,208	exact	|C1nC2nC4|, two-instrument
 1,097,051,278,789,181,790,036,112,071,176,579,186,688	exact	|C1nC2nC4nC5|, two-instrument
 516,880,238,445,773,965,371,923,491,676,160	exact	|C1-C7| with C3 dropped, two-instrument
-45,710,469,949,549,241,251,504,669,632,357,466,112	exact	orbit count = N/24
+45,710,469,949,549,241,251,504,669,632,357,466,112	exact	orbit count = N/24 (= 2 x the sequence-level orbit count; record-level orbits are bounded by 31!/24 — METHODS, Q-642)
 7.5706	exact	sci-notation form of |C1nC2nC4|
 1.097051	exact	sci-notation form of |C1nC2nC4nC5|
 5.16880	exact	sci-notation form of |C1-C7|, C3 dropped
 5.21	estimate	|C1-C7|, Knuth estimator, 95% CI [5.13, 5.29]x10^31
-1.3287	estimate	C1-C5 space size, Knuth estimator, 95% CI 0.02%
+1.3287	estimate	C1-C5 space size, Knuth estimator, 95% CI [1.3283, 1.3292]x10^38 (half-width 0.03%; relerr 0.02%)

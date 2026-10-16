@@ -45,8 +45,8 @@ rows and is not re-stated here.]**
 **The file has 1,001 lines, not 1,000.** Line 206 is a stray `0.000000e+00` with no multiset, written
 by the 2026-09-04 harness; it is kept as written rather than silently deleted. Drop it with `NF==2`.
 Separately, row 207 (`0<TAB>1:4,2:14,3:21,4:15,6:9`) is a decoy whose estimate is 0: no probe reached
-a leaf at 10⁵ probes. That bounds its count loosely from above (King Wen's hit-rate at 10⁵ is 0.0146)
-and is not a proof that its admissible set is empty.
+a leaf at 10⁵ probes. That is starvation — no bound (METHODS §Statistics conventions) — and it is not a
+proof that its admissible set is empty.
 
 **The percentile.** King Wen's comparator is the exact published |C1∩C2∩C4∩C5| = 1.097051×10³⁹
 (TR-9 §2, TR-11), not an estimate.

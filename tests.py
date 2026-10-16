@@ -46390,6 +46390,687 @@ class TestBatchFT1(unittest.TestCase):
                          "uncured control: the bare path does not resolve")
 # end class TestBatchFT1 (fast-track batch FT1)
 
+class TestBatchFT2a(unittest.TestCase):
+    """Fast-track batch FT2a (CX-366..CX-381): claim-changing findings from Codex's final review
+    (gpt-6-astra), triaged by Fable.
+
+    Each check is a function of the text, and each red test feeds the same check the published
+    wording it replaced and asserts that it fails. Every number pinned here is re-derived from its
+    public source: the archived estimator and fiber outputs, run.out, xa_verdict.md, BOUNDARY_MINIMUM.md
+    and `solve.py --r11-verify`."""
+
+    CVS = os.path.join("documentation", "CANONICAL_VALUE_STATUS.tsv")
+    WHOLE = os.path.join("reports", "evidence", "knuth_whole_tree_5e10.out")
+    TR12 = os.path.join("reports", "TR12_QUERY_PROGRAM.md")
+    FIBER = os.path.join("reports", "evidence", "f5", "f5_modec_fiber.out")
+    TR1 = os.path.join("reports", "TR1_EIGHT_CENTURIES_MEASURED.md")
+    TR2 = os.path.join("reports", "TR2_THE_RULES_CONFLICT.md")
+    TR4 = os.path.join("reports", "TR4_SIZE_OF_THE_SPACE.md")
+    TR9 = os.path.join("reports", "TR9_PRICING_THE_CONSTRAINTS.md")
+    TR11 = os.path.join("reports", "TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md")
+    RUNOUT = os.path.join("runs", "20260716_f1c5_c1c2c4c5_d128westus3", "run.out")
+    LRPT = os.path.join("documentation", "LITERATURE_RULES_POPULATION_TESTS.md")
+    CD = os.path.join("documentation", "CLAIMS_DECIDED.md")
+    BMIN = os.path.join("documentation", "BOUNDARY_MINIMUM.md")
+    GUIDE = os.path.join("reports", "CAPSTONE_GUIDE.md")
+    XA = os.path.join("reports", "tr12", "xa_verdict.md")
+    VIZ = os.path.join("viz", "README.md")
+    README = "README.md"
+    RREADME = os.path.join("reports", "README.md")
+    DECOY = os.path.join("reports", "evidence", "decoy", "README.md")
+    RUNA = os.path.join("reports", "evidence", "f11", "f11_runA.out")
+    MOORE = os.path.join("reports", "evidence", "r11", "r11_moore_strict.out")
+    RP = os.path.join("documentation", "RETRACTED_PHRASES.tsv")
+    F5R = os.path.join("reports", "evidence", "f5", "README.md")
+    METHODS = os.path.join("reports", "METHODS.md")
+    TR8 = os.path.join("reports", "TR8_REORDERING_REVISITED.md")
+    SSS = os.path.join("documentation", "SEARCH_SPACE_SIZE.md")
+    CTA = os.path.join("documentation", "CLAIM_TO_ARTIFACT.md")
+    QOY = os.path.join("reports", "evidence", "qoy1_q992", "PREREGISTRATION.md")
+    C8S = os.path.join("reports", "evidence", "c8screen", "PREREGISTRATION.md")
+    RELAX = os.path.join("reports", "evidence", "knuth_relax_c5_1e7.out")
+    F1EX = os.path.join("reports", "evidence", "f1", "f1_exact.out")
+    ALL = (CVS, WHOLE, TR12, FIBER, TR1, TR2, TR4, TR9, TR11, RUNOUT, LRPT, CD, BMIN, GUIDE, XA, VIZ,
+           README, RREADME, DECOY, RUNA, MOORE, RP, F5R, METHODS, TR8, SSS, CTA, QOY, C8S, RELAX, F1EX)
+
+    @classmethod
+    def setUpClass(cls):
+        cls.root = os.path.dirname(os.path.abspath(__file__))
+        cls.txt = {}
+        for rel in cls.ALL:
+            with open(os.path.join(cls.root, rel), encoding="utf-8") as fh:
+                cls.txt[rel] = fh.read()
+
+    @staticmethod
+    def _norm(t):
+        return re.sub(r"\s+", " ", t)
+
+    def _swap(self, rel, new, old):
+        """The tree's text with the cured wording put back to the published one."""
+        t = self.txt[rel]
+        self.assertEqual(t.count(new), 1, "precondition: the cured wording is on the tree once (%s)" % rel)
+        return t.replace(new, old)
+
+    # --- CX-366 (CAL-012#76/#81 and ten runs): the registry's two label rows ----------------------
+    def _cvs_problems(self, tsv):
+        m = re.search(r"leaves_canonical_C1C5 : est=(\S+)\s+95%CI=\[(\S+), (\S+)\]\s+relerr=(\S+)%",
+                      self.txt[self.WHOLE])
+        self.assertIsNotNone(m, "precondition: the archived whole-tree line parses")
+        est, lo, hi, rel = (float(x) for x in m.groups())
+        half = "%.2f%%" % ((hi - lo) / 2 / est * 100)
+        relerr = "%.2f%%" % rel
+        self.assertEqual((half, relerr), ("0.03%", "0.02%"), "precondition: the archive gives the two figures")
+        rows = {l.split("\t")[0]: l for l in tsv.splitlines() if "\t" in l}
+        probs = []
+        est_row = rows.get("1.3287", "")
+        for w in ("half-width " + half, "relerr " + relerr):
+            if w not in est_row:
+                probs.append("1.3287 row lacks " + w)
+        if "CI 0.02%" in est_row:
+            probs.append("1.3287 row labels the relerr as the CI")
+        if "sequence-level" not in rows.get("45,710,469,949,549,241,251,504,669,632,357,466,112", ""):
+            probs.append("N/24 row does not name the sequence-level orbit")
+        return probs
+
+    def test_cvs_rows_cured(self):
+        self.assertEqual(self._cvs_problems(self.txt[self.CVS]), [])
+
+    def test_cvs_rows_red_on_old(self):
+        t = self._swap(self.CVS, "C1-C5 space size, Knuth estimator, 95% CI [1.3283, 1.3292]x10^38 (half-width 0.03%; relerr 0.02%)",
+                       "C1-C5 space size, Knuth estimator, 95% CI 0.02%")
+        t = t.replace("orbit count = N/24 (= 2 x the sequence-level orbit count; record-level orbits are bounded by 31!/24 — METHODS, Q-642)",
+                      "orbit count = N/24")
+        self.assertEqual(len(self._cvs_problems(t)), 4)
+
+    # --- CX-367 (F11-005#3/#4 and twins): two §12.9 ledger rows --------------------------------
+    def _vdb_problems(self, tr12):
+        out = self.txt[self.FIBER]
+        n = int(re.search(r"^fiber size = (\d+)$", out, re.M).group(1))
+        pge = float(re.search(r"^vdb_nuc\s+29\s+\d+\s+\d+\s+\S+\s+(\S+)", out, re.M).group(1))
+        self.assertEqual((n, round(pge * n)), (1720320, 12), "precondition: the fiber output parses")
+        row = next(l for l in tr12.splitlines() if l.startswith("| TR-1 | Van den Berghe"))
+        m = re.search(r"P\(X ≥ 29\) = \*\*([\d.]+)×10⁻([⁰-⁹]+)\*\*", row)
+        sup = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹", "0123456789")
+        stated = float(m.group(1)) * 10 ** -int(m.group(2).translate(sup))
+        probs = []
+        if "12 of 1,720,320" not in row:
+            probs.append("row does not name the C4-oriented count")
+        if abs(stated - 12 / n) > 5e-11:
+            probs.append("P(X >= 29) %.4e is not 12/1,720,320 = %.4e" % (stated, 12 / n))
+        return probs
+
+    def test_vdb_row_cured(self):
+        self.assertEqual(self._vdb_problems(self.txt[self.TR12]), [])
+
+    def test_vdb_row_red_on_old(self):
+        t = self._swap(self.TR12, "**12 of 1,720,320** at X=29 on the C4-oriented fiber, P(X ≥ 29) = **6.9754×10⁻⁶** one-sided (30 of 2,703,360 = 1.1097×10⁻⁵ on the pair-only fiber, where two vectors reach 30)",
+                       "**12 of 1,720,320** at X=29; P(X ≥ 29) = **1.1097×10⁻⁵** one-sided")
+        self.assertEqual(len(self._vdb_problems(t)), 1)
+
+    def _rank_problems(self, tr12):
+        with open(os.path.join(self.root, "solve.py"), encoding="utf-8") as fh:
+            self.assertIn('tok("CELL_PERCENTILE_NULL_MEAN_PER_STEP", "0.5-minus-half-the-tie-mass', fh.read(),
+                          "precondition: the probe states the tie-corrected null")
+        row = next(l for l in tr12.splitlines() if l.startswith("| TR-12 | KW's transition rank"))
+        probs = ["bare 'vs null 0.5'"] if "vs null 0.5" in row else []
+        probs += ["missing " + w for w in ("tie mass", "CELL_PERCENTILE_NULL_MEAN_PER_STEP") if w not in row]
+        return probs
+
+    def test_rank_row_cured(self):
+        self.assertEqual(self._rank_problems(self.txt[self.TR12]), [])
+
+    def test_rank_row_red_on_old(self):
+        t = self._swap(self.TR12, "vs a stated null of 0.5 less half the tie mass (not measured; token CELL_PERCENTILE_NULL_MEAN_PER_STEP);",
+                       "vs null 0.5;")
+        self.assertEqual(len(self._rank_problems(t)), 3)
+
+    # --- CX-368 (F11-005#9, F11-004#13 and twins): two promises TR-12 had already narrowed -------
+    def _banner_problems(self, tr12):
+        t = self._norm(tr12)
+        guide = re.search(r"\*\*The §12\.1–§12\.6 figures that §12\.9 maps to a token\*\*.{0,400}", t)
+        self.assertIsNotNone(guide, "precondition: the Verification Guide's corrected promise is present")
+        for w in ("§12.7's cost figures are derived", "§12.8 quotes none"):
+            self.assertIn(w, guide.group(0), "precondition: the guide names the exception")
+        ban = re.search(r"\*\*One command reproduces every[^*]*\*\*.{0,200}", t).group(0)
+        probs = ["banner promises §12.1–§12.8"] if "§12.1–§12.8" in ban else []
+        probs += ["banner lacks " + w for w in ("§12.1–§12.6", "§12.7's cost figures are derived", "§12.8 quotes none")
+                  if w not in ban]
+        return probs
+
+    def test_banner_cured(self):
+        self.assertEqual(self._banner_problems(self.txt[self.TR12]), [])
+
+    def test_banner_red_on_old(self):
+        t = self._swap(self.TR12, "**One command reproduces every §12.1–§12.6 figure that §12.9 maps to a token** (§12.7's cost figures are derived, §12.8 quotes none — see the Verification Guide's 2026-09-26 correction)",
+                       "**One command reproduces every figure in §12.1–§12.8**")
+        self.assertNotEqual(self._banner_problems(t), [])
+
+    def _kc_problems(self, tr12):
+        t = self._norm(tr12)
+        with open(os.path.join(self.root, "documentation", "GT_LADDER_FORMAT.md"), encoding="utf-8") as fh:
+            self.assertIn("constrain the FILES, not the shared", self._norm(fh.read()),
+                          "precondition: GT_LADDER_FORMAT.md states the identities are file-integrity checks")
+        t = self._norm("\n".join(l for l in tr12.splitlines() if not l.startswith("| v1.")))  # history rows keep their words
+        probs = re.findall(r"mathematically (?:correct|sound) — that is `--kc", t)
+        with open(os.path.join(self.root, "documentation", "GT_LADDER_FORMAT.md"), encoding="utf-8") as fh:
+            self.assertIn("\n## The cross-ladder identities", fh.read(), "precondition: the pointer names a real heading")
+        if t.count('are file-integrity identities (GT_LADDER_FORMAT.md §"The cross-ladder identities")') != 2:
+            probs.append("both sentences must call the checks file-integrity identities")
+        return probs
+
+    def test_kc_checks_cured(self):
+        self.assertEqual(self._kc_problems(self.txt[self.TR12]), [])
+
+    def test_kc_checks_red_on_old(self):
+        t = self._swap(self.TR12, "It does not prove the ladders are mathematically correct; no battery row does. `--kc-t-check` and\n   `--kc-g-check` are file-integrity identities (GT_LADDER_FORMAT.md §\"The cross-ladder identities\"), different instruments answering a different question.",
+                       "It does not prove the ladders are mathematically correct —\n   that is `--kc-t-check` and `--kc-g-check`, different instruments answering a different question.")
+        self.assertEqual(len(self._kc_problems(t)), 2)
+
+    # --- CX-369 (F11-004#4, F07-004#3, F07-005#3): "flat to ~3 %" names its measure ------------------
+    @staticmethod
+    def _flat_problems(texts):
+        bad = []
+        for rel, text in texts.items():
+            for n, line in enumerate(text.splitlines(), 1):
+                if line.startswith("| v1.") or re.search(r"this read|previously read|corrected 20", line):
+                    continue
+                if re.search(r"flat to (~|about )3 %", line) and "total-variation" not in line:
+                    bad.append("%s:%d flat" % (rel, n))
+                if "essentially no information" in line:
+                    bad.append("%s:%d essentially" % (rel, n))
+        return bad
+
+    def test_flat_cured(self):
+        texts = {r: self.txt[r] for r in (self.TR12, self.RREADME)}
+        self.assertIn("flat to about 3 %** (interior total-variation", texts[self.TR12],
+                      "precondition: the check sees the abstract's measured form")
+        self.assertEqual(self._flat_problems(texts), [])
+
+    def test_flat_red_on_old(self):
+        t = self._swap(self.TR12, "### 12.5 The interior positional pair field is within total-variation 0.0329 of uniform — the reading of V1, and it is negative",
+                       "### 12.5 The positional pair field is flat to about 3 % — the reading of V1, and it is negative")
+        t = t.replace("position interior **marginals** carry little information about membership",
+                      "position **marginals** carry essentially no information about membership")
+        self.assertEqual(len(self._flat_problems({self.TR12: t})), 2)
+
+    # --- CX-370 (F11-005#17-#19, F07-005#11, CAP-002#1; F11-007#15/#16/#17/#19) ----------------
+    def _incons_problems(self, tr12):
+        para = next(p for p in tr12.split("\n\n") if "suite-level inconsistenc" in p and p.startswith("🔴"))
+        open_part = re.split(r"\*\*Not\s+inconsistencies\*\*", para)[0]
+        items = re.findall(r"\((i{1,3}|iv)\)\s", open_part)
+        probs = [] if items == ["iii"] else ["open items %r" % items]
+        if "TR-2" not in open_part:
+            probs.append("the open item is not TR-2's")
+        return probs
+
+    def test_inconsistencies_cured(self):
+        self.assertEqual(self._incons_problems(self.txt[self.TR12]), [])
+
+    def test_inconsistencies_red_on_old(self):
+        old = ("🔴 **Four suite-level inconsistencies this audit surfaced, none adjudicated here.** Each needs an\n"
+               "owner's ruling: (i) TR-5's abstract; (ii) TR-9's two C5 ranges; (iii) TR-2's executive summary still "
+               "leads with the Bayes factor that v1.27 withdraws; (iv) 0.03 % in TR-1 and 0.09 % in TR-10.")
+        para = next(p for p in self.txt[self.TR12].split("\n\n") if "suite-level inconsistenc" in p and p.startswith("🔴"))
+        self.assertNotEqual(self._incons_problems(self.txt[self.TR12].replace(para, old)), [])
+
+    def _tr2_exec_problems(self, tr2):
+        ex = tr2.split("## Executive summary", 1)[1].split("\n## ", 1)[0]
+        i = ex.find("Bayes factor ≈")
+        self.assertGreater(i, 0, "precondition: the executive summary states the figure")
+        probs = [] if "Withdrawn as a claimed result" in ex[:i] else ["Bayes-factor figure precedes its withdrawal"]
+        if not re.search(r"posterior P\(corruption \| data\) ≈ 0\.9998\*\* \(as-computed; withdrawn as a claim", tr2):
+            probs.append("posterior bullet unmarked")
+        return probs
+
+    def test_tr2_exec_cured(self):
+        self.assertEqual(self._tr2_exec_problems(self.txt[self.TR2]), [])
+
+    def test_tr2_exec_red_on_old(self):
+        t = self._swap(self.TR2, "**Withdrawn as a claimed result (v1.27, CX-26) — the paragraph that follows is the as-computed record.** New in v1.7:",
+                       "New in v1.7:")
+        t = t.replace(" (as-computed; withdrawn as a claim, CX-26).\n", ".\n", 1)
+        self.assertEqual(len(self._tr2_exec_problems(t)), 2)
+
+    # --- CX-371 (F11-003#9, F07-003#6, CAL-003#155): run.out prints every layer ---------------------
+    def test_runout_layers_and_tr11(self):
+        masks = {}
+        for k, m in re.findall(r"^\[f1c5\] layer k= ?(\d+)/31: canonical_masks=(\d+)", self.txt[self.RUNOUT], re.M):
+            masks.setdefault(int(k), set()).add(int(m))
+        self.assertEqual(sorted(masks), list(range(1, 32)), "run.out prints every layer k=1..31")
+        self.assertTrue(all(len(v) == 1 for v in masks.values()), "a resumed layer prints one value")
+        m = {k: v.pop() for k, v in masks.items()}
+        self.assertTrue(all(m[k] == m[31 - k] for k in range(1, 16)), "all fifteen palindrome pairs hold")
+        self.assertEqual(1 + sum(m.values()), 93939712, "with masks(0)=1 the total is the canonical-mask count")
+        t = self._norm(self.txt[self.TR11])
+        self.assertIn("carries every layer k = 1..31", t)
+        self.assertIn("over k = 0..31, with masks(0) = 1", t)
+        self.assertNotIn("carries only prints k10..k31 —", t)
+
+    def test_runout_red_on_old(self):
+        t = self._norm(self._swap(self.TR11, "The retained `run.out` carries every layer\n   k = 1..31",
+                                  "The retained `run.out` (final eviction-resume session) carries only prints k10..k31 — the"))
+        self.assertIn("carries only prints k10..k31 —", t)
+        self.assertNotIn("carries every layer k = 1..31", t)
+
+    # --- CX-372 (V3A-088 #4, F11-007#7, CAL-007#103): five of the six cluster -----------------------
+    def _cluster_count(self):
+        r = subprocess.run([sys.executable, "-B", "solve.py", "--r11-verify"], cwd=self.root,
+                           capture_output=True, text=True, timeout=300)
+        self.assertEqual(r.returncode, 0, r.stdout[-2000:] + r.stderr[-2000:])
+        m = re.search(r"parity\(pair-slots\)=\[([\d, ]+)\]\s+rhythm\(adjacent-pairs\)=\[(.*?)\]\s+"
+                      r"gender\(inversion-class-pos\)=\[([\d, ]+)\]", r.stdout)
+        self.assertIsNotNone(m, "precondition: --r11-verify prints the three position lists")
+        parity = [int(x) for x in m.group(1).split(",")]
+        rhythm = re.findall(r"\((\d+), (\d+)\)", m.group(2))
+        gender = [int(x) for x in m.group(3).split(",")]
+        # TR-1 §3: 0-based slots 21/22 are class positions 25/26, i.e. 1-based pair-slots 22/23.
+        self.assertIn("slots 21/22 (= class positions\n   25/26", self.txt[self.TR1], "precondition: TR-1 states the map")
+        locus = {22, 23}
+        n = sum(1 for s in parity if s in locus) + sum(1 for a, b in rhythm if {int(a), int(b)} == locus)
+        n += sum(1 for c in gender if c - 3 in locus)
+        self.assertEqual(len(parity) + len(rhythm) + len(gender), 6)
+        return n
+
+    def test_cluster_five_of_six(self):
+        n = self._cluster_count()
+        self.assertEqual(n, 5)
+        words = {4: "Four", 5: "Five"}
+        t = self._norm(self.txt[self.TR2])
+        self.assertIn("%s of the six cluster at the flagged locus" % words[n], t)
+
+    def test_cluster_red_on_old(self):
+        t = self._norm(self._swap(self.TR2, "Five of the six\ncluster at the flagged locus (the two gender violations",
+                                  "Four of the six\ncluster at the flagged locus (the two gender violations"))
+        self.assertNotIn("Five of the six cluster at the flagged locus", t)
+
+    # --- CX-373 (F11-006#3/#10/#17, F11-007#6, F11-004#9, CAL-006, CAL-010): estimator wording -------
+    def _probe_problems(self, tr1):
+        hr = re.search(r"leaves_canonical_C1C5 .* hitrate=(\S+)", self.txt[self.RUNA]).group(1)
+        self.assertEqual(hr, "0.0018", "precondition: the archived hit rate")
+        probs = ["old probe description"] if "uniformly-random constraint-satisfying completion" in self._norm(tr1) else []
+        if "≈0.18 % reach a C1–C5 leaf" not in self._norm(tr1):
+            probs.append("TR-1 does not give the hit rate")
+        if "Only ≈0.18% of probes reach a C1–C5" not in self._norm(self.txt[self.LRPT]):
+            probs.append("LRPT disagrees")
+        return probs
+
+    def test_probe_method_cured(self):
+        self.assertEqual(self._probe_problems(self.txt[self.TR1]), [])
+
+    def test_probe_method_red_on_old(self):
+        t = self._swap(self.TR1, "each probe descends by a uniform random child choice and\n   stops at a dead end or a leaf (≈0.18 % reach a C1–C5 leaf), weighting a surviving leaf by the product of branching factors;",
+                       "each probe walks a uniformly-random constraint-satisfying\n   completion, weighting by the product of branching factors;")
+        self.assertEqual(len(self._probe_problems(t)), 2)
+
+    def _raw_label_problems(self, tr1, tr2, tr12):
+        self.assertIn("leaves_canonical_C1C5 : est=1.131036e+29", self.txt[self.MOORE],
+                      "precondition: 1.13e29 is the estimator's orientation-explicit leaf field (misnamed printf)")
+        probs = re.findall(r"1\.13×10²⁹ canonical orderings", self._norm(tr1))
+        probs += re.findall(r"generative models over the canonical C1–C5 space", self._norm(tr2))
+        probs += re.findall(r"fractions are of C15 canonical mass", self._norm(tr12))
+        return probs
+
+    def test_raw_labels_cured(self):
+        self.assertEqual(self._raw_label_problems(self.txt[self.TR1], self.txt[self.TR2], self.txt[self.TR12]), [])
+
+    def test_raw_labels_red_on_old(self):
+        tr1 = self.txt[self.TR1].replace("1.13×10²⁹ orientation-explicit (raw) orderings", "1.13×10²⁹ canonical orderings")
+        tr2 = self._swap(self.TR2, "full generative models over the orientation-explicit C1–C5 space",
+                         "full generative models over the canonical C1–C5 space")
+        tr12 = self._swap(self.TR12, "of raw, fiber-weighted C15\n  mass", "of C15 canonical\n  mass")
+        self.assertEqual(len(self._raw_label_problems(tr1, tr2, tr12)), 4)
+
+    @staticmethod
+    def _starve_problems(texts):
+        bad = []
+        for rel, text in texts.items():
+            for mm in re.finditer(r"<10⁻[⁰-⁹]+ \(0 hits\)", text):
+                if text[mm.start() - 1] != '"':  # a quotation of the retired cell inside a caveat is not a cell
+                    bad.append(rel)
+            if "bounds its count loosely from above" in text:
+                bad.append(rel + " decoy bound")
+            for mm in re.finditer(r"report as bound", text):
+                if text[mm.start() - 1] != '"':  # the f5 README quotes the frozen script's line 194; a quotation is not a claim
+                    bad.append(rel + " report as bound")
+        return bad
+
+    def _f5_row(self, text):
+        return next(l for l in text.splitlines() if l.startswith("| `f5_modec_fiber.out` |"))
+
+    def test_starvation_cured(self):
+        texts = {r: self.txt[r] for r in (self.TR1, self.LRPT, self.DECOY, self.F5R)}
+        self.assertIn('"<10⁻⁹ (0 hits)" as sampling starvation', texts[self.TR1], "precondition: the quoted caveat is seen")
+        self.assertIn("ZERO sampled mass at/above KW -> p_hat = 0; report as bound", self.txt[self.FIBER].splitlines()[193],
+                      "precondition: the archived line 194 carries the string the README quotes")
+        self.assertEqual(self._starve_problems(texts), [])
+        self.assertIn("starvation and bounds nothing", self._f5_row(self.txt[self.F5R]))
+
+    def test_f5_readme_row_red_on_old(self):
+        old = "| `f5_modec_fiber.out` | Archived Mode C output: exact histograms, two-sided p-values, structure gates, convention control |"
+        t = self.txt[self.F5R].replace(self._f5_row(self.txt[self.F5R]), old)
+        self.assertNotEqual(t, self.txt[self.F5R], "precondition: the red half applies")
+        self.assertNotIn("starvation and bounds nothing", self._f5_row(t))
+
+    def test_starvation_red_on_old(self):
+        t = self._swap(self.TR1, "c2011n1 0 hits in 2×10¹⁰ probes (starvation — no bound, METHODS §Statistics conventions)",
+                       "c2011n1 <10⁻⁹ (0 hits)")
+        d = self._swap(self.DECOY, "That is starvation — no bound (METHODS §Statistics conventions) — and it is not a\nproof",
+                       "That bounds its count loosely from above (King Wen's hit-rate at 10⁵ is 0.0146)\nand is not a proof")
+        self.assertEqual(len(self._starve_problems({self.TR1: t, self.DECOY: d})), 2)
+
+    # --- CX-374 (F11-006#1, CAL-001#30, CAL-006#168, CAL-014#112, F11-009#1): strict-form scope -------
+    ANCHORS = ((TR1, "the literature's full rule inventory **never existed**"),
+               (LRPT, "the literature's full rule inventory **never existed**"),
+               (README, "no such original could exist"),
+               (README, "jointly unsatisfiable"),
+               (VIZ, "cannot all hold at once"),
+               (CD, "no such precursor can exist"))
+
+    def _scope_problems(self, texts):
+        probs = []
+        for rel, anchor in self.ANCHORS:
+            t = self._norm(texts[rel])
+            i = t.find(anchor)
+            self.assertGreaterEqual(i, 0, "precondition: %s carries %r" % (rel, anchor))
+            if "strict" not in t[max(0, i - 160): i + len(anchor) + 120]:
+                probs.append("%s: %s" % (rel, anchor))
+        return probs
+
+    def test_strict_scope_cured(self):
+        self.assertEqual(self._scope_problems(self.txt), [])
+
+    def test_strict_scope_red_on_old(self):
+        texts = dict(self.txt)
+        texts[self.VIZ] = self._swap(self.VIZ, "cannot all hold at once, in their strict zero-exception forms, in any ordering",
+                                     "cannot all hold at once in any ordering")
+        texts[self.CD] = self._swap(self.CD, "The four strongest rules, in their strict zero-exception forms, are jointly unsatisfiable for any C1∩C2∩C4∩C5-valid ordering (DRAT-certified); no such precursor can exist under those forms (no claim is made for the gender rule's source-stated exception form; TR-1 §3)",
+                                    "The four strongest rules are jointly unsatisfiable for any C1∩C2∩C4∩C5-valid ordering (DRAT-certified); no such precursor can exist")
+        self.assertEqual(len(self._scope_problems(texts)), 2)
+
+    # --- CX-375 (F11-008#1, F07-006#1, CAL-011#3): the Gray-code cell -------------------------------
+    def test_gray_cell(self):
+        row = next(l for l in self.txt[self.CD].splitlines() if l.startswith("| A better King Wen exists via reordering"))
+        self.assertNotIn("required Gray-code construction is impossible", row)
+        self.assertIn("*fully smooth* ordering", row)
+        self.assertIn("hybrid construction is not what the theorem excludes", row)
+        old = row.replace("a *fully smooth* ordering (every adjacent transition one line) is impossible under the pairing (2-line parity proof); the authors' hybrid construction is not what the theorem excludes (TR-8 v1.16)",
+                          "the required Gray-code construction is impossible under the pairing (2-line parity proof)")
+        self.assertNotEqual(old, row, "precondition: the red half applies")
+        self.assertIn("required Gray-code construction is impossible", old)
+
+    # --- CX-376 (F02-004#2, CAL-002#95): what singles King Wen out within the datasets ----------------
+    def _tr4_problems(self, tr4):
+        b = self._norm(self.txt[self.BMIN])
+        self.assertIn("51,404 → 481 → 14 → 1 → 0", b, "precondition: the 560T greedy curve")
+        self.assertIn("best `{4, 25, 27}` leaves 15 survivors, KW-inclusive", b, "precondition: §[7]")
+        t = self._norm("\n".join(l for l in tr4.splitlines() if not l.startswith("| v1.")))
+        probs = [p for p in ("King Wen is unique only within budgeted slices",
+                             "uniqueness holds only within enumerated budgeted datasets") if p in t]
+        if t.count("C6, C7 and boundary 4 together still leave 14 non-King-Wen records") != 2:
+            probs.append("the 14-survivor statement is not at both sites")
+        return probs
+
+    def test_tr4_uniqueness_cured(self):
+        self.assertEqual(self._tr4_problems(self.txt[self.TR4]), [])
+
+    def test_tr4_uniqueness_red_on_old(self):
+        t = self._swap(self.TR4, "over the full\n   space; within the enumerated datasets King Wen is singled out only by the five-boundary identifying set (SPECIFICATION §Constraints; BOUNDARY_MINIMUM), not by C1–C7 alone — at 560T, C6, C7 and boundary 4 together still leave 14 non-King-Wen records.",
+                       "over the full\n   space; uniqueness holds only within enumerated budgeted datasets.")
+        self.assertEqual(len(self._tr4_problems(t)), 2)
+
+    # --- CX-377 (F11-010#1, CAP-002#4, CRZ-001#2): the guide's open conversion question ----------------
+    def _guide_problems(self, guide):
+        rows = re.findall(r"^\| \d+ \| \d+ \| \d+ \| \d+ \| ([\d.e+]+)\.\.[\d.e+]+ \|.*\| (\w+) \| [\d.e+]+\.\.", self.txt[self.XA], re.M)
+        self.assertEqual(len(rows), 56, "precondition: the 56 branch rows parse")
+        self.assertEqual({v for _, v in rows}, {"INFEASIBLE"})
+        lo = min(float(w) for w, _ in rows)
+        self.assertTrue(8e24 <= lo < 9e24, lo)
+        t = self._norm(guide)
+        probs = ["no checked conversion"] if "no checked conversion between them yet" in t else []
+        if "`reports/tr12/xa_verdict.md`), under which every branch reads INFEASIBLE at any ceiling below ~8×10²⁴ hours" not in t:
+            probs.append("guide does not cite the one-sided mapping")
+        return probs
+
+    def test_guide_cured(self):
+        self.assertEqual(self._guide_problems(self.txt[self.GUIDE]), [])
+
+    def test_guide_red_on_old(self):
+        t = self._swap(self.GUIDE, "count different kinds of nodes. The only checked bridge is one-sided: a lower-bound mapping from catalog units to production nodes\n  (TR-12 §3, `reports/tr12/xa_verdict.md`), under which every branch reads INFEASIBLE at any ceiling below ~8×10²⁴ hours; no exact conversion exists.",
+                       "count different kinds of nodes, and\n  there is no checked conversion between them yet.")
+        self.assertEqual(len(self._guide_problems(t)), 2)
+
+    # --- CX-378 (CAP-001#2, CAP-002#3; CAL-010#100/#85): two scope restatements ------------------------
+    def test_viz_orbit_names_c1_c5(self):
+        t = self._norm(self.txt[self.VIZ])
+        s = t[t.find("**In plain terms.** There are 48 ways"):][:260]
+        self.assertTrue(s, "precondition: the showcase sentence is found")
+        self.assertIn("rules C1 to C5 true", s)
+        self.assertNotIn("project's rules true", s)
+        old = self._norm(self._swap(self.VIZ, "that keep\nrules C1 to C5 true (C6 and C7 pin particular pairs and are left out; TR-5).",
+                                    "that keep the\nproject's rules true."))
+        s_old = old[old.find("**In plain terms.** There are 48 ways"):][:260]
+        self.assertNotIn("rules C1 to C5 true", s_old)
+
+    def _tr9_problems(self, tr9):
+        rp = [l for l in self.txt[self.RP].splitlines() if "RP-16fc7cf8" in l]
+        self.assertEqual(len(rp), 1, "precondition: the scoped sentence is registered")
+        self.assertRegex(rp[0].split("\t")[0], r"^under (any|every) defensible (statement )?convention$",
+                         "precondition: the registered phrase is one the check below matches")
+        probs = []
+        for n, line in enumerate(tr9.splitlines(), 1):
+            if re.search(r"SCOPED|this sentence claimed|^\| v1\.", line):
+                continue
+            if re.search(r"under (any|every) defensible (statement )?convention", line):
+                probs.append("TR-9:%d restates the scoped verdict" % n)
+        if "coding-independent across the three marginal-consistent codings" not in self._norm(tr9):
+            probs.append("footnote's coding-independence unscoped")
+        return probs
+
+    def test_tr9_scope_cured(self):
+        self.assertEqual(self._tr9_problems(self.txt[self.TR9]), [])
+
+    def test_tr9_scope_red_on_old(self):
+        t = self._swap(self.TR9, "under both declared conventions — not under every convention: a King-Wen-independent multinomial code prices it below the compression (§Sections item 5, SCOPED 2026-09-24).",
+                       "under any defensible statement convention.")
+        t = t.replace("coding-independent across the three marginal-consistent codings**", "coding-independent**", 1)
+        self.assertEqual(len(self._tr9_problems(t)), 2)
+
+    # --- CX-379 (F02-006#1, F02-001#2, F02-003#1, F02-004#8, F02-002#4): the ledger floor ---------------
+    def _ledger_floor(self):
+        from fractions import Fraction as F
+        import math
+        m = self._norm(self.txt[self.METHODS])
+        words = {"two": 2, "three": 3, "four": 4, "five": 5}
+        h = re.search(r"\*\*H1/H3 family\*\*: (\w+) predicates T1–T4", m)
+        self.assertIsNotNone(h, "precondition: METHODS (iii) names the H1/H3 family's predicates")
+        h1h3 = words[h.group(1)]
+        q = re.search(r"registers \*\*k = (\d+) primaries\*\*", self.txt[self.QOY])
+        c8 = re.search(r"^K = (\d+) = K_C \+ K_S", self.txt[self.C8S], re.M)
+        frozen = re.search(r"\*\*frozen at exactly (\d+)\*\*", m)
+        distinct = re.search(r"giving \*\*(\d+) distinct observables\*\*", m)
+        for x, what in ((q, "Q-OY1/Q-992 k"), (c8, "C8 K"), (frozen, "frozen 91"), (distinct, "82 distinct")):
+            self.assertIsNotNone(x, "precondition: %s parses" % what)
+        extra = h1h3 + int(q.group(1)) + int(c8.group(1))
+        self.assertEqual((h1h3, int(q.group(1)), int(c8.group(1))), (4, 2, 1349))
+        n, nd = int(frozen.group(1)) + extra, int(distinct.group(1)) + extra
+        self.assertEqual((extra, n, nd), (1355, 1446, 1437))
+        bar, bard = F(5, 100) / n, F(5, 100) / nd
+        self.assertEqual(("%.2e" % bar, "%.2e" % bard), ("3.46e-05", "3.48e-05"))
+        r = F(47, 445740)
+        self.assertEqual("%.6e" % r, "1.054426e-04")
+        self.assertEqual(round(float(r / bar), 2), 3.05)
+        self.assertEqual(round(float(2 * r / (2 * bar)), 2), 3.05)
+        self.assertEqual("%.2e" % (2 * bar), "6.92e-05")
+        self.assertEqual(math.ceil(r * n / F(5, 100)), 4)
+        return n
+
+    NOTE_ANCHOR = "the rarity clears the global bar under every reading"
+    NOTE_NEEDS = ("LEDGER SCOPED 2026-10-16", "1,446", "3.46×10⁻⁵", "family-level NOTABLE and not an enterprise-wide one")
+
+    def _ledger_note_problems(self, texts):
+        probs = []
+        for rel, text in texts.items():
+            t = self._norm("\n".join(l for l in text.splitlines() if not l.startswith("| v1.")))
+            i = t.find(self.NOTE_ANCHOR)
+            self.assertGreaterEqual(i, 0, "precondition: %s carries the 2026-09-24 sentence" % rel)
+            w = t[i:i + 1400]  # the note is ~1,500 characters; its verdict clause sits ~1,300 in
+            probs += ["%s lacks %r" % (rel, s) for s in self.NOTE_NEEDS if s not in w]
+        return probs
+
+    def test_ledger_floor(self):
+        self.assertEqual(self._ledger_floor(), 1446)
+
+    def test_ledger_note_cured(self):
+        self.assertEqual(self._ledger_note_problems({r: self.txt[r] for r in (self.METHODS, self.TR8)}), [])
+
+    def test_ledger_note_red_on_old(self):
+        texts = {}
+        for rel in (self.METHODS, self.TR8):
+            t = self.txt[rel]
+            m = re.search(r" ⚠ \*\*\[LEDGER SCOPED 2026-10-16 .*?CX-379\)\.\]\*\*", t)
+            self.assertIsNotNone(m, "precondition: the note is on the tree (%s)" % rel)
+            texts[rel] = t[:m.start()] + t[m.end():]
+        self.assertEqual(len(self._ledger_note_problems(texts)), 8)
+
+    # --- CX-380 (F11-003#1, F07-003#1, CAL-003#147/#148): the C2 anchor's archived re-draw -------------
+    OLD_TR11_A = ("(The estimate was published to four significant figures, so its exact deviation is unmeasured at "
+                  "that precision — bounded well within the envelope, not resolved to it; see §9's note.)")
+    NEW_TR11_A = ("(The estimate was published to four significant figures, 0.0055 % from the exact value; a "
+                  "four-significant-figure rounding interval allows up to 0.012 %, more than the 0.01 % SE, so the "
+                  "original draw's deviation is unmeasured and its unrounded output is not archived. The archived "
+                  "2026-09-25 re-draw, `evidence/knuth_relax_c5_1e7.out` — 7.571405×10⁴¹, 95 % interval "
+                  "[7.5700, 7.5728]×10⁴¹ — is 0.0108 % above the exact value: 1.15 relative standard errors by that "
+                  "interval (1.11–1.19 under the interval's own rounding), inside its 95 % interval; see §9's note.)")
+    OLD_TR11_B = ("not a measurement of the estimator's error, which is unresolved at the published precision but "
+                  "bounded well within ±0.01%.")
+    NEW_TR11_B = ("not a measurement of the estimator's error, which is unresolved at the published precision (the "
+                  "rounding interval allows up to 0.012 %, more than the 0.01 % SE). The archived 2026-09-25 re-draw "
+                  "(`evidence/knuth_relax_c5_1e7.out`, 7.571405×10⁴¹) is 0.0108 % above the exact value — 1.15 "
+                  "relative SE by its archived interval, inside its 95 % interval.")
+    OLD_SSS = ("the true error is unresolved at the published precision but well within ±0.01% — mirrors TR-11 v1.4 / "
+               "TR-4's hedge.)")
+    NEW_SSS = ("the original draw's error is unresolved at the published precision — the rounding interval allows up "
+               "to 0.012 %, more than the 0.01 % SE — and the archived 2026-09-25 re-draw, 7.571405×10⁴¹ "
+               "(`reports/evidence/knuth_relax_c5_1e7.out`), is 0.0108 % above the exact value, 1.15 relative SE by "
+               "its archived interval, inside its 95 % interval; mirrors TR-11 §9.)")
+
+    def _redraw_numbers(self):
+        from fractions import Fraction as F
+        m = re.search(r"leaves_C1C2C4C5\s+: est=(\S+)\s+95%CI=\[(\S+), (\S+)\]", self.txt[self.RELAX])
+        x = re.search(r"^F1 EXACT \|C1 & C2 & C4\| = (\d+)$", self.txt[self.F1EX], re.M)
+        self.assertIsNotNone(m, "precondition: knuth_relax_c5_1e7.out:9 parses")
+        self.assertIsNotNone(x, "precondition: f1_exact.out:1 parses")
+        est, lo, hi = (F(s) for s in m.groups())
+        exact = F(int(x.group(1)))
+        self.assertTrue(lo <= exact <= hi, "the exact value lies inside the re-draw's 95 % interval")
+        dev = (est - exact) / exact
+        se = (hi - lo) / 2 / F(196, 100) / est
+        z = dev / se
+        half_lo, half_hi = (hi - lo) / 2 - F(5, 10 ** 5) * 10 ** 41, (hi - lo) / 2 + F(5, 10 ** 5) * 10 ** 41
+        z_hi, z_lo = dev / (half_lo / F(196, 100) / est), dev / (half_hi / F(196, 100) / est)
+        pub = F(7571, 1000) * 10 ** 41
+        pub_dev = abs(pub - exact) / exact
+        max4 = max(abs(pub - F(5, 10 ** 4) * 10 ** 41 - exact), abs(pub + F(5, 10 ** 4) * 10 ** 41 - exact)) / exact
+        self.assertEqual("%.4f" % float(dev * 100), "0.0108")
+        self.assertEqual("%.2f" % float(z), "1.15")
+        self.assertTrue(F(110, 100) <= z_lo and z_hi <= F(119, 100), (float(z_lo), float(z_hi)))
+        self.assertEqual(("%.2f" % float(z_lo), "%.2f" % float(z_hi)), ("1.11", "1.19"))
+        self.assertEqual("%.4f" % float(pub_dev * 100), "0.0055")
+        self.assertGreaterEqual(max4 * 100, F(12, 1000))
+
+    def _redraw_problems(self, tr11, sss):
+        probs = []
+        for rel, text, need in ((self.TR11, tr11, 2), (self.SSS, sss, 1)):
+            t = self._norm("\n".join(l for l in text.splitlines() if not l.startswith("| v1.")))
+            if t.count("1.15 relative") != need or t.count("inside its 95 % interval") != need:
+                probs.append("%s: the re-draw is not quoted at every site" % rel)
+            for bad in ("bounded well within", "but well within ±0.01%"):
+                if bad in t:
+                    probs.append("%s: %r" % (rel, bad))
+        return probs
+
+    def test_calibration_row1_from_archived_redraw(self):
+        self._redraw_numbers()
+        self.assertEqual(self._redraw_problems(self.txt[self.TR11], self.txt[self.SSS]), [])
+
+    def test_calibration_row1_red_on_old(self):
+        tr11 = self._norm(self.txt[self.TR11])
+        sss = self._norm(self.txt[self.SSS])
+        for new, old in ((self.NEW_TR11_A, self.OLD_TR11_A), (self.NEW_TR11_B, self.OLD_TR11_B)):
+            self.assertEqual(tr11.count(new), 1, "precondition: the cured TR-11 wording is on the tree")
+            tr11 = tr11.replace(new, old)
+        self.assertEqual(sss.count(self.NEW_SSS), 1, "precondition: the cured SSS wording is on the tree")
+        sss = sss.replace(self.NEW_SSS, self.OLD_SSS)
+        self.assertEqual(len(self._redraw_problems(tr11, sss)), 4)  # TR-11: unquoted + 'bounded well within'; SSS: unquoted + 'but well within'
+
+    OLD_TR4 = "whose unrounded output is not archived; +3.35×10⁻⁵ against"
+    NEW_TR4 = ("whose unrounded output is not archived; the archived 2026-09-25 re-draw of that layer, 7.571405×10⁴¹, "
+               "is 0.0108 % above the exact value, 1.15 relative SE by its archived interval and inside it — TR-11 §9; "
+               "+3.35×10⁻⁵ against")
+
+    def _tr4_redraw_problems(self, tr4):
+        t = self._norm("\n".join(l for l in tr4.splitlines() if not l.startswith("| v1.")))
+        return [] if t.count(self.NEW_TR4) == 1 else ["TR-4: the calibration paragraph does not quote the archived re-draw"]
+
+    def test_tr4_calibration_redraw_cured(self):
+        self._redraw_numbers()  # the 0.0108 % and 1.15 the TR-4 sentence quotes, re-derived from the receipts
+        self.assertEqual(self._tr4_redraw_problems(self.txt[self.TR4]), [])
+
+    def test_tr4_calibration_redraw_red_on_old(self):
+        t = self._norm(self.txt[self.TR4])
+        self.assertEqual(t.count(self.NEW_TR4), 1, "precondition: the cured TR-4 wording is on the tree")
+        self.assertEqual(len(self._tr4_redraw_problems(t.replace(self.NEW_TR4, self.OLD_TR4))), 1)
+
+    # --- CX-381 (F11-008#3, F07-006#5, CAL-011): the registry split is 26 and 5 ------------------------
+    def _registry_split_problems(self, lrpt, tr1):
+        with open(os.path.join(self.root, "solve.py"), encoding="utf-8") as fh:
+            src = fh.read()
+        i = src.find("\nREGISTRY_KW_EXPECTED = [")
+        self.assertGreater(i, 0, "precondition: the registry list is found")
+        comment = " ".join(l.lstrip("# ").strip() for l in src[:i].splitlines()[-8:] if l.startswith("#"))
+        expl = re.search(r"the registry gives (.*?) explicitly;(.*?) are KW-measured", comment)
+        self.assertIsNotNone(expl, "precondition: the comment above REGISTRY_KW_EXPECTED parses")
+        anchors = [re.sub(r"=.*", "", a).strip() for a in re.split(r",| and ", expl.group(2)) if a.strip()]
+        self.assertEqual(anchors, ["MM-T3", "MM-T6", "C1", "the C2 histogram"], "four KW-measured anchors in code")
+        self.assertIn("D7=8", expl.group(1), "d7 is among the values the registry states explicitly")
+        self.assertRegex(self._norm(lrpt), r"d7 1\.7×10⁻⁴ \(KW 8/8 — \*data-like\*", "precondition: d7 is data-like")
+        row16 = next(l for l in self.txt[self.CTA].splitlines() if l.startswith("| 16 |"))
+        self.assertIn("**26 of 31**", row16)
+        self.assertIn("**5** are KW-derived", row16)
+        probs = []
+        L, T = self._norm(lrpt), self._norm(tr1)
+        if "26 of them reproducing" not in L:
+            probs.append("LRPT:281 lacks the 26 split")
+        if "26 of the 31** reproducing" not in T or "the other **five**" not in T:
+            probs.append("TR-1 §3 lacks the 26/5 split")
+        if "a source-stated value for 26 of the 31" not in T:
+            probs.append("TR-1 method sentence lacks the split")
+        for s, rel in (("**27 of them reproducing", "LRPT"), ("**27 of the 31** reproducing", "TR-1")):
+            if s in (L if rel == "LRPT" else T):
+                probs.append("%s keeps %r" % (rel, s))
+        return probs
+
+    def test_registry_split_26_5(self):
+        self.assertEqual(self._registry_split_problems(self.txt[self.LRPT], self.txt[self.TR1]), [])
+
+    def test_registry_split_red_on_old(self):
+        L = self._norm(self.txt[self.LRPT])
+        T = self._norm(self.txt[self.TR1])
+        lm = re.search(r"\*\*26 of them reproducing .*?CX-381\)\.\]\*\*", L)
+        tm = re.search(r"\*\*26 of the 31\*\* reproducing .*?CX-381\)\.\]\*\*", T)
+        self.assertTrue(lm and tm, "precondition: the cured wording is on the tree")
+        L = L[:lm.start()] + "**27 of them reproducing its source's stated King Wen values**), measured in one run." + L[lm.end():]
+        T = (T[:tm.start()] + "**27 of the 31** reproducing its source's stated KW values; the other **four** — MM-T3, "
+             "MM-T6, C1 and the C2 histogram — are **KW-measured anchors**, because the registry states only qualitative "
+             "or percentile expectations for those), measured in one run." + T[tm.end():])
+        new_m = "its registry King Wen value exactly before measurement — a source-stated value for 26 of the 31, a KW-derived one for the other five (headline 3) —"
+        self.assertEqual(T.count(new_m), 1, "precondition: the cured method sentence is on the tree")
+        T = T.replace(new_m, "its source's stated King Wen values exactly before measurement")
+        self.assertEqual(len(self._registry_split_problems(L, T)), 5)
+
+# end class TestBatchFT2a (fast-track batch FT2a, CX-366..CX-381)
+
+
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))

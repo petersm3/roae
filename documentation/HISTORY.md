@@ -11540,3 +11540,31 @@ Q-686=DONE
   F07-006#2 and CAL-002#103).
 - `TestBatchFT1` pins each cure against its public source. TR-4 is v1.39. No canonical sha, count or
   reproduction parameter moved.
+
+## 2026-10-16 — fast-track batch FT2a: claim-changing fixes from Codex's final review
+
+- Codex (gpt-6-astra) ran the final review of the public suite, and Fable triaged its findings. This
+  batch lands the confirmed findings that change what a published sentence claims (CX-366 to
+  CX-381). No measured value, sha, certificate or verdict token changed; the sentences now quote
+  them correctly.
+- Published sentences that now say less, or say it correctly: the conflict theorem's corollary is
+  scoped to the strict, zero-exception forms of the rules on TR-1, LITERATURE_RULES_POPULATION_TESTS.md,
+  the README, viz/README.md and CLAIMS_DECIDED.md (F11-006#1); TR-2's executive summary opens its
+  Bayes-factor paragraph with the v1.27 withdrawal (F11-007#15/#16); TR-4 says King Wen is singled out
+  within the datasets only by the five-boundary set (F02-004#2); TR-9 restates its C5 verdict with its
+  2026-09-24 scope (CAL-010#100); CLAIMS_DECIDED.md's Gray-code cell names what the parity proof excludes
+  (F11-008#1); the capstone guide cites the published one-sided node mapping (F11-010#1).
+- Numbers and labels put right: TR-12's Van den Berghe row (6.9754×10⁻⁶ on the fiber it counts) and its
+  transition-rank null (F11-005#3/#4); TR-2's locus count, five of six, not four (Codex V3A-088 #4 and
+  F11-007#7); TR-11's account of what run.out holds (F11-003#9); the registry's interval and orbit-count
+  labels (CAL-012#76/#81); TR-1's probe description, its raw-not-canonical 1.13×10²⁹ and its zero-hit
+  cell (F11-006#3/#10/#17).
+- TR-12's withdrawn "flat to ~3 %" is gone from the five places it survived, the ladder checks are called
+  file-integrity identities, the §12.9 banner carries its exceptions, and the "four suite-level
+  inconsistencies" block is down to the one that was real (F11-004#4/#13, F11-005#9/#17).
+- METHODS and TR-8 scope the one 'clears the global bar under every reading' sentence to the frozen
+  91-observable count and state the floor the first-registration rule now gives (F02-006#1).
+- TR-11 and SEARCH_SPACE_SIZE.md quote the archived re-draw's measured deviation on the C2 anchor, 1.15
+  relative SE, in place of "well within ±0.01%", and TR-4's calibration paragraph quotes the same
+  re-draw (F11-003#1); TR-1 and LITERATURE_RULES_POPULATION_TESTS.md
+  give the registry split as 26 source-stated and five KW-derived (F11-008#3).
