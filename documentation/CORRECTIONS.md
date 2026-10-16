@@ -32082,3 +32082,279 @@ It also checks on the real pins that the transplant only adds rows.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 52, Q-1003. Advisory: Fable
 (claude-fable-5-1) fix-check of batch 50.
+
+## CX-362 — TR-4's executive summary still carried the retired 13–20 boundary band and the "single King Wen out" endpoint; it now states the pair-ordering class and the conditional k ≈ 14 marker, and the two other unmarked mentions of the band say that neither end survives (reports/TR4_SIZE_OF_THE_SPACE.md; documentation/SEARCH_SPACE_SIZE.md; tests.py)
+
+**2026-10-15.** **Source.** Codex (gpt-6-astra), final review, finding F11-002#1 (High), confirmed
+by Fable's fast-track triage. Fast-track batch FT1. Line numbers are those of the parent tree.
+
+**What was published.** TR4_SIZE_OF_THE_SPACE.md:23-25, in the executive summary, said the report
+extrapolates how much additional information "would single King Wen out (roughly 13–20 carefully
+chosen adjacency facts — an extrapolation, not a bound …)". Two earlier corrections retired both
+halves of that sentence, and neither reached this line:
+- The band. 13–20 is the union of the 13–14 figure that §5 now says was superseded "without a
+  replacement band" by the 2026-07-05 S(6)–S(8) measurement, and the ~15–20 band withdrawn on
+  2026-09-26 (TR-4 v1.35, Q-827, implemented as Q-842). Q-842's sweep keyed on "15–20" and this line
+  reads "13–20". It was last rewritten on 2026-09-06, before the withdrawal.
+- The endpoint. Since 2026-09-19 (TR-4 v1.30, Q-643) boundary pins reach King Wen's pair-ordering
+  class, not King Wen: 1,720,320 orientations of its pair sequence satisfy every pin, log₂(1,720,320)
+  = 20.71 bits that no pin can close.
+
+**What it says now.** The summary states what §Sections item 4 and §5 state. Adjacency facts can at
+most single out King Wen's pair-ordering class (1,720,320 orientations satisfy every such fact). No
+count of facts is projected: if no later fact gains more than the eighth measured one's 6.14 bits,
+the pair-ordering floor is reached no sooner than k ≈ 14, a scale marker and not a bound, with no far
+end set by the data. The k ≈ 14 is TR-4's own: Σ of the eight measured gains (10.38, 9.64, 11.10,
+9.40, 10.13, 8.64, 7.93, 6.14) = 73.36 bits; floor = log₂(1.3287×10³⁸) − log₂(1,720,320) = 126.64 −
+20.71 = 105.93 bits; 8 + ⌈(105.93 − 73.36) / 6.14⌉ = 8 + ⌈5.30⌉ = 14. `TestTr4BoundaryBandWithdrawn`
+already recomputes it.
+The marker rests on N(7) = 7.695×10¹⁷, which has no committed VALUE run (TR-4 §Update (2026-07-05):
+the marginal-gain curve bends — S(6)-S(8) measured; `reports/evidence/sk/` carries rounds 5, 6 and 8
+only). That section's evidence-gap note of 2026-09-03 said "nothing else in this report depends on
+it", which v1.35 (2026-09-26) overtook when it introduced the marker. The note is left as written, as
+a dated note is a record; a dated note after it (2026-10-16) now states that the k ≈ 14 marker and the
+k ≈ 17 and k ≈ 28 figures depend on N(7) through the k = 7 and k = 8 gains, and the executive summary
+and §Sections item 4 say at the marker that its 6.14-bit input has no committed artifact (Codex,
+gpt-6-astra, final review, F02-004#5, F07-006#2, CAL-002#103).
+
+**Siblings swept.** Every "13–20" and "15–20" in the public markdown outside CORRECTIONS.md and
+HISTORY.md was read. Besides this line, two mentions of the 13–20 band carried no withdrawal:
+TR-4 §Update (v1.7), line 357, and SEARCH_SPACE_SIZE.md:296, both "tightening the earlier 13–20
+extrapolation toward its lower end". Both are dated history and keep their wording; each now adds
+that neither end of the band survives. Left as they are: TR-4:296, the Q-658 narration inside a
+marker; TR-4's v1.7 and v1.8 revision rows; every "15–20" mention, which carries a withdrawal note
+already (`TestTr4BoundaryBandWithdrawn` holds them); and the "15–20%" figures in TR-3 and METHODS.md,
+which are a cost ratio and a coverage bin, not the band. The exact phrase "single King Wen out"
+occurs nowhere else.
+
+**Why no gate caught it.** The Q-842 test and gate leg G14 match "15–20" only. A new test,
+`TestBatchFT1`, requires a withdrawal note on any line of TR-4, SEARCH_SPACE_SIZE.md,
+SPECIFICATION.md, CLAIMS_DECIDED.md or the TR-4 figure page that mentions the 13–20 band, and checks
+that TR-4's executive summary names the pair-ordering class and the k ≈ 14 marker. Its uncured half
+puts the old sentence back and the same check fails.
+
+No measurement, gain, S(k) value, floor or oriented level changes. TR-4 v1.39.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, fast-track batch FT1; the site was
+found by Codex (gpt-6-astra), final review, F11-002#1.
+
+## CX-363 — TR-4 and SEARCH_SPACE_SIZE.md called the raw 1.3287×10³⁸ the number the canonical record counts converge toward; the records are orientation-deduplicated, so their limit is the distinct total, which has no point estimate (reports/TR4_SIZE_OF_THE_SPACE.md; documentation/SEARCH_SPACE_SIZE.md; tests.py)
+
+**2026-10-15.** **Source.** Codex (gpt-6-astra), final review, finding F11-002#2 (High), confirmed by
+Fable's fast-track triage as a sibling of the raw-versus-distinct line cured on PROJECT_OVERVIEW.md
+by the cleanup batch's 3-point-trajectory entry. Fast-track batch FT1.
+
+**What was published.** TR4_SIZE_OF_THE_SPACE.md:52-55, §Sections item 1, said the canonical record
+counts are lower bounds and then: "This report measures the total *un-budgeted* tree — the number
+those counts converge toward". SEARCH_SPACE_SIZE.md:11 said the same: "the number the budgeted counts
+are converging toward". The tree the probe estimator samples is orientation-explicit, and its leaf
+estimate is the raw 1.3287×10³⁸ (TR-4's own abstract marker, 2026-09-03). The records are canonical,
+one per pair ordering (SOLUTIONS_FORMAT.md §Deduplication), so a canonical count can never exceed
+31! = 8,222,838,654,177,922,817,725,562,880,000,000 ≈ 8.2228×10³³. 1.3287×10³⁸ / 8.2228×10³³ ≈
+16,159, so the raw figure is about 14 bits above anything the counts could converge to.
+
+**What it says now.** Both sentences say the estimate is the raw (orientation-explicit) count the
+estimator samples, that it is not the limit of the record counts, and that the limit is the distinct
+canonical total, which has no point estimate and lies between 560T's 1.0525×10¹⁰ (10,525,271,997
+records) and 31! ≈ 8.2228×10³³, the bounds of the 2026-08-24 entry. TR-4's "closing the total count
+not yet known caveat" sentence is kept and now applies to the raw estimate.
+
+**Siblings swept.** Every public markdown line outside CORRECTIONS.md and HISTORY.md that pairs
+"converge", "asymptote" or "tend toward" with the total, and every line that puts the raw estimate
+(written to four or two decimals) beside the words for the deduplicated object or for record counts,
+was read. The two sentences above were
+the only ones that make the raw estimate the limit of the record counts. The lines that state the
+withdrawn ≈3×10³⁷ distinct-canonical figure (SEARCH_SPACE_SIZE.md:3 and :113, CRITIQUE.md:103,
+LEADERBOARD.md:192, SOLVE.md:625, TR-4:33), and the coverage figure built on it (TR-4:37), are the
+inline-marker class, each marked WITHDRAWN, and are left to that class's cleanup. SOLVE.md:327 and :623 say two partitions converge to
+the same count under exhaustion, which is true and names no figure. TR-4:30, "the number every
+budgeted enumeration has only ever bounded from below", is true of the raw count too, since a record
+count is at most the distinct total and that is at most the raw total.
+
+**Tests.** `TestBatchFT1` checks that neither file calls the estimate what the counts converge toward,
+that both state 31! and the 560T count as the bounds, and that 31! and 1.3287×10³⁸ / 31! are as
+stated. Its uncured half puts each old sentence back and the check fails.
+
+No published number, count, sha or verdict moves. TR-4 v1.39.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, fast-track batch FT1; the site was
+found by Codex (gpt-6-astra), final review, F11-002#2.
+
+## CX-364 — TR-4's calibration table scored the third anchor against the rounded 5.18×10³² and called 87% of its error budget consumed; against the archived 5.184964×10³² est/exact is 1.003127, 1.25 relative standard errors, inside the 95% interval; the second row is rescored the same way (reports/TR4_SIZE_OF_THE_SPACE.md; tests.py)
+
+**2026-10-15.** **Source.** Codex (gpt-6-astra), final review, finding F07-002#2, and independently
+F11-002#3 (same arithmetic, a second lens), confirmed by Fable's fast-track triage. Fast-track batch
+FT1. Line numbers are those of the parent tree.
+
+**What was published.** TR4_SIZE_OF_THE_SPACE.md §"Estimator calibration", the third row (line 212):
+prior estimate "5.18×10³² ±0.25%", est/exact 1.002166, deviation +2.166×10⁻³; line 216-217: the exact
+value sits inside the envelope "with … about 87% of it consumed at the ±0.25% pinned layer"; line
+228: the estimate scored is "5.18×10³² ±0.25%"; lines 238-240: the deviation "+2.17×10⁻³ … is about
+2.2×" the three-figure rounding granularity; line 253: the machinery was accurate "to 2.2×10⁻³ at a
+third". All of it is computed from the rounded numeral. The 2026-09-19 correction Q-659 (from Codex
+V3A-150) fixed the same figure on METHODS.md:75 and did not reach TR-4. The 87% sentence entered with
+prose batch P34 on 2026-09-02.
+
+**The arithmetic, from the public sources.**
+- Exact: 516,880,238,445,773,965,371,923,491,676,160 (METHODS.md §"Canonical quantities", the
+  two-instrument count; the same integer is in TR-4's row).
+- Estimate: `reports/evidence/c67_probe.out` line 13, the 5×10¹⁰-probe pinned run:
+  `leaves_C1C2C4C5 : est=5.184964e+32 95%CI=[5.1596e+32, 5.2103e+32] relerr=0.25%`.
+- est/exact = 5.184964×10³² / 5.168802384×10³² = **1.0031268**, printed 1.003127; deviation
+  **+3.127×10⁻³**.
+- The exact value is 1 − exact/est = **0.31170%** below the estimate, the figure METHODS.md:75
+  carries.
+- In standard errors: relerr is SE/mean (METHODS.md §"Statistics conventions"), so 0.31170% / 0.25% =
+  **1.247**. The printed 0.25% is rounded to two decimals; the archived interval gives the SE without
+  that rounding: half-width (5.2103 − 5.1596) / 2 = 0.02535×10³², which is 0.4889% of the estimate,
+  and 0.4889% / 1.96 = 0.24944%, so 0.31170% / 0.24944% = **1.250**. Both readings round to 1.25.
+- Inside the 95% interval: 5.1596×10³² ≤ 5.16880×10³² ≤ 5.2103×10³². Outside a ±1 SE band, since
+  1.25 > 1.
+- The retired figures: 5.18×10³² / exact = 1.002166, and 0.2166% / 0.25% = 86.7%, the "87%".
+- Granularity, half a unit in the last place as TR-4 computes it for the other two rows: 5.184964 has
+  seven significant figures, 0.0000005 / 5.184964 = 9.6×10⁻⁸; the three-figure 5.18 gives 0.005 / 5.18
+  = 9.65×10⁻⁴, and 3.127×10⁻³ / 9.65×10⁻⁴ = 3.24.
+
+**What it says now.** The row reads the archived estimate, its SE and interval, 1.003127,
++3.127×10⁻³, and "yes — inside the 95% CI, 1.25 relative SE from the estimate". The coverage paragraph
+keeps "3 of 3" and says that at the pinned layer the envelope is the archived 95% interval, that the
+exact value is 0.3117% below the estimate (1.25 SE), inside the interval and outside a ±1 SE band, and
+that the ±0.25% is a standard error. "About 87% of it consumed" is gone. Line 228 names the unrounded
+estimate. The granularity sentence scores the anchor against the archived seven-figure value and
+notes it would survive even the three-figure one, about 3.2×. The summary sentence reads 3.1×10⁻³
+(1.25 relative SE). The calibration claim stands: the exact value is inside the estimator's 95%
+interval at all three layers.
+
+**Fable's text, and where this differs.** Fable's proposed row and coverage text were used in
+substance, with three changes. (i) Fable's draft put the exact value "1.25 relative standard errors
+above the pinned-layer estimate"; est/exact > 1, so the exact value is **below** the estimate, and the
+text says "from" in the table and "below" in the prose. (ii) "Half the stated ±0.01% band to spare at
+the two exact layers" would call only two layers exact; all three are, so the existing "two ±0.01%
+layers" is kept. (iii) Fable's "+3.13×10⁻³ … about 3.2× that" kept the three-figure granularity as the
+comparison; the anchor is now scored against the seven-figure value, so that comparison is kept only
+as a parenthesis.
+
+**Siblings swept.** Every public markdown occurrence of 5.18×10³², 1.002166, 2.166, 2.17×10⁻³,
+2.2×10⁻³ and "87%" outside CORRECTIONS.md and HISTORY.md was read. TR-4:89 (§Sections item 4) and
+SEARCH_SPACE_SIZE.md:138 quote 5.18×10³² with its 0.25% and interval as a rounded estimate and derive
+nothing from it; they stay. TR-4's v1.25 revision row records what that batch did and stays. The
+other "2.2×" hits are unrelated (TR-7, TR-11, CRITIQUE.md, a run README).
+
+**The second row, same defect, cured in the same pass.** The table's second row scored the rounded
+1.0971×10³⁹ (line 211 of the parent tree: est/exact 1.0000444, +4.44×10⁻⁵), and the unrounded estimate
+of that run is archived too: `reports/evidence/knuth_whole_tree_5e10.out` line 4,
+`leaves_C1C2C4C5 : est=1.097088e+39 95%CI=[1.0970e+39, 1.0972e+39] relerr=0.01%`. TR-4 v1.27 already
+records that file as the 2026-07-26 same-seed re-run of the 2026-07-01 draw, byte-identical in every
+reported figure (the estimator is deterministic at fixed probes, threads and seed), and cites the same
+file for the flagship 1.328729×10³⁸; so it is the unrounded output behind the published 1.0971×10³⁹.
+- Exact: 1,097,051,278,789,181,790,036,112,071,176,579,186,688 (METHODS.md §"Canonical quantities";
+  the same integer is in TR-4's row).
+- est/exact = 1.097088×10³⁹ / 1.0970512788×10³⁹ = **1.0000334726**, printed 1.0000335; deviation
+  **+3.35×10⁻⁵** (the rounded 1.0971×10³⁹ gave 1.0000444, +4.44×10⁻⁵).
+- Inside the 95% interval: 1.0970×10³⁹ ≤ 1.097051×10³⁹ ≤ 1.0972×10³⁹. This holds under any rounding of
+  the printed five-figure endpoints, since the lower endpoint is below 1.09705×10³⁹, which is below the
+  exact value.
+- In standard errors the archived figures are coarse. The printed relerr 0.01% has two decimals, so
+  the true SE lies in [0.005%, 0.015%); that reading gives 0.00335% / 0.01% = 0.33, within (0.22, 0.67].
+  The printed interval's half-width 1.0×10³⁵ (true value in [0.5, 1.5]×10³⁵) gives SE 4.65×10⁻⁵ and
+  0.72, within [0.48, 1.44]. Both constraints together put the SE in [5.0×10⁻⁵, 7.0×10⁻⁵], so the
+  deviation is between about 0.5 and 0.7 relative SE. The two readings do not agree to two decimals,
+  unlike the third row's, so the row says "under one relative SE" and nothing finer.
+- Granularity, half a unit in the last place as TR-4 computes it: 0.0000005 / 1.097088 = 4.6×10⁻⁷;
+  the deviation is about 73× that, so it is a real signed deviation and not quoting precision.
+TR-4's row now reads the archived estimate, its SE and interval, 1.0000335, +3.35×10⁻⁵, and "yes —
+inside the 95% CI, under one relative SE from the estimate". The coverage paragraph's "roughly half
+the claimed error budget to spare" is replaced by the two ±0.01% layers' deviations against the
+printed 0.01% SE. The bias paragraph scores the second and third anchors as real signed deviations,
+two points and not a bias estimate, and its closing sentence "Recovering the unrounded estimator
+outputs from the original run records would be required before any bias statement could be made",
+which the tree itself refuted for this row, now says only the first layer's unrounded output is
+missing. The summary sentence "accurate to <10⁻⁴ at two independent layers" stays true (5.47×10⁻⁵,
+3.35×10⁻⁵).
+
+The first row is unchanged: 7.571×10⁴¹ has four significant figures, a granularity of 0.0005 / 7.571 =
+6.6×10⁻⁵ against its +5.47×10⁻⁵ deviation, so its sign is still not distinguishable from quoting
+precision, and the prior draw's output is not archived (TR-11 records that its probe and thread counts
+were not recorded). For the record only: `reports/evidence/knuth_relax_c5_1e7.out` line 9 is a
+2026-09-25 reproduction at 10⁷ probes, 7.571405×10⁴¹, est/exact 1.000108, inside its own interval
+[7.5700, 7.5728]×10⁴¹ and about 1.1 relative SE from it. It is a different draw and is not scored in
+TR-4.
+
+**Not changed here.** The ratio 0.999956 built on the rounded 1.0971×10³⁹, and its 4.4×10⁻⁵ gap,
+appears at seven sites: DESCRIPTION_LENGTH, SEARCH_SPACE_SIZE.md, TR-11 (two places), TR-12, a TR-9
+revision row and a run README. Each states a true thing about the rounded figure and scores nothing,
+so they stay. TR-11 v1.4's "the full-precision estimator output was never recorded" is a dated
+revision row; its supplement (the 2026-07-26 re-run) belongs with the rest of that family in a later
+class entry, not in this fast-track batch.
+
+**Tests.** `TestBatchFT1` reads line 13 of the archived run and the exact integer from METHODS.md,
+recomputes est/exact, the deviation, the SE multiple both ways and the interval check, and requires
+TR-4's row and prose to carry exactly those values and none of the retired ones. Its uncured half puts
+the old row back and the check fails. It does the same for the second row from line 4 of
+`knuth_whole_tree_5e10.out` and METHODS.md's |C1∩C2∩C4∩C5| integer, requires the deviation to sit
+under 1.96 SE under both the relerr and the interval reading, and requires the bias paragraph to have
+dropped the sentence the archive refutes; planting the old second row and that sentence back makes it
+fail on both.
+
+No measurement was re-run. TR-4 v1.39.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, fast-track batch FT1; the site was
+found by Codex (gpt-6-astra), final review, F07-002#2 and F11-002#3.
+
+## CX-365 — DEVELOPMENT.md and CAMPAIGN_METHODOLOGY.md cited commits that are not in this repository's history; each now says where the change was made, and CLAIM_TO_ARTIFACT.md's row 8 names the witness file by its full path (documentation/DEVELOPMENT.md; documentation/CAMPAIGN_METHODOLOGY.md; documentation/CLAIM_TO_ARTIFACT.md; tests.py)
+
+**2026-10-15.** **Source.** Codex (gpt-6-astra), final review, finding AIF-002#1 (Medium), with
+AIF-002#2 (Low) as a rider, both confirmed by Fable's fast-track triage. Fast-track batch FT1. Line
+numbers are those of the parent tree.
+
+**What was published.**
+- DEVELOPMENT.md:1499 said `SOLVE_SKIP_IOPS_CHECK=1` "was baked into the real 560T `launch_enum` env
+  (commits `86276eb`, `6d6539f`)". Neither id is an object in this repository: `git cat-file -e
+  <id>^{commit}` fails for both, on `main` and on every public tag. They are commits in the project's
+  private staging repository, made on 2026-05-31: the 560T launch script's relaunch setting and the
+  11.2T dress-rehearsal script's re-run setting. The line reached DEVELOPMENT.md on 2026-08-30 from
+  the HISTORY.md narrative of 2026-05-31, which is append-only and keeps the ids (HISTORY.md:4798).
+- The sweep for the class found one more on a reader page: CAMPAIGN_METHODOLOGY.md:1526 said the
+  supervisor's recipe text "has not been diffed against actual supervisor output since commit
+  `800a8df`". That is also a private-repository commit of 2026-05-31 (the 560T pipeline's pre-launch
+  hardening), not an object here.
+- CLAIM_TO_ARTIFACT.md:39 (row 8) cited `q7_witnesses/grand-strict.txt` with no directory. The file is
+  `reports/evidence/q7_witnesses/grand-strict.txt`.
+
+**What it says now.** DEVELOPMENT.md says the setting is in the launch scripts, which are operational
+files in `roae-private` and not in this repository, and points at the access-boundary note at the top
+of the same file, which already says such citations are provenance pointers a reader cannot fetch.
+CAMPAIGN_METHODOLOGY.md dates the last diff to the pipeline's pre-launch hardening of 2026-05-31, a
+change made in the private staging repository. Neither line now carries an id a reader cannot
+resolve; the ids stay recorded here and in HISTORY.md. Row 8 gives the full path. Fable proposed
+keeping the two ids with a label; this entry drops them from the reader page instead, as the batch's
+brief asked for neutral wording, and keeps them in the ledger for provenance.
+
+**Siblings swept.** Every backticked 7–40-character hex string, and every "commit <hex>", in the
+public markdown outside CORRECTIONS.md, HISTORY.md and HISTORY_INDEX.md was resolved against this
+repository's objects and against `main` and every public tag (34 tags). Those in a commit or
+tree context that do not resolve publicly:
+- Fixed here: the three above.
+- Already labelled as private: PREREGISTRATION_ESCROW.md:403, :441, :464, :466;
+  PREREG_CLASSA_QUERY_SET.md:531; the c8screen and qoy1_q992 evidence READMEs; VERIFY.md:654
+  (`c996a42b`, stated to be on no public ref).
+- Frozen evidence files that must stay byte-identical to their recorded digests:
+  `reports/evidence/c8screen/PREREGISTRATION_AMENDMENT_1.md` (lines 3 and 6) and
+  `reports/evidence/qoy1_q992/PREREGISTRATION_S9_ANNOTATIONS.md` (line 14). Not edited.
+- Commits of other projects, named as such: drat-trim, cake_lpr and Lean, each
+  pinned by its upstream commit in METHODS.md, CLAIM_TO_ARTIFACT.md and lean/README.md.
+- PERFORMANCE_HISTORY.md, an append-only log: `cd4e61c`, `b26cd9b`, `0783d52` (stated on
+  2026-08-30 not to resolve; annotation was left open) and `906f33b`. These belong to the class of
+  ledger-cited private identifiers that Codex's review lists for HISTORY.md and CORRECTIONS.md, which
+  is to be cured as one class and is not touched here.
+- The rest are sha256 prefixes or sizes, not commits.
+
+**Tests.** `TestBatchFT1` checks that the three ids are absent from the two reader pages and still
+present in HISTORY.md, that none of them is an object in this repository, and that every path in
+backticks in CLAIM_TO_ARTIFACT.md row 8's artifact column that names a `.txt` file exists. Its uncured
+half puts each old wording back and the check fails.
+
+No published number, count, sha or verdict moves.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, fast-track batch FT1; the sites were
+found by Codex (gpt-6-astra), final review, AIF-002#1 and AIF-002#2.

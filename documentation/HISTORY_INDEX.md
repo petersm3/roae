@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 5 place(s) over all 201 dated sections, 4 of them among the 125 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 5 place(s) over all 202 dated sections, 4 of them among the 126 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -221,6 +221,7 @@
 | 199 | 2026-10-11 | iso | 11462 | [open](HISTORY.md#2026-10-11--cleanup-batch-m1-the-front-door-pages-keep-the-final-fact-and-their-correction-narrative-moves-to-the-ledger) 2026-10-11 — cleanup batch M1: the front-door pages keep the final fact, and their correction narrative moves to the ledger |
 | 200 | 2026-10-15 | iso | 11475 | [open](HISTORY.md#2026-10-15--s5-a-same-layer-streaming-join-reads-the-fg-cut-identity-per-mask-and-per-state---kc-midjoin-built-and-gated-at-n--9-and-n--13) 2026-10-15 — S5: a same-layer streaming join reads the f·g cut identity per mask and per state (`--kc-midjoin`), built and gated at n = 9 and n = 13 |
 | 201 | 2026-10-15 | iso | 11504 | [open](HISTORY.md#2026-10-15--batch-52-the-100-t-fft-figures-are-scoped-rather-than-recomputed-the-residual-rank-refuses-an-unchecked-atlas-the-population-note-states-the-measured-gap-and-the-push-checks-every-commits-inventory) 2026-10-15 — batch 52: the 100 T FFT figures are scoped rather than recomputed, the residual rank refuses an unchecked atlas, the population note states the measured gap, and the push checks every commit's inventory |
+| 202 | 2026-10-15 | iso | 11522 | [open](HISTORY.md#2026-10-15--fast-track-batch-ft1-five-findings-from-codexs-final-review-are-cured-in-tr-4-and-three-reader-pages) 2026-10-15 — fast-track batch FT1: five findings from Codex's final review are cured in TR-4 and three reader pages |
 
 ## Sections with no date in the heading, in file order
 

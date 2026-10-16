@@ -8,7 +8,7 @@ This closes the long-standing "the total count of C1–C5 orderings is not yet k
 
 The enumerations (`solve.c`) are **budgeted**: each of the 158,364 depth-3 cells receives a fixed node budget, and the reported record count is the number of distinct canonical orderings *found within that budget*. Because no cell is ever exhausted (see [`CRITIQUE.md`](CRITIQUE.md) §"per-branch yield labels" — a single sub-branch budgeted to "yield 16" held ≥664 million orderings on a deeper walk), the canonical counts are **lower bounds**, not the size of the solution space. The three-point scaling trajectory (11.2T → 100T → 560T, α ≈ 0.67, see [`SOLVE_SUMMARY.md`](SOLVE_SUMMARY.md)) shows the counts still growing sublinearly with budget, with no visible asymptote.
 
-This document measures the **total un-budgeted size** of the C1–C5 backtracking tree directly, without enumerating it — the number the budgeted counts are converging toward.
+This document measures the **total un-budgeted size** of the C1–C5 backtracking tree directly, without enumerating it, as the **raw (orientation-explicit)** count the probe estimator samples. That is not the number the budgeted counts converge toward: the records are canonical (one representative per pair ordering; [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) §Deduplication), so their limit is the distinct canonical total, which has no point estimate and lies between 560T's 1.0525×10¹⁰ and 31! ≈ 8.2228×10³³ (the 2026-08-24 entry in [CORRECTIONS.md](CORRECTIONS.md)).
 
 ## Method — Knuth's random-probe estimator
 
@@ -293,7 +293,8 @@ attributed to was not
   denied any synergy across the five steps while this same bullet divided by 11.10 precisely because
   step 3 exceeds step 1. See CORRECTIONS.md, RP-fa6c3b89, and TR-4 v1.15.)*
 - **Rate projection: ≈ 13.** At the observed average marginal rate, the chain reaches 126.6 bits at
-  k ≈ 13, tightening the earlier 13–20 extrapolation toward its lower end.
+  k ≈ 13, tightening the earlier 13–20 extrapolation toward its lower end. Neither end of that band survives: the
+  13–14 figure was superseded by the 2026-07-05 measurement and the ~15–20 band withdrawn (TR-4 v1.35).
 
 Both figures sharpened once S(6..8) had landed: **2026-07-05, revising the projection upward** (see the S(k) section above and TR-4 v1.8; the ~15–20 band it gave was withdrawn 2026-09-26, Q-827, TR-4 v1.35); the ≈13 figure below predates that measurement. *(Tense corrected 2026-09-02, prose batch P34 — the line had read as a pending condition beside its own answer; RP-11166bb6.)* Derivation: this section's arithmetic
 is fully reproducible from the S(k) masses above and the space size; no new measurement was used.

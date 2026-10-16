@@ -1523,7 +1523,8 @@ obligation the document itself has not met:
   CANONICAL-verified 2026-06-30); where this document and that registry ever disagree, **the
   registry wins**.
 - **`EXTENSION_RECIPE.txt`.** §3 describes the recipe the archive supervisor emits. The described
-  text has not been diffed against actual supervisor output since commit `800a8df`.
+  text has not been diffed against actual supervisor output since the 560T pipeline's pre-launch hardening of
+  2026-05-31, a change made in the project's private staging repository and not in this repository's history.
 - **Cold-read check.** Whether §§3, 4 and 8 suffice for a third party to extend or reproduce
   *without* author assistance has not been tested on an actual outside reader. §9 states the
   document's own scope limits.

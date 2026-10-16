@@ -46053,6 +46053,343 @@ class TestBatch52(unittest.TestCase):
 # end class TestBatch52 (batch 52: Q-813, Q-1000, Q-676/K13, Q-999, Q-1003)
 
 
+
+class TestBatchFT1(unittest.TestCase):
+    """Fast-track batch FT1 (CX-362..CX-365): four findings from Codex's final review (gpt-6-astra).
+
+    Each check is a function of the text, so the uncured half can run it on the old wording and see
+    it fail. Every number pinned here is recomputed from its public source: the archived estimator
+    run, the exact integer in METHODS.md, 31!, and TR-4's own S(k) gains."""
+
+    TR4 = os.path.join("reports", "TR4_SIZE_OF_THE_SPACE.md")
+    SSS = os.path.join("documentation", "SEARCH_SPACE_SIZE.md")
+    BAND_DOCS = (TR4, SSS, os.path.join("documentation", "SPECIFICATION.md"),
+                 os.path.join("documentation", "CLAIMS_DECIDED.md"),
+                 os.path.join("viz", "viz_tr4_boundary_information.md"))
+    PROBE = os.path.join("reports", "evidence", "c67_probe.out")
+    WHOLE = os.path.join("reports", "evidence", "knuth_whole_tree_5e10.out")
+    METHODS = os.path.join("reports", "METHODS.md")
+    DEV = os.path.join("documentation", "DEVELOPMENT.md")
+    CAMP = os.path.join("documentation", "CAMPAIGN_METHODOLOGY.md")
+    HIST = os.path.join("documentation", "HISTORY.md")
+    C2A = os.path.join("documentation", "CLAIM_TO_ARTIFACT.md")
+    PRIVATE_IDS = ("86276eb", "6d6539f", "800a8df")
+    OLD_EXEC = ("how much *additional* information **would** single\nKing Wen out (roughly 13–20 carefully "
+                "chosen adjacency facts — **an extrapolation, not a bound**: five\nsamples along one greedy "
+                "path bound no supremum, §v1.7)")
+    OLD_ROW = "| 5.18×10³² ±0.25% (§4) | 1.002166 | **+2.166×10⁻³** | yes |"
+    OLD_ROW2_CELLS = "| 1.0971×10³⁹ ±0.01% | 1.0000444 | **+4.44×10⁻⁵** | yes |"
+    OLD_BIAS = ("Recovering the unrounded estimator outputs from the original run records would be "
+                "required before any bias statement could be made.")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.root = os.path.dirname(os.path.abspath(__file__))
+        cls.txt = {}
+        for rel in set(cls.BAND_DOCS) | {cls.PROBE, cls.WHOLE, cls.METHODS, cls.DEV, cls.CAMP, cls.HIST, cls.C2A}:
+            with open(os.path.join(cls.root, rel), encoding="utf-8") as fh:
+                cls.txt[rel] = fh.read()
+
+    @staticmethod
+    def _norm(t):
+        return re.sub(r"\s+", " ", t)
+
+    @staticmethod
+    def _section(text, head):
+        body = text.split(head, 1)[1]
+        return body.split("\n## ", 1)[0]
+
+    # --- CX-362 (F11-002#1): the retired 13-20 band -------------------------------------------
+    @staticmethod
+    def _band_violations(texts):
+        bad = []
+        for rel, text in texts.items():
+            for n, line in enumerate(text.splitlines(), 1):
+                if not re.search(r"\b13 ?(–|-) ?20\b(?!\s*%)", line):
+                    continue
+                if (line.startswith("| v1.") or re.search(r"withdrawn|WITHDRAWN|survives|are removed", line)
+                        or "while the figure draws it at k = 15–20" in line):
+                    continue
+                bad.append("%s:%d" % (rel, n))
+        return bad
+
+    def _exec_problems(self, tr4):
+        ex = self._norm(self._section(tr4, "## Executive summary"))
+        probs = [w for w in ("pair-ordering class", "k ≈ 14", "1,720,320", "6.14 bits") if w not in ex]
+        probs += [w for w in ("single King Wen out", "13–20") if w in ex]
+        return probs
+
+    def test_band_13_20_marked_on_tree(self):
+        texts = {r: self.txt[r] for r in self.BAND_DOCS}
+        hits = sum(len(re.findall(r"\b13 ?(–|-) ?20\b", t)) for t in texts.values())
+        self.assertGreaterEqual(hits, 3, "precondition: the search finds the surviving mentions")
+        self.assertEqual(self._band_violations(texts), [])
+
+    def test_band_13_20_red_on_old_exec_summary(self):
+        tr4 = self.txt[self.TR4]
+        self.assertNotIn(self.OLD_EXEC, tr4)
+        old = tr4.replace("## Abstract", "would single King Wen out (roughly 13–20 carefully chosen adjacency facts — "
+                          "an extrapolation, not a bound)\n\n## Abstract", 1)
+        self.assertEqual(self._band_violations({self.TR4: old}), ["%s:%d" % (self.TR4, old.splitlines().index(
+            "would single King Wen out (roughly 13–20 carefully chosen adjacency facts — an extrapolation, not a bound)") + 1)])
+        self.assertNotEqual(self._exec_problems(old), [])
+
+    def test_exec_summary_states_class_and_marker(self):
+        self.assertEqual(self._exec_problems(self.txt[self.TR4]), [])
+
+    def test_k14_marker_recomputes(self):
+        import math
+        gains = (10.38, 9.64, 11.10, 9.40, 10.13, 8.64, 7.93, 6.14)
+        upd = self.txt[self.TR4]
+        for g in gains:
+            self.assertIn("%.2f" % g, upd)
+        floor = math.log2(1.3287e38) - math.log2(1720320)
+        self.assertEqual(8 + math.ceil((floor - sum(gains)) / gains[-1]), 14)
+
+    # --- CX-362, second site (Codex final review F02-004#5, F07-006#2, CAL-002#103): the marker's
+    # N(7) input has no committed VALUE run. The 2026-09-03 evidence-gap note is a dated record and
+    # keeps its clause; a dated note after it must state the dependency, and the two front-matter
+    # sentences that state the k ≈ 14 marker must say at the marker that the input is unarchived.
+    N7_OLD = "and nothing else in this report depends on it."
+    N7_NOTE = "DEPENDENCY CORRECTED 2026-10-16"
+    N7_RIDER = "a gain computed from N(7), for which no committed artifact exists"
+
+    @classmethod
+    def _n7_note_problems(cls, tr4):
+        upd = cls._norm(tr4.split("### Update (2026-07-05)", 1)[1].split("\n## ", 1)[0])
+        i = upd.find("So N(7) = 7.695x10^17 is reported here without a public artifact behind it")
+        if i < 0:
+            return ["no N(7) evidence-gap note"]
+        j = upd.find("Charged by Codex T04", i)
+        note, after = upd[i:j], upd[j:j + 1500]
+        probs = []
+        if cls.N7_OLD not in note:
+            probs.append("the 2026-09-03 note no longer reads as written")
+        k = after.find(cls.N7_NOTE)
+        if k < 0 or "k ≈ 14 marker" not in after[k:]:
+            probs.append("no dated note names the k ≈ 14 marker as dependent on N(7)")
+        for head in ("## Executive summary", "## Sections"):
+            s = cls._norm(cls._section(tr4, head))
+            m = s.find("k ≈ 14")
+            if m < 0 or cls.N7_RIDER not in s[max(0, m - 400):m]:
+                probs.append("%s states the marker without the unarchived-input rider" % head)
+        return probs
+
+    def test_n7_note_names_marker_cured(self):
+        tr4 = self.txt[self.TR4]
+        self.assertIn("k ≈ 14", self._norm(self._section(tr4, "## Executive summary")),
+                      "precondition: the executive summary carries the marker")
+        self.assertEqual(tr4.count(self.N7_OLD), 1, "precondition: the 2026-09-03 clause is left as written")
+        self.assertEqual(self._n7_note_problems(tr4), [])
+        with open(os.path.join(self.root, "documentation", "CORRECTIONS.md"), encoding="utf-8") as fh:
+            cx = fh.read().split("\n## CX-362 ", 1)[1].split("\n## CX-", 1)[0]
+        cx = self._norm(cx)
+        for w in ("N(7) = 7.695×10¹⁷", "no committed VALUE run", "left as written",
+                  "F02-004#5", "F07-006#2", "CAL-002#103"):
+            self.assertIn(w, cx)
+
+    def test_n7_note_red_on_old_wording(self):
+        tr4 = self.txt[self.TR4]
+        self.assertEqual(tr4.count(self.N7_NOTE), 1, "precondition: the dated note is present once")
+        self.assertEqual(tr4.count(self.N7_RIDER), 2, "precondition: the rider is at both front-matter sites")
+        # (a) the dated note removed: the 2026-09-03 clause stands alone again
+        i = tr4.find("⚠ **[" + self.N7_NOTE)
+        j = tr4.find("]**", i) + 3
+        old = tr4[:i].rstrip(" ") + tr4[j:]
+        self.assertIn("no dated note names the k ≈ 14 marker as dependent on N(7)", self._n7_note_problems(old))
+        # (b) the riders removed: both front-matter sentences state the marker bare
+        bare = tr4.replace(" (" + self.N7_RIDER + "; §Update)", "").replace(" (" + self.N7_RIDER + ")", "")
+        self.assertEqual([p for p in self._n7_note_problems(bare) if "rider" in p],
+                         ["## Executive summary states the marker without the unarchived-input rider",
+                          "## Sections states the marker without the unarchived-input rider"])
+        # (c) the clause edited inside the dated note (the FT1R draft shape): the record no longer reads as written
+        edited = tr4.replace(self.N7_OLD, "and the k ≈ 14 marker depends on it.")
+        self.assertIn("the 2026-09-03 note no longer reads as written", self._n7_note_problems(edited))
+
+    # --- CX-363 (F11-002#2): the raw estimate is not the limit of the record counts ----------------
+    @classmethod
+    def _converge_problems(cls, text):
+        t = cls._norm(text)
+        probs = []
+        if re.search(r"— the number (?:those|the budgeted) counts (?:converge|are converging)", t):
+            probs.append("raw estimate named as the counts' limit")
+        if not re.search(r"That is not the number (?:those record|the budgeted) counts converge toward", t):
+            probs.append("no statement that the raw estimate is not the limit")
+        for w in ("8.2228×10³³", "1.0525×10¹⁰", "orientation-explicit"):
+            if w not in t:
+                probs.append("missing " + w)
+        return probs
+
+    def test_converge_cured(self):
+        for rel in (self.TR4, self.SSS):
+            self.assertEqual(self._converge_problems(self.txt[rel]), [], rel)
+
+    def test_converge_red_on_old_wording(self):
+        old_tr4 = ("This report measures the total *un-budgeted* tree — the number those counts converge\n"
+                   "   toward — closing the caveat.")
+        old_sss = "the C1–C5 backtracking tree directly, without enumerating it — the number the budgeted counts are converging toward."
+        for rel, old in ((self.TR4, old_tr4), (self.SSS, old_sss)):
+            cur = self.txt[rel]
+            planted = re.sub(r"That is not the number (?:those record|the budgeted) counts converge toward", "x", cur)
+            self.assertNotEqual(planted, cur)
+            self.assertIn("raw estimate named as the counts' limit", self._converge_problems(planted + "\n" + old))
+
+    def test_distinct_bounds_arithmetic(self):
+        import math
+        self.assertEqual(math.factorial(31), 8222838654177922817725562880000000)
+        self.assertEqual("%.4e" % math.factorial(31), "8.2228e+33")
+        self.assertEqual(round(1.3287e38 / math.factorial(31)), 16159)
+        self.assertEqual("%.4e" % 10525271997, "1.0525e+10")
+
+    # --- CX-364 (F07-002#2, F11-002#3): the third calibration anchor ------------------------------
+    def _anchor(self):
+        from fractions import Fraction
+        line = self.txt[self.PROBE].splitlines()[12]
+        m = re.search(r"leaves_C1C2C4C5\s*: est=([0-9.e+]+)\s+95%CI=\[([0-9.e+]+), ([0-9.e+]+)\]\s+relerr=([0-9.]+)%", line)
+        self.assertIsNotNone(m, "precondition: c67_probe.out line 13 is the pinned C3-free leaf estimate")
+        est, lo, hi, rel = (Fraction(x) for x in m.groups())
+        mm = re.search(r"\| \\\|C1–C7\\\|, C3 dropped \| ([0-9,]+) ", self.txt[self.METHODS])
+        self.assertIsNotNone(mm, "precondition: METHODS.md carries the exact C3-free integer")
+        exact = int(mm.group(1).replace(",", ""))
+        self.assertEqual(exact, 516880238445773965371923491676160)
+        return est, lo, hi, rel / 100, Fraction(exact)
+
+    def _calib_problems(self, tr4):
+        from fractions import Fraction
+        est, lo, hi, rel, exact = self._anchor()
+        ratio = est / exact
+        below = 1 - exact / est
+        se_ci = (hi - lo) / 2 / est / Fraction("1.96")
+        sec = self._norm(self._section(tr4, "## Estimator calibration against exact ground truth"))
+        want = ["%.6f" % float(ratio),                                  # 1.003127
+                "+%.3f×10⁻³" % (float(ratio - 1) * 1e3),                # +3.127×10⁻³
+                "%.4f%%" % (float(below) * 100),                       # 0.3117%
+                "%.2f relative" % float(below / rel),                  # 1.25
+                "5.184964×10³²", "[5.1596, 5.2103]×10³²",
+                "%.3f%%" % (float((hi - lo) / 2 / est) * 100)]         # 0.489%
+        probs = ["missing " + w for w in want if w not in sec]
+        probs += ["retired " + w for w in ("1.002166", "2.166×10⁻³", "2.17×10⁻³", "87%", "to 2.2×10⁻³") if w in sec]
+        # the two SE readings agree to two decimals, and the exact value is inside the interval
+        if round(float(below / rel), 2) != round(float(below / se_ci), 2):
+            probs.append("SE readings disagree")
+        if not (lo <= exact <= hi):
+            probs.append("exact outside the archived interval")
+        return probs
+
+    def test_calibration_row_from_archived_estimate(self):
+        self.assertEqual(self._calib_problems(self.txt[self.TR4]), [])
+
+    def test_calibration_red_on_old_row(self):
+        tr4 = self.txt[self.TR4]
+        new_row = re.search(r"\| 5\.184964×10³², rel\. SE 0\.25%.*?\|\n", tr4).group(0)
+        old = tr4.replace(new_row, "| 5.18×10³² ±0.25% (§4) | 1.002166 | **+2.166×10⁻³** | yes |\n", 1)
+        self.assertNotEqual(old, tr4)
+        probs = self._calib_problems(old)
+        self.assertIn("retired 1.002166", probs)
+        self.assertIn("missing 1.003127", probs)
+
+    def test_methods_and_tr4_agree(self):
+        self.assertIn("0.31170% below that archived point estimate", self._norm(self.txt[self.METHODS]))
+
+    # --- CX-364, second row (Fable FIX:1): the C1∩C2∩C4∩C5 anchor ---------------------------------
+    def _anchor2(self):
+        from fractions import Fraction
+        line = self.txt[self.WHOLE].splitlines()[3]
+        m = re.search(r"leaves_C1C2C4C5\s*: est=([0-9.e+]+)\s+95%CI=\[([0-9.e+]+), ([0-9.e+]+)\]\s+relerr=([0-9.]+)%", line)
+        self.assertIsNotNone(m, "precondition: knuth_whole_tree_5e10.out line 4 is the C1C2C4C5 leaf estimate")
+        est, lo, hi, rel = (Fraction(x) for x in m.groups())
+        mm = re.search(r"^\| \\\|C1∩C2∩C4∩C5\\\| \| ([0-9,]+) ", self.txt[self.METHODS], re.M)
+        self.assertIsNotNone(mm, "precondition: METHODS.md carries the exact |C1∩C2∩C4∩C5| integer")
+        exact = int(mm.group(1).replace(",", ""))
+        self.assertEqual(exact, 1097051278789181790036112071176579186688)
+        return est, lo, hi, rel / 100, Fraction(exact)
+
+    def _calib2_problems(self, tr4):
+        from fractions import Fraction
+        est, lo, hi, rel, exact = self._anchor2()
+        ratio = est / exact
+        below = 1 - exact / est
+        se_ci = (hi - lo) / 2 / est / Fraction("1.96")
+        sec = self._norm(self._section(tr4, "## Estimator calibration against exact ground truth"))
+        e39 = Fraction(10) ** 39
+        want = ["%.7f" % float(ratio),                                           # 1.0000335
+                "+%.2f×10⁻⁵" % (float(ratio - 1) * 1e5),                         # +3.35×10⁻⁵
+                "%.6f×10³⁹" % float(est / e39),                                  # 1.097088×10³⁹
+                "[%.4f, %.4f]×10³⁹" % (float(lo / e39), float(hi / e39)),        # [1.0970, 1.0972]×10³⁹
+                "≈%.1f×10⁻⁷" % (float(Fraction(5, 10 ** 7) / (est / Fraction(10) ** 39)) * 1e7),  # half-unit 4.6×10⁻⁷
+                "under one relative SE"]
+        probs = ["missing " + w for w in want if w not in sec]
+        probs += ["retired " + w for w in ("1.0000444", "+4.44×10⁻⁵") if w in sec]
+        if not (lo <= exact <= hi):
+            probs.append("exact outside the archived interval")
+        # the row's "under one relative SE" must hold under both SE readings (and so must 1.96 SE)
+        for name, se in (("relerr", rel), ("CI", se_ci)):
+            if not below < Fraction("1.96") * se:
+                probs.append("outside 1.96 SE (%s reading)" % name)
+            if not below < se:
+                probs.append("not under one SE (%s reading)" % name)
+        if self._norm(self.OLD_BIAS) in sec or "outputs from the original run records would be required" in sec:
+            probs.append("bias sentence refuted by the archive is back")
+        return probs
+
+    def test_calibration_row2_from_archived_estimate(self):
+        self.assertEqual(self._calib2_problems(self.txt[self.TR4]), [])
+
+    def test_calibration_row2_red_on_old_row_and_sentence(self):
+        tr4 = self.txt[self.TR4]
+        new_cells = re.search(r"\| 1\.097088×10³⁹, rel\. SE 0\.01%.*?\|\n", tr4)
+        self.assertIsNotNone(new_cells, "precondition: the cured second row is present")
+        old = tr4.replace(new_cells.group(0), self.OLD_ROW2_CELLS + "\n", 1)
+        new_sent = re.search(r"Recovering the first layer's unrounded\s+estimator output from the original run "
+                             r"record would be required before it could join them\.", old)
+        self.assertIsNotNone(new_sent, "precondition: the cured bias sentence is present")
+        old = old.replace(new_sent.group(0), self.OLD_BIAS, 1)
+        self.assertNotEqual(old, tr4)
+        probs = self._calib2_problems(old)
+        self.assertIn("retired 1.0000444", probs)
+        self.assertIn("missing 1.0000335", probs)
+        self.assertIn("bias sentence refuted by the archive is back", probs)
+
+    # --- CX-365 (AIF-002#1, #2): private commit ids on reader pages ---------------------------
+    def _id_problems(self, texts):
+        return ["%s:%s" % (rel, i) for rel, t in texts.items() for i in self.PRIVATE_IDS if "`%s`" % i in t]
+
+    def test_private_ids_off_reader_pages(self):
+        self.assertEqual(self._id_problems({self.DEV: self.txt[self.DEV], self.CAMP: self.txt[self.CAMP]}), [])
+        # positive control: the search finds the ids where they are kept (the append-only ledger)
+        self.assertEqual(self._id_problems({self.HIST: self.txt[self.HIST]}),
+                         ["%s:86276eb" % self.HIST, "%s:6d6539f" % self.HIST])
+
+    def test_private_ids_red_on_old_wording(self):
+        old = self.txt[self.DEV] + "\n(commits `86276eb`, `6d6539f`)\n"
+        self.assertEqual(self._id_problems({self.DEV: old}), ["%s:86276eb" % self.DEV, "%s:6d6539f" % self.DEV])
+        old = self.txt[self.CAMP] + "\nsince commit `800a8df`.\n"
+        self.assertEqual(self._id_problems({self.CAMP: old}), ["%s:800a8df" % self.CAMP])
+
+    def test_private_ids_are_not_objects_here(self):
+        if not os.path.isdir(os.path.join(self.root, ".git")) and not os.path.isfile(os.path.join(self.root, ".git")):
+            self.skipTest("not a git checkout")
+        r = subprocess.run(["git", "-C", self.root, "rev-parse", "HEAD"], capture_output=True, text=True, timeout=60)
+        if r.returncode != 0:
+            self.skipTest("git unavailable")
+        for i in self.PRIVATE_IDS:
+            r = subprocess.run(["git", "-C", self.root, "cat-file", "-e", i + "^{commit}"],
+                               capture_output=True, text=True, timeout=60)
+            self.assertNotEqual(r.returncode, 0, i)
+        r = subprocess.run(["git", "-C", self.root, "cat-file", "-e", "HEAD^{commit}"], capture_output=True, timeout=60)
+        self.assertEqual(r.returncode, 0, "positive control: cat-file resolves a real commit")
+
+    def test_claim_to_artifact_row8_paths_exist(self):
+        row = [l for l in self.txt[self.C2A].splitlines() if l.startswith("| 8 |")]
+        self.assertEqual(len(row), 1)
+        paths = re.findall(r"`([^`\s]+\.txt)`", row[0])
+        self.assertIn("reports/evidence/q7_witnesses/grand-strict.txt", paths)
+        for p in paths:
+            self.assertTrue(os.path.isfile(os.path.join(self.root, p)), p)
+        self.assertFalse(os.path.isfile(os.path.join(self.root, "q7_witnesses/grand-strict.txt")),
+                         "uncured control: the bare path does not resolve")
+# end class TestBatchFT1 (fast-track batch FT1)
+
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))

@@ -1450,7 +1450,7 @@ PY
 #   END of the match, not its start: the claim shapes below often begin OUTSIDE the quotation
 #   and end inside it (`called the k = 1 gain "the maximum by construction"`), and testing the
 #   start read that as unquoted. Measured - it was this gate's first false positive, at
-#   reports/TR4_SIZE_OF_THE_SPACE.md:433. A retracted
+#   reports/TR4_SIZE_OF_THE_SPACE.md:446. A retracted
 #   phrase QUOTED by the correction that retired it is narration, not assertion, and
 #   exempting it is what stops these gates firing on their own fixes. Measured: without
 #   it, GATE 30 fails on documentation/CORRECTIONS.md:4496-4497 and GATE 31 on :4121,
@@ -1689,7 +1689,7 @@ MAXC = re.compile(r'maximum[^.]{0,80}?(?:single-boundary|per-boundary)[^.]{0,60}
 FIRST = re.compile(r'\bfirst\b|\bgreedy\b|k *= *1|step 1|10\.38')
 # The maximum a floor argument actually needs: quantified over CONTEXTS, not over the
 # greedy path. A sentence that already says so needs no 'unconditional' and must not be
-# failed for its absence (reports/TR4_SIZE_OF_THE_SPACE.md:280). Deliberately NOT a bare
+# failed for its absence (reports/TR4_SIZE_OF_THE_SPACE.md:292). Deliberately NOT a bare
 # 'over all' - that would exempt any sentence containing the phrase, including one that
 # says 'across all five measured steps', which is the defect's own wording.
 SUPREMUM = re.compile(r'all\b[^.]{0,40}(?:conditioning|contexts)'
@@ -2160,7 +2160,7 @@ PY
 # corpus-wide coverage of the status-word class, and no banner here says it is.
 #
 # RED TEST (2026-09-02, scratch clone): restored the pre-P34 wording at
-# reports/TR4_SIZE_OF_THE_SPACE.md:361, just above the 2026-07-05 Update heading —
+# reports/TR4_SIZE_OF_THE_SPACE.md:374, just above the 2026-07-05 Update heading —
 # "sharpens further when S(6..8) land". Gate [FAIL] naming that line and the heading it
 # contradicts. Restored; [ok]. Closure red test: renamed the heading to "### Later work",
 # and the gate went [FAIL] ERROR (population 0) rather than reporting clean.

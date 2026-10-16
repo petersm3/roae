@@ -11518,3 +11518,25 @@ Q-686=DONE
 - The uncured halves of three doc-gate tests now read GATE 21's allowlist from the current tree, as
   they already read GATE 22's. A plant that had stood skipped now runs (CX-361, Q-1003).
 - No canonical sha, count or reproduction parameter moved.
+
+## 2026-10-15 — fast-track batch FT1: five findings from Codex's final review are cured in TR-4 and three reader pages
+
+- TR-4's executive summary still carried the retired 13–20 boundary band and the "single King Wen
+  out" endpoint. It now states the pair-ordering class and the conditional k ≈ 14 marker, and the two
+  other unmarked mentions of the band say that neither end survives (CX-362, F11-002#1).
+- TR-4 and SEARCH_SPACE_SIZE.md called the raw 1.3287×10³⁸ the number the canonical record counts
+  converge toward. They now say the limit is the distinct total, bounded by 560T's count and 31!
+  (CX-363, F11-002#2).
+- TR-4's calibration table scored its third anchor against the rounded 5.18×10³². Against the
+  archived 5.184964×10³² est/exact is 1.003127, 1.25 relative standard errors, inside the 95%
+  interval; "87% consumed" is withdrawn, and its second row is rescored the same way against the
+  archived 1.097088×10³⁹ (est/exact 1.0000335) (CX-364, F07-002#2 and F11-002#3).
+- DEVELOPMENT.md and CAMPAIGN_METHODOLOGY.md no longer cite private-repository commits a reader cannot
+  resolve, and CLAIM_TO_ARTIFACT.md's row 8 gives the witness file's full path (CX-365, AIF-002#1
+  and #2).
+- The k ≈ 14 marker's N(7) input (7.695×10¹⁷) has no committed VALUE run. TR-4's 2026-09-03 evidence-gap note,
+  which said nothing else in the report depends on it, is left as written and a dated note after it names the
+  marker as dependent; the executive summary and §Sections item 4 say so at the marker (CX-362, F02-004#5 with
+  F07-006#2 and CAL-002#103).
+- `TestBatchFT1` pins each cure against its public source. TR-4 is v1.39. No canonical sha, count or
+  reproduction parameter moved.

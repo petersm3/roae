@@ -370,6 +370,7 @@ documentation/ROAE_PY_CLI.md	823	marker	CORRECTED	1	-	reviewed:following-text-al
 documentation/SAT_CLI.md	84	ledger-link	CORRECTION	n/a	-	not-a-marker	134457b932e4
 documentation/SAT_CLI.md	99	marker	SUPERSEDED	2	-	reviewed:the-stale-2026-09-01-caveat-it-supersedes-is-still-above-it	a6342c40e3e4
 documentation/SEARCH_SPACE_SIZE.md	3	marker	WITHDRAWN	3	GATE 27	reanchored:GATE-27=ledger-anchor	d2005eee5ef3
+documentation/SEARCH_SPACE_SIZE.md	11	ledger-link	CORRECTION	n/a	-	not-a-marker	442325e3cae4
 documentation/SEARCH_SPACE_SIZE.md	35	ledger-link	CORRECTION	n/a	-	not-a-marker	5d0062947151
 documentation/SEARCH_SPACE_SIZE.md	44	marker	WITHDRAWN	3	GATE 27	reanchored:GATE-27=ledger-anchor	1d4bec207986
 documentation/SEARCH_SPACE_SIZE.md	113	marker	WITHDRAWN	3	GATE 26,GATE 27	reanchored:GATE-26=ledger-anchor+GATE-27=ledger-anchor	dbdc2b960872
@@ -718,27 +719,30 @@ reports/TR3_REPRODUCIBLE_ENUMERATION.md	175	marker	CORRECTED	1	-	reviewed:follow
 reports/TR3_REPRODUCIBLE_ENUMERATION.md	176	ledger-link	CORRECTION	n/a	-	not-a-marker	d5a10544b87a
 reports/TR3_REPRODUCIBLE_ENUMERATION.md	367	marker	CORRECTED	1	-	reviewed:code-comment-above-already-says-reported-not-enforced	c8ebf3cacb0b
 reports/TR3_REPRODUCIBLE_ENUMERATION.md	411	changelog	now reads	keep	-	revision-row	a4785b23bf10
-reports/TR4_SIZE_OF_THE_SPACE.md	33	marker	WITHDRAWN	2	-	reviewed:the-withdrawn-3.3e37-figure-is-still-printed-in-the-sentence-above	98d091511a86
-reports/TR4_SIZE_OF_THE_SPACE.md	39	marker	WITHDRAWN	2	-	reviewed:the-distinct-vs-raw-pairing-it-withdraws-is-still-in-the-sentence-above	871aa1b5f28c
-reports/TR4_SIZE_OF_THE_SPACE.md	65	ledger-link	CORRECTION	n/a	-	not-a-marker	67a50cb0e341
-reports/TR4_SIZE_OF_THE_SPACE.md	103	ledger-link	CORRECTION	n/a	-	not-a-marker	8f26a6abcd3e
-reports/TR4_SIZE_OF_THE_SPACE.md	109	marker	Withdrawn	2	-	reviewed:tag-is-what-qualifies-the-15-20-projection-in-the-same-sentence	a040cc46ee1a
-reports/TR4_SIZE_OF_THE_SPACE.md	112	ledger-link	CORRECTION	n/a	-	not-a-marker	476bee50cb8b
-reports/TR4_SIZE_OF_THE_SPACE.md	114	marker	CORRECTED	1	-	reviewed:text-already-says-all-eight-share-King-Wens-pair-ordering;span-unclosed	cfdb5878a857
-reports/TR4_SIZE_OF_THE_SPACE.md	146	ledger-link	CORRECTION	n/a	-	not-a-marker	6587f79d3b64
-reports/TR4_SIZE_OF_THE_SPACE.md	170	ledger-link	CORRECTION	n/a	-	not-a-marker	03a84e0e61cb
-reports/TR4_SIZE_OF_THE_SPACE.md	290	ledger-link	CORRECTION	n/a	-	not-a-marker	ea7843c8daf2
-reports/TR4_SIZE_OF_THE_SPACE.md	298	ledger-link	CORRECTION	n/a	-	not-a-marker	a59d6aae85f6
-reports/TR4_SIZE_OF_THE_SPACE.md	303	marker	Corrected	1	-	reviewed:paragraph-already-says-refuses-and-exits-1	6335beed5bb4
-reports/TR4_SIZE_OF_THE_SPACE.md	329	marker	CORRECTED	1	-	reviewed:bullet-already-prints-the-probe-count	d266588052e1
-reports/TR4_SIZE_OF_THE_SPACE.md	386	ledger-link	CORRECTION	n/a	-	not-a-marker	b39e2086190f
-reports/TR4_SIZE_OF_THE_SPACE.md	420	changelog	now reads	keep	-	revision-row	3e9acebb83cf
-reports/TR4_SIZE_OF_THE_SPACE.md	426	changelog	now reads	keep	-	revision-row	01fade27f529
-reports/TR4_SIZE_OF_THE_SPACE.md	427	changelog	now reads	keep	-	revision-row	0333ede9a32d
-reports/TR4_SIZE_OF_THE_SPACE.md	432	changelog	CORRECTION	keep	-	revision-row	e65bbd5dee31
-reports/TR4_SIZE_OF_THE_SPACE.md	436	changelog	CORRECTION	keep	-	revision-row	c54bef47aed1
-reports/TR4_SIZE_OF_THE_SPACE.md	438	changelog	CORRECTION	keep	-	revision-row	c59abd0b09d1
-reports/TR4_SIZE_OF_THE_SPACE.md	440	changelog	CORRECTION	keep	-	revision-row	602d6e6ea05e
+reports/TR4_SIZE_OF_THE_SPACE.md	36	marker	WITHDRAWN	2	-	reviewed:the-withdrawn-3.3e37-figure-is-still-printed-in-the-sentence-above	98d091511a86
+reports/TR4_SIZE_OF_THE_SPACE.md	42	marker	WITHDRAWN	2	-	reviewed:the-distinct-vs-raw-pairing-it-withdraws-is-still-in-the-sentence-above	871aa1b5f28c
+reports/TR4_SIZE_OF_THE_SPACE.md	62	ledger-link	CORRECTION	n/a	-	not-a-marker	f404aabc97e5
+reports/TR4_SIZE_OF_THE_SPACE.md	72	ledger-link	CORRECTION	n/a	-	not-a-marker	67a50cb0e341
+reports/TR4_SIZE_OF_THE_SPACE.md	110	ledger-link	CORRECTION	n/a	-	not-a-marker	8f26a6abcd3e
+reports/TR4_SIZE_OF_THE_SPACE.md	116	marker	Withdrawn	2	-	reviewed:tag-is-what-qualifies-the-15-20-projection-in-the-same-sentence	a040cc46ee1a
+reports/TR4_SIZE_OF_THE_SPACE.md	119	ledger-link	CORRECTION	n/a	-	not-a-marker	476bee50cb8b
+reports/TR4_SIZE_OF_THE_SPACE.md	121	marker	CORRECTED	1	-	reviewed:text-already-says-all-eight-share-King-Wens-pair-ordering;span-unclosed	cfdb5878a857
+reports/TR4_SIZE_OF_THE_SPACE.md	153	ledger-link	CORRECTION	n/a	-	not-a-marker	6587f79d3b64
+reports/TR4_SIZE_OF_THE_SPACE.md	177	ledger-link	CORRECTION	n/a	-	not-a-marker	03a84e0e61cb
+reports/TR4_SIZE_OF_THE_SPACE.md	302	ledger-link	CORRECTION	n/a	-	not-a-marker	ea7843c8daf2
+reports/TR4_SIZE_OF_THE_SPACE.md	310	ledger-link	CORRECTION	n/a	-	not-a-marker	a59d6aae85f6
+reports/TR4_SIZE_OF_THE_SPACE.md	315	marker	Corrected	1	-	reviewed:paragraph-already-says-refuses-and-exits-1	6335beed5bb4
+reports/TR4_SIZE_OF_THE_SPACE.md	341	marker	CORRECTED	1	-	reviewed:bullet-already-prints-the-probe-count	d266588052e1
+reports/TR4_SIZE_OF_THE_SPACE.md	382	ledger-link	CORRECTION	n/a	-	not-a-marker	3316857e4f87
+reports/TR4_SIZE_OF_THE_SPACE.md	399	ledger-link	CORRECTION	n/a	-	not-a-marker	b39e2086190f
+reports/TR4_SIZE_OF_THE_SPACE.md	433	changelog	now reads	keep	-	revision-row	3e9acebb83cf
+reports/TR4_SIZE_OF_THE_SPACE.md	439	changelog	now reads	keep	-	revision-row	01fade27f529
+reports/TR4_SIZE_OF_THE_SPACE.md	440	changelog	now reads	keep	-	revision-row	0333ede9a32d
+reports/TR4_SIZE_OF_THE_SPACE.md	445	changelog	CORRECTION	keep	-	revision-row	e65bbd5dee31
+reports/TR4_SIZE_OF_THE_SPACE.md	449	changelog	CORRECTION	keep	-	revision-row	c54bef47aed1
+reports/TR4_SIZE_OF_THE_SPACE.md	451	changelog	CORRECTION	keep	-	revision-row	c59abd0b09d1
+reports/TR4_SIZE_OF_THE_SPACE.md	453	changelog	CORRECTION	keep	-	revision-row	602d6e6ea05e
+reports/TR4_SIZE_OF_THE_SPACE.md	460	changelog	CORRECTION	keep	-	revision-row	6c5ccda8eb3a
 reports/TR5_SYMMETRY.md	24	marker	CORRECTED	1	-	reviewed:text-already-says-the-absence-alone-shows-nothing	b90c0e2836b9
 reports/TR5_SYMMETRY.md	118	marker	CORRECTED	1	-	reviewed:text-already-says-the-replacement-shipped	21ce077c312e
 reports/TR5_SYMMETRY.md	135	marker	CORRECTED	1	-	reviewed:text-already-says-the-inputs-are-public	9b0c1f76bf72
