@@ -1267,7 +1267,7 @@ interrupted:
    `--kc-layers / --kc-scan-merge`.
    A merged atlas that reports `"not-run (requires --kc-tdir)"` **is not a failed run — it is an
    unchecked one**, which is worse, because nothing in its verdict line says so: the merge still
-   prints `VERDICT: PASS (0 gate failures)`. `solve.py --atlas-queries` and `--atlas-selftest` therefore refuse it at load (Q-564, 2026-10-11) unless `--atlas-allow-t-not-run` is given.
+   prints `VERDICT: PASS (0 gate failures)`. `solve.py --atlas-queries` and `--atlas-selftest` therefore refuse it at load (Q-564, 2026-10-11) unless `--atlas-allow-t-not-run` is given, and so, since 2026-10-15 (Q-1000), does `--atlas-residual-rank`.
 5. **Atlas-derived tables (milliseconds):** everything downstream reads the emitted JSON.
 
 **Hardware and cost, honestly labelled.** Sizing guidance from the project's own instrumented

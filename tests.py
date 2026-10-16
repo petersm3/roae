@@ -37633,24 +37633,18 @@ class TestB39DReviewerSelfcheckVerdicts(unittest.TestCase):
 # uncured scripts read the CURRENT table (the counterpart of TestQ970's DATA tuple, where the data
 # pairs with the pinned script and so comes from the pinned tree). The transplant is loud: the block
 # must be found exactly once on both sides, and every line of the current one must be a case arm or
-# its echo, so no code can travel with the data.
+# its echo, so no code can travel with the data. Batch 52 (Q-1003) generalised the transplant to any
+# such table (`_uncured_with_current_table`, at the END of this file, with GATE 21's script-paths
+# table beside this one in `_ALLOW_TABLES`) and tightened the echo class: `$`, backquote and
+# backslash, which bash expands inside double quotes, are no longer admitted in a row's text.
 _HEX_ALLOW_FILE = "scripts/doc_gates.d/70_publication_surfaces.sh"
-_HEX_ALLOW_RX = re.compile(rb'\n  hex_allow\(\) \{ case "\$1" in\n(.*?)\n    \*\) echo "";; esac; \}\n', re.S)
-_HEX_ALLOW_ROW = re.compile(rb'    [0-9a-f]+(\|[0-9a-f]+)*\)|      echo "[^"\n]*";;')
+_HEX_ALLOW_HEAD, _HEX_ALLOW_TERM = b'  hex_allow() { case "$1" in', b'    *) echo "";; esac; }'
+_HEX_ALLOW_ROW = re.compile(rb'    [0-9a-f]+(\|[0-9a-f]+)*\)|      echo "[^"\n$`\\]*";;')
 
 
 def _uncured_with_current_hex_allow(uncured, fixed):
-    u, f = uncured[_HEX_ALLOW_FILE], fixed[_HEX_ALLOW_FILE]
-    mu, mf = list(_HEX_ALLOW_RX.finditer(u)), list(_HEX_ALLOW_RX.finditer(f))
-    if len(mu) != 1 or len(mf) != 1:
-        raise AssertionError("precondition: hex_allow's table is found once in the pinned (%d) and the current "
-                             "(%d) %s" % (len(mu), len(mf), _HEX_ALLOW_FILE))
-    bad = [l for l in mf[0].group(1).split(b"\n") if not _HEX_ALLOW_ROW.fullmatch(l)]
-    if bad:
-        raise AssertionError("precondition: the current hex_allow table is data only; not a row: %r" % bad[:3])
-    out = dict(uncured)
-    out[_HEX_ALLOW_FILE] = u[:mu[0].start()] + mf[0].group(0) + u[mu[0].end():]
-    return out
+    return _uncured_with_current_table(uncured, fixed, _HEX_ALLOW_FILE, _HEX_ALLOW_HEAD, _HEX_ALLOW_TERM,
+                                       _HEX_ALLOW_ROW)
 
 
 class TestQ965MarkdownNormaliser(unittest.TestCase):
@@ -38098,7 +38092,7 @@ class TestQ968NumberLexer(unittest.TestCase):
             for f in names + ["scripts/doc_gates.sh"]:
                 cls.uncured[f] = subprocess.run(["git", "-C", cls.ROOT, "show", "%s:%s" % (cls.PIN, f)],
                                                 capture_output=True, check=True).stdout
-            cls.uncured = _uncured_with_current_hex_allow(cls.uncured, cls.fixed)   # GATE 22's table is corpus data
+            cls.uncured = _uncured_with_current_allow_tables(cls.uncured, cls.fixed)   # GATE 21's and 22's tables are corpus data
 
     @classmethod
     def tearDownClass(cls):
@@ -38184,7 +38178,18 @@ class TestQ968NumberLexer(unittest.TestCase):
             self.skipTest("public main %s is not in this clone; the uncured half cannot run" % self.PIN)
         self._use(self.uncured)
         try:
+            red = {}   # Q-1003 (batch 52): the unplanted baseline first, as Q966/B43 do, but as a named failure
+            for leg in sorted(set(p[1] for p in self.PLANTS)):
+                with self.subTest(leg=leg, precondition="unplanted tree green on the uncured scripts"):
+                    rc, out = self._leg(leg)
+                    first = next((l.strip() for l in out.split("\n") if "[FAIL]" in l), "<no [FAIL] line>")
+                    if rc != 0:
+                        red[leg] = rc
+                    self.assertEqual(rc, 0, "precondition: uncured %s is rc %d on the UNPLANTED tree, so no plant "
+                                     "on it can discriminate. Baseline rc %d: %s" % (leg, rc, rc, first))
             for pid, leg, needle, plant, ctl in self.PLANTS:
+                if leg in red:
+                    continue   # already failed above, by name; a plant run would only restate it
                 with self.subTest(plant=pid, leg=leg):
                     rc, out = self._leg(leg, plant)
                     self.assertFalse(self._fired(leg, rc, out, needle) or rc != 0,
@@ -38718,7 +38723,7 @@ class TestQ966WordMatcher(unittest.TestCase):
             for f in names + list(cls.SCRIPTS):
                 cls.uncured[f] = subprocess.run(["git", "-C", cls.ROOT, "show", "%s:%s" % (cls.PIN, f)],
                                                 capture_output=True, check=True).stdout
-            cls.uncured = _uncured_with_current_hex_allow(cls.uncured, cls.fixed)   # GATE 22's table is corpus data
+            cls.uncured = _uncured_with_current_allow_tables(cls.uncured, cls.fixed)   # GATE 21's and 22's tables are corpus data
 
     @classmethod
     def tearDownClass(cls):
@@ -38832,9 +38837,12 @@ class TestQ966WordMatcher(unittest.TestCase):
             for pid, leg, needle, plant, ctl in self.PLANTS:
                 with self.subTest(plant=pid, leg=leg):
                     if leg not in base:
-                        base[leg] = self._leg(leg)[0]
-                    if base[leg] != 0:
-                        self.skipTest("uncured %s is rc %d on the unplanted tree" % (leg, base[leg]))
+                        brc, bout = self._leg(leg)
+                        base[leg] = (brc, next((l.strip() for l in bout.split("\n") if "[FAIL]" in l), "<no [FAIL] line>"))
+                    # Q-1003 (batch 52): was a skipTest, under which A07#6 (script-paths) never ran; GATE 21's
+                    # table now travels with the corpus, so a red baseline is a failure that names its cause.
+                    self.assertEqual(base[leg][0], 0, "precondition: uncured %s is rc %d on the UNPLANTED tree, so "
+                                     "this plant cannot discriminate. Baseline: %s" % (leg, base[leg][0], base[leg][1]))
                     rc, out = self._leg(leg, plant)
                     self.assertEqual(rc, 0, "the uncured scripts already catch this plant, so its red "
                                      "test does not discriminate:\n" + out[-3000:])
@@ -40989,7 +40997,7 @@ class TestQ976Q977Q978Batch43(unittest.TestCase):
             for f in names + list(cls.SCRIPTS):
                 cls.uncured[f] = subprocess.run(["git", "-C", cls.ROOT, "show", "%s:%s" % (cls.PIN, f)],
                                                 capture_output=True, check=True).stdout
-            cls.uncured = _uncured_with_current_hex_allow(cls.uncured, cls.fixed)   # GATE 22's table is corpus data
+            cls.uncured = _uncured_with_current_allow_tables(cls.uncured, cls.fixed)   # GATE 21's and 22's tables are corpus data
 
     @classmethod
     def tearDownClass(cls):
@@ -45532,6 +45540,517 @@ class TestS5MidjoinMutants(unittest.TestCase):
 
 # end class TestS5MidjoinMutants (S5, Q-822)
 
+
+
+# ---------------------------------------------------------------------------------------------------
+# Q-1003 (batch 52; Fable B50 fix-check §4). The pinned-baseline allowlist transplant, generalised. An
+# allowlist table in a doc-gates script is DATA about the corpus (see the note above
+# `_uncured_with_current_hex_allow`), so a pinned script's uncured run reads the CURRENT table. A table
+# is named by (file, header literal, terminator literal, row regex): the block is found exactly once in
+# the current file, every line of its body must fullmatch the row regex (so no code travels with the
+# data), and it replaces the block found exactly once in the pinned file. `older` lists earlier SHAPES
+# of the same table, (header, terminator, convert): when the pinned file carries the table in such a
+# shape, the current body is rewritten by `convert` into it. GATE 21's script-paths `allow()` gained
+# per-document binding in batch 40 (Q-966 A07#6, the `at=(…)` lines and `_why=` instead of `echo`), and
+# that binding is the CURE, so `convert` drops it and keeps the tokens and their reasons. Measured on
+# this tree (2026-10-15): against each of the three pins in use (cb61be3f, 35782834, f1b27e32) the
+# transplant only ADDS rows (those published after the pin), and every pinned row survives byte for
+# byte (TestBatch52.test_q1003_transplant_only_adds_rows_on_the_pins_in_use).
+_SP_ALLOW_FILE = "scripts/doc_gates.d/70_publication_surfaces.sh"
+_SP_ALLOW_HEAD = b'  allow() { local at=() _p; _why=""; case "$1" in   # $1 token, $2 the file citing it; sets _why'
+_SP_ALLOW_TERM = b'    *) _why="";; esac'
+_SP_ALLOW_OLD_HEAD, _SP_ALLOW_OLD_TERM = b'  allow() { case "$1" in', b'    *) echo "";; esac; }'
+# the tr12/* arm's three code lines, admitted verbatim and nothing like them (CX-233)
+_SP_TR12_CODE = (b'      if git ls-files --error-unmatch "reports/$1" >/dev/null 2>&1; then',
+                 b'        _why="historical location of reports/$1 before CX-233 (2026-09-29)"',
+                 b'      else _why=""; fi;;')
+_SP_ALLOW_ROW = re.compile(
+    rb'    [A-Za-z][A-Za-z0-9_./*|-]*\)'                     # a case arm: path tokens, | and a trailing glob
+    rb'|      at=\([^()\n$`\;&|<>]*\)(   # [^\n]*)?'        # the documents a row waives (dropped by convert)
+    rb'|      _why="(?:[^"\n$`\\]|\\[$"`\\])*";;'           # the reason: no expansion, escapes only
+    rb'|      #( [^\n]*)?'                                   # a comment line
+    rb'|' + rb'|'.join(re.escape(l) for l in _SP_TR12_CODE))
+
+
+def _sp_allow_rows_as_echo(body):
+    """GATE 21's current rows in the pre-batch-40 shape: no `at=(…)` binding, `echo` for `_why=`."""
+    out = []
+    for l in body.split(b"\n"):
+        if l.startswith(b"      at=("):
+            continue
+        if l.lstrip(b" ").startswith(b'_why="'):
+            l = l.replace(b'_why="', b'echo "', 1)
+        elif l == b'      else _why=""; fi;;':
+            l = b'      else echo ""; fi;;'
+        out.append(l)
+    return b"\n".join(out)
+
+
+_ALLOW_TABLES = (
+    (_HEX_ALLOW_FILE, _HEX_ALLOW_HEAD, _HEX_ALLOW_TERM, _HEX_ALLOW_ROW, ()),                     # GATE 22
+    (_SP_ALLOW_FILE, _SP_ALLOW_HEAD, _SP_ALLOW_TERM, _SP_ALLOW_ROW,                              # GATE 21
+     ((_SP_ALLOW_OLD_HEAD, _SP_ALLOW_OLD_TERM, _sp_allow_rows_as_echo),)),
+)
+
+
+def _allow_table_rx(head, term):
+    return re.compile(re.escape(b"\n" + head + b"\n") + rb"(.*?)" + re.escape(b"\n" + term + b"\n"), re.S)
+
+
+def _uncured_with_current_table(uncured, fixed, path, head, term, row, older=()):
+    u, f = uncured[path], fixed[path]
+    mf = list(_allow_table_rx(head, term).finditer(f))
+    if len(mf) != 1:
+        raise AssertionError("precondition: the table headed %r is found once in the current %s (found %d)"
+                             % (head, path, len(mf)))
+    bad = [l for l in mf[0].group(1).split(b"\n") if not row.fullmatch(l)]
+    if bad:
+        raise AssertionError("precondition: the current table headed %r is data only; not a row: %r" % (head, bad[:3]))
+    found = []
+    for h, t, conv in ((head, term, None),) + tuple(older):
+        mu = list(_allow_table_rx(h, t).finditer(u))
+        if len(mu) > 1:
+            raise AssertionError("precondition: the table headed %r is found once in the pinned %s (found %d)"
+                                 % (h, path, len(mu)))
+        if mu:
+            found.append((h, t, conv, mu[0]))
+    if len(found) != 1:
+        raise AssertionError("precondition: the pinned %s carries the table headed %r in exactly one known shape "
+                             "(found %d)" % (path, head, len(found)))
+    h, t, conv, mu = found[0]
+    body = mf[0].group(1) if conv is None else conv(mf[0].group(1))
+    out = dict(uncured)
+    out[path] = u[:mu.start()] + b"\n" + h + b"\n" + body + b"\n" + t + b"\n" + u[mu.end():]
+    return out
+
+
+def _uncured_with_current_allow_tables(uncured, fixed):
+    for spec in _ALLOW_TABLES:
+        uncured = _uncured_with_current_table(uncured, fixed, *spec)
+    return uncured
+
+
+class TestBatch52(unittest.TestCase):
+    """Batch 52: Q-813, Q-1000, Q-676 (K13), Q-999, Q-1003.
+
+    Q-813. The 100 T FFT figures stay as computed (float32 FFT, numpy 2.x) and are scoped to the
+    precision each is expected to keep; no recompute is scheduled. A dated note sits beside each at-risk
+    figure in DISTRIBUTIONAL_ANALYSIS.md, CRITIQUE.md and CLAIM_TO_ARTIFACT.md, one revision note says
+    what holds and what may move, and every figure is still printed as before.
+    Q-1000. `--atlas-residual-rank` loads the atlas through `atlas_load` first: a t-identity-not-run
+    atlas is ERROR:t-identity-not-run (rc 2) without --atlas-allow-t-not-run and PASS with the loader's
+    WARNING with it. Precondition: the fixture is what the old json.load path ran to PASS; a mutant
+    without the atlas_load call does exactly that.
+    Q-676 / K13. `_ATLAS_POPULATION_NOTE` states the measured gap in TR-12 §12.10's own terms (about
+    twelve times tolerance, derived here from TR-12's table), never "UNMEASURED" or the refuted
+    "rescales"; the pre-fix note fails the same check.
+    Q-999. The pre-push inventory leg checks EVERY commit of the pushed range, oldest first: a two-commit
+    push whose first commit is stale (and whose tip MATCHES) is refused and the first commit named; the
+    pre-fix hook, tip only, passes it. `corrections_inventory.sh` ignores refs/replace/*, as the hook does:
+    a replaced parent can no longer turn a stale commit MATCH (or a current one STALE) on a direct run.
+    Q-1003. The pinned-baseline allowlist transplant takes (file, header, terminator, row regex) and an
+    older shape with its converter; GATE 21's script-paths table travels with the corpus like GATE 22's,
+    every pinned row survives byte for byte on the three pins in use, code lines and shell expansions
+    are refused as rows, and shape drift is loud.
+    """
+    ATLAS = os.path.join("runs", "20260906_kc_ladders_n31", "atlas_n31.json")
+    TR12 = os.path.join("reports", "TR12_QUERY_PROGRAM.md")
+    DA = os.path.join("documentation", "DISTRIBUTIONAL_ANALYSIS.md")
+    # borrowed from TestQ994Q995Batch47: its throwaway-repository fixture and hook driver
+    INV, SCRIPT, REG = TestQ994Q995Batch47.INV, TestQ994Q995Batch47.SCRIPT, TestQ994Q995Batch47.REG
+    HOOK, HELPER = TestQ994Q995Batch47.HOOK, TestQ994Q995Batch47.HELPER
+    _Q994 = TestQ994Q995Batch47.__dict__
+    _d, _env, _git, _src, _wr = _Q994["_d"], _Q994["_env"], _Q994["_git"], _Q994["_src"], _Q994["_wr"]
+    _regen, _check, _rows, _batch_edit = _Q994["_regen"], _Q994["_check"], _Q994["_rows"], _Q994["_batch_edit"]
+    _fixture, _has_git_row, _hook_fixture, _hook = (_Q994["_fixture"], _Q994["_has_git_row"],
+                                                    _Q994["_hook_fixture"], _Q994["_hook"])
+    BASE = "29e539df"   # public batch 51: the pre-fix hook, inventory script and population note
+
+    @classmethod
+    def setUpClass(cls):
+        cls.S = _load("solve")
+        cls.tmp = tempfile.mkdtemp(prefix="b52_")
+        cls.n = 0
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, True)
+
+    def _base_src(self, rel):
+        r = subprocess.run(["git", "show", "%s:%s" % (self.BASE, rel)], capture_output=True)
+        if r.returncode != 0:
+            self.skipTest("public batch 51 (%s) is not in this clone; the pre-fix half cannot run" % self.BASE)
+        return r.stdout.decode("utf-8")
+
+    # ---------------------------------------------------------------- Q-813: precision-scoped, not recomputed
+    def _read(self, p):
+        with open(p, encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_q813_every_at_risk_site_carries_the_note_and_keeps_its_figure(self):
+        da = self._read(self.DA).split("\n")
+        for figs in (("`fft_peak_amplitude` at the exact 95.476th", "0.757%"),
+                     ("= 0.757%` **exactly**, and KW's percentile at", "**29.32 / 31.01 / 33.85%**"),
+                     ("- **3,496,831 records (0.1019%) change cell**", "29.32 → 29.41%", "33.85 → 33.84%")):
+            with self.subTest(figure=figs[0]):
+                at = [i for i, l in enumerate(da) if figs[0] in l]
+                self.assertEqual(len(at), 1, "precondition: the figure is printed once: %r" % figs[0])
+                para = []
+                for l in da[at[0]:]:
+                    para.append(l)
+                    if not l.strip():
+                        break
+                self.assertIn("[Precision 2026-10-15", "\n".join(para), "no precision note in the figure's paragraph")
+                for f in figs:
+                    self.assertIn(f, "\n".join(para), "the figure itself must still be printed")
+        self.assertIn("[Precision 2026-10-15", [l for l in da if "Scope 2026-09-25: the two FFT rows" in l][0])
+        notes = [l for l in da if l.startswith("*Revision 2026-10-15 (float32 FFT")]
+        self.assertEqual(len(notes), 1)
+        for must in ("will not be run", "(1) Expected to hold at the printed precision", "(2) Last printed digit "
+                     "not guaranteed: the exact-histogram percentages 29.32 / 31.01 / 33.85% and their Nyquist-fix "
+                     "counterparts 29.41 / 31.10 / 33.84%", "(3) At risk as exact values: the 3,496,831 records",
+                     "(4) Not assessed: the KDE seed range", "**no figure changed and none recomputed**"):
+            self.assertIn(must, notes[0])
+        self.assertEqual(da[-2], notes[0], "the revision note is the last line, so no cited line moved")
+        cr = self._read(os.path.join("documentation", "CRITIQUE.md"))
+        self.assertEqual(cr.count("[Precision 2026-10-15"), 1)
+        self.assertIn("exact 95.476th", cr)
+        row = [l for l in self._read(os.path.join("documentation", "CLAIM_TO_ARTIFACT.md")).split("\n")
+               if l.startswith("| 17 |")]
+        self.assertEqual(len(row), 1)
+        self.assertIn("29.32 / 31.01 / 33.85% at three bin widths", row[0])
+        self.assertIn("Precision 2026-10-15", row[0])
+
+    # ---------------------------------------------------------------- Q-1000: the residual rank's loader
+    def _not_run_atlas(self):
+        import json
+        with open(self.ATLAS, encoding="utf-8") as fh:
+            A = json.load(fh)
+        g = A["gates"]
+        self.assertEqual(g["fails"], 0, "precondition")
+        self.assertTrue(all(v is True for k, v in g.items() if k != "fails"), "precondition: every other gate reads true")
+        g["t_root_eq_f_layer_sum"] = "not-run (requires --kc-tdir)"   # the producer's own string
+        p = os.path.join(self.tmp, "atlas_t_not_run.json")
+        with open(p, "w", encoding="utf-8") as fh:
+            json.dump(A, fh)
+        return p
+
+    def _rr(self, *extra):
+        r = subprocess.run([sys.executable, _py_src("solve"), "--atlas-residual-rank"] + list(extra),
+                           capture_output=True, text=True, timeout=900)
+        self.assertNotIn("Traceback (most recent call last)", r.stdout + r.stderr)
+        return r.returncode, [l for l in r.stdout.split("\n") if l], r.stderr
+
+    def test_q1000_cli_refuses_without_the_opt_in_and_warns_with_it(self):
+        p = self._not_run_atlas()
+        rc, out, err = self._rr(p)
+        self.assertEqual((rc, out), (2, ["ATLAS_RESIDUAL_RANK_VERDICT=ERROR:t-identity-not-run"]), err[-1500:])
+        self.assertIn("did NOT RUN", err)
+        self.assertIn("--atlas-allow-t-not-run", err)
+        rc, out, err = self._rr(p, "--atlas-allow-t-not-run")
+        self.assertEqual(rc, 0, err[-1500:])
+        self.assertIn("ATLAS_RESIDUAL_RANK=3788", out)
+        self.assertEqual(out[-1], "ATLAS_RESIDUAL_RANK_VERDICT=PASS")
+        self.assertIn("[atlas] WARNING:", err)
+        self.assertIn("UNVERIFIED ACROSS CHUNKS", err)
+        rc, out, err = self._rr(self.ATLAS)       # positive control: the published atlas, no opt-in, no warning
+        self.assertEqual((rc, out[-1]), (0, "ATLAS_RESIDUAL_RANK_VERDICT=PASS"), err[-1500:])
+        self.assertNotIn("WARNING", err)
+
+    def test_q1000_mutant_without_the_loader_call_passes_the_unchecked_atlas(self):
+        import contextlib, io
+        with open("solve.py", encoding="utf-8") as fh:
+            src = fh.read()
+        old = "        atlas_load(atlas_path, allow_t_not_run=allow_t_not_run)\n"
+        self.assertEqual(src.count(old), 1, "precondition: the loader call exists once")
+        p = self._not_run_atlas()
+        for name, text, want in (("fixed", src, ("ERROR:t-identity-not-run", 2)), ("mutant", src.replace(old, ""), ("PASS", 0))):
+            with self.subTest(tree=name):
+                mp = os.path.join(self.tmp, "solve_b52_%s.py" % name)
+                with open(mp, "w", encoding="utf-8") as fh:
+                    fh.write(text)
+                spec = importlib.util.spec_from_file_location("solve_b52_" + name, mp)
+                m = importlib.util.module_from_spec(spec)
+                argv, sys.argv = sys.argv, ["solve.py"]
+                try:
+                    spec.loader.exec_module(m)
+                finally:
+                    sys.argv = argv
+                out, err = io.StringIO(), io.StringIO()
+                with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                    rc = m.atlas_residual_rank(p)
+                lines = out.getvalue().split("\n")
+                self.assertIn("ATLAS_RESIDUAL_RANK_VERDICT=" + want[0], lines, err.getvalue()[-800:])
+                self.assertEqual(rc, want[1])
+
+    def test_q1000_the_subclass_is_still_an_atlas_error(self):
+        self.assertTrue(issubclass(self.S.AtlasTNotRunError, self.S.AtlasError))
+        with self.assertRaises(self.S.AtlasError):
+            self.S.atlas_load(self._not_run_atlas())
+
+    # ---------------------------------------------------------------- Q-676 / K13: the population note
+    def _tr12_gap(self):
+        t = self._read(self.TR12)
+        self.assertEqual(t.count("\n### 12.10 The two external anchors compare across populations"), 1)
+        sec = t.split("\n### 12.10 ", 1)[1].split("\n### ", 1)[0]
+        rows = re.findall(r"^\| (A[23]), [^|]+\| \*\*(0\.\d+)\*\* \| (0\.\d+) \| \**(0\.\d+)\** \|$", sec, re.M)
+        self.assertEqual(len(rows), 6, "precondition: TR-12's six-row gap table")
+        for _a, atlas, pub, dev in rows:   # the table is internally consistent
+            self.assertAlmostEqual(abs(float(atlas) - float(pub)), float(dev), places=9)
+        tol = re.findall(r"Tolerance is (0\.\d+), compared in exact rationals", sec)
+        self.assertEqual(len(tol), 1)
+        ratio = max(float(r[3]) for r in rows) / float(tol[0])
+        self.assertIn("about twelve times", sec)
+        self.assertIn("≈1.23 in every cell", sec)
+        return int(round(ratio))
+
+    def _note_problems(self, note, src):
+        k = self._tr12_gap()
+        bad = []
+        if "UNMEASURED" in note:
+            bad.append("says UNMEASURED; TR-12 publishes the measurement")
+        if "rescal" in note.lower():
+            bad.append("uses the refuted 'rescale' reading (CX-63)")
+        if "MEASURED" not in note or ("~%dx tol" % k) not in note:
+            bad.append("does not state the measured gap of ~%dx tol" % k)
+        if "TR-12 sec. 12.10" not in note:
+            bad.append("does not point at TR-12 sec. 12.10")
+        if "is UNMEASURED: no full-31 atlas exists" in src:
+            bad.append("the comment above it still says no full-31 atlas exists")
+        return bad
+
+    def test_q676_population_note_matches_tr12(self):
+        self.assertEqual(self._tr12_gap(), 12)
+        with open("solve.py", encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertEqual(self._note_problems(self.S._ATLAS_POPULATION_NOTE, src), [])
+        self.assertEqual(src.count("    detail += _ATLAS_POPULATION_NOTE\n"), 2, "A2 and A3 both carry it")
+
+    def test_q676_the_pre_fix_note_fails_the_same_check(self):
+        old_src = self._base_src("solve.py")
+        m = re.search(r'^_ATLAS_POPULATION_NOTE = \((.*?)\)\n', old_src, re.S | re.M)
+        self.assertIsNotNone(m)
+        old_note = "".join(re.findall(r'"([^"]*)"', m.group(1)))
+        self.assertIn("UNMEASURED until the first full-31 atlas", old_note, "precondition: the pre-fix note")
+        self.assertNotEqual(self._note_problems(old_note, old_src), [])
+
+    # ---------------------------------------------------------------- Q-999: every commit of the range
+    def _two_commit_fixture(self):
+        """bx (the stand-in batch on the real parent p: STALE, it lacks p's row) and on top of it c, whose
+        inventory is regenerated on bx, so c alone MATCHES. Pushed together onto p."""
+        fx = self._hook_fixture()
+        repo = fx["repo"]
+        self._git(repo, "checkout", "-q", "--detach", fx["bx"])
+        with open(os.path.join(repo, "documentation", "NOTES.md"), "a", encoding="utf-8") as fh:
+            fh.write("- batch 2 item: corrected the second figure in table C\n")
+        self._regen(repo)
+        self._git(repo, "add", "-A")
+        self._git(repo, "commit", "-qm", "Batch 2: corrections")
+        fx["c"] = self._git(repo, "rev-parse", "HEAD")
+        return fx
+
+    def test_q999_two_commit_push_with_a_stale_first_commit_is_refused(self):
+        fx = self._two_commit_fixture()
+        repo = fx["repo"]
+        self.assertEqual(self._git(repo, "rev-list", "--reverse", fx["c"], "--not", fx["p"]).split("\n"),
+                         [fx["bx"], fx["c"]], "precondition: the push adds exactly bx then c")
+        rc, v, err = self._check(repo)
+        self.assertEqual((rc, v), (0, "CORRECTIONS_INVENTORY_CHECK=MATCH"), "precondition: the tip alone MATCHES\n" + err)
+        self._git(repo, "checkout", "-q", "--detach", fx["bx"])
+        rc, v, err = self._check(repo)
+        self.assertEqual((rc, v), (1, "CORRECTIONS_INVENTORY_CHECK=STALE"), "precondition: the first commit is STALE\n" + err)
+        self._git(repo, "checkout", "-q", "--detach", fx["c"])
+        r = self._hook(fx, fx["c"], fx["p"])
+        out = r.stdout.splitlines()
+        self.assertIn("PREPUSH_LEG_CORRECTIONS_INVENTORY=FAIL", out, r.stdout[-3000:] + r.stderr[-1000:])
+        self.assertEqual(sum(1 for l in out if l.startswith("PREPUSH_LEG_CORRECTIONS_INVENTORY=")), 1)
+        self.assertIn("PREPUSH_VERDICT=FAIL", out)
+        self.assertNotEqual(r.returncode, 0)
+        named = [l for l in out if "is not current at commit" in l]
+        self.assertEqual(len(named), 1, r.stdout[-3000:])
+        self.assertIn(fx["bx"][:12], named[0], "the refusal names the first stale commit")
+        self.assertNotIn("MATCHES the history of " + fx["c"][:12], r.stdout, "it stops at the first stale commit")
+        # the pre-fix hook (tip only) passes the same push: the red test discriminates
+        old = os.path.join(fx["d"], "old_hook", "pre_push_gate.sh")
+        self._wr(old, self._base_src(self.HOOK), 0o755)
+        mark = os.path.join(fx["d"], "mark_old.log")
+        e = self._env(HK_MARK=mark, TMPDIR=fx["d"])
+        for k in ("ROAE_PREPUSH_RECORD", "ROAE_PRIVATE_DIR", "ROAE_REVIEW_QUEUE", "CITGATE_BASE"):
+            e.pop(k, None)
+        r0 = subprocess.run(["bash", old], cwd=repo, input="refs/heads/main %s refs/heads/main %s\n" % (fx["c"], fx["p"]),
+                            capture_output=True, text=True, env=e, timeout=900)
+        self.assertIn("PREPUSH_LEG_CORRECTIONS_INVENTORY=PASS", r0.stdout.splitlines(), r0.stdout[-3000:])
+
+    def test_q999_a_clean_two_commit_push_passes_and_checks_both(self):
+        fx = self._hook_fixture()
+        repo = fx["repo"]
+        self._git(repo, "checkout", "-q", "--detach", fx["b"])
+        with open(os.path.join(repo, "documentation", "NOTES.md"), "a", encoding="utf-8") as fh:
+            fh.write("- batch 2 item: corrected the second figure in table C\n")
+        self._regen(repo)
+        self._git(repo, "add", "-A")
+        self._git(repo, "commit", "-qm", "Batch 2: corrections")
+        c = self._git(repo, "rev-parse", "HEAD")
+        r = self._hook(fx, c, fx["p"])
+        out = r.stdout.splitlines()
+        self.assertIn("PREPUSH_LEG_CORRECTIONS_INVENTORY=PASS", out, r.stdout[-3000:] + r.stderr[-1000:])
+        self.assertIn("PREPUSH_VERDICT=PASS", out)
+        self.assertEqual(r.returncode, 0)
+        for s in (fx["b"], c):
+            self.assertIn("pre-push: corrections inventory MATCHES the history of %s (its own row excepted)" % s[:12], out)
+        self.assertIn("pre-push: corrections inventory MATCHES at every commit of the pushed range (2 commit(s), oldest first)", out)
+        self.assertEqual([l for l in self._git(repo, "worktree", "list", "--porcelain").split("\n")
+                          if l.startswith("worktree ")], ["worktree " + repo], "no temp worktree survives the hook")
+
+    def test_q999_an_unbounded_range_fails_closed(self):
+        """A new ref (all-zero remote sha) with no remote name: the range is bounded by this clone's
+        remote-tracking refs (the record producer's shape). With none at all the hook cannot tell which
+        commits are new, and the leg FAILS rather than check the tip alone."""
+        fx = self._hook_fixture()
+        mark = os.path.join(fx["d"], "mark_unb.log")
+        e = self._env(HK_MARK=mark, TMPDIR=fx["d"])
+        for k in ("ROAE_PREPUSH_RECORD", "ROAE_PRIVATE_DIR", "ROAE_REVIEW_QUEUE", "CITGATE_BASE"):
+            e.pop(k, None)
+        run = lambda: subprocess.run(["bash", os.path.join(fx["repo"], self.HOOK)], cwd=fx["repo"],
+                                     input="refs/heads/x %s refs/tags/b52new %s\n" % (fx["bx"], "0" * 40),
+                                     capture_output=True, text=True, env=e, timeout=900)
+        r = run()
+        out = r.stdout.splitlines()
+        self.assertIn("PREPUSH_LEG_CORRECTIONS_INVENTORY=FAIL", out, "bounded by the tracking refs: bx is new and STALE\n" + r.stdout[-3000:])
+        self.assertTrue(any("is not current at commit %s" % fx["bx"][:12] in l for l in out), r.stdout[-3000:])
+        for ref in self._git(fx["repo"], "for-each-ref", "--format=%(refname)", "refs/remotes/").split("\n"):
+            self._git(fx["repo"], "update-ref", "-d", ref)
+        self.assertEqual(self._git(fx["repo"], "for-each-ref", "refs/remotes/"), "", "precondition: no tracking ref is left")
+        r = subprocess.run(["bash", os.path.join(fx["repo"], self.HOOK)], cwd=fx["repo"],
+                           input="refs/heads/x %s refs/tags/b52new %s\n" % (fx["b"], "0" * 40),
+                           capture_output=True, text=True, env=e, timeout=900)
+        out = r.stdout.splitlines()
+        self.assertIn("PREPUSH_LEG_CORRECTIONS_INVENTORY=FAIL", out, r.stdout[-3000:])
+        self.assertTrue(any("the pushed range cannot be bounded" in l for l in out), r.stdout[-3000:])
+        self.assertNotIn("pre-push: corrections inventory MATCHES the history of %s (its own row excepted)" % fx["b"][:12], out,
+                         "the leg must not fall back to checking the tip alone")
+        self.assertNotEqual(r.returncode, 0)
+
+    def test_q999_check_ignores_refs_replace_like_the_hook(self):
+        fx = self._fixture()
+        repo = fx["repo"]
+        src = self._src(self.SCRIPT)
+        anchor = "export GIT_NO_REPLACE_OBJECTS=1\n"
+        self.assertEqual(src.count(anchor), 1, "precondition: the export exists once")
+        mutant = src.replace(anchor, "")
+        self._git(repo, "replace", fx["p"], fx["s"])      # the real parent replaced by the stand-in
+        for sha, want, want_mut in ((fx["bx"], "STALE", "MATCH"),   # stale for real; the replacement hid it
+                                    (fx["b"], "MATCH", "STALE")):   # current for real; the replacement broke it
+            with self.subTest(commit=sha[:8]):
+                self._git(repo, "checkout", "-q", "--detach", sha)
+                rc, v, err = self._check(repo, src)
+                self.assertEqual(v, "CORRECTIONS_INVENTORY_CHECK=" + want, err)
+                rc, v, err = self._check(repo, mutant)
+                self.assertEqual(v, "CORRECTIONS_INVENTORY_CHECK=" + want_mut,
+                                 "precondition: the replacement changes a replace-honouring answer\n" + err)
+        self._git(repo, "checkout", "-q", "--", self.SCRIPT)
+
+    def test_q999_one_call_site_and_the_range_rule_in_the_hook(self):
+        src = self._src(self.HOOK)
+        self.assertEqual(src.count("bash scripts/corrections_inventory.sh --check 2>&1"), 1)
+        self.assertEqual(src.count('git -C "$ROOT" rev-list --reverse "$sha" --not $_ci_bases'), 1)
+        self.assertIn("the pushed range cannot be bounded", src)
+
+    # ---------------------------------------------------------------- Q-1003: the generalised transplant
+    def _tables(self, pin):
+        F = _SP_ALLOW_FILE
+        r = subprocess.run(["git", "show", "%s:%s" % (pin, F)], capture_output=True)
+        if r.returncode != 0:
+            self.skipTest("pin %s is not in this clone" % pin)
+        with open(F, "rb") as fh:
+            cur = fh.read()
+        return {F: r.stdout}, {F: cur}
+
+    def test_q1003_transplant_only_adds_rows_on_the_pins_in_use(self):
+        import difflib
+        F = _SP_ALLOW_FILE
+        for cls in (TestQ968NumberLexer, TestQ966WordMatcher, TestQ976Q977Q978Batch43):
+            with self.subTest(pin=cls.PIN, cls=cls.__name__):
+                u, f = self._tables(cls.PIN)
+                o = _uncured_with_current_allow_tables(u, f)
+                a, b = u[F].decode("utf-8").split("\n"), o[F].decode("utf-8").split("\n")
+                d = [l for l in difflib.ndiff(a, b) if l[:2] in ("- ", "+ ")]
+                self.assertEqual([l for l in d if l[0] == "-"], [], "a pinned line was changed or removed")
+                added = [l[2:].encode("utf-8") for l in d if l[0] == "+"]
+                legacy = b'  allow() { case "$1" in' in u[F]
+                for l in added:
+                    ok = _HEX_ALLOW_ROW.fullmatch(l) or _SP_ALLOW_ROW.fullmatch(l) or \
+                        (legacy and re.fullmatch(rb'      echo "(?:[^"\n$`\\]|\\[$"`\\])*";;', l))
+                    self.assertTrue(ok, "an added line is not a row: %r" % l)
+                    if legacy:
+                        self.assertNotIn(b"at=(", l, "the per-document binding is the cure; it must not travel")
+                        self.assertNotIn(b"_why=", l)
+                if legacy:
+                    body = o[F].split(b'\n  allow() { case "$1" in\n', 1)[1].split(b"\n    *) echo \"\";; esac; }\n", 1)[0]
+                    self.assertNotIn(b"_why=", body, "the legacy table reads only echo rows")
+                    self.assertNotIn(b"at=(", body)
+
+    def _synthetic(self, sp_rows=(), hex_rows=()):
+        cur = (b"x\n" + _SP_ALLOW_HEAD + b"\n    a/b.sh)\n      at=(README.md)\n      _why=\"r1\";;\n" + b"\n".join(sp_rows)
+               + (b"\n" if sp_rows else b"") + _SP_ALLOW_TERM + b"\n    y\n" + _HEX_ALLOW_HEAD + b"\n    abcd)\n      echo \"h1\";;\n"
+               + b"\n".join(hex_rows) + (b"\n" if hex_rows else b"") + _HEX_ALLOW_TERM + b"\nz\n")
+        old = (b"x\n" + _SP_ALLOW_OLD_HEAD + b"\n    a/b.sh)\n      echo \"r1\";;\n" + _SP_ALLOW_OLD_TERM
+               + b"\n    y\n" + _HEX_ALLOW_HEAD + b"\n    abcd)\n      echo \"h1\";;\n" + _HEX_ALLOW_TERM + b"\nz\n")
+        return {"f": old}, {"f": cur}
+
+    def _tx(self, u, f):
+        for spec in _ALLOW_TABLES:
+            u = _uncured_with_current_table(u, f, "f", *spec[1:])
+        return u
+
+    def test_q1003_converter_drops_the_binding_and_keeps_the_reasons(self):
+        u, f = self._synthetic(sp_rows=(b"    tr12/*)", b"      at=('*')   # any file") + _SP_TR12_CODE)
+        o = self._tx(u, f)["f"]
+        want = (b"x\n" + _SP_ALLOW_OLD_HEAD + b"\n    a/b.sh)\n      echo \"r1\";;\n    tr12/*)\n" + _SP_TR12_CODE[0]
+                + b"\n        echo \"historical location of reports/$1 before CX-233 (2026-09-29)\"\n      else echo \"\"; fi;;\n"
+                + _SP_ALLOW_OLD_TERM + b"\n    y\n" + _HEX_ALLOW_HEAD + b"\n    abcd)\n      echo \"h1\";;\n" + _HEX_ALLOW_TERM + b"\nz\n")
+        self.assertEqual(o, want)
+        self.assertEqual(self._tx(*self._synthetic())["f"], self._synthetic()[0]["f"], "identity when the rows agree")
+
+    def test_q1003_code_and_expansions_are_not_rows(self):
+        for sp, hx in (((b'      _why="$(touch /tmp/b52)";;',), ()), ((b'      _why="`touch /tmp/b52`";;',), ()),
+                       ((b'      _why="x"; rc=0;;',), ()), ((b'      at=(a; rm -rf b)',), ()),
+                       ((b'      rc=0;;',), ()), ((b'      if true; then',), ()), ((b'    *)',), ()),
+                       ((), (b'      echo "$(touch /tmp/b52)";;',)), ((), (b'      echo "`touch /tmp/b52`";;',)),
+                       ((), (b'      echo "${HOME}";;',)), ((), (b'      echo "x"; rc=0;;',)), ((), (b'    *)',))):
+            with self.subTest(row=(sp + hx)[0]):
+                u, f = self._synthetic(sp, hx)
+                with self.assertRaises(AssertionError) as cm:
+                    self._tx(u, f)
+                self.assertIn("is data only; not a row", str(cm.exception))
+        # escapes are data: \$ and \" are literal inside double quotes, as two real rows use
+        self._tx(*self._synthetic((b'      _why="a \\"q\\" and \\$OUT";;',)))
+
+    def test_q1003_shape_drift_is_loud(self):
+        u, f = self._synthetic()
+        for name, uu, ff, msg in (
+                ("current twice", u, {"f": f["f"] + f["f"]}, "is found once in the current"),
+                ("pinned in both shapes", {"f": u["f"] + b"\n" + _SP_ALLOW_HEAD + b"\n    q)\n" + _SP_ALLOW_TERM + b"\n"}, f,
+                 "in exactly one known shape"),
+                ("pinned in neither", {"f": u["f"].replace(_SP_ALLOW_OLD_HEAD, b"  allow() {  case")}, f,
+                 "in exactly one known shape")):
+            with self.subTest(case=name):
+                with self.assertRaises(AssertionError) as cm:
+                    self._tx(uu, ff)
+                self.assertIn(msg, str(cm.exception))
+
+    def test_q1003_q968_test_d_has_a_named_unplanted_baseline(self):
+        import inspect
+        src = inspect.getsource(TestQ968NumberLexer.test_d_every_plant_evades_the_uncured_scripts)
+        self.assertIn('precondition="unplanted tree green on the uncured scripts"', src)
+        self.assertIn("Baseline rc %d: %s", src)
+        self.assertIn('"[FAIL]" in l', src)
+        self.assertNotIn("skipTest(\"uncured", src, "an assertion, not a skip")
+        src = inspect.getsource(TestQ966WordMatcher.test_d_every_plant_passes_on_the_uncured_scripts)
+        self.assertIn('"[FAIL]" in l', src)
+        self.assertNotIn("skipTest(\"uncured", src, "A07#6's standing skip is gone: a red baseline is a named failure")
+
+# end class TestBatch52 (batch 52: Q-813, Q-1000, Q-676/K13, Q-999, Q-1003)
 
 
 if __name__ == "__main__":

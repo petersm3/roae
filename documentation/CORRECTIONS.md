@@ -31870,3 +31870,215 @@ record. None is on a front-door page. Restating them with the current value is b
 left to later batches.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, cleanup batch M1 follow-up.
+
+## CX-357 — the 100 T FFT figures stay as they were computed, with a float32 FFT, and each is now scoped to the precision it is expected to keep; the exact recompute will not be run (documentation/DISTRIBUTIONAL_ANALYSIS.md; documentation/CRITIQUE.md; documentation/CLAIM_TO_ARTIFACT.md; tests.py)
+
+**2026-10-15.** **Source.** Backlog row Q-813, opened by the Q-811 audit of outputs written by the
+float32 FFT. CX-108 (2026-09-25) added interim scope notes and left one decision open: recompute the
+figures exactly under the float64 extractor, or keep them with a scope note. On 2026-10-15 the
+operator chose the scope note. Batch 52.
+
+**No figure changed and none was recomputed.** Every number is printed as before. The text says
+how far each one can be trusted.
+
+**1. What was open.** The 100 T FFT figures in DISTRIBUTIONAL_ANALYSIS.md were computed by numpy 2.x
+runs of `--compute-stats`, while the extractor passed a float32 array to `np.fft.fft`, so the
+transform ran in complex64. `solve.py` has computed it in float64 since CX-106. CX-108's notes said
+which digits are at risk, and that only an exact recompute of the 100 T canonical would settle them.
+That recompute would need the 100 T canonical `solutions.bin`, which is not in the tree, regenerated
+first (CANONICAL_HASHES.md: approximately 11-19 hours on a 128-vCPU machine, longer in proportion on
+fewer cores), then the `--compute-stats` pass and the exact-histogram passes run over it. No conclusion
+rests on the digits it could move, so it will not be run.
+
+**2. What changed.** A dated note now sits beside each at-risk figure. The notes are on the
+marginals-table intro, the joint-density paragraph (95.476th, 0.757%), the exact-histogram
+paragraph (29.32 / 31.01 / 33.85%), the Nyquist-impact list (3,496,831; 29.41 / 31.10 / 33.84%),
+CRITIQUE.md's 95.476th sentence and CLAIM_TO_ARTIFACT.md row 17. Each says that no recompute is
+scheduled and which digits stand. The exact-histogram note adds one point: "reproduces … exactly"
+compares two float32-FFT computations with each other, so it does not check the float64 values. A
+revision note at the end of DISTRIBUTIONAL_ANALYSIS.md records the decision and sorts the figures
+into four groups:
+- **expected to hold at the printed precision:** the 95.476th percentile and its p ≈ 0.045, 0.757%,
+  ~95.48%, and the dominant-frequency percentages;
+- **last printed digit not guaranteed:** 29.32 / 31.01 / 33.85% and 29.41 / 31.10 / 33.84%;
+- **at risk as exact values:** 3,496,831 and the `~`-marked amplitude counts. The dominant-frequency
+  counts are expected not to change, but are not re-verified;
+- **not assessed:** the KDE seed range 28.6–32.1%.
+These are predictions from per-record rates, as in CX-108, and are not measurements on the 100 T
+population. Every note is appended to an existing line, and the revision note is added at the end of
+the file, so no line moves.
+
+**3. Tests.** `TestBatch52` checks that each at-risk figure's paragraph carries the dated note and
+still prints the figure. It also checks that the revision note names all four groups and is the
+last line of the file, and that CRITIQUE.md and CLAIM_TO_ARTIFACT.md carry the note beside the
+unchanged figure.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 52, Q-813.
+
+## CX-358 — `--atlas-residual-rank` read the atlas without the consumer's loader, and ran an atlas whose t-identity gate never ran to PASS with no warning; it now loads through `atlas_load` first, refuses such an atlas unless `--atlas-allow-t-not-run` is given, and warns when it is (solve.py; documentation/SOLVE_PY_CLI.md; documentation/DEVELOPMENT.md; documentation/VERIFY.md; tests.py)
+
+**2026-10-15.** **Source.** Backlog row Q-1000, deferred item D1 of the Fable pre-publication review
+of batch 49. CX-350's loader refusal covered `--atlas-queries` and `--atlas-selftest` only. Batch 52.
+
+**No published number, count, sha or verdict moves.** The published n = 31 atlas loads cleanly.
+Its residual rank is still 3788, and `ATLAS_RESIDUAL_RANK_VERDICT=PASS`.
+
+**1. What was wrong.** `atlas_residual_rank` opened the file with `json.load` and parsed only `n`,
+`layers` and the kernel cells. None of `atlas_load`'s refusals applied: a failed or un-emitted
+producer gate, a failed tail check, a t-identity gate that did not run. Measured on the published
+atlas with `gates.t_root_eq_f_layer_sum` set to the producer's `"not-run (requires --kc-tdir)"`:
+`ATLAS_RESIDUAL_RANK=3788`, `VERDICT=PASS`, exit 0, and nothing on stderr. This mode prints a rank,
+not an atlas verdict, and `--atlas-probe` already fails such an atlas, so CX-350 left it out of scope.
+It still reads the same file that CX-350 says to treat as unverified across chunks.
+
+**2. What changed.** The mode calls `atlas_load(path, allow_t_not_run=...)` before it parses
+anything, so every refusal of the consumer applies here too. The t-identity refusal is raised as
+`AtlasTNotRunError`, a new subclass of `AtlasError`, so every existing `except AtlasError` still
+catches it. The mode prints `ATLAS_RESIDUAL_RANK_VERDICT=ERROR:t-identity-not-run` (exit 2) for it,
+and `ERROR:malformed-atlas` for every other refusal. With `--atlas-allow-t-not-run` the atlas loads,
+and the loader's WARNING goes to stderr. The flag's help text, SOLVE_PY_CLI.md (synopsis, the flag,
+the mode's exit statuses), DEVELOPMENT.md's token table and VERIFY.md name the mode. A code comment
+that listed this mode as one of three loaders bypassing `atlas_load` says that it no longer does.
+
+**3. Tests.** `TestBatch52` takes the committed n = 31 atlas, asserts first that `fails` is 0 and
+every other gate reads true, and sets that one gate to the producer's string. On the command line it
+is refused with the new token as the only stdout line. With the opt-in it passes with rank 3788 and
+the warning. The published atlas passes with no warning. A mutant with the `atlas_load` call removed
+returns PASS on the same file. The existing `TestAtlasResidualRank` and
+`TestAtlasReadersAreAsStrictAsTheConsumer` cases are unchanged and pass. Their mutated n = 9 and
+n = 31 atlases (an orbit removed, a respelled key) give the same tokens through the loader.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 52, Q-1000. Advisory: Fable
+(claude-fable-5-1) pre-publication review of batch 49.
+
+## CX-359 — the atlas consumer's population note still called the C3-conditioning gap unmeasured after TR-12 §12.10 had published it; the note now states the measured gap, and a test holds it to TR-12's table (solve.py; reports/TR12_QUERY_PROGRAM.md; tests.py)
+
+**2026-10-15.** **Source.** Backlog row Q-676. The final Codex (gpt-6-astra) review found the stale
+note again and listed it as known issue K13. Batch 52.
+
+**No published number, count, sha or verdict moves.** The note is text appended to the A2 and A3
+verdict details. It is in no committed output, and the verdicts are computed as before.
+
+**1. What was wrong.** `_ATLAS_POPULATION_NOTE` is appended to every A2 and A3 verdict detail. It
+said that agreement corroborates only if the law is C3-insensitive at tolerance, "which is
+UNMEASURED until the first full-31 atlas". The comment above it said no full-31 atlas exists. The
+first full-31 atlas was finished on 2026-09-22, and TR-12 §12.10 publishes the gap: about twelve
+times the 0.002 tolerance, the two circle-adjacent A2 slots enriched about ×1.23, and A3 mass moving
+into d3. So the code note was stale and the report was right.
+
+**2. What changed.** The note now reads: "MEASURED on the full-31 atlas: the two differ by ~12x tol
+(TR-12 sec. 12.10), so agreement does not corroborate". The comment says the question was open
+until 2026-09-22. It also says what TR-12 says about the attribution: the SUPER side is measured
+exactly, and that the gap is C3's is an inference across two instruments, not a measurement by this
+program. The note uses neither "UNMEASURED" nor the "rescales" reading that CX-63 refuted. Both
+edits keep their line count, so no cited line in solve.py moves.
+TR-12 §12.10, which quotes the old note as what the consumer has said since 2026-09-05, now dates that quotation (v1.29).
+
+**3. Tests.** `TestBatch52` reads TR-12 §12.10's six-row table and checks each deviation against
+its two columns. It takes the largest deviation over the stated tolerance (12.45, rounded to 12),
+and requires the note to state `~12x tol`, to name `TR-12 sec. 12.10`, and to contain neither
+"UNMEASURED" nor "rescal". It also checks that A2 and A3 both still append the note. The same check
+fails on the pre-fix note read from public batch 51 (`29e539df`). A future edit to either side that
+moves the ratio, or brings back the old clause, fails it.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 52, Q-676 / K13.
+
+## CX-360 — the pre-push inventory leg checked only the pushed tip, so a stale inventory in an earlier commit of the same push was never read; it now checks every commit the push adds, oldest first, and the inventory script ignores refs/replace as the hook does (scripts/pre_push_gate.sh; scripts/corrections_inventory.sh; tests.py)
+
+**2026-10-15.** **Source.** Backlog row Q-999, from the Fable pre-publication review of batch 47
+(2026-10-11), which checked the three pending commits of that push by hand. Batch 52.
+
+**No published number, count, sha or verdict moves.** The leg's verdict line is unchanged:
+exactly one `PREPUSH_LEG_CORRECTIONS_INVENTORY=PASS|FAIL` per pushed sha.
+
+**1. What was wrong.** Two things.
+- `PREPUSH_LEG_CORRECTIONS_INVENTORY` (CX-342) ran `corrections_inventory.sh --check` in the pushed
+  tip's worktree only. Each commit's inventory is a function of that commit's own history, so in a
+  push of two commits a stale inventory in the first one published as long as the second matched its
+  own history.
+- The hook exports `GIT_NO_REPLACE_OBJECTS=1` and a direct `--check` did not. With a
+  `refs/replace/*` entry present, the two could read different histories and give different answers
+  for the same commit.
+
+**2. What changed.**
+- The leg now lists the commits the push adds: `git rev-list --reverse <sha> --not <bases>`, where
+  the bases are the remote sha(s) this push replaces. For a new ref they are the destination's
+  tracking refs. With no remote name, as in a direct run or the verdict-record producer's tag push,
+  they are every remote-tracking ref of the clone. It runs `--check` in a checkout of each commit, oldest first, and stops at the first
+  one that is not MATCH. The refusal names that commit and its first differing rows. The tip is
+  checked in the hook's existing worktree, and the others in one more temporary worktree, which is
+  removed after the leg and on every exit path.
+- With no base at all (a new ref and no remote-tracking ref in the clone), the range cannot be
+  bounded. The leg FAILS and says so, rather than check the tip alone.
+- `corrections_inventory.sh` exports `GIT_NO_REPLACE_OBJECTS=1` at its top, so the writer,
+  `--stdout` and `--check` all read the objects a push sends, as the hook does.
+
+**3. Tests.** `TestBatch52`, in throwaway repositories with the real scripts, the fixture from
+`TestQ994Q995Batch47`:
+- **Two-commit push, first commit stale.** It asserts its preconditions first: the push adds exactly
+  the stand-in batch `bx` and a commit `c` on top of it; `c` alone MATCHES; `bx` is STALE. It is
+  refused, the refusal names `bx`, and `c` is never checked. The pre-fix hook from public batch 51
+  passes the same push. A mutant of the new hook that loops over the tip only passes it too.
+- **Clean two-commit push.** It passes, with a MATCH line for each commit, and leaves no temporary
+  worktree behind.
+- **Unbounded range.** A new ref with no remote name is bounded by the tracking refs, so the stale
+  commit is found. With every tracking ref deleted, it is refused with the reason stated. A mutant
+  that falls back to the tip alone passes it. A mutant without the tracking-ref fallback fails 9 of
+  the 11 `TestQ798PrepushTreeKeyedReuse` cases, whose record producer pushes a tag with no base.
+- **refs/replace.** With the real parent replaced by the stand-in, `--check` reads the real history:
+  STALE on the stale batch and MATCH on the current one. A mutant without the export reads it the
+  other way round.
+
+The existing hook test (stand-in tree blocked, regenerated tree passes) is unchanged and passes.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 52, Q-999. Advisory: Fable
+(claude-fable-5-1) pre-publication review of batch 47.
+
+## CX-361 — the uncured halves of three doc-gate tests ran GATE 21's pinned allowlist, which predates rows the corpus needs, so one plant stood skipped; the allowlist transplant now takes any table, GATE 21's travels with the corpus like GATE 22's, and a row may no longer carry a shell expansion (tests.py)
+
+**2026-10-15.** **Source.** Backlog row Q-1003, from the Fable fix-check of batch 50 (§4). Batch 52.
+
+**No published number, count, sha or verdict moves.** Only tests.py changes. No gate script changes.
+
+**1. What was wrong.** `TestQ968NumberLexer`, `TestQ966WordMatcher` and `TestQ976Q977Q978Batch43`
+each prove a gate fix by running the gate scripts of a pinned public commit, from before the fix,
+over this tree's documents: every plant must evade them. An allowlist table in those scripts is
+data about the documents, not part of the fix. Batch 50 therefore made the pinned scripts read the
+current table of GATE 22 (`hex_allow`). GATE 21's script-paths table (`allow()`) still came from the
+pin. The rows added since the pin (the Q-OY1/Q-992 and C8 pre-registration copies, and the
+reviewer-bundle rows for one pin) left pinned script-paths red before any plant. In
+`TestQ966WordMatcher` that turned into a standing skip, "uncured script-paths is rc 1 on the
+unplanted tree", so its plant A07#6 never ran. `TestQ968NumberLexer` had no unplanted check, and
+reported such a failure as "the uncured scripts already catch this plant". The GATE 22 row grammar
+also admitted `$(…)`, backquotes and `${…}` inside a row's text, which bash expands inside double
+quotes.
+
+**2. What changed.**
+- One helper takes a table as (file, header literal, terminator literal, row regex). The block must
+  be found exactly once in the current file, every body line must match the row regex, and the
+  pinned file must hold the table in exactly one known shape.
+- GATE 21's table has an older shape. Before batch 40, a row was `echo "<why>"` with no
+  per-document binding. The helper rewrites the current rows into that shape: it drops the `at=(…)`
+  binding, which is the Q-966 fix itself, and keeps each token and its reason. Measured on the three
+  pins in use (`35782834`, `cb61be3f`, `f1b27e32`): the transplant only adds rows, and every pinned
+  line survives byte for byte.
+- GATE 21's row grammar admits case arms, `at=(…)` lines, `_why="…"` reasons in which a dollar sign,
+  a double quote, a backquote or a backslash appears only escaped, comment lines, and the three code
+  lines of the `tr12/*` arm, verbatim. GATE 22's echo class is now
+  `[^"\n$`\\]*`.
+- `TestQ968NumberLexer.test_d` and `TestQ966WordMatcher.test_d` check the unplanted tree on the
+  uncured scripts first. A red baseline is a failure that names the leg and its first `[FAIL]`
+  line, never a skip.
+
+**3. Tests.** All three uncured halves run with no skip. A07#6 now runs against the pinned scripts
+and evades them. Removing GATE 21 from the transplant makes `TestQ966WordMatcher.test_d` fail on
+its script-paths baseline. The failure names the first dangling path. `TestBatch52` checks the
+helper on synthetic tables:
+- the converter's output;
+- refusal of `$(…)`, backquote, `${…}`, `; rc=0` and bare-code rows in both grammars;
+- acceptance of the escaped `\$` and `\"` that two real rows use;
+- refusal when a table appears twice, or the pinned file holds both shapes or neither.
+It also checks on the real pins that the transplant only adds rows.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch 52, Q-1003. Advisory: Fable
+(claude-fable-5-1) fix-check of batch 50.

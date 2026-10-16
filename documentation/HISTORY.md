@@ -11500,3 +11500,21 @@ Q-686=DONE
   full-31 pass has not been run, and nothing from it is published. The TR-12 battery row for this
   mode (`a0_midjoin`, an n = 9 golden with the five run-describing lines masked) is deferred to a
   later batch; the mode is gated by the tests and the selftest above, not by `tr12_repro.sh`.
+
+## 2026-10-15 — batch 52: the 100 T FFT figures are scoped rather than recomputed, the residual rank refuses an unchecked atlas, the population note states the measured gap, and the push checks every commit's inventory
+
+- The 100 T FFT figures in DISTRIBUTIONAL_ANALYSIS.md were computed with a float32 FFT. They stay
+  as computed, and the exact recompute will not be run. A dated note beside each at-risk figure says
+  which digits stand. The 2-decimal histogram percentages may move in the last digit, and the exact
+  counts are at risk as exact values (CX-357, Q-813). No figure changed.
+- `solve.py --atlas-residual-rank` loads the atlas through the consumer's loader. An atlas whose
+  t-identity gate did not run is refused unless `--atlas-allow-t-not-run` is given, as
+  `--atlas-queries` already did (CX-358, Q-1000).
+- The note that the atlas consumer appends to its A2 and A3 verdicts no longer calls the
+  C3-conditioning gap unmeasured. It states the gap TR-12 §12.10 publishes, about twelve times
+  tolerance, and a test holds it to TR-12's table (CX-359, Q-676).
+- The pre-push inventory leg checks every commit a push adds, oldest first, not only the tip.
+  The inventory script ignores `refs/replace/*`, as the hook does (CX-360, Q-999).
+- The uncured halves of three doc-gate tests now read GATE 21's allowlist from the current tree, as
+  they already read GATE 22's. A plant that had stood skipped now runs (CX-361, Q-1003).
+- No canonical sha, count or reproduction parameter moved.

@@ -1182,24 +1182,66 @@ for sha in $SHAS; do
   # tree on a stand-in parent is exactly the case this leg exists to catch. It costs a few seconds.
   # MATCH with rc 0 is the only pass; STALE, ERROR (a shallow clone among them), no single verdict
   # line, or a pushed tree without the script is a FAIL, the rule of the atlas leg above.
+  # 🔴 Q-999 (batch 52; Fable B47 prepub, 2026-10-11): EVERY COMMIT OF THE PUSHED RANGE, NOT THE TIP ALONE.
+  # This leg ran --check on the pushed tip only, so the intermediate commits of a multi-commit push were
+  # never checked: a stale inventory in the first of two commits published as long as the second matched
+  # its own history. Each commit the push adds is now checked in its own checkout, OLDEST FIRST, and the
+  # first one that is not MATCH stops the leg and is named. The range is the pushed sha minus what the
+  # destination already holds: the remote sha(s) this push replaces (PUBREF, the githooks(5) remote
+  # sha), or, for a new ref, the destination's tracking refs, or with no remote name every
+  # remote-tracking ref of this clone. With none of these, the range cannot be bounded
+  # (all of history would be "new", and commits older than the script cannot be checked), and the leg
+  # FAILS rather than check the tip alone. The tip is checked in $WT, the others in one more temporary
+  # worktree under $WTBASE (removed here, and by cleanup on every exit path). GIT_NO_REPLACE_OBJECTS=1
+  # is exported at the top of this hook, and --check now sets it too, so the hook and a direct run
+  # read the same history.
   _L_CORRECTIONS_INVENTORY=FAIL
-  if [ -f "$WT/scripts/corrections_inventory.sh" ]; then
-    _ci_out=$( cd "$WT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
-                 bash scripts/corrections_inventory.sh --check 2>&1 ); _circ=$?
-    if one_token CORRECTIONS_INVENTORY_CHECK "$_ci_out" && tok_is 'CORRECTIONS_INVENTORY_CHECK=MATCH' && [ "$_circ" -eq 0 ]; then
-      _L_CORRECTIONS_INVENTORY=PASS
-      echo "pre-push: corrections inventory MATCHES the pushed commit's history (its own row excepted)"
-    else
-      echo "pre-push: FAIL — documentation/CORRECTIONS_INVENTORY.tsv is not current for pushed sha $short (rc=$_circ, '${TOK:-<no single CORRECTIONS_INVENTORY_CHECK= line>}')."
-      printf '%s\n' "$_ci_out" | grep -E '^ +(\[check\]|[<>] )' | head -12 | sed 's/^/         /'
-      echo "         Regenerate it ON THE REAL PARENT COMMIT (scripts/corrections_inventory.sh), then commit."
-      echo "         Reproduce: bash scripts/corrections_inventory.sh --check"
-      SHARC=1
-    fi
+  _ci_bases=""; for _b in ${PUBREF[$sha]:-}; do _ci_bases="$_ci_bases $_b"; done
+  if [ -z "$_ci_bases" ] && [ -n "${1:-}" ] && git -C "$ROOT" config --get "remote.$1.url" >/dev/null 2>&1; then
+    _ci_bases=$(git -C "$ROOT" for-each-ref --format='%(objectname)' "refs/remotes/$1/" 2>/dev/null | paste -sd' ')
+  fi
+  # No remote name (a direct run, or the record producer's tag push with an all-zero base): every
+  # remote-tracking ref of this clone. A commit on one was published somewhere, and gated when it was.
+  [ -n "${_ci_bases// /}" ] || _ci_bases=$(git -C "$ROOT" for-each-ref --format='%(objectname)' refs/remotes/ 2>/dev/null | paste -sd' ')
+  _ci_list=""; _ci_ok=1; _ci_why=""
+  if [ -z "${_ci_bases// /}" ]; then
+    _ci_ok=0; _ci_why="the pushed range cannot be bounded (no remote sha for this ref and no remote-tracking refs in this clone)"
+  elif ! _ci_list=$(git -C "$ROOT" rev-list --reverse "$sha" --not $_ci_bases 2>/dev/null); then
+    _ci_ok=0; _ci_why="git rev-list over the pushed range failed"
+  fi
+  _ci_n=0; _ci_stop=""
+  if [ "$_ci_ok" = 1 ]; then
+    for _c in $( { printf '%s\n' "$_ci_list" | grep -vxF -- "$sha"; echo "$sha"; } | grep . ); do
+      _ci_n=$((_ci_n + 1))
+      if [ "$_c" = "$sha" ]; then _ci_wt=$WT
+      else
+        _ci_wt="$WTBASE/ci"
+        if [ -d "$_ci_wt" ]; then git -C "$_ci_wt" checkout -q --detach "$_c" 2>/dev/null || { _ci_stop=$_c; _ci_why="cannot check out ${_c:0:12}"; break; }
+        else git -C "$ROOT" worktree add --detach --quiet "$_ci_wt" "$_c" 2>/dev/null || { _ci_stop=$_c; _ci_why="cannot check out ${_c:0:12} into a temp worktree"; break; }; fi
+      fi
+      if [ ! -f "$_ci_wt/scripts/corrections_inventory.sh" ]; then _ci_stop=$_c; _ci_why="commit ${_c:0:12} has no scripts/corrections_inventory.sh"; break; fi
+      _ci_out=$( cd "$_ci_wt" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
+                   bash scripts/corrections_inventory.sh --check 2>&1 ); _circ=$?
+      if one_token CORRECTIONS_INVENTORY_CHECK "$_ci_out" && tok_is 'CORRECTIONS_INVENTORY_CHECK=MATCH' && [ "$_circ" -eq 0 ]; then
+        echo "pre-push: corrections inventory MATCHES the history of ${_c:0:12} (its own row excepted)"
+      else
+        _ci_stop=$_c; _ci_why="rc=$_circ, '${TOK:-<no single CORRECTIONS_INVENTORY_CHECK= line>}'"; break
+      fi
+    done
+    [ -d "$WTBASE/ci" ] && { git -C "$ROOT" worktree remove --force "$WTBASE/ci" >/dev/null 2>&1 || rm -rf "$WTBASE/ci"; }
+  fi
+  if [ "$_ci_ok" = 1 ] && [ -z "$_ci_stop" ]; then
+    _L_CORRECTIONS_INVENTORY=PASS
+    echo "pre-push: corrections inventory MATCHES at every commit of the pushed range ($_ci_n commit(s), oldest first)"
+  elif [ "$_ci_ok" = 1 ]; then
+    echo "pre-push: FAIL — documentation/CORRECTIONS_INVENTORY.tsv is not current at commit ${_ci_stop:0:12} of the push to $short ($_ci_why)."
+    printf '%s\n' "${_ci_out:-}" | grep -E '^ +(\[check\]|[<>] )' | head -12 | sed 's/^/         /'
+    echo "         Regenerate it ON THE REAL PARENT COMMIT (scripts/corrections_inventory.sh) of that commit, then rebuild the commits above it."
+    echo "         Reproduce: git checkout ${_ci_stop:0:12} && bash scripts/corrections_inventory.sh --check"
+    SHARC=1
   else
-    echo "pre-push: FAIL — pushed sha $short has no scripts/corrections_inventory.sh."
-    echo "  Deleting the generator that this leg checks is the regression it exists to prevent;"
-    echo "  --no-verify is the visible bypass."
+    echo "pre-push: FAIL — the corrections inventory leg did not run for pushed sha $short: $_ci_why."
+    echo "  Fetch the destination and push again; --no-verify is the visible bypass."
     SHARC=1
   fi
   if [ "$_L_CORRECTIONS_INVENTORY" = PASS ]; then echo "PREPUSH_LEG_CORRECTIONS_INVENTORY=PASS"; else echo "PREPUSH_LEG_CORRECTIONS_INVENTORY=FAIL"; fi

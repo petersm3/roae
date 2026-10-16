@@ -53,7 +53,7 @@ python3 solve.py --atlas-queries ATLAS.json --atlas-out DIR [--atlas-select LIST
                  [--xa-nodes-per-sec F (--xa-budget-hours F | --xa-usd-per-hour F --xa-budget-usd F)]
                  [--xa-node-mapping-cert PATH] [--atlas-allow-t-not-run]
 python3 solve.py --atlas-selftest ATLAS.json --atlas-walks WALKS.txt [--atlas-q3-trace TRACE.txt] [--atlas-allow-t-not-run]
-python3 solve.py --atlas-probe ATLAS.json | --atlas-residual-rank ATLAS.json  # TR-12 §12 figures | the probe's residual rank
+python3 solve.py --atlas-probe ATLAS.json | --atlas-residual-rank ATLAS.json [--atlas-allow-t-not-run]  # TR-12 §12 figures | the probe's residual rank
 
 # TR-8 dof-matched KW-fitting-predicate sampler
 python3 solve.py --tr8-dof-selftest
@@ -616,7 +616,7 @@ had been claiming.]
                              recounts against. Without it the verdict is
                              SKIP:no-brute-force-walks — never PASS.
 --atlas-keep DIR             --atlas-selftest: keep the emitted tables in DIR.
---atlas-allow-t-not-run      --atlas-queries/--atlas-selftest: load an atlas whose
+--atlas-allow-t-not-run      --atlas-queries/--atlas-selftest/--atlas-residual-rank: load an atlas whose
                              t-identity gate did not run (its gates carry
                              "not-run (requires --kc-tdir)": the scan had no t
                              ladder). WITHOUT THIS FLAG SUCH AN ATLAS IS REFUSED
@@ -1016,7 +1016,7 @@ had been claiming.]
                              `ATLAS_RESIDUAL_RANK_VERDICT=PASS`, 1 on FAIL (the
                              premise or a certificate failed; the rank is still
                              printed), 2 on `ERROR:<reason>` (unreadable or
-                             malformed atlas). Measured 2026-09-25: on
+                             malformed atlas, or one `atlas_load` refuses: since Q-1000 (2026-10-15) the atlas is loaded through it first, so a t-identity gate that did not run is `ERROR:t-identity-not-run` unless `--atlas-allow-t-not-run`, which loads it with the loader's WARNING). Measured 2026-09-25: on
                              runs/20260906_kc_ladders_n31/atlas_n31.json it
                              prints `ATLAS_RESIDUAL_RANK=3788` and
                              `ATLAS_RESIDUAL_RANK_BY_LAYER=0,112,129,...,129,64`

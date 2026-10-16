@@ -12591,7 +12591,7 @@ def atlas_load(path, allow_t_not_run=False):
     # already passes --kc-tdir, so the opt-in exists for diagnostic n=9 work on a t-less scan.
     not_run = sorted(k for k, v in gates.items() if v == "not-run (requires --kc-tdir)")
     if not_run and not allow_t_not_run:
-        raise AtlasError(
+        raise AtlasTNotRunError(
             "%s: gate(s) %s did NOT RUN (\"not-run (requires --kc-tdir)\"): the scan had no t "
             "ladder, so nothing ties the merged chunks to an independent total and the atlas is "
             "UNVERIFIED ACROSS CHUNKS. Re-run the scan with --kc-tdir, or pass "
@@ -15246,14 +15246,14 @@ def atlas_a3_wrap_class_map():
 # P(· | SUPER).  C3 keeps ~12.1% of SUPER (C3_CONDITIONAL_VS_NULL_LAW: exact |SUPER| 1.097e39 vs
 # Knuth |C1-C5| 1.329e38), and it is already known NOT to be independent of the C2/C4/C5 structure
 # (1.49x enrichment for low transition-sum).  Whether the wrap-class and slot laws move by more than
-# the 0.002 tolerance under that conditioning is UNMEASURED: no full-31 atlas exists, and until one
-# does, PASS here means "consistent with the C3-conditioned law at 0.002", not "the same question
-# answered twice".  The first full-31 atlas decides it -- compare its SUPER fractions against the
-# references and record the gap either way.
+# the 0.002 tolerance under that conditioning was open until the first full-31 atlas (2026-09-22):
+# they do, by about twelve times it (TR-12 sec. 12.10; Q-676). The SUPER side is measured exactly;
+# that the gap is C3's is an inference across two instruments, not a measurement by this program.
+# Batch 52 (K13) replaced the note's old "UNMEASURED" clause; TestBatch52 holds it to TR-12's table.
 _ATLAS_POPULATION_NOTE = (" | POPULATION: atlas fractions are over SUPER (C1*C2*C4*C5, C3 not "
                           "applied); the published references are fractions of C3-passing "
-                          "(C1-C5) mass. Agreement corroborates only if the law is C3-insensitive "
-                          "at tol, which is UNMEASURED until the first full-31 atlas (MQ1A #4).")
+                          "(C1-C5) mass. MEASURED on the full-31 atlas: the two differ by ~12x tol "
+                          "(TR-12 sec. 12.10), so agreement does not corroborate (MQ1A #4, Q-676).")
 
 from fractions import Fraction as _Fraction   # module-level: the atlas external checks
                                             # decide verdicts in exact rationals (RCQ04 F6)
@@ -18049,7 +18049,7 @@ def _int_matrix_rank_certified(A):
     return r, lower_ok, upper_ok
 
 
-def atlas_residual_rank(atlas_path):
+def atlas_residual_rank(atlas_path, allow_t_not_run=False):
     """Q-755: the rank of the kernel perturbations `--atlas-probe` cannot see.  Emits
     ATLAS_RESIDUAL_RANK= and ATLAS_RESIDUAL_RANK_VERDICT=.
 
@@ -18066,10 +18066,13 @@ def atlas_residual_rank(atlas_path):
     two-sided certificate (`_int_matrix_rank_certified`).  The measurement was first made
     privately by Fable T (2026-09-24, Q-738); this is its public reproduction.
 
-    Reads only the atlas.  Exit status: 0 on ATLAS_RESIDUAL_RANK_VERDICT=PASS, 1 on FAIL (a
+    Reads only the atlas, and loads it through `atlas_load` first (Q-1000), so every refusal of the
+    consumer applies here too: a t-identity gate that did not run is ERROR:t-identity-not-run unless
+    `allow_t_not_run` (--atlas-allow-t-not-run), which loads it with the loader's WARNING on stderr.
+    Exit status: 0 on ATLAS_RESIDUAL_RANK_VERDICT=PASS, 1 on FAIL (a
     certificate failed, or the premise that the support is a union of G48 orbits failed -- the
-    rank is still printed), 2 on ERROR (unreadable or malformed atlas).  Developed with AI
-    assistance (Claude, Anthropic)."""
+    rank is still printed), 2 on ERROR (unreadable or malformed atlas, or one `atlas_load` refuses).
+    Developed with AI assistance (Claude, Anthropic)."""
     def tok(k, v):
         print("%s=%s" % (k, v))
 
@@ -18082,6 +18085,10 @@ def atlas_residual_rank(atlas_path):
         tok("ATLAS_RESIDUAL_RANK_VERDICT", "ERROR:cannot-read-atlas")
         return 2
     try:
+        # 🔴 Q-1000 (batch 52; Fable B49 prepub, deferred D1): this mode read the atlas with json.load
+        # alone, so a t-identity-not-run atlas ran to VERDICT=PASS with no warning while --atlas-queries
+        # refused it (CX-350). The consumer's loader now vouches for the file before any rank is taken.
+        atlas_load(atlas_path, allow_t_not_run=allow_t_not_run)
         n = _atlas_json_index(a["n"], "n")
         L = a["layers"]
         if len(L) != n:
@@ -18097,9 +18104,11 @@ def atlas_residual_rank(atlas_path):
                     cells.add((x, y))
             supp.append(cells)
     except (KeyError, TypeError, ValueError, AttributeError, AtlasError) as exc:
-        print("ERROR: [atlas-residual-rank] malformed atlas %s: %s: %s"
-              % (atlas_path, type(exc).__name__, exc), file=sys.stderr)
-        tok("ATLAS_RESIDUAL_RANK_VERDICT", "ERROR:malformed-atlas")
+        t_not_run = isinstance(exc, AtlasTNotRunError)
+        print("ERROR: [atlas-residual-rank] %s atlas %s: %s: %s"
+              % ("refused" if t_not_run else "malformed", atlas_path, type(exc).__name__, exc),
+              file=sys.stderr)
+        tok("ATLAS_RESIDUAL_RANK_VERDICT", "ERROR:t-identity-not-run" if t_not_run else "ERROR:malformed-atlas")
         return 2
     img = [[_tg_apply_perm(p, h) for h in range(64)] for p in _tg_g48()]
     closed = lower = upper = True
@@ -19105,12 +19114,13 @@ def main():
                         help="Q-755: exact rank of the kernel perturbations --atlas-probe cannot "
                              "see (G48-invariant, row/column/class-sum preserving, on the atlas's "
                              "support), with a two-sided certificate; emits ATLAS_RESIDUAL_RANK=<n> "
-                             "and ATLAS_RESIDUAL_RANK_VERDICT=PASS|FAIL|ERROR:<reason>, exits 0/1/2")
+                             "and ATLAS_RESIDUAL_RANK_VERDICT=PASS|FAIL|ERROR:<reason>, exits 0/1/2; "
+                             "the atlas is loaded through atlas_load first (--atlas-allow-t-not-run)")
     parser.add_argument("--atlas-walks", metavar="FILE", default=None,
                         help="--atlas-selftest: explicit enumeration `solve --kc-enum FDIR` "
                              "(one walk per line) for the brute-force recount")
     parser.add_argument("--atlas-allow-t-not-run", action="store_true",
-                        help="--atlas-queries/--atlas-selftest: load an atlas whose t-identity gate "
+                        help="--atlas-queries/--atlas-selftest/--atlas-residual-rank: load an atlas whose t-identity gate "
                              "did not run (scanned without --kc-tdir), which is otherwise refused; "
                              "a warning names it, and its verdicts are UNVERIFIED ACROSS CHUNKS")
     parser.add_argument("--atlas-keep", metavar="DIR", default=None,
@@ -19172,7 +19182,8 @@ def main():
         sys.exit(atlas_probe(args.atlas_probe))
 
     if args.atlas_residual_rank:
-        sys.exit(atlas_residual_rank(args.atlas_residual_rank))
+        sys.exit(atlas_residual_rank(args.atlas_residual_rank,
+                                     allow_t_not_run=args.atlas_allow_t_not_run))
 
     if args.xa_w0d_lb_cert:
         if len(args.xa_w0d_lb_cert) > 2:
@@ -19830,7 +19841,7 @@ def _atlas_validate_strict(A, path):
 #     `kk[2:]`, `lg[2:]`, `key[1:].split("_")`), so `pair05`, `pair1_0` and a wrong prefix
 #     loaded -- `_atlas_probe_keys` now checks every key it parses before any token is printed,
 #     and the parse sites call `_atlas_key_int` / `_atlas_kernel_key` themselves;
-#   * three loaders that bypass `atlas_load` (`load_atlas`, `atlas_residual_rank`,
+#   * three loaders that bypass `atlas_load` (`load_atlas`, `atlas_residual_rank` [loads through it first since Q-1000, batch 52],
 #     `xa_w0d_lower_bound_cert`) read counts, keys, `n`, `k` and hexagram fields with int(),
 #     which accepts "+5", " 5", "1_0", "05" (keys) and 3.9 (a float, truncated);
 #   * the readers that parse this program's OWN TSVs back off disk (and viz/report_figures.py)
@@ -20524,6 +20535,18 @@ def _tr8_results_md_context(res):
           "**D2 (the median deliverable at K = 16): %s** — D2 never alters D1."
           % (res["verdict"], res["verdict_reason"], res["d2_k16"])]
     return L
+
+
+
+# ===========================================================================
+# Q-1000 (batch 52). Appended at the END of the file, like the blocks above, so that no line cited
+# elsewhere moves. `atlas_load` raises this subclass for the one refusal a caller may need to name:
+# an atlas whose t-identity gate did not run (Q-564, CX-350). It IS an AtlasError, so every existing
+# `except AtlasError` still catches it; `--atlas-residual-rank` reads it to print
+# ATLAS_RESIDUAL_RANK_VERDICT=ERROR:t-identity-not-run instead of ERROR:malformed-atlas.
+# ===========================================================================
+class AtlasTNotRunError(AtlasError):
+    """atlas_load: a gate reads "not-run (requires --kc-tdir)" and --atlas-allow-t-not-run was not given."""
 
 
 if __name__ == "__main__":

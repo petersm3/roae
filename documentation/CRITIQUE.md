@@ -273,7 +273,7 @@ de-circularized re-run (two KW-independent FFT dimensions, same population and
 pipeline) places KW at the **~30th percentile of joint density** — unremarkable.
 The single surviving marginal deviation, `fft_peak_amplitude` at the exact 95.476th
 percentile (p ≈ 0.045 one-sided), fails the battery-wide bars (0.05/28, 0.05/91)
-by well over an order of magnitude. ⚠ **[Scope 2026-09-25: the 95.476th percentile was computed with a float32 FFT under numpy 2.x; `solve.py` now computes the FFT in float64. The figure is predicted to hold at 3 decimals and has not been recomputed. See the 2026-09-25 revision note at the end of [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).]** **The distributional analysis therefore
+by well over an order of magnitude. ⚠ **[Scope 2026-09-25: the 95.476th percentile was computed with a float32 FFT under numpy 2.x; `solve.py` now computes the FFT in float64. The figure is predicted to hold at 3 decimals and has not been recomputed. See the 2026-09-25 revision note at the end of [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).]** ⚠ **[Precision 2026-10-15: no recompute is scheduled; the figure stands as a float32-FFT value expected to hold at 3 decimals (DISTRIBUTIONAL_ANALYSIS.md, 2026-10-15 revision note).]** **The distributional analysis therefore
 contributes no KW-evidence**; its durable content is descriptive (the marginals
 table, the invariant transition-Hamming theorem, and the finding that KW's dominant
 FFT frequency is bulk-typical). The original numbers are retained in HISTORY as a

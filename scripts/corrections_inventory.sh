@@ -53,7 +53,8 @@
 #   inventory, the redaction registry) differ from HEAD (the sweep reads the working tree, so the
 #   answer would describe another tree), a failed sweep, a population under the floor, or a git row
 #   whose document cell is not GIT_SHA_W characters wide. It writes nothing. pre_push_gate.sh runs it
-#   in the pushed sha's worktree as a blocking leg (PREPUSH_LEG_CORRECTIONS_INVENTORY).
+#   as a blocking leg (PREPUSH_LEG_CORRECTIONS_INVENTORY) in a checkout of EVERY commit the push adds,
+#   oldest first (Q-999). refs/replace/* is ignored here as in the hook (GIT_NO_REPLACE_OBJECTS=1).
 #
 # ERRORS: every refusal prints one `CORRECTIONS_INVENTORY=ERROR <cause> ...` line and exits 2
 # without touching the published TSV. Causes: source-failed:markdown | source-failed:git |
@@ -70,6 +71,11 @@
 
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 2
+# Q-999 (batch 52): the REAL objects, never a refs/replace/* substitute. pre_push_gate.sh exports
+# GIT_NO_REPLACE_OBJECTS=1 before it runs --check, and a direct run honoured refs/replace/*, so the
+# two could read different histories and disagree about the same commit (a replaced parent drops or
+# adds its git row). Script-wide, so the writer, --stdout and --check all read what a push sends.
+export GIT_NO_REPLACE_OBJECTS=1
 
 OUT="documentation/CORRECTIONS_INVENTORY.tsv"
 # Width of a git row's `document` cell (column 6): src_git cuts %H to it, and --check drops HEAD's
