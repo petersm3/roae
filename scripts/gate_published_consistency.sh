@@ -167,7 +167,7 @@ if [ -r documentation/CORRECTIONS.md ]; then
   G4_OUT=$( { _wm_prelude; cat <<'PYG4'
 import re, os
 try: s = open("documentation/CORRECTIONS.md", errors="replace").read()
-except Exception: raise SystemExit(0)
+except Exception as _e: raise SystemExit('G4: cannot read documentation/CORRECTIONS.md: %s' % _e)   # F05-005#3: was SystemExit(0), an empty [ok]
 bad = []
 for e in re.split(r'\n(?=#{2,4} *CX-\d+)', s):
     m = re.match(r'#{2,4} *(CX-\d+)', e)
@@ -212,8 +212,8 @@ for e in re.split(r'\n(?=#{2,4} *CX-\d+)', s):
                 bad.append(f"{cx} names {q}, which does not carry {cx}")
 for b in bad: print(b)
 PYG4
-} | python3 - )
-  if [ -n "$G4_OUT" ]; then
+} | python3 - ); _g4rc=$?
+  if [ "$_g4rc" -ne 0 ]; then echo "   [FAIL] G4: the propagation scan failed (rc $_g4rc) -- NOTHING was checked (F05-005#3)"; fail=1; G4_N=999; elif [ -n "$G4_OUT" ]; then
     printf '%s\n' "$G4_OUT" | sed 's/^/   [FAIL] /'
     G4_N=$(printf '%s\n' "$G4_OUT" | grep -c .)
     echo "   $G4_N correction(s) naming a target that lacks the id"
@@ -312,10 +312,10 @@ if [ -r "$_A2" ] && [ -r "$_L2" ]; then
       # being compared with empty columns, because the "Pairs observed" anchor stays set to EOF.
       if (nf < 7) next;
       p=c[2]+0; gsub(/ /,"",c[5]); gsub(/ /,"",c[6]);
-      if (p in h && (c[5]!=n[p] || (c[6]+0) - h[p] > 0.0005 || h[p] - (c[6]+0) > 0.0005)) bad++
+      if (p in h) cmp++; else miss++; if (p in h && (c[5]!=n[p] || (c[6]+0) - h[p] > 0.0005 || h[p] - (c[6]+0) > 0.0005)) bad++
     }
-    END{print bad+0}' "$_A2" "$_L2")
-  if [ "${_bad:-0}" -gt 0 ]; then
+    END{print bad+0, cmp+0, miss+0}' "$_A2" "$_L2"); _g7rc=$?; read -r _bad _g7c _g7m <<<"$_bad"
+  if [ "$_g7rc" -ne 0 ] || ! [[ "${_g7c:-}" =~ ^[1-9][0-9]*$ ]] || [ "${_g7m:-1}" != 0 ]; then echo "  [FAIL] G7: compared ${_g7c:-?} row(s); ${_g7m:-?} table row(s) had no section-[2] counterpart (awk rc $_g7rc) -- a row not compared is not a match (F05-005#4)"; G7=1; elif [ "${_bad:-0}" -gt 0 ]; then
     echo "  [FAIL] G7: $_bad LEADERBOARD row(s) disagree with section [2] of $_A2"
     G7=$_bad
   else
@@ -661,10 +661,10 @@ if [ -r "$_T8" ]; then
       fi
       # grep -c, never grep -q on a pipe: -q exits on first match and a producer dies of SIGPIPE,
       # which under `set -o pipefail` turns a MATCH into a failed pipeline.
-      if [ "$(gpc_n '≥~10×' "$_f")" -ne 0 ] \
-         && [ "$(gpc_n 'firmer of the two' "$_f")" -le 0 ]; then
-        echo "  [FAIL] G18: $_f quotes the ≥~10× BH floor without TR-8's conditional"
-        G18=$((G18+1))
+      _c10=$(gpc_n '≥~10×' "$_f"); _cf=$(gpc_n 'firmer of the two' "$_f")   # F05-005#5: a -1 in EITHER count is a FAIL
+      if [ "$_c10" -lt 0 ] || [ "$_cf" -lt 0 ]; then echo "  [FAIL] G18: a count could not be read in $_f (grep failed) -- NOT checked"; G18=$((G18+1))
+      elif [ "$_c10" -ne 0 ] && [ "$_cf" -le 0 ]; then
+        echo "  [FAIL] G18: $_f quotes the ≥~10× BH floor without TR-8's conditional"; G18=$((G18+1))
       fi
     done
     [ "$G18" -eq 0 ] && echo "  [ok]   G18: the BH floor is quoted with its conditional wherever it is asserted"
@@ -709,7 +709,8 @@ if [ -r "$_M" ] && [ -r "$_T12" ]; then
   _m_usd=$(awk 'tolower($0) ~ /price/ && /[$] ?[0-9]/ {n++} END {print n+0}' "$_M" 2>/dev/null)
   _row=$(gpc_n '^| 1 | \*\*Exact `\\|C15\\|`\*\*' "$_T12")
   _row_ok=$(awk '/^\| 1 \| \*\*Exact `\\\|C15\\\|`\*\*/ && /PRICED AND DECLINED/ && !/[$] ?[0-9]/ {n++} END {print n+0}' "$_T12" 2>/dev/null)
-  if [ "$_est" -le 0 ]; then
+  if ! [[ "${_m_usd:-}" =~ ^[0-9]+$ ]] || ! [[ "${_row_ok:-}" =~ ^[0-9]+$ ]]; then echo "  [FAIL] G19: an awk count failed (price lines '${_m_usd:-}', row-1 '${_row_ok:-}') -- NOT measured (F05-005#6)"; G19=1
+  elif [ "$_est" -le 0 ]; then
     echo "  [FAIL] G19: no confidence-interval row found in $_M -- this leg measured NOTHING"; G19=1
   elif [ "$(gpc_n 'costed and rejected' "$_M")" -le 0 ] \
        || [ "$(gpc_n 'PRICED AND DECLINED' "$_M")" -le 0 ]; then

@@ -56,7 +56,7 @@ def mass_se(sqi, m, B, Qb):                   # solve.c KNUTH_MASS_SE (Q-374)
 def tail(p, s, v, side):
     h = p["hist"].get(s, {})
     sel = [(a, q) for b, (a, q) in h.items() if (b <= v if side == "le" else b >= v)]
-    a = sum(x[0] for x in sel); q = sum(x[1] for x in sel)
+    a = math.fsum(x[0] for x in sel); q = math.fsum(x[1] for x in sel)   # fsum: version-independent (F02-002#10)
     m = a / p["sC"]; se = mass_se(q, m, p["sC"], p["qC"])
     op = m + 3 * se if a > 0 else 3.0 / p["L"]          # §5.1, rule of three on an empty tail
     return m, se, min(1.0, op)

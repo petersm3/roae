@@ -320,7 +320,7 @@ rename-then-manifest (§Ordering), and resume reads only `last_complete_k`
 from the manifest — it never scans the directory for a durable next-layer
 file — so a crash or eviction landing between a layer's rename and the
 manifest write discards a complete, correctly named, durable layer and
-rebuilds it. Both the in-RAM and out-of-core paths carry this window. The
+rebuilds it. Both the in-RAM and out-of-core paths carry this window. *(Narrowed since 2026-08-06 on the out-of-core v2 path, noted 2026-10-17 from Codex's final review, F11-003#7: right after the rename that path writes a finalized-layer marker, `f1c5_layer_<k>.finalized`, and on resume a marker that matches the run, the file's size and its decompressed-stream digest lets the engine adopt that layer instead of rebuilding it (`f1c5_finalized_try_adopt`). A kill before the marker is durable falls back to the behaviour described here.)* The
 count is unaffected; only the work is. On start (automatic;
 `--resume-from-layers` merely makes a missing manifest a hard error) the
 engine reads the manifest, validates

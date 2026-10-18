@@ -873,7 +873,7 @@ report any difference in a digest, count or expected status message.
 
 **What you have now checked.** If every step matched, you have counted the 9-pair rung two ways and
 the 13-pair rung three ways, with separately written programs, matched the engine's published 13-pair layer files byte for
-byte, recomputed the symmetry bookkeeping at every layer of the full problem, and counted the first
+byte, recomputed one ingredient of the symmetry bookkeeping (the stored representative-set counts) at every layer of the full problem, and counted the first
 six layers of the full problem one partial ordering at a time. You have also checked that the
 published table of the full run copies its log faithfully, counted every completion of King Wen's
 first 23 pairs, recomputed the atlas statistics from the published summary, and seen two of the

@@ -944,7 +944,7 @@ import sys
 try:
     import matplotlib, numpy
 except ModuleNotFoundError as e:
-    if (e.name or "").split(".")[0] in ("matplotlib", "numpy"):
+    if (e.name or "") in ("matplotlib", "numpy"):   # F05-003#6: a missing SUBmodule is a broken install, not an absent package
         print("VIZ_DEPS=ABSENT"); sys.exit(0)
     raise
 print("VIZ_DEPS=PRESENT")' 2>&1); _vdrc=$?
@@ -2369,6 +2369,19 @@ def check(src):
         return ["the `all` arm has no usage arm after it; cannot bound it"], None
     defs = [(m.group(1), m.start()) for m in re.finditer(r'^(gate_\w+)\(\)\s*\{', src, re.M)]
     body = {n: src[s:(defs[k + 1][1] if k + 1 < len(defs) else len(src))] for k, (n, s) in enumerate(defs)}
+    # F05-003#2 (Codex gpt-6-astra, final review): a call counts as HARD only if its failure reaches the
+    # aggregate. Every gate_* command in the `all` arm must be followed by `|| RC=1`; one without it can
+    # fail with nothing going red, and the banner would still call it hard.
+    try:
+        _tk = sp_sh_lex(arm)
+    except SpError as e:
+        raise SystemExit("  [FAIL] LEG 4: could not lex the `all` arm (%s)" % e)
+    for _i, (_k, _v, _ln) in enumerate(_tk):
+        if _k == 'word' and not _v.quoted and _v.value.startswith('gate_') and _i and _tk[_i - 1][0] in ('op', 'nl') \
+                and _tk[_i - 1][1] not in ('||', '&&', '|'):
+            _nx = _tk[_i + 1:_i + 3]
+            if not (len(_nx) == 2 and _nx[0][:2] == ('op', '||') and _nx[1][0] == 'word' and _nx[1][1].value == 'RC=1'):
+                bad.append("`all` calls %s without `|| RC=1`, so its failure cannot reach the aggregate verdict" % _v.value)
     # Q-970 (A07#18): the `all` arm and the bodies are read as COMMANDS (shell lexer): a commented-out
     # `# echo; gate_x || RC=1` in the arm ran nothing and still counted as reaching gate_x's id.
     def reach(fn, seen):
@@ -2434,6 +2447,8 @@ MUTANTS = [
     ("M3 78 added to the hard list", real.replace(line, line.replace(_tail, _tail[:-len('. Gates')] + ', 78. Gates'))),
     ("M4 report-only 13 added to the hard list", real.replace(line, line.replace(_tail, _tail[:-len('. Gates')] + ', 13. Gates'))),
 ]
+_m5 = re.compile(r'(gate_\w+) \|\| RC=1').search(real, arm_at)   # F05-003#2: the call's `|| RC=1` dropped
+MUTANTS.append(("M5 `|| RC=1` dropped from one `all` call", real[:_m5.start()] + _m5.group(1) + real[_m5.end():] if _m5 else real))
 miss = 0
 for label, src in MUTANTS:
     if src == real:

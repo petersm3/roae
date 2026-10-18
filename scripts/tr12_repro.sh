@@ -190,7 +190,7 @@ mkdir -p "$RAWDIR" "$GOTDIR" "$DIFFDIR" "$ARTDIR"
 VERD="$OUTDIR/VERDICTS.txt"; : > "$VERD"
 LOG="$OUTDIR/tr12_repro.log"; : > "$LOG"
 
-say(){ printf '%s\n' "$*" | tee -a "$LOG"; }; py_import_state(){ command -v python3 >/dev/null 2>&1 || { echo ABSENT; return 0; }; local o; o=$(PYTHONPATH="$REPO_ROOT" python3 -c 'exec("import importlib, sys\nm = sys.argv[1:]\ntry:\n    [importlib.import_module(x) for x in m]\nexcept ModuleNotFoundError as e:\n    if (e.name or \"\").split(\".\")[0] in m: print(\"PY_IMPORT=ABSENT\"); sys.exit(0)\n    raise\nprint(\"PY_IMPORT=PRESENT\")")' "$@" 2>/dev/null) && [ "$(grep -c '^PY_IMPORT=' <<<"$o")" = 1 ] && { sed -n 's/^PY_IMPORT=//p' <<<"$o"; return 0; }; echo BROKEN; }; row_broken(){ row_begin "$1"; echo "PY_IMPORT_BROKEN	$3: the import failed for a reason other than an absent module (a crash, a kill, a syntax error) -- not a skip (Q-983)" >>"$RAW"; row_end "$2" 1; }   # Q-983 (batch 42; Codex gpt-6-astra, Q964-D04#9 sibling sweep): py_import_state MOD... prints PRESENT, ABSENT (no python3, or a ModuleNotFoundError naming a probed module) or BROKEN (any other failure); the import probes below took ANY nonzero rc for "unavailable" and skipped, so a crash or syntax error in solve.py read as SKIP:python3-unavailable. A BROKEN import fails its row (row_broken). Kept on this one line so no cited line below moves.
+say(){ printf '%s\n' "$*" | tee -a "$LOG"; }; py_import_state(){ command -v python3 >/dev/null 2>&1 || { echo ABSENT; return 0; }; local o; o=$(PYTHONPATH="$REPO_ROOT" python3 -c 'exec("import importlib, sys\nm = sys.argv[1:]\ntry:\n    [importlib.import_module(x) for x in m]\nexcept ModuleNotFoundError as e:\n    if (e.name or \"\") in m: print(\"PY_IMPORT=ABSENT\"); sys.exit(0)\n    raise\nprint(\"PY_IMPORT=PRESENT\")")' "$@" 2>/dev/null) && [ "$(grep -c '^PY_IMPORT=' <<<"$o")" = 1 ] && { sed -n 's/^PY_IMPORT=//p' <<<"$o"; return 0; }; echo BROKEN; }; row_broken(){ row_begin "$1"; echo "PY_IMPORT_BROKEN	$3: the import failed for a reason other than an absent module (a crash, a kill, a syntax error) -- not a skip (Q-983)" >>"$RAW"; row_end "$2" 1; }   # Q-983 (batch 42; Codex gpt-6-astra, Q964-D04#9 sibling sweep): py_import_state MOD... prints PRESENT, ABSENT (no python3, or a ModuleNotFoundError naming a probed module) or BROKEN (any other failure); the import probes below took ANY nonzero rc for "unavailable" and skipped, so a crash or syntax error in solve.py read as SKIP:python3-unavailable. A BROKEN import fails its row (row_broken). Kept on this one line so no cited line below moves.
 die(){ say "FATAL: $*"; exit 2; }
 
 # ---- Q-461 (2026-09-24): --pairs is REFUSED outside the MEASURED set, by name, before any build.
@@ -4153,7 +4153,7 @@ if [ "$NFAIL" -eq 0 ] && [ "$AGG_OK" -eq 1 ]; then
           echo "# anchor $ANCHOR_LABEL = $ANCHOR"
           echo "#"
           echo "# sha256(block)                                                     block"
-          ( cd "$EXPECTDIR" && ls *.txt | grep -v '^_' | sort | xargs sha256sum | sed 's/^/  /' )
+          ( set -o pipefail; cd "$EXPECTDIR" && ls *.txt | grep -v '^_' | sort | xargs sha256sum | sed 's/^/  /' )   # F05-002#12: pipefail, so a failed sha256sum fails the group
         } > "$EXPECTDIR/_MANIFEST.txt" || VWF=1
         say "expected blocks WRITTEN to $EXPECTDIR — review them before they are committed."
         say "manifest: $EXPECTDIR/_MANIFEST.txt"

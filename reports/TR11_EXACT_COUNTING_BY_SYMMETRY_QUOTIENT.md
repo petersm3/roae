@@ -1,5 +1,5 @@
 # TR-11 — Exact Counting by Symmetry Quotient: The Orbit-DP, a 42-Digit Integer, and the Exactness Program
-*Technical report — **v1.34** (2026-10-16; the cover line read v1.25 while the history had reached v1.30 — the [Revision history](#revision-history) is authoritative for what each version changed, including v1.25's §6 footprint refill and v1.30's footprint-awk selector.).*
+*Technical report — **v1.35** (2026-10-17; the cover line read v1.25 while the history had reached v1.30 — the [Revision history](#revision-history) is authoritative for what each version changed, including v1.25's §6 footprint refill and v1.30's footprint-awk selector.).*
 *Technical report — not peer-reviewed. Every MEASURED result carries a reproduction command, or says at
 the claim that it has none; every proof cited as machine-checked names its certificate or Lean theorem;
 claims of scope, attribution and interpretation are argued, not verified. One caveat is structural, and
@@ -24,7 +24,7 @@ exactly. The same run gave the project's statistical estimator its first full-sc
 at a scale (10⁴¹) where nothing exact previously existed on this suite's validation ladder: the exact value falls **inside** the estimate's
 stated ±0.01% (relative standard error) envelope. (The estimate was published to four significant figures, 0.0055 % from the exact value; a four-significant-figure rounding interval allows up to 0.012 %, more than the 0.01 % SE, so the original draw's deviation is unmeasured and its unrounded output is not archived. The archived
 2026-09-25 re-draw, `evidence/knuth_relax_c5_1e7.out` — 7.571405×10⁴¹, 95 % interval [7.5700, 7.5728]×10⁴¹ — is 0.0108 % above the exact value: 1.15 relative standard errors by that interval (1.11–1.19 under the interval's own rounding), inside its 95 % interval; see §9's note.)
-The report closes with the extension of exactness to the next constraint — its mathematics now closed at the model level (both halves machine-checked in Lean; the no-further-collapse half additionally independently reviewed, 2026-07-21, and found **not load-bearing** for the landed integer — §10(iv)), and
+The report closes with the extension of exactness to the next constraint — its mathematics now closed at the model level (both halves machine-checked in Lean; the no-further-collapse half additionally reviewed, 2026-07-21 (an AI review the project commissioned, not third-party scrutiny — METHODS.md §"Authorship independence"), and found **not load-bearing** for the landed integer — §10(iv)), and
 now engineered: the computation's terabyte-scale layers (measured: the peak layer packs to 2.34 TB, and
 the two adjacent layers the DP holds live peak together at 4.51 TB — §6) are
 streamed through disk by an out-of-core mode, so the full exact count runs on ~64 GB-RAM commodity
@@ -55,7 +55,7 @@ complete sequences is free, so the count must be ≡ 0 (mod 24); it is, exactly,
 The exact value validates the Knuth estimator absolutely at full scale (stated 7.571×10⁴¹ ±0.01%, a relative standard error;
 apparent deviation 5.5×10⁻⁵, which is the estimate's rounding gap rather than a resolved error — see §4) and converts [TR-9](TR9_PRICING_THE_CONSTRAINTS.md)'s C2 ledger row from estimate to
 exact arithmetic. We state the validation stack, the exactness frontier (the C5-tracked extension's mathematics is
-**closed at the model level** — an exact dead-state-pruning theorem (machine-checked in Lean as `capping_exact`, 2026-07-20) plus the no-further-state-collapse Proposition, independently reviewed 2026-07-21 and machine-checked in Lean (`no_live_lumping`, `cap_never_merges_live`), the review also finding it **not load-bearing** for the landed integer (§10(iv))
+**closed at the model level** — an exact dead-state-pruning theorem (machine-checked in Lean as `capping_exact`, 2026-07-20) plus the no-further-state-collapse Proposition, reviewed 2026-07-21 (an AI review the project commissioned, not third-party scrutiny — METHODS.md §"Authorship independence") and machine-checked in Lean (`no_live_lumping`, `cap_never_merges_live`), the review also finding it **not load-bearing** for the landed integer (§10(iv))
 — and now engineered: measured per-layer footprints peak at 2.34 TB for a single layer and 4.51 TB for the
 two the DP holds live together (§6) — beyond the in-RAM reach of the
 machine classes this project provisioned (up to 2.75 TB RAM + 3.55 TB striped swap; larger single
@@ -209,7 +209,7 @@ Luo's question.*
    characterization of future-equivalence**: two distinct residuals at the same state are
    future-equivalent **iff both are dead**. There is *no residual lumping available among live states*;
    the minimal exact storage of any **residual-lumping** forward scheme is the live set itself. (Narrowed
-   on independent review, 2026-07-21: what is proven is that no residual equivalence-classing at a fixed
+   on review (2026-07-21, an AI review the project commissioned): what is proven is that no residual equivalence-classing at a fixed
    state can merge live states — not an information-theoretic storage bound over *every* conceivable
    forward encoding, which value-deduplication or algebraic compression would sit outside.) Measured on group-closed
    reduced unions, realistic (KW-like, balanced) budgets collapse only 1.2–1.4× at the wide layers —
@@ -223,9 +223,9 @@ Luo's question.*
    Python instrument; the staged measurement program — reduced-pair runs of increasing size to measure
    the true peak-memory curve before any full-scale attempt — ran on 2026-07-04/05 and produced the
    measured profile of §6. (Projection caveat, as originally stated: the stored-fraction band 0.30–0.50
-   was extrapolated from n = 16–18 unions and n = 31 could sit outside it. **The caveat fired**:
-   entries-per-state growth at full scale exceeded the models — layer 15 alone ran 55%+ over its
-   combinatorial-bound estimate; the realized footprints are §6's table.) **Status: mathematics closed at the model level — the dead-state-pruning exactness theorem is machine-checked in Lean (`capping_exact`, `lean/PruneExactness.lean` in `lean/` (vendored into the tree 2026-08-01; originated on the `v4-canonical` branch), 0 sorry, 2026-07-20 — the DP-reachability premises are hypotheses in the Lean statement and the bridge to the C implementation is carried by prose + the runtime gates, per that file's header), and the companion no-further-collapse Proposition has been independently reviewed (2026-07-21, found sound) and machine-checked (`no_live_lumping`, `cap_never_merges_live`, same file) — the review also finding it not load-bearing for the landed integer (§10(iv));
+   was extrapolated from n = 16–18 unions and n = 31 could sit outside it. **Measured, the storage projection held**:
+   at 12 B/entry the peak adjacent pair, k16 + k17 (161.0×10⁹ entries), is ≈1.93 TB, inside 1.2–2.0 TB; what ran
+   over was layer 15's entries against its combinatorial-bound estimate (55%+). §6's table gives the engine's footprints.) **Status: mathematics closed at the model level — the dead-state-pruning exactness theorem is machine-checked in Lean (`capping_exact`, `lean/PruneExactness.lean` in `lean/` (vendored into the tree 2026-08-01; originated on the `v4-canonical` branch), 0 sorry, 2026-07-20 — the DP-reachability premises are hypotheses in the Lean statement and the bridge to the C implementation is carried by prose + the runtime gates, per that file's header), and the companion no-further-collapse Proposition has been reviewed (2026-07-21, found sound; an AI review the project commissioned, not third-party scrutiny — METHODS.md §"Authorship independence") and machine-checked (`no_live_lumping`, `cap_never_merges_live`, same file) — the review also finding it not load-bearing for the landed integer (§10(iv));
    the memory barrier is removed by the out-of-core mode (§7); the full-scale run LANDED 2026-07-16 (§9).**
 6. **What the computation actually needs — the measured per-layer footprint profile.** The 2026-07-04/05
    full-scale attempts (an in-RAM run on a 2.75 TB-RAM M-series machine with 3.55 TB of striped swap,
@@ -295,7 +295,7 @@ Luo's question.*
    **k16 + k17 = 4.51 TB packed** (2340.55 + 2168.06 GB), just above k15 + k16 at 4.50 TB. It is not
    k14 + k15, which is 3.85 TB: an operator provisioning to the old floor would have been ~460 GB short
    of the real peak window. Layer 15 alone ran 55%+ over its combinatorial-bound estimate
-   (entries-per-state growth at full scale exceeded all models), and the in-RAM attempt was retired at
+   (entries per state at layer 15 exceeded that estimate; §5's 12 B/entry peak-storage projection held, and this table's layout is 28 B/entry), and the in-RAM attempt was retired at
    that line under its pre-committed abort protocol. **No machine class this project provisioned sufficed**: the
    largest single-node RAM class used (2.75 TB) plus terabyte-scale swap still lost to layer 15's tail.
    (Larger single nodes — 6-24 TiB — exist commercially; what is established here is that the
@@ -321,8 +321,8 @@ Luo's question.*
    **recorded in the manifest** is a free checkpoint: `--resume-from-layers` does an index-only load and
    resumes from the manifest's last recorded layer — Spot-safe by construction, the same eviction
    discipline as the enumeration campaigns. (The layer file is renamed into place *before* the manifest
-   is updated and resume reads only the manifest, so a kill in that window rebuilds one layer; the count
-   is unaffected — see [F1C5_LAYER_FORMAT.md](../documentation/F1C5_LAYER_FORMAT.md) §Checkpoint and
+   is updated, so a kill in that window can cost one layer's work — since 2026-08-06 the out-of-core v2 path writes a finalized-layer marker right after the rename and resume adopts a marker-attested layer, digest-checked, instead of rebuilding it; the count
+   is unaffected either way — see [F1C5_LAYER_FORMAT.md](../documentation/F1C5_LAYER_FORMAT.md) §Checkpoint and
    resume semantics.) Exactness is invariant across modes: per-entry arithmetic is the shared
    `f1c5_gather_entries` kernel that the in-RAM path calls, so totals *and* layer files match
    byte-for-byte. Tuning knobs: `SOLVE_F1_OOC_READ_MB` / `SOLVE_F1_OOC_SCRATCH_MB` /
@@ -401,7 +401,7 @@ Luo's question.*
    migration to the D128 — layer-checkpoint resume is shape-independent by design, and the migration
    preceded every layer that reached the final artifact's retained state) — the earlier c228/c231/c235 attempts were retired and
    this was a from-scratch re-run launched 2026-07-09, ~7 days wall spanning 12 Spot evictions, every one
-   auto-recovered from the last complete layer checkpoint, so no completed layer was lost; the interrupted layer's partial work was redone). The result:
+   auto-recovered from the last complete layer checkpoint and the interrupted layer's intra-layer checkpoint, so no completed layer was lost and the interrupted layer's committed work was kept, not redone — `run.out`'s twelve `RESUME intra-layer checkpoint` lines each restart that layer at a nonzero chunk). The result:
    **|C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097051×10³⁹**
    (log₂ ≈ 129.7 bits; orientation-explicit sequences, C4's pair pinned). Free-action gate:
    **N mod 24 = 0** exactly (the run hard-aborts otherwise; a reader can re-derive it in one line), with
@@ -490,7 +490,7 @@ Luo's question.*
    and the flagship) stays estimator-based.
    (iii) The absolute calibration points are two full-scale anchors (§4's C2 count and §9's C5 count, each inside its estimate's stated envelope); they are strong evidence the stated
    envelopes are honest, not a proof that other estimates are exact. (iv) **The FH-1 §2 proofs have now been
-   independently reviewed (2026-07-21) and found sound**, and the no-further-collapse Proposition and its
+   reviewed (2026-07-21) and found sound** (an AI review the project commissioned, not third-party scrutiny — METHODS.md §"Authorship independence"), and the no-further-collapse Proposition and its
    capping corollary are additionally **machine-checked in Lean** (`no_live_lumping`,
    `cap_never_merges_live`, `lean/PruneExactness.lean` in `lean/` (vendored into the tree 2026-08-01; originated on the `v4-canonical` branch), 0 `sorry`) —
    with the DP-reachability facts carried as hypotheses and the bridge to the C implementation still
@@ -502,7 +502,7 @@ Luo's question.*
    already-machine-checked capping-exactness alone, and a hole in the Proposition could only ever have
    cost a memory optimization, never a digit. (The companion caveat in earlier drafts —
    that §5's memory projections were estimates, not measurements — is discharged: §6 replaced them with
-   measurements, which exceeded the projected band; the caveat's firing is itself documented in §5/§6.)
+   measurements: at 12 B/entry the peak pair falls inside the projected band, and what ran over — layer 15's entries against its combinatorial-bound estimate — is documented in §5/§6.)
    (v) The exact count is orientation-explicit with C4's pair pinned, matching the ledger's raw
    convention (baseline 64!, C1+C4 layer 31!·2³¹); comparisons against orientation-deduplicated record
    counts must divide conventions carefully. (vi) The identical-integer two-memory-strategy validation
@@ -527,12 +527,12 @@ Luo's question.*
    `stabilizer_weighted_mass`, `lean/PruneExactness.lean` §OrbitTransfer, **in `lean/`** (vendored into the tree 2026-08-01; originated on the `v4-canonical` branch), 0 `sorry`. **This does not verify the implementation.** Reachability facts remain hypotheses;
    the bridge to `solve.c` is still carried by prose, the runtime gates, and the reduced-instance
    agreement ladder: plain DP against the quotient on the U1–U3 unions (9–13 pairs; `--f1-subset`) and at
-   n = 18 (`verify.py --recount-rung 18`, since 2026-08-10), and in-RAM against out-of-core quotient
+   n = 18 and n = 19 (`verify.py --recount-rung 18` since 2026-08-10, `--recount-rung 19` per REPRODUCE.md), and in-RAM against out-of-core quotient
    runs up to n = 28 ⚠ **[CORRECTED 2026-09-24 (v1.29; Codex V3A-085#3, Q-742) — this read "the n ≤ 28
    plain-vs-quotient agreement". The 24–28 rungs compare the quotient with itself across two storage
    modes, and both modes call the same `f1c5_gather_entries` kernel (item 7 above). That
    concordance tests storage and streaming. It does not test the gather arithmetic against a plain
-   recursion, which has been done only up to n = 18.]** — specifically it is not machine-checked that `f1_gather_layer`/`f1c5_gather_entries`
+   recursion, which has been done only up to n = 18.]** *(That last clause was stale when written: the plain recursion has been run at n = 19 too, `verify.py --recount-rung 19`, `[MATCH]` in REPRODUCE.md — noted 2026-10-17, Codex final review F11-003#10.)* — specifically it is not machine-checked that `f1_gather_layer`/`f1c5_gather_entries`
    implement that recursion, that the concrete 24 pair-permutations satisfy the hypothesis set, that
    `f1_canon`'s min-image canonicalization is orbit-constant, or that the C5 residual coordinate is
    G-fixed. **Update (2026-07-25) — the *instrument* half of this caveat is now closed as well.** An
@@ -582,7 +582,7 @@ Luo's question.*
   On more RAM, raise it further — larger scratch means fewer, larger passes (§8's 22.8× → ~1.1×), so
   the ~1× figure quoted there belongs to the 256-GiB host, not to this recipe. Every layer file **recorded in DIR's manifest** is a checkpoint; after any
   interruption, re-run with `--resume-from-layers` (index-only load, resumes from the manifest's last
-  recorded layer — a layer completed after the last manifest write is rebuilt, at no cost to the count). Per-layer
+  recorded layer — a layer completed after the last manifest write is rebuilt unless its finalized-layer marker lets the out-of-core v2 path adopt it, at no cost to the count either way). Per-layer
   `[f1c5-ooc]` telemetry prints bytes read/written, MB/s, and RSS. Knobs: `SOLVE_F1_OOC_READ_MB` /
   `SOLVE_F1_OOC_SCRATCH_MB` / `SOLVE_F1_OOC_GAP_KB` (documentation/SOLVE_C_CLI.md).
   *(Measured datapoint, added 2026-09-25, Q-758: the 2026-07-16 full-31 landing run ran at
@@ -693,7 +693,7 @@ Counts are `|C1 ∩ C2 ∩ C4|` restricted to the union (no C5 tracking):
 
 **4b. The C1∩C2∩C4∩C5 out-of-core ladder (`solve.c` `f1c5_unions`).**
 Counts are `|C1 ∩ C2 ∩ C4 ∩ C5|` restricted to the union, all with `@0` (Kun exit). These are the rungs
-the out-of-core mode reproduced digit-for-digit against the in-RAM DP (§8). ⚠ *(Added 2026-09-25, Codex v3 review, V3B-02#23: `--f1-pairs` also accepts ten sizes that have no published count. Their unions, from `solve.c`'s `f1c5_unions[]`, all `@0`: 3 `3.0`; 4 `4.0`; 6 `3.0,3.1`; 7 `3.0,4.0`; 10 `3.0,3.1,4.0`; 12 `3.0,3.1,6.0`; 15 `3.0,3.1,3.2,6.0`; 21 `3.0,3.1,3.2,6.0,6.1`; 22 `3.0,3.1,4.0,6.0,6.1`; and 31, the full run.)*
+the out-of-core mode reproduced digit-for-digit against the in-RAM DP (§8). ⚠ *(Added 2026-09-25, Codex v3 review, V3B-02#23: `--f1-pairs` also accepts ten sizes this table omits: nine have no published count, and the tenth, 31, is the full run (§9). Their unions, from `solve.c`'s `f1c5_unions[]`, all `@0`: 3 `3.0`; 4 `4.0`; 6 `3.0,3.1`; 7 `3.0,4.0`; 10 `3.0,3.1,4.0`; 12 `3.0,3.1,6.0`; 15 `3.0,3.1,3.2,6.0`; 21 `3.0,3.1,3.2,6.0,6.1`; 22 `3.0,3.1,4.0,6.0,6.1`; and 31, the full run.)*
 
 | pairs | orbit spec | pair list **in spec order** (order is load-bearing — see below) | target `B0` = (d1,d2,d3,d4,d6) | expected exact count |
 |---|---|---|---|---|
@@ -828,4 +828,5 @@ likewise classical systems methodology — no novelty is claimed for it.
 | v1.31 | 2026-09-25 | **Cover version, three wording repairs, and eight recipe gaps (Q-759; Codex V3B-02).** (i) The cover read v1.25 while this table had reached v1.30. It now reads v1.31 and defers to this table (#25). (ii) "Corrected in this version (v1.5)" becomes "Corrected in v1.5", and "a single full-scale anchor" becomes the two that §4 and §9 report (#25). (iii) "No lost work" is made precise: no completed layer was lost (#16). (iv) The G-channel's update is stated: each placement adds the number of couples with exactly one member placed, a function of the mask (#17). (v) Recipe gaps, each with a dated ⚠ note in place. The three 8-pair validation instances are named from the archived working note and recounted with `verify.py` (#5). The 259 s wall time is sourced to the archived run log; host, build and RSS were not recorded (#6). The ±0.01% is labelled a relative standard error, and a 10⁷-probe re-draw of 7.571×10⁴¹ is archived as evidence/knuth_relax_c5_1e7.out (#7, #8). §8's out-of-core engineering figures are labelled unarchived history (#15). The C3 = 16 + 8·G agreement check gets a command over 5,000 seeded orderings (#18). A small-n `--ie-count` ladder is archived as evidence/ie_small_n_ladder.out (#21). The ten `--f1-pairs` sizes without a published count are listed with their unions (#23). No count, theorem or canonical integer changed. |
 | v1.32 | 2026-09-29 | **§4's N/24 labelled as an integer, not an orbit count (an adversarial review by Codex (gpt-6-astra) of the Lean, SAT and DRAT surface, triaged by Fable; CX-232).** The validation-stack bullet called the 42-digit N/24 an orbit count. It is the integer that 24 ∣ N guarantees; it is twice the sequence-orbit count and exceeds any record-level orbit count, as §9's Q-642 note already says. Wording only; no number changed. |
 | v1.33 | 2026-10-01 | **The cover's reproduction promise is rescoped (Codex v3 review, finding V3B-08 #22 against TR-5, triaged by Fable; backlog Q-759).** The banner said every MEASURED result carries a reproduction command, while the reports themselves flag results that have none. It now says each one carries a command or says at the claim that it has none, which is what the reports index already said. GATE 9 holds the banner byte-identical across all twelve reports, so the same edit is made in each. Wording only; no figure, count or theorem changed. |
-| v1.34 *(current)* | 2026-10-16 | **The evidence-availability account of the full-31 run is corrected (Codex's final review, gpt-6-astra; F11-003#9, F07-003#6, CAL-003#155; triaged by Fable; fast-track batch FT2a).** §9 said the retained `run.out` prints only layers k10..k31 and that six palindrome pairs were recoverable; the file prints every layer k = 1..31, all fifteen pairs masks(k) = masks(31−k) are directly checkable and hold, and Σ masks(k) over k = 0..31 (masks(0) = 1) = 93,939,712. The run's `count_result.json` and README carry the old six-pair wording and are kept as written. The C2 validation's error statement (the summary and §9; F11-003#1, F07-003#1, CAL-003#147/#148) now quotes the archived 2026-09-25 re-draw, `evidence/knuth_relax_c5_1e7.out`: 0.0108 % above the exact value, 1.15 relative SE by its archived interval, inside its 95 % interval; the original four-significant-figure draw's deviation stays unmeasured, since its rounding interval allows up to 0.012 %. No figure changes. See CORRECTIONS.md (fast-track batch FT2a). |
+| v1.34 | 2026-10-16 | **The evidence-availability account of the full-31 run is corrected (Codex's final review, gpt-6-astra; F11-003#9, F07-003#6, CAL-003#155; triaged by Fable; fast-track batch FT2a).** §9 said the retained `run.out` prints only layers k10..k31 and that six palindrome pairs were recoverable; the file prints every layer k = 1..31, all fifteen pairs masks(k) = masks(31−k) are directly checkable and hold, and Σ masks(k) over k = 0..31 (masks(0) = 1) = 93,939,712. The run's `count_result.json` and README carry the old six-pair wording and are kept as written. The C2 validation's error statement (the summary and §9; F11-003#1, F07-003#1, CAL-003#147/#148) now quotes the archived 2026-09-25 re-draw, `evidence/knuth_relax_c5_1e7.out`: 0.0108 % above the exact value, 1.15 relative SE by its archived interval, inside its 95 % interval; the original four-significant-figure draw's deviation stays unmeasured, since its rounding interval allows up to 0.012 %. No figure changes. See CORRECTIONS.md (fast-track batch FT2a). |
+| v1.35 *(current)* | 2026-10-17 | **Six restatements put back to their records (Codex's final review, gpt-6-astra; F11-003#2/#6/#7/#8/#10/#11, F07-003#2/#7/#8/#11, CAL-003#152/#154/#166; triaged by Fable; fast-track batch FT2b-2).** §5's storage projection was not exceeded: at 12 B/entry the peak pair is ≈1.93 TB, inside 1.2–2.0 TB, and what ran over was layer 15's entries against its combinatorial-bound estimate. The 2026-07-21 review is named as an AI review the project commissioned. Resume adopts a marker-attested layer on the out-of-core v2 path since 2026-08-06; the landing run's twelve intra-layer resumes kept committed work. The plain recursion has been run to n = 19. `--f1-pairs` omits nine unpublished sizes plus the full 31. No figure changes. See CORRECTIONS.md (fast-track batches FT2b-2..4). |

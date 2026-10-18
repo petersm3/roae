@@ -601,8 +601,8 @@ REVIEWED = {
         ('1', 'reviewed:status-already-gives-the-measured-pair-counts'),
     ('documentation/SOLVE.md', '72382011ced3'):
         ('1', 'reviewed:sentence-already-says-within-its-node-budget'),
-    ('documentation/SOLVE.md', '79ac87deb12a'):
-        ('1', 'reviewed:paragraph-already-says-the-scale-is-not-measured'),
+    ('documentation/SOLVE.md', 'dcf25802774b'):
+        ('1', 'reviewed:paragraph-already-says-the-scale-is-not-measured;re-read-2026-10-17-after-CX-404-scoped-the-identifying-set-per-dataset'),
     ('documentation/SOLVE.md', '7ce3f3cce019'):
         ('1', 'reviewed:sentence-already-counts-9-boundaries'),
     ('documentation/SOLVE.md', '87e1c1e30461'):
@@ -875,6 +875,8 @@ REVIEWED = {
         ('1', 'reviewed:text-already-says-the-atlas-is-distributed'),
     ('reports/TR12_QUERY_PROGRAM.md', '474bb47a658a'):
         ('1', 'reviewed:cell-already-says-bound-from-below'),
+    ('reports/TR12_QUERY_PROGRAM.md', '6854b73d97ab'):  # re-keyed FT2b-1 (CX-384): this row's framing clause now says zlib-block framed, no outer gzip; verdict re-read, unchanged
+        ('1', 'reviewed:cell-already-scopes-the-container-count-to-t'),
     # re-keyed (was 5208df717772, then 70abc0daf2f9): batch 49 appended the dated publication note (v1.28), then its
     # review rounded the break-even down (8.06e24, exact value given); re-read, same verdict.
     ('reports/TR12_QUERY_PROGRAM.md', '7f2aabe6394d'):
@@ -916,8 +918,6 @@ REVIEWED = {
         ('1', 'reviewed:text-above-already-says-peak-unmeasured'),
     ('reports/TR12_QUERY_PROGRAM.md', 'bacba42ca97d'):
         ('1', 'reviewed:text-already-says-the-witnesses-leg-verifies-pinned-bytes'),
-    ('reports/TR12_QUERY_PROGRAM.md', 'c615aa613801'):
-        ('1', 'reviewed:cell-already-scopes-the-container-count-to-t'),
     ('reports/TR12_QUERY_PROGRAM.md', 'c86e0a515c49'):
         ('1', 'reviewed:text-already-counts-three-exact-cells'),
     ('reports/TR12_QUERY_PROGRAM.md', 'c99c91dcc6b8'):
@@ -994,8 +994,8 @@ REVIEWED = {
         ('1', 'reviewed:text-already-gives-the-by-V-failures'),
     ('reports/TR2_THE_RULES_CONFLICT.md', '9bcb3a61818f'):
         ('1', 'reviewed:caption-already-reads-by-two-each'),
-    ('reports/TR2_THE_RULES_CONFLICT.md', '745ac8b6ee5e'):
-        ('1', 'reviewed:text-already-scopes-what-the-lattice-shows;re-read-after-the-Q-934-note-was-added-before-it'),
+    ('reports/TR2_THE_RULES_CONFLICT.md', 'eb574eb34716'):
+        ('1', 'reviewed:text-already-scopes-what-the-lattice-shows;re-read-after-the-Q-934-note-was-added-before-it;re-read-2026-10-17-after-the-opening-scope-was-added'),
     ('reports/TR2_THE_RULES_CONFLICT.md', 'cd19d093f284'):
         ('2', 'reviewed:tag-is-the-only-withdrawal-in-the-sentence-stating-the-comparison-result'),
     ('reports/TR2_THE_RULES_CONFLICT.md', 'e4fa7b397922'):

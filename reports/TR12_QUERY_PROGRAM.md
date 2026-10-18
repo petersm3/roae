@@ -14,9 +14,9 @@ Methods, environment pinning, statistics conventions, and artifact access: see [
 sampled: **1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097×10³⁹** orderings satisfy
 C1∩C2∩C4∩C5. A population that size is never listed, only **queried** — and a query you cannot
 re-run is not a result. This report is the question set written to query it, and the answers that
-came back. Drafted 2026-07-17 as a specification, it fixed for each of ten query families (Q1–Q10),
+came back. Drafted 2026-07-17 as a specification, it fixed for each of nine query families (Q1–Q9),
 five figures, an Exhaustion Atlas and a reproduction spine the same four things *before* any of them
-could be answered: the exact definition, the space the quantity is scoped to, the instrument, and
+could be answered (Q10 joined on 2026-07-31 in §11, Q10(b) is still undefined, and V5's new-pair category was pinned on 2026-09-23): the exact definition, the space the quantity is scoped to, the instrument, and
 the check a reader can re-run. **The program was then built and executed.** The three-stage compiled
 catalog — the f, g and t ladders, **15.05 TB** — was built in 2026-09 and checked against its
 published per-layer registries (96 of 96 logical digests over f, g and t; 65 of 65 container digests
@@ -39,8 +39,8 @@ reported as negative**: the raw one-step transition kernel is stationary across 
 walk (TV ≤ 0.00099 over layers 6–23) and scores King Wen just **0.10 bits** from the population mean
 (§12.4), and the positional pair field is **flat to about 3 %** (interior total-variation distance from uniform ≤ 0.0329), King Wen's placements typical of it
 (§12.5) — both entered under Q9, the reportable-negatives section, which is where this program
-expects most of its answers to land. The order in which the C5 budget is spent sits within TV
-**0.0415** of the exchangeable null (§12.6). Finally, the two checks that compare this compiler
+expects most of its answers to land. At every layer the residual C5 budget sits within TV
+**0.0415** of the exchangeable null — a bound per layer, not on the whole spending order (§12.6). Finally, the two checks that compare this compiler
 against numbers **published from a different instrument** disagree, by about twelve times tolerance:
 `TR12_A2_SLOT=FAIL` and `TR12_A3_EXTERNAL=FAIL` (§12.10). **That FAIL is the measurement, not a
 defect** — the two sides count different populations, differing by exactly C3 — but this program has
@@ -69,7 +69,7 @@ We specify and execute a query program over a compiled catalog of the C1∩C2∩
 every result is a query against a three-stage out-of-core ladder — f (membership), g (exact
 completions) and t (exhaustion cost) — totalling 15.05 TB, whose per-layer digests are published as
 the reproduction fingerprint while the ladder data itself is not distributed. The specification
-(§0–§11, 2026-07-17) fixes for each query its exact definition, its space label under a mandatory
+(§0–§10, 2026-07-17; §11's Q10, 2026-07-31) fixes for each query its exact definition, its space label under a mandatory
 C-8 discipline that never conflates SUPER with C15 = C1–C5, its instrument, its output shape and its
 reader-side check; §R gives the three-tier reproduction spine (full rebuild, registry check, and a
 laptop-scale small tier that exercises every claim *type* at n=9 and n=13 in minutes). The program
@@ -81,7 +81,7 @@ its distance class at 24 of 31 steps (mean percentile 0.219 vs a null mean of 0.
 pointer rather than a p-value because the steps are dependent; the one-step transition kernel is
 stationary across the interior and does not distinguish King Wen at the scale its marginals fix
 (−0.102 bits, 0.05 of an independent-step SD); the interior rows of the positional pair field are within total-variation 0.0329 of uniform (cells range from −8 % to +7 % of 1/31; the two end slots are forced and far from flat) with King
-Wen typical of it; and the C5 budget path lies within TV 0.0415 of the exchangeable null, measured
+Wen typical of it; and at every layer the residual C5 budget lies within TV 0.0415 of the exchangeable null (per layer, not over the whole path), measured
 with two-sided controls and with its interpretation withheld. Two checks against externally
 published C1–C5 quantities FAIL by ~12× tolerance — a difference between populations that this
 C3-free compiler can exhibit but cannot attribute by measurement. The exactness frontier is stated
@@ -105,7 +105,7 @@ budgeted and did not run.
   Wen's 31-step rarity profile; the C3 census (and the C3 minimum, **112**, closed by a structural
   bound met by a published witness); functional extremals; density extremes; historical-arrangement
   certificates; the exact-uniform gallery; and the reportable negatives.
-- **§2. Visualization program (V1–V5).** Five population-exact figures over all ~1.1×10³⁹ members.
+- **§2. Visualization program (V1–V5).** Five figures: three population-exact fields over all ~1.1×10³⁹ members (V1, V2, V5), King Wen's one walk (V4) and a 1,000-point rank lattice (V3).
   **All five are rendered and embedded here** (V1, V2, V3, V4, V5) as of 2026-09-23 — see the
   section, which also records that two of them were reported blocked for reasons that did not hold.
 - **§3. The Exhaustion Atlas (XA).** Per-branch exact solution mass and exhaustion cost in t-units.
@@ -484,7 +484,7 @@ Q10(b) coset census.
   enumerated set and is not a universal constant (**~9.91%** over the 3.43 B-ordering 100 T
   canonical = **340,179,649** ties, and **~10.11%** over the 10.5 B-ordering 560 T canonical =
   **1,063,580,364 of 10,525,271,997** records — ⚠ both are **560T/100T
-  traversal samples: a DFS-order PREFIX of the space, not a uniform draw**, which is why the figure
+  traversal samples: each of the 158,364 depth-3 sub-branches truncated in DFS order at its own node budget — not one global prefix, and not a uniform draw**, which is why the figure
   moved 9.91% → 10.11% as the budget grew; they are **record-level** tie shares and must not be read
   against a **walk-level** μ without the 1/m weighting of §Q4); and that the threshold is
   King Wen's own value, *"extracted from the sequence, not derived independently."* A private
@@ -840,8 +840,8 @@ QSET external review, which the external review itself missed; see
   distinguish; TR-6 exactly 15 parity alternations + 30 switches (Lean kernel-checked at C1+C5
   generality; SAT ≤14/≥16 UNSAT under C1+C2+C4+C5); TR-7 odd wrap distance (C4+C5, Lean
   `wrap_parity_general`), 16 circular alternations, 32 switches (C1+C4+C5). Also the
-  forced-class literature rows (§4-LS): 8 scoreboard rules with empirical mass 1.0 — candidates
-  for PROOF upgrade (LS-1), which would move them into this section's theorem class.
+  forced-class literature rows (§4-LS): 8 scoreboard rules with empirical mass 1.0 — proven
+  on 2026-07-21, modulo a checked transcription step (TR-1, `lean/C1RuleConstants.lean`), which moves them into this section's theorem class.
 - **Stage:** NOW. **Cost:** none. **Verification:** the three TRs' own guides (rungs 1–2).
   ⚠ *(2026-09-21: two further measured negatives from the n=31 atlas join this section — the
   one-step transition kernel scores King Wen 0.10 bits below the population mean over 31 steps,
@@ -1163,7 +1163,7 @@ execution ticket; classes verified against `solve.py` definitions):
 - **Priority upgrade order (payoff-ranked):** (1) the **eight forced-class 1.0 rows** (mmt4,
   p1c4, s1, s6, r3, r4, r5, c2) — sampling cannot distinguish mass 1 from 1−ε; an exact count
   (= N) or a counterexample settles each; several may fall to PROOF instead (cheaper — try
-  Lean/pen-and-paper first, DP second); (2) **N_gs** (see (c)); (3) the deep tails ccn4
+  Lean/pen-and-paper first, DP second) — all eight did, on 2026-07-21 (TR-1, `lean/C1RuleConstants.lean`), so this item is closed; (2) **N_gs** (see (c)); (3) the deep tails ccn4
   (~2×10⁻⁸), ccn8 (~2.6×10⁻⁷), c2011n1 (0 hits — starvation) — exact counts replace
   order-of-magnitude flags; (4) the ×11,364 gender fraction and the first-wave scoreboard
   fractions; (5) TR-8's pair-only null (10⁻⁴ from 10⁵ seeded samples — a C1-only-space count,
@@ -1174,7 +1174,7 @@ execution ticket; classes verified against `solve.py` definitions):
   mass — so each exact numerator ALSO needs the C15 denominator caveat: exact numerator over the
   TR-4 estimated |C15| stays an estimate UNLESS the rule count is computed within SUPER and
   paired with the C3-conditional sampling correction — state per-row which form ships).
-- **(c) TR-2's N_gs explicitly:** N_gs = |triple-strict ∩ C15| currently 4.50×10²⁵ ±6.1%
+- **(c) TR-2's N_gs explicitly:** N_gs = |triple-strict ∩ C15| currently 4.50×10²⁵, relative SE 6.1% (95% CI [3.96, 5.05]×10²⁵, TR-2)
   (~300 effective samples). The three component rules are POS + ADJ + ST-POS ⇒ a composed
   extended-state DP is feasible-in-principle; sizing gate first. An exact N_gs (or exact
   SUPER-numerator + sampled C3 correction) makes the corruption-model Bayes denominator exact —
@@ -1438,7 +1438,7 @@ Stage T`. Both are wrong. `g` and `t` are siblings; the arrows below are the cor
   only".)*
 - **No ladder at all** is needed by Q7 (arrangement verdicts), Q9 (certified restatements) or
   Q4b (SAT) — the inventory's ladders column carries `—` for all three.
-- **f + g** are needed for any exact count or ranking query (Q1–Q3, Q6; Wave 2) — **and for EW-1**,
+- **f + g** are needed for the count and ranking queries that f alone does not answer (above) (Q1–Q3, Q6; Wave 2) — **and for EW-1**,
   which is DERIVED from Q3's `--kc-profile FDIR GDIR` artifact and opens no t ladder at all.
   *(EW-1 moved here from the f+g+t bullet 2026-09-13, V3B-03#29: `documentation/QUERY_INVENTORY.md`
   §5 already classed it `DERIVED, no compute` — "Rides Q3 — needs f+g, NOT the scan" — and the
@@ -1573,8 +1573,8 @@ that take minutes; the atlas step above them is not one of them.
    split 2026-09-12 (V3B-03#35), where one sentence had promoted both to "CANNOT".**
    (i) **zlib version and gzip level cannot change a decompressed-stream sha** — that is a
    *proof*, true by construction for a lossless codec. (ii) **Invariance to compiler, flags and
-   architecture is OBSERVED, not proven:** it holds on every recipe `reports/METHODS.md` §toolchain
-   lists — `-O2`, `-O3 -march=native`, `-O3 -march=x86-64-v3`, `-O3 -flto`, and x86 vs ARM — which
+   architecture is OBSERVED, not proven, and not on these layer shas:** `reports/METHODS.md` §toolchain
+   lists `-O2`, `-O3 -march=native`, `-O3 -march=x86-64-v3` and `-O3 -flto` (on the selftest sha) and x86 vs ARM (on the 11.2T canonical) — other artifacts, which
    METHODS itself records as **two witnesses, not an exhaustive guarantee** over every compiler
    version and host. `--selftest` anchor + `build.sha` hygiene apply as usual.
 3. Rebuild the f-ladder from scratch: `--f1-exact-c1c2c4c5 --f1-out-of-core DIR` with
@@ -1614,8 +1614,8 @@ that take minutes; the atlas step above them is not one of them.
    (Q8); the f·g identity (step 5). The ÷24 and product-of-conditionals checks are reader
    arithmetic — no project code needed.
 
-**TIER B — check a ladder you already hold against the published registries (container check
-minutes; the logical sweep MEASURED at 7 h 11 min, no new spend on hardware you already
+**TIER B — check a ladder you already hold against the published registries (the t container check
+MEASURED at 3 h 56 min on 8 parallel streams; the logical sweep MEASURED at 7 h 11 min, no new spend on hardware you already
 have).** *(Heading corrected 2026-09-22, v1.8: it read "(minutes, [cost redacted] compute)" against this
 section's own measured 7 h 11 min at the logical-registry paragraph below — v1.3 updated the body
 and left the heading.)*
@@ -2172,8 +2172,8 @@ Ouyang 1990/1992, Zhang 1994/1998/2000, Suenaga 2012, Luo 2015 (already in CITAT
 
 ## 12. What the n=31 atlas establishes — measured from the atlas alone (2026-09-21)
 
-*Added 2026-09-21 by Claude (Fable 5.1). Everything in this section is a MEASURED quantity over
-SUPER — walk-uniform, N-weighted — read off the n=31 atlas. §12.1–§12.8 come from one public
+*Added 2026-09-21 by Claude (Fable 5.1). Every figure §12.9 maps to a token is a MEASURED quantity over
+SUPER — walk-uniform, N-weighted — read off the n=31 atlas; §12.7's cost figures are derived, not measured, and §12.10's C3 attribution is an inference, as that section says. §12.1–§12.8 come from one public
 command and no other input; §12.10 names its own second command and reads a published TR-7
 evidence file besides (corrected 2026-09-22, v1.8 — this sentence claimed "one public command and
 no other input" for the whole section, and §12.10 has neither property).
@@ -2289,8 +2289,8 @@ uncertified W0-D convention of §3". Production checks C3 only at step 32 of `ba
 `backtrack_iterative` in `solve.c`, so there is no C3 pruning for its nodes to be counted under;
 see `reports/evidence/w0d_lower_bound/README.md`.)* What it
 does say, exactly, is the share of exhaustive search that is provably wasted on prefixes that
-cannot complete, and that it is late: the pruned tree is dead-end-free for its first nine layers
-and essentially so for its first twenty-four.
+cannot complete, and that it is late: the pruned tree is dead-end-free for its first nine layers,
+and its first twenty-four hold at most 0.005 % of the doomed mass (`DOOMED_MASS_TAIL_SHARE_FROM_LAYER` reads 1.0000 from k = 24), though within a layer the dead share already reaches 26 % at k = 22 and 34 % at k = 23 (`DEAD_FRACTION_BY_LAYER`).
 **The t ladder these t-units are read from was checked by the sound instrument.**
 `runs/20260906_kc_ladders_n31/KC_T_CHECK_n31.txt` records `solve --kc-t-check` at n=31: **PASS, 0
 failing layers over k = 0..31** (2026-09-14 19:31 → 2026-09-15 21:17 UTC, single core, binary sha256
@@ -2325,7 +2325,7 @@ effect (King Wen's prefixes reached by few orderings) or a g-side one, which the
 separate; and whether King Wen's C3-compactness already predicts a low f, which would make the
 profile a restatement.
 
-### 12.4 The raw one-step kernel is stationary across the walk and does not distinguish King Wen — a negative result
+### 12.4 The raw one-step kernel is stationary across the walk and is not shown to distinguish King Wen — a negative result
 
 The `kernel` table is the per-layer 64×64 matrix M_k[a][b] of walk mass through the transition
 exit-a → entry-b (`KERNEL_EVERY_LAYER_SUMS_TO_N=PASS`). **Stationarity:** the total-variation
@@ -2421,7 +2421,7 @@ maximal at k = 4 (`EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS`, `EXCHANGEABLE_NULL_TV_
 deviations are one-sided: no cell exceeds the null by more than ×1.101
 (`EXCHANGEABLE_NULL_MOST_ENHANCED_CELL`, k = 4, digits [0,1,1,2,0]), while front-loading a
 class is strongly suppressed — the cell [2,0,13,7,1] at k = 23 (every d1, d3, d4 and d6 already
-spent, no d2) carries ×0.058 of its null mass (`EXCHANGEABLE_NULL_MOST_SUPPRESSED_CELL`).
+spent, no d2) carries ×0.058 of its null mass (`EXCHANGEABLE_NULL_MOST_SUPPRESSED_CELL`) — the most suppressed *observed* cell: the token ranges only over cells the atlas stores, and the support cells with no observed mass, ratio 0, are outside its range (`RID_SUPPORT_CELLS_WITH_ZERO_OBSERVED_MASS=129`).
 Consistently, the per-layer class shares stay within 0.18 percentage points of b0/31 on layers
 1–29 (`BY_CLASS_MAX_ABS_DEV_FROM_B0_OVER_N_INTERIOR=0.00179`), and the single complement step
 (d6) takes 3.13–3.35 % of every interior layer (`D6_POSITION_LAW_MIN_MAX_INTERIOR`). King Wen's
@@ -2520,9 +2520,9 @@ corrupted `DOOMED_FRACTION_OF_T_ROOT=0x686725` satisfies the published `…=0.68
 | distinct step values | `STEP_XOR_DISTINCT_VALUES=57` |
 | positional field, TV from uniform | `POSITIONAL_TV_FROM_UNIFORM_MAX_INTERIOR=0.0329` |
 | KW's pair at its own slot | `KW_PAIR_SHARE_AT_OWN_SLOT_MIN_MAX_INTERIOR=0.0299,0.0337` |
-| budget path vs exchangeable null, max TV | `EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS=0.0415` (n=9: `0.5686`) |
+| residual budget vs exchangeable null, max TV over layers (a per-layer bound, not one on the path) | `EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS=0.0415` (n=9: `0.5686`) |
 | wrong-null control ratio | `CONTROL_WRONG_NULL_TV_OVER_EXCHANGEABLE_TV=19.97` (n=9: `1.03`) |
-| most suppressed / most enhanced cell | `EXCHANGEABLE_NULL_MOST_SUPPRESSED_CELL=ratio=0.058 layer=23 digits=[2, 0, 13, 7, 1]`; `EXCHANGEABLE_NULL_MOST_ENHANCED_CELL=ratio=1.101 layer=4 digits=[0, 1, 1, 2, 0]` |
+| most suppressed / most enhanced observed cell (stored cells only; the 129 zero-mass support cells are not ranged over) | `EXCHANGEABLE_NULL_MOST_SUPPRESSED_CELL=ratio=0.058 layer=23 digits=[2, 0, 13, 7, 1]`; `EXCHANGEABLE_NULL_MOST_ENHANCED_CELL=ratio=1.101 layer=4 digits=[0, 1, 1, 2, 0]` |
 | the walk the atlas tracks is King Wen | `REF_WALK_IS_KING_WEN=PASS` (n=9: `SKIP:n=9`) |
 | A2 anchor-pair slot shares vs TR-7's published anchors | `TR12_A2_SLOT=FAIL` (n=9: `SKIP:n=9`) — from `--atlas-queries`, `DIR/VERDICTS.txt`; see §12.10; FAIL is the result, not a defect |
 | closing-pair wrap-class masses vs TR-7 §5 | `TR12_A3_EXTERNAL=FAIL` (n=9: `SKIP:n=9`) — from `--atlas-queries`, `DIR/VERDICTS.txt`; see §12.10; FAIL is the result, not a defect |
@@ -2623,7 +2623,7 @@ instead of `PASS`. Supplying the trace reproduces the run's full 17-token verdic
 differences, and is the right form if you have it — but §12.10's figures do not depend on it. ⚠ *(Updated 2026-09-26: the trace is now distributed. `reports/tr12/q3_trace_kw.txt` is the 2026-09-22 run's own unmodified `--kc-o3-rank … --kc-trace --kc-bracket` output. Add `--atlas-q3-trace reports/tr12/q3_trace_kw.txt` to the command above, and all 22 `[atlas-arith]` gates run and the three Q3 tokens read `PASS`.)*
 
 Exit status 1 is the documented behaviour when any verdict written is a failure, and it is the
-correct status here. The run takes well under a second on the 5.98 MB JSON, on any machine — no
+correct status here. The run takes about a second on the 5.98 MB JSON (1.1 s measured on a two-core host) — no
 ladder, no scan, no cluster. The `solve.c` that wrote the atlas is the one at commit `8af5e55c8eed`
 (`engine_source_sha ed9c65b24e9f…`), **which differs from this revision's `solve.c`**; the verdicts above do not run `solve.c` at all. `atlas_a2_slot_check`,
 `atlas_a3_wrap_class_map` are unchanged in code since `8af5e55c8eed` (one comment in the latter was reworded), and the numeric values of all their reference constants are unchanged; `atlas_a3_external_check` has changed since then only in how it parses
@@ -2681,7 +2681,7 @@ instead of carrying a grade.*
 |---|---|---|---|---|---|
 | TR-1 | Literature rules proven forced | 8 rules stating **7 distinct** facts, each constant = KW's | all of **C1** | machine-checked | `lean/C1RuleConstants.lean` — per-rule `decide` theorems (`mmt4_const`, `p1c4_const`, `s1_const`, `s6_const`, `r3_const`, `c2_hist_const`, `r5_const`) (modulo attested transcription of the rule statements — C1RuleConstants.lean:43-47) |
 | TR-1 | Van den Berghe nuclear-orientation ceiling | KW **29/30**; **12 of 1,720,320** at X=29 on the C4-oriented fiber, P(X ≥ 29) = **6.9754×10⁻⁶** one-sided (30 of 2,703,360 = 1.1097×10⁻⁵ on the pair-only fiber, where two vectors reach 30) | KW's **orientation fiber** — a fitted description read off KW, not the C1–C5 space | scoped-sample (exhaustive *within* the fiber) | `reports/evidence/f5/f5_modec_fiber.py`; gates `./solve --f5-verify`, `solve.py --vdb-verify` |
-| TR-2 | Conflict theorem: four strongest rules jointly unsatisfiable | **UNSAT** | C1∩C2∩C4∩C5 | machine-checked (verdict rung 1; rule-faithfulness rung 2) | `sat.py --emit-cnf grand-ccn4` → `kissat` → `drat-trim` `s VERIFIED`; `reports/certificates/grand_ccn4_unsat.drat.gz` |
+| TR-2 | Conflict theorem: four strongest rules jointly unsatisfiable | **UNSAT** | C1∩C2∩C4∩C5, the rules in the strict, zero-exception forms encoded (TR-2 §4) | machine-checked (verdict rung 1; rule-faithfulness rung 2) | `sat.py --emit-cnf grand-ccn4` → `kissat` → `drat-trim` `s VERIFIED`; `reports/certificates/grand_ccn4_unsat.drat.gz` |
 | TR-2 | Minimal repair from KW to a Moore-compliant ordering | exactly **3** slot-edits (2 UNSAT, 3 SAT) | C1–C5-valid orderings within k edits of KW | UNSAT-certified + SAT-witnessed | UNSAT-certified (k ≤ 2): `reports/certificates/moore-strict-near-2.drat.gz`; SAT-witnessed (k = 3): `reports/evidence/q7_witnesses/moore-strict.txt`, checked by the `q7wit_props` row of `scripts/tr12_repro.sh`; the `grander_strict_near{2,3,4}` certificates refute the five-rule union and are not this row's backing |
 | TR-3 | The d3 560T canonical | sha256 `9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`, **10,525,271,997** records | the **560T budgeted slice** — a LOWER BOUND on C1–C5, not the space | sha-witnessed exact | `CANONICAL_HASHES.md` §"d3 560T"; `gzip -dc solutions.bin \| sha256sum`; `./solve --verify` |
 | TR-4 | C1–C5 space size | **1.3287×10³⁸**, 95% CI **[1.3283, 1.3292]×10³⁸** (half-width 0.03%) | C15, orientation-raw | estimated-with-CI | `reports/evidence/knuth_whole_tree_5e10.out` — the archived estimator run. ⚠ The **artifact**, not the command, is cited here deliberately: a published estimator command carries no thread pin, and the thread count selects the sample, so pinning one after the fact would fabricate provenance rather than supply it. That gap is the standing G2 leg of the published-consistency ratchet |
@@ -2695,18 +2695,18 @@ instead of carrying a grade.*
 | TR-7 | Wrap-around distance parity | **odd** for every C4+C5-valid ordering (KW's wrap d = 3) | every C4+C5 sequence | machine-checked | `lean/KingWen.lean` `wrap_parity_general`, `transitions_sum_parity` |
 | TR-7 | McKenna's 3:1 even:odd ratio | **16 odd of 64**, 25.00% exact — forced, not designed | every C4+C5-valid circular reading | proven — a corollary, carrying no certificate of its own | derived from `lean/KingWen.lean` `wrap_parity_general` (kernel-checked) together with C5; the ratio itself is arithmetic over that theorem, not a separately certified result |
 | TR-7 | d5-wrap mass vs the enumeration | **17.4%** of valid space wraps at d=5; **zero** of 10,525,271,997 records do | mass over C1–C5; the absence only within the **560T slice** | scoped-sample (the absence); witness existence machine-checked | `./solve --verify-wrap-parity`; `sat.py --witness wrap-d5` |
-| TR-8 | Schulz gender rule, exact rarity | **47/445740 = 1.054426×10⁻⁴** | the **pair-only (C1) null** — a different object from the C1–C5 mass | proven (exact rational from an exact DP) | `solve.pair_null_gender_le2_exact()`, < 1 s |
+| TR-8 | Schulz gender rule relaxed to ≤ 2 violations anywhere (this project's relaxation, TR-9 fn⁸), exact rarity | **47/445740 = 1.054426×10⁻⁴** | the **pair-only (C1) null** — a different object from the C1–C5 mass | proven (exact rational from an exact DP) | `solve.pair_null_gender_le2_exact()`, < 1 s |
 | TR-8 | Gray-code impossibility | within-pair Hamming distances are **{2, 4, 6}**, never 1 | any complement/inversion pairing | machine-checked | `lean/KingWen.lean` `within_pair_even_nonzero` |
 | TR-9 | MDL baseline; C1's share | baseline **log₂ 64! = 296.0 bits**; **C1 explains 146.3** (+ C4 6.0) | all 64! → the C1+C4 layer — among complement/reverse matchings (`IsCompRevPairing`) | proven (arithmetic); C1's optimality machine-checked | `lean/HammingOptimalMatching.lean` `partner_is_unique_minimum`, axiom base `[propext]` |
 | TR-9 | Unexplained residual | **105.4 – 139.1 bits** | *stated per layer — the scope is the point of the range* | mixed: 139.1 exact-backed, 105.4 estimated-with-CI | `DESCRIPTION_LENGTH.md` ledger rows; §Verification Guide arithmetic checks |
 | TR-9 | C2 start-free rarity | **4.29341%**; `\|C1∩C2\|` = **48521466573683942822764571590770825624846336** | start-unpinned C1∩C2 | **exact** (3-prime CRT, reader-checkable) | three `./solve --f1-exact-c1c2 --f1-mod P` runs + the published 3-line CRT check |
 | TR-10 | Davis pre-registered battery | **five of nine NULL**; flagship block ~**1.1%** | C1–C5 population, 2×10⁹ probes | **UNRESOLVED** — see note 2 | pre-registration commit `2d19a3f`; `reports/evidence/dav_tier1.out` |
-| TR-10 | Davis uniqueness claim refuted | #63/64 → **12 distinct** derivatives; **twelve** pairs attain the 10-derivative minimum | the received KW sequence alone | proven (deterministic recomputation) | `solve.py --dav-verify` / `./solve --dav-verify` → `DAV VERIFY: PASS` |
+| TR-10 | Davis uniqueness claim refuted | #63/64 → **12 distinct** derivatives; **twelve** pairs attain the 10-derivative minimum | the received KW sequence alone | proven (deterministic recomputation) | the one-line recomputation printed in TR-10's Verification Guide (§4 refutation); `solve.py --dav-verify` / `./solve --dav-verify` checks the nine Davis observables' King Wen values, not this |
 | TR-11 | `\|C1∩C2∩C4\|` | **757,058,601,340,255,440,651,419,713,405,330,315,358,208** | orientation-explicit, C4 pinned | **exact, two-instrument** (note 1) | `./solve --f1-exact-c1c2c4`; independent `verify.c --ie-count --ie-no-budget`; mod-24 → 0 |
 | TR-11 | `\|C1∩C2∩C4∩C5\|` = SUPER | **1,097,051,278,789,181,790,036,112,071,176,579,186,688** | **SUPER**, orientation-explicit — **not** C15 | **exact, two-instrument** (note 1) | `./solve --f1-exact-c1c2c4c5 --f1-out-of-core DIR`; `verify.c --ie-count`; mod-24 → 0 |
 | TR-11 | N/24 | **45,710,469,949,549,241,251,504,669,632,357,466,112** | ⚠ **2× the sequence-orbit count**, NOT a record-level orbit count (label corrected 2026-09-19, CX-53 / Q-642) | exact (the integer never moved; only its name did) | reader-side: reduce N mod 24 and mod 48 |
 | TR-11 | C3 as a bounded scalar | **C3 = 16 + 8·G** | all C1-respecting orderings | machine-checked | `lean/C3Decomposition.lean` `c3_slot_decomposition` (kernel `decide`) |
-| TR-12 | Compiled catalog + registry check | **15.05 TB**; **96 of 96** logical digests (f, g, t) and **65 of 65** container digests (**t only**; f and g 130 of 130 at copy-in), zero mismatches ⚠ *(corrected 2026-09-24: the container count was not scoped to t)* | the f/g/t ladders at n=31 over SUPER | sha-witnessed exact | Two digests, two eras, and they must not be confused: the **logical** (decompressed) leg is `./solve --f1c5-layer-sha DIR` against `STAGE_{F,G,T}_LAYERSHA.txt`, 32 rows per stage; the **container** leg is `sha256sum -c` against `STAGE_{F,G,T}_SHA256.txt` read in the **RAW, post-#169 framing** — since shards became gz-framed by default, a `sha256sum -c` run against a *logical* sidecar hashes the gzip container and reports FAILED on a byte-correct artifact. The integrity checks of the ladder *contents* are separate records: `runs/20260906_kc_ladders_n31/KC_T_CHECK_n31.txt` (`--kc-t-check`, PASS, 0 failing layers) and `reports/KC_G_CHECK_n31.txt` (`--kc-g-check`, PASS, 0 failing layers); both constrain the files, not the transition relation *(added 2026-09-24)* |
+| TR-12 | Compiled catalog + registry check | **15.05 TB**; **96 of 96** logical digests (f, g, t) and **65 of 65** container digests (**t only**; f and g 130 of 130 at copy-in), zero mismatches ⚠ *(corrected 2026-09-24: the container count was not scoped to t)* | the f/g/t ladders at n=31 over SUPER | sha-witnessed exact | Two digests, two eras, and they must not be confused: the **logical** (decompressed) leg is `./solve --f1c5-layer-sha DIR` against `STAGE_{F,G,T}_LAYERSHA.txt`, 32 rows per stage; the **container** leg is `sha256sum -c` against `STAGE_{F,G,T}_SHA256.txt` read in the **RAW, post-#169 framing** — since shards became zlib-block-framed by default (per-block zlib streams, no outer gzip wrapper — §R Tier B), a `sha256sum -c` run against a *logical* sidecar hashes the stored container bytes and reports FAILED on a byte-correct artifact. The integrity checks of the ladder *contents* are separate records: `runs/20260906_kc_ladders_n31/KC_T_CHECK_n31.txt` (`--kc-t-check`, PASS, 0 failing layers) and `reports/KC_G_CHECK_n31.txt` (`--kc-g-check`, PASS, 0 failing layers); both constrain the files, not the transition relation *(added 2026-09-24)* |
 | TR-12 | The atlas every §12 figure is read from | 5,978,126 B, sha256 `9d6ba3d2b1a860b1992c3306191d228c49787c44f1d0366d23e6798b63210558` | n=31 atlas over SUPER | sha-witnessed exact | `runs/20260906_kc_ladders_n31/atlas_n31.json`; verify with `solve.py --atlas-probe` |
 | TR-12 | Doomed prefixes | **68.67 %** (`DOOMED_FRACTION_OF_T_ROOT=0.686725`); first at k=9, majority-of-layer from k=25 | SUPER, in **t-units** — says nothing about production-DFS nodes, which t-units bound from below only (§3) ⚠ *(corrected 2026-09-25, Q-787: this read "says nothing about production-DFS nodes under C3"; production applies C3 only as a leaf filter)* | exact over SUPER | `solve.py --atlas-probe atlas_n31.json`, matched `grep -Fqx` |
 | TR-12 | KW's transition rank in its distance class | mean percentile **0.219** vs a stated null of 0.5 less half the tie mass (not measured; token CELL_PERCENTILE_NULL_MEAN_PER_STEP); **24 of 31** steps below 0.25 | SUPER, walk-uniform | exact over SUPER, **published as a pointer with no p-value** (the 31 steps are dependent) | `REF_WALK_CELL_PERCENTILE_MEAN_OVER_N_STEPS` from `--atlas-probe` |
@@ -2716,16 +2716,16 @@ instead of carrying a grade.*
 **Note 1 — the rubric needs a sixth grade, and this is said rather than force-fitted.** §10.B names
 five: machine-checked / proven / sha-witnessed exact / estimated-with-CI / scoped-sample. Four
 figures fit none of them — `\|C1∩C2∩C4\|`, `\|C1∩C2∩C4∩C5\|`, C1–C7-with-C3-dropped, and
-`\|C1∩C2\|`. They are **exact at full scale and independently recomputed by a second engine sharing
-no code**, but their witness is a reproduction command plus a reader-side mod-24 or CRT gate — **not
+`\|C1∩C2\|`. They are **exact at full scale**; the first three are **independently recomputed by a second engine sharing
+no code**, while `\|C1∩C2\|` is a CRT reconstruction from three `solve.c` residues whose independent gate checks start orbit 0 only (TR-9 §Verification Guide). Their witness is a reproduction command plus a reader-side mod-24 or CRT gate — **not
 a canonical sha**. Grading them "sha-witnessed" would name an artifact that does not exist; grading
-them "proven" would understate a machine recomputation. They are entered as **exact,
-two-instrument**, and the rubric is what is wrong here, not the figures.
+them "proven" would understate a machine recomputation. The first three are entered as **exact,
+two-instrument** and `\|C1∩C2\|` as **exact**, and the rubric is what is wrong here, not the figures.
 
 **Note 2 — six published masses carry no interval, and are therefore ungraded.** TR-1's 36.4 % /
 2×10⁻⁸ / 7.3×10⁻⁴, TR-8's ×11,364, and TR-10's ~1.1 % and 6.8×10⁻⁴ are weighted-Knuth estimator
-outputs whose archived runs (`dav_tier1.out`, `dav2_tier1.out`, `f5_tier1.out`) **predate the
-estimator's `se=` field**. They are not `estimated-with-CI` (no interval was published) and not
+outputs published without an interval: the run behind TR-1's three and TR-8's ×11,364 is not archived (TR-1 and TR-9 fn⁸ say so), and TR-10's two are in `dav_tier1.out` (`evidence/dav2_tier1.out` and `evidence/f5/f5_tier1.out`, cited here until 2026-10-17, hold other scores, not these masses), whose run **predates the
+estimator's `se=` field**. TR-10's two have since been re-run with the field, masses unchanged (`dav_tier1_se_2026_09_25.out`: se 9.5×10⁻⁵ and 2.3×10⁻⁵; TR-10's 2026-09-25 note); this ledger has not regraded that row. They are not `estimated-with-CI` (no interval was published) and not
 `scoped-sample` (the estimator samples the whole tree), so this ledger records them as
 **UNRESOLVED** rather than inventing a grade. Closing them is a re-run, not a re-labelling.
 
@@ -2750,7 +2750,7 @@ fails on this document's own tokens).
 
 - **The §12.1–§12.6 figures that §12.9 maps to a token** (every §12.9 row except the two `TR12_A*` rows, which come from `--atlas-queries` below; ⚠ *corrected 2026-09-26: this read "Every figure in §12.1–§12.8", but §12.7's cost figures are derived, not printed, and §12.8 quotes none*) — `python3 solve.py --atlas-probe atlas_n31.json`. Prints
   `ATLAS_PROBE=PASS`, `ATLAS_PROBE_FAILS=0`, `ATLAS_GATE_COUNT=14`, `ATLAS_TAIL_CHECK_COUNT=5`; rc 0;
-  under a second on the 5.98 MB JSON, no ladder and no cluster. The probe re-sums every table it
+  seconds on the 5.98 MB JSON, no ladder and no cluster. The probe re-sums every table it
   reads against N before printing a figure that depends on it, and evaluates the one statistic
   needing a null against a deliberately wrong null so the reader can see it discriminates. The
   figure→token table is **§12.9**.
@@ -2786,7 +2786,7 @@ fails on this document's own tokens).
   `./solve --f1c5-layer-sha DIR` against `runs/20260906_kc_ladders_n31/STAGE_{F,G,T}_LAYERSHA.txt`
   (32 rows/stage). Container/files: `sha256sum -c` against `STAGE_{F,G,T}_SHA256.txt` (65
   rows/stage). **Do not cross them** — they digest different byte streams. Both were executed by this
-  project 2026-09-17: **96 of 96** logical (f, g, t), **65 of 65** container (t only; f and g were re-read
+  project: **96 of 96** logical (f, g, t) on 2026-09-17, **65 of 65** container (t only, 2026-09-16; f and g were re-read
 130 of 130 at copy-in), zero mismatches. A match says your
   ladder is byte-identical to the one every number here was computed against; it does **not** say the
   ladder is mathematically sound; no battery row does. `--kc-g-check` and `--kc-t-check` are file-integrity identities (GT_LADDER_FORMAT.md §"The cross-ladder identities"), different instruments.
@@ -2848,4 +2848,5 @@ recomputation of anything in this report exists.
 | v1.27 | 2026-10-10 | **Four sentences the 2026-09-05 novelty scrub removed are restored (Q-534; CX-329).** The v1.0 row above records that scrub as a loan with a separately gated restoration; this row is the restoration. The publication freeze of 2026-08-16 was lifted on 2026-10-10 after the last item of its reading condition, 王俊龍 2007, was read (`documentation/CITATIONS.md` §wangjunlong2002, CX-328). Restored: §2's comparison of the population-exact figures with the archived PCA projections (inside the CX-224 sentence); §1 Q4(a)'s "estimator UPGRADE over all prior C3 histograms", now with the statement of what "all prior" was checked against; §11's heading and its "novelty did not make \|C15\| exact". Two removals stay out on their own merits: a sentence about this project's public record (§9) and a reference to an internal gate (§11 opening note). No figure, table, count or verdict moves; every edited line keeps its line number. |
 | v1.28 | 2026-10-11 | **The Exhaustion Atlas verdict is published, one-sided (Q-433; CX-348, CX-349).** On 2026-09-30 the operator ruled that a one-sided call on the public lower-bound certificate may be published in node-count or time units, with no money figure. §3 now gives the command, the rate (rounded up from the d3 11.2T canonical run) and the ceiling (10¹² wall-clock hours, chosen to be generous). Every one of the 56 branches reads INFEASIBLE, at any ceiling below 8.06×10²⁴ hours (exact break-even in the table); `reports/tr12/xa_verdict.md` and `reports/tr12/VERDICTS.txt` (`TR12_XA_CD=ONE-SIDED:lower-bound`) are regenerated by that command. Before publishing, the consumer's hedge was fixed: it only divided the rate, which raised every cost and could manufacture INFEASIBLE, the one call a lower-bound certificate can make; it is now a band, with INFEASIBLE called at its fast end (CX-348). The places that said the verdict was withheld carry a dated note. No count, t-unit figure or other verdict moves; every edited line keeps its line number. |
 | v1.29 | 2026-10-15 | **§12.10's quotation of the consumer's population note is dated (Q-676; CX-359).** The section quoted the note as what the consumer "has said … since 2026-09-05"; from batch 52 the consumer states this section's measured gap instead, and the quotation is marked as the 2026-09-05 to 2026-10-15 wording. No figure, table or verdict moved. |
-| v1.30 *(current)* | 2026-10-16 | **Eight sites corrected from Codex's final review (gpt-6-astra; findings F11-004#4/#13, F11-005#2/#3/#4/#9/#17/#18/#19, F07-004#3, F07-005#1/#2/#3/#7/#11, CAP-002#1/#2/#5, CRZ-001#1, CAL-005; triaged by Fable; fast-track batch FT2a).** (i) The §12.9 ledger's Van den Berghe row gave the C4-oriented count 12 of 1,720,320 beside the pair-only fiber's probability; it now gives P(X ≥ 29) = 6.9754×10⁻⁶ on the fiber it counts and the pair-only figure separately. (ii) The transition-rank row's "vs null 0.5" now states the null as §12.3 does, 0.5 less half the tie mass, stated and not measured. (iii) The §12.9 banner's "every figure in §12.1–§12.8" now carries the exceptions the Verification Guide carries. (iv) "Flat to ~3 %" in the executive summary, Q9's note and the §12.5 heading, and "essentially no information" in §12.5, now name the interior total-variation distance 0.0329 and the −8 % to +7 % cell range, as the V1 caption has since v1.16; the §12.5 anchor changed with its heading and its two links were updated. (v) The confidence ledger's four suite-level inconsistencies are one: three were misreadings, and the fourth (TR-2's executive summary) is cured in TR-2 v1.41. (vi) Two sentences that gave `--kc-t-check` and `--kc-g-check` as proof that the ladders are mathematically correct now call them file-integrity identities, as GT_LADDER_FORMAT.md does. (vii) §4's population fractions are of raw, fiber-weighted C15 mass. No query, count, token or verdict changes. See CORRECTIONS.md (fast-track batch FT2a). |
+| v1.30 | 2026-10-16 | **Eight sites corrected from Codex's final review (gpt-6-astra; findings F11-004#4/#13, F11-005#2/#3/#4/#9/#17/#18/#19, F07-004#3, F07-005#1/#2/#3/#7/#11, CAP-002#1/#2/#5, CRZ-001#1, CAL-005; triaged by Fable; fast-track batch FT2a).** (i) The §12.9 ledger's Van den Berghe row gave the C4-oriented count 12 of 1,720,320 beside the pair-only fiber's probability; it now gives P(X ≥ 29) = 6.9754×10⁻⁶ on the fiber it counts and the pair-only figure separately. (ii) The transition-rank row's "vs null 0.5" now states the null as §12.3 does, 0.5 less half the tie mass, stated and not measured. (iii) The §12.9 banner's "every figure in §12.1–§12.8" now carries the exceptions the Verification Guide carries. (iv) "Flat to ~3 %" in the executive summary, Q9's note and the §12.5 heading, and "essentially no information" in §12.5, now name the interior total-variation distance 0.0329 and the −8 % to +7 % cell range, as the V1 caption has since v1.16; the §12.5 anchor changed with its heading and its two links were updated. (v) The confidence ledger's four suite-level inconsistencies are one: three were misreadings, and the fourth (TR-2's executive summary) is cured in TR-2 v1.41. (vi) Two sentences that gave `--kc-t-check` and `--kc-g-check` as proof that the ladders are mathematically correct now call them file-integrity identities, as GT_LADDER_FORMAT.md does. (vii) §4's population fractions are of raw, fiber-weighted C15 mass. No query, count, token or verdict changes. See CORRECTIONS.md (fast-track batch FT2a). |
+| v1.31 *(current)* | 2026-10-17 | **The sites of twenty-four review findings brought back to their sources (Codex's final review, gpt-6-astra: F11-004#1/#2/#10/#11/#12, F07-004#2/#4/#8, F11-005#1/#5/#6/#8/#11/#12/#14/#15, F07-005#4/#9/#13/#14/#15, CAL-004#152/#154, CRZ-001#3; triaged by Fable; fast-track batch FT2b-1; wording only, no figure, token or verdict moved).** (i) The executive summary and abstract no longer say all ten query families were fixed on 2026-07-17: Q10 joined on 2026-07-31, Q10(b) is undefined and V5's category was pinned on 2026-09-23. (ii) §12.6's TV 0.0415 is stated as a per-layer bound on the residual budget, not one on the spending path, in the summary, the abstract and §12.9. (iii) §2's overview names the figure kinds (three population-exact fields, one walk, one lattice); §12's opening no longer calls everything in it measured; the §12.4 heading says the kernel is not shown to distinguish King Wen, as its body does. (iv) The ×0.058 cell is the most suppressed *observed* cell; the 129 zero-mass support cells are outside the token's range. The first twenty-four layers hold at most 0.005 % of the doomed mass, while within-layer dead shares reach 26 % and 34 % at k = 22 and 23. (v) The confidence ledger: the conflict-theorem row names the strict encodings, the TR-8 row the ≤ 2-violations relaxation, the Davis-refutation row its real producer; Note 1 no longer calls \|C1∩C2\| two-engine; Note 2 no longer cites files that do not hold the masses, and records TR-10's 2026-09-25 re-run; the catalog row names zlib-block framing. (vi) Reproduction facts: f alone answers `--kc-count` and REL rank, the toolchain witnesses are the selftest sha and the 11.2T canonical, the t container check took 3 h 56 min on 2026-09-16, the probe runs in seconds and the `--atlas-queries` run in about one, the 560T/100T samples are per-sub-branch truncations, N_gs's 6.1 % is a relative SE, the eight forced-class rules are proven, modulo a checked transcription step, since 2026-07-21 (TR-1). Every edited line keeps its line number. |

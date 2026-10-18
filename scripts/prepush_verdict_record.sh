@@ -248,11 +248,11 @@ if [ "$MODE" = write ]; then
   # at all (the hook's own test fixtures) keeps the floor of 1, as before.
   _tls=$(git -C "$top" ls-tree HEAD -- tests.py 2>/dev/null) \
     || err "write: cannot list HEAD (git ls-tree failed), so the tree's test count (the TESTS floor) is unknown"
-  if [ -n "$_tls" ]; then
-    git -C "$top" show HEAD:tests.py >/dev/null 2>&1 \
+  _tpy=; if [ -n "$_tls" ]; then   # F05-003#1 (Codex gpt-6-astra, final review): ONE read, checked, and the count comes from it
+    _tpy=$(git -C "$top" show HEAD:tests.py 2>/dev/null) \
       || err "write: HEAD lists tests.py but it cannot be read, so the TESTS floor is unknown"
   fi
-  tfloor=$(git -C "$top" show HEAD:tests.py 2>/dev/null | grep -cE '^    def test_') || true
+  tfloor=$(printf '%s\n' "$_tpy" | grep -cE '^    def test_') || true
   case "$tfloor" in ''|*[!0-9]*) tfloor=0 ;; esac
   if [ -n "$_tls" ]; then
     [ "$tfloor" -ge 1 ] || err "write: HEAD:tests.py has no test methods, so the TESTS floor has no population"

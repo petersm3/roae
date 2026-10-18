@@ -806,7 +806,7 @@ check() {
   bad=$(awk -F'\t' -v W="$GIT_SHA_W" 'NR>1 && $5=="git" && length($6)!=W {c++} END {print c+0}' "$CHECK_TMP/rebuilt")
   [ "$bad" = 0 ] || check_verdict ERROR "$bad git row(s) with a document cell that is not $GIT_SHA_W characters; the self-row filter would miss"
   self=${full:0:$GIT_SHA_W}
-  awk -F'\t' -v h="$self" 'NR==1 || !($5=="git" && $6==h)' "$CHECK_TMP/rebuilt" > "$CHECK_TMP/expected"
+  awk -F'\t' -v h="$self" 'NR==1 || !($5=="git" && $6==h)' "$CHECK_TMP/rebuilt" > "$CHECK_TMP/expected" || check_verdict ERROR "the self-row filter (awk) failed, so the expected inventory is unknown (F05-006#1)"
   if cmp -s "$CHECK_TMP/committed" "$CHECK_TMP/expected"; then
     check_verdict MATCH "HEAD ${full:0:12}: committed inventory = rebuilt from this history minus HEAD's own row ($(grep -c . "$CHECK_TMP/expected") lines)"
   fi

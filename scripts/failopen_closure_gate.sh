@@ -138,7 +138,7 @@ run_one(){
   # `grep -c`, not `grep -q`: see the pipefail/SIGPIPE note above.
   elif [ "$rc" -ge 125 ] && [ "$rc" -le 127 ] \
        && [ "$(printf '%s\n' "$out" | grep -cE '^(timeout|nice): ')" -gt 0 ]; then
-    printf 'ERROR\t%s\tlauncher-failed\n' "$rc"
+    printf 'ERROR\t%s\tlauncher-failed\n' "$rc"; elif [ "$rc" -ge 129 ]; then printf 'ERROR\t%s\tkilled-by-signal-%s\n' "$rc" "$((rc - 128))"   # F05-008#9: a launcher or target killed by a signal did not refuse; it is ungradable
   # Q-983 (batch 42; Codex gpt-6-astra, Q964-D07#4): a CLOSED row carries the LAST verdict-shaped token
   # the script printed (or "-"), so a refusal can be told from a crash: bash exits 2 on a syntax
   # error too, and "closed rc=2" alone was what both earned. The selftest now requires each refusal

@@ -21,8 +21,8 @@ than that section does. The other six figures come from the earlier reports, TR-
 and even agreeing with King Wen at a few chosen boundaries is rare in it (TR-4). Its symmetries sort
 valid records into groups of 24 that no test invariant under those symmetries can tell apart (TR-5). Four rules proposed for
 the sequence in published studies cannot all hold at once, in their strict zero-exception forms, in any ordering of the superspace, so
-each such ordering, King Wen's included, trades some of them off (TR-1). Counted exactly over the superspace rather than sampled, King Wen's
-pair positions sit close to the even share (V1, a negative result, TR-12 §12.5); the mix of
+each such ordering, King Wen's included, trades some of them off (TR-1). Counted exactly over the superspace rather than sampled, pair
+positions away from the two end slots sit close to the even share, the end slots far from it, and King Wen's placements are typical (V1, a negative result, TR-12 §12.5); the mix of
 transition sizes stays nearly level along the walk (V2, TR-12 §2 and §12.6), with three-line joins
 the most common kind at every step (V5, TR-12 §2); no plotted property shows a
 clear trend along the index on a 1,000-point lattice (V3, TR-12 §2); and King Wen's own walk has an
@@ -50,8 +50,8 @@ figure in the [TR-12 section](#the-scale-figure) below.
 [![Log-scale decay curve of S(k), the fraction of the full C1–C5 population agreeing with King Wen on its first k identifying boundaries: four estimated points, a dashed illustrative early-rate line, an illustrative bracket, and horizontal lines for the reachable floor.](../reports/figures/fig_tr4_boundary_information.png)](../reports/figures/fig_tr4_boundary_information.svg)
 
 **In plain terms.** This curve shows how quickly the share of valid orderings falls when an ordering must match King Wen
-at more and more chosen joins between pairs. The four red points are estimates, each within about ten
-percent, and each of these first joins cuts the share by roughly a thousand times. The dashed line and
+at more and more chosen joins between pairs. The four red points are estimates, each with a relative standard
+error of at most ten percent, and each of these first joins cuts the share by roughly a thousand times. The dashed line and
 the shaded bracket are illustrations, not measurements, and the vertical line is a marker of scale,
 not a limit. Even with every join matched, many orderings still remain, because matching joins fixes
 which pairs go where but not which way round each pair is placed.
@@ -347,7 +347,7 @@ working directory, so run from `reports/figures/` to overwrite the committed fil
   checks that its table is a complete, duplicate-free, contiguous grid over the index columns its
   spec names, with the header's field count on every row (a blank or whitespace-only row is refused) and every column its spec lists present, and that the grid is the spec's own inventory rather than whatever the rows happen to span (Q-892, 2026-09-28): layers `k = 0…n−1`, all 32 pair rows, classes `d ∈ {1,2,3,4,6}` (× `w ∈ {2,4,6}` for V5), V4 steps `1…n` ending at `g = 1`, V3 rows `i = 0…K−1` with `rank = i·⌊N/K⌋` and `x = rank/N`. `n` comes from the Q3 table's sidecar or step count when `tr12_figures` runs; a figure rendered on its own without `n` still requires the lowest layer, and only the highest one then rests on the footer digest. A
   violation prints `FIGURE_SHAPE=FAIL` with the file, the line and the reason, and writes no figure.
-  V3 also drops constant observable columns (constancy decided on the parsed numbers) and names them; a V3 table that is present and refused fails the run, and only an absent one is skipped (Q-893). V4 names a receipt it was given and could not find as `q3_profile_exact.tsv@ABSENT` in its footer, and uses King Wen's name in its titles only for a table that is King Wen's walk (Q-891). V2 at `n = 31` requires its branch table, whose `prefixes_t_units` must be all integers (drawn) or all `PENDING_T_LADDER(...)` (stated on the panel as unavailable); anything else is refused (Q-894). `bash scripts/doc_gates.sh viz-shape`
+  V3 also drops constant observable columns (constancy decided on the parsed numbers) and names them; a V3 table that is present and refused fails the run, and only an absent one is skipped (Q-893). V4 names a receipt it was given and could not find as `q3_profile_exact.tsv@ABSENT` in its footer, and uses King Wen's name in its titles only for a table that is King Wen's walk (Q-891) and that the published receipt, when it covers the same n, agrees with at every step (since 2026-10-17; a disagreeing receipt prints `V4 title: ...` and the figure is titled as the traced walk). V2 at `n = 31` requires its branch table, whose `prefixes_t_units` must be all integers (drawn) or all `PENDING_T_LADDER(...)` (stated on the panel as unavailable); anything else is refused (Q-894). `bash scripts/doc_gates.sh viz-shape`
   runs `python3 viz/report_figures.py --selftest` and requires `VIZ_SHAPE_SELFTEST=PASS`.
 
 ### How the tables are produced

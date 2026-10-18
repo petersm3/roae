@@ -11568,3 +11568,83 @@ Q-686=DONE
   relative SE, in place of "well within ±0.01%", and TR-4's calibration paragraph quotes the same
   re-draw (F11-003#1); TR-1 and LITERATURE_RULES_POPULATION_TESTS.md
   give the registry split as 26 source-stated and five KW-derived (F11-008#3).
+
+## 2026-10-17 — fast-track batch FT2b-1: TR-12, showcase and capstone wording from Codex's final review
+
+- Codex (gpt-6-astra) ran the final review of the public suite, and Fable triaged its findings into
+  themed fast-track lanes. This batch lands the TR-12 / visual-showcase / capstone-guide theme (CX-382 to
+  CX-388): wording put back to its sources, and one fail-open path in a figure renderer closed. No measured
+  value, sha, certificate, token or verdict changed.
+- TR-12's framing: nine query families, not ten, were fixed on 2026-07-17; §12.6's TV 0.0415 is a per-layer bound
+  on the residual budget, not one on the spending path; §2's five figures are three population-exact fields, one
+  walk and one lattice; not everything in §12 is measured; the §12.4 heading matches its body (F11-004#1/#2,
+  F07-004#2, F11-005#6/#8).
+- TR-12's readings and ledger: the ×0.058 cell is the most suppressed *observed* cell; the first twenty-four
+  layers are near-free of doomed mass in total but not within a layer; six confidence-ledger cells and its two notes
+  now describe their sources, and TR-10's 2026-09-25 re-run with standard errors is recorded (F07-005#4/#9/#13,
+  F11-005#1/#5/#11/#12/#14/#15).
+- Reproduction facts: f alone answers `--kc-count` and REL rank; the toolchain witnesses are on other artifacts; the
+  t container check took 3 h 56 min on 2026-09-16; the probe runs in seconds; the 560T/100T samples are
+  per-sub-branch truncations; N_gs's 6.1 % is a relative SE; `atlas_probe`'s docstring says `grep -Fqx`
+  (F11-004#10/#11/#12, F07-004#4/#8, F07-005#14/#15, CRZ-001#3). The eight forced-class rules TR-1 proved on
+  2026-07-21 are no longer called proof candidates (CAL-004#152/#154).
+- Showcase and guide: the S(k) points carry a relative standard error of at most ten percent; the V1 sentence is
+  scoped to the interior slots; the guide's summary says step 9 recomputes one ingredient of the symmetry
+  bookkeeping (F11-009#2/#3, F11-010#3). V4 now withholds King Wen's name when King Wen's published receipt
+  contradicts the table it draws (F11-009#11).
+- The front page (CX-389, from Fable's front-page review of 2026-10-17): the README's uniqueness sentence now
+  matches TR-4's CX-376 correction (Codex F02-004#2, CAL-002#95), as do its copies in reports/README.md and SOLVE.md;
+  dated correction notes, a backlog id and hand-pinned test counts leave the front page; the two longest headline
+  bullets are cut to claim, scope label and link; the S(k) caption carries the 6.14-bit gain's N(7) label here, in
+  TR-4 §Figure (TR-4 v1.41) and on the figure page; the gallery captions drop verdict tokens. No figure changed.
+- `TestBatchFT2b1` pins each cure against its public source and fails on the uncured text. TR-12 is v1.31; TR-4 is v1.41.
+
+## 2026-10-17 — fast-track batch FT3j: verify.c's layer-reader selftests pass again and now run in the harness
+
+- Codex (gpt-6-astra) found, in its final review (F12-014#2), and Fable confirmed in the round-3b
+  triage that `verify --check-layers-selftest` and `verify --scan-selftest` had printed FAIL since
+  2026-10-03. That day's stored-last domain check rejected the selftests' own positive fixtures, whose
+  `last` values lay outside their masks' pairs, and no harness ran the selftests (CX-390).
+- The check stays as it is and the fixtures now carry valid `last` values. The check-layers selftest
+  gains leg [15], a planted out-of-domain `last` that must FAIL, so a disabled check is now visible.
+  The scan selftest requires its positive fixtures to exit 0, and its root-key leg accepts the layer-0
+  domain line as naming the root.
+- `reports/certificates/verify_all.sh` §1b and `tests.py` `TestBatchFT3j` build `verify.c` and require
+  the whole lines `LCSELFTEST_RESULT=PASS` and `SCAN-SELFTEST: PASS`. VERIFY.md states the window in
+  which the selftests were red. No canonical sha, count, certificate or `solve --selftest` digest
+  changed.
+- reports/README.md's TR-12 row no longer says the Exhaustion Atlas verdict is withheld; TR-12 §3
+  published it one-sided on 2026-10-11 (Codex F08-001#15; CX-391).
+
+## 2026-10-17 — fast-track batches FT2b-2..4: report wording, push-path gates and pre-registration notes from Codex's final review
+
+- **FT2b-2, report wording (CX-392 to CX-398).** Codex (gpt-6-astra) ran the final review and Fable triaged it.
+  TR-11 no longer says the storage projection was exceeded, that resume always rebuilds a layer, or that the plain
+  recursion stops at n = 18, and it names the 2026-07-21 review as an AI review the project commissioned
+  (F11-003#2/#6/#7/#8/#10/#11). TR-1's introduction, abstract and caveats now say what its body says, and its lineage
+  credits follow CITATIONS.md (F11-006#2/#4/#5/#7/#8/#11/#14/#15/#16, F02-003#9, F02-006#6). TR-2 names its two
+  uncertified CC-N4 instances and its attested-not-reproducible calibration at the claim (F11-007#1/#2/#4/#8/#9/#10/
+  #13/#14). TR-4 and TR-6 say at the claim that two figures have no command, and eight pages say the execution lane
+  runs what it classifies as runnable (CAL-002#88, CAL-007#95, CAL-009#1/#62, CAL-010#97). CLAIMS_DECIDED, the README,
+  METHODS and CLAIM_TO_ARTIFACT drop five stale or overstated sentences, METHODS now describes the STARVATION token
+  `solve.c` has printed since 2026-09-04, and two CLAIM_TO_ARTIFACT commands carry their thread counts (F07-006#7/#10,
+  F11-008#2/#5, CAL-001#36/#98, F11-006#19, F02-006#7/#13/#14).
+- **FT2b-3, push-path and battery gates (CX-399 to CX-401).** Legs that could read a failed producer as a clean
+  result now fail closed: the tests floor, the pre-push stdin reader, the inventory check, the row-assertion
+  remap, the fail-open closure grading, the TR-12 stamp check and its two comparators, GATE 83's hard-call rule,
+  the import probes, GATE 27's unreadable documents, four published-consistency legs, the n = 31 manifest write, and the
+  execution lane's pipeline status and workspace reset (F05-002#1/#12, F05-003#1/#2/#6, F05-004#6, F05-005#3/#4/#5/#6,
+  F05-006#1, F05-008#2/#9/#10/#11/#12/#14, F05-010#19/#21, with F04-021#2/#4). Each has a red test that plants the
+  defect.
+- **FT2b-4, pre-registration ledger notes (CX-402, CX-403).** The frozen registrations are not edited. Notes beside
+  them record that the C8 screen's 2⁻¹³ floor is an N0 fact (208 `C-M` members fall below it under N1; the verdict
+  stands on the measured tails), its power boundaries (2.1×10⁻⁶ and 9.1×10⁻⁵), the rule of three on weighted masses,
+  N0 not being TR-8's null, the Q-OY1 extension's 0.0133 error bound and its reused default seed, TR-8 A1's censored
+  median, an escrow sentence that called a commit a third-party timestamp, and CX-354's "nearly doubled". The
+  population-run READMEs state METHODS's determinism rule, the Q-OY1 recipe gains `SOLVE_THREADS=16`, its analyzer
+  sums with `math.fsum`, and `roae.py` labels its Wilson interval ≈90% two-sided (F02-001, F02-002, F02-003, F02-004,
+  F02-006). No measured value, sha, certificate or verdict changed. `TestBatchG3` holds each cure. TR-1 v1.41, TR-2
+  v1.42, TR-4 v1.42, TR-6 v1.15, TR-7 v2.12, TR-8 v1.23, TR-9 v1.35, TR-10 v1.21, TR-11 v1.35.
+- **Follow-up to push group G2 (CX-404).** TR-4's abstract and §Sections item 3 and SOLVE.md now say the identifying
+  set within the enumerated datasets has five boundaries at 100T and 560T and four at 10T, as BOUNDARY_MINIMUM.md gives
+  and the README has said since G2 (Fable's G2 pre-publication review, FIX-1 follow-up). TR-4 v1.43.

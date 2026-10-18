@@ -1838,9 +1838,14 @@ static int lc_selftest(void) {
     uint32_t n=2, se=0, pl[2]={1,2}; int b0v[5]={1,1,0,0,0};
     uint32_t rad[5],R; lc_radix(b0v,rad,&R);            /* rad=(1,2,4,4,4) R=4 */
     uint64_t plhash = lc_pl_hash(n,se,pl);
-    /* two masks, entries: mask A -> [(last=5,rid=1)], mask B -> [(last=7,rid=1),(last=9,rid=2)] */
+    /* two masks, entries: mask A -> [(last=17,rid=1)], mask B -> [(last=23,rid=1),(last=58,rid=2)].
+     * Each `last` is an exit hexagram of the pair its mask selects (the stored-last domain,
+     * F1C5_LAYER_FORMAT.md, guarded since 2026-10-03): bit 0 = pl[0] = KW pair 1 = {17,34},
+     * bit 1 = pl[1] = KW pair 2 = {23,58}. Until 2026-10-17 (batch FT3j, Codex gpt-6-astra
+     * F12-014#2) these were last = 5, 7, 9 -- outside both pairs -- so the guard rejected this
+     * positive fixture and LCSELFTEST_RESULT printed FAIL; nothing ran the selftest. */
     uint32_t masks[2]={0x1,0x2}; uint64_t off[3]={0,1,3}, nm=2, ne=3;
-    uint32_t keys[3]={ (5u<<16)|1u, (7u<<16)|1u, (9u<<16)|2u };
+    uint32_t keys[3]={ (17u<<16)|1u, (23u<<16)|1u, (58u<<16)|2u };
     u192 vals[3]={ {{7,0,0}}, {{11,0,0}}, {{13,0,0}} };   /* nonzero; digit-sums: rid1->1, rid2->1 (2/rad? see) */
     /* rid=1: digits over rad(1,2,4,4,4): c4..c0 => 1/4=0..; 1/1(c0)=1 => sum1 ✓. rid=2: 2/2(c1)=1 =>sum1 ✓ */
     unsigned char hd[72]; memset(hd,0,72);
@@ -1945,6 +1950,10 @@ static int lc_selftest(void) {
     printf("\n[12] layer 0 with root VALUE 2 (spec: value 1; shape and per-entry legs all\n"
            "     hold) — MUST be rejected (was PASS before 2026-09-24):\n");
     int r12 = lc_check_layers(dir, 31, NULL);
+    /* Since the stored-last guard (2026-10-03) a layer-0 key (start_exit+1)<<16 is also
+     * outside the layer-0 domain {start_exit}; that guard fires first and names layer 0
+     * ("k= 0 ... (layer 0: the start exit)"), so LC_ROOT_CHECK (gated on !fail) stays quiet.
+     * Either way the root is rejected, which is what this leg asserts. */
     WRITE_L0((se+1)<<16, 1);
     printf("\n[13] layer 0 with root KEY (start_exit+1)<<16 (spec: start_exit<<16; last=1 < 64,\n"
            "     rid 0) — MUST be rejected (was PASS before 2026-09-24):\n");
@@ -1954,6 +1963,20 @@ static int lc_selftest(void) {
            "     (positive control: [12]/[13] fail on the root, not on a fixture artefact):\n");
     int r14 = lc_check_layers(dir, 31, NULL);
     #undef WRITE_L0
+
+    /* ---- STORED-LAST leg (2026-10-17, batch FT3j, Codex gpt-6-astra F12-014#2): the v1
+     * layer 1 of [1] with mask A's entry at last = 5 -- the value the positive fixture carried
+     * until today -- outside pair {17,34}. Every other per-entry leg holds (rid 1, digit sum
+     * 1, nonzero value, ascending), so only the stored-last domain guard can reject it. This
+     * is the leg the selftest lacked: with the guard disabled it PASSES. ---- */
+    PUT("F1C5LAY1",1,0);
+    { uint32_t kbad[3]={ (5u<<16)|1u, keys[1], keys[2] };
+      snprintf(path,sizeof path,"%s/f1c5_layer_01.bin",dir); f=fopen(path,"wb");
+      lc_wr(f,hd,72); lc_wr(f,masks,nm*4); lc_wr(f,off,(nm+1)*8);
+      lc_wr(f,kbad,ne*4); for(uint64_t i=0;i<ne;i++) lc_wr(f,&vals[i],24); fclose(f); }
+    printf("\n[15] v1 layer 1 with one entry at last=5, outside its mask's pair {17,34} (spec:\n"
+           "     last is an element of a pair its mask selects) — MUST be rejected:\n");
+    int r15 = lc_check_layers(dir, 31, NULL);
 
     #undef PUT
 
@@ -1988,7 +2011,10 @@ static int lc_selftest(void) {
            geff3, o_bit0, c_bit0, o_bit1, c_bit1, o_full, c_full,
            grp_ok ? "ok" : "*** FAIL ***");
 
-    /* v1 layer files 0..3 */
+    /* v1 layer files 0..3. Stored `last` per mask (domain guard since 2026-10-03): bit 0 =
+     * pl[0] = KW pair 3 = {2,16}, bit 1 = pl[1] = KW pair 7 = {4,8}, bit 2 = pl[2] = KW pair
+     * 11 = {32,1}. Until 2026-10-17 (FT3j) layer 1 used last 5/6, layer 2 last 1 and layer 3
+     * last 9 -- outside their masks' pairs -- so [5] (a positive control) FAILED. */
     unsigned char h3[72];
     #define PUT3(kk_,nm_,ne_) do{ memset(h3,0,72); memcpy(h3,"F1C5LAY1",8); \
         uint32_t v_=1; memcpy(h3+8,&v_,4); memcpy(h3+12,&n3,4); uint32_t k_=kk_; memcpy(h3+16,&k_,4); \
@@ -1999,16 +2025,16 @@ static int lc_selftest(void) {
       snprintf(path,sizeof path,"%s/f1c5_layer_00.bin",dir2); FILE *g3=fopen(path,"wb");
       lc_wr(g3,h3,72); lc_wr(g3,&m_,4); lc_wr(g3,o_,16); lc_wr(g3,&k_,4); lc_wr(g3,&v_,24); fclose(g3); }
     { PUT3(1,1,2); uint32_t m_=0x1; uint64_t o_[2]={0,2};
-      uint32_t ks_[2]={(5u<<16)|1u,(6u<<16)|2u}; u192 vs_[2]={{{7,0,0}},{{3,0,0}}};
+      uint32_t ks_[2]={(2u<<16)|1u,(16u<<16)|2u}; u192 vs_[2]={{{7,0,0}},{{3,0,0}}};
       snprintf(path,sizeof path,"%s/f1c5_layer_01.bin",dir2); FILE *g3=fopen(path,"wb");
       lc_wr(g3,h3,72); lc_wr(g3,&m_,4); lc_wr(g3,o_,16); lc_wr(g3,ks_,8);
       for(int i=0;i<2;i++) { lc_wr(g3,&vs_[i],24); } fclose(g3); }
     { PUT3(2,1,1); uint32_t m_=0x3; uint64_t o_[2]={0,1};
-      uint32_t k_=(1u<<16)|3u; u192 v_={{5,0,0}};
+      uint32_t k_=(4u<<16)|3u; u192 v_={{5,0,0}};
       snprintf(path,sizeof path,"%s/f1c5_layer_02.bin",dir2); FILE *g3=fopen(path,"wb");
       lc_wr(g3,h3,72); lc_wr(g3,&m_,4); lc_wr(g3,o_,16); lc_wr(g3,&k_,4); lc_wr(g3,&v_,24); fclose(g3); }
     { PUT3(3,1,2); uint32_t m_=0x7; uint64_t o_[2]={0,2};
-      uint32_t ks_[2]={(2u<<16)|7u,(9u<<16)|7u}; u192 vs_[2]={{{2,0,0}},{{9,0,0}}};
+      uint32_t ks_[2]={(2u<<16)|7u,(8u<<16)|7u}; u192 vs_[2]={{{2,0,0}},{{9,0,0}}};
       snprintf(path,sizeof path,"%s/f1c5_layer_03.bin",dir2); FILE *g3=fopen(path,"wb");
       lc_wr(g3,h3,72); lc_wr(g3,&m_,4); lc_wr(g3,o_,16); lc_wr(g3,ks_,8);
       for(int i=0;i<2;i++) { lc_wr(g3,&vs_[i],24); } fclose(g3); }
@@ -2035,8 +2061,8 @@ static int lc_selftest(void) {
     int r6 = lc_check_layers(dir2, 31, runout);
 
     /* non-canonical stored mask (010 instead of 001) — canonicity check must FAIL */
-    { PUT3(1,1,2); uint32_t m_=0x2; uint64_t o_[2]={0,2};
-      uint32_t ks_[2]={(5u<<16)|1u,(6u<<16)|2u}; u192 vs_[2]={{{7,0,0}},{{3,0,0}}};
+    { PUT3(1,1,2); uint32_t m_=0x2; uint64_t o_[2]={0,2};   /* lasts in pair 7 = {4,8}: only canonicity is wrong */
+      uint32_t ks_[2]={(4u<<16)|1u,(8u<<16)|2u}; u192 vs_[2]={{{7,0,0}},{{3,0,0}}};
       snprintf(path,sizeof path,"%s/f1c5_layer_01.bin",dir2); FILE *g3=fopen(path,"wb");
       lc_wr(g3,h3,72); lc_wr(g3,&m_,4); lc_wr(g3,o_,16); lc_wr(g3,ks_,8);
       for(int i=0;i<2;i++) { lc_wr(g3,&vs_[i],24); } fclose(g3); }
@@ -2044,12 +2070,12 @@ static int lc_selftest(void) {
     int r7 = lc_check_layers(dir2, 31, NULL);
     /* restore a canonical layer 1 so the v1 LAYOUT legs isolate ONE mutation each */
     { PUT3(1,1,2); uint32_t m_=0x1; uint64_t o_[2]={0,2};
-      uint32_t ks_[2]={(5u<<16)|1u,(6u<<16)|2u}; u192 vs_[2]={{{7,0,0}},{{3,0,0}}};
+      uint32_t ks_[2]={(2u<<16)|1u,(16u<<16)|2u}; u192 vs_[2]={{{7,0,0}},{{3,0,0}}};
       snprintf(path,sizeof path,"%s/f1c5_layer_01.bin",dir2); FILE *g3=fopen(path,"wb");
       lc_wr(g3,h3,72); lc_wr(g3,&m_,4); lc_wr(g3,o_,16); lc_wr(g3,ks_,8);
       for(int i=0;i<2;i++) { lc_wr(g3,&vs_[i],24); } fclose(g3); }
     #define WRITE_L2(padv_,extra_) do{ PUT3(2,1,1); uint32_t p_=padv_; memcpy(h3+68,&p_,4); \
-      uint32_t m_=0x3; uint64_t o_[2]={0,1}; uint32_t k_=(1u<<16)|3u; u192 v_={{5,0,0}}; \
+      uint32_t m_=0x3; uint64_t o_[2]={0,1}; uint32_t k_=(4u<<16)|3u; u192 v_={{5,0,0}}; \
       snprintf(path,sizeof path,"%s/f1c5_layer_02.bin",dir2); FILE *g3=fopen(path,"wb"); \
       lc_wr(g3,h3,72); lc_wr(g3,&m_,4); lc_wr(g3,o_,16); lc_wr(g3,&k_,4); lc_wr(g3,&v_,24); \
       if(extra_){ unsigned char z_=0; lc_wr(g3,&z_,1); } fclose(g3); }while(0)
@@ -2067,16 +2093,17 @@ static int lc_selftest(void) {
     printf("\n======================================================================\n");
     int layout_ok = (r8!=0 && r9!=0 && r10!=0 && r11!=0);
     int root_ok = (r12!=0 && r13!=0 && r14==0);
-    int ok = (r1==0 && r2==0 && r3!=0 && grp_ok && r5==0 && r6!=0 && r7!=0 && layout_ok && root_ok);
+    int ok = (r1==0 && r2==0 && r3!=0 && grp_ok && r5==0 && r6!=0 && r7!=0 && layout_ok && root_ok
+              && r15!=0);
     printf("SELFTEST: v1 pass=%s  v2 pass=%s  corruption caught=%s  group-math=%s\n"
            "          nontrivial-stab mass pass=%s  wrong-mass caught=%s  non-canonical caught=%s\n"
            "          layout caught (v2 trailing=%s v2 kidx=%s v1 trailing=%s v1 pad=%s)\n"
-           "          root caught (value=%s key=%s; restored pass=%s)\n"
+           "          root caught (value=%s key=%s; restored pass=%s)  stored-last caught=%s\n"
            "          =>  %s\n",
            r1==0?"Y":"N", r2==0?"Y":"N", r3!=0?"Y":"N", grp_ok?"Y":"N",
            r5==0?"Y":"N", r6!=0?"Y":"N", r7!=0?"Y":"N",
            r8!=0?"Y":"N", r9!=0?"Y":"N", r10!=0?"Y":"N", r11!=0?"Y":"N",
-           r12!=0?"Y":"N", r13!=0?"Y":"N", r14==0?"Y":"N",
+           r12!=0?"Y":"N", r13!=0?"Y":"N", r14==0?"Y":"N", r15!=0?"Y":"N",
            ok?"PASS":"*** FAIL ***");
     printf("LCSELFTEST_RESULT=%s\n", ok ? "PASS" : "FAIL");
     printf("======================================================================\n");
@@ -2716,15 +2743,28 @@ static int lcs_selftest(const char *argv0) {
     if (system(cmd)) {}
 
     /* ---- fixture A: n=2, pl={1,2} (both single-bit masks canonical =>
-     * multi-span layers), 22 entries over 2 spans; v1 in a1/, v2 (BLK=4,
-     * 6 blocks) in a2/ — lane cuts land both mid-span and mid-block. ---- */
+     * multi-span layers), 8 entries over 2 spans; v1 in a1/, v2 (BLK=3,
+     * 3 blocks) in a2/ — the span boundary (entry 4) falls inside block 1 and
+     * the 3-lane cuts (entries 3, 6) fall mid-span.
+     * Stored-`last` domain (guarded since 2026-10-03): span 0 is mask bit 0 =
+     * pl[0] = KW pair 1 = {17,34}, span 1 is bit 1 = pl[1] = KW pair 2 =
+     * {23,58}; at k=1 the rids of digit-sum 1 are {1,2}, so each span holds at
+     * most 2 lasts x 2 rids = 4 entries and this fixture is the full domain.
+     * Until 2026-10-17 (batch FT3j, Codex gpt-6-astra F12-014#2) it held 22
+     * entries with last = 1..6, outside both pairs: every positive case
+     * exited 1 in BOTH readers, the identity legs still matched, and
+     * SCAN-SELFTEST passed only on the identity -- a positive fixture is now
+     * also required to exit 0 (below). ---- */
     uint32_t n = 2, se = 0, pl[2] = {1, 2}; int b0v[5] = {1, 1, 0, 0, 0};
     uint64_t plhash = lc_pl_hash(n, se, pl);
-    enum { NE = 22 };
-    uint32_t masks[2] = {0x1, 0x2}; uint64_t off[3] = {0, 12, NE}, nm = 2, ne = NE;
+    enum { NE = 8 };
+    uint32_t masks[2] = {0x1, 0x2}; uint64_t off[3] = {0, 4, NE}, nm = 2, ne = NE;
     uint32_t keys[NE]; u192 vals[NE];
-    for (int i = 0; i < 12; i++) { keys[i]    = ((uint32_t)(i/2 + 1) << 16) | (uint32_t)(i%2 + 1); }
-    for (int i = 0; i < 10; i++) { keys[12+i] = ((uint32_t)(i/2 + 1) << 16) | (uint32_t)(i%2 + 1); }
+    { static const uint32_t lastA[2] = {17, 34}, lastB[2] = {23, 58};
+      for (int i = 0; i < 4; i++) {
+          keys[i]   = (lastA[i/2] << 16) | (uint32_t)(i%2 + 1);
+          keys[4+i] = (lastB[i/2] << 16) | (uint32_t)(i%2 + 1);
+      } }
     for (int i = 0; i < NE; i++) vals[i] = (u192){{(uint64_t)(3*i + 7), 0, 0}};
     unsigned char hd[72];
     #define SPUT(mag,ver,kk,padv,nmv,nev) do{ memset(hd,0,72); memcpy(hd,mag,8); \
@@ -2749,8 +2789,8 @@ static int lcs_selftest(const char *argv0) {
             SPUT("F1C5LAY1", 1, 1, 0, nm, ne);
             lc_wr(g,hd,72); lc_wr(g,masks,nm*4); lc_wr(g,off,(nm+1)*8);
             lc_wr(g,keys,ne*4); for (uint64_t i=0;i<ne;i++) lc_wr(g,&vals[i],24);
-        } else {                                      /* v2, BLK=4 => 6 blocks */
-            uint32_t BLK = 4; uint64_t nblk = (ne + BLK - 1) / BLK;
+        } else {                                      /* v2, BLK=3 => 3 blocks */
+            uint32_t BLK = 3; uint64_t nblk = (ne + BLK - 1) / BLK;
             SPUT("F1C5LAY2", 2, 1, BLK, nm, ne);
             unsigned char zk[8][256], zv[8][512]; uLongf zkl[8], zvl[8];
             uint64_t kidx[9] = {0}, vidx[9] = {0};
@@ -2776,7 +2816,8 @@ static int lcs_selftest(const char *argv0) {
     }
 
     /* ---- fixture B: the nontrivial-stabilizer mass fixture (n=3,
-     * pl={3,7,11}, geff=6, masses 30/15/11) with its run.out ---- */
+     * pl={3,7,11}, geff=6, masses 30/15/11) with its run.out; its stored
+     * lasts are the domain-valid ones of --check-layers-selftest [5] (FT3j) ---- */
     {
         uint32_t n3=3, se3=0; int b3[5]={1,1,1,0,0};
         uint32_t pl3[3]={3,7,11}; uint64_t ph3 = lc_pl_hash(n3,se3,pl3);
@@ -2791,17 +2832,17 @@ static int lcs_selftest(const char *argv0) {
           snprintf(path,sizeof path,"%s/b/f1c5_layer_00.bin",dir); g3=fopen(path,"wb");
           lc_wr(g3,h3,72); lc_wr(g3,&m_,4); lc_wr(g3,o_,16); lc_wr(g3,&k_,4); lc_wr(g3,&v_,24); fclose(g3); }
         { SPUT3(1,1,2); uint32_t m_=0x1; uint64_t o_[2]={0,2};
-          uint32_t ks_[2]={(5u<<16)|1u,(6u<<16)|2u}; u192 vs_[2]={{{7,0,0}},{{3,0,0}}};
+          uint32_t ks_[2]={(2u<<16)|1u,(16u<<16)|2u}; u192 vs_[2]={{{7,0,0}},{{3,0,0}}};
           snprintf(path,sizeof path,"%s/b/f1c5_layer_01.bin",dir); g3=fopen(path,"wb");
           lc_wr(g3,h3,72); lc_wr(g3,&m_,4); lc_wr(g3,o_,16); lc_wr(g3,ks_,8);
           for(int i=0;i<2;i++) lc_wr(g3,&vs_[i],24);
           fclose(g3); }
         { SPUT3(2,1,1); uint32_t m_=0x3; uint64_t o_[2]={0,1};
-          uint32_t k_=(1u<<16)|3u; u192 v_={{5,0,0}};
+          uint32_t k_=(4u<<16)|3u; u192 v_={{5,0,0}};
           snprintf(path,sizeof path,"%s/b/f1c5_layer_02.bin",dir); g3=fopen(path,"wb");
           lc_wr(g3,h3,72); lc_wr(g3,&m_,4); lc_wr(g3,o_,16); lc_wr(g3,&k_,4); lc_wr(g3,&v_,24); fclose(g3); }
         { SPUT3(3,1,2); uint32_t m_=0x7; uint64_t o_[2]={0,2};
-          uint32_t ks_[2]={(2u<<16)|7u,(9u<<16)|7u}; u192 vs_[2]={{{2,0,0}},{{9,0,0}}};
+          uint32_t ks_[2]={(2u<<16)|7u,(8u<<16)|7u}; u192 vs_[2]={{{2,0,0}},{{9,0,0}}};
           snprintf(path,sizeof path,"%s/b/f1c5_layer_03.bin",dir); g3=fopen(path,"wb");
           lc_wr(g3,h3,72); lc_wr(g3,&m_,4); lc_wr(g3,o_,16); lc_wr(g3,ks_,8);
           for(int i=0;i<2;i++) lc_wr(g3,&vs_[i],24);
@@ -2822,7 +2863,7 @@ static int lcs_selftest(const char *argv0) {
         snprintf(cmd, sizeof cmd, "cp %s/a1/f1c5_layer_00.bin %s/a1/f1c5_manifest.txt %s/c/", dir, dir, dir);
         if (system(cmd)) {}
         SPUT("F1C5LAY1", 1, 1, 0, nm, ne);
-        u192 bad[NE]; memcpy(bad, vals, sizeof vals); bad[17] = (u192){{0,0,0}};
+        u192 bad[NE]; memcpy(bad, vals, sizeof vals); bad[5] = (u192){{0,0,0}};
         snprintf(path, sizeof path, "%s/c/f1c5_layer_01.bin", dir);
         FILE *g = fopen(path, "wb");
         lc_wr(g,hd,72); lc_wr(g,masks,nm*4); lc_wr(g,off,(nm+1)*8);
@@ -2881,10 +2922,12 @@ static int lcs_selftest(const char *argv0) {
             int laneinv = 1;
             if (lanes == 1) { scan1 = nobanner; nobanner = NULL; }
             else laneinv = scan1 && nobanner && (strcmp(scan1, nobanner) == 0);
-            printf("  [%s lanes=%d] rc=%d==%d  filtered==sequential: %s  lane-invariant: %s\n",
-                   cases[c][0], lanes, rc_scan, rc_ref,
+            printf("  [%s lanes=%d] rc=%d==%d  positive rc==0: %s  filtered==sequential: %s  lane-invariant: %s\n",
+                   cases[c][0], lanes, rc_scan, rc_ref, rc_ref == 0 ? "YES" : "*** NO ***",
                    identical ? "YES" : "*** NO ***", laneinv ? "YES" : "*** NO ***");
-            if (!identical || !laneinv) ok = 0;
+            /* a1/a2/b are POSITIVE fixtures: identity alone held while both readers rejected
+             * them (2026-10-03..10-17, FT3j), so each must also exit 0 */
+            if (!identical || !laneinv || rc_ref != 0) ok = 0;
             free(filt); free(nobanner); free(sbuf);
         }
         free(scan1); free(refbuf);
@@ -2917,7 +2960,13 @@ static int lcs_selftest(const char *argv0) {
         char *rb = lcs_slurp(rp1, NULL), *sb = lcs_slurp(rp2, NULL);
         char *sf = sb ? lcs_strip_pfx(sb, "[scan] ", NULL) : NULL;
         int ident = rb && sf && strcmp(rb, sf) == 0;
-        int named = rb && strstr(rb, which ? "layer 0 key=" : "layer 0 value != 1") != NULL;
+        /* fixture e: since the stored-last guard (2026-10-03) a root key (start_exit+1)<<16
+         * is first rejected by that guard AT LAYER 0, which names the root as the layer-0
+         * domain; LC_ROOT_CHECK is gated on !fail and stays quiet. Either line names it. */
+        int named = rb && (which
+            ? (strstr(rb, "layer 0 key=") != NULL ||
+               strstr(rb, "  k= 0  *** FAIL: 1 entries whose last is not an element of a pair in their mask (layer 0: the start exit)\n") != NULL)
+            : strstr(rb, "layer 0 value != 1") != NULL);
         printf("  [%s root %s] sequential rc!=0: %s  scan rc!=0: %s  names the root: %s  filtered==sequential: %s\n",
                sub, which ? "key" : "value",
                r1 ? "YES" : "*** NO ***", r2 ? "YES" : "*** NO ***",

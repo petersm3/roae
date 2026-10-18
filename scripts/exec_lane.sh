@@ -939,6 +939,22 @@ last_stage_tok() {  # first token of the LAST pipeline stage, quoted spans blank
   printf '%s\n' "${s%% *}"
 }
 
+# ws_reset -- F05-010#21 and its rider F04-021#4 (Codex gpt-6-astra, final review). Both phases reset the
+# workspace with `git checkout -q -- . 2>/dev/null; git clean ...`, so a failed checkout was masked by the clean
+# that followed and nobody read the status: a tracked file an earlier step changed survived the reset and later
+# verdicts were read against it. A reset now has to succeed AND leave no tracked path differing from the tree as
+# given; otherwise WS_RESET_ERR is set, the chain phase stops, and the lane ends EXEC_LANE=ERROR.
+WS_RESET_ERR=0
+ws_reset() {
+  git -C "$WS" checkout -q -- . 2>/dev/null && git -C "$WS" clean -fdqx -e solve -e verify >/dev/null 2>&1 \
+    && git -C "$WS" diff --quiet 2>/dev/null && return 0
+  WS_RESET_ERR=1; echo "  [ERROR] workspace reset failed (git checkout/clean, or a tracked path still differs from the tree as given)"; return 1
+}
+# pipe_last_only FILE -- F05-010#19 (Codex gpt-6-astra, final review; rider F04-021#2). Under pipefail a status of 1
+# can come from ANY stage, so the grep/diff "exit 1 = no match / differs" readings below are allowed only when the
+# recorded PIPESTATUS shows every stage but the last at 0. No record (the command ended the shell itself) allows nothing.
+pipe_last_only() { local ps; ps=$(cat -- "$1" 2>/dev/null) || return 1; [ -n "$ps" ] || return 1
+  set -- $ps; [ $# -ge 1 ] || return 1; while [ $# -gt 1 ]; do [ "$1" = 0 ] || return 1; shift; done; return 0; }
 run_one() {  # $1=class $2=gating $3=ctx $4=cwd $5=origins $6=sources $7=command
   local cls="$1" gat="$2" ctx="$3" cwd="$4" org="$5" src="$6" cmd="$7"
   local budget="${CHAIN_BUDGET:-$BUDGET}"; [ "$cls" = "BUILD" ] && budget="$BUILD_BUDGET"   # Q-435: a chain step gets what is LEFT of its block's budget
@@ -978,7 +994,8 @@ run_one() {  # $1=class $2=gating $3=ctx $4=cwd $5=origins $6=sources $7=command
   # pipefail is PAIRED with the rc-141 rule in the outcome ladder below; on its own it would
   # manufacture FAILs on every published row that pipes into an early-closing consumer.
   PRE_BG=${!:-}; LAUNCHING=1   # Q-457: lets the trap find a child whose PID was not yet recorded
-  setsid bash -c "set -o pipefail; ulimit -S -s 8192 2>/dev/null; cd '$WS/$cwd' || exit 97; $execmd" \
+  rm -f "$LOGDIR/ps.$IDX"; setsid bash -c "set -o pipefail; ulimit -S -s 8192 2>/dev/null; cd '$WS/$cwd' || exit 97; $execmd
+__ps=(\"\${PIPESTATUS[@]}\"); echo \"\${__ps[*]}\" > '$LOGDIR/ps.$IDX'; __r=0; for __x in \"\${__ps[@]}\"; do [ \"\$__x\" = 0 ] || __r=\$__x; done; exit \$__r" \
     </dev/null >>"$log" 2>&1 &
   local pid=$!; CUR_PGID=$pid; LAUNCHING=0   # setsid made $pid its own process-group leader (Q-457)
   local i=0 killed=0
@@ -1015,9 +1032,9 @@ $(tail -c 2000 "$ref")"; fi
   # no pipeline still FAILs (verified).
   elif [ $rc -eq 141 ] && grep -q '|' <<<"$execmd"; then
     outcome="PASS(exit 141 = SIGPIPE — a later pipeline stage closed early, e.g. head/grep -q)"
-  elif [ $rc -eq 1 ] && grep -qxE 'grep|egrep|fgrep|pgrep' <<<"$lst" && ! grep -qiE "error|usage" <<<"$out"; then
+  elif [ $rc -eq 1 ] && grep -qxE 'grep|egrep|fgrep|pgrep' <<<"$lst" && ! grep -qiE "error|usage" <<<"$out" && pipe_last_only "$LOGDIR/ps.$IDX"; then
     outcome="PASS(exit 1 = no-match — documented result, not an error)"
-  elif [ $rc -eq 1 ] && grep -qxE 'diff|cmp' <<<"$lst" && ! grep -qiE "error|usage|no such file" <<<"$out"; then
+  elif [ $rc -eq 1 ] && grep -qxE 'diff|cmp' <<<"$lst" && ! grep -qiE "error|usage|no such file" <<<"$out" && pipe_last_only "$LOGDIR/ps.$IDX"; then
     local dctx; dctx="$(doc_context "$src")"
     if grep -qiE "identical|byte-for-byte|byte-exact|no output|empty|no difference|should match|must match|same bytes|no diff|exits? 0|exit status 0|prints nothing" <<<"$dctx"; then
       outcome="FAIL(diff/cmp exit 1 = the inputs DIFFER, and the source doc says they must be identical)"
@@ -1109,8 +1126,7 @@ $(tail -c 2000 "$ref")"; fi
     fi
   else outcome="FAIL(rc=$rc)"; fi
   if [ "${CHAIN_MODE:-0}" != "1" ]; then     # Q-435: inside a chain the state CARRIES to the next step
-    git -C "$WS" checkout -q -- . 2>/dev/null
-    git -C "$WS" clean -fdqx -e solve -e verify >/dev/null 2>&1
+    ws_reset   # F05-010#21: checked; a failure sets WS_RESET_ERR and the lane ends ERROR
   fi
   outcome="$outcome$restored"
   RUN_OUTCOME="$outcome"; RUN_DT=$dt
@@ -1169,13 +1185,14 @@ done < "$INV"
 # per-command tallies above are untouched, so a chain cannot turn a red lane green. (B) The budget is
 # per BLOCK: EXEC_LANE_BUDGET x the number of steps that run, shared in order.
 NCHAIN=0; NCP=0; NCF=0; NCS=0; NCB=0; CIDX=0
-chain_reset() { git -C "$WS" checkout -q -- . 2>/dev/null; git -C "$WS" clean -fdqx -e solve -e verify >/dev/null 2>&1; }
+chain_reset() { ws_reset; }   # F05-010#21: the shared, checked reset
 if [ -s "$CHAINS" ] && [ -z "$ONLY" ]; then
   echo
   echo "== CHAINED blocks (Q-435: one cwd chain per block; CHAINBREAK-AFTER-<n> = a step depends on step n's output) =="
   chain_reset
   _bid=""; declare -A COUT=(); _reset_after=0; _cd_broken=0; _left=0
   while IFS=$'\t' read -r cbid cnrun csrc cidx ckind ccls crole ccwd cctx cdeps ccmd; do
+    [ "$WS_RESET_ERR" = 0 ] || { echo "  [ERROR] a workspace reset failed; the remaining chained steps are not run"; break; }
     if [ "$cbid" != "$_bid" ]; then
       [ -n "$_bid" ] && chain_reset
       _bid="$cbid"; COUT=(); _reset_after=0; _cd_broken=0
@@ -1292,4 +1309,5 @@ grep '^EXEC_LANE_MEASURED_' "$MEAS_OUT"
 if [ -n "$ONLY" ]; then echo "EXEC_LANE_SCOPE=PARTIAL"; else echo "EXEC_LANE_SCOPE=FULL"; fi
 if [ "${EXEC_LANE_KEEP:-0}" != "1" ]; then rm -rf "$WS"; else echo "workspace kept: $WS"; fi
 rm -f "$INV" "$HELP" "$CHAINS" "$MEAS_OUT"
+if [ "$WS_RESET_ERR" != 0 ]; then echo "EXEC_LANE_ERROR=workspace-reset-failed"; echo "EXEC_LANE=ERROR"; exit 1; fi   # F05-010#21
 if [ "$NF" -gt 0 ]; then echo "EXEC_LANE=FAIL"; exit 1; else echo "EXEC_LANE=PASS"; exit 0; fi

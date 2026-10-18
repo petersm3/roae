@@ -2127,7 +2127,7 @@ def _read_q3_alts(path):
     return n, rows
 
 
-def _v4_band(rows, alts_path, curve_path=None):
+def _v4_band(rows, alts_path, curve_path=None, disagree=None):
     """(lo, hi, source) for V4's alternatives band, or None when there is no band to draw.
 
     Two sources, in this order. (1) The curve's own table, when it carries g_alt_min / g_alt_max (a
@@ -2151,7 +2151,14 @@ def _v4_band(rows, alts_path, curve_path=None):
     now drawn only when the table's sidecar (`<table>.provenance.txt`) says
     `q3_alts_status=REPRODUCED` (computed by this run from ladders it has; NO EMITTER WRITES THAT KEY YET -- solve.py atlas_emit_q3 does not -- so today this branch always omits, noted by lane VR4, not built), and are otherwise
     omitted, loudly -- an attested band is drawn only from the published receipt, joined step by
-    step (viz_kc_shells.md). (d) duplicate headers and a FAIL verdict in the receipt: _read_q3_alts."""
+    step (viz_kc_shells.md). (d) duplicate headers and a FAIL verdict in the receipt: _read_q3_alts.
+
+    `disagree`, when a list, receives one reason each time a same-n receipt is found not to be this
+    walk's profile (steps, a join column, or its bounds), so the caller can withhold King Wen's name
+    from a walk the King Wen receipt contradicts (Codex F11-009#11, 2026-10-17)."""
+    def _no(why):
+        if disagree is not None:
+            disagree.append(why)
     by_step = {_tsv_cell_int(r, "step"): r for r in rows}
     if "g_alt_min" in rows[0] and "g_alt_max" in rows[0]:
         status = None
@@ -2183,15 +2190,18 @@ def _v4_band(rows, alts_path, curve_path=None):
             return None
         src = {_tsv_cell_int(a, "step"): a for a in arows}
         if sorted(src) != sorted(by_step):
+            _no("the receipt covers other steps")
             print(f"V4 band omitted: {os.path.basename(alts_path)} covers steps "
                   f"{min(src)}..{max(src)}, the curve {min(by_step)}..{max(by_step)}")
             return None
         for s in sorted(by_step):
             for c in _Q3_ALT_JOIN:
                 if c not in by_step[s]:
+                    _no("the curve has no %r column to join on" % c)
                     print(f"V4 band omitted: the curve's table has no {c!r} column to join on")
                     return None
                 if _tsv_cell_int(src[s], c) != _tsv_cell_int(by_step[s], c):
+                    _no("step %d, column %r" % (s, c))
                     print(f"V4 band omitted: {os.path.basename(alts_path)} disagrees with the "
                           f"curve at step {s}, column {c!r} -- it is not this walk's profile")
                     return None
@@ -2209,6 +2219,7 @@ def _v4_band(rows, alts_path, curve_path=None):
                      "g_alt_min == g_alt_max == g where there is one alternative)")
             if source is None:
                 raise TsvShapeError(why)
+            _no(why)
             print(f"V4 band omitted: {os.path.basename(alts_path)} {why}")
             return None
         lo.append(_log10_bigint(str(mn)))
@@ -2262,7 +2273,15 @@ def fig_tr12_kc_shells(tsv, alts=Q3_ALTS_BANKED, n=None):
     if kw_walk and os.path.exists(tsv + ".provenance.txt"):
         with open(tsv + ".provenance.txt", encoding="utf-8") as fh:
             kw_walk = "q3_is_king_wen=PASS" in fh.read().splitlines()
-    band = _v4_band(rows, alts, tsv)
+    # Codex F11-009#11 (2026-10-17): the name tests above are about the TABLE; the receipt is King
+    # Wen's own published profile. A same-n receipt that is not this walk's profile used to drop the
+    # band and keep King Wen's titles. It now withholds the name too, loudly.
+    disagree = []
+    band = _v4_band(rows, alts, tsv, disagree)
+    if kw_walk and disagree:
+        print(f"V4 title: the published receipt disagrees with this table ({disagree[0]}) -- "
+              f"King Wen's name is withheld and the figure is titled as the traced walk")
+        kw_walk = False
     # VIZ1 F18 (2026-09-26): 10 in wide (was 12) and no text under 10 pt -- see INLINE_PX.
     fig, (ax, ax2) = plt.subplots(2, 1, figsize=(10, 10.4), dpi=150, sharex=True,
                                   gridspec_kw={"height_ratios": [3, 2.5]})

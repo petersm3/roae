@@ -461,7 +461,7 @@ if [ -t 0 ]; then
   if needs_reprodig  "$SHAS" "$UPSTREAM"; then REPRODIGSHAS=$SHAS; fi
   note_citbase "$SHAS" "$UPSTREAM"
 else
-  while read -r lref lsha rref rsha _q963_extra; do
+  while read -r lref lsha rref rsha _q963_extra || [ -n "${lref:-}${lsha:-}${rref:-}${rsha:-}${_q963_extra:-}" ]; do   # F05-008#14: a last record with no LF is still read and validated
     # 🔴 Q-963 (batch 48; Codex (gpt-6-astra) push-path review Q835, R7, the stdin reader). This was
     # `[ -n "${lsha:-}" ] || continue`, so a malformed line (a short or non-hex sha, a missing field, an
     # extra one) was skipped and a stdin of nothing but such lines read as "nothing to gate". githooks(5)

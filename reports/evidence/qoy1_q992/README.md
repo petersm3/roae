@@ -124,7 +124,7 @@ pre-pin self-test quoted in §9-A1 as `e379e154…` is the same command with `--
 `QOY_GATE_PY_SHA256=e379e154fd762569765b64765f6ed23c5b444db46bf3e06e2a4d67e8ce991a9c` (re-run 2026-10-09).
 
 **The population runs.** These need a multi-core machine for hours; the recorded runs took about
-2 hours (N1) and 55 minutes (N1′) each, on 16 threads. Each needs `ulimit -s unlimited` and
+2 hours (N1) and 55 minutes (N1′) each, on 16 threads. Each needs `ulimit -s unlimited`, `SOLVE_THREADS=16` and
 `SOLVE_KNUTH_SCORE=1 SOLVE_KNUTH_SCORE_QOY=1`:
 
 ```bash
@@ -134,5 +134,33 @@ SOLVE_KNUTH_C67=1 SOLVE_KNUTH_SEED=7944743365876395449  ./solve --estimate-knuth
 SOLVE_KNUTH_C67=1 SOLVE_KNUTH_SEED=15064022667821298811 ./solve --estimate-knuth 5000000000   # N1' half B
 ```
 
-The estimator is multi-threaded, so a run's histogram is not bit-for-bit repeatable. A re-run should
-agree with the shipped one within the printed standard errors.
+METHODS §"Reproducibility rule for estimator output" states that a re-run at the identical (probes, threads)
+reproduces the output; these runs used 16 threads. No such re-run of these histograms has been made. At any
+other thread count a re-run is a different draw and should agree with the shipped one within the printed
+standard errors.
+
+## Notes on the frozen registration (2026-10-17)
+
+Codex's final review (gpt-6-astra; runs F02-001, F02-002, F02-003, F02-004 and F02-006) checked the registration
+and this bundle; Fable triaged the findings. The registration is frozen and is not edited; each point is
+recorded in [CORRECTIONS.md](../../../documentation/CORRECTIONS.md) (fast-track batch FT2b-4). Both verdicts
+(`UNINFORMATIVE`) and every figure above are unchanged.
+
+- **Later queries (§5.2).** A query added to this family runs at 0.01/k_total and earlier verdicts are not
+  re-thresholded, so with a third query the family-wise error bound is 0.005 + 0.005 + 0.01/3 ≈ 0.0133, above
+  the stated 0.01. No later query has been registered under this file.
+- **The rule of three (§5.1)** sets an empty tail to `3/L`. On importance-weighted masses that is not a bound
+  (METHODS §"Statistics conventions" reports a zero-hit estimate as starvation). No King Wen tail in this
+  bundle took that value.
+- **N0 is not TR-8's null (b) (§4.1).** N0 pins `(63, 0)` to slot 1 (31!·2³¹ orderings);
+  `pair_null_gender_le2_exact()` and the TR-8 dof-matched sampler draw all 32 pairs freely (32!·2³²), a
+  population 64 times larger.
+- **"No seed has been used" (§6).** N1 half A runs on the estimator's default seed base
+  `0x243F6A8885A308D3`, which earlier published runs also use (for example
+  `reports/evidence/knuth_whole_tree_5e10.out`). Per-thread seeds are the base XOR a multiple of the thread
+  index, so half A's 16 streams are the first 16 streams of any default-seed run: half A is not disjoint from
+  those runs. Half B and both N1′ halves use their own registered seeds.
+- **`analyze.py` sums tails with `math.fsum`** (2026-10-17). A plain `sum` cancels at the `≈ 1` tails, so the
+  last digits of one standard error depended on the Python version: Codex measured
+  `Q992_N1C67_SE_GE=3.114e-10` on Python 3.10.12 against the archived `2.202e-10`. Python 3.12's `sum` is
+  compensated and reproduces the archive, as `math.fsum` does; `TOKENS.txt` is unchanged.

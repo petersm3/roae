@@ -353,10 +353,10 @@ run_gate(){   # run_gate BATTERY STRICT ; prints the report, sets globals, retur
         $1=="ROW" && ($2 in at) { s=at[$2]; e=s
             while ((getline x < B) > 0) { k++; if (k>s && x ~ /(^|[^A-Za-z0-9_])row_end(_val)?[ \t]/) { e=k; break } }
             close(B); k=0; $4=s "-" e }
-        { print }' <(printf '%s\n' "$rawp") - <<<"$out")
+        { print }' <(printf '%s\n' "$rawp") - <<<"$out") || { echo "ROW_ASSERTION_ERROR=remap-failed"; echo "ROW_ASSERTION=ERROR"; return 2; }   # F05-008#2
 
     local pop emit drvn asrt unas rcon
-    pop=$(printf '%s\n' "$out" | grep -c '^ROW	')
+    pop=$(printf '%s\n' "$out" | grep -c '^ROW	'); [ "${pop:-0}" -gt 0 ] || { echo "ROW_ASSERTION_ERROR=remap-lost-rows"; echo "ROW_ASSERTION=ERROR"; return 2; }   # F05-008#2: an emptied report is not a clean one
     emit=$(printf '%s\n' "$out" | awk -F'\t' '$5=="DRIVER"||$5=="PUBLISH"' | grep -c . )
     drvn=$(printf '%s\n' "$out" | awk -F'\t' '$5=="DRIVER"' | grep -c . )
     asrt=$(printf '%s\n' "$out" | awk -F'\t' '($5=="DRIVER"||$5=="PUBLISH") && $6=="ASSERTED"' | grep -c . )

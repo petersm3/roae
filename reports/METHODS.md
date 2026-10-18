@@ -94,8 +94,8 @@ not because one is unknown.** Stating that plainly is more useful than a hedge: 
 exactly what would change the number, and what it would take.
 
 *(The related C3 quantities that *were* affordable are exact: P(C3 ≤ 776 | C1) = 1977618313669549 /
-30798570265588125 = 6.4211367496%, and the C1∩C4 null P(G ≤ 95) = 8.106231%, both via
-`verify.py --check-null-g`.)*
+30798570265588125 = 6.4211367496% (`verify.py --check-null-g --unpinned`), and the C1∩C4 null P(G ≤ 95) = 8.106231%
+(`verify.py --check-null-g`).)*
 
 *All three exact full-scale quantities — \|C1∩C2∩C4\| (via `--ie-no-budget`), the C5-layer count
 \|C1∩C2∩C4∩C5\|, and its orbit count — are **two-instrument** as of 2026-07-25: independently
@@ -205,7 +205,7 @@ which is what produced every published figure — with the divergence disclosed:
   outputs; it is withdrawn as unreproducible and superseded by the archived run above.)* Per-bin histogram rows (`dav_hist` etc.) remain point estimates. Archived
   evidence files from earlier runs (e.g. `dav_tier1.out`, 2026-07-04) predate the field and carry
   no `se=`; the masses themselves are unchanged (same-seed emissions byte-identical).]** Weighted fractions (masses of canonical weight) are
-  same-run ratios ΣWX/ΣW; for fractions ≪ 1 the delta-method variance reduces exactly to the numerator's
+  same-run ratios ΣWX/ΣW; for fractions ≪ 1 the delta-method variance reduces approximately, when the denominator term is negligible, to the numerator's
   own relative variance, so a fraction's honest relerr equals the relerr of its numerator. *That is a
   statement about **variance only**.* ΣWX/ΣW is a ratio of correlated random sums, so it also carries a
   **bias** of order 1/n_eff,rel that this suite does not quantify; at the deep-tail rows (n_eff,rel of order 10²,
@@ -267,17 +267,17 @@ which is what produced every published figure — with the divergence disclosed:
   convergence gates and the Phase-1 consistency check behind [TR-2] §"Stop-flag resolution", 9.5–65%
   relerr) are σ-arithmetic on the printed SE, which this calibration supports at 10–30% and which a
   larger-than-printed SE could only make MORE consistent at 65%.]** Zero-hit estimates print 0 with a degenerate CI and are
-  reported as starvation, not as bounds. **That is a reports-side convention applied by hand; the
-  estimator's own output does not mark it** (measured 2026-08-30 against `solve.c`'s print sites). A
-  starved fiber layer prints, verbatim, `records_C1C2C4C5 : est=0.000000e+00  95%CI=[0.0000e+00,
-  0.0000e+00]  relerr=0.00%` — a zero-width interval labelled 95%, whose coverage is zero — and the
-  fiber `records_*` lines carry no `hitrate=` or `hits=` field at any probe count (the `leaves` and
-  `[score]` lines do), so on those lines starvation is not machine-distinguishable from a measurement
-  except by the `est=0` itself. A reader of raw console output has to apply this convention
-  themselves. The change that would turn this sentence into a checkable behaviour rather than a
-  convention — an explicit `STARVATION` token on the line with the CI suppressed — is registered and
-  is **not in the binary**: no such token exists in `solve.c` today. This note is to be replaced by
-  the enforced wording when it does. PRNG seeds are fixed constants: re-runs at identical (probes,
+  reported as starvation, not as bounds. **Since 2026-09-04 (`b0868285`) the estimator marks it on the
+  leaf and fiber-record lines:** `knuth_emit_ci` prints a zero-hit line as `est=… STARVATION (0 hits in N
+  probes; est=0 is a sampling artifact, NOT a bound -- no CI is reported because none is meaningful)`.
+  The `[score]` lines do not go through it (most print a fraction and its se with no hit count, and the
+  one that prints `hits=` still prints a CI at zero hits), so there the convention is applied by hand. *(Until that date — measured 2026-08-30 — a starved fiber layer printed
+  `records_C1C2C4C5 : est=0.000000e+00  95%CI=[0.0000e+00, 0.0000e+00]  relerr=0.00%`, a zero-width
+  interval labelled 95%, and this note said no `STARVATION` token existed in `solve.c`. Archived
+  outputs from before 2026-09-04 carry the old form. Replaced 2026-10-17, Codex final review,
+  F11-006#19.)*
+  Per-bin histogram rows (`dav_hist` etc.) are point estimates and carry no marker either.
+  PRNG seeds are fixed constants: re-runs at identical (probes,
   threads) reproduce identical output (a reproducibility feature; runs at the same thread count and
   different probe counts share stream prefixes and are not independent draws). *This rule is restated
   under its own heading — §"Reproducibility rule for estimator output" below — which is the anchor to
@@ -475,8 +475,8 @@ commands (`--estimate-knuth 0`, the orbit-quotient DP, `--verify`) are determini
   [TR-12](TR12_QUERY_PROGRAM.md) §R **Tier A**, and Tier B is a registry *check*, not a substitute
   for it. **The n=31 atlas that every §12 figure is computed from IS distributed** —
   `runs/20260906_kc_ladders_n31/atlas_n31.json`, 5,978,126 bytes, sha256 `9d6ba3d2…` — so those
-  figures are re-derivable with no ladder at all: `python3 solve.py --atlas-probe atlas_n31.json`,
-  under a second. Run order and hardware notes live in
+  figures are re-derivable with no ladder at all: `python3 solve.py --atlas-probe runs/20260906_kc_ladders_n31/atlas_n31.json`,
+  in seconds. Run order and hardware notes live in
   [VERIFY.md](../documentation/VERIFY.md) §"TR-12 query program".
 
 ## Independence ladder (what requires trusting project code)

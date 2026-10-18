@@ -169,6 +169,22 @@ require_match() {          # $1 = fixed string that MUST appear; $2.. = command 
   esac
 }
 
+# Same contract as require_match, but the pattern must be a WHOLE LINE of the output (added
+# 2026-10-17, batch FT3j). A substring match would accept `LCSELFTEST_RESULT=PASSED` or a line
+# that merely quotes the token; the selftests below print their verdict as a line of its own, so
+# the check holds them to exactly that line. Here-string loop, not a pipe: see the note above.
+require_line() {           # $1 = exact line that MUST appear; $2.. = command and arguments
+  local want=$1; shift
+  local out rc line
+  out=$("$@" 2>&1); rc=$?
+  printf '%s\n' "$out"
+  [ "$rc" -eq 0 ] || { echo "NONZERO EXIT $rc from: $*"; return "$rc"; }
+  while IFS= read -r line; do
+    [ "$line" = "$want" ] && return 0
+  done <<< "$out"
+  echo "EXPECTED LINE NOT FOUND: $want"; return 1
+}
+
 # Same contract as require_match, plus a COUNT FLOOR — because exit status alone is fail-open for
 # a test suite: `unittest` exits 0 when it collects ZERO tests, so "every test passed" and "an
 # import error emptied the suite" are the same status. A floor rather than an equality so a suite
@@ -331,6 +347,24 @@ if [ "$HAVE_GCC" = "0" ]; then
 else
   check "solve.c build" "gcc -O2 -pthread -fopenmp -o \"\$SCRATCH/solve\" solve.c -lm -lz"
   check "--selftest" "require_match PASS \"\$SCRATCH/solve\" --selftest"
+fi
+
+# 1b (added 2026-10-17, batch FT3j, Codex gpt-6-astra F12-014#2). verify.c's two layer-reader
+# selftests synthesize their own fixtures and need no real data. From 2026-10-03 to 2026-10-17 both
+# printed FAIL -- the stored-last domain check added that day rejected their own positive fixtures
+# -- and nothing ran them, while documentation/VERIFY.md told readers to. They now run here (and in
+# tests.py TestBatchFT3j) and must print their verdict line exactly.
+echo "== 1b. Independent layer-reader selftests (verify.c) =="
+if [ "$HAVE_GCC" = "0" ]; then
+  skip "verify.c build" "needs gcc"
+  skip "verify --check-layers-selftest" "needs gcc"
+  skip "verify --scan-selftest" "needs gcc"
+else
+  check "verify.c build" "gcc -O2 -pthread -fopenmp -o \"\$SCRATCH/verify\" verify.c -lm -lz"
+  check "verify --check-layers-selftest" \
+    "require_line 'LCSELFTEST_RESULT=PASS' \"\$SCRATCH/verify\" --check-layers-selftest"
+  check "verify --scan-selftest" \
+    "require_line 'SCAN-SELFTEST: PASS' \"\$SCRATCH/verify\" --scan-selftest"
 fi
 
 echo "== 2. Two-language gates =="

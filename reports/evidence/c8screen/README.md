@@ -48,7 +48,7 @@ pairs. The most extreme value of every `C-M` member therefore has probability at
 smallest two-sided p is 2·2⁻¹³ = 2.4×10⁻⁴, 63 times the bar of 3.85×10⁻⁶. That is one line of
 arithmetic, the same argument the registration's own §2.4 makes to exclude single-slot statistics, and
 it was not applied to `C-M` before the freeze. With 632 such members against a cap of 67 (5 % of the
-family), `FAMILY=NULL` was out of reach from the moment of freeze, whatever King Wen's values. The
+family), `FAMILY=NULL` was out of reach from the moment of freeze, whatever King Wen's values. ⚠ *(Scoped 2026-10-17: the 2⁻¹³ floor is a fact about the pair-only null N0, not the N1 population the verdict uses — see §"Notes on the frozen registration" below.)* The
 632 members also added to the Bonferroni count without adding any power, so every other
 subgroup-scan member paid a bar of 0.005/1300 instead of 0.005/668. A future screen must compute each member's minimum
 attainable p under the cheapest null before it freezes, and either exclude the members that cannot
@@ -56,7 +56,7 @@ reach the bar or price the cap against them.
 
 **No follow-up run.** The registration permits only a new dated registration, and none is warranted.
 No run length changes the `C-M` floor: the extreme bins already hold hundreds to millions of scored
-leaves each. The other 37 untestable members could at most move from `ATTAIN` to `NULL`: King Wen's
+leaves each. ⚠ *(Scoped 2026-10-17: the 2⁻¹³ floor is a fact about the pair-only null N0, not the N1 population the verdict uses — see §"Notes on the frozen registration" below.)* The other 37 untestable members could at most move from `ATTAIN` to `NULL`: King Wen's
 operative p on each of them is at least 0.038. On all 669, King Wen's raw tail mass is at least
 1.8×10⁻³ with at least 64,285 scored leaves behind it.
 
@@ -69,7 +69,35 @@ six of the ten yang-sum-class positional members, and 16 of the 18 trigram-conte
 the 632 `C-M` members the result says nothing about King Wen at all: the class cannot single out any
 ordering at a bar of this size, so it belongs in the next registration's exclusion table.
 
-## The registration, the amendment, and what was changed in the public copy
+## Notes on the frozen registration (2026-10-17)
+
+Codex's final review (gpt-6-astra; runs F02-001, F02-002, F02-003, F02-004 and F02-006) checked the registration
+and this note against the shipped outputs; Fable triaged the findings. The registration is frozen and is not
+edited; each point below is recorded in [CORRECTIONS.md](../../../documentation/CORRECTIONS.md) (fast-track
+batch FT2b-4). The verdict, `FAMILY=UNINFORMATIVE`, and every count above are unchanged.
+
+- **The 2⁻¹³ floor is an N0 fact.** The one-line arithmetic above holds under the pair-only null N0, where each
+  split pair is a fair coin. The verdict is read against N1, the C1–C5 population, and under N1 the floor does
+  not carry over: `SUMMARY.tsv`'s `min_attainable` column puts 208 of the 632 `C-M` members below 2·2⁻¹³
+  (the smallest, 1.56×10⁻⁴). All 632 are still at least 40 times the bar 3.85×10⁻⁶, so the `ATTAIN` verdicts
+  stand. But "whatever King Wen's values" and "no run length changes the `C-M` floor" are not shown by the N0
+  argument. What the no-follow-up decision rests on is measured: King Wen's operative two-sided p on every one
+  of the 669 untestable members is at least 3.6×10⁻³ under N1.
+- **The power boundaries in §4.2.** The registration sizes detectability with `p_t + 3·sqrt(p_t/ESS) < β`,
+  a one-sided tail's error applied to a two-sided `p_t`. With the two-sided error, `p_t + 3·sqrt(2·p_t/ESS) < β`,
+  the boundaries are 2.1×10⁻⁶ (stratum C) and 9.1×10⁻⁵ (stratum S), not 2.5×10⁻⁶ and 9.4×10⁻⁵.
+- **The rule of three on weighted masses.** §5.1 sets an empty tail to `3/L`. On importance-weighted masses
+  that is not a bound (METHODS §"Statistics conventions" reports a zero-hit estimate as starvation). No King
+  Wen operative p in this screen took that value: the smallest is 4.1×10⁻⁴.
+- **N0 is not TR-8's null (b).** §4.1 names N0 as TR-8 §2's null (b), in the TR-8 sampler's lineage. N0 pins
+  `(63, 0)` to slot 1 (31!·2³¹ orderings); TR-8's null (b), which the TR-8 dof-matched sampler and
+  `pair_null_gender_le2_exact()` use, draws all 32 pairs freely (32!·2³²), a population 64 times larger.
+- **"Every literature pattern … sits at the mode of its null"** (§0) is not so: Schulz's S25–28 trigram
+  configuration has C1–C5 mass about 2×10⁻⁸ (TR-1), and the Q-OY1 statistic's King Wen value, D = 94, is
+  not its N0 mode (D = 52, `qoy1_q992/n0_exact.out`).
+- **CX-354's "nearly doubled the bar".** Counting the 632 `C-M` members set the subgroup-scan bar at
+  0.005/1300 instead of 0.005/668: the bar was roughly halved, a stricter test for every other member.
+
 
 | item | value |
 |---|---|
@@ -243,8 +271,10 @@ SOLVE_KNUTH_C67=1 SOLVE_KNUTH_SEED=16185144687099509794   ./solve --estimate-knu
 SOLVE_KNUTH_C67=1 SOLVE_KNUTH_SEED=6479258443758798337    ./solve --estimate-knuth 5000000000    # N1' half B
 ```
 
-The estimator is multi-threaded, so a run's histograms are not bit-for-bit repeatable. A re-run should
-agree with the shipped one within the printed standard errors.
+METHODS §"Reproducibility rule for estimator output" states that a re-run at the identical (probes, threads)
+reproduces the output; these runs used 16 threads. No such re-run of these histograms has been made. At any
+other thread count a re-run is a different draw and should agree with the shipped one within the printed
+standard errors.
 
 ## What a reader can and cannot verify
 
@@ -257,5 +287,6 @@ languages agree on the gate orderings; and the arithmetic behind the 632 unattai
 
 **Cannot verify:** that the registration and the amendment were frozen before King Wen was evaluated
 (attested only); that the public copy differs from the frozen file only by the three cost hunks (the
-original is private); and that the N1 and N1′ histograms are bit-for-bit what a re-run gives. They
-are not, because the estimator is multi-threaded; a re-run checks them only within standard error.
+original is private); and that the N1 and N1′ histograms are bit-for-bit what a re-run gives. No
+re-run has checked that: under METHODS's rule one at the recorded 16 threads should reproduce them, and
+one at another thread count checks them only within standard error.

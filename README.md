@@ -52,7 +52,7 @@ remain entirely possible.
   repository ([METHODS](reports/METHODS.md) §"Data-like vs principled constraints").
 - **The enumeration is budgeted, not exhaustive.** The space of valid orderings is far too large to
   list in full; the explicit listings cover defined, reproducible slices of it, and every
-  uniqueness statement in this repository is scoped to those slices, never to the full space.
+  uniqueness statement in this repository is scoped to those slices, never to the full space, and even there it needs identifying boundaries beyond C1–C7 (TR-4).
 - **The direction is not new — the measurement is.** Earlier scholars had already argued that no
   known rule fixes the sequence; this project's contribution is measuring it (attribution below).
 
@@ -71,8 +71,10 @@ counting finds **16,504** *oriented* C1–C5 completions of which exactly **8** 
 ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md) §4). So the exact corroboration is at the **oriented**
 level — the level the full-space estimate above also counts. Read as *pair orderings*, this one slice
 runs the other way: C6–C7 leave King Wen's alone among the 899 distinct pair orderings that those
-16,504 oriented leaves represent. King Wen is
-unique only within **budgeted enumerated slices**, never in the full space. Read against the
+16,504 oriented leaves represent. Within the enumerated datasets King Wen is singled out only by an
+**identifying set of boundaries beyond C1–C5** (five at 100T and 560T, four at 10T — two of them being C6 and C7, so three beyond C1–C7 at 100T and 560T, two at 10T), not by C1–C7 alone — at 560T, C6, C7 and boundary 4 together still leave
+14 non-King-Wen records ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md); [BOUNDARY_MINIMUM](documentation/BOUNDARY_MINIMUM.md)) — and it is
+never singled out in the full space. Read against the
 literature, this is **a measured confirmation of prior under-determination claims, and the magnitude
 is a single-instrument estimate**: the direction was asserted qualitatively before this project
 measured it (see the prior negatives below), and the C1–C7 figure comes from `solve.c`'s estimator
@@ -126,13 +128,12 @@ gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm -lz
 ```
 
 It must print `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`. A different digest
-is a finding — please report it. This recipe was executed end to end from a fresh clone on
-2026-08-04 and passed, together with `python3 tests.py` (64 tests at that date; 76 as of 2026-08-28) and `lean lean/KingWen.lean`
+is a finding. This recipe was executed end to end from a fresh clone on
+2026-08-04 and passed, together with `python3 tests.py` and `lean lean/KingWen.lean`
 (silent, i.e. all theorems check). Run from the repo root, that command uses elan's *default* toolchain rather than
 `lean/lean-toolchain`, so the record attests a kernel check under the host's default Lean of that day, not
 specifically the pinned 4.31.0. `cd lean && lean KingWen.lean` checks under the pinned toolchain, and `verify_all.sh` §4 runs
-from `lean/` and prints the kernel it used as `LEAN_ID=`. Before 2026-08-04 the recipe had never actually been run, which is itself
-the kind of gap this disclosure exists to surface.
+from `lean/` and prints the kernel it used as `LEAN_ID=`.
 
 **Where to start.** Four doors, by reader:
 
@@ -145,7 +146,7 @@ the kind of gap this disclosure exists to surface.
   own results, plus the authorship disclosure above and the append-only corrections record in
   [CORRECTIONS.md](documentation/CORRECTIONS.md).
 - **Replicator** — the one-command check above, then the full replication recipe in
-  [TR-3](reports/TR3_REPRODUCIBLE_ENUMERATION.md). On a laptop, the [capstone guide](reports/CAPSTONE_GUIDE.md) walks through 20 checks of the counts, beside [TR-12](reports/TR12_QUERY_PROGRAM.md) *(added 2026-10-03)*.
+  [TR-3](reports/TR3_REPRODUCIBLE_ENUMERATION.md). On a laptop, the [capstone guide](reports/CAPSTONE_GUIDE.md) walks through 20 checks of the counts, beside [TR-12](reports/TR12_QUERY_PROGRAM.md).
 
 ## The constraints
 
@@ -200,19 +201,14 @@ Headlines only — each links to its full treatment (technical reports in [repor
   comparison.) A 47-year-old proposal to replace the sequence is re-examined along the way: its premise is
   measured, and a *fully smooth* variant is proven impossible. The hybrid ordering its authors actually
   published is feasible, and nothing here refutes it. [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md), [TR-2](reports/TR2_THE_RULES_CONFLICT.md), [TR-8](reports/TR8_REORDERING_REVISITED.md)
-- **Eight rules asserted as design are proven forced.** Each is a theorem, machine-checked in Lean 4
-  ([lean/C1RuleConstants.lean](lean/C1RuleConstants.lean)): constant on the entire C1 space — a superset
-  of the measured population, so every valid ordering inherits King Wen's value. They are consequences
-  of the constraint system, not choices; the zero-violation 2×10¹⁰-probe measurements now serve as
-  instrument validation. *(Scope: Lean proves constancy of the `countP` forms defined in that file.
-  Identifying those forms with the registry rules as implemented — `reg_*` in solve.py,
-  `score_registry` in solve.c — is a **non-Lean transcription step**. A check that drove the repo's own
-  `reg_*` over 5,449 structured C1 sequences with zero deviations is **attested, not reproducible**: it
-  was run from a scratchpad script that is not in the repo. It is disclosed in the Lean file's header and
-  in [lean/README.md](lean/README.md). So the eight are Lean-proven **modulo a transcription step whose
-  numerical check is a shipped command** — a bridge carried outside Lean, like those disclosed for
-  PartitionInvariance and PruneExactness; the 2026-07-21 check itself stays unarchived. Its re-derivation is now tracked:
-  `python3 solve.py --c1-constants-check` drives the same design over 5,455 C1 orderings with 0 deviations, a non-C1 control and a cross-pair r4 mutant *(updated 2026-10-02, Q-944: this read "whose only numerical check is attested" and "Re-deriving it as a tracked artifact is an open item")*.)* (A separate analytic theorem — the no-5 rule's implication chain, behind
+- **Eight rules asserted as design are proven forced.** Each is a theorem, machine-checked in Lean 4 modulo a transcription step (scope below)
+  ([lean/C1RuleConstants.lean](lean/C1RuleConstants.lean)): constant on the entire C1 space, so every valid
+  ordering inherits King Wen's value — consequences of the constraint system, not choices. *(Scope: Lean
+  proves constancy of the `countP` forms defined in that file; identifying them with the registry rules as
+  implemented is a **non-Lean transcription step**, so the eight are Lean-proven **modulo a transcription step
+  whose numerical check is a shipped command**, `python3 solve.py --c1-constants-check` (5,455 C1 orderings,
+  0 deviations). The original 5,449-sequence check is **attested, not reproducible**; see
+  [lean/README.md](lean/README.md).)* (A separate analytic theorem — the no-5 rule's implication chain, behind
   McKenna's 3:1 ratio — stands in addition.) Other asserted rules are extremely rare as stated, down to
   ~1 in 5×10⁷ — an order-of-magnitude figure at that sampling depth, with the most specific
   configurations rare largely by specification rather than principle; see METHODS and TR-1's data-like
@@ -262,24 +258,18 @@ Headlines only — each links to its full treatment (technical reports in [repor
 - **Exact counts at full scale.** |C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688
   (≈1.097×10³⁹; counting orientation-explicit sequences with C4's pair pinned —
   [METHODS](reports/METHODS.md) §"Canonical quantities") — computed to the last digit by a dynamic program that keeps one
-  representative per orbit of the symmetry group on *partial* states ([TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md);
-  the group's invariance of C1–C5 is what makes the DP fit in memory). The integer is divisible by 24, and by 48, as the
-  free action of that group on *complete* sequences requires ([TR-5](reports/TR5_SYMMETRY.md) §4). The divisibility is not
-  a restatement of the method: the DP computes each partial state's stabiliser and never assumes the free action, so a wrong
-  integer would pass the check one time in 48 — a necessary-condition gate, not a confirmation. The confirmation is the
-  independent recount below. (Until 2026-10-02 this sentence offered "divisible by 24 exactly as that theorem predicts" as if it
-  confirmed the theorem the count was computed with; the engine reading above replaces it.) (It is the suite's second exact full-scale count; the first,
-  |C1∩C2∩C4| ≈ 7.5706×10⁴¹, landed 2026-07-04.) The count was **recomputed at full scale** (2026-07-25)
-  by a second instrument — `verify.c`'s inclusion–exclusion transfer-walk engine (`--ie-count`), a
-  different algorithm class sharing no code with `solve.c` (the one shared mathematical premise is orbit–stabiliser weighting under the same 24-element group, as `verify.c`'s own header states) — and the two integers **match
-  exactly**, with the free-action divisibility gate holding (mod 24 in the 2026-07-25 run; both instruments gate mod 48 since 2026-10-02, the strength TR-5 §4 states)
-  ([TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §10(vi); the verifiers are
-  [verify.py/verify.c](documentation/VERIFY.md)). The honest residual: both instruments are
-  project-authored and share the group-theory/constraint specification, so the independence is
-  algorithmic, not specificational — no third party has recomputed the count. It is reproducible on
-  ~64 GB of RAM plus ~4 TB of disk; the statistical estimator is validated absolutely at 10³⁹ (the
-  exact value lands inside its stated ±0.01% envelope). The flagship C1–C5 figure remains an
-  estimate. [TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)
+  representative per orbit of the symmetry group on *partial* states, the suite's second exact full-scale count after
+  |C1∩C2∩C4| ≈ 7.5706×10⁴¹. It was **recomputed at full scale** by a second instrument — `verify.c`'s
+  inclusion–exclusion transfer-walk engine (`--ie-count`), a different algorithm class sharing no code with `solve.c`
+  (the one shared mathematical premise is orbit–stabiliser weighting under the same 24-element group) — and the two
+  integers **match exactly**, with the free-action divisibility gate holding (both instruments gate mod 48, the
+  strength [TR-5](reports/TR5_SYMMETRY.md) §4 states): a necessary-condition gate, not a confirmation; the confirmation
+  is the recount ([TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §10(vi); the verifiers are
+  [verify.py/verify.c](documentation/VERIFY.md)). Both instruments are project-authored and share the
+  group-theory/constraint specification, so the independence is algorithmic, not specificational — no third party
+  has recomputed the count. It is reproducible on ~64 GB of RAM plus ~4 TB of disk; the statistical estimator is
+  validated absolutely at 10³⁹ (the exact value lands inside its stated ±0.01% envelope). The flagship C1–C5 figure
+  remains an estimate. [TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)
 - **The enumeration record is reproducible**: every canonical count re-derivable to the byte from its
   published recipe — the sha-determining parameters verbatim; one `solve` invocation with the merge
   bundled through 100T, and enumerate-then-`--merge` as two steps for the 560T canonical
@@ -300,8 +290,8 @@ Mawangdui order on 9 of 11** — while King Wen comes out on exactly its three d
 (3 of 11; 0 of 11 against the pair-preserving null). Read honestly, that is a **positive** control:
 the battery does detect algorithmic construction where it exists. It is *not* a specificity test —
 both available controls lit up, so the only quiet case in the corpus is the object of study itself.
-CRITIQUE states the limit in the same terms (n = 2 non-KW historical controls; no negative control
-exists in the corpus).
+CRITIQUE's own account still heads the test as a validated specificity result and counts three alternative
+orderings, Fu Xi included, though its scope paragraph concedes the n = 2 historical-control limit; the reading on this page is the narrower one.
 
 ## Quick start
 ```
@@ -309,7 +299,7 @@ gcc -O2 -pthread -fopenmp -o solve solve.c -lm -lz && ./solve --selftest  # must
 python3 roae.py                          # the analysis battery (29 sections; 28 analyses, most with null models — see CRITIQUE.md — plus the theorem-backed --parity)
 python3 solve.py --registry-verify       # the two-language ground-truth gates (31/31 must PASS)
 python3 sat.py                           # SAT layer usage + targets
-python3 tests.py                         # regression harness (133 tests as of 2026-09-02)
+python3 tests.py                         # regression harness (prints its own test count)
 bash reports/certificates/verify_all.sh  # one command: selftest, two-language gates, all DRAT certs, Lean, tests.py, roae.py --verify, doc gates
 ```
 `verify_all.sh` needs five external tools — **gcc**, **python3**, **drat-trim**, **lean** (elan) and
@@ -378,16 +368,16 @@ diagonal follows from the pair labels.
 **V2, the mass river, and the branch panel.** **C1C2C4C5-SUPERSPACE; C3 not imposed.** Upper: exact per-layer mass by boundary-distance
 class; only the shape across k carries information; it is nearly flat. Lower: each top-level
 branch's exact solution mass against its exact exhaustion cost; no branch is small-but-expensive at
-n=31. ⚠ This is the **REDUCED** form (`TR12_V2=PASS:REDUCED-NO-BRANCH-CLASS-RIVER`): the river is
+n=31. ⚠ This is the **REDUCED** form: the river is
 split by distance class, not by top-level branch class. The EXHAUSTIBLE/INFEASIBLE verdict is not
-drawn from this panel and remains withheld. *(Updated 2026-10-11: TR-12 §3 now publishes it one-sided from the lower-bound certificate — every branch INFEASIBLE, `TR12_XA_CD=ONE-SIDED:lower-bound`; it is still not drawn from this panel.)* This figure draws distance classes. A completed-solution river split by first branch would be flat across layers — each branch's band is its `solutions(b)` from the lower panel at every k — so it adds nothing. A joint split by first branch and current distance class is carried neither by the atlas nor by the f/g/t ladders: it would need a branch-tagged forward ladder, a new build of order 10² TB, which is not proposed.
+drawn from this panel; TR-12 §3 publishes it one-sided from a lower-bound certificate (every branch INFEASIBLE). This figure draws distance classes. A completed-solution river split by first branch would be flat across layers — each branch's band is its `solutions(b)` from the lower panel at every k — so it adds nothing.
 [TR-12 §2](reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5) ·
 [SVG](reports/figures/fig_tr12_kc_river.svg) · [spec](viz/viz_kc_river.md)
 
 ![Heat map of the exact transition grammar: fifteen rows, one per pair of boundary-distance class d = 1, 2, 3, 4, 6 and within-pair distance w = 2, 4, 6, against layers 0 to 30, each column summing to 1. King Wen's own (d, w) cell at each layer is marked by a white outline over a black under-stroke, one per column, and a note beneath says each column averages over the whole superspace.](reports/figures/fig_tr12_kc_grammar.png)
 
-**V5, the transition grammar.** **C1C2C4C5-SUPERSPACE; C3 not imposed.** P(d, w | layer k), exact over SUPER, read down each column (layer k places the new pair in pair-slot k+2; each column averages over the whole superspace and is not conditioned on King Wen's preceding choices);
-`TR12_V5` reads `PASS`. What V5 adds over V2 is the per-layer `P(w|k)` marginal, not a measured
+**V5, the transition grammar.** **C1C2C4C5-SUPERSPACE; C3 not imposed.** P(d, w | layer k), exact over SUPER, read down each column (layer k places the new pair in pair-slot k+2; each column averages over the whole superspace and is not conditioned on King Wen's preceding choices).
+What V5 adds over V2 is the per-layer `P(w|k)` marginal, not a measured
 dependence. The seven pair-orbits are grouped into three within-pair-distance categories; each row
 fixes one (d,w) combination and does not identify an individual pair.
 [TR-12 §2](reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5) ·
@@ -397,16 +387,14 @@ fixes one (d,w) combination and does not identify an individual pair.
 
 **V4, King Wen's neighbourhood shells** — Q3's rarity profile drawn as a figure. **C1C2C4C5-SUPERSPACE; C3 not imposed.** The lower panel's `p_i = g_i / g_(i−1)`; a bar above its `log₂ a_i` tick is a choice with fewer completions than the average alternative. Unlike V1, V2 and
 V5 this figure's line plots one walk, not a population: every point is King Wen's own. Its input was
-produced by the full-31 run of 2026-09-22 and is committed as `reports/tr12/q3_profile_kw.tsv`. The shaded bars (least to greatest `g` over the admissible alternatives at each step) are read from that run's published receipt [`q3_profile_exact.tsv`](reports/evidence/tr12/banked_n31_20260922/q3_profile_exact.tsv): **attested**, not reproducible without the f/g ladders.
+produced by the full-31 run of 2026-09-22 and is committed as `reports/tr12/q3_profile_kw.tsv`. The shaded bars (least to greatest `g` over the admissible alternatives at each step) are read from that run's published receipt [`q3_profile_exact.tsv`](reports/evidence/tr12/banked_n31_20260922/q3_profile_exact.tsv): **attested**, not reproducible without the full-31 ladders TR-12 describes.
 [TR-12 §2](reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5) ·
 [SVG](reports/figures/fig_tr12_kc_shells.svg) · [spec](viz/viz_kc_shells.md)
 
 ![Seven scatter panels of observable values against normalised rank from 0 to 1 in REL order, evaluated on a 1,000-point systematic REL lattice, none showing a clear monotone trend across it. Three panels carry a dashed red King Wen reference line; four deliberately carry none because those observables measure similarity to King Wen. Each panel is titled with a plain-language label over its column name, and a reading key in the two empty cells defines every observable drawn.](reports/figures/fig_tr12_kc_spectrum.png)
 
 **V3, the rank spectrum — and the reading is negative.** **C1C2C4C5-SUPERSPACE; C3 not imposed.** On this 1,000-point REL lattice, none of the seven plotted observables shows a clear monotone trend; all absolute Pearson correlations are below 0.073.
-This does not exclude nonlinear structure or structure missed by the lattice. The standalone n=31 V3
-rows passed on 2026-09-25 (`TR12_V3_FIG=PASS`); the archived 2026-09-22 full-run receipt retains its
-original PENDING token (TR-12 §Open Problems, item 5).
+This does not exclude nonlinear structure or structure missed by the lattice.
 [TR-12 §2](reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5) ·
 [SVG](reports/figures/fig_tr12_kc_spectrum.svg) · [spec](viz/viz_kc_spectrum.md)
 
@@ -459,7 +447,7 @@ King Wen's included, has an orbit of 24 records, indistinguishable by any criter
 **The boundary-information curve S(k).** Red points are estimated (pinned Knuth, ≤10%). The blue dashed segment illustrates the rate inferred from k=1–4 only and ends at k = 8; it is NOT measured,
 and the orange band is **illustrative** and not reproducible from published
 material. The boundaries pin pair identity only, so the floor is one surviving pair-ordering class, never a unique ordering; the green line at k = 14 is the earliest
-that floor is reached if no later boundary gains more than the eighth measured one's 6.14 bits — a scale marker, not a bound. The k=14 marker uses the reported eight-step total and assumes that no subsequent gain exceeds 6.14 bits; it is an earliest possible count under that assumption, with no unconditional bound asserted.
+that floor is reached if no later boundary gains more than the eighth measured one's 6.14 bits — a scale marker, not a bound. (That gain is computed from N(7), for which no committed artifact exists; TR-4 §Update.) The k=14 marker uses the reported eight-step total and assumes that no subsequent gain exceeds 6.14 bits; it is an earliest possible count under that assumption, with no unconditional bound asserted.
 [TR-4 §Figure](reports/TR4_SIZE_OF_THE_SPACE.md#figure) ·
 [SVG](reports/figures/fig_tr4_boundary_information.svg)
 

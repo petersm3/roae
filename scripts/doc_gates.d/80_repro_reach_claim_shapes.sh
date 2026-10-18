@@ -1141,7 +1141,7 @@ print("FRONTPRES\t%d"%len(FP))
   fi
   local rc=0 hrc=0
   while IFS=$'\t' read -r tag f ln fig line; do
-    [ "$tag" = FRONT ] && { echo "  [FAIL] CX-356: front-door page $f:$ln states withdrawn figure '$fig'; a front door states the CURRENT value and a CX pointer, never the withdrawn one, marked or not"; echo "         $line"; rc=1; continue; }
+    [ "$tag" = READFAIL ] && { echo "  [FAIL] GATE 27: $f could not be read ($ln) -- it was NOT checked (F05-004#6)"; rc=1; continue; }; [ "$tag" = FRONT ] && { echo "  [FAIL] CX-356: front-door page $f:$ln states withdrawn figure '$fig'; a front door states the CURRENT value and a CX pointer, never the withdrawn one, marked or not"; echo "         $line"; rc=1; continue; }
     [ "$tag" = HASHROW ] && { echo "  [FAIL] Q-761: $REG line \"$f\" is comment-shaped (\"# ...\") but carries data column(s), so it is not checked. Register the figure without the leading \"# \"."; hrc=1; continue; }; [ "$tag" = HIT ] || continue
     echo "  [FAIL] $f:$ln restates withdrawn figure '$fig' with NO supersession marker and no ledger anchor quoting it"
     echo "         $line"

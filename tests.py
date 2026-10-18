@@ -17369,7 +17369,7 @@ chmod +x "$out"
 out=""
 while [ $# -gt 0 ]; do [ "$1" = -o ] && { out="$2"; shift; }; shift; done
 echo "BIN $out" >> "$VA_REC"
-printf '#!/bin/sh\n# q856-stub\ncase "$1" in --selftest) echo PASS ;; --f4p-verify) seq 1 14 ;; esac\n' > "$out"
+printf '#!/bin/sh\n# q856-stub\ncase "$1" in --selftest) echo PASS ;; --f4p-verify) seq 1 14 ;; --check-layers-selftest) echo LCSELFTEST_RESULT=PASS ;; --scan-selftest) echo "SCAN-SELFTEST: PASS" ;; esac\n' > "$out"
 chmod +x "$out"
 """,
         "python3": r"""#!/bin/bash
@@ -17567,11 +17567,14 @@ echo "s VERIFIED"
         for k, r in self.va.items():
             with self.subTest(run=k):
                 kinds = [ln.split(" ", 1)[0] for ln in r["rec"]]
-                self.assertEqual(kinds.count("BIN"), 1, r["out"][-2000:])
+                # 2 since batch FT3j (2026-10-17): §1b builds verify.c beside solve.c
+                self.assertEqual(kinds.count("BIN"), 2, r["out"][-2000:])
                 self.assertGreaterEqual(kinds.count("CNF"), 24)
                 self.assertGreaterEqual(kinds.count("DRAT"), 24)
                 self.assertGreaterEqual(kinds.count("CAKE"), 24)
                 for label in ("PASS  solve.c build", "PASS  --selftest", "PASS  f4p two-language match",
+                              "PASS  verify.c build", "PASS  verify --check-layers-selftest",
+                              "PASS  verify --scan-selftest",
                               "PASS  cert alt-le-14 (alt-le-14)", "PASS  cake_lpr alt-le-14 (alt-le-14)",
                               "PASS  cert rigidity_sc4_unsat (rigidity)",
                               "PASS  cert c3_kwpin_ge777_unsat (kwpin-ge777)"):
@@ -36951,7 +36954,7 @@ class TestQ956PrepushRecordBindsItsLogs(unittest.TestCase):
         rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tail=cases["ran0"]), helper=mut)
         self.assertEqual(w.returncode, 0, "mutant killed: the floor was what refused Ran 0\n" + w.stdout)
         # MUTANT: the floor counted from nothing (1): a one-test run of a three-test tree passes.
-        mut2 = self._mutant_helper(d, '''  tfloor=$(git -C "$top" show HEAD:tests.py 2>/dev/null | grep -cE '^    def test_') || true''',
+        mut2 = self._mutant_helper(d, '''  tfloor=$(printf '%s\\n' "$_tpy" | grep -cE '^    def test_') || true''',   # anchor moved by F05-003#1 (G3): one checked read
                                    '''  tfloor=1''')
         rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tail=cases["short"]), helper=mut2)
         self.assertEqual(w.returncode, 0, "mutant killed: the tree-derived floor was what refused Ran 2 of 3\n" + w.stdout)
@@ -46814,7 +46817,7 @@ class TestBatchFT2a(unittest.TestCase):
         self.assertEqual(self._tr4_problems(self.txt[self.TR4]), [])
 
     def test_tr4_uniqueness_red_on_old(self):
-        t = self._swap(self.TR4, "over the full\n   space; within the enumerated datasets King Wen is singled out only by the five-boundary identifying set (SPECIFICATION §Constraints; BOUNDARY_MINIMUM), not by C1–C7 alone — at 560T, C6, C7 and boundary 4 together still leave 14 non-King-Wen records.",
+        t = self._swap(self.TR4, "over the full\n   space; within the enumerated datasets King Wen is singled out only by an identifying set of boundaries beyond C1–C5 (five at 100T and 560T, four at 10T — two of them being C6 and C7, so three beyond C1–C7 at 100T and 560T, two at 10T; SPECIFICATION §Constraints; BOUNDARY_MINIMUM), not by C1–C7 alone — at 560T, C6, C7 and boundary 4 together still leave 14 non-King-Wen records.",  # anchor moved by CX-404 (G3)
                        "over the full\n   space; uniqueness holds only within enumerated budgeted datasets.")
         self.assertEqual(len(self._tr4_problems(t)), 2)
 
@@ -47069,6 +47072,1369 @@ class TestBatchFT2a(unittest.TestCase):
         self.assertEqual(len(self._registry_split_problems(L, T)), 5)
 
 # end class TestBatchFT2a (fast-track batch FT2a, CX-366..CX-381)
+
+class TestBatchFT2b1(unittest.TestCase):
+    """Fast-track batch FT2b-1 (CX-382..CX-388): the TR-12 / visual-showcase / capstone-guide wording
+    theme of Codex's final review (gpt-6-astra), triaged by Fable, plus one fail-open path in V4's titles.
+
+    Each check is a function of the text and asserts the source fact it holds the text to (the
+    precondition) before judging the text; each red test feeds the same check the published wording and
+    asserts that it fails. The atlas figures are re-read from `solve.py --atlas-probe` on the committed
+    n = 31 atlas, and V4 is rendered from the published table and receipt."""
+
+    TR12 = os.path.join("reports", "TR12_QUERY_PROGRAM.md")
+    TR1 = os.path.join("reports", "TR1_EIGHT_CENTURIES_MEASURED.md")
+    TR2 = os.path.join("reports", "TR2_THE_RULES_CONFLICT.md")
+    TR4 = os.path.join("reports", "TR4_SIZE_OF_THE_SPACE.md")
+    TR9 = os.path.join("reports", "TR9_PRICING_THE_CONSTRAINTS.md")
+    TR10 = os.path.join("reports", "TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md")
+    METHODS = os.path.join("reports", "METHODS.md")
+    GUIDE = os.path.join("reports", "CAPSTONE_GUIDE.md")
+    VIZ = os.path.join("viz", "README.md")
+    VTR4 = os.path.join("viz", "viz_tr4_boundary_information.md")
+    V1 = os.path.join("reports", "tr12", "scan", "v1_field.tsv")
+    TRAW = os.path.join("runs", "20260906_kc_ladders_n31", "STAGE_T_RAW_VERIFY.md")
+    R100 = os.path.join("runs", "20260419_100T_d3_d128westus3", "README.md")
+    DAV = os.path.join("reports", "evidence", "dav_tier1.out")
+    DAV2 = os.path.join("reports", "evidence", "dav2_tier1.out")
+    DAVSE = os.path.join("reports", "evidence", "dav_tier1_se_2026_09_25.out")
+    F5T = os.path.join("reports", "evidence", "f5", "f5_tier1.out")
+    SOLVE = "solve.py"
+    ATLAS = os.path.join("runs", "20260906_kc_ladders_n31", "atlas_n31.json")
+    KW = os.path.join("reports", "tr12", "q3_profile_kw.tsv")
+    BANK = os.path.join("reports", "evidence", "tr12", "banked_n31_20260922", "q3_profile_exact.tsv")
+    ALL = (TR12, TR1, TR2, TR4, TR9, TR10, METHODS, GUIDE, VIZ, VTR4, V1, TRAW, R100, DAV, DAV2, DAVSE, F5T, SOLVE)
+    _probe = None
+
+    @classmethod
+    def setUpClass(cls):
+        cls.root = os.path.dirname(os.path.abspath(__file__))
+        cls.txt = {}
+        for rel in cls.ALL:
+            with open(os.path.join(cls.root, rel), encoding="utf-8") as fh:
+                cls.txt[rel] = fh.read()
+
+    @staticmethod
+    def _norm(t):
+        return re.sub(r"\s+", " ", t)
+
+    def _body(self, t):
+        """TR-12 without its revision rows, whose words are history."""
+        return self._norm("\n".join(l for l in t.splitlines() if not l.startswith("| v1.")))
+
+    def _swap(self, rel, pairs):
+        """The tree's text with each cured wording put back to the published one."""
+        t = self.txt[rel]
+        for new, old in pairs:
+            self.assertEqual(t.count(new), 1, "precondition: the cured wording is on the tree once (%s): %r" % (rel, new[:60]))
+            t = t.replace(new, old)
+        return t
+
+    def _probe_out(self):
+        if TestBatchFT2b1._probe is None:
+            r = subprocess.run([sys.executable, "solve.py", "--atlas-probe", self.ATLAS], cwd=self.root,
+                               capture_output=True, text=True, timeout=600)
+            self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+            TestBatchFT2b1._probe = dict(l.split("=", 1) for l in r.stdout.splitlines() if re.match(r"^[A-Z0-9_]+=", l))
+        self.assertEqual(TestBatchFT2b1._probe.get("ATLAS_PROBE"), "PASS", "precondition: the probe passes on the atlas")
+        return TestBatchFT2b1._probe
+
+    # --- CX-382 (F11-004#1/#2, F07-004#2, F11-005#6/#8): TR-12's framing sentences ------------------
+    A_PAIRS = (
+        ("it fixed for each of nine query families (Q1–Q9),", "it fixed for each of ten query families (Q1–Q10),"),
+        ("could be answered (Q10 joined on 2026-07-31 in §11, Q10(b) is still undefined, and V5's new-pair category was pinned on 2026-09-23): the exact definition,",
+         "could be answered: the exact definition,"),
+        ("(§0–§10, 2026-07-17; §11's Q10, 2026-07-31) fixes for each query", "(§0–§11, 2026-07-17) fixes for each query"),
+        ("At every layer the residual C5 budget sits within TV\n**0.0415** of the exchangeable null — a bound per layer, not on the whole spending order (§12.6).",
+         "The order in which the C5 budget is spent sits within TV\n**0.0415** of the exchangeable null (§12.6)."),
+        ("and at every layer the residual C5 budget lies within TV 0.0415 of the exchangeable null (per layer, not over the whole path), measured",
+         "and the C5 budget path lies within TV 0.0415 of the exchangeable null, measured"),
+        ("| residual budget vs exchangeable null, max TV over layers (a per-layer bound, not one on the path) |",
+         "| budget path vs exchangeable null, max TV |"),
+        ("Five figures: three population-exact fields over all ~1.1×10³⁹ members (V1, V2, V5), King Wen's one walk (V4) and a 1,000-point rank lattice (V3).",
+         "Five population-exact figures over all ~1.1×10³⁹ members."),
+        ("Every figure §12.9 maps to a token is a MEASURED quantity over\nSUPER — walk-uniform, N-weighted — read off the n=31 atlas; §12.7's cost figures are derived, not measured, and §12.10's C3 attribution is an inference, as that section says.",
+         "Everything in this section is a MEASURED quantity over\nSUPER — walk-uniform, N-weighted — read off the n=31 atlas."),
+        ("is stationary across the walk and is not shown to distinguish King Wen — a negative result",
+         "is stationary across the walk and does not distinguish King Wen — a negative result"),
+    )
+
+    def _framing_problems(self, tr12):
+        t = self._body(tr12)
+        for pre in ("## 11. Novelty-refresh addendum (2026-07-31)", "the question is undefined under both",
+                    "pinned 2026-09-23 as w = popcount", "the total-variation distance is ≤ **0.0415** at every layer",
+                    "V4's line is King Wen's one walk", "V3 is a 1,000-point REL lattice",
+                    "§12.7's cost figures are derived", "**cannot show that it does not**"):
+            self.assertIn(pre, t, "precondition: TR-12 states the source fact: %s" % pre)
+        bad = ("ten query families (Q1–Q10)", "(§0–§11, 2026-07-17)", "The order in which the C5 budget is spent sits within TV",
+               "the C5 budget path lies within TV", "| budget path vs exchangeable null, max TV |",
+               "Five population-exact figures", "Everything in this section is a MEASURED quantity",
+               "stationary across the walk and does not distinguish King Wen")
+        probs = ["still says: " + b for b in bad if b in t]
+        for need in ("nine query families (Q1–Q9)", "Q10 joined on 2026-07-31", "a bound per layer, not on the whole spending order",
+                     "(per layer, not over the whole path)", "three population-exact fields", "§12.10's C3 attribution is an inference",
+                     "is not shown to distinguish King Wen"):
+            if need not in t:
+                probs.append("lacks: " + need)
+        return probs
+
+    def test_framing_cured(self):
+        self.assertEqual(self._framing_problems(self.txt[self.TR12]), [])
+
+    def test_framing_red_on_old(self):
+        t = self._swap(self.TR12, self.A_PAIRS)
+        self.assertEqual(len(self._framing_problems(t)), 15)
+
+    # --- CX-383 (F07-005#4, F11-005#5): two atlas readings ---------------------------------------
+    B_PAIRS = (
+        (" — the most suppressed *observed* cell: the token ranges only over cells the atlas stores, and the support cells with no observed mass, ratio 0, are outside its range (`RID_SUPPORT_CELLS_WITH_ZERO_OBSERVED_MASS=129`).", "."),
+        ("| most suppressed / most enhanced observed cell (stored cells only; the 129 zero-mass support cells are not ranged over) |",
+         "| most suppressed / most enhanced cell |"),
+        ("the pruned tree is dead-end-free for its first nine layers,\nand its first twenty-four hold at most 0.005 % of the doomed mass (`DOOMED_MASS_TAIL_SHARE_FROM_LAYER` reads 1.0000 from k = 24), though within a layer the dead share already reaches 26 % at k = 22 and 34 % at k = 23 (`DEAD_FRACTION_BY_LAYER`).",
+         "the pruned tree is dead-end-free for its first nine layers\nand essentially so for its first twenty-four."),
+    )
+
+    def _atlas_problems(self, tr12):
+        p = self._probe_out()
+        zero = int(p["RID_SUPPORT_CELLS_WITH_ZERO_OBSERVED_MASS"])
+        self.assertGreater(zero, 0, "precondition: cells with q > 0 and no observed mass exist")
+        self.assertTrue(p["EXCHANGEABLE_NULL_MOST_SUPPRESSED_CELL"].startswith("ratio=0.058 "),
+                        "precondition: the token's minimum is the published 0.058, over stored cells")
+        dead = [float(x) for x in p["DEAD_FRACTION_BY_LAYER"].split(",")]
+        tail = [float(x) for x in p["DOOMED_MASS_TAIL_SHARE_FROM_LAYER"].split(",")]
+        self.assertEqual(tail[24], 1.0, "precondition: k >= 24 holds all doomed mass to four decimals")
+        self.assertGreater(dead[22], 0.25, "precondition: the within-layer dead share is large by k = 22")
+        t = self._body(tr12)
+        probs = []
+        if "the most suppressed *observed* cell" not in t:
+            probs.append("§12.6 does not call the cell the minimum over observed cells")
+        if "`RID_SUPPORT_CELLS_WITH_ZERO_OBSERVED_MASS=%d`" % zero not in t:
+            probs.append("§12.6 does not name the %d zero-mass cells" % zero)
+        if "| most suppressed / most enhanced observed cell" not in t:
+            probs.append("the §12.9 row does not say observed")
+        if "essentially so for its first twenty-four" in t:
+            probs.append("'essentially dead-end-free' through layer 24 stands")
+        want = "%d %% at k = 22 and %d %% at k = 23" % (round(100 * dead[22]), round(100 * dead[23]))
+        if want not in t:
+            probs.append("lacks the within-layer shares: " + want)
+        return probs
+
+    def test_atlas_labels_cured(self):
+        self.assertEqual(self._atlas_problems(self.txt[self.TR12]), [])
+
+    def test_atlas_labels_red_on_old(self):
+        self.assertEqual(len(self._atlas_problems(self._swap(self.TR12, self.B_PAIRS))), 5)
+
+    # --- CX-384 (F11-005#1/#11/#12/#14/#15, F07-005#9/#13): ledger cells and notes ---------------
+    C_PAIRS = (
+        ("| C1∩C2∩C4∩C5, the rules in the strict, zero-exception forms encoded (TR-2 §4) |", "| C1∩C2∩C4∩C5 |"),
+        ("| TR-8 | Schulz gender rule relaxed to ≤ 2 violations anywhere (this project's relaxation, TR-9 fn⁸), exact rarity |",
+         "| TR-8 | Schulz gender rule, exact rarity |"),
+        ("| the one-line recomputation printed in TR-10's Verification Guide (§4 refutation); `solve.py --dav-verify` / `./solve --dav-verify` checks the nine Davis observables' King Wen values, not this |",
+         "| `solve.py --dav-verify` / `./solve --dav-verify` → `DAV VERIFY: PASS` |"),
+        ("zlib-block-framed by default (per-block zlib streams, no outer gzip wrapper — §R Tier B), a `sha256sum -c` run against a *logical* sidecar hashes the stored container bytes",
+         "gz-framed by default, a `sha256sum -c` run against a *logical* sidecar hashes the gzip container"),
+        ("They are **exact at full scale**; the first three are **independently recomputed by a second engine sharing\n"
+         "no code**, while `\\|C1∩C2\\|` is a CRT reconstruction from three `solve.c` residues whose independent gate checks start orbit 0 only (TR-9 §Verification Guide). Their witness",
+         "They are **exact at full scale and independently recomputed by a second engine sharing\nno code**, but their witness"),
+        ("The first three are entered as **exact,\ntwo-instrument** and `\\|C1∩C2\\|` as **exact**,", "They are entered as **exact,\ntwo-instrument**,"),
+        ("outputs published without an interval: the run behind TR-1's three and TR-8's ×11,364 is not archived (TR-1 and TR-9 fn⁸ say so), and TR-10's two are in `dav_tier1.out` (`evidence/dav2_tier1.out` and `evidence/f5/f5_tier1.out`, cited here until 2026-10-17, hold other scores, not these masses), whose run **predates the\n"
+         "estimator's `se=` field**. TR-10's two have since been re-run with the field, masses unchanged (`dav_tier1_se_2026_09_25.out`: se 9.5×10⁻⁵ and 2.3×10⁻⁵; TR-10's 2026-09-25 note); this ledger has not regraded that row.",
+         "outputs whose archived runs (`dav_tier1.out`, `dav2_tier1.out`, `f5_tier1.out`) **predate the\nestimator's `se=` field**."),
+    )
+
+    def _row(self, t, start):
+        rows = [l for l in t.splitlines() if l.startswith(start)]
+        self.assertEqual(len(rows), 1, "precondition: one ledger row starts %r" % start)
+        return rows[0]
+
+    def _ledger_problems(self, tr12):
+        n = self._norm
+        self.assertIn("about the rules in the strict forms encoded here", n(self.txt[self.TR2]), "precondition: TR-2 §4 scopes the theorem")
+        self.assertIn('"≤2 violations anywhere" relaxation', self.txt[self.TR9], "precondition: TR-9 fn⁸ names the relaxation")
+        self.assertIn("V3B-01#20", self.txt[self.TR10], "precondition: TR-10 prints the derivative one-liner")
+        self.assertIn("no outer gzip wrapper", n(tr12), "precondition: §R Tier B states the framing")
+        self.assertIn("**exact** (3-prime CRT, reader-checkable)", self._row(tr12, "| TR-9 | C2 start-free rarity"),
+                      "precondition: the |C1∩C2| row is graded exact, not two-instrument")
+        for rel in (self.DAV2, self.F5T):
+            self.assertNotRegex(self.txt[rel], r"compmirror|trigarray|\[reg", "precondition: %s holds none of the six masses" % rel)
+        m = re.search(r"\[dav 2 compmirror\s*\].*?at=(\S+) .*?se=\S+?/(\S+?)/", self.txt[self.DAVSE])
+        self.assertIsNotNone(m, "precondition: the 2026-09-25 re-run prints se= for the flagship mass")
+        self.assertIn("at=%s" % m.group(1), self.txt[self.DAV], "precondition: the re-run's mass equals the 2026-07-04 one")
+        probs = []
+        if "strict, zero-exception" not in self._row(tr12, "| TR-2 | Conflict theorem"):
+            probs.append("conflict row lacks the strict-forms scope")
+        if "≤ 2 violations anywhere" not in self._row(tr12, "| TR-8 | Schulz gender rule"):
+            probs.append("TR-8 row does not name the relaxation")
+        if self._row(tr12, "| TR-10 | Davis uniqueness claim refuted").split(" | ")[-1].startswith("`solve.py --dav-verify`"):
+            probs.append("Davis-refutation row gives --dav-verify as its producer")
+        if "gz-framed by default" in self._row(tr12, "| TR-12 | Compiled catalog"):
+            probs.append("catalog row says gz-framed")
+        t = self._body(tr12)
+        if "exact at full scale and independently recomputed by a second engine" in t:
+            probs.append("Note 1 calls all four two-engine")
+        if "They are entered as **exact, two-instrument**" in t:
+            probs.append("Note 1 grades all four two-instrument")
+        if "archived runs (`dav_tier1.out`, `dav2_tier1.out`, `f5_tier1.out`)" in t:
+            probs.append("Note 2 cites files that do not hold the masses")
+        if "`dav_tier1_se_2026_09_25.out`" not in t:
+            probs.append("Note 2 does not record TR-10's re-run")
+        return probs
+
+    def test_ledger_cured(self):
+        self.assertEqual(self._ledger_problems(self.txt[self.TR12]), [])
+
+    def test_ledger_red_on_old(self):
+        self.assertEqual(len(self._ledger_problems(self._swap(self.TR12, self.C_PAIRS))), 8)
+
+    # --- CX-385 (F11-004#10/#11/#12, F07-004#4/#8, F07-005#14/#15, CRZ-001#3): reproduction facts --
+    D_PAIRS = (
+        ("each of the 158,364 depth-3 sub-branches truncated in DFS order at its own node budget — not one global prefix, and not a uniform draw**",
+         "a DFS-order PREFIX of the space, not a uniform draw**"),
+        ("currently 4.50×10²⁵, relative SE 6.1% (95% CI [3.96, 5.05]×10²⁵, TR-2)\n", "currently 4.50×10²⁵ ±6.1%\n"),
+        ("are needed for the count and ranking queries that f alone does not answer (above) (Q1–Q3, Q6; Wave 2)",
+         "are needed for any exact count or ranking query (Q1–Q3, Q6; Wave 2)"),
+        ("architecture is OBSERVED, not proven, and not on these layer shas:** `reports/METHODS.md` §toolchain\n"
+         "   lists `-O2`, `-O3 -march=native`, `-O3 -march=x86-64-v3` and `-O3 -flto` (on the selftest sha) and x86 vs ARM (on the 11.2T canonical) — other artifacts, which\n",
+         "architecture is OBSERVED, not proven:** it holds on every recipe `reports/METHODS.md` §toolchain\n"
+         "   lists — `-O2`, `-O3 -march=native`, `-O3 -march=x86-64-v3`, `-O3 -flto`, and x86 vs ARM — which\n"),
+        ("(the t container check\nMEASURED at 3 h 56 min on 8 parallel streams;", "(container check\nminutes;"),
+        ("  project: **96 of 96** logical (f, g, t) on 2026-09-17, **65 of 65** container (t only, 2026-09-16; f and g",
+         "  project 2026-09-17: **96 of 96** logical (f, g, t), **65 of 65** container (t only; f and g"),
+        ("  seconds on the 5.98 MB JSON,", "  under a second on the 5.98 MB JSON,"),
+        ("takes about a second on the 5.98 MB JSON (1.1 s measured on a two-core host) — no",
+         "takes well under a second on the 5.98 MB JSON, on any machine — no"),
+    )
+    SOLVE_PAIR = ("matches it with `grep -Fqx` (-F: two tokens carry `[...]`, TR-12 §12.9) and never", "matches it with `grep -qx` and never")
+
+    def _repro_problems(self, tr12, solve_src):
+        n = self._norm
+        m = re.search(r"Measured (\d{4}-\d\d-\d\d) \(started (\d\d):(\d\d):(\d\d)Z, finished (\d\d):(\d\d):(\d\d)Z\)", self.txt[self.TRAW])
+        self.assertIsNotNone(m, "precondition: the container receipt states its window")
+        a, b = [int(m.group(i)) * 3600 + int(m.group(i + 1)) * 60 + int(m.group(i + 2)) for i in (2, 5)]
+        dur = "%d h %d min" % divmod((b - a) // 60, 60)
+        self.assertEqual((m.group(1), dur), ("2026-09-16", "3 h 56 min"), "precondition: 2026-09-16, 3 h 56 min")
+        subs = re.search(r"`SOLVE_DEPTH=3`, ([\d,]+) sub-branches", self.txt[self.R100]).group(1)
+        self.assertIn("conservative propagated relative error of 6.1%", n(self.txt[self.TR2]), "precondition: TR-2's 6.1% is a relative error")
+        self.assertIn("(95% CI [3.96, 5.05]×10²⁵", self.txt[self.TR2], "precondition: TR-2's interval")
+        self.assertRegex(n(tr12), r"\*\*f alone\*\* answers .*?`--kc-count`.*?REL rank/unrank", "precondition: f alone answers count and rank")
+        meth = self._row(self.txt[self.METHODS], "| C toolchain |")
+        for w in ("selftest sha", "11.2T canonical"):
+            self.assertIn(w, meth, "precondition: METHODS names the artifact the witness is on")
+        t = self._body(tr12)
+        probs = []
+        if "a DFS-order PREFIX of the space" in t or subs + " depth-3 sub-branches truncated" not in t:
+            probs.append("tie-share sample described as one prefix")
+        if "±6.1%" in t or "relative SE 6.1%" not in t:
+            probs.append("N_gs's 6.1% not labelled a relative SE")
+        if "are needed for any exact count or ranking query" in t:
+            probs.append("f + g bullet contradicts the f-alone bullet")
+        if "it holds on every recipe `reports/METHODS.md` §toolchain" in t or "(on the selftest sha)" not in t:
+            probs.append("toolchain invariance claimed for the layer shas")
+        if "(container check minutes;" in t or "MEASURED at " + dur not in t:
+            probs.append("Tier B heading does not state the measured container time")
+        if "project 2026-09-17: **96 of 96**" in t or "(t only, " + m.group(1) not in t:
+            probs.append("both checks dated 2026-09-17")
+        if "under a second on the 5.98 MB JSON" in t:
+            probs.append("'under a second' stands for the probe")
+        if "on the 5.98 MB JSON, on any machine" in t:
+            probs.append("'well under a second, on any machine' stands for --atlas-queries")
+        doc = re.search(r'def atlas_probe\(atlas_path\):\n    """(.*?)"""', solve_src, re.S)
+        self.assertIsNotNone(doc, "precondition: atlas_probe's docstring is found")
+        if "`grep -qx`" in doc.group(1):
+            probs.append("atlas_probe's docstring prescribes grep -qx")
+        return probs
+
+    def test_repro_facts_cured(self):
+        self.assertEqual(self._repro_problems(self.txt[self.TR12], self.txt[self.SOLVE]), [])
+
+    def test_repro_facts_red_on_old(self):
+        t = self._swap(self.TR12, self.D_PAIRS)
+        s = self.txt[self.SOLVE]
+        self.assertEqual(s.count(self.SOLVE_PAIR[0]), 1, "precondition: the cured docstring is on the tree once")
+        self.assertEqual(len(self._repro_problems(t, s.replace(*self.SOLVE_PAIR))), 9)
+
+    # --- CX-386 (CAL-004#152/#154): the eight forced-class rules are proven -----------------------
+    E_PAIRS = (
+        ("— proven\n  on 2026-07-21, modulo a checked transcription step (TR-1, `lean/C1RuleConstants.lean`), which moves them into this section's theorem class.",
+         "— candidates\n  for PROOF upgrade (LS-1), which would move them into this section's theorem class."),
+        (" — all eight did, on 2026-07-21 (TR-1, `lean/C1RuleConstants.lean`), so this item is closed;", ";"),
+    )
+
+    def _forced_problems(self, tr12):
+        self.assertIn("proven, not sampled (upgraded 2026-07-21)", self._norm(self.txt[self.TR1]),
+                      "precondition: TR-1 states the eight are proven")
+        self.assertTrue(os.path.exists(os.path.join(self.root, "lean", "C1RuleConstants.lean")), "precondition: the Lean file exists")
+        t = self._body(tr12)
+        probs = ["Q9 calls them candidates"] if "candidates for PROOF upgrade" in t else []
+        if "all eight did, on 2026-07-21" not in t:
+            probs.append("§4's priority item is not closed")
+        return probs
+
+    def test_forced_class_proven_cured(self):
+        self.assertEqual(self._forced_problems(self.txt[self.TR12]), [])
+
+    def test_forced_class_proven_red_on_old(self):
+        self.assertEqual(len(self._forced_problems(self._swap(self.TR12, self.E_PAIRS))), 2)
+
+    # --- CX-387 (F11-009#2/#3, F11-010#3): showcase and guide sentences ----------------------------
+    F_SE = ("each with a relative standard\nerror of at most ten percent,", "each within about ten\npercent,")
+    F_V1 = ("sampled, pair\npositions away from the two end slots sit close to the even share, the end slots far from it, and King Wen's placements are typical (V1,",
+            "sampled, King Wen's\npair positions sit close to the even share (V1,")
+    F_CG = ("recomputed one ingredient of the symmetry bookkeeping (the stored representative-set counts) at every layer",
+            "recomputed the symmetry bookkeeping at every layer")
+
+    def _plain(self, t, anchor):
+        m = re.search(r"\*\*In plain terms\.\*\* This curve shows(.*?)\n\n" if anchor else r"## In plain terms\n\n(This curve shows.*?)\n\n", t, re.S)
+        self.assertIsNotNone(m, "precondition: the S(k) plain-terms paragraph is found")
+        return m.group(1).replace("This curve shows", "")
+
+    def _showcase_problems(self, viz, vtr4, guide):
+        self.assertIn("rel. error ≤10%", self.txt[self.TR4], "precondition: TR-4 gives a relative error")
+        self.assertIn("relerr = SE/mean", self.txt[self.METHODS], "precondition: relative error is SE/mean")
+        rows = [l.split("\t") for l in self.txt[self.V1].splitlines()[1:] if l]
+        end = max(float(r[4]) for r in rows if r[1] == "32")
+        self.assertGreater(end * 31, 1.9, "precondition: the final slot is far from 1/31")
+        self.assertIn("one ingredient", self._norm(guide.split("**Step 9.**", 1)[1][:800]), "precondition: step 9 says one ingredient")
+        probs = []
+        a, b = self._norm(self._plain(viz, True)), self._norm(self._plain(vtr4, False))
+        if a != b:
+            probs.append("the two plain-terms paragraphs differ")
+        for name, t in (("viz/README", a), ("figure page", b)):
+            if "within about ten percent" in t:
+                probs.append(name + " calls the SE a bound")
+        if "King Wen's pair positions sit close to the even share" in self._norm(viz):
+            probs.append("V1 sentence drops the interior-slot scope")
+        if "recomputed the symmetry bookkeeping at every layer" in self._norm(guide):
+            probs.append("guide summary claims the whole bookkeeping")
+        return probs
+
+    def test_showcase_cured(self):
+        self.assertEqual(self._showcase_problems(self.txt[self.VIZ], self.txt[self.VTR4], self.txt[self.GUIDE]), [])
+
+    def test_showcase_red_on_old(self):
+        viz = self._swap(self.VIZ, (self.F_SE, self.F_V1))
+        vtr4 = self._swap(self.VTR4, (self.F_SE,))
+        guide = self._swap(self.GUIDE, (self.F_CG,))
+        self.assertEqual(len(self._showcase_problems(viz, vtr4, guide)), 4)
+
+    # --- CX-388 (F11-009#11): V4 withholds King Wen's name when the receipt disagrees ------------
+    _RENDER = r'''
+import sys, json, io, contextlib
+sys.path.insert(0, sys.argv[1])
+import report_figures as R
+import matplotlib.axes
+rec = {"titles": []}
+_st = matplotlib.axes.Axes.set_title
+def st(self, s, *a, **k):
+    rec["titles"].append(s); return _st(self, s, *a, **k)
+matplotlib.axes.Axes.set_title = st
+buf = io.StringIO()
+with contextlib.redirect_stdout(buf):
+    rec["ok"] = R.fig_tr12_kc_shells(sys.argv[2], alts=sys.argv[3])
+rec["out"] = buf.getvalue()
+print(json.dumps(rec))
+'''
+
+    def _render(self, viz_dir, curve, receipt):
+        import json
+        import tempfile
+        with tempfile.TemporaryDirectory(prefix="ft2b1_v4_") as d:
+            r = subprocess.run([sys.executable, "-c", self._RENDER, viz_dir, curve, receipt], cwd=d,
+                               capture_output=True, text=True, timeout=300)
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+        return json.loads(r.stdout.strip().splitlines()[-1])
+
+    @unittest.skipUnless(importlib.util.find_spec("matplotlib") and importlib.util.find_spec("numpy"),
+                         "matplotlib/numpy absent (viz/ is an optional external surface)")
+    def test_v4_title_withheld_on_disagreeing_receipt(self):
+        import tempfile
+        viz = os.path.join(self.root, "viz")
+        kw, bank = os.path.join(self.root, self.KW), os.path.join(self.root, self.BANK)
+        rec = self._render(viz, kw, bank)
+        self.assertTrue(rec["ok"])
+        self.assertIn("King Wen's neighbourhood shells", rec["titles"][0],
+                      "precondition: against the published receipt the table is titled as King Wen's walk")
+        with open(bank, encoding="utf-8") as fh:
+            lines = fh.read().split("\n")
+        f = lines[6].split("\t")
+        self.assertEqual(f[0], "5", "precondition: line 7 of the receipt is step 5")
+        f[2] = str(int(f[2]) + 1)
+        lines[6] = "\t".join(f)
+        with tempfile.TemporaryDirectory(prefix="ft2b1_rcpt_") as d:
+            bad = os.path.join(d, "q3_profile_exact.tsv")
+            with open(bad, "w", encoding="utf-8") as fh:
+                fh.write("\n".join(lines))
+            rec = self._render(viz, kw, bad)
+        self.assertTrue(rec["ok"])
+        self.assertIn("disagrees with the curve at step 5, column 'entry'", rec["out"], "precondition: the band join refuses")
+        self.assertNotIn("King Wen's neighbourhood shells", "\n".join(rec["titles"]),
+                         "a receipt that contradicts the table must withhold King Wen's name")
+        self.assertIn("NOT identified as King Wen's walk", rec["titles"][0])
+        self.assertIn("V4 title: the published receipt disagrees with this table", rec["out"])
+
+    def test_v4_title_rule_documented(self):
+        self.assertIn("agrees with at every step (since 2026-10-17;", self.txt[self.VIZ])
+
+    # --- CX-389 (Fable front-page review 2026-10-17; MUST-1 is the README sibling of CX-376,
+    # Codex F02-004#2 / CAL-002#95): the front page ------------------------------------------------
+    README = "README.md"
+    RREADME = os.path.join("reports", "README.md")
+    SOLVEMD = os.path.join("documentation", "SOLVE.md")
+    BMIN = os.path.join("documentation", "BOUNDARY_MINIMUM.md")
+    CORR = os.path.join("documentation", "CORRECTIONS.md")
+    CIT = os.path.join("documentation", "CITATIONS.md")
+
+    def _fp(self, rel):
+        if rel not in self.txt:
+            with open(os.path.join(self.root, rel), encoding="utf-8") as fh:
+                self.txt[rel] = fh.read()
+        return self.txt[rel]
+
+    H_UNIQ = (
+        ("16,504 oriented leaves represent. Within the enumerated datasets King Wen is singled out only by an\n"
+         "**identifying set of boundaries beyond C1–C5** (five at 100T and 560T, four at 10T — two of them being C6 and C7, so three beyond C1–C7 at 100T and 560T, two at 10T), not by C1–C7 alone — at 560T, C6, C7 and boundary 4 together still leave\n"
+         "14 non-King-Wen records ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md); [BOUNDARY_MINIMUM](documentation/BOUNDARY_MINIMUM.md)) — and it is\n"
+         "never singled out in the full space.",
+         "16,504 oriented leaves represent. King Wen is\nunique only within **budgeted enumerated slices**, never in the full space."),
+        ("never to the full space, and even there it needs identifying boundaries beyond C1–C7 (TR-4).",
+         "never to the full space."),
+    )
+
+    def _uniq_problems(self, readme, rreadme, solvemd):
+        b = self._norm(self._fp(self.BMIN))
+        self.assertIn("51,404 → 481 → 14 → 1 → 0", b, "precondition: the 560T greedy curve")
+        self.assertIn("C6, C7 and boundary 4 together still leave 14 non-King-Wen records", self._norm(self.txt[self.TR4]),
+                      "precondition: TR-4 (CX-376) carries the corrected sentence")
+        probs = []
+        for name, t in (("README", readme), ("reports/README", rreadme), ("SOLVE.md", solvemd)):
+            if re.search(r"unique only within (\*\*)?budgeted", self._norm(t)):
+                probs.append(name + " still says King Wen is unique within the budgeted slices")
+        r = self._norm(readme)
+        if "C6, C7 and boundary 4 together still leave 14 non-King-Wen records" not in r:
+            probs.append("README lacks the 14-survivor statement")
+        if "even there it needs identifying boundaries beyond C1–C7" not in r:
+            probs.append("README's scope note lacks the identifying-boundary clause")
+        return probs
+
+    def test_front_page_uniqueness_cured(self):
+        self.assertEqual(self._uniq_problems(self._fp(self.README), self._fp(self.RREADME), self._fp(self.SOLVEMD)), [])
+
+    def test_front_page_uniqueness_red_on_old(self):
+        self._fp(self.README)
+        old = self._swap(self.README, self.H_UNIQ)
+        p = self._uniq_problems(old, self._fp(self.RREADME), self._fp(self.SOLVEMD))
+        self.assertIn("README still says King Wen is unique within the budgeted slices", p)
+        self.assertIn("README lacks the 14-survivor statement", p)
+
+    H_NARR_OLD = ("*(updated 2026-10-02, Q-944: this read)*", "(Until 2026-10-02 this sentence offered)",
+                  "*(Updated 2026-10-11: TR-12 §3 now publishes it)*", "Before 2026-08-04 the recipe had never actually been run",
+                  "*(added 2026-10-03)*", "(mod 24 in the 2026-07-25 run; both instruments gate mod 48 since 2026-10-02)",
+                  "The standalone n=31 V3 rows passed on 2026-09-25 (`TR12_V3_FIG=PASS`)")
+
+    def _narr_problems(self, readme):
+        self.assertIn("Q-944", self._fp(self.CORR), "precondition: the ledger carries the Q-944 history")
+        probs = []
+        if re.search(r"\bQ-\d+\b", readme):
+            probs.append("a private backlog id is on the front page")
+        if re.search(r"\*\((updated|Updated|added) 20\d\d-\d\d-\d\d", readme):
+            probs.append("a dated update note is on the front page")
+        for s in ("Until 2026-10-02 this sentence", "had never actually been run", "mod 24 in the 2026-07-25 run",
+                  "remains withheld", "standalone n=31 V3"):
+            if s in self._norm(readme):
+                probs.append("correction narrative: " + s)
+        return probs
+
+    def test_front_page_narrative_cured(self):
+        self.assertEqual(self._narr_problems(self._fp(self.README)), [])
+
+    def test_front_page_narrative_red_on_old(self):
+        self.assertEqual(self._narr_problems(self._fp(self.README)), [], "precondition: the cured front page is clean")
+        for old in self.H_NARR_OLD:
+            self.assertNotEqual(self._narr_problems(self._fp(self.README) + "\n" + old + "\n"), [], old)
+
+    def _counts_problems(self, readme):
+        n = unittest.defaultTestLoader.loadTestsFromModule(sys.modules[__name__]).countTestCases()
+        self.assertGreater(n, 1000, "precondition: the harness has far more than the pinned counts")
+        return ["a hand-pinned test count: " + m for m in re.findall(r"\b\d[\d,]* tests\b", readme)]
+
+    def test_front_page_test_counts_cured(self):
+        self.assertEqual(self._counts_problems(self._fp(self.README)), [])
+
+    def test_front_page_test_counts_red_on_old(self):
+        old = self._swap(self.README, (("`python3 tests.py` and `lean lean/KingWen.lean`",
+                                        "`python3 tests.py` (64 tests at that date; 76 as of 2026-08-28) and `lean lean/KingWen.lean`"),
+                                       ("# regression harness (prints its own test count)",
+                                        "# regression harness (133 tests as of 2026-09-02)")))
+        self.assertEqual(len(self._counts_problems(old)), 2)
+
+    def _report_problems(self, readme):
+        self.assertIn("standing invitation to report prior", self._norm(readme), "precondition: the CITATIONS pointer stays")
+        return ["the digest sentence asks for a report with no channel"] if "please report it" in readme else []
+
+    def test_front_page_report_phrase_cured(self):
+        self.assertEqual(self._report_problems(self._fp(self.README)), [])
+
+    def test_front_page_report_phrase_red_on_old(self):
+        old = self._swap(self.README, (("is a finding. This recipe", "is a finding — please report it. This recipe"),))
+        self.assertEqual(self._report_problems(old), ["the digest sentence asks for a report with no channel"])
+
+    H_LABEL = "That gain is computed from N(7), for which no committed artifact exists"
+
+    def _label_problems(self, readme, tr4):
+        self.assertIn("a gain computed from N(7), for which no committed artifact exists", self._norm(tr4.split("## Abstract", 1)[0]),
+                      "precondition: TR-4's executive summary labels the gain")
+        probs = []
+        cap = self._norm(readme.split("**The boundary-information curve S(k).**", 1)[1].split("[TR-4 §Figure]", 1)[0])
+        self.assertIn("6.14 bits", cap, "precondition: the README caption uses the gain")
+        if self.H_LABEL not in cap:
+            probs.append("README S(k) caption uses 6.14 bits without its evidence label")
+        fig = self._norm(tr4.split("\n## Figure\n", 1)[1].split("\n## ", 1)[0])
+        if self.H_LABEL not in fig:
+            probs.append("TR-4 §Figure uses 6.14 bits without its evidence label")
+        return probs
+
+    def test_front_page_tr4_label_cured(self):
+        self.assertEqual(self._label_problems(self._fp(self.README), self.txt[self.TR4]), [])
+
+    def test_front_page_tr4_label_red_on_old(self):
+        old = self._swap(self.README, ((" (That gain is computed from N(7), for which no committed artifact exists; TR-4 §Update.)", ""),))
+        oldtr4 = self._swap(self.TR4, ((" (That gain is computed from N(7), for which no committed artifact exists; §Update.)", ""),))
+        self.assertEqual(len(self._label_problems(old, oldtr4)), 2)
+
+    def _bullet(self, readme, head):
+        lines = readme.split("\n")
+        s = next(i for i, l in enumerate(lines) if l.startswith(head))
+        e = next(i for i in range(s + 1, len(lines)) if lines[i].startswith("- **") or not lines[i].strip())
+        return lines[s:e]
+
+    def _bullet_problems(self, readme):
+        probs = []
+        for head, labels, cap in (
+                ("- **Eight rules asserted as design are proven forced.**",
+                 ("non-Lean transcription step", "attested, not reproducible", "--c1-constants-check", "5,449"), 12),
+                ("- **Exact counts at full scale.**",
+                 ("orientation-explicit", "necessary-condition gate, not a confirmation", "algorithmic, not specificational",
+                  "no third party", "remains an estimate"), 15)):
+            b = self._bullet(readme, head)
+            body = self._norm("\n".join(b))
+            lost = [w for w in labels if w not in body]
+            if lost:
+                probs.append("%s lost a scope label: %s" % (head, lost))
+            if len(b) > cap:
+                probs.append("%s runs %d lines, a report section rather than a headline" % (head, len(b)))
+        return probs
+
+    def test_front_page_headline_bullets_cured(self):
+        self.assertEqual(self._bullet_problems(self._fp(self.README)), [])
+
+    def test_front_page_headline_bullets_red_on_old(self):
+        r = self._fp(self.README)
+        self.assertEqual(self._bullet_problems(r), [], "precondition: the cured bullets are within budget")
+        pad = "\n".join("  padding line %d" % i for i in range(9))
+        for head in ("- **Eight rules asserted as design are proven forced.**", "- **Exact counts at full scale.**"):
+            b = self._bullet(r, head)
+            longer = r.replace("\n".join(b), "\n".join(b) + "\n" + pad)
+            self.assertEqual(len(self._bullet_problems(longer)), 1, head)
+        dropped = r.replace("is a **non-Lean transcription step**", "is a step")
+        self.assertEqual(len(self._bullet_problems(dropped)), 1)
+
+    def _gallery_problems(self, readme):
+        self.assertIn("TR12_V2=PASS:REDUCED-NO-BRANCH-CLASS-RIVER", self.txt[self.TR12], "precondition: the authority keeps the token")
+        gal = readme.split("\n## Figures\n", 1)[1].split("\n## References", 1)[0]
+        probs = ["verdict token in a caption: " + m for m in re.findall(r"`TR12_[A-Z0-9_]+[^`]*`", gal)]
+        for s in ("branch-tagged forward ladder", "f/g ladders"):
+            if s in gal:
+                probs.append("tooling vocabulary in a caption: " + s)
+        return probs
+
+    def test_front_page_gallery_vocabulary_cured(self):
+        self.assertEqual(self._gallery_problems(self._fp(self.README)), [])
+
+    def test_front_page_gallery_vocabulary_red_on_old(self):
+        old = self._swap(self.README, (
+            ("⚠ This is the **REDUCED** form: the river is", "⚠ This is the **REDUCED** form (`TR12_V2=PASS:REDUCED-NO-BRANCH-CLASS-RIVER`): the river is"),
+            ("preceding choices).\nWhat V5 adds", "preceding choices);\n`TR12_V5` reads `PASS`. What V5 adds"),
+            (" so it adds nothing.\n", " so it adds nothing. A joint split by first branch and current distance class is carried neither by the atlas nor by the f/g/t ladders: it would need a branch-tagged forward ladder, a new build of order 10² TB, which is not proposed.\n"),
+            ("not reproducible without the full-31 ladders TR-12 describes.", "not reproducible without the f/g ladders.")))
+        self.assertEqual(len(self._gallery_problems(old)), 4)
+# end class TestBatchFT2b1 (fast-track batch FT2b-1, CX-382..CX-389)
+
+
+class TestBatchFT3j(unittest.TestCase):
+    """Fast-track batch FT3j (CX-390): verify.c's two layer-reader selftests were RED on main.
+    Codex's final review (gpt-6-astra, F12-014#2), confirmed High in Fable's round-3b triage.
+
+    The stored-last domain check added on 2026-10-03 (`lc_last_outside`) rejects every layer entry
+    whose `last` is not an exit hexagram of a pair its mask selects. The two selftests' positive
+    fixtures carried `last` values outside those pairs, so from that day `--check-layers-selftest`
+    printed `LCSELFTEST_RESULT=FAIL` and `--scan-selftest` printed `SCAN-SELFTEST: *** FAIL ***`,
+    and nothing ran them. The guard was right and the fixtures were wrong. These tests build verify.c
+    (with -fopenmp, as published) and require each verdict as a WHOLE LINE. Each red test rebuilds
+    a copy of verify.c with one cure reverted (or the guard disabled) and asserts the selftest
+    fails for that reason. ROAE_TESTS_VERIFY_SRC swaps the verify.c under test: pointed at the
+    pre-FT3j verify.c, the two green tests fail."""
+
+    VA = os.path.join("reports", "certificates", "verify_all.sh")
+    LC_PASS = "LCSELFTEST_RESULT=PASS"
+    SCAN_PASS = "SCAN-SELFTEST: PASS"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="ft3j_")
+        cls.src = os.environ.get("ROAE_TESTS_VERIFY_SRC", "verify.c")
+        with open("verify.c", encoding="utf-8") as fh:
+            cls.cur = fh.read()
+        cls.vbin, cls.build_err = cls._build(cls.src, "verify_ft3j")
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    @classmethod
+    def _build(cls, src, name):
+        out = os.path.join(cls.tmp, name)
+        r = subprocess.run(["gcc", "-O2", "-pthread", "-fopenmp", "-o", out, src, "-lm", "-lz"],
+                           capture_output=True, text=True, timeout=600)
+        ok = r.returncode == 0 and os.path.exists(out)
+        return (out if ok else None), r.stderr[-2000:]
+
+    def _variant(self, name, edits):
+        s = self.cur
+        for old, new in edits:
+            self.assertEqual(s.count(old), 1, "precondition: %r occurs once in verify.c" % old)
+            s = s.replace(old, new)
+        p = os.path.join(self.tmp, name + ".c")
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(s)
+        b, err = self._build(p, name)
+        self.assertIsNotNone(b, err)
+        return b
+
+    @staticmethod
+    def _run(vbin, flag):
+        r = subprocess.run([vbin, flag], capture_output=True, text=True, timeout=900)
+        return r.returncode, r.stdout.splitlines()
+
+    def test_check_layers_selftest_passes(self):
+        self.assertIsNotNone(self.vbin, self.build_err)
+        rc, lines = self._run(self.vbin, "--check-layers-selftest")
+        self.assertTrue(self.LC_PASS in lines, "no whole line %r; tail:\n%s" % (self.LC_PASS, "\n".join(lines[-8:])))
+        self.assertEqual(rc, 0)
+        self.assertTrue(any(l.strip().startswith("root caught (value=Y key=Y; restored pass=Y)  stored-last caught=Y")
+                            for l in lines), "the stored-last leg [15] must run and be caught")
+
+    def test_scan_selftest_passes(self):
+        self.assertIsNotNone(self.vbin, self.build_err)
+        rc, lines = self._run(self.vbin, "--scan-selftest")
+        self.assertTrue(self.SCAN_PASS in lines, "no whole line %r; output:\n%s" % (self.SCAN_PASS, "\n".join(lines)))
+        self.assertEqual(rc, 0)
+        pos = [l for l in lines if re.match(r"  \[(a1|a2|b) lanes=[123]\] ", l)]
+        self.assertEqual(len(pos), 9, "three positive fixtures x three lane counts")
+        for l in pos:
+            self.assertIn("rc=0==0  positive rc==0: YES", l)
+
+    def test_red_old_check_layers_fixture(self):
+        # the positive fixture of [1]/[2] as shipped before FT3j: last = 5, 7, 9 (outside {17,34} / {23,58})
+        b = self._variant("verify_oldlc", [(
+            "uint32_t keys[3]={ (17u<<16)|1u, (23u<<16)|1u, (58u<<16)|2u };",
+            "uint32_t keys[3]={ (5u<<16)|1u, (7u<<16)|1u, (9u<<16)|2u };")])
+        rc, lines = self._run(b, "--check-layers-selftest")
+        self.assertNotEqual(rc, 0)
+        self.assertIn("LCSELFTEST_RESULT=FAIL", lines)
+        self.assertNotIn(self.LC_PASS, lines)
+        self.assertTrue(any("v1 pass=N  v2 pass=N" in l for l in lines))
+        self.assertTrue(any("whose last is not an element of a pair in their mask" in l for l in lines))
+
+    def test_red_old_scan_fixture(self):
+        # fixture A's lasts as shipped before FT3j (1..6, outside both pairs): both readers reject
+        # it alike, so only the positive-rc leg can catch it
+        b = self._variant("verify_oldscan", [(
+            "static const uint32_t lastA[2] = {17, 34}, lastB[2] = {23, 58};",
+            "static const uint32_t lastA[2] = {1, 2}, lastB[2] = {3, 4};")])
+        rc, lines = self._run(b, "--scan-selftest")
+        self.assertNotEqual(rc, 0)
+        self.assertIn("SCAN-SELFTEST: *** FAIL ***", lines)
+        self.assertNotIn(self.SCAN_PASS, lines)
+        a1 = [l for l in lines if l.startswith("  [a1 lanes=")]
+        self.assertTrue(a1 and all("positive rc==0: *** NO ***" in l and "filtered==sequential: YES" in l for l in a1),
+                        "identity holds; the positive-rc leg is what fails")
+
+    def test_red_guard_disabled(self):
+        # the stored-last leg [15] must discriminate the guard: disable it and the selftest fails
+        b = self._variant("verify_noguard", [(
+            "    return allow && last < 64 && !((allow >> last) & 1);",
+            "    (void)allow; (void)last; return 0;")])
+        rc, lines = self._run(b, "--check-layers-selftest")
+        self.assertNotEqual(rc, 0)
+        self.assertIn("LCSELFTEST_RESULT=FAIL", lines)
+        self.assertTrue(any("stored-last caught=N" in l for l in lines))
+
+    def test_verify_all_runs_both_selftests(self):
+        with open(self.VA, encoding="utf-8") as fh:
+            va = fh.read()
+        self.assertIn("require_line 'LCSELFTEST_RESULT=PASS' \\\"\\$SCRATCH/verify\\\" --check-layers-selftest", va)
+        self.assertIn("require_line 'SCAN-SELFTEST: PASS' \\\"\\$SCRATCH/verify\\\" --scan-selftest", va)
+        self.assertIn('check "verify.c build" "gcc -O2 -pthread -fopenmp -o \\"\\$SCRATCH/verify\\" verify.c -lm -lz"', va)
+
+    def test_verify_all_require_line_is_whole_line(self):
+        with open(self.VA, encoding="utf-8") as fh:
+            va = fh.read()
+        import shlex
+        m = re.search(r"^require_line\(\) \{.*?^\}\n", va, re.S | re.M)
+        self.assertTrue(m, "precondition: require_line is defined in verify_all.sh")
+        def rl(text, rc=0):
+            script = m.group(0) + "require_line 'LCSELFTEST_RESULT=PASS' bash -c %s\n" % shlex.quote(
+                "printf '%%s\\n' %s; exit %d" % (shlex.quote(text), rc))
+            return subprocess.run(["bash", "-c", script], capture_output=True, text=True, timeout=60).returncode
+        self.assertEqual(rl("x\nLCSELFTEST_RESULT=PASS\ny"), 0)
+        self.assertNotEqual(rl("LCSELFTEST_RESULT=PASSED"), 0)          # substring is not enough
+        self.assertNotEqual(rl("note: LCSELFTEST_RESULT=PASS"), 0)
+        self.assertNotEqual(rl("LCSELFTEST_RESULT=PASS", rc=1), 0)       # a failing producer fails
+
+# end class TestBatchFT3j (fast-track batch FT3j, CX-390)
+
+
+import math, shlex  # TestBatchG3 (fast-track batches FT2b-2..4)
+
+
+class TestBatchG3(unittest.TestCase):
+    """Fast-track batches FT2b-2..4 (push group G3; CX-392..CX-403): Codex's final review (gpt-6-astra),
+    round 2, triaged by Fable. FT2b-2 puts report wording back to its sources (TR-1, TR-2, TR-4, TR-6, TR-11,
+    METHODS, CLAIMS_DECIDED, CLAIM_TO_ARTIFACT, the front page); FT2b-3 closes fifteen push-path and battery
+    fail-open shapes (with the two round-3a riders F04-021#2/#4); FT2b-4 records the pre-registration ledger
+    notes beside the frozen files, which are never edited.
+
+    Wording tests read the text and, where the fact is measurable from the tree, measure it first (the
+    precondition) and then hold the text to it. Gate tests plant the defect Codex described, assert that
+    the plant reached the site (a shim saw its call, a file really is unreadable, a positive control
+    passes), and require the gate to go red; on the uncured scripts each plant passes and the test fails
+    for that reason (G3_LANE_REPORT.md records the run)."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    TR1 = os.path.join("reports", "TR1_EIGHT_CENTURIES_MEASURED.md")
+    TR2 = os.path.join("reports", "TR2_THE_RULES_CONFLICT.md")
+    TR4 = os.path.join("reports", "TR4_SIZE_OF_THE_SPACE.md")
+    TR6 = os.path.join("reports", "TR6_PARITY_SKELETON.md")
+    TR8 = os.path.join("reports", "TR8_REORDERING_REVISITED.md")
+    TR11 = os.path.join("reports", "TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md")
+    METHODS = os.path.join("reports", "METHODS.md")
+    CD = os.path.join("documentation", "CLAIMS_DECIDED.md")
+    CTA = os.path.join("documentation", "CLAIM_TO_ARTIFACT.md")
+    ESC = os.path.join("documentation", "PREREGISTRATION_ESCROW.md")
+    C8 = os.path.join("reports", "evidence", "c8screen")
+    QOY = os.path.join("reports", "evidence", "qoy1_q992")
+    EXEC_SITES = ("documentation/CRITIQUE.md", "reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md",
+                  "reports/TR1_EIGHT_CENTURIES_MEASURED.md", "reports/TR6_PARITY_SKELETON.md",
+                  "reports/TR7_CIRCULAR_READING.md", "reports/TR9_PRICING_THE_CONSTRAINTS.md",
+                  "reports/evidence/f5/README.md", "reports/evidence/r11/README.md")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="g3_")
+        cls.n = 0
+
+    @classmethod
+    def tearDownClass(cls):
+        subprocess.run(["chmod", "-R", "u+rwX", cls.tmp], capture_output=True)
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    # ---- helpers ------------------------------------------------------------------------------------
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _flat(self, rel):
+        return " ".join(self._r(rel).split())
+
+    def _d(self):
+        type(self).n += 1
+        d = os.path.join(self.tmp, "c%d" % self.n)
+        os.makedirs(d)
+        return d
+
+    def _wr(self, path, text, mode=0o644):
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.chmod(path, mode)
+
+    def _env(self, **extra):
+        e = dict(os.environ)
+        for k in list(e):
+            if k.startswith("GIT_") or k.startswith("DOC_GATE"):
+                e.pop(k)
+        e.update(GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t", GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+        e.update(extra)
+        return e
+
+    def _shim(self, d, tool, argre, rc=2):
+        """A `tool` on PATH that refuses (no output, exit rc) when its argv matches the ERE argre, and
+        logs each refusal to <d>/shim.log so the test can assert that the site was reached."""
+        real = shutil.which(tool)
+        self.assertTrue(real, "precondition: %s exists" % tool)
+        sd = os.path.join(d, "shim")
+        log = os.path.join(d, "shim.log")
+        body = ("#!/bin/bash\n_re=%s\nif [[ \"$*\" =~ $_re ]]; then echo \"%s $*\" >> %s; echo \"shim: %s refused\" >&2; exit %d; fi\n"
+                "exec %s \"$@\"\n" % (shlex.quote(argre), tool, shlex.quote(log), tool, rc, shlex.quote(real)))
+        self._wr(os.path.join(sd, tool), body, 0o755)
+        return sd
+
+    def _shimlog(self, d):
+        p = os.path.join(d, "shim.log")
+        if not os.path.exists(p):
+            return ""
+        with open(p, encoding="utf-8") as fh:
+            return fh.read()
+
+    def _bash(self, script, cwd=None, path_prefix=None, timeout=300, **env):
+        e = self._env(**env)
+        if path_prefix:
+            e["PATH"] = path_prefix + os.pathsep + e["PATH"]
+        return subprocess.run(["bash", "-c", script], cwd=cwd or self.ROOT, capture_output=True, text=True,
+                              env=e, timeout=timeout)
+
+    def _fn(self, text, name):
+        """The definition of shell function `name`: from `name(){`/`name() {` to the first line that is `}`."""
+        lines = text.split("\n")
+        st = [i for i, l in enumerate(lines) if re.match(r"^%s\(\)\s*\{" % re.escape(name), l)]
+        self.assertEqual(len(st), 1, "precondition: %s() is defined exactly once" % name)
+        j = next(k for k in range(st[0] + 1, len(lines)) if lines[k] == "}")
+        return "\n".join(lines[st[0]:j + 1]) + "\n"
+
+    def _line(self, text, prefix):
+        got = [l for l in text.split("\n") if l.startswith(prefix)]
+        self.assertEqual(len(got), 1, "precondition: exactly one line starts with %r" % prefix)
+        return got[0]
+
+    # ================================================================================================
+    # FT2b-2: report wording
+    # ================================================================================================
+    def test_tr11_storage_projection_held(self):
+        # measure: 12 B/entry over the peak live pair (k16 + k17) from the tracked aggregate table
+        ent = {}
+        for l in self._r(os.path.join("reports", "FULL31_EXACT_AGGREGATES.md")).split("\n"):
+            c = l.split("|")
+            if len(c) >= 10 and re.match(r"^\| *\d+ *\|", l) and "." in c[7]:
+                ent[int(c[1])] = int(c[5].replace(",", "").strip())
+        self.assertIn(16, ent, "precondition: the aggregate table was parsed")
+        tb = 12 * (ent[16] + ent[17]) / 1e12
+        self.assertTrue(1.2 <= tb <= 2.0, "precondition: 12 B/entry peak pair %.3f TB inside 1.2-2.0" % tb)
+        t = self._flat(self.TR11)
+        self.assertIn("is ≈%.2f TB, inside 1.2–2.0 TB" % tb, t, "TR-11 does not state the measured 12 B/entry peak")
+        self.assertNotIn("measurements, which exceeded the projected band", t, "TR-11 still says the band was exceeded")
+        self.assertNotIn("**The caveat fired**", t)
+
+    def test_tr11_resume_review_rung_and_sizes(self):
+        run = self._r(os.path.join("runs", "20260716_f1c5_c1c2c4c5_d128westus3", "run.out"))
+        res = re.findall(r"RESUME intra-layer checkpoint: layer k=\d+ restart at chunk t0=(\d+)", run)
+        self.assertEqual(len(res), 12, "precondition: twelve intra-layer resumes in run.out")
+        self.assertTrue(all(int(x) > 0 for x in res), "precondition: each restarts at a nonzero chunk")
+        t = self._flat(self.TR11)
+        self.assertNotIn("the interrupted layer's partial work was redone", t)
+        self.assertIn("twelve `RESUME intra-layer checkpoint` lines", t)
+        self.assertNotIn("resume reads only the manifest, so a kill in that window rebuilds one layer", t)
+        self.assertIn("f1c5_finalized_try_adopt", self._r("solve.c"), "precondition: the adopt path exists")
+        self.assertIn("finalized-layer marker", t)
+        self.assertIn("f1c5_finalized_try_adopt", self._r(os.path.join("documentation", "F1C5_LAYER_FORMAT.md")))
+        self.assertNotIn("independently reviewed", t.split("## Revision history")[0], "an unqualified 'independently reviewed' remains")
+        self.assertIn("--recount-rung 19", self._r(os.path.join("documentation", "REPRODUCE.md")), "precondition")
+        self.assertIn("`--recount-rung 19` per REPRODUCE.md", t)
+        self.assertNotIn("also accepts ten sizes that have no published count", t)
+        self.assertIn("nine have no published count, and the tenth, 31, is the full run", t)
+
+    def test_tr1_scope_and_attribution(self):
+        t = self._flat(self.TR1)
+        body = t.split("## Revision history")[0]
+        self.assertNotIn("Every number here can be recomputed, and", body)
+        self.assertIn("machine-checked in Lean 4 modulo a non-Lean transcription step (§3(2))", body)
+        self.assertNotIn("Reproducing a source's stated King Wen value is the credential", body)
+        self.assertNotIn("the one rule the literature ever offered", body)
+        # measure the C1-C5-layer mean fiber
+        mean = 1.3287e38 / math.factorial(31)
+        self.assertTrue(1.55e4 < mean < 1.65e4, "precondition: C1-C5 / 31! = %.3g" % mean)
+        self.assertIn("the mean is ≈1.6×10⁴", body)
+        self.assertIn("8.80×10⁻⁵", self._r(self.TR8), "precondition: TR-8 carries the gender measurement")
+        self.assertNotIn("it is conservative in the sense", body)
+        self.assertIn("lishangxin2000", self._r(os.path.join("documentation", "CITATIONS.md")), "precondition: anchor")
+        self.assertIn("[Li Shangxin 2000](../documentation/CITATIONS.md#lishangxin2000)", body)
+        self.assertIn("credits to Li Shangxin alongside Schulz", body)
+        self.assertNotIn("the consolidation attribution to Lai Zhide is unchanged", body)
+        self.assertNotIn("singly or jointly, approaches uniqueness", body)
+        self.assertNotIn("(largest shift: row 1", body)
+        self.assertIn("the largest shift is row 4's, 0.667 → 0.982", body)
+        self.assertNotIn("any non-C1 ordering scores low", body)
+        self.assertNotIn("reruns byte-identically", body)
+        self.assertNotIn("byte-identical to the archived reports/evidence/f5/f5_modec_fiber.out", body)
+        self.assertNotIn("byte-identically from a clone", self._flat(self.CD))
+
+    def test_tr2_scope_wording(self):
+        t = self._flat(self.TR2).split("## Revision history")[0]
+        self.assertNotIn("every load-bearing claim is an artifact check", t)
+        self.assertIn("**attested, not reproducible**", t)
+        self.assertIn("Attested, not reproducible: the Half A/B driver did not survive", t)
+        self.assertNotIn("Every impossibility claim in this report ships that way", t)
+        self.assertNotIn("over EVERY C1-valid ordering by two", t)
+        self.assertNotIn("we resolve the conjectures these authors raised", t)
+        # measure the grids from the shipped instrument
+        src = self._r(os.path.join("reports", "evidence", "f11", "compute_f11_bf.py"))
+        pc = eval(re.search(r"^PC_GRID = (\[[^\]]*\])", src, re.M).group(1))
+        dec = math.log10(max(pc) / min(pc))
+        self.assertAlmostEqual(dec, 1.26, places=2, msg="precondition: p_c spans %.3f decades" % dec)
+        self.assertNotIn("each spanning ~2 orders of magnitude", t)
+        self.assertIn("about 1.26", t)
+        self.assertNotIn("which is exactly M_corr's support", t)
+        self.assertNotIn("sighting of how thin the C1–C5 space is", t)
+        self.assertNotIn("tamper-evident witness that no verdict-relevant element moved", t)
+
+    def test_reproduction_promise_exceptions_and_exec_lane(self):
+        for f in self.EXEC_SITES:
+            t = self._flat(f)
+            self.assertNotIn("executes every documented command on a default environment", t, f)
+            self.assertIn("executes every command it classifies as runnable on a default environment", t, f)
+        self.assertIn("SKIP-OPS", self._r(os.path.join("scripts", "exec_lane.sh")), "precondition: the lane has never-run classes")
+        self.assertIn("no command in this repository computes these two correlations", self._flat(self.TR4))
+        self.assertIn("a recorded count: no command in this repository extracts that core", self._flat(self.TR6))
+
+    def test_claims_readme_methods_cta(self):
+        cd = self._flat(self.CD)
+        self.assertNotIn("below the global 91-observable ≈5.5×10⁻⁴ bar", cd)
+        self.assertTrue(6.8e-4 > 0.05 / 91 and 1.36e-3 > 0.05 / 91, "precondition: both sidings exceed the bar")
+        self.assertNotIn("were never back-filled into it", cd)
+        led = self._r(os.path.join("documentation", "CORRECTIONS.md"))
+        self.assertIn("## 2026-09-02 — six ledger defects", led, "precondition: the B2 backfill entry exists")
+        self.assertIn("## 2026-09-02 — a false theorem the registry never covered", led, "precondition: the B3 entry exists")
+        self.assertIn("complement-distance row's 560T minimum and tie rate", cd)
+        rd = self._flat("README.md")
+        self.assertNotIn("CRITIQUE states the limit in the same terms", rd)
+        self.assertIn("Each is a theorem, machine-checked in Lean 4 modulo a transcription step", rd)
+        m = self._flat(self.METHODS)
+        self.assertIn('printf("  %s : est=%.6e  STARVATION', self._r("solve.c"), "precondition: solve.c prints the token")
+        self.assertNotIn("no such token exists in `solve.c` today", m)
+        self.assertNotIn("delta-method variance reduces exactly", m)
+        self.assertIn("`verify.py --check-null-g --unpinned`", m)
+        self.assertNotIn("`python3 solve.py --atlas-probe atlas_n31.json`", m)
+        cta = self._r(self.CTA)
+        r9 = [l for l in cta.split("\n") if l.startswith("| 9 |")][0]
+        r10 = [l for l in cta.split("\n") if l.startswith("| 10 |")][0]
+        h9 = self._r(os.path.join("reports", "evidence", "r11", "r11_moore_strict.out"))
+        h10 = self._r(os.path.join("reports", "evidence", "dav_tier1.out"))
+        self.assertIn("probes=20000000000 threads=64", h9, "precondition: the archived header")
+        self.assertIn("probes=2000000000 threads=32", h10, "precondition: the archived header")
+        self.assertIn("SOLVE_THREADS=64", r9)
+        self.assertIn("--estimate-knuth 20000000000", r9)
+        self.assertIn("SOLVE_THREADS=32", r10)
+
+    # ================================================================================================
+    # FT2b-4: pre-registration ledger notes (frozen files unchanged)
+    # ================================================================================================
+    def test_c8screen_n1_floor_note_measured(self):
+        rows = [l.split("\t") for l in self._r(os.path.join(self.C8, "SUMMARY.tsv")).split("\n")[1:] if l]
+        cm = [r for r in rows if r[0].startswith("C-M")]
+        below = [r for r in cm if float(r[9]) < 2 * 2 ** -13]
+        self.assertEqual((len(cm), len(below)), (632, 208), "precondition: N1 minimum attainable p")
+        self.assertTrue(all(float(r[9]) > 0.005 / 1300 * 40 for r in cm), "precondition: all still >= 40x the bar")
+        unin = [r for r in rows if r[13] == "UNINFORMATIVE"]
+        self.assertEqual(len(unin), 669, "precondition")
+        self.assertGreaterEqual(min(float(r[3]) for r in unin), 3.6e-3, "precondition: KW operative p")
+        t = self._flat(os.path.join(self.C8, "README.md"))
+        self.assertIn("puts 208 of the 632 `C-M` members below 2·2⁻¹³", t)
+        self.assertIn("## Notes on the frozen registration (2026-10-17)", self._r(os.path.join(self.C8, "README.md")))
+        self.assertNotIn("so a run's histograms are not bit-for-bit repeatable", t)
+        # the bundle's SHA256SUMS lists README.md: the edited README must still verify
+        r = subprocess.run(["sha256sum", "-c", "--quiet", "SHA256SUMS"], cwd=os.path.join(self.ROOT, self.C8),
+                           capture_output=True, text=True, timeout=120)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_c8screen_power_boundaries_recomputed(self):
+        ess = 0.662 * (1 - 0.662) / 1.316e-4 ** 2
+        def solve(beta, k):
+            lo, hi = 0.0, beta
+            for _ in range(200):
+                mid = (lo + hi) / 2
+                lo, hi = (mid, hi) if mid + 3 * math.sqrt(k * mid / ess) < beta else (lo, mid)
+            return lo
+        self.assertEqual(("%.1e" % solve(0.005 / 1300, 1), "%.1e" % solve(0.005 / 49, 1)), ("2.5e-06", "9.4e-05"),
+                         "precondition: the registration's one-sided arithmetic reproduces")
+        two = ("%.1e" % solve(0.005 / 1300, 2), "%.1e" % solve(0.005 / 49, 2))
+        self.assertEqual(two, ("2.1e-06", "9.1e-05"))
+        t = self._flat(os.path.join(self.C8, "README.md"))
+        self.assertIn("the boundaries are 2.1×10⁻⁶ (stratum C) and 9.1×10⁻⁵ (stratum S)", t)
+        self.assertEqual(hashlib.sha256(open(os.path.join(self.ROOT, self.C8, "PREREGISTRATION.md"), "rb").read()).hexdigest(),
+                         "de89498bb6df51fe55b271f22ac26fcec919653203e5a92677d39075cbca1d67", "the frozen public copy changed")
+
+    def test_qoy_notes_fsum_threads_and_fwer(self):
+        self.assertAlmostEqual(0.005 + 0.005 + 0.01 / 3, 0.01333, places=5)
+        t = self._flat(os.path.join(self.QOY, "README.md"))
+        self.assertIn("`SOLVE_THREADS=16`", t)
+        for f in ("N1_A.out", "N1_B.out", "N1P_A.out", "N1P_B.out"):
+            self.assertIn("threads=16", self._r(os.path.join(self.QOY, f)), "precondition: " + f)
+        self.assertIn("≈ 0.0133, above the stated 0.01", t)
+        self.assertIn("seed_base=0x243f6a8885a308d3", self._r(os.path.join(self.QOY, "N1_A.out")), "precondition: default seed")
+        self.assertIn("half A is not disjoint from those runs", t)
+        an = self._r(os.path.join(self.QOY, "analyze.py"))
+        self.assertIn("a = math.fsum(x[0] for x in sel); q = math.fsum(x[1] for x in sel)", an)
+        r = subprocess.run([sys.executable, "analyze.py"], cwd=os.path.join(self.ROOT, self.QOY), capture_output=True,
+                           text=True, timeout=300)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout, self._r(os.path.join(self.QOY, "TOKENS.txt")), "analyze.py no longer reproduces TOKENS.txt")
+
+    def test_tr8_censored_escrow_and_wilson(self):
+        self.assertAlmostEqual((1 - 1e-7) ** 10 ** 7, math.exp(-1), places=4)
+        t8 = self._flat(self.TR8).split("## Revision history")[0]
+        self.assertNotIn("at K = 24 a bound, below 1×10⁻⁷", t8)
+        self.assertIn("at K = 24 censored, not a bound", t8)
+        esc = self._r(self.ESC)
+        self.assertIn("### 2026-10-17 — one sentence annotated, no published value changed", esc)
+        self.assertIn("(Annotated 2026-10-17, Codex final review F02-002#2: it is not.", esc)
+        ro = self._r("roae.py")
+        self.assertNotIn('[Wilson 95pct:', ro)
+        self.assertIn("z=1.645", ro, "precondition: the bounds are one-sided 95%")
+
+    # ================================================================================================
+    # FT2b-3: push-path and battery gates (planted defects)
+    # ================================================================================================
+    def test_prepush_record_counts_from_the_checked_read(self):  # F05-003#1
+        d = self._d()
+        repo = os.path.join(d, "repo")
+        os.makedirs(repo)
+        rec = os.path.join("scripts", "prepush_verdict_record.sh")
+        self._wr(os.path.join(repo, rec), self._r(rec), 0o755)
+        self._wr(os.path.join(repo, "tests.py"), "import unittest\nclass T(unittest.TestCase):\n"
+                 "    def test_a(self):\n        pass\n    def test_b(self):\n        pass\n")
+        self._wr(os.path.join(repo, "NOTE.md"), "a\n")
+        for a in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "A"]):
+            subprocess.run(["git", "-C", repo] + a, check=True, capture_output=True, env=self._env())
+        tree = subprocess.run(["git", "-C", repo, "rev-parse", "HEAD^{tree}"], capture_output=True, text=True,
+                              env=self._env()).stdout.strip()
+        tc = subprocess.run(["bash", os.path.join(repo, rec), "toolchain"], capture_output=True, text=True,
+                            timeout=60).stdout.strip()
+        logs = {"hook": "PREPUSH_TREE=%s\nPREPUSH_CITGATE_BASE=NONE\nPREPUSH_TOOLCHAIN=%s\n" % (tree, tc),
+                "tests": "ROAE_TESTS_TREE=%s\nROAE_TESTS_TOOLCHAIN=%s\nRan 1 test in 0.1s\n\nOK\n" % (tree, tc),
+                "citation": "CITATION_LINE_GATE_TREE=%s\nCITATION_LINE_GATE=PASS\n" % tree,
+                "stamp": "TR12_REPRO_GATE_TREE=%s\nTR12_REPRO_GATE_CURRENT=YES\n" % tree}
+        for k, v in logs.items():
+            self._wr(os.path.join(d, k + ".log"), v)
+        cnt = os.path.join(d, "show.count")
+        self._wr(os.path.join(d, "bin", "git"),
+                 '#!/bin/bash\ncase " $* " in *" show HEAD:tests.py "*)\n'
+                 '  n=$(cat %s 2>/dev/null || echo 0); n=$((n+1)); echo $n > %s\n'
+                 '  if [ "$n" -ge 2 ]; then printf "    def test_a(self):\\n"; exit 128; fi ;;\nesac\nexec %s "$@"\n'
+                 % (shlex.quote(cnt), shlex.quote(cnt), shlex.quote(shutil.which("git"))), 0o755)
+        env = self._env(TMPDIR=d)
+        env["PATH"] = os.path.join(d, "bin") + os.pathsep + env["PATH"]
+        out = os.path.join(d, "record.txt")
+        r = subprocess.run(["bash", os.path.join(repo, rec), "write", "--out", out,
+                            "--hook-log", os.path.join(d, "hook.log"), "--tests-log", os.path.join(d, "tests.log"),
+                            "--citation-log", os.path.join(d, "citation.log"), "--stamp-log", os.path.join(d, "stamp.log"),
+                            "--repo", repo], capture_output=True, text=True, env=env, timeout=120)
+        self.assertTrue(os.path.exists(cnt), "precondition: the HEAD:tests.py read went through the shim:\n" + r.stdout[-1500:])
+        rec_txt = open(out, encoding="utf-8").read() if os.path.exists(out) else ""
+        self.assertNotIn("LEG_TESTS=PASS", rec_txt, "a 1-test log passed against a partial second read of tests.py "
+                         "(%s read(s)):\n%s" % (open(cnt).read().strip(), rec_txt))
+
+    def test_pre_push_unterminated_last_record_is_validated(self):  # F05-008#14
+        hook = os.path.join(self.ROOT, "scripts", "pre_push_gate.sh")
+        ctl = subprocess.run(["bash", hook, "origin", "/nonexistent"], cwd=self.ROOT, input="garbage\n",
+                             capture_output=True, text=True, env=self._env(), timeout=300)
+        self.assertEqual(ctl.returncode, 1, "precondition: a terminated malformed line blocks:\n" + ctl.stdout[-1500:])
+        r = subprocess.run(["bash", hook, "origin", "/nonexistent"], cwd=self.ROOT, input="garbage",
+                           capture_output=True, text=True, env=self._env(), timeout=300)
+        self.assertNotIn("no shas to gate", r.stdout, "the unterminated record was skipped:\n" + r.stdout[-1500:])
+        self.assertEqual(r.returncode, 1, r.stdout[-1500:])
+        self.assertIn("malformed ref line on stdin", r.stdout)
+
+    def test_corrections_inventory_self_row_filter_status(self):  # F05-006#1
+        src = self._r(os.path.join("scripts", "corrections_inventory.sh"))
+        line = self._line(src, "  awk -F'\\t' -v h=\"$self\" 'NR==1 || !($5==\"git\" && $6==h)'")
+        d = self._d()
+        self._wr(os.path.join(d, "rebuilt"), "h\nr1\n")
+        sd = self._shim(d, "awk", r"NR==1 \|\| !")
+        script = ('check_verdict(){ echo "CORRECTIONS_INVENTORY_CHECK=$1"; exit 2; }\nCHECK_TMP=%s; self=abc\n%s\n'
+                  'echo REACHED-CMP\n' % (shlex.quote(d), line))
+        r = self._bash(script, cwd=d, path_prefix=sd)
+        self.assertIn("awk", self._shimlog(d), "precondition: the filter's awk was the one refused")
+        self.assertNotIn("REACHED-CMP", r.stdout, "a failed self-row filter went on to the comparison")
+        self.assertIn("CORRECTIONS_INVENTORY_CHECK=ERROR", r.stdout)
+
+    def test_row_assertion_remap_failure_is_an_error(self):  # F05-008#2
+        d = self._d()
+        bat = os.path.join(d, "battery.sh")
+        self._wr(bat, ('row_begin c_ok\n(\n  echo "k\tv"\n  while read -r line; do echo "$line"; done < <(grep -o \'"x": {[^}]*}\' "$A") | tee "$W/x.tsv"\n'
+                       '  fails=0\n  n=$(grep -c . "$W/x.tsv")\n  [ "$n" -eq "$N_PAIRS" ] || { echo "X_FAIL\temitted $n rows"; fails=1; }\n'
+                       '  exit $fails\n) >>"$RAW" 2>&1; rc=$?\nrow_end TR12_OK $rc\n'))
+        gate = ["bash", os.path.join(self.ROOT, "scripts", "row_assertion_gate.sh"), "--battery", bat]
+        ctl = subprocess.run(gate, cwd=self.ROOT, capture_output=True, text=True, env=self._env(), timeout=300)
+        self.assertIn("ROW_ASSERTION=PASS", ctl.stdout.splitlines(), "precondition: the clean battery passes:\n" + ctl.stdout[-1500:])
+        sd = self._shim(d, "awk", "getline x < B")
+        e = self._env()
+        e["PATH"] = sd + os.pathsep + e["PATH"]
+        r = subprocess.run(gate, cwd=self.ROOT, capture_output=True, text=True, env=e, timeout=300)
+        self.assertIn("getline", self._shimlog(d), "precondition: the remap awk was refused")
+        self.assertNotIn("ROW_ASSERTION=PASS", r.stdout.splitlines(), "a failed remap passed:\n" + r.stdout[-1500:])
+        self.assertIn("ROW_ASSERTION=ERROR", r.stdout.splitlines())
+
+    def _failopen_tree(self, extra):
+        d = self._d()
+        tree = os.path.join(d, "tree")
+        for k in range(1, 6):
+            self._wr(os.path.join(tree, "scripts", "g%d.sh" % k),
+                     '#!/bin/bash\n[ -f documentation/x%d.md ] || { echo "G%d_VERDICT=FAIL"; exit 1; }\necho "G%d_VERDICT=PASS"\n' % (k, k, k), 0o755)
+        if extra:
+            self._wr(os.path.join(tree, "scripts", "killed.sh"), extra, 0o755)
+        return subprocess.run(["bash", os.path.join(self.ROOT, "scripts", "failopen_closure_gate.sh"), "--tree", tree,
+                               "--timeout", "20"], cwd=self.ROOT, capture_output=True, text=True, env=self._env(), timeout=600)
+
+    def test_failopen_signal_death_is_not_a_refusal(self):  # F05-008#9
+        ctl = self._failopen_tree(None)
+        self.assertIn("FAILOPEN_CLOSURE=OK", ctl.stdout.splitlines(), "precondition: five refusing gates are OK:\n" + ctl.stdout[-1500:])
+        r = self._failopen_tree('#!/bin/bash\n# KILLED_VERDICT=FAIL is what it would print\nkill -TERM $$\necho "KILLED_VERDICT=FAIL"\nexit 1\n')
+        self.assertIn("killed.sh", r.stdout, "precondition: the planted script was in the population:\n" + r.stdout[-1500:])
+        self.assertNotIn("FAILOPEN_CLOSURE=OK", r.stdout.splitlines(), "a SIGTERM death graded CLOSED:\n" + r.stdout[-1500:])
+        self.assertIn("FAILOPEN_CLOSURE=ERROR", r.stdout.splitlines())
+
+    def test_tr12_gate_check_needs_a_real_fingerprint(self):  # F05-008#10
+        src = self._r(os.path.join("scripts", "tr12_repro_gate.sh"))
+        fp = self._line(src, "FP=$(fingerprint)")
+        want = self._line(src, "  WANT=$(awk -F= '/^fingerprint=/{print $2}' \"$STAMP\")")
+        d = self._d()
+        self._wr(os.path.join(d, "stamp.txt"), "# a stamp with no fingerprint line\n")
+        script = ('set -uo pipefail\nSTAMP=%s\nfingerprint(){ return 1; }\n%s\n%s\n'
+                  'if [ "$FP" = "$WANT" ]; then echo "TR12_REPRO_GATE_CURRENT=YES"; exit 0; fi\necho "TR12_REPRO_GATE_CURRENT=NO"\n'
+                  % (shlex.quote(os.path.join(d, "stamp.txt")), fp, want))
+        r = self._bash(script, cwd=d)
+        self.assertNotIn("TR12_REPRO_GATE_CURRENT=YES", r.stdout.splitlines(), "an empty fingerprint matched an empty stamp:\n" + r.stdout)
+        self.assertNotEqual(r.returncode, 0)
+
+    def test_tr12_gate_manifest_diff_filter_status(self):  # F05-008#11
+        fn = self._fn(self._r(os.path.join("scripts", "tr12_repro_gate.sh")), "manifest_diff")
+        d = self._d()
+        h = "0" * 64
+        self._wr(os.path.join(d, "pre"), "%s  a.sh\n%s  allowed.sh\n" % (h, h))
+        self._wr(os.path.join(d, "post"), "%s  a.sh\n%s  allowed.sh\n" % ("1" * 64, h))
+        script = 'set -uo pipefail\n%s\nmanifest_diff pre post allowed.sh; echo "RC=$?"\n' % fn
+        ctl = self._bash(script, cwd=d)
+        self.assertIn("RC=1", ctl.stdout.splitlines(), "precondition: a changed input is reported:\n" + ctl.stdout)
+        sd = self._shim(d, "grep", "-vxF")
+        r = self._bash(script, cwd=d, path_prefix=sd)
+        self.assertIn("-vxF", self._shimlog(d), "precondition: the allowed-path filter was refused")
+        self.assertNotIn("RC=0", r.stdout.splitlines(), "a failed filter read as 'unchanged':\n" + r.stdout)
+        self.assertIn("RC=2", r.stdout.splitlines())
+
+    def test_tr12_gate_comment_membership_comm_status(self):  # F05-008#12
+        fn = self._fn(self._r(os.path.join("scripts", "tr12_repro_gate.sh")), "comment_membership_check")
+        d = self._d()
+        script = ('set -uo pipefail\nCORE=; DECLARED=; REFERENCED_NOT_INPUTS=\n'
+                  'derived_inputs(){ if [ "${1:-}" = code ]; then echo a.sh; else printf "a.sh\\nb.sh\\n"; fi; }\n'
+                  '%s\ncomment_membership_check; echo "RC=$?"\n' % fn)
+        ctl = self._bash(script, cwd=d)
+        self.assertIn("RC=1", ctl.stdout.splitlines(), "precondition: a comment-only member is reported:\n" + ctl.stdout)
+        sd = self._shim(d, "comm", "-23")
+        r = self._bash(script, cwd=d, path_prefix=sd)
+        self.assertIn("comm", self._shimlog(d), "precondition: comm was refused")
+        self.assertNotIn("RC=0", r.stdout.splitlines(), "a failed comm read as 'no comment-only member':\n" + r.stdout)
+
+    def test_tr12_repro_manifest_group_pipefail(self):  # F05-002#12
+        src = self._r(os.path.join("scripts", "tr12_repro.sh"))
+        a = src.index('    if [ "$REGEN" -eq 1 ] || [ "$MINT_MISSING" -eq 1 ]; then\n        {\n')
+        b = src.index('        } > "$EXPECTDIR/_MANIFEST.txt" || VWF=1\n', a)
+        block = src[a:b].split("\n", 1)[1] + '        } > "$EXPECTDIR/_MANIFEST.txt" || VWF=1\n'
+        d = self._d()
+        exp = os.path.join(d, "expect")
+        self._wr(os.path.join(exp, "a0_anchor.txt"), "x\n")
+        script = ('VWF=0; EXPECTDIR=%s; N_PAIRS=9; N_TOTAL=1; N_DIV24=1; C3MAX=1; SEED=1; Q8K=1; Q4ACM=1; Q1CM=1; V3K=1;'
+                  ' ANCHOR_LABEL=a; ANCHOR=b\n%s\necho "VWF=$VWF"\n' % (shlex.quote(exp), block))
+        ctl = self._bash(script, cwd=d)
+        self.assertIn("VWF=0", ctl.stdout.splitlines(), "precondition: a clean write leaves VWF=0:\n" + ctl.stdout + ctl.stderr)
+        sd = self._shim(d, "sha256sum", ".")
+        r = self._bash(script, cwd=d, path_prefix=sd)
+        self.assertIn("sha256sum", self._shimlog(d), "precondition: sha256sum was refused")
+        self.assertIn("VWF=1", r.stdout.splitlines(), "a failed sha256sum still wrote a passing manifest:\n" + r.stdout)
+
+    def test_module_split_broken_install_is_not_absent(self):  # F05-002#1, F05-003#6
+        d = self._d()
+        fake = os.path.join(d, "root")
+        self._wr(os.path.join(fake, "solve.py"), "import solve._nope_q963\n")
+        line = self._line(self._r(os.path.join("scripts", "tr12_repro.sh")), "say(){ ")
+        m = re.search(r"(py_import_state\(\)\{.*?echo BROKEN; \})", line)
+        self.assertIsNotNone(m, "precondition: py_import_state() found on its line")
+        r = self._bash('%s\npy_import_state solve\n' % m.group(1), cwd=d, REPO_ROOT=fake)
+        self.assertEqual(r.stdout.strip(), "BROKEN", "a missing SUBmodule of a present module read as ABSENT")
+        # the viz-shape probe (70_publication_surfaces.sh)
+        src = self._r(os.path.join("scripts", "doc_gates.d", "70_publication_surfaces.sh"))
+        probe = src.split("  _vd=$(python3 -c '", 1)[1].split("' 2>&1); _vdrc=$?", 1)[0]
+        self.assertIn("VIZ_DEPS=ABSENT", probe, "precondition: the probe was extracted")
+        for pkg in ("matplotlib", "numpy"):
+            self._wr(os.path.join(d, "pp", pkg, "__init__.py"), "import %s._nope_q963\n" % pkg)
+        r = subprocess.run([sys.executable, "-c", probe], cwd=d, capture_output=True, text=True,
+                           env=self._env(PYTHONPATH=os.path.join(d, "pp")), timeout=60)
+        self.assertIn("_nope_q963", r.stderr + r.stdout, "precondition: the planted broken package was imported")
+        self.assertNotIn("VIZ_DEPS=ABSENT", r.stdout, "a broken install read as absent")
+
+    def _gpc_fixture(self, corrections_text, target_mode):
+        d = self._d()
+        for rel in ("scripts/gate_published_consistency.sh", "scripts/doc_gates.d/word_match.sh"):
+            self._wr(os.path.join(d, rel), self._r(rel), 0o755)
+        self._wr(os.path.join(d, "documentation", "CORRECTIONS.md"), corrections_text)
+        self._wr(os.path.join(d, "documentation", "T.md"), "CX-1 is here\n", target_mode)
+        r = subprocess.run(["bash", "scripts/gate_published_consistency.sh"], cwd=d, capture_output=True, text=True,
+                           env=self._env(), timeout=300)
+        sec = r.stdout.split("== G4:", 1)[1].split("\n== ", 1)[0] if "== G4:" in r.stdout else ""
+        return d, "\n".join(l for l in sec.splitlines() if "G4" in l or "every file a correction names" in l)
+
+    def test_gpc_g4_failed_scan_is_not_ok(self):  # F05-005#3
+        led = "# C\n\n## CX-1 — x\n\n- **Documents:** [t](T.md)\n"
+        d, g4 = self._gpc_fixture(led, 0o644)
+        self.assertIn("[ok]   every file a correction names carries that correction's id", g4, "precondition: positive control:\n" + g4)
+        d, g4 = self._gpc_fixture(led, 0o000)
+        self.assertFalse(os.access(os.path.join(d, "documentation", "T.md"), os.R_OK), "precondition: the target is unreadable")
+        self.assertNotIn("[ok]", g4, "G4 printed [ok] over a scan that crashed:\n" + g4)
+
+    def _gpc_real(self, path_prefix=None, **env):
+        e = self._env(**env)
+        if path_prefix:
+            e["PATH"] = path_prefix + os.pathsep + e["PATH"]
+        return subprocess.run(["bash", "scripts/gate_published_consistency.sh"], cwd=self.ROOT, capture_output=True,
+                              text=True, env=e, timeout=600).stdout
+
+    def test_gpc_g7_counts_what_it_compared(self):  # F05-005#4
+        d = self._d()
+        art = os.path.join(d, "art.txt")
+        self._wr(art, "[1] something\n1 0.5 3\n[3] other\n")
+        out = self._gpc_real(G7_ART=art)
+        g7 = [l for l in out.splitlines() if "G7:" in l]
+        self.assertTrue(g7, "precondition: G7 ran")
+        self.assertFalse(any("[ok]" in l for l in g7), "G7 compared nothing and said [ok]:\n" + "\n".join(g7))
+
+    def test_gpc_g18_failed_count_not_masked(self):  # F05-005#5
+        d = self._d()
+        doc = os.path.join(d, "doc.md")
+        self._wr(doc, "the firmer of the two\n")
+        sd = self._shim(d, "grep", "≥~10×")
+        out = self._gpc_real(path_prefix=sd, G18_DOCS=doc)
+        self.assertIn("≥~10×", self._shimlog(d), "precondition: the count's grep was refused")
+        g18 = [l for l in out.splitlines() if "G18:" in l]
+        self.assertFalse(any("[ok]" in l for l in g18), "G18 masked a failed count:\n" + "\n".join(g18))
+
+    def test_gpc_g19_failed_awk_not_ok(self):  # F05-005#6
+        d = self._d()
+        sd = self._shim(d, "awk", "tolower")
+        out = self._gpc_real(path_prefix=sd)
+        self.assertIn("tolower", self._shimlog(d), "precondition: G19's price-line awk was refused")
+        g19 = [l for l in out.splitlines() if "G19:" in l]
+        self.assertFalse(any("[ok]" in l for l in g19), "G19 printed [ok] with an unmeasured count:\n" + "\n".join(g19))
+
+    def test_gate27_unreadable_doc_fails(self):  # F05-004#6
+        d = self._d()
+        repo = os.path.join(d, "repo")
+        os.makedirs(os.path.join(repo, "documentation"))
+        shutil.copytree(os.path.join(self.ROOT, "scripts", "doc_gates.d"), os.path.join(repo, "scripts", "doc_gates.d"))
+        shutil.copy2(os.path.join(self.ROOT, "scripts", "doc_gates.sh"), os.path.join(repo, "scripts", "doc_gates.sh"))
+        shutil.copy2(os.path.join(self.ROOT, "documentation", "WITHDRAWN_FIGURES.tsv"),
+                     os.path.join(repo, "documentation", "WITHDRAWN_FIGURES.tsv"))
+        self._wr(os.path.join(repo, "documentation", "CORRECTIONS.md"), "# C\n\n## CX-7 — x\n\nIt read `≈3×10³⁷`.\n")
+        self._wr(os.path.join(repo, "docs", "NOTE.md"), "The space held 3×10³⁷ ⚠ **[WITHDRAWN 2026-08-24 — over its ceiling]**.\n")
+        self._wr(os.path.join(repo, "docs", "LOCKED.md"), "anything\n")
+        for a in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "f"]):
+            subprocess.run(["git", "-C", repo] + a, check=True, capture_output=True, env=self._env())
+        g = ["bash", "scripts/doc_gates.sh", "withdrawn-markers"]
+        ctl = subprocess.run(g, cwd=repo, capture_output=True, text=True, env=self._env(), timeout=300)
+        self.assertEqual(ctl.returncode, 0, "precondition: the readable corpus passes:\n" + ctl.stdout[-1500:])
+        os.chmod(os.path.join(repo, "docs", "LOCKED.md"), 0o000)
+        self.assertFalse(os.access(os.path.join(repo, "docs", "LOCKED.md"), os.R_OK), "precondition: unreadable")
+        r = subprocess.run(g, cwd=repo, capture_output=True, text=True, env=self._env(), timeout=300)
+        self.assertNotEqual(r.returncode, 0, "GATE 27 passed with an unreadable document in its corpus:\n" + r.stdout[-1500:])
+        self.assertIn("docs/LOCKED.md could not be read", r.stdout)
+
+    def test_dispatch_leg4_requires_rc1(self):  # F05-003#2
+        d = self._d()
+        shutil.copytree(os.path.join(self.ROOT, "scripts", "doc_gates.d"), os.path.join(d, "scripts", "doc_gates.d"))
+        dg = self._r(os.path.join("scripts", "doc_gates.sh"))
+        arm = "  all)     gate_numbers || RC=1; echo; gate_cli || RC=1\n"
+        self.assertEqual(dg.count(arm), 1, "precondition: the `all` arm's first line")
+        self._wr(os.path.join(d, "scripts", "doc_gates.sh"), dg.replace(arm, "  all)     gate_numbers || RC=1; echo; gate_cli\n"), 0o755)
+        self._wr(os.path.join(d, "README.md"), "# fixture\n")
+        for a in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "f"]):
+            subprocess.run(["git", "-C", d] + a, check=True, capture_output=True, env=self._env())
+        r = subprocess.run(["bash", "scripts/doc_gates.sh", "dispatch-alignment"], cwd=d, capture_output=True, text=True,
+                           env=self._env(), timeout=300)
+        self.assertIn("== GATE 83:", r.stdout, "precondition: the leg ran")
+        self.assertNotEqual(r.returncode, 0, "a hard gate whose failure cannot reach RC passed:\n" + r.stdout[-1500:])
+        self.assertIn("`all` calls gate_cli without `|| RC=1`", r.stdout)
+
+    def _lane(self, readme):
+        d = self._d()
+        tree = os.path.join(d, "tree")
+        self._wr(os.path.join(tree, "README.md"), readme)
+        self._wr(os.path.join(tree, "reports", "TR1_X.md"), "# TR1\n\nEvery MEASURED result carries a reproduction command.\n")
+        self._wr(os.path.join(tree, "data.txt"), "x\n")
+        for a in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "fixture"]):
+            subprocess.run(["git", "-C", tree] + a, check=True, capture_output=True, env=self._env())
+        tmpd = os.path.join(d, "tmp")
+        os.makedirs(tmpd)
+        try:
+            r = subprocess.run(["bash", os.path.join(self.ROOT, "scripts", "exec_lane.sh"), "--tree", tree],
+                               env=self._env(TMPDIR=tmpd, EXEC_LANE_BUDGET="60"), text=True, capture_output=True, timeout=600)
+        finally:
+            subprocess.run(["chmod", "-R", "u+rwX", tmpd], capture_output=True)
+        return r.stdout
+
+    def test_exec_lane_upstream_failure_is_not_a_no_match(self):  # F05-010#19, rider F04-021#2
+        out = self._lane("# f\n\n```\npython3 -c 'print(\"x\"); raise SystemExit(1)' | grep x\n```\n")
+        row = [l for l in out.splitlines() if re.match(r"^\s*\d+\.", l) and "| grep x" in l]
+        self.assertTrue(row, "precondition: the pipeline was run:\n" + out[-2000:])
+        self.assertNotIn("no-match", row[0], "a producer's failure was graded a grep no-match:\n" + row[0])
+        self.assertIn("EXEC_LANE=FAIL", out.splitlines())
+
+    def test_exec_lane_failed_reset_is_an_error(self):  # F05-010#21, rider F04-021#4
+        out = self._lane("# f\n\n```\npython3 -c \"import os; open('data.txt', 'w').write('CHANGED'); os.chmod('.', 0o555)\"\n```\n")
+        row = [l for l in out.splitlines() if re.match(r"^\s*\d+\.", l) and "os.chmod" in l]
+        self.assertTrue(row, "precondition: the command was run:\n" + out[-2000:])
+        self.assertNotIn("EXEC_LANE=PASS", out.splitlines(), "the lane passed after a reset that could not restore data.txt:\n" + out[-2000:])
+        self.assertIn("EXEC_LANE_ERROR=workspace-reset-failed", out.splitlines())
+        self.assertIn("chain_reset() { ws_reset; }", self._r(os.path.join("scripts", "exec_lane.sh")))
+
+    # ---- CX-404 (Fable, G2 pre-publication review, FIX-1 follow-up): the identifying set per dataset --
+    BMIN = os.path.join("documentation", "BOUNDARY_MINIMUM.md")
+    SOLVE_MD = os.path.join("documentation", "SOLVE.md")
+    ID_SCOPED = "an identifying set of boundaries beyond C1–C5 (five at 100T and 560T, four at 10T — two of them being C6 and C7, so three beyond C1–C7 at 100T and 560T, two at 10T; SPECIFICATION §Constraints; BOUNDARY_MINIMUM), not by C1–C7 alone"
+    ID_OLD = "the five-boundary identifying set (SPECIFICATION §Constraints; BOUNDARY_MINIMUM), not by C1–C7 alone"
+    SOLVE_SCOPED = "the identifying set needs five boundary constraints at 100T and 560T (four at 10T), of which only two are C6/C7"
+    SOLVE_OLD = "the identifying set needs five boundary constraints of which only two are C6/C7"
+
+    def _idset_problems(self, tr4, solve):
+        mins = dict(re.findall(r"^\| \**(d[23] \d+T) \([^)]*\)\** \| \*\*(\d)\*\* \|", self._r(self.BMIN), re.M))
+        self.assertEqual(mins, {"d2 10T": "4", "d3 10T": "4", "d3 100T": "5", "d3 560T": "5"},
+                         "precondition: BOUNDARY_MINIMUM.md's per-dataset minima")
+        t4 = " ".join("\n".join(l for l in tr4.splitlines() if not l.startswith("| v1.")).split())
+        sv = " ".join(solve.split())
+        probs = []
+        if t4.count(self.ID_SCOPED) != 2:
+            probs.append("TR-4: the scoped wording is not at both sites")
+        if "five-boundary identifying set" in t4:
+            probs.append("TR-4: an unscoped five-boundary identifying set")
+        if self.SOLVE_SCOPED not in sv or self.SOLVE_OLD in sv:
+            probs.append("SOLVE.md (what is special about King Wen): the identifying set is not scoped per dataset")
+        return probs
+
+    def test_tr4_solve_identifying_set_scoped_per_dataset(self):  # CX-404
+        self.assertEqual(self._idset_problems(self._r(self.TR4), self._r(self.SOLVE_MD)), [])
+
+    def test_tr4_solve_identifying_set_red_on_old(self):  # CX-404: the published wording fails at all three sites
+        tr4, solve = self._r(self.TR4), self._r(self.SOLVE_MD)
+        n_old = " ".join(tr4.split()).count(" ".join(self.ID_SCOPED.split()))
+        self.assertEqual(n_old, 2, "precondition: the cured wording is at TR-4's two sites")
+        self.assertEqual(solve.count(self.SOLVE_SCOPED), 1, "precondition: the cured wording is on SOLVE.md")
+        old4 = tr4.replace("only by an\nidentifying set of boundaries beyond C1–C5 (five at 100T and 560T, four at 10T — two of them being C6 and C7, so three beyond C1–C7 at 100T and 560T, two at 10T; ",
+                           "only by the\nfive-boundary identifying set (").replace(
+                           "only by " + self.ID_SCOPED, "only by " + self.ID_OLD)
+        self.assertNotEqual(old4, tr4)
+        self.assertEqual(" ".join(old4.split()).count(" ".join(self.ID_SCOPED.split())), 0, "precondition: both TR-4 sites reverted")
+        self.assertEqual(sorted(self._idset_problems(old4, solve.replace(self.SOLVE_SCOPED, self.SOLVE_OLD))),
+                         ["SOLVE.md (what is special about King Wen): the identifying set is not scoped per dataset",
+                          "TR-4: an unscoped five-boundary identifying set",
+                          "TR-4: the scoped wording is not at both sites"])
+# end class TestBatchG3 (fast-track batches FT2b-2..4, push group G3, CX-392..CX-403)
 
 
 if __name__ == "__main__":

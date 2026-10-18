@@ -9,8 +9,8 @@
 ## In plain terms
 
 This curve shows how quickly the share of valid orderings falls when an ordering must match King Wen
-at more and more chosen joins between pairs. The four red points are estimates, each within about ten
-percent, and each of these first joins cuts the share by roughly a thousand times. The dashed line and
+at more and more chosen joins between pairs. The four red points are estimates, each with a relative standard
+error of at most ten percent, and each of these first joins cuts the share by roughly a thousand times. The dashed line and
 the shaded bracket are illustrations, not measurements, and the vertical line is a marker of scale,
 not a limit. Even with every join matched, many orderings still remain, because matching joins fixes
 which pairs go where but not which way round each pair is placed.
@@ -32,7 +32,7 @@ King Wen on its first k boundaries, taken in the greedy identifying order {4, 27
   reaches it.
 - **Green vertical line at k = 14:** the earliest k at which the floor is reached if no later
   boundary gains more than the eighth measured one's 6.14 bits. A scale marker under that assumption,
-  not a bound.
+  not a bound. That gain is computed from N(7), for which no committed artifact exists (TR-4 §Update).
 
 ## What it establishes, and what it does not
 
@@ -94,6 +94,12 @@ two earlier removals are recorded in the generator's comment block (its notes da
   on the dotted line; the points were called "measured". Redrawn with full-size ticks, the legend
   below the axes, and the points labelled as estimates. No S(k) value, gain, floor or marker moved.
   CX-225.
+- **2026-10-17, Codex final review (gpt-6-astra), triaged by Fable (F11-009#2).** The plain-terms
+  summary said each point is "within about ten percent"; the ten percent is TR-4's relative error,
+  a relative standard error, and the summary now says so. No figure changed. CX-387.
+- **2026-10-17, Fable front-page review.** The k = 14 marker's description used the eighth gain's
+  6.14 bits without TR-4's label; it now says that gain is computed from N(7), for which no committed
+  artifact exists. No figure changed. CX-389.
 - **2026-09-29.** This page added, as part of the capstone's visual showcase (CX-233).
 
 ---

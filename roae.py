@@ -4944,7 +4944,7 @@ def _ph_grade(kw_satisfies, f_eval, n, bar):
     """Grade ONE pre-registered test (spec §4.3). Pure: no I/O, no sampling.
 
     Returns a dict with hits, be (bits explained, or None when not computed),
-    be_lo / be_hi (one-sided 95% Wilson interval in bits), f_lo, status
+    be_lo / be_hi (two one-sided 95% Wilson bounds in bits, a ~90% two-sided interval), f_lo, status
     (PASS / FAIL / FAIL-KW / ZERO-HIT:STOP) and the printed verdict."""
     hits = round(f_eval * n)
     f_lo = _gs_wilson_lower(hits, n)
@@ -5114,7 +5114,7 @@ def run_prereg_h1h3(n_eval, n_thr, workers, batches, seed,
         verdict = g["verdict"]
         print(f"    {t} {names[t]:28s} KW-sat={'Y' if kw_sat[t] else 'N'} "
               f"f={freq[t]:.5f} ({hits}/{n_e}) be={be_str} bits "
-              f"[Wilson 95pct: {be_lo:.2f}..{be_hi:.2f}] "
+              f"[Wilson ~90pct two-sided (two one-sided 95%): {be_lo:.2f}..{be_hi:.2f}] "
               f"L={L[t]:.2f} bar={bar:.2f} -> {verdict}")
         report["tests"][t] = dict(
             name=names[t], kw_satisfies=bool(kw_sat[t]), f_eval=freq[t],

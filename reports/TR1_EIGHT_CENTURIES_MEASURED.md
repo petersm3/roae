@@ -33,12 +33,12 @@ to roughly one in fifty million — an order-of-magnitude figure at that samplin
 specific configurations rare largely by specification rather than principle; see §3's data-like caveat), and King Wen has them. The report culminates in the conflict theorem: the
 literature's four strongest rules (the four named-author rules of [TR-2](TR2_THE_RULES_CONFLICT.md), two by Moore and two traced through Schulz; "strongest" is not a scoreboard ranking, on which `ccn8`'s ×3.8M cut outranks Moore parity's ×1,362) **cannot all be satisfied by any C1∩C2∩C4∩C5-valid ordering**, and King Wen sits
 exactly where that conflict forces a choice. A follow-up battery (§7) turns the same measurement on the
-sequence's most-ignored layer — which member of each pair comes first — where the one rule the literature
-ever offered ([Van den Berghe's](../documentation/CITATIONS.md#vandenberghe1999) hand-derived nuclear
-rule, c. 1999–2002) places King Wen at the ceiling of what is achievable. But that rule is a **fitted
+sequence's most-ignored layer — which member of each pair comes first — where the one literature orientation rule that is neither null nor forced
+([Van den Berghe's](../documentation/CITATIONS.md#vandenberghe1999) hand-derived nuclear
+rule, c. 1999–2002; Cook's orientation stage and six other rules are null, three McKenna statistics forced, §7) places King Wen at the maximum of King Wen's C4-oriented orientation fiber (29 of 30; freeing the opening orientation admits 30). But that rule is a **fitted
 description read off King Wen**, so its perfect score is not independent confirmation of design — the
 mechanics and this scoping are in §7. Every number
-here can be recomputed, and the impossibility results carry machine-checkable certificates.
+here can be recomputed except those flagged at the claim as not reproducible from this tree (the ~1-in-25-million joint-profile figure, the 0.03% consistency check's own total, the population fractions' exact digits, the 17-of-19 audit count), and the impossibility results carry machine-checkable certificates.
 
 ## Abstract
 Structural rules asserted for the King Wen sequence across eight centuries of literature — from
@@ -51,7 +51,7 @@ is itself a Knuth estimate (METHODS §"Canonical quantities", status **estimate*
 the estimator is TR-11's exact anchors). This converts decades of by-inspection claims into
 measured population statistics — to our knowledge for the first time; corrections welcome. The literature's design inventory splits three ways:
 **proven forced** (eight literature rules stating seven distinct ordering facts — r3 and p1c4 are one predicate under two citations, §3(2) — each now a theorem: constant on the entire C1 space — a superset of the
-measured population — equal to King Wen's value, machine-checked in Lean 4; their measured 1.0 of
+measured population — equal to King Wen's value, machine-checked in Lean 4 modulo a non-Lean transcription step (§3(2)); their measured 1.0 of
 canonical mass in 2×10¹⁰ weighted probes now reads as instrument validation — asserted in the literature
 as design features), **typical** (e.g., the classical 18:18 split holds in 36.4% of all valid orderings), and
 **discriminating as stated** (down to 2×10⁻⁸ for [Schulz's](../documentation/CITATIONS.md#schulz2011) S25–28 trigram configuration — a data-like rule whose rarity is partly specification, not principle; §3). A SAT layer adds
@@ -78,8 +78,8 @@ result — see §5.)
    — a source-stated value for 26 of the 31, a KW-derived one for the other five (headline 3) — (Moore's 16/18 with violations at pair
    positions 22–23; rhythm breaks at (7,8) and (22,23)); rule predicates are two-language verified
    (independent C and Python implementations). Caveats stated up front:
-   **(a) the KW-value gate constrains each formalization at one point.** Reproducing a source's stated
-   King Wen value is the credential every rule here carries, but the measurements live at the other
+   **(a) the KW-value gate constrains each formalization at one point.** Reproducing its registry King Wen value (source-stated for 26, KW-derived for five)
+   is the credential every rule here carries, but the measurements live at the other
    ≈10³⁸ orderings, where an off-by-one window, a tie convention or a wrap-vs-linear reading would pass
    every published gate and still produce wrong masses. Two-language agreement does not close this — both
    implementations derive from the same reading of the source — so rule faithfulness sits on rung 2 of
@@ -92,15 +92,15 @@ result — see §5.)
    fiber-size-weighted fraction, and fiber size is a function of the pair ordering's transition geometry —
    the same geometry most literature rules score. Fiber size is far from constant: it is 0 for every pair
    ordering admitting no valid orientation and at least 1,720,320 for King Wen's, against a mean of
-   ≈1.3×10⁵ over all 31! pair orderings (|C1∩C2∩C4∩C5| / 31!). These figures should therefore be read as
+   ≈1.3×10⁵ over all 31! pair orderings at the C1∩C2∩C4∩C5 layer (|C1∩C2∩C4∩C5| / 31!; at the C1–C5 layer these fractions are taken over, the mean is ≈1.6×10⁴, ≈1.3287×10³⁸ / 31!). These figures should therefore be read as
    weighted-population fractions, and the weighting is not known to be independent of the rules. *(Corrected 2026-08-01: this caveat previously said
    "orientation-invariant rules unaffected", which is true of the predicate's value and false of the
    fraction.)* [Moore's 1989](../documentation/CITATIONS.md#moore1989) rising/falling
    rule is orientation-sensitive by design. **(c) the C1–C5 denominator is itself partly KW-fitted.**
    C2 and C5 are regularities read off the received order and C3's ceiling is King Wen's own value 776
    ([METHODS.md](METHODS.md)), so the reference population against which King Wen is scored is not an
-   undisputed null — it is conservative in the sense [TR-8](TR8_REORDERING_REVISITED.md) §2 states
-   plainly, and the same firewall METHODS builds for constraints-as-evidence is not applied to
+   undisputed null — [TR-8](TR8_REORDERING_REVISITED.md) §2 once called it conservative and since 2026-09-25 records that this is not argued and that the one rule measured under both nulls (gender ≤ 2: 8.80×10⁻⁵ of C1–C5 mass, 1.054×10⁻⁴ of the pair-only null) makes King Wen look rarer against it, not less rare;
+   and the same firewall METHODS builds for constraints-as-evidence is not applied to
    constraints-as-denominator. **(d)** strict-form masses near 10⁻⁶ carry ~±10-15% relative sampling
    error at this probe count. ⚠ *(Labelled 2026-09-25, Codex v3 review, V3B-04#7: ±10–15% is an estimate, not a printed error. The run predates the estimator's `se=` field and none of its output is archived, so no per-row error or hit count is on record.)*
 2. **The first-wave scoreboard (2026-07-02).**
@@ -209,7 +209,7 @@ result — see §5.)
    bit-patterns, true of every ordering, so it is not an ordering constraint and has no rarity. The
    positional predicate measured here is **this suite's own formalization**, and is classified as ours;
    Drasny's group B is defined by hexagram structure, not by King Wen slot indices. (Schulz's separate
-   xiaoxi *placement* rule — the 1/13/25 trisection — is a distinct row, `rs1`, and is **not** classified
+   xiaoxi *placement* rule — the 1/13/25 trisection, which [CITATIONS.md](../documentation/CITATIONS.md#li2008) credits to Li Shangxin alongside Schulz — is a distinct row, `rs1`, and is **not** classified
    by this entry; it needs its own dof count.) `d7` is
    retained as a measured row, not promoted, and no design inference rests on it. Full table (fraction of canonical mass; KW satisfies each at its
    measured level by construction of the threshold forms; the eight **1.0 (theorem)** entries are the
@@ -312,7 +312,7 @@ result — see §5.)
    CNFs (2026-07-03); the conflict encoding is two-way validated (ccn4-kwtest SAT, rc4-kwtest UNSAT).
 6. **Attribution, lineage, and what is claimed.** Every rule is credited to its source, with lineage where
    it runs deep: the pair structure itself is attested to **[Yu Fan](../documentation/CITATIONS.md#yufan) (164–233 AD)** (pangtong/fandui, via Li
-   Dingzuo); the 36-unit consolidation to **Lai Zhide (1525–1604)** (via [Schulz 1982](../documentation/CITATIONS.md#schulz1982); the earlier statement of the 8+28=36 *count* — not the consolidation — by Shao Yong (11th c.) is **confirmed first-hand as of 2026-08-27** and applied 2026-08-29 in [CITATIONS.md](../documentation/CITATIONS.md#shaoyong), superseding the "second-hand, unconfirmed" hedge recorded here 2026-08-21; the consolidation attribution to Lai Zhide is unchanged); the 18:18 split to
+   Dingzuo); the 36-unit consolidation to the 张行成/朱熹/胡一桂 → 來知德 lineage ending with **Lai Zhide (1525–1604)** (via [Schulz 1982](../documentation/CITATIONS.md#schulz1982); the earlier statement of the 8+28=36 *count* — not the consolidation — by Shao Yong (11th c.) is **confirmed first-hand as of 2026-08-27** and applied 2026-08-29 in [CITATIONS.md](../documentation/CITATIONS.md#shaoyong), superseding the "second-hand, unconfirmed" hedge recorded here 2026-08-21; Lai Zhide's place as that lineage's terminus is unchanged, [LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md) §Attribution); the 18:18 split to
    **Zhang Xingcheng 张行成 and Zhu Xi 朱熹 (Song, 12th c.)** and **Hu Yigui (1247)** — attribution
    corrected 2026-07-30 per the [Li Shangxin 2008](../documentation/CITATIONS.md#li2008) first-hand
    pass (the prior credit was unsupported by Li's treatment; see CITATIONS.md §Classical sources) —
@@ -322,15 +322,15 @@ result — see §5.)
    registry) originates with **Schulz 1990** — attribution corrected 2026-07-03 upon first-hand reading
    (Cook had been credited as primary) — elaborated by **Cook 2006**, its single exception first
    recognized by **Zhu Yuansheng (13th c.)** per [Schulz 2018](../documentation/CITATIONS.md#schulz2018) fn. 42; the trigram configuration to
-   **Schulz 2011/2016**; further rules to **McKenna & Mair 1979**, **Drasny**, and **Schöter**. McKenna &
+   **Schulz 2011/2016**, stated earlier by [Li Shangxin 2000](../documentation/CITATIONS.md#lishangxin2000) (p. 53), who credits the core observation to Gu Boxu 顾伯叙 (1997); further rules to **McKenna & Mair 1979**, **Drasny**, and **Schöter**. McKenna &
    Mair 1979 also retain clear priority for the idea driving this methodology: evaluating King Wen against
    explicitly constructed alternatives rather than by inspection alone. ROAE's contribution is
    formalization + measurement (+ the SAT decisions), to our knowledge the first population-scale
    measurement of this inventory — corrections welcome via CITATIONS.md. Honest closing caveats: rule
    classes differ in kind — forced rules explain nothing beyond C1–C5; data-like rules (exact
    positions/configurations, e.g. ccn4, Cook's level-3 positions, and d7 — classified 2026-08-02, §3
-   headline 3) carry rarity that is partly specification, not principle; none of these rules, singly or jointly, approaches uniqueness (§4's joint-strict population, `SOLVE_KNUTH_MOORE_STRICT`, still holds ≈1.13×10²⁹ orientation-explicit (raw) orderings; for scale, the full
-   C1–C7 space holds ≈5.2×10³¹ orderings). Accordingly **none is promoted into the formal constraint
+   headline 3) carry rarity that is partly specification, not principle; no single rule approaches uniqueness, and neither does the one joint measurement made — Moore's two strict rules (§4's joint-strict population, `SOLVE_KNUTH_MOORE_STRICT`, still holds ≈1.13×10²⁹ orientation-explicit (raw) orderings; for scale, the full
+   C1–C7 space holds ≈5.2×10³¹ orderings); no joint measurement over the whole inventory exists. Accordingly **none is promoted into the formal constraint
    system**; they are measured properties of King Wen's position in the population, with
    description-length and attestation recorded for each (see [TR-9](TR9_PRICING_THE_CONSTRAINTS.md)).
 7. **The orientation layer, measured (2026-07-05; re-scoped + pair-only re-check 2026-07-26).**
@@ -385,8 +385,8 @@ result — see §5.)
 
    *Scope of the table (re-scoped 2026-07-26):* all tabulated p-values are exact over the
    **C4-oriented fiber** (N = 1,720,320) — the battery's frozen null. On the pair-only-C4 fiber
-   (N = 2,703,360) the 2026-07-26 re-run leaves every null verdict null (largest shift:
-   row 1, two-sided p 9.499×10⁻² → 9.171×10⁻²; row 4 moves to 0.982, row 7 to 0.347 — all far from
+   (N = 2,703,360) the 2026-07-26 re-run leaves every null verdict null (the smallest p, row 1,
+   two-sided 9.499×10⁻² → 9.171×10⁻²; the largest shift is row 4's, 0.667 → 0.982, and row 7 moves to 0.347 — all far from
    any gate), rows 9–10 stay forced, row 8 becomes slot-0-determined (below), and row 11's
    descriptive values become P(X ≥ 29) = 30/2,703,360 = 1.1097×10⁻⁵ one-sided / 2.2195×10⁻⁵
    two-sided, with the fiber maximum rising to 30 (below).
@@ -480,8 +480,8 @@ result — see §5.)
    *(Scope corrections, 2026-08-01. **(i)** Neither control is a member of that population — SOLVE.md
    records that Mawangdui and Jing Fang **fail both C1 and C3**, and v1.8 below notes Mawangdui also
    fails C2 — so "below the entire sampled range" and "population-extreme depth" are not probability
-   statements about them; their low scores are largely guaranteed, since any non-C1 ordering scores low on
-   a pair-defined rule (Mawangdui, for instance, scores 0 on `bpd_six_pos`, a functional that is constant
+   statements about them; their low scores are observations about these two orderings — failing C1 does not by
+   itself force a low score on a pair-defined rule (Mawangdui, for instance, scores 0 on `bpd_six_pos`, a functional that is constant
    at 18 across every vector of King Wen's fiber — row 9 above). **(ii)** The earlier wording read the gate as ruling out a "classical-norm explanation".
    For a functional derived from King Wen that inference is weak: a decision procedure read off one
    sequence is expected to score low on any other, under a design hypothesis and an accident hypothesis
@@ -496,7 +496,7 @@ result — see §5.)
    order, two-language verified.)* Per the frozen
    pre-commitment, nothing here promotes into the constraint system; it is a measured property of King
    Wen. Raw outputs, the exact-fiber script, and exercised reproduction commands (the fiber analysis
-   reruns byte-identically in ~11 s): [evidence/f5/](evidence/f5/README.md). The 2026-07-26 pair-only
+   reruns in ~11 s and matches the archived output except its three hand-added `#` annotation lines, 199–201): [evidence/f5/](evidence/f5/README.md). The 2026-07-26 pair-only
    re-check reuses that bundle's exact enumeration + scoring machinery seeded at **both** slot-0
    orientations (validity + scoring gated on 400 samples against the bundle's independent
    ground-truth scorer, including 200 reversed-opening samples; the two 30/30 vectors additionally
@@ -521,7 +521,7 @@ All values are the reports' stated numbers; generated by
 
 ## Verification Guide
 
-⚠ **Every `--estimate-knuth` command in this document requires a stack limit of at least 16 MB** — `ulimit -s 16384` suffices, and `ulimit -s unlimited` is one way to satisfy it, not the requirement itself. Under the default 8 MB stack the estimator does not start: `main` allocates a ~7.24 MiB frame and `estimate_tree_knuth` a further ~1.48 MiB (since 2026-08-21 the binary refuses with an actionable message; previously a bare SIGSEGV). *(Added 2026-08-21, an execution-lane finding — `scripts/exec_lane.sh` executes every documented command on a default environment; the same-day warning propagation (`1e4bd04a`) covered the four estimator guides but missed this file.)* *(Narrowed 2026-09-02, Codex V2-F08 #4, prose batch P37: `ulimit -s unlimited` is a **sufficient** setting that had been published as a **necessary** one — and one that a host or container with a hard stack cap cannot even apply, so the published requirement was a false blocker there. `solve.c`'s `--estimate-knuth` preflight tests `rlim_cur != RLIM_INFINITY && rlim_cur < 16UL*1024*1024` and its message names ">= 16 MB". EXECUTED under TR-9 v1.24 on a locally built binary: `ulimit -s 8192` refuses and exits 1, `ulimit -s 16384` runs the estimator to completion. `solve.c`'s own remedy line still prescribes only `unlimited` and is queued to offer both. This is the sibling propagation of the narrowing TR-9 made on 2026-09-02 and reported but did not sweep.)* ⚠ *(Frame sizes corrected 2026-09-25, Q-826: this note gave `main` as ~7.23 MB and the estimator as about one megabyte (1.02), figures from an earlier tree. `gcc -O3 -pthread -fopenmp -fstack-usage -c solve.c` writes each function's frame size to `solve.su`; on this tree, with gcc 13.3.0, it reports `main` at 7,590,976 bytes (≈7.24 MiB) and `estimate_tree_knuth` at 1,553,296 bytes (≈1.48 MiB). The sum, ≈8.72 MiB, still exceeds 8 MiB and fits in 16 MB, so the requirement stands.)*
+⚠ **Every `--estimate-knuth` command in this document requires a stack limit of at least 16 MB** — `ulimit -s 16384` suffices, and `ulimit -s unlimited` is one way to satisfy it, not the requirement itself. Under the default 8 MB stack the estimator does not start: `main` allocates a ~7.24 MiB frame and `estimate_tree_knuth` a further ~1.48 MiB (since 2026-08-21 the binary refuses with an actionable message; previously a bare SIGSEGV). *(Added 2026-08-21, an execution-lane finding — `scripts/exec_lane.sh` executes every command it classifies as runnable on a default environment; the same-day warning propagation (`1e4bd04a`) covered the four estimator guides but missed this file.)* *(Narrowed 2026-09-02, Codex V2-F08 #4, prose batch P37: `ulimit -s unlimited` is a **sufficient** setting that had been published as a **necessary** one — and one that a host or container with a hard stack cap cannot even apply, so the published requirement was a false blocker there. `solve.c`'s `--estimate-knuth` preflight tests `rlim_cur != RLIM_INFINITY && rlim_cur < 16UL*1024*1024` and its message names ">= 16 MB". EXECUTED under TR-9 v1.24 on a locally built binary: `ulimit -s 8192` refuses and exits 1, `ulimit -s 16384` runs the estimator to completion. `solve.c`'s own remedy line still prescribes only `unlimited` and is queued to offer both. This is the sibling propagation of the narrowing TR-9 made on 2026-09-02 and reported but did not sweep.)* ⚠ *(Frame sizes corrected 2026-09-25, Q-826: this note gave `main` as ~7.23 MB and the estimator as about one megabyte (1.02), figures from an earlier tree. `gcc -O3 -pthread -fopenmp -fstack-usage -c solve.c` writes each function's frame size to `solve.su`; on this tree, with gcc 13.3.0, it reports `main` at 7,590,976 bytes (≈7.24 MiB) and `estimate_tree_knuth` at 1,553,296 bytes (≈1.48 MiB). The sum, ≈8.72 MiB, still exceeds 8 MiB and fits in 16 MB, so the requirement stands.)*
 
 - Population fractions, both waves: `SOLVE_KNUTH_SCORE=1 SOLVE_KNUTH_SCORE_REG=1 ./solve --estimate-knuth 20000000000`
   ⚠ **[COMMAND CORRECTED 2026-09-24 (v1.34; Codex V3A-087#5, Q-742) — this command lacked the second flag. The 31-rule registry scorer is a separate flag (`SOLVE_KNUTH_SCORE_REG`,
@@ -557,7 +557,7 @@ All values are the reports' stated numbers; generated by
 - Orientation battery (§7), KW ground-truth gates: `./solve --f5-verify` (11/11) and `python3 solve.py
   --vdb-verify` (Van den Berghe rule, KW = 29)
 - Orientation battery, exact fiber (dispositive): `cd reports/evidence/f5 && python3 f5_modec_fiber.py`
-  (~11 s; rerun exercised 2026-07-05, byte-identical to the archived reports/evidence/f5/f5_modec_fiber.out)
+  (~11 s, NumPy 2; rerun exercised 2026-07-05, identical to the archived reports/evidence/f5/f5_modec_fiber.out except its three hand-added `#` annotation lines 199–201, evidence/f5/README.md)
 - Orientation battery, the **two-opening** (pair-only-C4, 2,703,360-vector) re-check:
   `cd reports/evidence/f5 && python3 f5_pair_only_fiber.py` (~21 s; rerun exercised 2026-09-04,
   byte-identical to the archived reports/evidence/f5/f5_pair_only_fiber.out) and
@@ -611,4 +611,5 @@ All values are the reports' stated numbers; generated by
 | v1.37 | 2026-09-28 | **The trade-off figure is a four-row table (Q-900; Codex VIZ H2-01, H2-02; figure and wording only — no count changed).** The bar chart told King Wen from the precursor by red against green alone, every precursor bar had zero length, and the green value labels measured 4.12:1 on white. The figure is now a table with a King Wen column and a precursor column, each cell giving its count in its own unit (2 misses (16/18) … satisfied / violated); the trigram row names stations 25–28 and a note defines a station as one of Lai Zhide's 36 consolidated units. §Figure's alt-text and caption describe the table. |
 | v1.38 | 2026-09-29 | **The 3-edit result is a minimum, not an event (an adversarial review by Codex (gpt-6-astra) of the Lean, SAT and DRAT surface, triaged by Fable; CX-232).** §4 said the deviation from a compliant precursor was one small 3-edit event, and the executive summary and §4's heading called the grand precursor's repair a 3-edit "event". The SAT results establish the minimum distance; compliant orderings at 4 edits exist too (the grand-strict witness with slot 5 reversed). Wording only. |
 | v1.39 | 2026-10-01 | **The cover's reproduction promise is rescoped (Codex v3 review, finding V3B-08 #22 against TR-5, triaged by Fable; backlog Q-759).** The banner said every MEASURED result carries a reproduction command, while the reports themselves flag results that have none. It now says each one carries a command or says at the claim that it has none, which is what the reports index already said. GATE 9 holds the banner byte-identical across all twelve reports, so the same edit is made in each. Wording only; no figure, count or theorem changed. |
-| v1.40 *(current)* | 2026-10-16 | **Seven sites corrected from Codex's final review (gpt-6-astra; findings F11-006#1/#3/#10/#17, CAL-006, F11-008#3, F07-006#5, CAL-011; triaged by Fable; fast-track batch FT2a).** (i) The "uncorrupted precursor never existed" sentence now carries the strict, zero-exception scope that the SCOPED note at the end of its paragraph states. (ii) The method sentence describes the probe as it runs: a uniform random descent that stops at a dead end or a leaf, ≈0.18 % reaching a C1–C5 leaf. (iii) The joint-strict population ≈1.13×10²⁹ is orientation-explicit (raw), not canonical. (iv) c2011n1's zero-hit cell is reported as starvation, not as the bound <10⁻⁹. (v) §3 and the method sentence give the registry split as 26 source-stated and five KW-derived — the four KW-measured anchors plus d7, whose registry value is read off King Wen's own xiaoxi positions (CLAIM_TO_ARTIFACT.md row 16, 2026-09-07); they read 27 and four, and each site carries a dated note. No figure, verdict or certificate changes. See CORRECTIONS.md (fast-track batch FT2a). |
+| v1.40 | 2026-10-16 | **Seven sites corrected from Codex's final review (gpt-6-astra; findings F11-006#1/#3/#10/#17, CAL-006, F11-008#3, F07-006#5, CAL-011; triaged by Fable; fast-track batch FT2a).** (i) The "uncorrupted precursor never existed" sentence now carries the strict, zero-exception scope that the SCOPED note at the end of its paragraph states. (ii) The method sentence describes the probe as it runs: a uniform random descent that stops at a dead end or a leaf, ≈0.18 % reaching a C1–C5 leaf. (iii) The joint-strict population ≈1.13×10²⁹ is orientation-explicit (raw), not canonical. (iv) c2011n1's zero-hit cell is reported as starvation, not as the bound <10⁻⁹. (v) §3 and the method sentence give the registry split as 26 source-stated and five KW-derived — the four KW-measured anchors plus d7, whose registry value is read off King Wen's own xiaoxi positions (CLAIM_TO_ARTIFACT.md row 16, 2026-09-07); they read 27 and four, and each site carries a dated note. No figure, verdict or certificate changes. See CORRECTIONS.md (fast-track batch FT2a). |
+| v1.41 *(current)* | 2026-10-17 | **Fourteen sites put back to their sources (Codex's final review, gpt-6-astra; F11-006#2/#4/#5/#7/#8/#11/#14/#15/#16, F02-003#9, F02-006#6, CAL-006#162/#166/#175/#177/#178; triaged by Fable; fast-track batch FT2b-2).** The reproduction promise names its flagged exceptions; the abstract's Lean claim carries the transcription step; caveat (a) says 26 source-stated and five KW-derived values; the mean fiber names its layer; TR-8's "conservative" is reported as TR-8 now reports it; the orientation sentence names the one non-null, non-forced rule and its fiber; the 36-unit consolidation credits the 张行成/朱熹/胡一桂 → 來知德 lineage, `rs1` Li Shangxin alongside Schulz, and the S25–28 configuration Li Shangxin 2000's earlier statement; "singly or jointly" is limited to the one joint measurement made; the pair-only re-check names row 4's 0.667 → 0.982 as the largest shift; C1 failure no longer "guarantees" a low score; the fiber rerun matches the archive except its three annotation lines. The execution-lane note says `scripts/exec_lane.sh` executes every command it classifies as runnable, not every documented command (the lane never runs its OPS, placeholder or fragment classes; Codex's final review, gpt-6-astra, CAL-009#62, CAL-010#97; triaged by Fable; fast-track batch FT2b-2). No figure changes. See CORRECTIONS.md (fast-track batches FT2b-2..4). |

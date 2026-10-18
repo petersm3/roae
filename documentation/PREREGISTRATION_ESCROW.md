@@ -316,6 +316,14 @@ it makes checkable is content identity from 2026-08-22 onward, not freeze timing
 
 ## Amendment log
 
+### 2026-10-17 — one sentence annotated, no published value changed
+
+1. The A1 row's paragraph called the public commit "a third-party timestamp for the freeze of those choices". A
+   commit the author controls is a hash-chained public record whose date its author can set; the class-A query
+   set's own "checkable without trusting us" list says the same. The sentence is **annotated** in place, not
+   rewritten. Found by Codex (gpt-6-astra), final review, F02-002#2; recorded in CORRECTIONS.md (fast-track batch
+   FT2b-4).
+
 ### 2026-09-04 — the six named as not-escrowed are escrowed, and a rule is adopted
 
 1. **Six rows added** in §"The six, escrowed 2026-09-04". They carry a **freeze-commit** digest, not a
@@ -381,7 +389,7 @@ records that the public code was brought into conformance with the frozen text b
 the line that decides it, and attests that no seed of the frozen root has been used. Because the
 file is public in full, a reader can hash it against this row and read what it fixes; because it
 is committed before any draw, the commit is a third-party timestamp for the freeze of those
-choices. The frozen file itself remains private and remains covered by its 2026-08-22 row only.
+choices. ⚠ *(Annotated 2026-10-17, Codex final review F02-002#2: it is not. A commit the author controls is a hash-chained public record, and its date is settable by its author — [PREREG_CLASSA_QUERY_SET.md](PREREG_CLASSA_QUERY_SET.md) says so itself; only a capture by an independent archive gives a third-party time. See §"Amendment log", 2026-10-17.)* The frozen file itself remains private and remains covered by its 2026-08-22 row only.
 
 **What the run will be read against.** The kit that executes the registration reads the byte
 concatenation *frozen file ‖ A1 ‖ A2*, where A2 is the admitted-bank annotation the frozen text

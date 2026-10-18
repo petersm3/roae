@@ -21,7 +21,9 @@ G1=4
 #      Adding a pin would FABRICATE provenance, which is worse than the gap. The real defect is one
 #      level up: a published command does not name the artifact it reproduces.
 #      2026-09-24: measured 9 on the combined batch-6 tree (was 10); re-pinned in the same commit.
-G2=9
+#      2026-10-17: measured 8 (fast-track batch FT2b-2: CLAIM_TO_ARTIFACT.md row 10 now carries SOLVE_THREADS=32,
+#      the thread count its archived run records; Codex final review F11-008#5); re-pinned in the same commit.
+G2=8
 # G3 — published disclosures that have gone stale. Shaped to fire when the artifact EXISTS.
 G3=0
 # G4 — corrections that name a propagation target which does not carry the correction id.

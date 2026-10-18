@@ -61,7 +61,7 @@ are **recorded, not claimed**: no corruption-vs-tendency verdict is asserted on 
 instrument that could restore the claim is already named in §"The result": a V-matched confusability
 gate with its bar frozen before it runs.
 
-Verification model: every load-bearing claim is an artifact check (witness verification or UNSAT certificate).
+Verification model: every load-bearing existence or impossibility claim is an artifact check (witness verification or UNSAT certificate), except the two CC-N4 equivalence instances, whose UNSAT is a recorded solver decision with no archived certificate (§2). The two-class calibration that withdrew the Bayes factor is **attested, not reproducible**: its driver did not survive ([evidence/f11halfb/README.md](evidence/f11halfb/README.md)).
 
 ---
 
@@ -74,7 +74,7 @@ formalized a third rule over [Lai Zhide's](../documentation/CITATIONS.md#laizhid
 same locus — noted as early as the thirteenth century by Zhu Yuansheng — and a fourth, the trigram
 configuration of stations 25–28, which the received order satisfies exactly. Using a Boolean-satisfiability
 encoding of these rules over the space of orderings preserving the sequence's classical pair structure, we
-resolve the conjectures these authors raised. (1) Moore's conjectured compliant order exists: we exhibit
+decide two questions their conjectures raise — whether a compliant order exists and how far it lies from the received one; whether any alteration occurred is not decided here. (1) Moore's conjectured compliant order exists: we exhibit
 an ordering perfect under both of his rules, differing from the received order by exactly three
 **slot-edits** (slots whose pair-or-orientation content changed — the certified quantity behind
 `sat.py`'s `-near-<k>` targets, not a count of adjacent moves) — two of the three at the very anomaly he identified — and
@@ -159,7 +159,7 @@ DRAT replay, because the documented regeneration command *is* our encoder (`sat.
 proof certifies that the CNF is unsatisfiable, never that the CNF means what the prose says it means.
 The paragraph immediately below names translation error as "the obvious failure mode", and
 [METHODS](METHODS.md)'s trust ladder calls this gap out explicitly. What narrows it is the two-way
-encoding validation described next, not the certificate; it does not close it (certificates/README § scope).]** Every impossibility claim in this report ships that way; the
+encoding validation described next, not the certificate; it does not close it (certificates/README § scope).]** Every impossibility claim in the conflict theorem and its cores ships that way; the two CC-N4 equivalence instances in §2 (`sat.py --ccn4-equiv-cnf fwd|rev`) do not — their UNSAT is a recorded solver decision ([SAT_CLI.md](../documentation/SAT_CLI.md)) with no archived certificate; the
 certificates are in [certificates/](certificates/) and `verify_all.sh` checks all of them in one command.
 
 **Two-way encoding validation, in plain language.** The obvious failure mode is not a solver bug but a
@@ -258,7 +258,7 @@ import from `solve.reg_ccn4` / `solve._reg_stations` and cross-checked against a
 replica on King Wen, 300 seeded random permutations and three targeted mutants
 ([`sat.py`](../sat.py):458-521) rather than hand-written. ⚠ *(Named 2026-09-25, Codex v3 review, V3B-05#6: these checks run when `sat.py` is imported, so `python3 -c "import sat"` exits 0 only if the replica agrees on King Wen, on all 300 permutations drawn from `random.Random(2016)`, and on the three mutants.)* The lattice shows the conflict is not an
 artifact of piling on constraints; the battery is the evidence that the trigram clauses say what the rule
-says at King Wen and on the 300 sampled permutations; it does not exercise the emitted clauses on a non-King-Wen model (a separate test has done so since 2026-09-29, `tests.py` `TestSatEmittedClausesNonKW`, on the 44 public non-King-Wen witnesses and one constructed sequence — tested, not proved). ⚠ *(2026-10-02, Q-934: of those 44 witnesses 43 violate CC-N4, so the positive side of that test was King Wen plus one — and four planted mis-encodings of the S25–28 family pass both KW-forced gates and that witness set [`tests.py` `TestSatCcn4ClausesBeyondKingWen`]. The family is now checked against an independently written encoding of the rule over EVERY C1-valid ordering by two SAT instances, `sat.py --ccn4-equiv-cnf fwd` and `rev`, both UNSAT [SAT_CLI.md], and against `solve.reg_ccn4` on 1,039 seeded orderings of both polarities that catch all four mis-encodings. What the theorem's UNSAT rests on, for this conjunct, is therefore that `solve.reg_ccn4` is Schulz's rule — a reading of the source, not an encoding question.)* ⚠ **[CORRECTED 2026-09-01 — this read "A single fragile encoding choice cannot produce that
+says at King Wen and on the 300 sampled permutations; it does not exercise the emitted clauses on a non-King-Wen model (a separate test has done so since 2026-09-29, `tests.py` `TestSatEmittedClausesNonKW`, on the 44 public non-King-Wen witnesses and one constructed sequence — tested, not proved). ⚠ *(2026-10-02, Q-934: of those 44 witnesses 43 violate CC-N4, so the positive side of that test was King Wen plus one — and four planted mis-encodings of the S25–28 family pass both KW-forced gates and that witness set [`tests.py` `TestSatCcn4ClausesBeyondKingWen`]. The family is now checked against an independently written encoding of the rule over EVERY C1-valid ordering with the (63, 0) opening the encoding fixes (slots 1–31 are the variables) by two SAT instances, `sat.py --ccn4-equiv-cnf fwd` and `rev`, both UNSAT [SAT_CLI.md], and against `solve.reg_ccn4` on 1,039 seeded orderings of both polarities that catch all four mis-encodings. What the theorem's UNSAT rests on, for this conjunct, is therefore that `solve.reg_ccn4` is Schulz's rule — a reading of the source, not an encoding question.)* ⚠ **[CORRECTED 2026-09-01 — this read "A single fragile encoding choice cannot produce that
 pattern", attributing to the lattice an exclusion the lattice does not carry.]**
 
 **One honest qualification about the trigram rule.** Of the four, the S25–28 trigram configuration is the
@@ -304,7 +304,7 @@ v1.17) and exact satisfaction of `ccn4`, the most data-like of the four by this 
 qualification.
 
 ## Verification Guide
-- Every theorem: a command + a certificate. Encodings: validated two ways in-repo; the encodings' rule
+- Every theorem: a command + a certificate (the two CC-N4 equivalence instances: a command and a recorded solver decision, no certificate). Encodings: validated two ways in-repo; the encodings' rule
   semantics were verified to reproduce each author's stated KW values before anything else was trusted.
 - "Did you interpret the rules correctly?" -> the KW-value reproduction gates (16/18 at 22-23; 2 breaks
   at (7,8),(22,23); 2 violations at 25/26; the trigram faces 31/24/26/29) — the authors' own numbers.
@@ -482,7 +482,7 @@ substantial, BF > 100 strong) were frozen by operator sign-off on 2026-07-04, **
 executed, with a pre-committed publish-whatever-it-says clause: the full sensitivity table would be
 published regardless of direction. Nothing was altered after seeing the numbers except the numbers
 themselves. One disclosed gap: the frozen document left the parameter-prior grids symbolic; they were
-declared wide at computation time (each spanning ~2 orders of magnitude, uniform weights), and the full
+declared wide at computation time (λ spanning 2 orders of magnitude, p_c from 0.05 to 0.9, about 1.26; uniform weights), and the full
 per-gridpoint likelihood tables are published so any reader can re-weight them.
 
 **Band provenance (disclosure added 2026-08-06).** The decision bands above — BF > 10 "substantial",
@@ -542,11 +542,11 @@ posterior are WITHDRAWN as claimed results — see the calibration bullet below.
   [CORRECTIONS](../documentation/CORRECTIONS.md) CX-25). The two-class pair behind these numbers has
   now been through its own pre-registered confusability gate, bar frozen at 70/100 and seed published
   before the run. **M_corr self-recovery PASSED at 93/100; M_tend self-recovery FAILED at 68/100, so
-  the gate vetoed.** An n=1000 extension (same seed, the original 100 draws bit-identical inside it)
+  the gate vetoed.** (Attested, not reproducible: the Half A/B driver did not survive — [evidence/f11halfb/README.md](evidence/f11halfb/README.md).) An n=1000 extension (same seed, the original 100 draws bit-identical inside it)
   estimates the rate at **0.714, 95% CI [0.685, 0.741]** — an interval that still straddles the bar.
   The failure is concentrated in one stratum: at **V=0** the two models are provably
   confusable (**0/277**, upper bound 1.4%), because a V=0 tendency draw lands inside the grand-strict
-  set, which is exactly M_corr's support; **nine further failures sit at V=1–4** (**56/63** at V=1–2,
+  set, which is exactly the support of M_corr's precursor distribution (M_corr's own draws, corrupted precursors, are not confined to it — King Wen is outside it); **nine further failures sit at V=1–4** (**56/63** at V=1–2,
   **59/61** at V=3–4); at **V≥5** there are none (**599/599**).
   The received sequence has **V=6**, which falls in the **V=5–7 stratum**, where self-recovery is 51/51.
   ⚠ **[CORRECTED 2026-09-24 (v1.35; Codex V3A-088#1, Q-742) — this called the failure a step function
@@ -826,8 +826,8 @@ veto report are in [evidence/r11/](evidence/r11/) (`r11_calibration.py`, `calibr
 `draws.json`, `scores.json`, `hits.json`, `pcomplete.json`, `gates.json`; master seed 20260720,
 deterministic). Two pre-gates worth noting as independent cross-checks that the instrument was wired to
 the right object: the exact 3-edit event count reproduces the published 7,975, and the greedy builder's
-measured completion probability is 0.8–1.4% across the β grid (n = 32,000 per point) — an independent
-sighting of how thin the C1–C5 space is.
+measured completion probability is 0.8–1.4% across the β grid (n = 32,000 per point) — how rarely the
+greedy builder completes under C1, C2, C4 and C5 (`P_complete` never evaluates C3, see the 2026-09-19 note above), a probability under the builder's biased distribution, not a population fraction.
 The comparison is **report-only, with no promotion path**, and it does not revise the v1.7 two-model
 computation, which remains on the page as the as-computed record — **WITHDRAWN as a claimed result**
 ([CORRECTIONS](../documentation/CORRECTIONS.md) CX-26, 2026-08-07; see §"The result"). If the wider
@@ -847,8 +847,8 @@ including the now-repaired stratified cross-check, had passed; the veto is a fai
 gate specifically, not of the ingredients. One ordering-of-operations deviation is disclosed now, in the F11 "honest note" style: the
 ingredient runs (population measurements, blind to any KW-facing verdict) were executed before the
 design's formal operator freeze stamp; the design summarized here was committed publicly (v1.9,
-2026-07-10) before any of those measurements, which is the tamper-evident witness that no
-verdict-relevant element moved in response. Results, when computed, land in
+2026-07-10) before any of those measurements, which witnesses that the elements that summary states did not
+move in response; the numeric grids and the confusability bar are not in that summary (the full design was frozen privately, [evidence/r11/README.md](evidence/r11/README.md)), so it cannot witness them. Results, when computed, land in
 `reports/evidence/r11/` under the frozen verdict template, whatever their direction.
 
 *Attribution: the modeled rules belong to their authors (Moore, Schulz, Cook; the corruption mechanism's
@@ -899,4 +899,5 @@ developed with AI assistance (Claude, Anthropic). Corrections welcome via
 | v1.38 | 2026-09-28 | **The shared trade-off figure is a four-row table (Q-900; Codex VIZ H2-01, H2-02; figure and wording only).** See TR-1 v1.37: named columns replace the red/green bars, and the trigram row names stations 25–28 (Lai Zhide's 36 consolidated units). §Figure's alt-text and caption describe the table. |
 | v1.39 | 2026-09-29 | **Scope of five sentences, one recipe and one count (an adversarial review by Codex (gpt-6-astra) of the Lean, SAT and DRAT surface, triaged by Fable; CX-232).** (i) The two-way encoding validation narrows the encoding-fidelity gap but does not close it, and the battery is evidence at King Wen and on the 300 sampled permutations only. (ii) The conflict theorem is about the strict rule forms encoded here, not Schulz's exception-admitting source form of the gender rule. (iii) The fourth core's certificate refutes only an exception-free gender ordering under S25–28; the locus 25/26 is the hand check. (iv) The two Moore cores are decidable by hand from the four pinned faces; the solver certified them. (v) The §3 footprint names the third edit, an orientation flip of pair 22 in its new slot. (vi) The certificate directory holds 24 proofs today. No verdict or certificate changed. |
 | v1.40 | 2026-10-01 | **The cover's reproduction promise is rescoped (Codex v3 review, finding V3B-08 #22 against TR-5, triaged by Fable; backlog Q-759).** The banner said every MEASURED result carries a reproduction command, while the reports themselves flag results that have none. It now says each one carries a command or says at the claim that it has none, which is what the reports index already said. GATE 9 holds the banner byte-identical across all twelve reports, so the same edit is made in each. Wording only; no figure, count or theorem changed. |
-| v1.41 *(current)* | 2026-10-16 | **Four sites corrected from Codex's final review (gpt-6-astra; findings F11-007#6/#7/#15/#16/#17/#19, CAL-007; and Codex V3A-088 #4 of 2026-09-24; triaged by Fable; fast-track batch FT2a).** (i) The executive summary's v1.7 Bayes-factor paragraph now opens with its v1.27 withdrawal, which had stood fifteen lines below it; the posterior bullet and the Verification Guide's "live" headline are marked as-computed. (ii) The six rule violations: five of six cluster at the flagged locus, not four — the two gender violations at inversion-class positions 25–26 are pair-slots 22–23 (TR-1 §3). (iii) The model comparison is over the orientation-explicit C1–C5 space. No figure or verdict changes. See CORRECTIONS.md (fast-track batch FT2a). |
+| v1.41 | 2026-10-16 | **Four sites corrected from Codex's final review (gpt-6-astra; findings F11-007#6/#7/#15/#16/#17/#19, CAL-007; and Codex V3A-088 #4 of 2026-09-24; triaged by Fable; fast-track batch FT2a).** (i) The executive summary's v1.7 Bayes-factor paragraph now opens with its v1.27 withdrawal, which had stood fifteen lines below it; the posterior bullet and the Verification Guide's "live" headline are marked as-computed. (ii) The six rule violations: five of six cluster at the flagged locus, not four — the two gender violations at inversion-class positions 25–26 are pair-slots 22–23 (TR-1 §3). (iii) The model comparison is over the orientation-explicit C1–C5 space. No figure or verdict changes. See CORRECTIONS.md (fast-track batch FT2a). |
+| v1.42 *(current)* | 2026-10-17 | **Nine sites put back to their sources (Codex's final review, gpt-6-astra; F11-007#1/#2/#4/#8/#9/#10/#13/#14, CAL-007#95/#98/#104/#105/#111/#117, with V3A-088 #2 and #3 of 2026-09-24; triaged by Fable; fast-track batch FT2b-2).** The CC-N4 equivalence instances are named as uncertified solver decisions over orderings with the (63, 0) opening; the two-class calibration is labelled attested, not reproducible, at the verification model and at the claim; the abstract decides two questions, not "the conjectures"; the parameter grids span 2 and about 1.26 decades; grand-strict is the precursor support; the builder's completion probability omits C3; the July summary witnesses only what it states. No figure changes. See CORRECTIONS.md (fast-track batches FT2b-2..4). |

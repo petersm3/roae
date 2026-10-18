@@ -301,7 +301,7 @@ comment_membership_check(){
   all=$(derived_inputs); code=$(derived_inputs code)
   declared=$(printf '%s\n' $CORE $DECLARED $REFERENCED_NOT_INPUTS | sort -u)
   only=$(comm -23 <(printf '%s\n' "$all" | sort -u) \
-                  <( { printf '%s\n' "$code"; printf '%s\n' "$declared"; } | sort -u) | grep -v '^$')
+                  <( { printf '%s\n' "$code"; printf '%s\n' "$declared"; } | sort -u)) || { echo "  [FAIL] comment-membership: comm could not compare the member sets (F05-008#12) -- an empty difference is not a match"; return 1; }; only=$(printf '%s\n' "$only" | grep -v '^$')
   if [ -n "$only" ]; then
     echo "  [FAIL] these fingerprint members are reached ONLY through comment text, so rewording a"
     echo "         comment would drop them from the fingerprint with nothing going red (Q-613):"
@@ -413,9 +413,9 @@ manifest_diff(){
   local changed; changed=$(sort "$pre" "$post" | uniq -u | sed 's/^[0-9a-f]\{64\}  //' | sort -u) || { echo "  [ERROR] stamp guard: the manifests could not be compared (sort/uniq/sed failed) -- Q-963"; return 2; }
   local a keep
   for a in "$@"; do
-    keep=$(printf '%s\n' "$changed" | grep -vxF "$a"); changed=$keep
+    keep=$(printf '%s\n' "$changed" | grep -vxF "$a"); [ $? -le 1 ] || { echo "  [ERROR] stamp guard: the allowed-path filter failed (F05-008#11)"; return 2; }; changed=$keep
   done
-  changed=$(printf '%s\n' "$changed" | grep -v '^$')
+  changed=$(printf '%s\n' "$changed" | grep -v '^$'); [ $? -le 1 ] || { echo "  [ERROR] stamp guard: the blank-line filter failed (F05-008#11)"; return 2; }
   [ -z "$changed" ] && return 0
   echo "  [FAIL] these fingerprinted inputs CHANGED while the battery was running:"
   printf '%s\n' "$changed" | sed 's/^/           /'
@@ -511,7 +511,7 @@ if ! manifest_check; then echo "TR12_REPRO_GATE=FAIL"; exit 1; fi
 
 # 🔴 INVOKE IT. A coverage check nobody calls is the defect this gate is named after.
 fingerprint_coverage_check || { echo "TR12_REPRO_GATE=ERROR"; exit 2; }
-FP=$(fingerprint)
+FP=$(fingerprint); _fprc=$?; [ "$_fprc" -eq 0 ] && [[ "$FP" =~ ^[0-9a-f]{64}$ ]] || { echo "  [ERROR] the fingerprint could not be computed (rc $_fprc, got '$FP'), so nothing can be compared or stamped (F05-008#10)"; echo "TR12_REPRO_GATE=ERROR"; exit 2; }
 # 🔴 Q-546: the battery's VIEW of the tree, recorded at the same instant as $FP, so the stamp
 # written minutes from now can be refused if the bytes moved underneath it. Per-file, so the
 # refusal can name the file. $_RUN_T0 is this run's start, for the newer-stamp check.
@@ -624,7 +624,7 @@ if [ "$MODE" = "--check" ]; then
     echo "  no stamp exists yet — run scripts/tr12_repro_gate.sh --stamp"
     echo "TR12_REPRO_GATE_CURRENT=UNKNOWN"; exit 1
   fi
-  WANT=$(awk -F= '/^fingerprint=/{print $2}' "$STAMP")
+  WANT=$(awk -F= '/^fingerprint=/{print $2}' "$STAMP"); [[ "$WANT" =~ ^[0-9a-f]{64}$ ]] || { echo "  the stamp carries no well-formed fingerprint= line (got '$WANT') -- re-stamp (F05-008#10)"; echo "TR12_REPRO_GATE_CURRENT=UNKNOWN"; exit 1; }
   if [ "$FP" = "$WANT" ]; then
     echo "TR12_REPRO_GATE_CURRENT=YES"; exit 0
   fi

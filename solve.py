@@ -15761,7 +15761,7 @@ def atlas_probe(atlas_path):
 
     Reads ONLY a `solve --kc-scan ... --kc-raw --kc-tdir` atlas JSON (`version` 2, the
     2026-09-11 logging tables): no ladder, no solver binary, no network.  Every figure is a
-    whole-line `KEY=value` token, so a reader matches it with `grep -qx` and never by output
+    whole-line `KEY=value` token, so a reader matches it with `grep -Fqx` (-F: two tokens carry `[...]`, TR-12 §12.9) and never by output
     shape.  Every table is re-summed against N (and the atlas's own gates) before a figure that
     depends on it is printed -- the `by_class` and `marginal_raw` rows and the kernel's class and
     entry-pair marginals are re-summed HERE and cross-checked against each other, not read off
