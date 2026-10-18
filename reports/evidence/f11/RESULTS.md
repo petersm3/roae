@@ -23,7 +23,8 @@
 > published BF ≈ 5.2×10³ (U) / 6.3×10³ (A) and the ≈0.9998 posterior are therefore **no longer
 > calibrated in the pooled sense**; the numbers are unchanged and not withdrawn — what is withdrawn
 > is their *calibration support*. The failure is stratum-confined (V=0 provably confusable, 0/277;
-> V≥5 provably distinguishable, 599/599; the received sequence has V=6), but the gate's registration
+> V≥5 recovered in all 599/599 draws — observed, not a proof of separation; "provably distinguishable" until
+> 2026-10-17, CX-35T-E; the received sequence has V=6), but the gate's registration
 > defines no bar at n=1000 and cannot produce a PASS, so the V-restricted rate may not be quoted as
 > the gate outcome; a V-matched gate is a new instrument, registered but not yet run. See
 > [../f11halfb/](../f11halfb/) and [TR-2](../../TR2_THE_RULES_CONFLICT.md) §"The result".
@@ -269,7 +270,7 @@ that clears the frozen bands also clears both published tables. See the full ban
 - **Variant U (uniform edit location): BF ≈ 6.6×10³ → STRONG evidence for M_corr** (corruption),
   ~66× beyond the strong threshold.
 - **Variant A (bamboo-adjacent-biased): BF ≈ 7.9×10³ → STRONG evidence for M_corr**, ~79× beyond.
-- Every one of the 24 pre-committed marginal configurations is in the strong band
+- Every one of the 24 marginal configurations (the registration fixed the two corruption-location variants and the grids and committed to publishing the full sensitivity table; it did not name the 24 — "pre-committed" until 2026-10-17, CX-35T-F) is in the strong band
   (range 1.4×10³ – 2.7×10⁴); the direction never flips anywhere in the sensitivity space,
   including every per-gridpoint cell.
 
@@ -303,7 +304,7 @@ in the pooled sense; the numbers stand, their calibration support does not.
    where M_tend is competitive (λ ≈ 0.5–2), which RUN A pins to 0.03% relative error. The sparse
    low-V cells of RUN A (weighted rare-event estimates) affect only the λ ≥ 5 gridpoints, which
    are ~10⁵ further suppressed; O(few)× noise there moves nothing.
-5. **Priors within the declared grids**: the p_c grid spans ×14 in L_corr (p_c = 0.05 → 0.9); the
+5. **Priors within the declared grids**: the p_c grid spans ×787 (U) / ×748 (A) in L_corr (p_c = 0.05 → 0.9; the table above — "×14" until 2026-10-17, CX-35T-F); the
    λ grid spans ×10⁴ in L_tend among its competitive points (λ = 0.5–2 vs the rest). This is the
    spread a reader re-weighting the grids can exploit — bounded by the gridpoint matrix above
    (minimum 3.3 at one corner, >100 at 46/49 points).

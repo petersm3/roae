@@ -18,8 +18,8 @@ prefix-determinism per cell"), and no cell completed
 sample … shallower solutions overrepresented … indicative, not definitive").
 No record carries an inclusion probability, so no figure below is a
 random-sampling estimate of a full-space quantity. Every percentile, histogram
-and tail probability in this document is **exact for the 100 T canonical slice
-and scoped to it**; extension to the full C1-C5 space is an open question, not a
+and tail probability computed from the slice is **exact for the 100 T canonical slice and scoped to it**; the KDE joint-density percentile (§"Joint density — de-circularized re-analysis (2026-07-26)") is a
+sampled estimate, with its seeds and bandwidths stated there (scoped 2026-10-17, CX-35T-L); extension to the full C1-C5 space is an open question, not a
 result. *(An earlier revision of this paragraph described the data as a random
 sample of the constraint space and called the resulting claims "defensible
 without requiring full enumeration"; that framing is withdrawn.)*

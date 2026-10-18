@@ -580,8 +580,9 @@ inside the estimator's stated error envelope for the same quantity ([TR-4](TR4_S
 
 One figure is **withdrawn**: an earlier "about 3.3×10³⁷" for C1 to C5, counted with directions
 merged. It was larger than its own ceiling, so it cannot be right. The 1.3287×10³⁸ above is a
-different count and stands. The withdrawal, and every other correction this project has made, is
-in [CORRECTIONS.md](../documentation/CORRECTIONS.md).
+different count and stands. The withdrawal, and every correction since the ledger opened, is
+in [CORRECTIONS.md](../documentation/CORRECTIONS.md) ("every other correction this project has made" until
+2026-10-17, CX-35T-G; [CLAIMS_DECIDED](../documentation/CLAIMS_DECIDED.md) names what the ledger does not cover).
 
 ### The main finding
 
@@ -901,8 +902,10 @@ settle each open question.
   0.102-bit score gap, and the closeness to a shuffled budget.
 - Reproduction outside this project. The same author wrote the claims, the project code and the
   reports; the checks use several algorithms, two languages and externally written proof checkers.
-  The Lean proofs and SAT certificates are in this repository and need at least 12 GB of free
-  RAM to check. [TR-12](TR12_QUERY_PROGRAM.md) lists its open problems, and
+  The Lean proofs and SAT certificates are in this repository; checking every Lean file needs about
+  10 GB of free RAM (16 GB is comfortable), and eight of the fourteen modules measured in
+  [lean/README.md](../lean/README.md) §"Verify yourself" check in under 1 GB ("at least 12 GB" until
+  2026-10-17, CX-35T-G). [TR-12](TR12_QUERY_PROGRAM.md) lists its open problems, and
   [CRITIQUE.md](../documentation/CRITIQUE.md) is the project's own case against its results.
 
 **What would prove a result wrong.**

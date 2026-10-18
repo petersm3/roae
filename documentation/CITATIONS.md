@@ -40,7 +40,7 @@ The pairing of the 64 hexagrams into 32 consecutive reverse-or-complement pairs 
   --check-classical-groups` prints `RULE_REV_ALONE=56/64`. See documentation/CORRECTIONS.md.]** Exactly, not by sampling:
   **70 of 3.845×10⁴⁶ involutions score 64/64, and all 70 are Kong Yingda's rule up to a vacuous
   relabelling** on the degenerate hexagrams. So the pairing rule is not *a* symmetry that happens to
-  fit — it is **the** rule, against a rival the tradition supplied rather than one we constructed.
+  fit — it is **the** rule, against a rival assembled here from generators the tradition supplied ("a rival the tradition supplied rather than one we constructed" until 2026-10-17, CX-35T-L; the group is our assembly, as the entry above says).
   Reproduce with `python3 verify.py --check-classical-groups`. Added 2026-07-30 (constraint-provenance audit; the repo previously carried no Kong Yingda citation anywhere). *Cited here at attribution level — the paraphrase above states the rule; the verbatim classical wording is held for a future classical-Chinese verification pass.*
 
 <a id="lixueqin2003"></a>
@@ -564,8 +564,8 @@ enumerates that space, or proves a ceiling on it.
   quantitative form of the position he articulated. [analyzed 2026-07; notes in the private trove]
 <a id="ouyang1992"></a>
 - **Ouyang Weicheng 欧阳维诚** (1992). "Yiqun yanjiu" 易群研究 [A study of the Yi group]. *Zhouyi
-  yanjiu* 周易研究 1992(3): 69–77. **The earliest and fullest hexagram-level group theory located by
-  this project**: proves the 64 hexagrams form an abelian group ≅ (Z/2)⁶ (his framework dates to
+  yanjiu* 周易研究 1992(3): 69–77. **The fullest hexagram-level group theory located by
+  this project** ([Goldenberg 1975](#goldenberg1975) precedes it; corrected 2026-10-17, CX-35T-C: this read "The earliest and fullest"): proves the 64 hexagrams form an abelian group ≅ (Z/2)⁶ (his framework dates to
   *Hunan shuxue tongxun* 湖南数学通讯 1986(1)), develops a named subgroup lattice with a subgroup
   chain and expansion theorem, and — twenty years before Suenaga — exhibits the Jing Fang, Mawangdui,
   and Fuxi sequences' 8×8 squares as **subgroup × coset partitions** (his 可乘划分). His counting
@@ -1948,8 +1948,8 @@ equivariance-ceiling hedges said "see CITATIONS.md" for Curie/Smidt, but no entr
 - **Curie, Pierre** (1894). "Sur la symétrie dans les phénomènes physiques, symétrie d'un champ
   électrique et d'un champ magnétique." *Journal de Physique Théorique et Appliquée* 3(1): 393–415.
   Curie's principle — the symmetry of causes reappears in effects — is the *argument* underlying the
-  equivariance ceiling in `lean/KingWen.lean` (a G-invariant score induces an output distribution
-  constant on each orbit, so no such generator can concentrate on a single orbit element,
+  equivariance ceiling in `lean/KingWen.lean` (an output law that is a function of a G-invariant score is constant on each orbit — the theorem's hypothesis; an invariant score alone, with a tie-break by enumeration
+  order, is not covered (scoped 2026-10-17, CX-35T-G) — so no such generator can concentrate on a single orbit element,
   P ≤ 1/|orbit|). **No novelty is claimed for the argument**; ROAE's contribution is bounded to its
   instantiation at the King Wen record orbit (the 1/24 constant riding on `twins_24_records`) and
   the machine-checked formalization.
@@ -2364,7 +2364,7 @@ The image of the cosmos in the Yijing* [Book].
   regularity — his claim, recorded as his) — the eight trigram-defined functional groups occupy
   decade-arithmetic "rooms" of the King Wen table, with ten deviant pairs — was operationalized
   and measured (D-B1; measured 2026-07-11, landed 2026-07-12): the observation is true and
-  verified (his Table 4.1 group classifier reproduces 64/64 from pure bit predicates,
+  verified (his Table 4.1 group classifier reproduces 64/64 from pure bit predicates, with his G1 and G2 merged into one class as the conformity score needs,
   two-language `--db1-verify` gate;
   KW conformity X = 22/32 with his ten deviant pairs exact), but each "room" is verifiably the
   maximum-coverage decade window for its own group's King Wen positions plus a residue, so the

@@ -32,8 +32,9 @@ manifest; the registry publishes no per-file sizes, so the ratios are stated aga
 ./solve --f1-exact-c1c2c4c5 --f1-out-of-core <DIR>          # n defaults to 31
 ```
 
-That run is a multi-day, multi-terabyte build; the two rungs in §2 run in **under a second** on
-a laptop and are the part you can check immediately.
+That run is a multi-day, multi-terabyte build; the engine rungs in §2 run in **under a second** on
+a laptop, and the independent n=16 recount takes about 90 s (~1 GB); they are the part you can check
+immediately *(corrected 2026-10-17, CX-35T-J: this read "the two rungs in §2 run in under a second")*.
 
 ## 1. The 31 layers
 
@@ -106,7 +107,8 @@ Not every column here carries the same weight, and saying so is the point of thi
 | `mass` | **independently gated** at n=9 and n=13 — see §2. Terminal row matches the published full-31 integer. Its *rendering* is separately gated across the full 192-bit range by `verify.py --f1-dec-roundtrip`, which matters because n=9 and n=13 masses fit in one 64-bit limb while the k=31 value does not. |
 | `canonical_masks` | **independently gated** — `verify.py --recount-orbit-widths 31` recomputes all 31 by Burnside over the 24-element pair-permutation quotient, derived from the 48 commuting bit-permutations rather than read from the engine. Two different derivations, not a restatement. |
 | `C(31,k)` | arithmetic. |
-| `states`, `entries`, `V_k`, `layer GB` | **engine-internal telemetry, not independently reproduced.** They describe how *this* implementation laid the layer out. A different correct implementation may legitimately differ. Do not cite them as properties of the mathematical object. |
+| `V_k` | arithmetic — a fixed cardinality this page defines (§1: the C5 budget-usage vectors with digit sum k), recomputed for all 31 rows by enumerating the 6,048 vectors (the 2026-09-25 note in §1). *(Moved out of the telemetry row 2026-10-17, CX-35T-J.)* |
+| `states`, `entries`, `layer GB` | **engine-internal telemetry, not independently reproduced.** They describe how *this* implementation laid the layer out. A different correct implementation may legitimately differ. Do not cite them as properties of the mathematical object. |
 
 ## 2. The gate: independent per-layer recount at n=9, n=13 and n=16
 

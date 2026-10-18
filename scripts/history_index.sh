@@ -266,7 +266,7 @@ if mode == "write":
           % (idx, len(rows), iso_n, len(undated), len(inv_all)))
     sys.exit(0)
 try:
-    have = open(idx, encoding="utf-8").read()
+    have = open(idx, encoding="utf-8", newline="").read()  # newline="": no CRLF->LF folding, so CURRENT means byte-identical (Codex gpt-6-astra F06-011#4; push group G4, CX-35T-L)
 except OSError as e:
     err("cannot read the committed index %s: %s" % (idx, e))
 print("  [info] %s: %d dated H2 section(s) (%d iso, the currency gate's grammar), %d undated; %d place(s)"

@@ -219,7 +219,8 @@ whose partner is not adjacent.
 The same command also records a **negative** result worth stating plainly: because King Wen's blocks
 and its pairing orbits coincide *by construction*, symbol evidence from the Chu manuscript **cannot
 distinguish** "the symbols respect reversal" from "the symbols are constant on contiguous blocks of
-the received order." That second reading is not a construct of ours: [Jiang Guanghui 2004](CITATIONS.md#jiangguanghui2004)
+the received order" on the available within-pair observations (Jiang's blocks are unions of pairs; cross-pair
+equalities are untested — qualifier added 2026-10-17, CX-35T-L). That second reading is not a construct of ours: [Jiang Guanghui 2004](CITATIONS.md#jiangguanghui2004)
 reads the marks as look-up labels over seven contiguous segments of the received order, every segment
 a union of consecutive pairs, and denies that they bear on the pairing at all. The nine claimed
 symbol pairs are listed in `verify.py` (`SHANGBO_OBSERVED_PAIRS`, from 濮茅左 2003's per-slip 释文考释,

@@ -332,7 +332,7 @@ Exit 0 on pass, nonzero on any failure.
 
 ## A note on partition invariance
 
-A verifier built from this recipe does not need to know how the `solutions.bin` was produced — whether by a single full-parallel invocation of the enumerator, by 56 independent single-branch runs merged together, or by any other split of the work. Under exhaustive enumeration of the same partition, all such paths produce byte-identical output. This is formalized as the Partition Invariance theorem — see [`PARTITION_INVARIANCE.md`](PARTITION_INVARIANCE.md) for the proof. Your verifier's correctness does not depend on the enumeration strategy, only on the sort and dedup semantics specified in [`SOLUTIONS_FORMAT.md`](SOLUTIONS_FORMAT.md).
+A verifier built from this recipe does not need to know how the `solutions.bin` was produced — whether by a single full-parallel invocation of the enumerator, by 56 independent single-branch runs merged together, or by any other split of the work. Under exhaustive enumeration of the same partition, all such paths produce the same decompressed record stream — and so the same canonical sha256; the gzip container bytes can differ with the compression level ([SPECIFICATION.md](SPECIFICATION.md) §Theorems; "byte-identical output" until 2026-10-17, CX-35T-L). This is formalized as the Partition Invariance theorem — see [`PARTITION_INVARIANCE.md`](PARTITION_INVARIANCE.md) for the proof. Your verifier's correctness does not depend on the enumeration strategy, only on the sort and dedup semantics specified in [`SOLUTIONS_FORMAT.md`](SOLUTIONS_FORMAT.md).
 
 ## Expected output on the canonical selftest file
 

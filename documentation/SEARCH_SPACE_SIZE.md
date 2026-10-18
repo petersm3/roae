@@ -18,13 +18,13 @@ Knuth (1975, *Estimating the efficiency of backtrack programs*, Math. Comp. 29).
 - At a node with `d` live children (children passing the same C1/C2/C4/C5 prune predicates used by the real `backtrack()`), set `W ← W · d` and descend to one of the `d` children chosen uniformly at random.
 - Stop at a dead end or at a completed depth-32 leaf.
 
-Then `E[Σ W over the visited path]` equals the total number of tree nodes, and `E[W at a reached depth-32 leaf]` equals the number of complete orderings; applying the C3 test at the leaf gives the **canonical (C1–C5)** count. Each probe is an *unbiased* estimator of the whole; averaging `N` independent probes reduces **variance as `1/N`**, hence the **standard error** as `1/√N` ⚠ *(this line said variance fell as 1/√N until 2026-09-07 — that is the SE; `solve.c:8345` computes it correctly (`sqrt(var / dn)`), so only the prose was wrong. Measured across 4× probe increases: relerr 1.45 → 0.72 → 0.36 → 0.18 %, exactly halving, which is the SE behaviour)*. The estimator is pure compute — **it touches no solution data and needs no enumeration artifacts** — and it reuses `solve.c`'s exact prune predicates, so it samples the identical tree the enumerator walks.
+Then `E[Σ W over the visited path]` equals the total number of tree nodes, and `E[W at a reached depth-32 leaf]` equals the number of complete orderings; applying the C3 test at the leaf gives the **C1–C5** count, still orientation-explicit ("canonical (C1–C5)" until 2026-10-17, CX-35T-L; the CX-363 sibling). Each probe is an *unbiased* estimator of the whole; averaging `N` independent probes reduces **variance as `1/N`**, hence the **standard error** as `1/√N` ⚠ *(this line said variance fell as 1/√N until 2026-09-07 — that is the SE; `solve.c:8345` computes it correctly (`sqrt(var / dn)`), so only the prose was wrong. Measured across 4× probe increases: relerr 1.45 → 0.72 → 0.36 → 0.18 %, exactly halving, which is the SE behaviour)*. The estimator is pure compute — **it touches no solution data and needs no enumeration artifacts** — and it reuses `solve.c`'s exact prune predicates, so it samples the identical tree the enumerator walks.
 
 Implementation: `solve --estimate-knuth <probes> [prefix…]` (see [`SOLVE_C_CLI.md`](SOLVE_C_CLI.md)). Sha-neutral to the enumerator: the subcommand shares the prune predicates but adds no code on the enumeration path (`--selftest` unchanged).
 
 ## Validation — the estimator is correct
 
-`solve --estimate-knuth 0 <prefix>` performs an **exact** deterministic subtree count. ⚠ **The leaf columns are ORIENTATION-EXPLICIT and were headed *canonical* until 2026-09-07.** 4 / 2,232 / 16,504 are oriented leaves; the deduplicated pair-ordering counts are smaller and are **not published here, because no shipped command emits them** — publishing a figure ahead of its reproduction command is the defect this correction exists to avoid. Comparing the Monte-Carlo estimate against exact ground truth on a King-Wen-following prefix, at increasing subtree depth:
+`solve --estimate-knuth 0 <prefix>` performs an **exact** deterministic subtree count. ⚠ **The leaf columns are ORIENTATION-EXPLICIT and were headed *canonical* until 2026-09-07.** 4 / 2,232 / 16,504 are oriented leaves; the deduplicated pair-ordering counts are smaller — 2 / 381 / 899 — and are emitted by `python3 verify.py --recount-subtree` (its "distinct pair orderings" lines; this said "no shipped command emits them" until 2026-10-17, CX-35T-L). Comparing the Monte-Carlo estimate against exact ground truth on a King-Wen-following prefix, at increasing subtree depth:
 
 | free positions | exact nodes | Knuth nodes | exact leaves (orientation-explicit) | Knuth leaves |
 |---:|---:|---:|---:|---:|
@@ -51,19 +51,19 @@ For scale, this sits inside the standard reduction funnel (see [`SOLVE_SUMMARY.m
 
 The 56 real first-level (position-1 pair, orientation) branches, 10⁸ probes each:
 
-- raw orderings per branch (orientations counted, not deduplicated): **min 1.26×10³⁶, median 2.26×10³⁶, max 3.46×10³⁶ — a spread of only ≈2.7×**. ⚠ **[LABEL CORRECTED 2026-08-28 — these per-branch figures are RAW (orientations counted), not canonical. They sum to 1.33×10³⁸, the raw whole-tree estimate (TR-4 §3), and sit at ≈8×10⁻⁶ of the raw per-branch ceiling 30!·2³⁰ ≈ 2.85×10⁴¹ — the same fraction the raw whole-space estimate sits at of its own ceiling. Labelled "canonical" they would have exceeded the canonical per-branch ceiling 30! ≈ 2.65×10³² by 4,750–13,044×: the per-branch instance of the raw/canonical conflation withdrawn on 2026-08-24, missed by that sweep because it keyed on the whole-space figure. The per-branch *canonical* count is NOT established here — the ≈4× orientation-dedup factor needed to derive it is itself the withdrawn ingredient. See documentation/CORRECTIONS.md.]**
+- raw orderings per branch (orientations counted, not deduplicated): **min 1.26×10³⁶, median 2.26×10³⁶, max 3.46×10³⁶ — a spread of only ≈2.7×**. ⚠ **[LABEL CORRECTED 2026-08-28 — these per-branch figures are RAW (orientations counted), not canonical. They sit at ≈8×10⁻⁶ of the raw per-branch ceiling 30!·2³⁰ ≈ 2.85×10⁴¹ — the same fraction the raw whole-space estimate sits at of its own ceiling. Labelled "canonical" they would have exceeded the canonical per-branch ceiling 30! ≈ 2.65×10³² by 4,750–13,044×: the per-branch instance of the raw/canonical conflation withdrawn on 2026-08-24, missed by that sweep because it keyed on the whole-space figure. *(2026-10-17, CX-35T-L: a sentence here said the per-branch figures "sum to 1.33×10³⁸, the raw whole-tree estimate"; that is the 56-branch cross-sum §Validation scopes out — never archived — and it is removed.)* The per-branch *canonical* count is NOT established here — the ≈4× orientation-dedup factor needed to derive it is itself the withdrawn ingredient. See documentation/CORRECTIONS.md.]**
 - **Roughly uniform: there is no small or near-exhaustible branch.** This answers the practical question behind single-branch deep-enumeration ("which branch is cheapest to exhaust, and does its structure extrapolate?"): every branch is comparably enormous (~2×10³⁶ **raw**), so no single-branch walk can exhaust anything, and extrapolation from one branch to the whole is well-founded in raw size. **The unexhaustibility conclusion does not depend on the withdrawn orientation-dedup factor.** Orientation-deduplication within a branch can divide by at most 2³⁰ ≈ 1.07×10⁹ (pairs 1 and 2 are already orientation-pinned), so the *canonical* count of even the smallest branch is at least 1.26×10³⁶ / 2³⁰ ≈ 1.2×10²⁷ — still ≈10¹⁷× beyond the 1.05×10¹⁰ orderings of the deepest published canonical. That floor is a worst-case bound on the dedup factor, not an estimate of it. The *uniformity* claim, by contrast, is raw-against-raw and is stated only for raw size: per-branch dedup factors were never measured, so uniformity of the canonical counts is not established. Compare [`PARTITION_INVARIANCE.md`](PARTITION_INVARIANCE.md), which partitions the same tree into these 56 branches for the reproducibility argument.
 
 ## Result — per-cell distribution + budgeted yield is uncorrelated with cell size
 
-Per-cell Knuth estimate over all **65,281 productive depth-3 cells** (10⁵ probes each). Total un-budgeted **orientation-explicit** tree size per cell: **min 5.9×10³¹, median 8.1×10³², max 5.6×10³³**. ⚠ **These are NOT canonical counts, and were labelled as such until 2026-09-07.** A depth-3 cell fixes four pairs, so at most 28! ≈ 3.05×10²⁹ canonical pair orderings remain — the minimum above exceeds that ceiling by **194×**, and exceeds even the e·28! search-tree bound by **70×**. The figures are right for the space the estimator walks, which carries an explicit orientation bit per pair; the word *canonical* named a smaller space — a spread of only **94.6×** (log₁₀ span ≈ 2 orders). The productive-cell trees sum to ≈6.8×10³⁷, ~half the whole-tree raw estimate (the rest lies in the ~93K cells that produced 0 records within the 560T budget but still hold enormous un-budgeted trees).
+Per-cell Knuth estimate over all **65,281 productive depth-3 cells** (10⁵ probes each). Un-budgeted **orientation-explicit** C1–C5 leaves per cell (the C3-passing `leaves_canonical` column): **min 5.9×10³¹, median 8.1×10³², max 5.6×10³³** — not the tree size, which is the `tree_nodes` column: min 1.7×10³⁴, median 1.4×10³⁵, max 2.4×10³⁵, a spread of 14.0× *(relabelled 2026-10-17, CX-35T-L: this read "Total un-budgeted orientation-explicit tree size per cell")*. ⚠ **These are NOT canonical counts, and were labelled as such until 2026-09-07.** A depth-3 cell fixes four pairs, so at most 28! ≈ 3.05×10²⁹ canonical pair orderings remain — the minimum above exceeds that ceiling by **194×**, and exceeds even the e·28! search-tree bound by **70×**. The figures are right for the space the estimator walks, which carries an explicit orientation bit per pair; the word *canonical* named a smaller space — a spread of only **94.6×** (log₁₀ span ≈ 2 orders). The productive cells' C1–C5 leaves sum to ≈6.8×10³⁷, ~half the whole-tree raw estimate (the rest lies in the ~93K cells that produced 0 records within the 560T budget but still hold enormous un-budgeted trees).
 
-Cross-plotting each cell's **budgeted yield** (distinct orderings found within the 560T per-cell budget, from the campaign shard manifest) against its **total un-budgeted size** (Knuth), across all 65,281 cells:
+Cross-plotting each cell's **budgeted yield** (distinct orderings found within the 560T campaign's per-cell budget of 3.54×10⁹ nodes, from the campaign shard manifest) against its **un-budgeted C1–C5 leaf count** (Knuth; "total un-budgeted size" until 2026-10-17, CX-35T-L), across all 65,281 cells:
 
 | quantity | spread across cells |
 |---|---|
-| budgeted yield (records at the 560T per-cell budget) | 10^1.1 – 10^6.8 (≈5.7 orders, heavy-tailed) |
-| total un-budgeted tree size | 10^31.8 – 10^33.8 (≈2 orders, spread 94.6×) |
+| budgeted yield (records at the 560T campaign's per-cell budget, 3.54×10⁹ nodes) | 10^1.1 – 10^6.8 (≈5.7 orders, heavy-tailed) |
+| un-budgeted C1–C5 oriented leaves per cell (`leaves_canonical`; the tree itself, `tree_nodes`, spans 14.0×) | 10^31.8 – 10^33.8 (≈2 orders, spread 94.6×) |
 | **log-log correlation (full population)** | **Pearson r = 0.17, Spearman ρ = 0.15 → essentially uncorrelated** |
 
 **A cell's budgeted yield is nearly independent of its total tree size.** The cells are all comparably enormous, but how many orderings each surfaces *within a fixed budget* varies by nearly six orders of magnitude and does not track total size. Yield is therefore a **local-density** phenomenon — how record-rich the shallow frontier is — not a size phenomenon. (The full-population result confirms the earlier 605-cell sample, r≈0.15.)
@@ -95,8 +95,8 @@ traversal does not move them", under a lead-in asserting "every result is invari
 unsupported, and this tree holds a measured counterexample class: a percentile or a boundary-minimum is a
 function of the **comparison set**, and reordering demonstrably moves the comparison set. Two measurements in
 this repository, both at a fixed budget: [PERFORMANCE_HISTORY.md](PERFORMANCE_HISTORY.md) §"task #69: MRV
-variable ordering" — numeric vs `SOLVE_VAR_ORDER=fail-first` on `--branch 24 0` at a canonical-equivalent
-100 B budget found 60,519,764 vs 46,569,461 records with `|N∩F| = 0`, "genuinely non-overlapping slices of
+variable ordering" — numeric vs `SOLVE_VAR_ORDER=fail-first` on `--branch 24 0` at a 100 B node budget
+(≈35.4 M nodes per cell over 2,824 cells, about half the 11.2T per-cell budget — PERFORMANCE_HISTORY retracts its "canonical-equivalent" label; corrected here 2026-10-17, CX-35T-L) found 60,519,764 vs 46,569,461 records with `|N∩F| = 0`, "genuinely non-overlapping slices of
 the search tree, not refinements of each other"; and [SYMMETRY_SEARCH.md](SYMMETRY_SEARCH.md) §"What the
 2026-04-25 test actually measured" — σ-induced child reordering at a fixed per-cell budget gave ≥21,000
 mismatched cell pairs per σ and per-cell yield differences above 1.5 M, attributed there to "frontier
@@ -198,7 +198,7 @@ commands in the block above reproduce their counts directly and in milliseconds.
 
 How fast does knowledge of King Wen's boundary structure shrink the full space? Define S(k) = the fraction
 of the full C1–C5 population agreeing with KW on the first k boundaries of the 560T greedy identifying
-order {4, 27, 25, 21, 1} (the first four measured here; agreement at boundary b = both flanking slots hold KW's pairs — the
+order {4, 27, 25, 21, 1} (greedy in the 560T slice, measured here over the full space; the first four measured here; agreement at boundary b = both flanking slots hold KW's pairs — the
 [PARTITION_STABILITY_BOUNDARIES.md](PARTITION_STABILITY_BOUNDARIES.md) predicate). Measured with pinned
 Knuth walks (`SOLVE_KNUTH_PIN_SLOTS`; 2×10⁹ probes per prefix; relative error ≤10%):
 
@@ -221,8 +221,9 @@ projection with no replacement band: if no later boundary gains more than the ei
 until 2026-09-07.** A boundary constraint fixes pair IDENTITY; the orientation bit per pair is untouched.
 Measured with every one of the 31 pinnable steps pinned, C6/C7 on or off: **1,720,320 orientations
 survive** — the same C4-oriented fiber already published at `TR1_EIGHT_CENTURIES_MEASURED.md:346`. That
-is **log₂(1,720,320) ≈ 20.71 bits** these boundaries cannot close, so of the ≈105 bits they can reach at
-most ≈84.65. The projection is sound for the pair-ordering object and cannot be read as a route to a
+is **log₂(1,720,320) ≈ 20.71 bits** these boundaries cannot close, so of the ≈105.9 bits of the pair-ordering
+floor they can reach at most ≈85.2 (105.93 − 20.71; this read "≈84.65", which is 105.36 − 20.71, the C1–C7
+population's figure, until 2026-10-17, CX-35T-L). The projection is sound for the pair-ordering object and cannot be read as a route to a
 unique oriented sequence. A bracketing exploration choosing among the *weakest* remaining boundaries
 (k = 5–8) reported roughly ×15–17 per boundary, but ⚠ **that band is not reproducible from published
 material and is offered as illustration, not measurement** (restated 2026-09-02; both archived S(k)
@@ -267,7 +268,7 @@ see TR-11 §10(ii).)
 > **Label corrected 2026-08-01:** previously headed "An information floor". No floor is established — see
 > the extrapolation bullet below and TR-4 v1.15/v1.16 for why the argument bounds nothing.
 
-Identifying King Wen within the C1–C5 space requires log₂(1.3287×10³⁸) = **126.6 bits**. *(Population context, 2026-09-05: that figure is the size of the extracted space, not a King Wen property — at the C5 layer a random C1∩C2 ordering's own extracted multiset leaves a space of the same size, King Wen at the 65th percentile of 1,000 decoys, [TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md) §2 population context; the C3 cut inside 126.6 and the per-boundary rate below remain King Wen-measured only.)* ⚠ **[SCOPE NOTE added 2026-08-28 — this prices the RAW, orientation-explicit object, which is the right one here because a boundary constraint identifies an oriented ordering. Stated over the orientation-deduplicated object the figure would be log₂(31!) = **112.66 bits** — a ceiling, since the canonical count is at most 31!. The two differ by ~14 bits, so any comparison of this number against a canonical-object count is a units error of about one and a half boundary-steps.]** The measured
+Identifying King Wen within the C1–C5 space requires log₂(1.3287×10³⁸) = **126.6 bits**. *(Population context, 2026-09-05: that figure is the size of the extracted space, not a King Wen property — at the C5 layer a random C1∩C2 ordering's own extracted multiset leaves a space of the same size, King Wen at the 65th percentile of 1,000 decoys, [TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md) §2 population context; the C3 cut inside 126.6 and the per-boundary rate below remain King Wen-measured only.)* ⚠ **[SCOPE NOTE added 2026-08-28 — this prices the RAW, orientation-explicit object, which is the right one here because a boundary constraint identifies an oriented ordering. ⚠ *(2026-10-17, CX-35T-L; the CX-362 class, swept here: a boundary constraint does not identify an oriented ordering — pins fix pair identity and leave King Wen's 1,720,320-orientation fiber (§"The boundary-information curve" above) — so 126.6 bits is the oriented level that no number of boundaries reaches, and the boundary chain's reachable endpoint is the 105.93-bit pair-ordering floor.)* Stated over the orientation-deduplicated object the figure would be log₂(31!) = **112.66 bits** — a ceiling, since the canonical count is at most 31!. The two differ by ~14 bits, so any comparison of this number against a canonical-object count is a units error of about one and a half boundary-steps.]** The measured
 greedy boundary chain S(1..5) yields per-step information gains of 10.38, 9.64, 11.10, 9.40, 10.13 bits.
 ⚠ **The fifth gain belongs to boundary 2, not boundary 1, and this document's chain named the wrong one
 until 2026-09-07.** The archived run records `round 5 PICK=2` and its chain as
@@ -275,7 +276,7 @@ until 2026-09-07.** The archived run records `round 5 PICK=2` and its chain as
 own candidate estimates: boundary 2 leaves 7.596231×10²² for a gain of **10.11 bits** — the published
 10.13 — while boundary 1 leaves 1.689464×10²⁴ for **5.64 bits**. The figure is right; the chain it was
 attributed to was not
-— strikingly flat (mean 10.13; corrected 2026-08-01 from "10.07", which is not the mean of the five listed gains), and the first step is the maximum **unconditional** single-boundary gain by construction (greedy picks it first) — **but NOT the maximum over all conditioning contexts: step 3 gains 11.10 bits, exceeding it. Corrected 2026-08-01; the earlier text used 10.38 as a universal per-boundary cap, which its own data falsifies**
+— strikingly flat (mean 10.13; corrected 2026-08-01 from "10.07", which is not the mean of the five listed gains), and the first step is the maximum **unconditional** single-boundary gain by construction (greedy picks it first — greedy in the 560T slice, with its gain measured over the full space, over which it is not shown to be the maximum; the full-space greedy choice is re-derived only from round 5, `sk5_7_rounds.out`; scoped 2026-10-17, CX-35T-L) — **but NOT the maximum over all conditioning contexts: step 3 gains 11.10 bits, exceeding it. Corrected 2026-08-01; the earlier text used 10.38 as a universal per-boundary cap, which its own data falsifies**
 (greedy picks the minimum-survivor boundary). Two consequences, honestly labeled:
 
 - **Observed-rate extrapolation: ~12 boundaries — NOT a floor.** Dividing the 126.6 bits by the largest
@@ -293,7 +294,8 @@ attributed to was not
   denied any synergy across the five steps while this same bullet divided by 11.10 precisely because
   step 3 exceeds step 1. See CORRECTIONS.md, RP-fa6c3b89, and TR-4 v1.15.)*
 - **Rate projection: ≈ 13.** At the observed average marginal rate, the chain reaches 126.6 bits at
-  k ≈ 13, tightening the earlier 13–20 extrapolation toward its lower end. Neither end of that band survives: the
+  k ≈ 13 (a rate reading only: 126.6 bits is the oriented level, which boundaries cannot reach — see the
+  scope note above; added 2026-10-17, CX-35T-L), tightening the earlier 13–20 extrapolation toward its lower end. Neither end of that band survives: the
   13–14 figure was superseded by the 2026-07-05 measurement and the ~15–20 band withdrawn (TR-4 v1.35).
 
 Both figures sharpened once S(6..8) had landed: **2026-07-05, revising the projection upward** (see the S(k) section above and TR-4 v1.8; the ~15–20 band it gave was withdrawn 2026-09-26, Q-827, TR-4 v1.35); the ≈13 figure below predates that measurement. *(Tense corrected 2026-09-02, prose batch P34 — the line had read as a pending condition beside its own answer; RP-11166bb6.)* Derivation: this section's arithmetic

@@ -63,7 +63,7 @@ ground truth). It was operator-approved 2026-07-02 to add a
 SAT/certificate layer.
 
 **Header rule (enforced by the file's own docstring):** `sat.py` must
-contain no hand-written constraint *predicates* — rule predicates are imported from `solve.py`; the clause arithmetic that positions them (station offsets `base = st2 + 2 + c`, the gender station list) is `sat.py`'s own and is covered by the King-Wen-pinned validation targets and, since 2026-09-29, by `tests.py` `TestSatEmittedClausesNonKW` (the emitted clauses evaluated on the 44 public non-King-Wen witnesses and one constructed sequence that separates an offset mutant) — tested, not derived or proved. Every constraint it
+contain no hand-written constraint *predicates* — rule predicates are imported from `solve.py`, with one exception: the two gender-violation tests inside the gender and CC-N8 builders (`viol_hex`, `viol_ex`) are written locally in `sat.py` and checked against `solve.py`'s parity table at import, not imported (named 2026-10-17, CX-35T-F); the clause arithmetic that positions them (station offsets `base = st2 + 2 + c`, the gender station list) is `sat.py`'s own and is covered by the King-Wen-pinned validation targets and, since 2026-09-29, by `tests.py` `TestSatEmittedClausesNonKW` (the emitted clauses evaluated on the 44 public non-King-Wen witnesses and one constructed sequence that separates an offset mutant) — tested, not derived or proved. Every constraint it
 encodes is derived from `solve.py` imports — the single source of
 truth for the King Wen ground truth and C1–C5 semantics. A clause that
 encodes a C-rule from scratch is "a bug by definition." Every encoding
@@ -445,7 +445,9 @@ Added 2026-10-02 (backlog row Q-934). The four-rule conflict theorem (`grand-ccn
 of its four minimal two-rule cores run through the `rule ccn4` clause family, and until this
 date that family was validated at King Wen only (`ccn4-kwtest` / `ccn4-kwfail` above, both
 KW-forced) plus a unit-propagation check on 44 public witnesses of which 43 violate the rule.
-This subcommand asks the question for **every C1-valid ordering at once**: it emits the
+This subcommand asks the question for **every C1-valid ordering with the (63,0) opening fixed (C1∩C4, the universe the conflict instances share) at once** (scoped 2026-10-17,
+CX-35T-F: this read "every C1-valid ordering"; an ordering that does not open (63,0) is not representable in
+the instance): it emits the
 `C1` and inversion-class-counter families of `five-sub-ccn4` as the universe, the `rule ccn4`
 family of that build verbatim as one side, and an independently written encoding of CC-N4 as
 the other — one existential per station ("some slot holds the orient whose first hexagram is
@@ -664,7 +666,7 @@ python3 sat.py --emit-cnf grander-strict f.cnf && kissat f.cnf
 ```
 
 What that UNSAT rests on, as of 2026-10-02: the `rule ccn4` family in those formulas is
-shown equivalent, over every C1-valid ordering, to an independent encoding of CC-N4
+shown equivalent, over every C1-valid ordering with the (63,0) opening fixed (C1∩C4, the universe the conflict instances share), to an independent encoding of CC-N4
 (`--ccn4-equiv-cnf fwd` and `rev`, both UNSAT), and that independent encoding agrees with
 `solve.reg_ccn4` on a seeded population of 1,039 orderings of both polarities
 (`tests.py` `TestSatCcn4ClausesBeyondKingWen`). What remains outside any of these checks is the

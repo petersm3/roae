@@ -10,8 +10,8 @@ including the wrap; see [MCKENNA.md](MCKENNA.md) and [CITATIONS.md](CITATIONS.md
   it is emphatically not invariant under *rotation* — see §"Symmetry under closure".)
 - **The wrap-around parity theorem** ([SPECIFICATION.md](SPECIFICATION.md)): for any C4+C5 sequence the
   wrap distance d(s₆₃, s₀) is odd — proven via the XOR parity identity. KW's wrap is d = 3.
-- **McKenna's 3:1 even:odd transition ratio** is the circular reading of that theorem plus C5 (16 odd of
-  64) — **forced given C4 + C5**, and hence not an independent design choice *within* that constraint
+- **McKenna's 3:1 even:odd transition ratio** is the circular reading of that theorem plus C5 (15 odd transitions of 63 linearly; the odd wrap makes
+  it 16 of 64 — corrected 2026-10-17, CX-35T-J, from "16 odd of 64") — **forced given C4 + C5**, and hence not an independent design choice *within* that constraint
   system. C5 is itself a regularity read off King Wen — [SPECIFICATION.md](SPECIFICATION.md) grades it
   "**extracted from KW** — King Wen's own multiset" — so "forced" here is relative to KW-derived
   constraints, not to an unconstrained arranger ([MCKENNA.md](MCKENNA.md);

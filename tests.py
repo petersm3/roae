@@ -47234,8 +47234,8 @@ class TestBatchFT2b1(unittest.TestCase):
          "| `solve.py --dav-verify` / `./solve --dav-verify` → `DAV VERIFY: PASS` |"),
         ("zlib-block-framed by default (per-block zlib streams, no outer gzip wrapper — §R Tier B), a `sha256sum -c` run against a *logical* sidecar hashes the stored container bytes",
          "gz-framed by default, a `sha256sum -c` run against a *logical* sidecar hashes the gzip container"),
-        ("They are **exact at full scale**; the first three are **independently recomputed by a second engine sharing\n"
-         "no code**, while `\\|C1∩C2\\|` is a CRT reconstruction from three `solve.c` residues whose independent gate checks start orbit 0 only (TR-9 §Verification Guide). Their witness",
+        ("They are **exact at full scale**; the first three are **recomputed by a second engine** — `verify.c`, sharing no code with `solve.c`, for\n"
+         "`\\|C1∩C2∩C4\\|` and `\\|C1∩C2∩C4∩C5\\|`, while C1–C7-with-C3-dropped's two routes both live in `verify.c` and share its parsing, spec and CRT helpers (its ROUTE D INDEPENDENCE note; \"sharing no code\" for all three until 2026-10-17, CX-35T-D) — while `\\|C1∩C2\\|` is a CRT reconstruction from three `solve.c` residues whose independent gate checks start orbit 0 only (TR-9 §Verification Guide). Their witness",  # G4 (CX-35T-D) narrowed "sharing no code" to the two solve.c/verify.c pairs
          "They are **exact at full scale and independently recomputed by a second engine sharing\nno code**, but their witness"),
         ("The first three are entered as **exact,\ntwo-instrument** and `\\|C1∩C2\\|` as **exact**,", "They are entered as **exact,\ntwo-instrument**,"),
         ("outputs published without an interval: the run behind TR-1's three and TR-8's ×11,364 is not archived (TR-1 and TR-9 fn⁸ say so), and TR-10's two are in `dav_tier1.out` (`evidence/dav2_tier1.out` and `evidence/f5/f5_tier1.out`, cited here until 2026-10-17, hold other scores, not these masses), whose run **predates the\n"
@@ -48435,6 +48435,428 @@ class TestBatchG3(unittest.TestCase):
                           "TR-4: an unscoped five-boundary identifying set",
                           "TR-4: the scoped wording is not at both sites"])
 # end class TestBatchG3 (fast-track batches FT2b-2..4, push group G3, CX-392..CX-403)
+
+
+import math as _g4math  # TestBatchG4 (push group G4)
+
+
+class TestBatchG4(unittest.TestCase):
+    """Push group G4 (CX-35T-A..CX-35T-M; final numbers at rebase): fast-track batches FT3a-1 and FT3a-2 of Codex's
+    final review (gpt-6-astra), rounds 3a and 3b, triaged by Fable, and Fable's stand-alone review of README.md.
+
+    Wording tests measure first what the tree can measure (the precondition: a count recomputed, a file that must
+    exist, a command's printed line) and then hold the text to it. On the parent tree each precondition holds and the
+    text assertion fails, which is the stated reason the test is red there (G4_LANE_REPORT.md records the run). The
+    two gate tests plant the defect (a withdrawn figure on SOLVE_SUMMARY.md; a CRLF copy of the history index) and
+    require the gate to go red."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _f(self, rel):
+        return " ".join(self._r(rel).split())
+
+    def _has(self, rel, *frags):
+        flat = self._f(rel)
+        for fr in frags:
+            self.assertIn(" ".join(fr.split()), flat, "%s lacks: %s" % (rel, fr[:100]))
+
+    def _lacks(self, rel, *frags):
+        flat = self._f(rel)
+        for fr in frags:
+            self.assertNotIn(" ".join(fr.split()), flat, "%s still carries: %s" % (rel, fr[:100]))
+
+    # ---- CX-35T-A: the BH rank ---------------------------------------------------------------------------
+    def test_bh_rank_rederived(self):
+        crit = self._f("documentation/CRITIQUE.md")
+        t10 = self._f("reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md")
+        t8 = self._f("reports/TR8_REORDERING_REVISITED.md")
+        self.assertIn("28,356 of 10⁹", crit, "precondition: CRITIQUE lists C3's unconditional rarity")
+        self.assertIn("two-sided P = 1.31×10⁻⁴", t10, "precondition: TR-10 publishes rotinv two-sided")
+        self.assertIn("two-sided 1.36×10⁻³", t10, "precondition: TR-10 publishes trigarray two-sided")
+        self.assertIn("1.054426×10⁻⁴", t8, "precondition: TR-8 publishes the rarity")
+        c1 = _g4math.factorial(32) * 2 ** 32 / _g4math.factorial(64)
+        c3, rot2, rot1, trig2 = 28356 / 1e9, 1.306e-4, 6.5e-5, 1.36e-3
+        r1 = 47 / 445740
+        r2 = 2 * r1
+        q = 0.05 / 91
+        rank = lambda p, vals: 1 + sum(v < p for v in vals)
+        self.assertGreaterEqual(rank(trig2, [2 * c1, 2 * c3, rot2]), 3)
+        self.assertLess(trig2, 3 * q)
+        self.assertEqual(rank(r2, [2 * c1, 2 * c3, rot2]), 4)
+        self.assertEqual(rank(r1, [2 * c1, 2 * c3, rot2]), 3)
+        self.assertEqual(rank(r1, [c1, c3, rot1]), 4)
+        two, mixed, one = 4 * q / r2, 3 * q / r1, 4 * q / r1
+        self.assertEqual(("%.1f" % two, "%.1f" % mixed, "%.1f" % one), ("10.4", "15.6", "20.8"))
+        meth = self._f("reports/METHODS.md")
+        for frag in ("RANK RE-DERIVED 2026-10-17", "two-sided `trigarray` holds BH rank *i* ≥ 3 and clears",
+                     "**at least one** verdict moves under BH", "10.4×", "15.6×", "20.8×",
+                     "The larger-ledger reading in the LEDGER SCOPED note just above is not re-derived here"):
+            self.assertIn(frag, meth, frag)
+        for frag in ("\"rank 1 is not excluded\" is wrong", "10.4×", "15.6×", "20.8×",
+                     "at least one — `dav_trigarray` is the one shown"):
+            self.assertIn(frag, t8, frag)
+        self.assertIn("`trigarray` would be declared significant on **both** masses", t10)
+        self.assertIn("two-sided 1.36×10⁻³, the registered convention", crit)
+        self.assertIn("at least one verdict in the suite the correction family moves", crit)
+
+    # ---- CX-35T-B: TR-1 and LITERATURE_RULES_FORMAL --------------------------------------------------------
+    def test_tr1_abstract_and_s1_formal(self):
+        import solve
+        kw = list(solve.binary_hexagrams)
+        pairs = [(kw[2 * k], kw[2 * k + 1]) for k in range(32)]
+        c_list = [a ^ b for a, b in pairs if solve.reverse_6bit(a) == a]
+        self.assertTrue(len(c_list) == 4 and all(x == 63 for x in c_list), "precondition: the list reading holds at KW")
+        self.assertNotEqual(len(set(c_list)), 4, "precondition: the set reading cannot have four elements")
+        self.assertTrue(solve.reg_s1(kw), "precondition: reg_s1 is True at KW")
+        self._has("documentation/LITERATURE_RULES_FORMAL.md", "Let `C` be the **list** of `a XOR b`",
+                  "has four entries, all 63", "the paper is read, CITATIONS.md marks it [read]")
+        self._lacks("documentation/LITERATURE_RULES_FORMAL.md", "exact formulation pending full-paper access")
+        t1 = "reports/TR1_EIGHT_CENTURIES_MEASURED.md"
+        self._has(t1, "none of the structural observations are ROAE's (d7's positional form and c2's proxy statistic are this suite's formalisations, §3)",
+                  "eight literature rules (c2 via the registry proxy for Chan's statistic — §3)")
+        self._lacks(t1, "— none of them ROAE discoveries —")
+
+    def test_tr1_orientation_held_fixed(self):
+        import solve
+        kw = list(solve.binary_hexagrams)
+        self.assertTrue(solve.reg_ccn4(kw), "precondition: CC-N4 holds at King Wen")
+        s = kw[:]; s[42], s[43] = s[43], s[42]   # flip slot 21's orientation
+        self.assertFalse(solve.reg_ccn4(s), "precondition: CC-N4 depends on orientation (slot 21)")
+        self._has("reports/TR1_EIGHT_CENTURIES_MEASURED.md",
+                  "Everything above concerns which pair goes where, with every within-pair orientation held at King Wen's (the Moore rhythm and CC-N4 scores do depend on orientation).")
+
+    # ---- CX-35T-C: TR-5, SYMMETRY_SEARCH, CTA, lean/README, Ouyang -----------------------------------------
+    def test_tr5_symmetry_wording(self):
+        self.assertTrue(os.path.isfile(os.path.join(self.ROOT, "reports/evidence/knuth195_percell_100000.csv.gz")),
+                        "precondition: the per-cell table ships")
+        self.assertIn("--orbit-cv", self._r("verify.py"), "precondition: --orbit-cv ships")
+        t5 = "reports/TR5_SYMMETRY.md"
+        self._lacks(t5, "*Reproduction status: prose-specified only, pending a publication decision. No aggregation script ships",
+                    "What is missing is the publication of a 1.1 MB table, which is an approval, not a measurement. This remains")
+        self._has(t5, "Whether some hexagram relabeling outside G preserves the solution set as a whole without preserving each predicate separately is open (per-predicate completeness is proved; §1 scope note).",
+                  "has exactly 23 record-level \"twins\"", "the ≈3×10⁻²³ figure is withdrawn",
+                  "replay certifies the regenerated CNF, never that the CNF means what the prose says",
+                  "a shipped command (below) whose limit is the undistributed input",
+                  "TR-4's 899 distinct pair orderings, beside its 16,504 oriented completions, is a record-level exact count")
+        ss = "documentation/SYMMETRY_SEARCH.md"
+        self._has(ss, "Both inputs are public", "`verify.py --orbit-cv` reproduces 4,183 classes, CV 0.1118",
+                  "every valid ordering has exactly 23 record-level twins", "(the fullest, with proofs")
+        self._lacks(ss, "σ-action. Two inputs are\nnot public", "(the earliest\nand fullest")
+        self._has("documentation/CLAIM_TO_ARTIFACT.md", "replay certifies the regenerated CNF, never that the CNF means what the prose says")
+        self._has("lean/README.md", "the order-24 quotient of the 48 symmetries acts freely on records (bit-reversal fixes every record)")
+        self._lacks("documentation/CITATIONS.md", "**The earliest and fullest hexagram-level group theory")
+
+    def test_tr5_twin_first_divergence(self):
+        import verify as v
+        keys = v._sigma_record_keys()
+        divs = [next(i for i in range(32) if s[i] != i) for _, s in keys.values() if s != sorted(s)]
+        self.assertEqual((len(keys), len(divs), max(divs)), (24, 23, 2), "precondition: 23 twins, first divergence <= 2")
+        self._has("reports/TR5_SYMMETRY.md", "every twin lies in a different depth-3 cell from King Wen (first divergence at index ≤ 2); its rank inside its own cell is not measured.")
+
+    # ---- CX-35T-D: TR-12 and QUERY_INVENTORY ---------------------------------------------------------------
+    def test_tr12_ledger_and_inventory(self):
+        t4 = self._f("reports/TR4_SIZE_OF_THE_SPACE.md")
+        self.assertIn("SOLVE_THREADS=32 ./solve --estimate-knuth 50000000000", t4, "precondition: TR-4 pins the whole-tree command")
+        self.assertIn("SOLVE_KNUTH_C67=1 SOLVE_THREADS=32 ./solve --estimate-knuth 50000000000", t4, "precondition: TR-4 pins the C1-C7 command")
+        rep = self._r("scripts/tr12_repro.sh")
+        self.assertIn('echo -e "i\\tr\\twalk"', rep, "precondition: the harness writes the i/r/walk header")
+        t12 = "reports/TR12_QUERY_PROGRAM.md"
+        self._lacks(t12, "a published estimator command carries no thread pin",
+                    "are **independently recomputed by a second engine sharing no code**", "|SUPER| = N = 1.097051×10³⁹ exact",
+                    "On layers 1–30 the joint `P(d,w|k)` is within **0.0097** of")
+        self._has(t12, "both are **attested**, computed while verifying CX-60", "Wilson at Kish n_eff, approximate",
+                  "share its parsing, spec and CRT helpers", "within **≈0.0097** (0.00972) of")
+        src = self._r(t12)
+        i = src.index("*(Corrected 2026-08-25, Q-144/Q-06.")
+        j = src.index("**What is true is that the run was priced", i)
+        span = src[i:j]
+        self.assertEqual(span.count("("), span.count(")"), "the class-1 marker's parentheses must balance")
+        qi = "documentation/QUERY_INVENTORY.md"
+        self._lacks(qi, "a second, **independent** C15 gallery", "by G-orbit-size class +", "done > $OUT/v3_rel_grid.txt`")
+        self._has(qi, "a second C15 gallery on the same stream", "> $OUT/v3_rel_grid.tsv`", "Wilson at Kish n_eff, **approximate**",
+                  "A completed-solution split by first branch needs no rebuild")
+
+    # ---- CX-35T-E: TR-2 and the f11 evidence ---------------------------------------------------------------
+    def test_tr2_sites(self):
+        for rel in ("reports/certificates/core_parity_ccn4_unsat.drat.gz", "reports/certificates/core_rhythm_ccn4_unsat.drat.gz",
+                    "reports/evidence/q7_witnesses/grand-strict.txt"):
+            self.assertTrue(os.path.isfile(os.path.join(self.ROOT, rel)), "precondition: %s exists" % rel)
+        t2 = "reports/TR2_THE_RULES_CONFLICT.md"
+        self.assertIn("**within 2.5σ**. The 1.9σ figure is gate 3's", self._f(t2), "precondition: gate 3 is 2.5σ")
+        self._lacks(t2, "the four-rule conflict survives through the Moore cores — TR-1 § scope)",
+                    "The satisfiable-alone halves and the full census of the lattice are not archived.",
+                    "across every one of the 24 pre-committed configurations")
+        self._has(t2, "[core_parity_ccn4_unsat.drat.gz](certificates/core_parity_ccn4_unsat.drat.gz)",
+                  "The satisfiable-alone halves are witnessed", "the gate the 1.9σ belongs to, gate 3, is **2.5σ**",
+                  "the derived-CI cross-path gate is 2.5σ, not 2σ")
+        hb = "reports/evidence/f11halfb/RESULTS.md"
+        self._lacks(hb, "set, which is exactly M_corr's support. 0/277", "At V>=5 they are **provably distinguishable**")
+        self._has(hb, "M_corr's precursor set (its V=0 outputs)", "599/599 (observed, not a proof of separation)")
+        self._lacks("reports/evidence/f11/RESULTS.md", "V≥5 provably distinguishable, 599/599")
+
+    # ---- CX-35T-F: C1∩C4 and B22 ---------------------------------------------------------------------------
+    def test_ccn4_equiv_universe(self):
+        import sat
+        s = list(sat.KW[2:4]) + list(sat.KW[:2]) + list(sat.KW[4:])
+        cnf, ctx = sat.build_ccn4_equiv("fwd")
+        with self.assertRaises(AssertionError, msg="precondition: an opening other than (63,0) is not representable"):
+            sat._ccn4_equiv_y_literals(s, ctx["Y"])
+        self._has("documentation/SAT_CLI.md", "every C1-valid ordering with the (63,0) opening fixed (C1∩C4, the universe the conflict instances share) at once")
+        self._has("sat.py", "over every C1-valid ordering with the (63,0) opening fixed (C1∩C4) [expect UNSAT]")
+        cor = self._r("documentation/CORRECTIONS.md")
+        self.assertIn("**CX-270 note:**", cor)
+
+    def test_f11_and_witness_wording(self):
+        f = self._r("reports/evidence/f11/RESULTS.md")
+        row = re.search(r"^\| L_corr \(U\) \| ([^|]+) \|.*\| ([^|]+) \|\s*$", f, re.M)
+        self.assertTrue(row, "precondition: the L_corr (U) row exists")
+        ratio = float(row.group(1)) / float(row.group(2))
+        self.assertEqual(round(ratio), 787, "precondition: the grid spans x787")
+        self._lacks("reports/evidence/f11/RESULTS.md", "the p_c grid spans ×14 in L_corr")
+        self._has("reports/evidence/f11/RESULTS.md", "the p_c grid spans ×787 (U) / ×748 (A) in L_corr")
+        self._has("reports/certificates/c3_positional_witnesses.txt", "nearest C15 neighbour with a DISTINCT PAIR LAYOUT")
+        self._has("documentation/SAT_CLI.md", "(`viol_hex`, `viol_ex`) are written locally in `sat.py`")
+        self.assertIn("def viol_hex(", self._r("sat.py"), "precondition: the local predicate exists")
+
+    # ---- CX-35T-G: front doors ------------------------------------------------------------------------------
+    def test_front_door_scopes(self):
+        log = subprocess.run("zcat runs/20260418_10T_d3_fresh/analyze_output.log.gz | grep -m1 'records:'",
+                             shell=True, cwd=self.ROOT, capture_output=True, text=True).stdout.split()
+        self.assertEqual(log, ["records:", "706422987"], "precondition: the cited log is the deprecated dataset's")
+        self.assertIn("2148/5000 (43.0%)", self._r("example/README.md"), "precondition: the 43% is an upper-tail count")
+        self.assertEqual("%.1f" % _g4math.log2(706422987), "29.4")
+        po = "documentation/PROJECT_OVERVIEW.md"
+        self._lacks(po, "Values below are from the d3 10T canonical dataset (706M orderings;", "reduces total sequence uncertainty",
+                    "transition structure is at the 43rd percentile, indistinguishable", "Edit-distance distribution heavily right-skewed**",
+                    "confirming their structural independence from the cascade-region MI cluster", "(102.3 GB)")
+        self._has(po, "the **sum of per-position marginal entropies** (baseline 73.17 bits over 32 positions; the joint entropy of the logged population is at most log₂ 706,422,987 ≈ 29.4 bits)",
+                  "the deprecated f7b8c4fb… d3 10T dataset (706,422,987 records;", "(p = 0.43)", "(102.3 GiB)")
+        rd = "README.md"
+        self._lacks(rd, "Any generator that scores orderings using only G-invariant", "a stark demonstration that bounded search sees a biased sample",
+                    "# the two-language ground-truth gates", "no examiner who did not also write them")
+        self._has(rd, "Any generator whose output law is a function of a G-invariant score (the theorem's hypothesis)",
+                  "those records are orientation-deduplicated, a different population that TR-7 does not compare with the first",
+                  "# the Python ground-truth gate for the 31 registry rules", "have had no examiner outside the project")
+        for rel in ("documentation/GUIDE.md", "reports/README.md", "documentation/SPECIFICATION.md", "reports/TR9_PRICING_THE_CONSTRAINTS.md"):
+            self._has(rel, "among complement/reversal matchings")
+        self._has("reports/CAPSTONE_GUIDE.md", "every correction since the ledger opened", "about 10 GB of free RAM")
+        self._lacks("reports/CAPSTONE_GUIDE.md", "need at least 12 GB of free RAM")
+        self._has("reports/README.md", "since the ledger opened", "at all three full-scale anchors where it exists")
+
+    # ---- CX-35T-H: CRITIQUE ----------------------------------------------------------------------------------
+    def test_critique_wording(self):
+        import solve
+        md = solve._r7_mawangdui()
+        diffs = [[bin(md[8 * o + i] ^ md[8 * o + i + 1]).count("1") for i in range(7)] for o in range(8)]
+        strict31 = [o for o, d in enumerate(diffs) if d == [3, 1, 3, 1, 3, 1, 3]]
+        self.assertEqual(strict31, [0], "precondition: only octet 0 runs 3,1,3,1,...")
+        subj = lambda c: subprocess.run(["git", "-C", self.ROOT, "log", "-1", "--format=%s", c], capture_output=True, text=True).stdout
+        s585, sb59 = subj("585880f"), subj("b598067")
+        if s585 and sb59:   # the history may be shallow in a packaged tree
+            self.assertIn("hash table", s585.lower(), "precondition: 585880f is the probe-cap (hash-table) fix")
+            self.assertIn("filename", sb59.lower(), "precondition: b598067 is the merge-filename fix")
+        z = 1.96
+        self.assertEqual("%.2e" % (z * z / (1e9 + z * z)), "3.84e-09", "precondition: Wilson's upper limit at 0 of 1e9")
+        for f in ("f4p_tier1", "perm_tier1", "dav2_tier1", "db1_tier1"):
+            self.assertIn("threads=32", self._r("reports/evidence/%s.out" % f), "precondition: %s ran at 32 threads" % f)
+        c = "documentation/CRITIQUE.md"
+        self._lacks(c, "so 0.05/91 is retained as the strictest defensible value", "significance claims are made net of that selection.",
+                    "## Corpus control test (2026-07-04): the battery's specificity, validated",
+                    "forces a strictly alternating 3,1,3,1,… within-octet difference pattern (the same",
+                    "(fixed commit 585880f); 742M", "forming a complete [Latin square]", "The ~3/N [Wilson](CITATIONS.md#wilson1927) upper bound",
+                    "regeneration: `SOLVE_KNUTH_SCORE_F4P=1", "The greedy-builder numerator, the completion simulation and the KW-facing integration were never run")
+        self._has(c, "the first-registration rule now gives ≥ 1,446 (CX-379)", "net of the registered testing families",
+                  "## Corpus control test (2026-07-04): a positive control for the battery",
+                  "own-trigram promotion breaks the 3,1,3,1,… pattern in seven of the eight octets",
+                  "(fixed commit b598067); 742M", "the full 8×8 grid of (upper, lower) pairs", "rule-of-three upper bound",
+                  "regeneration: `SOLVE_THREADS=32 SOLVE_KNUTH_SCORE_F4P=1", "the chi-square approximation is invalid; exact tests exist but were not run",
+                  "the KW-facing integration was never run", "against a null that shuffles hexagrams without preserving pairs")
+        self._has("documentation/MCKENNA.md", "the Markov test's null shuffles hexagrams without preserving pairs")
+        self._lacks("README.md", "CRITIQUE's own account of the test still calls it a specificity result")
+
+    # ---- CX-35T-I: METHODS -------------------------------------------------------------------------------------
+    def test_methods_wording(self):
+        sp = self._r("solve.py")
+        for flag in ("--registry-verify", "--dav-verify", "--db1-verify", "--f4p-verify"):
+            self.assertIn('"%s"' % flag, sp, "precondition: solve.py ships %s" % flag)
+        m = "reports/METHODS.md"
+        self._lacks(m, "| Orbit count \\|C1∩C2∩C4∩C5\\|/24 |", "Every report's Verification Guide tags its claims with the rung they sit on.",
+                    "None of those has yet had an examiner who did not also write them.")
+        self._has(m, "| N/24 = \\|C1∩C2∩C4∩C5\\|/24 (= 2 × the sequence-level orbit count;", "`SOLVE_KNUTH_SEED` overrides it",
+                  "`--dav-verify`, `--db1-verify`, `--f4p-verify` for the other scorer families",
+                  "TR-11's Verification Guide tags its claims", "for §12.1–§12.8, and `python3 solve.py --atlas-queries")
+
+    # ---- CX-35T-J: the report-wording sweep ----------------------------------------------------------------
+    def test_report_wording_sweep(self):
+        import solve
+        b0 = {1: 2, 2: 20, 3: 13, 4: 19, 6: 9}
+        self.assertEqual((sum(v for d, v in b0.items() if d % 2), sum(b0.values())), (15, 63), "precondition: C5 has 15 odd of 63")
+        self.assertEqual(self._r("lean/KingWen.lean").count("\n#print axioms"), 46, "precondition: 46 #print axioms in KingWen.lean")
+        for a, b in solve.king_wen_pairs():
+            self.assertEqual(bin(a).count("1") % 2, bin(b).count("1") % 2, "precondition: C1 partners share popcount parity")
+        self.assertEqual(math.comb(35, 4), 52360)
+        self.assertEqual(math.comb(22, 4), 7315, "precondition: compositions with more than twelve d=6 steps")
+        self.assertEqual("%.5f" % (1.96 * 0.000173 / _g4math.log(2)), "0.00049")
+        self._lacks("reports/TR3_REPRODUCIBLE_ENUMERATION.md", "each cell resumes from its .dfs_state checkpoint",
+                    "Checkpoints are **per-thread and intra-layer**")
+        self._lacks("reports/TR4_SIZE_OF_THE_SPACE.md", "making these values upper bounds on the greedy-optimal masses")
+        self._has("reports/TR4_SIZE_OF_THE_SPACE.md", "estimates of a possibly non-minimal set's mass, not bounds",
+                  "over which boundary 4 is not shown to be the maximum single-boundary gain")
+        self._has("documentation/SEARCH_SPACE_SIZE.md", "over which it is not shown to be the maximum")
+        self._lacks("reports/TR4_SIZE_OF_THE_SPACE.md", "nodes, 16,504 vs 16,422 canonical).", "validated against exact counts at every scale where exact counts exist.")
+        self._lacks("reports/TR6_PARITY_SKELETON.md", "firing from the earliest placements.", "three modalities (measurement and kernel proof)")
+        self._lacks("reports/TR7_CIRCULAR_READING.md", "make up 17.4% of the valid space", "plus C5's 16-odd-of-64\n   count.",
+                    "measured 2026-09-03; silence = all theorems check)")
+        self._has("reports/TR8_REORDERING_REVISITED.md", "32 distinct restrictions", "r ≈ q^K product approximation")
+        t9 = "reports/TR9_PRICING_THE_CONSTRAINTS.md"
+        self._lacks(t9, "explained by nothing known today (105.4", "rest of the sequence is explained by nothing known today.",
+                    "C5 would only reach break-even, never explanatory.", "price the multiset as uniform over feasible compositions.",
+                    "holds a fortiori. |", "±1.96·SE ≈ **±0.0006 bits**, still")
+        self._has(t9, "±1.96·SE ≈ **±0.00049 bits** (unrounded SE 0.0173%); the C1–C7 row's 0.78% SE gives ±0.022 bits")
+        t10 = "reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md"
+        self._lacks(t10, "which is **≈45 SE** clear", "they are rare the way every specific configuration is rare;")
+        self._has(t10, "64/64 with Drasny's G1 and G2 merged into one class", "this report reads the registration's 10⁻⁴ as the per-test bar (no further ÷n); under the ÷n reading no row reaches it",
+                  "`rs1` (R-S1, Schulz's xiaoxi")
+        self._has("reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md", "`ulimit -s 16384`, then `SOLVE_THREADS=32 SOLVE_KNUTH_RELAX_C5=1")
+        self._lacks("reports/FULL31_EXACT_AGGREGATES.md", "the two rungs in §2 run in **under a second**", "| `states`, `entries`, `V_k`, `layer GB` |")
+        self._lacks("documentation/DESCRIPTION_LENGTH.md", "unexplained by anything known, even the", "±1.96·SE ≈ **±0.0006 bits** — the same")
+        for rel in ("reports/TR5_SYMMETRY.md", "reports/TR6_PARITY_SKELETON.md"):
+            self._lacks(rel, "`cd lean && lean KingWen.lean` (silence = all theorems check;")
+        self._lacks("lean/README.md", "lean KingWen.lean            # silence = all theorems check")
+
+    # ---- CX-35T-K: the partition-invariance clause --------------------------------------------------------
+    def test_partition_invariance_clause(self):
+        self.assertIn("**NOT themselves machine-checked**", self._r("lean/README.md"), "precondition: B1-B4 are not machine-checked")
+        cl = "the implementation bridges B1–B4 are assumed"
+        for rel, n in (("reports/TR3_REPRODUCIBLE_ENUMERATION.md", 2), ("documentation/SOLVE_SUMMARY.md", 2), ("documentation/CRITIQUE.md", 1),
+                       ("documentation/README.md", 1), ("documentation/SPECIFICATION.md", 1), ("documentation/PARTITION_INVARIANCE.md", 1),
+                       ("documentation/CANONICAL_HASHES.md", 1)):
+            self.assertGreaterEqual(self._f(rel).count(cl), n, rel)
+        self._lacks("documentation/PARTITION_INVARIANCE.md", "and the theorem in §1 holds unconditionally.",
+                    "semantics. Partition invariance guarantees the underlying solution set is the same")
+        self._lacks("documentation/SOLVE_SUMMARY.md", "(the same byte-identical results on any hardware)")
+
+    # ---- CX-35T-L: documentation ----------------------------------------------------------------------------
+    def test_documentation_wording(self):
+        import hashlib, gzip, statistics
+        with open(os.path.join(self.ROOT, "documentation/PREREG_H1_H3_TEST_2026_07_26.md"), "rb") as fh:
+            data = fh.read()
+        self.assertEqual((hashlib.sha256(data).hexdigest()[:8], len(data)), ("7137aabb", 29954), "precondition: the public copy's digest")
+        d = "documentation/README.md"
+        self._lacks(d, "disclosed 2026-09-04 and byte-identical to the row escrowed above", "for each headline claim, the named artifact",
+                    "PASS1's second run are operator-held", "agree to under 1% from 10¹¹ to 10¹³ nodes")
+        self._has(d, "the public copy (`7137aabb…`, 29,954) differs by the redaction", "for the headline claims it lists")
+        with gzip.open(os.path.join(self.ROOT, "reports/evidence/knuth195_percell_100000.csv.gz"), "rt") as fh:
+            lines = fh.read().split("\n")
+        h = lines[0].split(); rows = [l.split() for l in lines[1:] if l.strip() and len(l.split()) == len(h)]
+        tn = sorted(float(r[h.index("tree_nodes")]) for r in rows); lc = sorted(float(r[h.index("leaves_canonical")]) for r in rows)
+        self.assertEqual(("%.1f" % (tn[-1] / tn[0]), "%.1f" % (lc[-1] / lc[0])), ("14.0", "94.6"), "precondition: the two column spreads")
+        ss = "documentation/SEARCH_SPACE_SIZE.md"
+        self._lacks(ss, "**not published here, because no shipped command emits them**", "Total un-budgeted **orientation-explicit** tree size per cell",
+                    "of the ≈105 bits they can reach at most ≈84.65", "at a canonical-equivalent 100 B budget")
+        self._has(ss, "2 / 381 / 899 — and are emitted by `python3 verify.py --recount-subtree`", "at most ≈85.2 (105.93 − 20.71",
+                  "the tree itself, `tree_nodes`, spans 14.0×")
+        self.assertEqual("%.2f" % (105.93 - 20.71), "85.22")
+        bm = "documentation/BOUNDARY_MINIMUM.md"
+        self._lacks(bm, "the same *ordering* at every tested depth:**")
+        self._has(bm, "**12** at 100T")
+        so = "documentation/SOLVE_SUMMARY.md"
+        self._lacks(so, "3×10³⁷", "whether that holds over the full space is open (extrapolation suggests ~13–20 boundaries would be required)")
+        self._has(so, "the identifying minimum there is at least 7")
+        self._lacks("documentation/SPECIFICATION.md", "which is what shows that sample is not drawn from this population",
+                    "(95% CI [8.5%, 9.2%])", "grows with enumeration node budget, at fixed partition depth")
+        self._has("documentation/SPECIFICATION.md", "(95% CI [8.620%, 9.160%] at the command's defaults)")
+        self._lacks("documentation/CITATIONS.md", "against a rival the tradition supplied rather than one we constructed.")
+        self._lacks("documentation/VERIFY.md", "none of the rivals are ours.**", "### Stage 0 — build and the sha gate Any machine.")
+        self._lacks("enumeration/README.md", "Current-canonical analyze outputs for d2 10T and d3 10T.")
+        self._lacks("documentation/GUIDE.md", "narrow *many* pair-constrained sequences to near-uniqueness, not King Wen alone")
+        rp = subprocess.run([sys.executable, "-B", "roae.py", "--trigrams"], cwd=self.ROOT, capture_output=True, text=True, timeout=300)
+        out = " ".join((rp.stdout + rp.stderr).split())
+        if "Methodological note" in out:
+            self.assertIn("the chi-square approximation is invalid", out)
+        self._has("example/README.md", "the chi-square approximation is")
+        self._lacks("example/README.md", "no goodness-of-fit test (e.g., chi-square) has sufficient power")
+
+    def test_gate27_front_has_solve_summary(self):
+        tmp = tempfile.mkdtemp(prefix="g4g27_")
+        try:
+            repo = os.path.join(tmp, "repo")
+            for d_ in ("docs", "documentation", "reports"):
+                os.makedirs(os.path.join(repo, d_))
+            shutil.copytree(os.path.join(self.ROOT, "scripts", "doc_gates.d"), os.path.join(repo, "scripts", "doc_gates.d"))
+            shutil.copy2(os.path.join(self.ROOT, "scripts", "doc_gates.sh"), os.path.join(repo, "scripts", "doc_gates.sh"))
+            reg = "documentation/WITHDRAWN_FIGURES.tsv"
+            shutil.copy2(os.path.join(self.ROOT, reg), os.path.join(repo, reg))
+            self.assertIn("\n3×10³⁷\t", self._r(reg), "precondition: 3×10³⁷ is a registered withdrawn figure")
+            with open(os.path.join(repo, "documentation", "CORRECTIONS.md"), "w", encoding="utf-8") as fh:
+                fh.write("# Corrections\n\nNothing.\n")
+            for f in ("README.md", "documentation/README.md", "reports/README.md", "documentation/PROJECT_OVERVIEW.md"):
+                with open(os.path.join(repo, f), "w", encoding="utf-8") as fh:
+                    fh.write("# Index\n\nNothing withdrawn here.\n")
+            with open(os.path.join(repo, "docs", "NOTE.md"), "w", encoding="utf-8") as fh:
+                fh.write("It held ≈3×10³⁷ ⚠ [WITHDRAWN 2026-08-24].\n")
+            with open(os.path.join(repo, "documentation", "SOLVE_SUMMARY.md"), "w", encoding="utf-8") as fh:
+                fh.write("# Summary\n\nAn estimated ≈3×10³⁷ valid arrangements. ⚠ **[WITHDRAWN 2026-08-24 — see CORRECTIONS]**\n")
+            g = ["git", "-C", repo]
+            subprocess.run(g + ["init", "-q"], check=True)
+            subprocess.run(g + ["add", "-A"], check=True)
+            subprocess.run(g + ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "f"], check=True)
+            r = subprocess.run(["bash", "scripts/doc_gates.sh", "withdrawn-markers"], cwd=repo, capture_output=True, text=True, timeout=300)
+            out = r.stdout + r.stderr
+            self.assertIn("== GATE 27:", out, "precondition: GATE 27 ran")
+            self.assertEqual(r.returncode, 1, "a marked withdrawn figure on SOLVE_SUMMARY.md must fail the front-door leg\n" + out)
+            self.assertIn("CX-356: front-door page documentation/SOLVE_SUMMARY.md", out)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_history_index_crlf(self):
+        tmp = tempfile.mkdtemp(prefix="g4hi_")
+        try:
+            with open(os.path.join(self.ROOT, "documentation/HISTORY_INDEX.md"), "rb") as fh:
+                b = fh.read()
+            self.assertNotIn(b"\r\n", b, "precondition: the committed index is LF")
+            ok = subprocess.run(["bash", "scripts/history_index.sh", "--check"], cwd=self.ROOT, capture_output=True, text=True, timeout=300)
+            self.assertIn("HISTORY_INDEX=CURRENT", ok.stdout, "precondition: the committed index is current\n" + ok.stdout + ok.stderr)
+            idx = os.path.join(tmp, "HISTORY_INDEX.md")
+            with open(idx, "wb") as fh:
+                fh.write(b.replace(b"\n", b"\r\n"))
+            r = subprocess.run(["bash", "scripts/history_index.sh", "--check", "--index", idx], cwd=self.ROOT,
+                               capture_output=True, text=True, timeout=300)
+            self.assertNotIn("HISTORY_INDEX=CURRENT", r.stdout, "a CRLF copy is not byte-identical\n" + r.stdout)
+            self.assertIn("HISTORY_INDEX=STALE", r.stdout, r.stdout + r.stderr)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    # ---- CX-35T-M: the front page stands alone (Fable's review) --------------------------------------------
+    def test_readme_standalone(self):
+        t4 = self._r("reports/TR4_SIZE_OF_THE_SPACE.md")
+        sec = t4[t4.index("## Estimator calibration against exact ground truth"):]
+        sec = sec[:sec.index("\n## ", 5)]
+        anchors = [l for l in re.findall(r"^\| C1[^|]*\| ([^|]*)\|", sec, re.M) if "none" not in l]
+        self.assertEqual(len(anchors), 3, "precondition: TR-4 scores three anchors")
+        reg = [l.split("\t") for l in self._r("documentation/BRANCH_REGISTRY.tsv").split("\n") if l and not l.startswith("#")]
+        self.assertTrue(all(r[1] == "retired" for r in reg if r[0] != "main"), "precondition: every non-main branch is retired")
+        rd = "README.md"
+        src = self._r(rd)
+        self.assertFalse(src.split("\n")[4].startswith("Corrections to anything on this page"), "Q-1008: the top line is removed")
+        self._lacks(rd, "Corrections to anything on this page are recorded in", "23 record-level indistinguishable twins",
+                    "validated at both full-scale layers where exact ground truth exists", "frozen working snapshots, and they are not publications")
+        self._has(rd, "**The compiled superspace, queried exactly.**", "For scale: 64! ≈ 1.3×10⁸⁹ orderings of 64 hexagrams",
+                  "exact at 516,880,238,445,773,965,371,923,491,676,160 ≈ 5.16880×10³²", "the run was priced and declined, not found impossible",
+                  "validated at all three full-scale anchors where exact ground truth exists, inside its stated envelope each time",
+                  "[Li Shangxin 2007](documentation/CITATIONS.md#uniqueness-conjecture)",
+                  "[DRAT certificates](reports/certificates/README.md), each scoped to the C1∩C2∩C4∩C5-valid space",
+                  "**Citing:** cite `main` at the commit sha you read", "Of the 28-analysis exploratory battery",
+                  "23 record-level twins that no hexagram relabeling can distinguish", "±0.00049 bits at 95%", "Every other branch this project published is now retired")
+        q = src.index("do the rules, taken together, actually determine the order?")
+        f = src.index("**The finding.** The seven rules we tested do not.")
+        self.assertNotIn("(How old, precisely:", src[q:f], "F1: the provenance paragraph no longer separates question and answer")
+        self.assertGreater(src.index("(How old, precisely:"), src.index("Scope: this is a combinatorial study of the *ordering* alone"))
+# end class TestBatchG4 (push group G4, CX-35T-A..CX-35T-M)
 
 
 if __name__ == "__main__":

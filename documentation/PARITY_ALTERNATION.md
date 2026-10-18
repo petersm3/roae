@@ -30,8 +30,10 @@ reproducers, named here so that neither is read as covered by `PARITY_ALTERNATIO
 `python3 solve.py --symmetry-completeness` (leg SC-7, ~4 s). Moore's 16/18 King Wen compliance
 in §Novelty status is a literature figure, and it is reproduced in this repository by
 `python3 -c "import solve; print(18 - len(solve.h2_parity_slots(list(solve.binary_hexagrams))))"`
-→ `16` (the same non-exempt slot count and the same two violating slots that
-`reports/evidence/r11/r11_calibration.py` asserts as its KW gate).
+→ `16`. *(Scoped 2026-10-17, CX-35T-L: this said the figure is "the same non-exempt slot count and the same two
+violating slots that `reports/evidence/r11/r11_calibration.py` asserts as its KW gate"; that gate asserts
+totals only — not which two slots violate, which are [21, 22], nor an independent count of the 18
+non-exempt slots, which `solve.r11_axes` fixes as a constant.)*
 *(Corrected 2026-09-02, Codex V2-F42 #2 and #3, prose batch P42: the promise above read as
 covering every figure on the page, and the lemma cited in the well-definedness clause was the
 wrong one — well-definedness is this document's Lemma 1; Lemma 3 is the transition-parity

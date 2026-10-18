@@ -131,7 +131,7 @@ This makes the 25/75 observation one of McKenna's most accurate quantitative cla
 
 ## What does not hold up
 
-- The two tests run here find no evidence that the difference wave is a "signal" — its Markov structure and path length are indistinguishable from random orderings that share the pair constraint (two non-significant tests; not a proof of absence).
+- The two tests run here find no evidence that the difference wave is a "signal" — its path length is indistinguishable from random pair-constrained orderings; the Markov test's null shuffles hexagrams without preserving pairs, and against it the Markov structure is typical too (two non-significant tests; not a proof of absence; the Markov null was described as pair-constrained until 2026-10-17, CX-35T-H).
 - No periodicity is established — and none is excluded. No autocorrelation lag lies outside the 95% band; one of 31 DFT bins exceeds the report's ad-hoc 2× noise-floor threshold, at 2.45×; no multiple-testing correction is applied. The data is too short to be conclusive either way.
 - Several properties initially reported as findings (yin-yang balance, Markov patterns, trigram independence) are either tautological or statistically insignificant.
 - Palindromes, canon split, recurrence rate, and neighborhood clustering are all within chance expectations under appropriate null models.

@@ -69,9 +69,11 @@ were caught. Deleting them would erase the forensic audit trail.
   will grow with 100T). Held off-repo as operator-held preserved copies; see
   [CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) + the per-run README under
   `../runs/<run-id>/` for access instructions.
-- Current-canonical analyze outputs for d2 10T and d3 10T. Those
-  live at `../runs/20260418_10T_d2_fresh/analyze_output.log.gz`
-  and `../runs/20260418_10T_d3_fresh/analyze_output.log.gz`.
+- Analyze outputs for d2 10T (the active d2-partition reference, 286,357,503 records) and for the deprecated f7b8c4fb… d3 10T dataset
+  (706,422,987 records; the active d3 10T canonical, b85c8871…, 706,427,594 records, has no archived
+  analyze log). Those live at `../runs/20260418_10T_d2_fresh/analyze_output.log.gz`
+  and `../runs/20260418_10T_d3_fresh/analyze_output.log.gz` (labelled 2026-10-17, CX-35T-L: this read
+  "Current-canonical analyze outputs for d2 10T and d3 10T").
 
 ## Navigation
 

@@ -2,8 +2,6 @@
 
 <mark>**[䷀䷁](documentation/SOLVE_SUMMARY.md)**</mark> ䷂䷃ ䷄䷅ ䷆䷇ ䷈䷉ ䷊䷋ ䷌䷍ ䷎䷏ ䷐䷑ ䷒䷓ ䷔䷕ ䷖䷗ ䷘䷙ ䷚䷛ ䷜䷝ ䷞䷟ ䷠䷡ ䷢䷣ ䷤䷥ ䷦䷧ ䷨䷩ ䷪䷫ ䷬䷭ ䷮䷯ ䷰䷱ ䷲䷳ ䷴䷵ ䷶䷷ ䷸䷹ ䷺䷻ ䷼䷽ ䷾䷿
 
-Corrections to anything on this page are recorded in [CORRECTIONS.md](documentation/CORRECTIONS.md).
-
 **The question.** The I Ching is an ancient Chinese divination text — its roots go back roughly
 three thousand years — organized into 64 chapters, each marked by a hexagram: a stack of six broken
 or unbroken lines. In every received copy the 64 chapters appear in one particular order, the **King
@@ -16,16 +14,6 @@ including how rare each one is — and **proves**, with machine-checked proofs a
 what is forced and what is impossible. (Rarity figures are estimates from weighted-Knuth sampling
 with stated probe counts, not proofs; the distinction is kept throughout.) The question underneath
 it all: do the rules, taken together, actually determine the order?
-
-(How old, precisely: the ordering is traditionally attributed to King Wen of Zhou, ~1000 BCE,
-though the dating of its fixation is debated in modern scholarship. Concretely
-([Shaughnessy 2022, ch. 11](documentation/CITATIONS.md#shaughnessy2022)): the earliest artifactual
-witness of the received sequence is the Xiping Stone Classics (175–183 CE), with the fragmentary
-Fuyang *Zhouyi* (tomb dated 165 BCE) an earlier partial witness. The Mawangdui silk manuscript
-(copied before 168 BCE) attests a *different* ordering in circulation. Earlier manuscripts exist —
-the Shanghai Museum Chu bamboo *Zhouyi* is c. 300 BCE — but their hexagram *order* is not
-recoverable. **The full dated record, and which other orderings this project does not study and why,
-are in [KING_WEN_PROVENANCE.md](documentation/KING_WEN_PROVENANCE.md).**)
 
 **The finding.** The seven rules we tested do not. This project began from the hypothesis that the
 King Wen sequence is *determined* by its published constraints — that the received order could be
@@ -59,6 +47,16 @@ remain entirely possible.
 Scope: this is a combinatorial study of the *ordering* alone; it makes no claims — supportive or
 dismissive — about the I Ching's text, its divination practice, or its philosophical tradition.
 
+(How old, precisely: the ordering is traditionally attributed to King Wen of Zhou, ~1000 BCE,
+though the dating of its fixation is debated in modern scholarship. Concretely
+([Shaughnessy 2022, ch. 11](documentation/CITATIONS.md#shaughnessy2022)): the earliest artifactual
+witness of the received sequence is the Xiping Stone Classics (175–183 CE), with the fragmentary
+Fuyang *Zhouyi* (tomb dated 165 BCE) an earlier partial witness. The Mawangdui silk manuscript
+(copied before 168 BCE) attests a *different* ordering in circulation. Earlier manuscripts exist —
+the Shanghai Museum Chu bamboo *Zhouyi* is c. 300 BCE — but their hexagram *order* is not
+recoverable. **The full dated record, and which other orderings this project does not study and why,
+are in [KING_WEN_PROVENANCE.md](documentation/KING_WEN_PROVENANCE.md).**)
+
 **The finding, precisely.** The plain sentence above compresses a hedged one; here is the full
 statement, with every label attached. About **5.21×10³¹** orderings — a raw, orientation-explicit
 count ([METHODS](reports/METHODS.md) §"Canonical quantities") — satisfy the full C1–C7
@@ -77,18 +75,21 @@ runs the other way: C6–C7 leave King Wen's alone among the 899 distinct pair o
 never singled out in the full space. Read against the
 literature, this is **a measured confirmation of prior under-determination claims, and the magnitude
 is a single-instrument estimate**: the direction was asserted qualitatively before this project
-measured it (see the prior negatives below), and the C1–C7 figure comes from `solve.c`'s estimator
-alone — every two-instrument exact quantity in the suite is C3-free
-([TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)). Neither label doubts the number:
-the estimator is externally validated at both full-scale layers where exact ground truth exists,
-inside its stated envelope both times ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md) §"Estimator
+measured it (see the prior negatives below), and the C1–C7 figure comes from `solve.c`'s estimator alone — every two-instrument exact quantity in the suite is
+C3-free ([TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)), including C1–C7 **with C3 dropped**, exact
+at 516,880,238,445,773,965,371,923,491,676,160 ≈ 5.16880×10³². C3 is the only constraint without an exact full-scale
+instrument; one exists (C3 = 16 + 8·G, a Lean theorem) and the run was priced and declined, not found impossible
+([METHODS](reports/METHODS.md) §"Canonical quantities"). Neither label doubts the number: the estimator is externally
+validated at all three full-scale anchors where exact ground truth exists, inside its stated envelope each time ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md) §"Estimator
 calibration"), and the C6–C7 verdict is corroborated exactly at small scope (the 8 oriented
 survivors of 16,504 above). What no prior author did is the measurement **at combinatorial scale, over
 constraint-defined spaces** — exhaustive searches over small curated families of candidate
 orders do exist in the literature, and are not what this sentence excludes.
 
 **Whose hypothesis this was.** The name "Uniqueness Conjecture" is **this project's own coinage**. To
-our knowledge no author asserted in so many words that the C1–C7 inventory pins down the sequence, and
+our knowledge no author asserted in so many words that the C1–C7 inventory pins down the sequence,
+(the closest direct assertion located is [Li Shangxin 2007](documentation/CITATIONS.md#uniqueness-conjecture), for
+his own principle inventory and hedged, so the refutation does not contradict his thesis as stated), and
 programs such as [Cook (2006)](documentation/CITATIONS.md#cook2006) invoke principles well beyond the
 tested inventory — so **the refutation touches none of those works as stated**
 ([full attribution note](documentation/CITATIONS.md#uniqueness-conjecture)). What it refutes is the
@@ -113,7 +114,8 @@ regardless of who submitted them to the checker — but the checker verifies a *
 wrote**, and whether the Lean proposition or the CNF says what the surrounding prose says it says is
 itself same-author. Everything upstream and downstream of the proofs carries the discount too: whether the
 formalized rules and extracted constraints mean what the cited literature meant, and whether the
-results are graded fairly, have had no examiner who did not also write them. The full ladder, from
+results are graded fairly, have had no examiner outside the project; the AI reviews the project
+commissioned are acknowledged as such and are not independent examination. The full ladder, from
 weakest check to the third-party rung this project has not reached, is in
 [METHODS](reports/METHODS.md) §"Authorship independence".
 
@@ -152,6 +154,8 @@ from `lean/` and prints the kernel it used as `LEAN_ID=`.
 
 The sequence's structural properties, extracted from the received order and its classical commentary,
 are treated as axioms defining a space of orderings ([formal definitions](documentation/SPECIFICATION.md) · [plain-language summary](documentation/SOLVE_SUMMARY.md)):
+For scale: 64! ≈ 1.3×10⁸⁹ orderings of 64 hexagrams; the pairing C1 alone leaves 32!·2³² ≈ 1.1×10⁴⁵;
+C1∩C2∩C4∩C5 is exactly ≈1.1×10³⁹; C1–C5 ≈1.3×10³⁸ and C1–C7 ≈5.2×10³¹ are estimates ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md) §Sections).
 
 - **C1** — the 64 hexagrams form 32 consecutive pairs, each a hexagram with its reverse (or complement
   when reversal is trivial): the classical pairing, described explicitly by [Kong Yingda](documentation/CITATIONS.md#kongyingda) in the 7th century, with roots in [Yu Fan](documentation/CITATIONS.md#yufan)'s 3rd-century pair relations.
@@ -179,7 +183,7 @@ C1–C5, with C6–C7 added only where the text says so.
 |---|---|
 | **[solve.c](solve.c)** | The enumerator. Multi-threaded C; produces byte-reproducible enumeration slices anchored by sha256 ([CANONICAL_HASHES](documentation/CANONICAL_HASHES.md)); also an unbiased estimator of the full space. Deepest artifact: 10.5 billion orderings, derived twice byte-identically on preemptible cloud. |
 | **[solve.py](solve.py)** | The independent ground truth. Every constraint implemented a second time, in Python, and cross-checked against the C. |
-| **[sat.py](sat.py)** | The decision layer. Encodes exact questions ("does an ordering with property X exist?") for a SAT solver; UNSAT answers carry independently checkable certificates. |
+| **[sat.py](sat.py)** | The decision layer. Encodes exact questions ("does an ordering with property X exist?") for a SAT solver; UNSAT answers carry independently checkable [DRAT certificates](reports/certificates/README.md), each scoped to the C1∩C2∩C4∩C5-valid space. |
 | **[roae.py](roae.py)** | The exploratory analysis suite: 28 analyses of the sequence — most with null-model comparisons, several descriptive-only, and [CRITIQUE.md](documentation/CRITIQUE.md) names which are which ([example output](example/)). |
 | **[lean/](lean/)** | Machine-checked theorems (Lean 4): the core lemmas, four sequence-level theorems, the trigram-level structure ([TRIGRAM_STRUCTURE](documentation/TRIGRAM_STRUCTURE.md)), and the model-level merge/partition-invariance theorems (see [lean/README.md](lean/README.md) for the trust-base and scope notes). |
 | **[tests.py](tests.py)** · **[verify.py](verify.py)** · **[verify_all.sh](reports/certificates/verify_all.sh)** | The verification layer — the instrument that checks the other five: Python regression harness, two-language record verifier, and the one-command check of the enumerator selftest, the two-language gates, every archived DRAT certificate, the Lean proofs, the regression harness, `roae.py`'s ground-truth self-check and the documentation gates (`scripts/doc_gates.sh` in its `all` mode, whose PASS banner covers the hard gates only). Scope: section 6 runs `roae.py --verify` — the deterministic ground-truth check — and **not** the 28 analyses. |
@@ -213,13 +217,13 @@ Headlines only — each links to its full treatment (technical reports in [repor
   ~1 in 5×10⁷ — an order-of-magnitude figure at that sampling depth, with the most specific
   configurations rare largely by specification rather than principle; see METHODS and TR-1's data-like
   caveat. [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md)
-- **Every valid ordering has exactly 23 record-level indistinguishable twins** (the symmetry group acts
+- **Every valid ordering has exactly 23 record-level twins that no hexagram relabeling can distinguish** (the symmetry group acts
   freely), and exactly **15 parity-class alternations** (proven two independent ways — the
   prose argument and the Lean 4 kernel — with a SAT/DRAT corroboration that mechanizes the counting
   step under the alternation–distance bridge). [TR-5](reports/TR5_SYMMETRY.md), [TR-6](reports/TR6_PARITY_SKELETON.md)
-- **No symmetry-respecting generator can single out King Wen.** Any generator that scores orderings
-  using only G-invariant structural primitives (Hamming distance, complement, reversal, the values 0/63,
-  …) gives King Wen's record and each of its 23 twins equal probability — so it can place at most **1 in
+- **No symmetry-respecting generator can single out King Wen.** Any generator whose output law is a function of a
+  G-invariant score (the theorem's hypothesis) — a score built from G-invariant structural primitives (Hamming
+  distance, complement, reversal, the values 0/63, …) — gives King Wen's record and each of its 23 twins equal probability — so it can place at most **1 in
   24** of its mass on King Wen, never more (`equivariance_ceiling`, kernel-checked in
   [lean/KingWen.lean](lean/KingWen.lean)). The bound is Curie's principle (symmetry of causes ⇒ symmetry of
   effects), not new — the contribution is the King-Wen instantiation and its machine-check. [lean/README §The equivariance ceiling](lean/README.md), [lean/KingWen.lean](lean/KingWen.lean)
@@ -232,8 +236,9 @@ Headlines only — each links to its full treatment (technical reports in [repor
   preprint, machine-verified). Scope guard: comp∘rev matchings can do better — see
   [lean/HammingOptimalMatching.lean](lean/HammingOptimalMatching.lean). [CITATIONS](documentation/CITATIONS.md)
 - **The circular reading has a price.** Read as a cycle (McKenna's construction), the sequence needs
-  one more rule. Orderings violating that rule are 17.4% of the full space yet absent from all 10.5
-  billion enumerated records — a stark demonstration that bounded search sees a biased sample. (The
+  one more rule. Orderings violating that rule carry 17.4% of the linear C1–C5 space's orientation-explicit mass, yet
+  none of the 10.5 billion enumerated records violates it; those records are orientation-deduplicated, a
+  different population that TR-7 does not compare with the first. (The
   17.4% is a 2×10¹⁰-probe sampled estimate, which a second archived run matches to within 0.05 percentage
   points. That run is a partially overlapping replicate that shares half its probes, not an independent
   draw — TR-7 §5.) [TR-7](reports/TR7_CIRCULAR_READING.md)
@@ -242,14 +247,9 @@ Headlines only — each links to its full treatment (technical reports in [repor
   below.)* The classical pairing carries
   nearly all the explanatory weight (and is provably optimal among comp/rev matchings); the transition histogram is confirmed
   description, not explanation; **between about 105 and 139 bits** remain open — the exact figure
-  depends on which layers are granted explanatory standing (105.4 bits = log₂|C1–C7|, the most
-  conservative reading, resting on the C1–C7 estimate — whose published 0.78% is the estimator's
-  relative **standard error**, not a 95% half-width, so the 95% interval is ±1.96·SE ≈ **±0.022
-  bits**, which the published [5.13, 5.29]×10³¹ bracket independently gives as −0.0223/+0.0220; 139.1 bits =
-  log₂|C1∩C2∩C4|, the residual against the claimed-explanatory layers alone — a logarithm of an
-  exact count; the intermediate C1–C5 reading ~126.6 rests on an estimate with a smaller relative
-  standard error, 0.02%, i.e. ±1.96·SE ≈ ±0.0006 bits at 95% — a tighter *estimate*, which is a
-  comparison of two standard errors and not of two published precision bands).
+  depends on which layers are granted explanatory standing (105.4 bits = log₂|C1–C7|, the most conservative reading, resting on the C1–C7 estimate — ±0.022 bits at 95%;
+  139.1 bits = log₂|C1∩C2∩C4|, the residual against the claimed-explanatory layers alone — a logarithm of an exact
+  count; the intermediate C1–C5 reading ~126.6 rests on an estimate, ±0.00049 bits at 95%).
   [TR-9](reports/TR9_PRICING_THE_CONSTRAINTS.md)
 - **A structural reading, measured.** [Davis's (2012)](documentation/CITATIONS.md#davis2012) flagship compositional units come out
   typical-to-mildly-uncommon (TR-10's own phrase; the #43–50 array is its lone Bonferroni-notable
@@ -270,6 +270,16 @@ Headlines only — each links to its full treatment (technical reports in [repor
   has recomputed the count. It is reproducible on ~64 GB of RAM plus ~4 TB of disk; the statistical estimator is
   validated absolutely at 10³⁹ (the exact value lands inside its stated ±0.01% envelope). The flagship C1–C5 figure
   remains an estimate. [TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)
+- **The compiled superspace, queried exactly.** Over the whole 1.097×10³⁹-member C1C2C4C5 superspace (C3 not
+  imposed), the n=31 atlas recovers the C5 budget exactly from its own column sums (a parameter the run was
+  given); finds **68.67 %** of the pruned search tree doomed (in t-units); and places King Wen's transition low
+  in its distance class at **24 of 31** steps — a pointer with no p-value. Two results are **negative**: the
+  one-step kernel does not distinguish King Wen (0.10 bits from the population mean), and the interior positional
+  pair field is within total-variation 0.0329 of uniform. Two checks against C1–C5 figures from a different
+  instrument **FAIL by ~12× tolerance** — the populations differ by C3, an inference, not a measurement of C3.
+  The exhaustibility verdict is one-sided (every branch INFEASIBLE from a lower-bound certificate); wave 3 never
+  ran. Laptop-scale battery: `scripts/tr12_repro.sh --n9`; contract: [QUERY_INVENTORY](documentation/QUERY_INVENTORY.md).
+  [TR-12](reports/TR12_QUERY_PROGRAM.md)
 - **The enumeration record is reproducible**: every canonical count re-derivable to the byte from its
   published recipe — the sha-determining parameters verbatim; one `solve` invocation with the merge
   bundled through 100T, and enumerate-then-`--merge` as two steps for the 560T canonical
@@ -290,14 +300,18 @@ Mawangdui order on 9 of 11** — while King Wen comes out on exactly its three d
 (3 of 11; 0 of 11 against the pair-preserving null). Read honestly, that is a **positive** control:
 the battery does detect algorithmic construction where it exists. It is *not* a specificity test —
 both available controls lit up, so the only quiet case in the corpus is the object of study itself.
-CRITIQUE's own account still heads the test as a validated specificity result and counts three alternative
-orderings, Fu Xi included, though its scope paragraph concedes the n = 2 historical-control limit; the reading on this page is the narrower one.
+CRITIQUE now labels the test a positive control too; its constraint-family sequel counts three
+alternative orderings, Fu Xi included, and the reading on this page is the narrower one.
+Of the 28-analysis exploratory battery, only the pair structure and the combined constraints survive
+multiple-comparison correction; entropy is mildly low but not significant after Bonferroni, the Markov structure is
+typical against a shuffle that does not preserve pairs, path length and palindromes are typical under the
+pair-preserving null, and no periodicity is established — or excluded ([PROJECT_OVERVIEW](documentation/PROJECT_OVERVIEW.md) §Observations).
 
 ## Quick start
 ```
 gcc -O2 -pthread -fopenmp -o solve solve.c -lm -lz && ./solve --selftest  # must print PASS
 python3 roae.py                          # the analysis battery (29 sections; 28 analyses, most with null models — see CRITIQUE.md — plus the theorem-backed --parity)
-python3 solve.py --registry-verify       # the two-language ground-truth gates (31/31 must PASS)
+python3 solve.py --registry-verify       # the Python ground-truth gate for the 31 registry rules (31/31 must PASS)
 python3 sat.py                           # SAT layer usage + targets
 python3 tests.py                         # regression harness (prints its own test count)
 bash reports/certificates/verify_all.sh  # one command: selftest, two-language gates, all DRAT certs, Lean, tests.py, roae.py --verify, doc gates
@@ -323,22 +337,17 @@ its evidence.
 [reports/](reports/) — the full technical report suite (start at its [index](reports/README.md) for the map and reading paths) · [PROJECT_OVERVIEW](documentation/PROJECT_OVERVIEW.md) — the detailed findings narrative formerly on this page ·
 [CLAIMS_DECIDED](documentation/CLAIMS_DECIDED.md) — the empirical scorecard (what's refuted, corrected, forced, confirmed) · [SOLVE_SUMMARY](documentation/SOLVE_SUMMARY.md) — plain-language results · [CITATIONS](documentation/CITATIONS.md) — every source, every attribution, annotated bibliography · [HISTORY](documentation/HISTORY.md) — the project narrative including its mistakes. · [CORRECTIONS](documentation/CORRECTIONS.md) — the append-only record of every claim we published and later changed.
 
+**Citing:** cite `main` at the commit sha you read, plus the report version (e.g. "TR-2 v1.24, commit abc1234");
+[CITATION.cff](CITATION.cff) carries the fields and, by design, stamps no commit, version or DOI ([reports/README](reports/README.md) §"Living documents").
+
 ### Which branch to read — `main`, and only `main`
 
-**`main` is the published corpus.** Corrections land here and nowhere else: when a claim is
-withdrawn or restated, [CORRECTIONS.md](documentation/CORRECTIONS.md) records it and the affected
-text on `main` is updated.
-
-**The other published branches are frozen working snapshots, and they are not publications.** Each
-stops at the commit where that line of work paused, so a branch **can still contain claims this
-project has since corrected** — including figures later found to be wrong. They predate
-`CORRECTIONS.md` itself, so a branch offers no way to discover what changed. They are kept public
-for provenance, not for reading: cite `main`.
-
-Every published branch, with its status and freeze date, is declared in
-[BRANCH_REGISTRY.tsv](documentation/BRANCH_REGISTRY.tsv). `doc_gates.sh branch-registry` (GATE 19)
-fails if a branch is published without being declared there — a hole this suite could not previously
-see, because every other gate reads the working tree and none reads another branch's content.
+**`main` is the published corpus** — corrections land here and nowhere else ([CORRECTIONS.md](documentation/CORRECTIONS.md)).
+Every other branch this project published is now retired: its ref is deleted, and a tag pins its exact commit for
+provenance, not for reading. Each stops where that line of work paused, predates `CORRECTIONS.md`, and can still
+contain claims since corrected. Cite `main`. Every branch ever published, with its status, freeze date and
+preserving tag, is declared in [BRANCH_REGISTRY.tsv](documentation/BRANCH_REGISTRY.tsv); `doc_gates.sh branch-registry` (GATE 19) fails if a
+branch is published without being declared there.
 
 ## Figures
 

@@ -133,7 +133,7 @@ REVIEWED = {
         ('1', 'reviewed:bullet-already-reads-14-files'),
     ('CLAUDE.md', 'f0219a4b2b25'):
         ('1', 'reviewed:sentence-already-states-the-lower-bound;note-is-provenance'),
-    ('documentation/BOUNDARY_MINIMUM.md', '1a59ec4f6390'):
+    ('documentation/BOUNDARY_MINIMUM.md', '093856263844'):  # re-keyed 2026-10-17, push group G4 (line edited; verdict re-read, stands)
         ('2', 'reviewed:only-statement-on-the-page-that-the-full-space-minimum-is-at-least-7'),
     ('documentation/BOUNDARY_MINIMUM.md', '5c2b86f94f1e'):
         ('1', 'reviewed:table-already-separates-greedy-set-and-4-set-family'),
@@ -370,7 +370,7 @@ REVIEWED = {
         ('1', 'reviewed:cell-already-separates-containment-and-attainment'),
     ('documentation/GUIDE.md', '47e547c15320'):
         ('1', 'reviewed:sentence-already-gives-the-5000-trial-modes'),
-    ('documentation/GUIDE.md', '4953dd1799d5'):
+    ('documentation/GUIDE.md', 'c398db7af695'):  # re-keyed 2026-10-17, push group G4 (line edited; verdict re-read, stands)
         ('1', 'reviewed:paragraph-already-gives-the-optimality-characterization'),
     ('documentation/GUIDE.md', '74800e488dba'):
         ('1', 'reviewed:sentence-already-states-the-sampler-scoped-rate-bound'),
@@ -380,9 +380,9 @@ REVIEWED = {
         ('1', 'reviewed:sentence-already-reads-monotone-4-then-5'),
     ('documentation/GUIDE.md', 'c4c826ace6cb'):
         ('1', 'reviewed:example-already-reads-2'),
-    ('documentation/GUIDE.md', 'da0773140846'):
+    ('documentation/GUIDE.md', '81d19959e194'):  # re-keyed 2026-10-17, push group G4 (line edited; verdict re-read, stands)
         ('1', 'reviewed:sentence-already-says-the-test-only-pointed-the-same-way'),
-    ('documentation/GUIDE.md', 'df799cacd74c'):
+    ('documentation/GUIDE.md', '129f3a5ffef7'):  # re-keyed 2026-10-17, push group G4 (line edited; verdict re-read, stands)
         ('1', 'reviewed:sentence-already-scoped-to-ancient-sources'),
     ('documentation/GUIDE.md', 'eaab6a5d0d4e'):
         ('1', 'reviewed:cell-already-says-depends-on-the-null'),
@@ -490,12 +490,12 @@ REVIEWED = {
         ('1', 'reviewed:cell-already-names-the-landed-consumer'),
     ('documentation/QUERY_INVENTORY.md', '5153589a8057'):
         ('1', 'reviewed:item-already-reads-priced-and-declined'),
-    ('documentation/QUERY_INVENTORY.md', '5f70b5c4156d'):
+    ('documentation/QUERY_INVENTORY.md', 'f6d6a86e800e'):  # re-keyed 2026-10-17, push group G4 (line edited; verdict re-read, stands)
         ('1', 'reviewed:stale-narrowing-is-already-struck-through'),
     # re-keyed batch 35 (was 85bc4c72984a): only a line-number cite on the line moved; re-read, same verdict.
     ('documentation/QUERY_INVENTORY.md', 'b26b7cea9ea8'):
         ('1', 'reviewed:stale-clause-is-already-struck-through'),
-    ('documentation/QUERY_INVENTORY.md', '900d958f9aa5'):
+    ('documentation/QUERY_INVENTORY.md', 'bcf36579e93c'):  # re-keyed 2026-10-17, push group G4 (line edited; verdict re-read, stands)
         ('1', 'reviewed:cell-already-names-the-kc-figure'),
     # re-keyed CX-321 (was 94c1605ab856): the line gained the CX-321 note; re-read, the cell above still
     # reads "the row is unbuilt either way", same verdict.
@@ -766,7 +766,7 @@ REVIEWED = {
         ('1', 'reviewed:block-already-says-the-compiler-is-in-main'),
     ('documentation/SPECIFICATION.md', '7e3976fa3206'):
         ('1', 'reviewed:bullet-already-reads-stays-5'),
-    ('documentation/SPECIFICATION.md', '9c849fb61abe'):
+    ('documentation/SPECIFICATION.md', '922970cbbcad'):  # re-keyed 2026-10-17, push group G4 (line edited; verdict re-read, stands)
         ('1', 'reviewed:bullet-already-attributes-growth-to-node-budget'),
     ('documentation/SPECIFICATION.md', 'e98c37bebecb'):
         ('1', 'reviewed:bullet-already-gives-the-measured-pair-counts'),
@@ -782,8 +782,8 @@ REVIEWED = {
         ('1', 'reviewed:note-already-gives-the-full-chain'),
     ('documentation/SYMMETRY_SEARCH.md', '487cfe6dbf8a'):
         ('1', 'reviewed:dated-label;result-already-states-the-order-48-group'),
-    ('documentation/SYMMETRY_SEARCH.md', '97e87ff422ea'):
-        ('1', 'reviewed:sentence-already-names-the-two-private-inputs'),
+    ('documentation/SYMMETRY_SEARCH.md', 'f56a68a560c1'):  # re-keyed 2026-10-17, push group G4 (line edited; verdict re-read, stands)
+        ('1', 'reviewed:sentence-now-names-the-two-inputs-public-since-2026-09-04'),
     ('documentation/SYMMETRY_SEARCH.md', 'c3471d3127f8'):
         ('1', 'reviewed:paragraph-already-says-refuses-and-exits-1'),
     ('documentation/SYMMETRY_SEARCH.md', 'cd72ebe708fa'):
@@ -792,7 +792,7 @@ REVIEWED = {
         ('1', 'reviewed:sentence-already-says-kernel-evaluated-for-all-three'),
     ('documentation/VERIFY.md', '1469cd949612'):
         ('1', 'reviewed:row-already-gives-the-16-MB-requirement'),
-    ('documentation/VERIFY.md', '1ef62a3f1feb'):
+    ('documentation/VERIFY.md', 'afea3277851e'):  # re-keyed 2026-10-17, push group G4 (line edited; verdict re-read, stands)
         ('1', 'reviewed:row-already-attributes-to-Yu-Fan-and-scopes-the-12-16-band'),
     ('documentation/VERIFY.md', '453d2b32b175'):
         ('1', 'reviewed:text-already-gives-9-15-7'),
@@ -844,7 +844,7 @@ REVIEWED = {
         ('1', 'reviewed:sentence-already-says-C1-C5-constraints'),
     ('reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md', '475777f8f1d6'):
         ('1', 'reviewed:row-already-reads-does-not-meet-the-bar'),
-    ('reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md', '4f2bbde898c9'):
+    ('reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md', '36ce24ea507e'):  # re-keyed 2026-10-17, push group G4 (line edited; verdict re-read, stands)
         ('1', 'reviewed:row-already-reads-NULL'),
     ('reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md', 'c97ee1aca8e2'):
         ('1', 'reviewed:sentence-already-says-C1-C5-constraints'),
@@ -1044,7 +1044,7 @@ REVIEWED = {
         ('1', 'reviewed:paragraph-already-says-fully-public-and-checkable'),
     ('reports/TR6_PARITY_SKELETON.md', '3c218a3dc97d'):
         ('1', 'reviewed:text-already-says-corroborating-not-independent'),
-    ('reports/TR6_PARITY_SKELETON.md', '8e7e239e8898'):
+    ('reports/TR6_PARITY_SKELETON.md', '75ef4bb55c49'):  # re-keyed 2026-10-17, push group G4 (line edited; verdict re-read, stands)
         ('1', 'reviewed:text-already-states-the-two-modalities'),
     ('reports/TR7_CIRCULAR_READING.md', '950598f00a9b'):
         ('1', 'reviewed:text-already-says-lower-bound'),
@@ -1134,7 +1134,7 @@ REVIEWED = {
     # gate leg, and were read here by the CX-266 rule (class 2 = the withdrawn wording still stands,
     # or the marker holds the only statement of something the text relies on). The SOLVE_C_CLI.md and
     # layer_curve.md rows are batch-34 markers that reached the table after CX-266 was read.
-    ('documentation/CRITIQUE.md', 'c644bbbeed75'):
+    ('documentation/CRITIQUE.md', 'f6d65e4b454d'):  # re-keyed 2026-10-17, push group G4 (line edited; verdict re-read, stands)
         ('1', 'reviewed:note-already-says-the-boundary-minimum-did-not-shift'),
     # re-keyed batch 35 (was eaf5abc0b734): only a line-number cite on the line moved; re-read, same verdict.
     # re-keyed batch 46 (was 597d3234e446; CX-340, Q-993): the solve.c cite became the span 46159-46160; re-read, same verdict.
@@ -1284,6 +1284,39 @@ REVIEWED = {
     # re-derived and no public claim rests on the phrase.
     ('reports/evidence/c8screen/README.md', '0b049652ee25'):
         ('1', 'reviewed:narration-inside-a-code-change-note;both-digests-stated-and-correct;CX-354-item-5-carries-the-change'),
+    # push group G4 (2026-10-17): markers added or re-read on lines this group edited; each verdict read in place
+    ('documentation/CRITIQUE.md', 'f7559186adac'):
+        ('1', 'reviewed:sentence-now-reads-chi-square-invalid-exact-tests-not-run'),
+    ('documentation/CRITIQUE.md', 'ed259a02dbfb'):
+        ('1', 'reviewed:sentence-now-reads-the-full-8x8-grid'),
+    ('documentation/CRITIQUE.md', '30b4887c9aeb'):
+        ('1', 'reviewed:sentence-now-withdraws-actively-minimizes'),
+    ('documentation/CRITIQUE.md', 'be1089519ddb'):
+        ('1', 'reviewed:sentence-now-reads-no-mean-gap-signal'),
+    ('documentation/CRITIQUE.md', '51e157d192b4'):
+        ('1', 'reviewed:sentence-now-says-which-two-statements-survive'),
+    ('documentation/CRITIQUE.md', '3b812e27fe7e'):
+        ('1', 'reviewed:sentence-already-gives-the-raw-estimate-and-the-slice-counts;re-read-2026-10-17-after-the-B1-B4-clause'),
+    ('documentation/CRITIQUE.md', '3e6748823c1e'):
+        ('1', 'reviewed:sentence-now-gives-the-measured-octet-pattern'),
+    ('documentation/CRITIQUE.md', 'c7e9ca794979'):
+        ('1', 'reviewed:sentence-now-says-only-the-KW-facing-integration-never-ran'),
+    ('documentation/SOLVE_SUMMARY.md', '7a4bbd08af7b'):
+        ('1', 'reviewed:sentence-already-gives-5-at-canonical-depth;re-read-2026-10-17-after-the-current-values-replaced-the-withdrawn-figure'),
+    ('documentation/SPECIFICATION.md', 'b048ca33f3d6'):
+        ('1', 'reviewed:sentence-now-names-the-tail-statistic-and-the-command-interval'),
+    ('reports/FULL31_EXACT_AGGREGATES.md', 'a27023c370e2'):
+        ('1', 'reviewed:sentence-now-separates-the-engine-rungs-from-the-n16-recount'),
+    ('reports/TR2_THE_RULES_CONFLICT.md', '300bdb5af12e'):
+        ('1', 'reviewed:note-now-says-the-halves-are-witnessed'),
+    ('reports/TR3_REPRODUCIBLE_ENUMERATION.md', '7a5e3fbf522c'):
+        ('1', 'reviewed:sentence-now-says-completed-cells-are-skipped-and-in-progress-cells-rewalked'),
+    ('reports/TR5_SYMMETRY.md', '623e65680951'):
+        ('1', 'reviewed:note-now-says-a-twin-lies-in-a-different-depth-3-cell'),
+    ('reports/TR5_SYMMETRY.md', '8ed64452227e'):
+        ('1', 'reviewed:bullet-now-names-the-shipped-command'),
+    ('reports/evidence/f11halfb/RESULTS.md', '01b9f5cba659'):
+        ('1', 'reviewed:bullets-now-read-precursor-set-and-observed'),
 }
 
 # SOLO_ANCHORED — markers a one-file ablation (Q-936 (a)) named for a gate finding that cites no

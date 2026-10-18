@@ -116,7 +116,7 @@ inherits.
    16 E's and 16 O's) must contain exactly 15 changes — only 82,818,450 of C(32,16) = 601,080,390
    arrangements do, a ×7.26 reduction at the arrangement level, and C4 pins the first pair to the even
    class (pair {63, 0}). (b) An O(1) exact prefix prune (two-sided achievable-alternation interval check),
-   exact by derivation, firing from the earliest placements. (c) Sha-lineage caveat: an exact prune
+   exact by derivation; it cannot fire before the tenth pair ([PARITY_ALTERNATION.md](../documentation/PARITY_ALTERNATION.md); "firing from the earliest placements" until 2026-10-17, CX-35T-J). (c) Sha-lineage caveat: an exact prune
    preserves the solution set but changes node-visit ordering and counts, so budgeted canonical outputs —
    and canonical shas — can change; production adoption is a gated lineage decision. Nothing in the
    published canonicals is affected by the theorem itself. (d) Combined with the symmetry theorem ([TR-5](TR5_SYMMETRY.md)),
@@ -157,7 +157,7 @@ C1–C5-valid ordering shares. Computed directly from solve.py's King Wen sequen
 - Theorem statement, lemmas, arrangement count: [documentation/PARITY_ALTERNATION.md](../documentation/PARITY_ALTERNATION.md) (lemma claims and KW's
   count verifiable in seconds from SPECIFICATION.md / solve.py; the arrangement count is the elementary
   compositions identity Σ_start C(15, blocks_E−1)·C(15, blocks_O−1); no enumeration data needed)
-- Lean general theorem: `cd lean && lean KingWen.lean` (silence = all theorems check; Lean 4, tested 4.31.0 — run from inside `lean/` so elan honours `lean/lean-toolchain`; from the repo root it uses its default toolchain instead, measured 2026-09-03) —
+- Lean general theorem: `cd lean && lean KingWen.lean` (success prints only the module's 46 `#print axioms` reports and exits 0, [lean/README](../lean/README.md) §"Verify yourself"; "silence = all theorems check" until 2026-10-17, CX-35T-J; Lean 4, tested 4.31.0 — run from inside `lean/` so elan honours `lean/lean-toolchain`; from the repo root it uses its default toolchain instead, measured 2026-09-03) —
   `alternations_15_general`, `wrap_parity_general`, plus the finite lemmas
 - SAT UNSAT both sides: `python3 sat.py --emit-cnf alt-le-14 f.cnf && kissat f.cnf` (and alt-ge-16);
   drat-trim verification record: [documentation/LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md) §SAT-decided
@@ -184,7 +184,7 @@ contribute two switches each. Discovered as a pre-registered F4' functional that
 the discovery itself does not depend on the draw.]**) before being proved — the measurement
 found the theorem. As of v1.4 the corollary is also machine-checked: `switches_30_general` in
 lean/KingWen.lean (a structural proof checked by the kernel; core Lean, no mathlib) — two of the
-main theorem's three modalities (measurement and kernel proof); no SAT target or certificate states the 30-switch count, so the SAT modality covers only the 15-alternation theorem it rests on ⚠ *(corrected 2026-09-25: this read "the same three-modality status". Codex v3 review, V3B-09#15)*.
+main theorem's three modalities (prose proof and kernel proof — the measurement found the corollary but is not one of the three; "measurement and kernel proof" until 2026-10-17, CX-35T-J); no SAT target or certificate states the 30-switch count, so the SAT modality covers only the 15-alternation theorem it rests on ⚠ *(corrected 2026-09-25: this read "the same three-modality status". Codex v3 review, V3B-09#15)*.
 
 ## Revision history
 | Version | Date | Changes |
@@ -204,4 +204,5 @@ main theorem's three modalities (measurement and kernel proof); no SAT target or
 | v1.12 | 2026-09-29 | **A stale sentence removed (an adversarial review by Codex (gpt-6-astra) of the Lean, SAT and DRAT surface, triaged by Fable; CX-232).** §1 said the mechanical subset demonstration of the counting argument was not public; the two `noY` certificates have shipped it since 2026-09-03, as the section's opening already says. Wording only. |
 | v1.13 | 2026-10-01 | **The cover's reproduction promise is rescoped (Codex v3 review, finding V3B-08 #22 against TR-5, triaged by Fable; backlog Q-759).** The banner said every MEASURED result carries a reproduction command, while the reports themselves flag results that have none. It now says each one carries a command or says at the claim that it has none, which is what the reports index already said. GATE 9 holds the banner byte-identical across all twelve reports, so the same edit is made in each. Wording only; no figure, count or theorem changed. |
 | v1.14 | 2026-10-01 | **The C5-tightening investigation's conclusion is quoted whole (Q-754; Codex V3A-035#2, swept from PARITY_ALTERNATION.md).** §1 said that investigation concluded a novel structural theorem would be required for any further provable pruning; it named two routes — a novel theorem OR the bipartite-matching engineering cost — and declined the second. The sentence now says so. Wording only; no figure changes. |
-| v1.15 *(current)* | 2026-10-17 | **The archived core's 356 ordering variables are labelled a recorded count with no extracting command (Codex's final review, gpt-6-astra; CAL-009#1; triaged by Fable; fast-track batch FT2b-2).** The execution-lane note says `scripts/exec_lane.sh` executes every command it classifies as runnable, not every documented command (the lane never runs its OPS, placeholder or fragment classes; Codex's final review, gpt-6-astra, CAL-009#62, CAL-010#97; triaged by Fable; fast-track batch FT2b-2). No figure changes. See CORRECTIONS.md (fast-track batches FT2b-2..4). |
+| v1.15 | 2026-10-17 | **The archived core's 356 ordering variables are labelled a recorded count with no extracting command (Codex's final review, gpt-6-astra; CAL-009#1; triaged by Fable; fast-track batch FT2b-2).** The execution-lane note says `scripts/exec_lane.sh` executes every command it classifies as runnable, not every documented command (the lane never runs its OPS, placeholder or fragment classes; Codex's final review, gpt-6-astra, CAL-009#62, CAL-010#97; triaged by Fable; fast-track batch FT2b-2). No figure changes. See CORRECTIONS.md (fast-track batches FT2b-2..4). |
+| v1.16 *(current)* | 2026-10-17 | **Three wording fixes (Codex's final review, gpt-6-astra; triaged by Fable; push group G4; F01-004#4, F08-012#14, F11-013#2).** The exact prefix prune cannot fire before the tenth pair (PARITY_ALTERNATION.md), not "from the earliest placements"; the 30-switch corollary's two modalities are the prose proof and the kernel proof; the Lean expectation is the module's `#print axioms` reports, not silence. No figure changes. See CORRECTIONS.md CX-35T-J. |

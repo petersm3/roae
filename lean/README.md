@@ -18,9 +18,9 @@ trust-base note below for what that means and how it came to hold). What that bu
   subset is now empty.)
 - **The symmetry theorem's bit-permutation layer is fully machine-checked** (finite component + the
   sequence-level layer in
-  `Automorphism.lean`): the constraint system has exactly 48 **bit-permutation** symmetries, they act
-  freely
-  at the record level in 24-element orbits, and therefore **24 divides the length of any duplicate-free
+  `Automorphism.lean`): the constraint system has exactly 48 **bit-permutation** symmetries; the order-24
+  quotient of the 48 symmetries acts freely on records (bit-reversal fixes every record), in 24-element
+  orbits, and therefore **24 divides the length of any duplicate-free
   complete RECORD-level listing** (`twenty_four_dvd_count` / `twenty_four_dvd_solution_count`, which
   quantify over `SolRec`/pairKey listings). ⚠ **[CORRECTED 2026-08-30 — this read "24 divides every
   exact solution count. This is the theorem behind the 'divisible by 24' sanity gate applied to the
@@ -355,7 +355,7 @@ standalone, so `lean <AnyFile>.lean` works for all fifteen.)
 ```bash
 # install elan (Lean version manager); the pinned toolchain is in ./lean-toolchain
 # (leanprover/lean4:v4.31.0). Each file is standalone; no lake project:
-lean KingWen.lean            # silence = all theorems check (Lean 4, tested with 4.31.0; ~50 s — kernel-evaluates the equivariance-ceiling witness + the complement-symmetry facts)
+lean KingWen.lean            # success = only its 46 `#print axioms` reports, exit 0 (Lean 4, tested with 4.31.0; ~50 s — kernel-evaluates the equivariance-ceiling witness + the complement-symmetry facts)
 lean C3Decomposition.lean    # C3 slot-decomposition theorem + the exact C1∩C4 null G-law (see below; ~2 min — kernel-evaluates a 31-layer DP)
 lean PruneSafety.lean        # v4 walk-level prune-safety lemma (isomorph-free generation soundness)
 lean PruneReprFC.lean        # SOLVE_REPR_FC prune safety: repr(k) forward-check + leaf-free memo preserve the first-found leaf (2026-08-15; see below)
@@ -668,7 +668,9 @@ correctness of his result; both are documented so the claim's provenance is exac
 The "agnostic generator" corollary of the symmetry theorem, machine-checked: any generator whose
 scoring/decision function is built purely from G-invariant bit-structural primitives (Hamming
 distance, popcount, complement, reversal, the distinguished values 0/63, slot indices, and
-aggregates thereof) induces an output distribution taking equal values on King Wen's record and
+aggregates thereof) and whose output law is a function of that score — the theorem's hypothesis,
+`mass (score r)`; a selector that breaks score ties by enumeration order is not covered (scoped
+2026-10-17, CX-35T-G) — induces an output distribution taking equal values on King Wen's record and
 each of its 23 record-level twins — so the best such a generator can do is spread mass uniformly
 over KW's 24-element record orbit, never concentrate it on KW alone. Masses are unnormalized Nat
 weights (clear denominators of any generator with rational output probabilities; irrational output

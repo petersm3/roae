@@ -18,7 +18,8 @@
 #           this read ~7.23 MB and ~1.0 MB), so an 8 MB default stack is too small.
 #           This script does not invoke the estimator; the binary now refuses with a clear
 #           message rather than segfaulting.
-#   DISK  : ~2 GB scratch. CPU: any; the checks are not core-hungry and do not need a big VM.
+#   DISK  : ~2 GB scratch. CPU: Linux x86-64 (glibc, gcc with OpenMP, zlib -- reviewer/README.md); the checks
+#           are not core-hungry and do not need a big VM. ("CPU: any" until 2026-10-17, CX-35T-L.)
 #   These were previously stated only in lean/README.md and in a comment further down this
 #   file. A cold external-reviewer pass on a 4 GB host hit ERROR 134 on all 13 Lean files and
 #   reported them as unverifiable -- the requirement was documented, just not where a

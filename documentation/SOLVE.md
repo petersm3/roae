@@ -561,7 +561,7 @@ Nuclear hexagram sharing at boundaries is unremarkable (88th percentile, 1/31 bo
 
 ### Multi-feature combination search
 
-No single feature or combination of features uniquely identifies King Wen among the ~974 Rule 7a survivors. Tested: 26 features individually, 153 pairwise combinations (top/bottom 10% corners), and 10 triple combinations (top/bottom 20% corners). The best triple narrows to 33 solutions — far from unique. The 2 adjacency constraints encode information that no aggregate mathematical property can replicate.
+No single feature or combination of features uniquely identifies King Wen among the ~974 Rule 7a survivors. Tested: 26 features individually, 153 pairwise combinations (top/bottom 10% corners), and 10 triple combinations (top/bottom 20% corners). The best triple narrows to 33 solutions — far from unique. The 2 adjacency constraints encode information that none of the aggregate properties tested here replicates (scoped 2026-10-17, CX-35T-L, to the 26 features and their combinations tested; [SPECIFICATION.md](SPECIFICATION.md) retracts the unrestricted reading).
 
 ### Additional findings
 

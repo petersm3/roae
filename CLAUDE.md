@@ -414,7 +414,8 @@ INTO them, never into new files:
 - `verify.py` — independent Python verifier (records, `--recount`,
   `--check-certificate`). Imports nothing from solve.c/solve.py/roae.py/sat.py.
 - `verify.c` — independent C verifier (plain non-quotient per-layer mass check).
-  Same discipline: no solve.c header, no shared table, no copied constant.
+  Same discipline: no solve.c header, no shared table, no copied constant — except the King Wen input
+  table itself, the one deliberately shared datum, acknowledged in verify.c's INDEPENDENCE header.
 
 This is a NARROW exception justified by purpose, not a general licence. It was
 established after `verify_layers.c` was created and pushed without approval

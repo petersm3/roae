@@ -76,7 +76,7 @@ orbit-quotient), not by disagreement.
 | Symmetry group (sequence level) | 48 (B₃ ≅ Z₂≀S₃) | **proven** (finite gates + classical closure) | — | [TR-5] |
 | Symmetry group (record level) | 24 (S₄); free action | **proven** | orbit | [TR-5] |
 | Twins per solution | 23 (orbit size 24) | **proven** | orbit | [TR-5] §4 |
-| Orbit count \|C1∩C2∩C4∩C5\|/24 | 45,710,469,949,549,241,251,504,669,632,357,466,112 | **exact** (= N/24 of the two-instrument count above; the recomputed N is ≡ 0 mod 24, so the division is exact) | ⚠ **[LABEL CORRECTED 2026-09-19 (Q-642) — this cell read "record-level orbit", which its own arithmetic forbids.** Record-level objects are canonical pair-orderings, of which there are at most 31! = 8.2228×10³³, so a record-level orbit count is bounded by 31!/24 = 3.4262×10³² — and the figure in this row is 4.5710×10³⁷, **133,415× above that ceiling**. It is the same shape as the orientation-dedup figure withdrawn from this table on 2026-08-24 for exceeding its own 31! ceiling by ~4,013×, and it survived that sweep. N counts orientation-explicit **sequences**, on which the acting group is the order-48 lift acting freely, so the divisor at this level is **48** — which this cell's own parenthetical already said, so the cell contradicted itself. The figure is therefore **2× the sequence-orbit count**; the sequence-orbit count itself is **N/48 = 22,855,234,974,774,620,625,752,334,816,178,733,056**. **The integer in the value column is unchanged and still exact** — it is N/24, and N ≡ 0 (mod 48) is verified — only the name of the object it counts changes. See [TR-11] §2's precision note and [CORRECTIONS.md](../documentation/CORRECTIONS.md) CX-53.]** Orbit under the order-48 sequence-level lift, published as N/24 = 2× that orbit count (S₄, order 24, free action at the canonical *pair-ordering* level; at the orientation-explicit **sequence** level the group is the order-48 lift and the divisor is 48 — [TR-5] §3(i)) | [TR-11] §9 |
+| N/24 = \|C1∩C2∩C4∩C5\|/24 (= 2 × the sequence-level orbit count; relabelled 2026-10-17, CX-35T-I, from "Orbit count") | 45,710,469,949,549,241,251,504,669,632,357,466,112 | **exact** (= N/24 of the two-instrument count above; the recomputed N is ≡ 0 mod 24, so the division is exact) | ⚠ **[LABEL CORRECTED 2026-09-19 (Q-642) — this cell read "record-level orbit", which its own arithmetic forbids.** Record-level objects are canonical pair-orderings, of which there are at most 31! = 8.2228×10³³, so a record-level orbit count is bounded by 31!/24 = 3.4262×10³² — and the figure in this row is 4.5710×10³⁷, **133,415× above that ceiling**. It is the same shape as the orientation-dedup figure withdrawn from this table on 2026-08-24 for exceeding its own 31! ceiling by ~4,013×, and it survived that sweep. N counts orientation-explicit **sequences**, on which the acting group is the order-48 lift acting freely, so the divisor at this level is **48** — which this cell's own parenthetical already said, so the cell contradicted itself. The figure is therefore **2× the sequence-orbit count**; the sequence-orbit count itself is **N/48 = 22,855,234,974,774,620,625,752,334,816,178,733,056**. **The integer in the value column is unchanged and still exact** — it is N/24, and N ≡ 0 (mod 48) is verified — only the name of the object it counts changes. See [TR-11] §2's precision note and [CORRECTIONS.md](../documentation/CORRECTIONS.md) CX-53.]** Orbit under the order-48 sequence-level lift, published as N/24 = 2× that orbit count (S₄, order 24, free action at the canonical *pair-ordering* level; at the orientation-explicit **sequence** level the group is the order-48 lift and the divisor is 48 — [TR-5] §3(i)) | [TR-11] §9 |
 
 **Why these two remain estimates — and it is not a missing method.** The only constraint in this
 system without an exact full-scale instrument is **C3**. Every other quantity above is exact:
@@ -277,7 +277,7 @@ which is what produced every published figure — with the divergence disclosed:
   outputs from before 2026-09-04 carry the old form. Replaced 2026-10-17, Codex final review,
   F11-006#19.)*
   Per-bin histogram rows (`dav_hist` etc.) are point estimates and carry no marker either.
-  PRNG seeds are fixed constants: re-runs at identical (probes,
+  PRNG seeds are fixed constants (the default seed; `SOLVE_KNUTH_SEED` overrides it and is then part of the sample identity — archived runs such as the r11 battery scripts and the C8 screen set it; added 2026-10-17, CX-35T-I): re-runs at identical (probes,
   threads) reproduce identical output (a reproducibility feature; runs at the same thread count and
   different probe counts share stream prefixes and are not independent draws). *This rule is restated
   under its own heading — §"Reproducibility rule for estimator output" below — which is the anchor to
@@ -314,7 +314,7 @@ which is what produced every published figure — with the divergence disclosed:
   pair fixed by C4 where stated.
 - **Population fractions** are ratios of weighted canonical-leaf masses (orientation-resolved unless
   marked canonical); every scorer's rule semantics has a KW-value reproduction gate
-  (`solve.py --registry-verify`) run before any measurement is trusted.
+  (`--registry-verify` for the registry rules; `--dav-verify`, `--db1-verify`, `--f4p-verify` for the other scorer families; named 2026-10-17, CX-35T-I) run before any measurement is trusted.
 - **Global observable ledger (enterprise-wide multiple comparisons).** Bonferroni corrections in this
   suite are applied within each pre-registered family (F5 /11, F4′ /13, Davis /9, Davis follow-up /12,
   permutation /13). Family-wise control does not control the error rate of the whole enterprise. The
@@ -385,6 +385,16 @@ which is what produced every published figure — with the divergence disclosed:
   **No published verdict moves.** The suite applies Bonferroni throughout and retains the FWER reading
   as the conservative choice; `dav_trigarray` fails the Bonferroni bar on either mass. This is a
   disclosure that the counterfactual is narrower than it reads, not a retraction of anything claimed.]**
+  ⚠ **[RANK RE-DERIVED 2026-10-17 (Codex gpt-6-astra, final review, F02-006#4 with F02-H04#7, F02-H02#16, F03-006#1, F02-013#3, F02-H05#17, CAL-017#6/#7/#8, CAL-018#88, CAL-020#119/#120/#125, CAL-022#118; ruled by Fable; push group G4, CX-35T-A) — the second smaller value the note above calls "not
+  exhibited" is on the ledger's own survivor list (CRITIQUE.md §"Observable-selection accounting"): C1,
+  32!·2³²/64! ≈ 8.9×10⁻⁴⁵ one-sided (≈1.8×10⁻⁴⁴ doubled), sits below two-sided `trigarray` (1.36×10⁻³), as
+  does two-sided `dav_rotinv` (1.31×10⁻⁴), so two-sided `trigarray` holds BH rank *i* ≥ 3 and clears
+  3·(0.05/91) = 1.648×10⁻³ (C3's unconditional rarity, 2.84×10⁻⁵, 5.67×10⁻⁵ doubled, makes it *i* ≥ 4). The
+  FDR counterfactual therefore holds on **both** masses, and "not established" above is withdrawn. "Exactly one
+  value" above and "the *only* verdict" below say more than this argument shows: the full p-value vector of
+  the 91 observables is not assembled here, so what is shown is that **at least one** verdict moves under BH.
+  The Bonferroni verdict, the published one, is unchanged. All of this is at the frozen n = 91; the
+  n ≥ 1,446 reading in the LEDGER SCOPED note below is not re-derived here.]**
   *(Ranking support narrowed 2026-08-01, second pass. This paragraph previously supported the rank with
   "at least twelve ledger values are strictly smaller … so its BH rank is i ≥ 13 … about 10× the measured
   p", listing nine `ccn*`/`rs1`/`d4`/`d7`/`p2c6`/`c2011n*` values plus three Davis entries. **Both extra
@@ -422,7 +432,17 @@ which is what produced every published figure — with the divergence disclosed:
   §Executive summary (v1.17) and [TR-10](TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md) §3 now carry the same
   scoping, and the SIDEDNESS note above already shows that the `dav_trigarray` counterfactual in this
   paragraph is one-sided. Read the ≥~10× below, and in the "review record" paragraph of §"Independence ladder", as a one-sided figure. No
-  verdict moves: the rarity clears the global bar under every reading.]** ⚠ **[LEDGER SCOPED 2026-10-16 (Codex gpt-6-astra, final review, F02-006#1 with F02-001#2, F02-003#1, F02-004#8, F02-002#4; ruled by Fable; fast-track batch FT2a, CX-379) — "every reading" above ranges over sidedness and Bonferroni/BH at the frozen n = 91. Under the counting rule below (an observable enters the ledger at first registration) the ledger has since admitted at least 1,355 further registered observables that no roster line carries: the H1/H3 family's four predicates T1–T4 (scope disclosure (iii) above), the two Q-OY1/Q-992 primaries (`reports/evidence/qoy1_q992/PREREGISTRATION.md` §5.2) and the C8 screen's 1,349 members (`reports/evidence/c8screen/PREREGISTRATION.md` §2.4). That is at least 1,446 on the published convention and at least 1,437 on the distinct-id reading of (i), so the Bonferroni bar is at most 0.05/1,446 = 3.46×10⁻⁵ (3.48×10⁻⁵), and 1.054426×10⁻⁴ clears neither — it sits 3.05× above the bar one-sided, and two-sided 2.108853×10⁻⁴ sits the same 3.05× above 6.92×10⁻⁵. A BH reading at that count would need the rarity ranked fourth or lower among every registered observable, which no roster yet gives. Against the enterprise ledger as it now stands, TR-8's rarity is a family-level NOTABLE and not an enterprise-wide one, and "no verdict moves" is withdrawn for this one global-bar statement. The total is not re-frozen here: the rule above requires it to be derived from the itemised roster, and that rebuild is a separate item (CORRECTIONS CX-379).]** TR-8 holds that BH reading **conditional** on this rarity counting as a
+  verdict moves: the rarity clears the global bar under every reading.]** ⚠ **[LEDGER SCOPED 2026-10-16 (Codex gpt-6-astra, final review, F02-006#1 with F02-001#2, F02-003#1, F02-004#8, F02-002#4; ruled by Fable; fast-track batch FT2a, CX-379) — "every reading" above ranges over sidedness and Bonferroni/BH at the frozen n = 91. Under the counting rule below (an observable enters the ledger at first registration) the ledger has since admitted at least 1,355 further registered observables that no roster line carries: the H1/H3 family's four predicates T1–T4 (scope disclosure (iii) above), the two Q-OY1/Q-992 primaries (`reports/evidence/qoy1_q992/PREREGISTRATION.md` §5.2) and the C8 screen's 1,349 members (`reports/evidence/c8screen/PREREGISTRATION.md` §2.4). That is at least 1,446 on the published convention and at least 1,437 on the distinct-id reading of (i), so the Bonferroni bar is at most 0.05/1,446 = 3.46×10⁻⁵ (3.48×10⁻⁵), and 1.054426×10⁻⁴ clears neither — it sits 3.05× above the bar one-sided, and two-sided 2.108853×10⁻⁴ sits the same 3.05× above 6.92×10⁻⁵. A BH reading at that count would need the rarity ranked fourth or lower among every registered observable, which no roster yet gives. Against the enterprise ledger as it now stands, TR-8's rarity is a family-level NOTABLE and not an enterprise-wide one, and "no verdict moves" is withdrawn for this one global-bar statement. The total is not re-frozen here: the rule above requires it to be derived from the itemised roster, and that rebuild is a separate item (CORRECTIONS CX-379).]** ⚠ **[RANK RE-DERIVED 2026-10-17
+  (Codex gpt-6-astra, final review, F02-006#4 with F02-H04#7, F02-H02#16, F03-006#1, F02-013#3, F02-H05#17, CAL-017#6/#7/#8, CAL-018#88, CAL-020#119/#120/#125, CAL-022#118; ruled by Fable; push group G4, CX-35T-A) — "rank 1 is not excluded" is wrong, and so is "the ≥~10× floor holds only on a wholly
+  ONE-SIDED ledger". Two survivors on the same ledger sit below the rarity on either mass: C1 (≈8.9×10⁻⁴⁵
+  one-sided, ≈1.8×10⁻⁴⁴ doubled) and C3's unconditional rarity (2.84×10⁻⁵, 5.67×10⁻⁵ doubled). Wholly
+  one-sided, `dav_rotinv` (6.5×10⁻⁵) is a third, so *i* ≥ 4 and the BH margin is at least
+  4·(0.05/91) ÷ 1.054426×10⁻⁴ ≈ 20.8×; with the anchors doubled and the rarity one-sided, *i* ≥ 3 and at least
+  ≈15.6×; wholly two-sided, the suite's convention, doubled `dav_rotinv` (1.306×10⁻⁴) is again below
+  2.108853×10⁻⁴, so *i* ≥ 4 and at least ≈10.4×, beside a Bonferroni margin of ≈2.61× on that mass (≈5.21×
+  one-sided). These are floors at the frozen n = 91 and they stay conditional on the rarity counting as a
+  ledger member, as the text below says; the Bonferroni margins and every published verdict are unchanged.
+  The larger-ledger reading in the LEDGER SCOPED note just above is not re-derived here.]** TR-8 holds that BH reading **conditional** on this rarity counting as a
   ledger member, and on that ground names the **~5× Bonferroni margin the firmer of the two**; quote the
   BH floor with that conditional attached rather than bare. A **~52×** figure for that same rarity circulated in draft; it is BH at
   rank *i* = 10, which requires nine strictly-smaller values, and the only nine available are the registry
@@ -453,7 +473,7 @@ which is what produced every published figure — with the divergence disclosed:
 
 *(Heading added 2026-09-02, prose lane. The rule itself is unchanged; until today it was stated only
 inside the "Knuth estimator CIs" bullet above, so every citation of it resolved through a bold label
-rather than a section.)* The Knuth estimator's PRNG seeds are fixed constants and the thread count
+rather than a section.)* The Knuth estimator's PRNG seeds are fixed constants (the default seed; `SOLVE_KNUTH_SEED` overrides it and is then part of the sample identity — archived runs such as the r11 battery scripts and the C8 screen set it; added 2026-10-17, CX-35T-I) and the thread count
 selects the sample, so **a re-run reproduces a published estimator output only at the identical
 (probes, threads) pair**. Consequences: every reproduction command for a sampled figure must carry its
 thread count (`SOLVE_THREADS=N`) as well as its probe count; runs at the same thread count and different
@@ -475,8 +495,9 @@ commands (`--estimate-knuth 0`, the orbit-quotient DP, `--verify`) are determini
   [TR-12](TR12_QUERY_PROGRAM.md) §R **Tier A**, and Tier B is a registry *check*, not a substitute
   for it. **The n=31 atlas that every §12 figure is computed from IS distributed** —
   `runs/20260906_kc_ladders_n31/atlas_n31.json`, 5,978,126 bytes, sha256 `9d6ba3d2…` — so those
-  figures are re-derivable with no ladder at all: `python3 solve.py --atlas-probe runs/20260906_kc_ladders_n31/atlas_n31.json`,
-  in seconds. Run order and hardware notes live in
+  figures are re-derivable with no ladder at all: `python3 solve.py --atlas-probe runs/20260906_kc_ladders_n31/atlas_n31.json`
+  for §12.1–§12.8, and `python3 solve.py --atlas-queries runs/20260906_kc_ladders_n31/atlas_n31.json --atlas-out DIR`
+  with TR-7's published anchors for §12.10, in seconds (scoped 2026-10-17, CX-35T-I: this named `--atlas-probe` alone). Run order and hardware notes live in
   [VERIFY.md](../documentation/VERIFY.md) §"TR-12 query program".
 
 ## Independence ladder (what requires trusting project code)
@@ -503,7 +524,7 @@ commands (`--estimate-knuth 0`, the orbit-quotient DP, `--verify`) are determini
    "DRAT-certified" should never be read as "assumption-free end to end".)*
 3. **The instrument stack** (cross-validated two-language + self-check): population fractions, estimator
    counts.
-Every report's Verification Guide tags its claims with the rung they sit on.
+TR-11's Verification Guide tags its claims with the rung they sit on (TR-12's tags one item); the other reports' guides list commands without a rung tag ("Every report's Verification Guide tags its claims" until 2026-10-17, CX-35T-I).
 
 ### Authorship independence — who checked, as distinct from what was checked
 
@@ -541,7 +562,9 @@ regardless of who submitted them to the checker. The claims a reader should hold
 discount are the ones the report banners already mark "argued, not verified": that a formalized rule
 is faithful to the literature it cites, that a constraint was extracted fairly rather than read off
 the answer, that a null was graded honestly, and that each report's framing of its own results is
-fair. None of those has yet had an examiner who did not also write them. Everything a rung-4 examiner
+fair. None of those has yet had an examiner outside the project; the AI review passes the project
+commissioned (rung 4 above) are acknowledged and are not independent examination ("an examiner who did not
+also write them" until 2026-10-17, CX-35T-I). Everything a rung-4 examiner
 needs is public — [REBUILD_FROM_SPEC](../documentation/REBUILD_FROM_SPEC.md),
 [SPECIFICATION](../documentation/SPECIFICATION.md),
 [CANONICAL_HASHES](../documentation/CANONICAL_HASHES.md), and the certificates under
@@ -557,7 +580,10 @@ are recorded too — a proposed ~52× look-elsewhere factor for TR-8 was examine
 because the evidence supports only a floor of ≥~10×, and that decision is written down rather than
 quietly dropped. ⚠ **[SCOPED 2026-09-24 (Q-778): that ≥~10× floor is one-sided; under the suite's
 two-sided convention the BH margin is ~5.21× (see the SIDEDNESS SCOPED note in §"Global observable
-ledger"). The decision recorded here does not change.]** Rejections are the part of a review record that is easy to omit and hardest to
+ledger"). The decision recorded here does not change.]** ⚠ **[RANK RE-DERIVED 2026-10-17 (CX-35T-A): the
+~5.21× is itself wrong — C1 and C3's unconditional rarity outrank the rarity on either mass, and the two-sided
+BH floor is ≈10.4× (rank *i* ≥ 4; see the RANK RE-DERIVED notes in §"Global observable ledger"). The
+decision on the rank-10 figure still stands: rank 10 is not supported.]** Rejections are the part of a review record that is easy to omit and hardest to
 reconstruct later; a reader who wants to audit the grading should start there.
 
 **The file drawer — an open gap, stated as such.** For an argument of this shape ("the received

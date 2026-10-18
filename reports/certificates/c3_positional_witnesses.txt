@@ -98,9 +98,11 @@ SEQ=63 0 17 34 23 58 2 16 55 59 7 56 61 47 4 8 25 38 3 48 41 37 32 1 57 39 33 30
 # --------------------------------------------------------------------------
 # DISTANCE-2 C15 WITNESS  (appended 2026-09-13, V3B-03#11)
 # --------------------------------------------------------------------------
-# King Wen's nearest DISTINCT C15 neighbour: KW with pair-slots 1 and 13 exchanged.
+# King Wen's nearest C15 neighbour with a DISTINCT PAIR LAYOUT: KW with pair-slots 1 and 13 exchanged.
 # edit_dist_kw=2 (slots 1,13). Two distinct permutations of the 31 free pair-slots
-# differ in at least two slots, so 2 is the structural floor and this attains it.
+# differ in at least two slots, so 2 is the structural floor for a distinct pair layout and this attains it.
+# (edit_dist_kw masks orientation: a single-pair orientation flip of KW can be a distinct C15 sequence at
+# slot-distance 1. Scoped 2026-10-17, CX-35T-F; this said "nearest DISTINCT C15 neighbour".)
 # Complement-distance sum C3 = 680 (rung G = 83), against King Wen's own 776.
 #
 # RECORDED AS A COMMENT, DELIBERATELY. Row a0_q4b of scripts/tr12_repro.sh grades on

@@ -29,8 +29,8 @@ relabelings of KW, all with complement distance 776 exactly.
 symmetry group for the King Wen constraint system **on orderings**. The ambient hexagram-level algebra it
 acts through is prior art and is not claimed: the (Z/2)⁶/XOR framing and hexagram-level group actions
 has, on [CITATIONS.md](CITATIONS.md)'s current accounting, **six independent pre-ROAE arrivals**:
-[Goldenberg (1975)](CITATIONS.md#goldenberg1975), [Ouyang (1992)](CITATIONS.md#ouyang1992) (the earliest
-and fullest, with proofs and subgroup×coset partitions of historical sequences; his
+[Goldenberg (1975)](CITATIONS.md#goldenberg1975), [Ouyang (1992)](CITATIONS.md#ouyang1992) (the
+fullest, with proofs and subgroup×coset partitions of historical sequences; his
 [1990](CITATIONS.md#ouyang1990) already states the group),
 [Yuan Zuoxing 袁作兴 (1991)](CITATIONS.md#yuanzuoxing1991),
 [Cao Hongjun, Li Shuzhong and Liu Yanan (1995)](CITATIONS.md#caohongjun1995),
@@ -160,7 +160,7 @@ sequence-level witness lifting are deliberately NOT formalized there (covered by
 the kissat+DRAT certificate **shipped 2026-07-20** —
 [reports/certificates/rigidity_sc4_unsat.drat.gz](../reports/certificates/rigidity_sc4_unsat.drat.gz),
 drat-trim-checked and re-verified by [reports/certificates/verify_all.sh](../reports/certificates/verify_all.sh)
-(see TR-5 v2.1's changelog) — so all three layers are landed artifacts. *(This paragraph previously
+(see TR-5 v2.1's changelog) — so all three layers are landed artifacts (replay certifies the regenerated CNF, never that the CNF means what the prose says — [certificates/README.md](../reports/certificates/README.md)). *(This paragraph previously
 said the DRAT leg was "pending a solver-equipped worker" — stale since 2026-07-20; updated 2026-07-26.)*
 
 **Scope, honestly stated.** (1) The theorem classifies **per-predicate preservers** — σ preserving
@@ -298,9 +298,9 @@ variable pinned.)*
 
 **What of this reproduces publicly.** The σ(KW) validity/orbit-collapse snippet and the exact-subtree
 commands above are fully public and self-contained, and the **ambient** G-orbit partition of the
-158,364-cell depth-3 space recomputes in about a second from the same snippet's σ-action. Two inputs are
-not public: the **productive-cell list** (derived from the 560T shard manifest) and the **per-cell estimate
-table** (~65K estimator calls, hours-scale private working data). The 4,183 orbit-class count and the
+158,364-cell depth-3 space recomputes in about a second from the same snippet's σ-action. Both inputs are public (`reports/evidence/knuth195_percell_100000.csv.gz`: the **per-cell estimate table**, whose first six columns are the **productive-cell list**); `verify.py --orbit-cv` reproduces 4,183 classes, CV 0.1118
+*(corrected 2026-10-17, CX-35T-C: this read "Two inputs are not public", stale since the table shipped on
+2026-09-04)*. The 4,183 orbit-class count and the
 0.112 median CV rest on those two, and a replicator regenerating the estimates must expect
 thread-count-dependent scatter on each cell, so a re-derived CV should be read against the estimator's
 own median per-cell `relerr` at the same probe count rather than to the third decimal. ⚠ **[CORRECTED
@@ -422,7 +422,7 @@ The σ-related prefix of the code block above is checked the same way — pass i
 tuples to `walk()` instead of the KW-following list, and it returns the same four integers.
 
 Original 2026-04-25 phases 1–3 ([`./solve --symmetry-search [--validate-counts]`](SOLVE_C_CLI.md#--symmetry-search)) remain reproducible; their
-output is correct as *budgeted-yield* data. Full working notes: `roae-private/THEOREM_C15_SYMMETRY_GROUP_2026_07.md` *(private staging repo — not publicly accessible; a provenance pointer, and no claim here rests on it)*. The theorem, its proof and the correction notice are public in this document, and the reruns above are the public verification path for everything except the two private inputs named in §Reproducibility — the productive-cell list and the per-cell estimate table. *(Corrected 2026-09-02, prose batch P33, `RP-11f9daff`: this sentence had asserted that every table needed to verify is public, four lines after §Reproducibility said the per-cell estimate table is private working data; the two could not both hold, and it is this one that was false.)*
+output is correct as *budgeted-yield* data. Full working notes: `roae-private/THEOREM_C15_SYMMETRY_GROUP_2026_07.md` *(private staging repo — not publicly accessible; a provenance pointer, and no claim here rests on it)*. The theorem, its proof and the correction notice are public in this document, and the reruns above are the public verification path for everything, including the two inputs named in §Reproducibility — the productive-cell list and the per-cell estimate table, public since 2026-09-04 *(corrected 2026-10-17, CX-35T-C: this read "everything except the two private inputs")*. *(Corrected 2026-09-02, prose batch P33, `RP-11f9daff`: this sentence had asserted that every table needed to verify is public, four lines after §Reproducibility said the per-cell estimate table is private working data; the two could not both hold, and it is this one that was false.)*
 
 ## Corollary (2026-07-03): the action is free — every solution has exactly 23 twins
 
@@ -432,7 +432,7 @@ as a set at its slot; an effective σ ≠ id moves at least one pair (otherwise 
 putting it in the kernel {id, ρ}); every record contains that pair. ∎
 
 Consequences: **every orbit has size exactly 24** (the action is free), the orbit count is exactly N/24,
-and King Wen's 23 twins are not a special property — every valid ordering has exactly 23. The Burnside
+and King Wen's 23 twins are not a special property — every valid ordering has exactly 23 record-level twins. The Burnside
 census that this project had queued as a measurement (fixed-point counts per conjugacy class) is thereby
 settled analytically: all non-identity counts are zero. (To our knowledge first stated here; corrections
 welcome via [CITATIONS.md](CITATIONS.md).)

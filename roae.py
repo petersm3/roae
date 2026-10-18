@@ -619,9 +619,9 @@ def print_trigrams():
     print(f"Split-respecting subgroup order: {cnt_split} of 48 (computed over the rev-centralizer)")
 
     print("\n--- Methodological note ---")
-    print("With ~1 expected observation per cell, no goodness-of-fit test (e.g.,")
-    print("chi-square) has sufficient power to detect deviations from uniform")
-    print("transitions. The matrices are descriptive only.")
+    print("With ~1 expected observation per cell, the chi-square approximation is")
+    print("invalid; exact goodness-of-fit tests exist but were not run here. The")
+    print("matrices are descriptive only.")
 
 def print_nuclear():
     """Nuclear hexagram analysis. Each hexagram contains an inner (nuclear)

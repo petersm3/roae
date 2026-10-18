@@ -13,10 +13,10 @@ Methods, environment pinning, statistics conventions, and artifact access: see [
 Some transformations — relabeling every hexagram by the same line-permutation (flipping all of them is excluded by the oriented C4 — §1) —
 turn one valid ordering into another. This report works out the complete set of such *relabeling*
 symmetries (a group of 48 — complete over all 64! hexagram relabelings, §1) and proves the striking
-consequence: **every valid ordering, King Wen included, has exactly 23 "twins" that no hexagram
-relabeling can distinguish**. Whether some map on the solution set that is *not* induced by a hexagram
-relabeling could tell a twin pair apart is open: the completeness result proved here is per-predicate,
-and the solution-set automorphism group is bounded below by G and not decided above (§1, scope note).
+consequence: **every valid ordering, King Wen included, has exactly 23 record-level "twins" that no hexagram
+relabeling can distinguish**. Whether some hexagram relabeling outside G preserves the solution set as a
+whole without preserving each predicate separately is open
+(per-predicate completeness is proved; §1 scope note).
 None of King Wen's twins appear in the
 10.5-billion-record enumeration. That is expected of a traversal seeded from King Wen, and it is
 equally expected of a uniform sample this sparse, so the absence alone does not show the slice is
@@ -25,7 +25,7 @@ biased. The reason to treat the slice as a biased window is how it was generated
 direct evidence of a biased window (registered as RP-29857816). Under uniform sampling of m
 records from N valid orderings, the chance that any of the 23 twins appears alongside King Wen is at
 most 23·(m−1)/(N−1). With m ≈ 1.05×10¹⁰, and N taken as small as 31! ≈ 8.2×10³³ (far below the ≈1.3×10³⁸
-C1–C5 estimate), that is ≈ 3×10⁻²³. So the absence cannot tell a biased window from a uniform one.]** The report also corrects a previously published negative
+C1–C5 estimate), that is ≈ 3×10⁻²³. So the absence cannot tell a biased window from a uniform one.]** ⚠ *(2026-10-17, CX-35T-C; Codex gpt-6-astra, final review, CRZ-011#5: the ≈3×10⁻²³ figure is withdrawn. 31! is a ceiling on the number of records, not a floor, so "N taken as small as 31!" puts the bound in the wrong direction. The conclusion does not rest on the figure: with m ≈ 1.05×10¹⁰ records against a record population many orders larger, the bound's form 23·(m−1)/(N−1) is still small, and no value of it is published here.)* The report also corrects a previously published negative
 result of ours (an earlier search had missed the symmetry), and keeps that correction prominent: the
 mistake and its fix are part of the record.
 
@@ -85,7 +85,7 @@ different object (see CITATIONS.md §"(Z/2)⁶ hexagram algebra … priority ced
    and **decided UNSAT with an archived, drat-trim-verified certificate**
    ([certificates/rigidity_sc4_unsat.drat.gz](certificates/rigidity_sc4_unsat.drat.gz), 4,096 vars /
    282,760 clauses, `s VERIFIED`, covered by `verify_all.sh`) — so no verification leg of this funnel
-   remains unproduced. Scope: per-predicate
+   remains unproduced (replay certifies the regenerated CNF, never that the CNF means what the prose says — [certificates/README.md](certificates/README.md)). Scope: per-predicate
    preservation; the solution-set automorphism group is bounded below by G and not decided above.
    Full proof: [SYMMETRY_SEARCH.md §Completeness](../documentation/SYMMETRY_SEARCH.md).
 2. **A published negative, overturned — kept in its honest framing.** The original document concluded "All
@@ -123,8 +123,8 @@ different object (see CITATIONS.md §"(Z/2)⁶ hexagram algebra … priority ced
    space (⚠ *2026-09-25, Codex v3 review, V3B-08#12: the census is the pure-Python block in [SYMMETRY_SEARCH.md](../documentation/SYMMETRY_SEARCH.md) §"Ambient G-orbits of the depth-3 cell space"; re-run from the repository root it prints `158364 depth-3 cells; 4382 ambient G-orbits, sizes {6: 14, 12: 270, 24: 1736, 48: 2362}` in about a second*) — intersections with ambient orbits, not complete orbits, since the productive subset is not
    G-closed; within-orbit CV of per-cell Knuth size
    estimates (10⁵ probes/cell) is 0.112 (median) — indistinguishable from the estimator's noise floor
-   and 6× below the population CV (0.72). *Reproduction status: prose-specified only, pending a
-   publication decision. No aggregation script ships, and the two inputs — the productive-cell list and
+   and 6× below the population CV (0.72).
+*Reproduction status: the two inputs — the productive-cell list and
    the per-cell estimate table — **are now public** (`reports/evidence/knuth195_percell_100000.csv.gz`,
    landed `ad59ac0f` 2026-09-04T06:46Z), and the aggregation ships as `verify.py --orbit-cv`, so these
    statistics **can** be re-derived from this repository:
@@ -141,8 +141,8 @@ different object (see CITATIONS.md §"(Z/2)⁶ hexagram algebra … priority ced
    unreproduced: the table is archived under its own sha, the productive-cell list is its first six
    columns, and a ~45-line aggregation over it recomputes 4,183 orbit classes, a 0.1118 median
    within-orbit CV and a 0.7202 population CV in about six seconds — reproducing all three published
-   figures. What is missing is the publication of a 1.1 MB table, which is an approval, not a
-   measurement. This remains the weakest-evidenced result in the report until that lands.* ⚠ **[NOISE
+   figures.* ⚠ *(2026-10-17, CX-35T-C: two stale sentences removed here — "prose-specified only, pending a publication decision. No aggregation script ships" and "What is missing is the publication of a 1.1 MB
+   table … until that lands"; the table and `--orbit-cv` both shipped on 2026-09-04.)* ⚠ **[NOISE
    FLOOR WITHDRAWN AS A PUBLISHED FIGURE — 2026-09-03. This sentence read "indistinguishable from the
    estimator's noise floor (median relerr 0.130)". That 0.130 has no derivation on file, and it does not
    recompute: the archived per-cell table's own median relerr is **0.1192**. Its referent is also
@@ -178,8 +178,8 @@ different object (see CITATIONS.md §"(Z/2)⁶ hexagram algebra … priority ced
    23 twins are not a special property.
    **Level precision (added 2026-08-01, from [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §2's
    2026-07-30 note).** The S₄ action and its freeness live at the *record* (canonical pair-ordering)
-   level. Where N counts **orientation-explicit sequences** — which is the convention of every exact count
-   this suite publishes ([METHODS](METHODS.md) §Canonical quantities) — the acting group is the order-48
+   level. Where N counts **orientation-explicit sequences** — which is the convention of the exact full-space counts this suite publishes (TR-4's 899 distinct pair orderings, beside its 16,504 oriented completions, is a
+   record-level exact count; corrected 2026-10-17, CX-35T-C) ([METHODS](METHODS.md) §Canonical quantities) — the acting group is the order-48
    lift, whose central element `rev` flips within-pair orientation and so fixes no orientation-explicit
    sequence; sequence-level orbits therefore have size **48**, `48 | N`, and N/24 is **2× the number of
    sequence-level orbits**, not the sequence-orbit count itself. Nothing numerical changes — only the
@@ -191,7 +191,7 @@ different object (see CITATIONS.md §"(Z/2)⁶ hexagram algebra … priority ced
    canonical: **King Wen is present; all 23 twins are absent.** Their membership in the full solution set
    is proven — their absence from the budgeted set is a search-orientation effect: the enumeration's
    variable order is derived from King Wen, so KW lies on the early DFS path of its cell while each
-   relabeled twin is a late leaf of its own cell. ⚠ *2026-09-25, Codex v3 review, V3B-08#16: King Wen's half is shown ([TR-4](TR4_SIZE_OF_THE_SPACE.md) §6: it is the first C3-valid leaf of its cell). The twins' half is inferred, not measured: `python3 -c "import verify as v;k=v._sigma_record_keys();print(len(k),sum(s==sorted(s) for _,s in k.values()),max(next(i for i in range(32) if s[i]!=i) for _,s in k.values() if s!=sorted(s)))"` prints `24 1 2`, i.e. King Wen's is the only ascending pair order of the 24 and every twin leaves ascending order within its first two free slots, so no twin is the first leaf of its cell. How late each lies is not measured.* Presence in a budgeted canonical therefore reflects the
+   relabeled twin is a late leaf of its own cell. ⚠ *2026-09-25, Codex v3 review, V3B-08#16: King Wen's half is shown ([TR-4](TR4_SIZE_OF_THE_SPACE.md) §6: it is the first C3-valid leaf of its cell). The twins' half is inferred, not measured: `python3 -c "import verify as v;k=v._sigma_record_keys();print(len(k),sum(s==sorted(s) for _,s in k.values()),max(next(i for i in range(32) if s[i]!=i) for _,s in k.values() if s!=sorted(s)))"` prints `24 1 2`, i.e. King Wen's is the only ascending pair order of the 24 and every twin leaves ascending order within its first two free slots: every twin lies in a different depth-3 cell from King Wen (first divergence at index ≤ 2); its rank inside its own cell is not measured. (Corrected 2026-10-17, CX-35T-C: this said "so no twin is the first leaf of its cell", which a first divergence at index ≤ 2 does not show.)* Presence in a budgeted canonical therefore reflects the
    search's frame of reference, not a mathematical property of the ordering — the strongest concrete
    illustration yet of [SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md) §"Is finding King Wen early … an artifact of our setup?".
 6. **Methodological lesson and consequences.** Budgeted-slice statistics cannot decide set-level
@@ -221,7 +221,7 @@ different object (see CITATIONS.md §"(Z/2)⁶ hexagram algebra … priority ced
   `./solve --estimate-knuth 0 1 0 2 0 3 0 4 0 5 0 6 0 7 0 8 0 9 0 10 0 11 0 12 0 13 0 14 0 15 0 16 0 17 0 18 0 19 0 20 0 21 0 22 0` vs
   `./solve --estimate-knuth 0 22 1 28 0 3 1 21 1 26 0 6 1 11 0 5 0 19 0 27 0 7 1 16 1 30 1 14 0 20 0 18 1 25 0 24 1 1 1 15 0 4 0 9 0`
   (both commands also spelled out in documentation/SYMMETRY_SEARCH.md §Reproducibility)
-- Lean finite component: `cd lean && lean KingWen.lean` (silence = all theorems check; Lean 4, tested 4.31.0 — run from inside `lean/`, which is what makes elan honour `lean/lean-toolchain`; from the repo root elan uses its default toolchain instead, measured 2026-09-03)
+- Lean finite component: `cd lean && lean KingWen.lean` (success prints only the module's 46 `#print axioms` reports and exits 0, [lean/README](../lean/README.md) §"Verify yourself"; "silence = all theorems check" until 2026-10-17, CX-35T-J; Lean 4, tested 4.31.0 — run from inside `lean/`, which is what makes elan honour `lean/lean-toolchain`; from the repo root elan uses its default toolchain instead, measured 2026-09-03)
 - Original 2026-04-25 budgeted-yield phases: `./solve --symmetry-search [--validate-counts]` (output
   correct as budgeted-yield data)
 - Free-action corollary + Burnside closure: SYMMETRY_SEARCH.md §Corollary; [HISTORY.md](../documentation/HISTORY.md) 2026-07-03
@@ -234,8 +234,8 @@ different object (see CITATIONS.md §"(Z/2)⁶ hexagram algebra … priority ced
   0.7202 population CV — all three published figures — in about six seconds. Publishing the 1.1 MB table
   and folding the aggregation into `verify.py` are the open items; both are decisions, not
   measurements. The §3(iii) noise-floor figure is a separate matter and is withdrawn there.]**
-- Twins-absent bisection: SYMMETRY_SEARCH.md §Limits and scope (2026-07-02 measurement) — **a prose
-  recipe, not a shipped command**: the 24 record keys follow in under a second from the snippet at
+- Twins-absent bisection: SYMMETRY_SEARCH.md §Limits and scope (2026-07-02 measurement) — a shipped command (below) whose limit is
+  the undistributed input *(corrected 2026-10-17, CX-35T-C: this read "a prose recipe, not a shipped command")*: the 24 record keys follow in under a second from the snippet at
   SYMMETRY_SEARCH.md §Reproducibility and the key specified in
   [SOLUTIONS_FORMAT.md](../documentation/SOLUTIONS_FORMAT.md) §Sort order. **`verify.py --twins-bisect
   SOLUTIONS_BIN` ships** (`verify.py:4330`) and performs exactly this: it derives the 24 record keys
@@ -306,4 +306,5 @@ the time was corrected in v2.12) a "22-pair prefix". Both are correct under diff
 | v2.20 | 2026-09-27 | **The figure is redrawn by a committed renderer (Q-858; closes Codex VIZ1 F15 for this figure, and carries F14's wording into the drawing).** Since 2026-07-04 the figure was finished artwork that nothing in the repository could redraw, and its smallest text was 11.1 px at a 900-px display, below the 12-px floor the other figures meet. `viz/report_figures.py` now draws it: `fig_tr5_orbit_collapse` computes the 48 bit permutations that commute with reversal, their centre {I, reversal} = {±I}, the quotient's S₄ element orders, and King Wen's orbit (48 oriented sequences, 24 canonical pair-order records) from `solve.py`, and asserts each before drawing. The drawing now says what the caption already said: the ring is 24 canonical pair-order records, alike under every S₄-invariant criterion, and the orbit count is R/24 with R the number of records (it read "24 indistinguishable orderings" and "count = N / 24"). The caption gains one sentence naming the renderer. No theorem, count or group result changes. |
 | v2.21 | 2026-09-28 | **The figure's two step notes are completed (Q-900; Codex VIZ H2-07, H2-08; figure and wording only).** The quotient note now says what −I is — it turns each hexagram upside down, mapping every pair onto itself — and why a record cannot see it; the theorem note states R/24 for an S₄-closed set of R records and adds that a budgeted slice need not be closed (the caption has carried that premise since v2.19). The caption and alt-text say the same. |
 | v2.22 | 2026-09-29 | **The opening sentence no longer lists complementing every hexagram as a symmetry, and the DIV-24 gate is no longer attributed to the record-level Lean theorems (an adversarial review by Codex (gpt-6-astra) of the Lean, SAT and DRAT surface, triaged by Fable; CX-232).** The oriented C4 excludes it, as §1 and `c4ok_breaks_under_comp` already say. §3's trust note named the four `twenty_four_dvd_*` theorems as the ones behind the DIV-24 gate; they prove the record-level statement, and the gate on the published sequence counts rests on this report's paper-proved free order-48 action. Wording only. |
-| v2.23 *(current)* | 2026-10-01 | **The cover's reproduction promise is rescoped (Codex v3 review, finding V3B-08 #22 against TR-5, triaged by Fable; backlog Q-759).** The banner said every MEASURED result carries a reproduction command, while the reports themselves flag results that have none. It now says each one carries a command or says at the claim that it has none, which is what the reports index already said. GATE 9 holds the banner byte-identical across all twelve reports, so the same edit is made in each. Wording only; no figure, count or theorem changed. This performs the suite-wide sweep that v2.14 (b) queued instead of editing the banner in this report alone. |
+| v2.23 | 2026-10-01 | **The cover's reproduction promise is rescoped (Codex v3 review, finding V3B-08 #22 against TR-5, triaged by Fable; backlog Q-759).** The banner said every MEASURED result carries a reproduction command, while the reports themselves flag results that have none. It now says each one carries a command or says at the claim that it has none, which is what the reports index already said. GATE 9 holds the banner byte-identical across all twelve reports, so the same edit is made in each. Wording only; no figure, count or theorem changed. This performs the suite-wide sweep that v2.14 (b) queued instead of editing the banner in this report alone. |
+| v2.24 *(current)* | 2026-10-17 | **Stale absence claims removed and four scopes restored (Codex's final review, gpt-6-astra; triaged by Fable; push group G4; F01-003#2/#3/#4/#8, CAL-008, CAL-025, OPN-001, CRZ-011#5, F11-012#6/#8).** §3(iii) no longer says the orbit-CV aggregation is prose-only or that a 1.1 MB table awaits publication; the executive summary's open question is the one SYMMETRY_SEARCH states (a relabeling outside G preserving the solution set as a whole) and the 23 twins are record-level; §5 says a twin lies in a different depth-3 cell, not that it is never its cell's first leaf; the ≈3×10⁻²³ bound is withdrawn (31! is a record ceiling, not a floor); the funnel carries the CNF-versus-meaning clause; the twins-bisect bullet names its shipped command; §4's level note names a record-level exact count; the Lean expectation is the module's `#print axioms` reports, not silence. No theorem or count changes. See CORRECTIONS.md CX-35T-C. |

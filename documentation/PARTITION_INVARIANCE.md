@@ -230,7 +230,7 @@ defeat an invariance comparison; `SOLVE_PER_SUB_BRANCH_LIMIT` avoids the
 issue entirely.
 
 Under exhaustive enumeration, all of this is moot — no budget applies —
-and the theorem in §1 holds unconditionally.
+and the theorem in §1 holds with no budget condition (abstract merge model; the implementation bridges B1–B4 are assumed, [lean/README](../lean/README.md) §"Tier 3").
 
 **Bug note (2026-04-29 / 30).** Prior to commit `cdd8575`, `--branch
 P O` always partitioned to depth-2 even when `SOLVE_DEPTH=3` was set.
@@ -309,9 +309,10 @@ This theorem underpins several project workflows:
   alternative verifier (see [`REBUILD_FROM_SPEC.md`](REBUILD_FROM_SPEC.md))
   does not need to replicate the solver's invocation mode — they need
   only to correctly apply the constraints and the canonical-dedup
-  semantics. Partition invariance guarantees the underlying solution
-  set is the same regardless of how it was computed, *given the same
-  budget regime* (§3). **Scope**: such a verifier checks that every
+  semantics. *(A sentence here said partition invariance "guarantees the underlying solution set is
+  the same regardless of how it was computed, given the same budget regime"; removed 2026-10-17,
+  CX-35T-K — the theorem needs one common per-cell enumeration, and two DFS orders at equal budgets
+  reach different leaves.)* **Scope**: such a verifier checks that every
   published record is valid, correctly ordered and correctly deduped. It
   cannot establish that the published set is **complete** — every canonical
   is budget-limited, and C1–C5 plus the dedup semantics do not determine

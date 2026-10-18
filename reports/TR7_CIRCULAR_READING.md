@@ -19,7 +19,7 @@ That scope matters. The wider *circular* solution space, measured in §"The anch
 also holds orderings that satisfy the transition rule only as cycles, and nearly half of that space
 wraps at an even distance.
 Second, a surprise: the sequence's missing distance-5 transition is a **genuine extra rule** in the
-circular reading — orderings that wrap at distance 5 make up 17.4% of the valid space, yet **not one**
+circular reading — orderings that wrap at distance 5 make up 17.4% of the linear C1–C5 space (by orientation-explicit mass), yet **not one**
 appears among 10.5 billion enumerated records. That gap between the full space and the enumerated
 slice is a stark demonstration of why bounded search results need independent
 measurement — and why we decided this rule, though real, stays documented rather than adopted.
@@ -39,8 +39,8 @@ alternations, and the first and last hexagrams of any valid linear ordering lie 
 popcount-parity classes. Finally, the circular form of C2 ("no 5-line transition anywhere on the cycle")
 is a *genuine* extra constraint: valid linear orderings with a 5-line wrap exist (SAT-decided, explicit
 witness) even though exactly zero appear among the 10,525,271,997 records of the deepest canonical slice;
-the full-space wrap-distance masses are measured at d=1: **17.4647 ± 0.0077**, d=3: **65.1504 ± 0.0096**, d=5: **17.3849 ± 0.0077** pp (2×10¹⁰
-weighted-Knuth probes.
+the full-space wrap-distance masses are measured at d=1: **17.4647 ± 0.0077**, d=3: **65.1504 ± 0.0096**, d=5: **17.3849 ± 0.0077** pp (pooled over two runs of 2×10¹⁰
+weighted-Knuth probes each — "2×10¹⁰ weighted-Knuth probes" until 2026-10-17, CX-35T-J.
 
 ⚠ **[REPRODUCTION COMMAND ADDED 2026-09-03 — these masses were MEASURED and no runnable command
 resolved within their window, only a pointer to an archived artifact. The artifact records its own
@@ -83,8 +83,8 @@ McKenna's interpretive frame, not an attested property of the received artifact.
    necessarily, since [`solve --verify`](../documentation/SOLVE_C_CLI.md#--verify) enforces the C4+C5 hypotheses; the theorem holds deductively, the
    enumeration validates the implementation.
 3. **McKenna's 3:1 is forced, not designed.** His "perfect ratio of three to one" (16 odd of 64 circular
-   transitions, 25.00% exact) is the circular reading of the wrap-parity theorem plus C5's 16-odd-of-64
-   count. Every C4+C5-valid ordering has it. McKenna discovered the ratio empirically before its proof was
+   transitions, 25.00% exact) is the circular reading of the wrap-parity theorem plus C5's 15 odd transitions of 63 (linear C5;
+   the odd wrap makes it 16 of 64 — corrected 2026-10-17, CX-35T-J, from "C5's 16-odd-of-64 count"). Every C4+C5-valid ordering has it. McKenna discovered the ratio empirically before its proof was
    articulated here — one of his most accurate quantitative claims, and stronger than he may have realized:
    **forced given C4 + C5**, and hence not an independent design choice *within* that constraint system — though C5 is itself a regularity read off King Wen, so "forced" here is relative to KW-derived constraints, not to an unconstrained arranger.
 4. **What closure changes: circular C5 and the 16-alternation corollary.** Under closure KW's transition
@@ -157,7 +157,7 @@ McKenna's interpretive frame, not an attested property of the received artifact.
 ## Verification Guide
 - Wrap-parity theorem, statement + proof: documentation/SPECIFICATION.md §Theorem (Wrap-around parity is
   odd)
-- Lean general form: `cd lean && lean KingWen.lean` (Lean 4, tested 4.31.0 — run from inside `lean/` so elan honours `lean/lean-toolchain`; from the repo root it uses its default toolchain instead, measured 2026-09-03; silence = all theorems check) —
+- Lean general form: `cd lean && lean KingWen.lean` (Lean 4, tested 4.31.0 — run from inside `lean/` so elan honours `lean/lean-toolchain`; from the repo root it uses its default toolchain instead, measured 2026-09-03; success prints only the module's 46 `#print axioms` reports and exits 0, [lean/README](../lean/README.md) §"Verify yourself"; "silence = all theorems check" until 2026-10-17, CX-35T-J) —
   `wrap_parity_general`, supporting lemmas `transitions_sum_parity`, `sum_parity_odd_count`,
   `odd_count_partition`; see lean/README.md §Tier 2
 - 560T wrap measurement (91.83% d3 / 8.17% d1 / zero d5): `./solve --verify-wrap-parity` against the d3
@@ -462,4 +462,5 @@ corrections welcome via [CITATIONS.md](../documentation/CITATIONS.md)).*
 | v2.9 | 2026-09-27 | **The cycle figure is redrawn by a committed renderer (Q-858; closes Codex VIZ1 F15 for this figure).** Since 2026-07-04 the figure was finished artwork that nothing in the repository could redraw. `viz/report_figures.py` now draws it: `fig_tr7_circular_cycle` computes every edge's Hamming distance from `solve.py`'s King Wen sequence and asserts the 15 internal odd edges, the wrap distance 3 and the 16 around the cycle before drawing. The drawing is the same figure with a title, position labels at #1, #16, #32, #48 and #64, and thicker odd edges; the alt-text and caption now say "thick red edges", and the caption names the renderer and the clockwise direction. No figure value or count changes. |
 | v2.10 | 2026-09-28 | **The wrap annotation is split into King Wen's fact and the theorem (Q-900; Codex VIZ H2-11; figure and wording only).** One label said both "d = 3" and "as the wrap-parity theorem forces". The edge now carries King Wen's own wrap, d = 3 (3 of the 6 lines change), and a line under the ring states the theorem with its premise: for every ordering satisfying C4 and C5 the wrap distance is odd. §Figure's alt-text and caption say the same. |
 | v2.11 | 2026-10-01 | **The cover's reproduction promise is rescoped (Codex v3 review, finding V3B-08 #22 against TR-5, triaged by Fable; backlog Q-759).** The banner said every MEASURED result carries a reproduction command, while the reports themselves flag results that have none. It now says each one carries a command or says at the claim that it has none, which is what the reports index already said. GATE 9 holds the banner byte-identical across all twelve reports, so the same edit is made in each. Wording only; no figure, count or theorem changed. |
-| v2.12 *(current)* | 2026-10-17 | The execution-lane note says `scripts/exec_lane.sh` executes every command it classifies as runnable, not every documented command (the lane never runs its OPS, placeholder or fragment classes; Codex's final review, gpt-6-astra, CAL-009#62, CAL-010#97; triaged by Fable; fast-track batch FT2b-2). No figure changes. See CORRECTIONS.md (fast-track batches FT2b-2..4). |
+| v2.12 | 2026-10-17 | The execution-lane note says `scripts/exec_lane.sh` executes every command it classifies as runnable, not every documented command (the lane never runs its OPS, placeholder or fragment classes; Codex's final review, gpt-6-astra, CAL-009#62, CAL-010#97; triaged by Fable; fast-track batch FT2b-2). No figure changes. See CORRECTIONS.md (fast-track batches FT2b-2..4). |
+| v2.13 *(current)* | 2026-10-17 | **Four wording fixes (Codex's final review, gpt-6-astra; triaged by Fable; push group G4; F08-013#3, F11-014#5/#7/#8/#10).** The executive summary names the 17.4% population (the linear C1–C5 space, by orientation-explicit mass); §3 says C5 has 15 odd transitions of 63 and the odd wrap makes 16 of 64; the abstract says the masses pool two runs of 2×10¹⁰ probes; the Lean expectation is the module's `#print axioms` reports, not silence. No figure changes. See CORRECTIONS.md CX-35T-J. |

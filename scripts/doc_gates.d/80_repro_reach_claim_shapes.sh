@@ -991,7 +991,7 @@ EXEMPT={"documentation/CORRECTIONS.md"}
 # carry the current value and a CX pointer; the figure itself lives in the ledger. NOT in the set:
 # reports/CAPSTONE_GUIDE.md, whose "One figure is withdrawn" paragraph names the figure on purpose,
 # to tell a reader which earlier number not to trust (measured: it is the only other front-door hit).
-FRONT={"README.md","documentation/PROJECT_OVERVIEW.md","documentation/README.md","reports/README.md"}
+FRONT={"README.md","documentation/PROJECT_OVERVIEW.md","documentation/README.md","reports/README.md","documentation/SOLVE_SUMMARY.md"}  # SOLVE_SUMMARY.md added 2026-10-17 (Codex gpt-6-astra, final review, CAL-023#133; push group G4, CX-35T-L): the plain-language summary is a front door, and the M1/CX-356 pattern missed it
 MARK=wm_re(r"withdrawn|label\s+corrected|corrected\s+20\d\d|scoped\s+20\d\d|superseded|retract\w*|run\s+description\s+corrected")  # Q-966 (A08#11): whole words via the shared matcher, and a NEGATED marker is none -- "remains unretracted", "not superseded" exempted before.  # \\s+ not " ": a marker wrapping as "[CORRECTED\\n2026-08-28" is the normal case in this corpus and a literal space missed every one of them
 import os
 LEDGER="documentation/CORRECTIONS.md"
@@ -1167,7 +1167,7 @@ print("FRONTPRES\t%d"%len(FP))
     return 1
   fi
   if [ "$_np" -eq 0 ]; then
-    echo "  [note] CX-356 front-door leg: none of its four pages exists in this tree, so it checked nothing"
+    echo "  [note] CX-356 front-door leg: none of its five pages exists in this tree, so it checked nothing"
   elif [ "$_nf" -eq 0 ]; then
     echo "  [FAIL] CX-356: $_np front-door page(s) exist but the leg read zero blocks of them."
     return 1

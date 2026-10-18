@@ -315,9 +315,9 @@ blocks (or swapping them wholesale) that also centralize rev.
 Split-respecting subgroup order: 12 of 48 (computed over the rev-centralizer)
 
 --- Methodological note ---
-With ~1 expected observation per cell, no goodness-of-fit test (e.g.,
-chi-square) has sufficient power to detect deviations from uniform
-transitions. The matrices are descriptive only.
+With ~1 expected observation per cell, the chi-square approximation is
+invalid; exact goodness-of-fit tests exist but were not run here. The
+matrices are descriptive only.
 ---
 Nuclear hexagram analysis
 Every hexagram contains a hidden 'nuclear' hexagram inside it, formed by

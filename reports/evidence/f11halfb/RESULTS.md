@@ -177,8 +177,10 @@ still straddles the bar at n=1000; and the prereg explicitly forbids that infere
 **It does license a sharper and more useful statement than either verdict alone:**
 
 - At V=0 the two models are **provably confusable** — a V=0 tendency draw lands in the grand-strict
-  set, which is exactly M_corr's support. 0/277 with an upper bound of 1.4%.
-- At V>=5 they are **provably distinguishable** — 599/599.
+  set, M_corr's precursor set (its V=0 outputs). 0/277 with an upper bound of 1.4%.
+- At V>=5 every draw was recovered — 599/599 (observed, not a proof of separation).
+  *(Corrected 2026-10-17, CX-35T-E: these read "which is exactly M_corr's support" — M_corr's own draws are
+  corrupted precursors and King Wen, at V=6, has positive M_corr likelihood — and "provably distinguishable".)*
 - The lambda-grid prior places **27.7% of its mass at V=0**. So the pooled statistic is dominated by
   a regime **the observed data does not occupy**, and the pooled veto is substantially a statement
   about the prior's mass distribution rather than about distinguishability at the observed V.

@@ -45,7 +45,7 @@ Subcommands:
                                 (DRAT proof to OUT.cnf.drat, drat-trim verified when on PATH).
   --ccn4-equiv-cnf SIDE OUT.cnf [--run]  the emitted `rule ccn4` clause family against an
                                 independent encoding of CC-N4 over every C1-valid ordering
-                                [expect UNSAT, both sides]: SIDE=fwd is shipped AND NOT spec,
+                                with the (63,0) opening fixed (C1∩C4) [expect UNSAT, both sides]: SIDE=fwd is shipped AND NOT spec,
                                 SIDE=rev is spec AND NOT shipped (Q-934). Emits + self-validates;
                                 --run as for --rigidity-cnf.
   --kw-control TARGET [--c3-min N]  the King Wen over-constraint control for an UNSAT target
@@ -908,7 +908,7 @@ def build_ccn4_equiv(side, req=None):
     run through the `rule ccn4` family, and until this date that family was validated at King
     Wen only (`ccn4-kwtest` / `ccn4-kwfail`, both KW-forced) plus a unit-propagation check on 44
     public witnesses, 43 of which violate the rule. This instance asks a solver the question for
-    EVERY C1-valid ordering at once: is there a (pair, orient) assignment on which the shipped
+    EVERY C1-valid ordering with the (63,0) opening fixed (C1∩C4, the universe the conflict instances share) at once: is there a (pair, orient) assignment on which the shipped
     clauses and an independently written encoding of `solve.reg_ccn4` disagree?
 
     Universe: the `C1 one (pair,orient) per slot`, `C1 each pair exactly once` and
@@ -931,7 +931,7 @@ def build_ccn4_equiv(side, req=None):
 
     side="fwd": universe AND enc1 AND NOT enc2  [UNSAT <=> the shipped clauses imply the spec]
     side="rev": universe AND enc2 AND NOT enc1  [UNSAT <=> the spec implies the shipped clauses]
-    Both UNSAT: on every C1-valid ordering the emitted family holds iff CC-N4 holds in the
+    Both UNSAT: on every C1∩C4-valid ordering the emitted family holds iff CC-N4 holds in the
     independent encoding. `req` (default CCN4_REQ) is the station -> face table the spec encodes;
     ccn4_equiv_validate() builds the planted-difference controls with CCN4_REQ_FAIL.
 
@@ -2710,7 +2710,7 @@ if __name__ == "__main__":
             _run_expect_unsat(out, "--rigidity-cnf")
     elif args[:1] == ["--ccn4-equiv-cnf"] and len(args) == 3:
         # Q-934 (2026-10-02): the emitted CC-N4 family against an independent encoding of the
-        # rule, over every C1-valid ordering [expect UNSAT on both sides]; see build_ccn4_equiv.
+        # rule, over every C1-valid ordering with the (63,0) opening fixed (C1∩C4) [expect UNSAT on both sides]; see build_ccn4_equiv.
         side = args[1]
         if side not in CCN4_EQUIV_SIDES:
             raise SystemExit("--ccn4-equiv-cnf SIDE must be one of %s, not %r"
@@ -2719,7 +2719,7 @@ if __name__ == "__main__":
         if not ccn4_equiv_validate(side):
             raise SystemExit("ccn4-equiv encoding self-validation FAILED — not writing " + out)
         cnf, _ctx = build_ccn4_equiv(side)
-        cnf.write(out, "ccn4-equiv %s: %s over every C1-valid ordering [expect UNSAT]"
+        cnf.write(out, "ccn4-equiv %s: %s over every C1-valid ordering with the (63,0) opening fixed (C1∩C4) [expect UNSAT]"
                   % (side, "emitted rule ccn4 AND NOT independent CC-N4 spec" if side == "fwd"
                      else "independent CC-N4 spec AND NOT emitted rule ccn4"))
         print("wrote %s (%d vars, %d clauses); encoding self-validation PASS" %

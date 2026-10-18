@@ -290,9 +290,10 @@ classified DATA-LIKE ([METHODS](../reports/METHODS.md) §"Data-like vs principle
 
 ### 3.22 `s1` — S1, the change hexagram of every pair is characterisable
 
-Source: [Schöter 1998](CITATIONS.md#schoter1998) (Definition 9). Let `C` = `{a XOR b}` over pairs
-whose representative is a palindrome and `V` = `{a XOR b}` over the other pairs. Holds iff `|C| = 4`,
-every element of `C` equals 63, and every element of `V` is a palindrome. Bool; KW True.
+Source: [Schöter 1998](CITATIONS.md#schoter1998) (Definition 9). Let `C` be the **list** of `a XOR b` over the
+pairs whose representative is a palindrome and `V` the list of `a XOR b` over the other pairs. Holds iff `C`
+has four entries, all 63, and every entry of `V` is a palindrome (as sets, `C` would be `{63}` and could never
+have four elements). Bool; KW True.
 
 ### 3.23 `s6` — S6, Klein four-group orbit structure
 
@@ -330,8 +331,8 @@ preserves popcount, so only the 4 palindrome-complement pairs can fail.)
 
 ### 3.28 `c1` — C1, yang balance of consecutive groups of four
 
-Source: [Chan 2026](CITATIONS.md#chan2026) (Table 2; exact formulation pending full-paper access,
-registry proxy used). Value = `Σ_{i ∈ 0, 4, …, 60} | Σ_{j = 0..3} popcount(S[i+j]) − 12 |`. Count;
+Source: [Chan 2026](CITATIONS.md#chan2026) (Table 2; the paper is read, CITATIONS.md marks it [read]; the
+registry value is this suite's proxy, not Chan's own formulation). Value = `Σ_{i ∈ 0, 4, …, 60} | Σ_{j = 0..3} popcount(S[i+j]) − 12 |`. Count;
 KW **24** (KW-measured anchor).
 
 ### 3.29 `c2` — C2, the within-pair Hamming-distance profile

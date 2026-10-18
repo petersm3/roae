@@ -16,7 +16,7 @@ at together.**
 * **EXACT** — computed to the last digit; a disagreement is a defect, not noise.
   ⚠ *Rows below therefore use `≈` for any abbreviated magnitude and reserve `=` for the full integer (corrected 2026-09-07: two rows asserted equality against a 5-significant-figure rounding under this label, which claims last-digit agreement. TR-11 already had the convention right — `= 757,058,601,340,255,440,651,419,713,405,330,315,358,208 ≈ 7.5706×10⁴¹` — and this table had not adopted it.)*
 * **CERTIFIED** — carries an independently checkable proof object (DRAT / CPOG) that a third-party
-  checker replays.
+  checker replays; replay certifies the regenerated CNF, never that the CNF means what the prose says ([certificates/README](../reports/certificates/README.md)).
 * **KERNEL** — proved in Lean 4 and checked by its kernel.
 * **ESTIMATE** — a sampled measurement with a stated confidence interval. **Never quote one without
   its interval**; conflating a tolerance band with an error bar is exactly what went wrong in TR-1.

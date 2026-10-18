@@ -11648,3 +11648,30 @@ Q-686=DONE
 - **Follow-up to push group G2 (CX-404).** TR-4's abstract and §Sections item 3 and SOLVE.md now say the identifying
   set within the enumerated datasets has five boundaries at 100T and 560T and four at 10T, as BOUNDARY_MINIMUM.md gives
   and the README has said since G2 (Fable's G2 pre-publication review, FIX-1 follow-up). TR-4 v1.43.
+
+## 2026-10-17 — push group G4: claim-scope wording in the reports, the documentation and the front page, from Codex's final review, and the front page made to stand alone
+
+- **Fast-track batches FT3a-1 and FT3a-2 (CX-35T-A to CX-35T-L).** Codex (gpt-6-astra) ran the final review and Fable
+  triaged rounds 3a and 3b. The BH-rank counterfactual is re-derived at the frozen 91-observable ledger: two-sided
+  `trigarray` clears BH there, TR-8's rarity holds rank ≥ 3 or ≥ 4 on every sidedness, and "exactly one verdict" is at
+  least one; no Bonferroni verdict moves (F02-006#4 and restatements). The CC-N4 equivalence instances are scoped to C1∩C4,
+  with a note on CX-270 (F01-002#2 and twins). Partition invariance is stated as a result about the abstract merge model at
+  nine sites (CAL-015#24 and siblings). TR-1, TR-2, TR-3, TR-4, TR-5, TR-6, TR-7, TR-8, TR-9, TR-10, TR-11, TR-12, METHODS,
+  CRITIQUE, SEARCH_SPACE_SIZE, SPECIFICATION, SOLVE_SUMMARY, PROJECT_OVERVIEW, QUERY_INVENTORY, DESCRIPTION_LENGTH and
+  eleven further pages say what their sources say, each site recorded in its CX entry. SOLVE_SUMMARY.md joins GATE 27's
+  front-door set and states current values where it carried the withdrawn ≈3×10³⁷ (CAL-023#133). `history_index.sh --check`
+  now compares bytes (F06-011#4). `roae.py`'s trigram-matrix note and the `example/` artifacts regenerated from it say the
+  chi-square approximation is invalid rather than that no test has power (F11-020#11, F12-021#6).
+- **The front page made to stand alone (CX-35T-M; Fable's stand-alone review of README.md).** "What was found" gains a
+  TR-12 bullet (the compiled superspace queried exactly, its two negative results and its two designed FAILs); "The
+  constraints" gains the reduction funnel from 64! to the C1–C7 estimate; the precise finding gains the exact C1–C7 count
+  with C3 dropped, 5.16880×10³², and why C3 stays estimated (an exact instrument exists; the run was priced and declined);
+  the attribution note names Li Shangxin 2007 as the closest direct assertor; the `sat.py` row links the DRAT certificate
+  directory with its scope; "Going deeper" gains a citing line; the honesty paragraph says what the exploratory battery did
+  not find; the provenance paragraph moves below the scope notes so the question and its answer are adjacent. Four
+  wording corrections and two trims are in CX-35T-M. The orientation links stay on the page: they are not duplicated
+  elsewhere, so the optional move was not made.
+- **Q-1008.** The front page's first line, a pointer to CORRECTIONS.md, is removed (operator request); the page links
+  CORRECTIONS.md in "Where to start", "Going deeper" and the branch section.
+- No measured value, sha, certificate or verdict changed. `TestBatchG4` holds each cure. TR-1 v1.42, TR-2 v1.43, TR-3
+  v1.19, TR-4 v1.44, TR-5 v2.24, TR-6 v1.16, TR-7 v2.13, TR-8 v1.24, TR-9 v1.36, TR-10 v1.22, TR-11 v1.36, TR-12 v1.32.

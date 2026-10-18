@@ -36,7 +36,7 @@ symmetric blocks, coordinated placements of notation-defined hexagram classes, a
 transformation structure — while arguing explicitly against global algorithmic explanation. His claims
 were formalized in the pair representation (operationalizations ours; each verified to reproduce his
 stated King Wen facts before measurement), and nine composites were pre-registered in the public record
-([CRITIQUE](../documentation/CRITIQUE.md), commit `2d19a3f`, thresholds frozen "as F4'": two-sided p < 0.05/9 "notable"; "candidate rule" additionally requires the corpus-control specificity gate — the < 10⁻⁴ candidate-level bar is inherited from the F4' family's own registration (worded "< 10⁻⁴ after Bonferroni"; sidedness unstated there), not restated verbatim in 2d19a3f) before any population number was observed.
+([CRITIQUE](../documentation/CRITIQUE.md), commit `2d19a3f`, thresholds frozen "as F4'": two-sided p < 0.05/9 "notable"; "candidate rule" additionally requires the corpus-control specificity gate — the < 10⁻⁴ candidate-level bar is inherited from the F4' family's own registration (worded "< 10⁻⁴ after Bonferroni"; sidedness unstated there), not restated verbatim in 2d19a3f; this report reads the registration's 10⁻⁴ as the per-test bar (no further ÷n); under the ÷n reading no row reaches it — stated 2026-10-17, CX-35T-J) before any population number was observed.
 Measurement by weighted-Knuth estimation (2×10⁹ probes; the instrument reproduced the
 previously-published C1–C5 space size *estimate* to 0.09% in the same run — a consistency check within
 the same estimator family, since that figure is itself a Knuth estimate; corrected 2026-08-01 from
@@ -114,7 +114,7 @@ notational scoring — is accepted and stated.
    | 4 | `parallel3040` — 30s/40s parallel with chiasmus (pp. 78, 253–254) | 1 | no hits in 2×10⁹ probes (not a bound) | extreme / data-like class |
    | 5 | `palnbr` — palindrome-neighborhood adjacency mass (pp. 121–128) | 10 | P(≥10) = 7.9×10⁻² (mean 4.9); **two-sided 1.57×10⁻¹** | **NULL** |
    | 6 | `rotinv` — rotation≡inversion pairs at 11/12, 17/18, 53/54, 63/64 (p. 68, 118 n14) | 1 | one-sided P = 6.5×10⁻⁵; **two-sided P = 1.31×10⁻⁴** | **data-like; does not promote — and does NOT meet the candidate bar under the C1–C5 null. `null-sensitive` — see the null-sensitivity note below the table.** ⚠ [CORRECTED 2026-08-28: this read "meets candidate-rule numerically". The suite applies a two-sided convention throughout — row 1 of this same table already doubles — so this row is read two-sided: the published 6.5×10⁻⁵ is the one-sided upper tail (`at`+`above` from `dav_tier1.out`), and 2 × 6.531×10⁻⁵ = 1.306×10⁻⁴ **exceeds** 10⁻⁴. The one-sided value is retained above because downstream BH ranking in METHODS/TR-8 cites it.] ⚠ [SIDEDNESS ATTRIBUTION CORRECTED 2026-09-01: the 2026-08-28 note above read "The bar declared at §3 is **two-sided** p < 10⁻⁴". That contradicts this report's own Abstract. §3's *notable* bar is declared two-sided (0.05/9); the < 10⁻⁴ *candidate* bar is **inherited** from the F4′ family's registration, worded there "< 10⁻⁴ after Bonferroni" with **sidedness unstated**, and is not restated verbatim in `2d19a3f`. The two-sided reading is retained as the suite's operating convention — but it is a convention applied here, not a sidedness the candidate bar's own registration fixed, and under a one-sided reading of the inherited bar this row would meet it numerically (6.5×10⁻⁵ < 10⁻⁴). Nothing turns on the resolution: the row does not promote under either reading, because it is a KW-extracted exact template — the data-like class the pre-registration bars from promoting whatever its rarity.] |
-   | 7 | `pureplace` — pure-hexagram placement (pp. 80, 82, 183) | 1 | one-sided P = 5.56×10⁻³; **two-sided P = 1.11×10⁻²** | **NULL** under the C1–C5 null. `null-sensitive` — see the null-sensitivity note below the table. ⚠ [CORRECTED 2026-08-28: this read "borderline (at the 0.05/9 threshold to reported precision)". It is not borderline under either reading — the declared bar is **two-sided** p < 0.05/9 = 5.5556×10⁻³, and the **one-sided** value 5.56152×10⁻³ already exceeds it before doubling — but that is a **≈0.1-SE gap**, true of the printed estimate and far too close to carry weight, so it is recorded and NOT relied on. The NULL rests on the two-sided reading, which is **≈45 SE** clear.] |
+   | 7 | `pureplace` — pure-hexagram placement (pp. 80, 82, 183) | 1 | one-sided P = 5.56×10⁻³; **two-sided P = 1.11×10⁻²** | **NULL** under the C1–C5 null. `null-sensitive` — see the null-sensitivity note below the table. ⚠ [CORRECTED 2026-08-28: this read "borderline (at the 0.05/9 threshold to reported precision)". It is not borderline under either reading — the declared bar is **two-sided** p < 0.05/9 = 5.5556×10⁻³, and the **one-sided** value 5.56152×10⁻³ already exceeds it before doubling — but that is a **≈0.1-SE gap**, true of the printed estimate and far too close to carry weight, so it is recorded and NOT relied on. The NULL rests on the two-sided reading, which is **≈42 SE** clear *(≈45 until 2026-10-17, CX-35T-J: (2·0.00556152 − 0.05/9)/(2·6.558×10⁻⁵) = 42.45, from `evidence/dav_tier1_se_2026_09_25.out`)*.] |
    | 8 | `eccplace` — eccentric-class placements incl. 23/24–43/44 at distance 20 (pp. 124–125, 117 n10, 172, 211) | 1 | no hits in 2×10⁹ probes (not a bound) | extreme / data-like class |
    | 9 | `asymhalf` — both-asymmetric-trigram half-split (pp. 111–112) | 4 of 16 | P(≤4) = 1.9×10⁻¹ (mean 7.3); **two-sided 3.90×10⁻¹** | **NULL** |
 
@@ -194,12 +194,22 @@ notational scoring — is accepted and stated.
    implies FDR clearance. ⚠ **[SIDEDNESS CARRIED INTO THE INSTRUCTION 2026-09-24 (v1.18; Codex
    V3A-084#2, Q-742) — this sentence told the FDR reader the row clears global correction with no
    sidedness (registered as RP-e088a322), ten lines after the note above established that two-sided 1.36×10⁻³ does not clear the
-   rank-2 bar 1.0989×10⁻³.]**
+   rank-2 bar 1.0989×10⁻³.]** ⚠ **[RANK RE-DERIVED 2026-10-17 (Codex gpt-6-astra, final review, F02-006#4 with F02-H04#7, F02-H02#16, F03-006#1, F02-013#3, F02-H05#17, CAL-017#6/#7/#8, CAL-018#88, CAL-020#119/#120/#125, CAL-022#118; ruled by Fable; push group G4, CX-35T-A) — rank 2 is not the
+   rank two-sided `trigarray` holds. A second smaller ledger value is exhibited in the ledger's own survivor
+   list ([CRITIQUE.md](../documentation/CRITIQUE.md) §"Observable-selection accounting"): C1, ≈8.9×10⁻⁴⁵
+   one-sided (≈1.8×10⁻⁴⁴ doubled), beside `dav_rotinv` (1.31×10⁻⁴). So *i* ≥ 3, the bar is
+   3·(0.05/91) = 1.648×10⁻³, and two-sided 1.36×10⁻³ clears it: under BH at q = 0.05 against the
+   91-observable ledger, `trigarray` would be declared significant on **both** masses, and "on the one-sided
+   mass, and not on the two-sided one" and "on the one-sided mass only" above are withdrawn. "The one place in
+   the suite where the correction family matters" and "nothing else in the suite moves" also say more than is
+   shown: the 91 observables' full p-value vector is not assembled, so it is at least one place. The published
+   verdict is unchanged: the FWER reading is retained and `trigarray` fails Bonferroni on either mass.]**
 
    3b. **Wave-2 addendum (measured 2026-07-11, 2×10⁹ probes).** The private structural audit's
    frozen queue left four items unmeasured after §3. Wave 2 disposes of all four: two measured
    (the table below), one subsumed — the pair-unit trisection (Davis p. 119 n19, crediting
-   Li Shangxin) is the trisection sub-predicate of an already-registered functional and is not
+   Li Shangxin) is the trisection sub-predicate of an already-registered functional — `rs1` (R-S1, Schulz's xiaoxi
+   trisection, `solve.py` `reg_rs1`; named 2026-10-17, CX-35T-J) — and is not
    double-measured under a second name — and one declined on scope without measurement
    (§5(c); power note below). The freeze mechanism differed from wave 1's public
    pre-registration and we state it plainly — together with why nothing below depends on it. The
@@ -264,7 +274,8 @@ notational scoring — is accepted and stated.
    2026-09-01 with the narrowing below):
 
    > **Power note (analytic).** Independently of the scope grounds for declining it, this
-   > test could never have produced a significant result, for a reason that has nothing to
+   > test could never have produced a significant result under the pair-exchangeable (C1-only) null — its
+   > reach under the C1–C5 null is not measured (null named in the sentence 2026-10-17, CX-35T-J) — for a reason that has nothing to
    > do with what its labels mean. The declined predicate belongs to the class of
    > "2-of-6 ordering predicates": mark six of the 32 pairs (here the six marked hexagrams
    > do lie in six distinct pairs — none is another's reversal-partner, and the two
@@ -315,7 +326,7 @@ notational scoring — is accepted and stated.
    trigram-defined functional groups occupy decade-arithmetic "rooms" of the King Wen table —
    group A within ordinals 1–10, group B at 11, 21, 31, 41, and so on — with ten deviant pairs.
    The observation is true and verified: his group classifier reduces to pure bit predicates
-   (Table 4.1 reproduced 64/64; two-language [`--db1-verify`](../documentation/SOLVE_C_CLI.md#--db1-verify) gate), and King Wen's conformity
+   (Table 4.1 reproduced 64/64 with Drasny's G1 and G2 merged into one class (as the conformity score needs; `solve.py --db1-verify`); two-language [`--db1-verify`](../documentation/SOLVE_C_CLI.md#--db1-verify) gate), and King Wen's conformity
    count is X = 22 of 32 pair-slots, with his ten deviant pairs reproducing exactly. But the
    rooms are King-Wen-derived: Drasny's own derivation (pp. 76–77) reads each room off the
    listed KW ordinals of each group's members, and mechanical re-verification shows every room
@@ -437,7 +448,9 @@ notational scoring — is accepted and stated.
    claimed: that Davis's design thesis is false — population typicality is not a disproof of intent,
    and his textual arguments are unmeasured by construction. The honest summary is narrower: where
    Davis's structural claims can be measured, they mostly dissolve into the typical; where they are
-   rare, they are rare the way every specific configuration is rare; and where he asserted uniqueness,
+   rare, they are mostly rare the way every specific configuration is rare — the exception is the #43–50
+   trigram array, a pattern form notable at its family correction (two-sided 1.36×10⁻³; exception carried here
+   2026-10-17, CX-35T-J); and where he asserted uniqueness,
    once it held and once it did not.
 
 ## Verification Guide
@@ -515,7 +528,7 @@ first landing.)*
   significant result under the stated null, whatever the labels mean.
 - The D-B1 tautology (§3b): KW-value + classifier reproduction, two-language gate:
   `python3 solve.py --db1-verify` and `./solve --db1-verify` → `DB1 VERIFY: PASS` (Table 4.1
-  reproduced 64/64; KW conformity X = 22, ten deviant pairs listed). Population descriptives:
+  reproduced 64/64, G1/G2 merged; KW conformity X = 22, ten deviant pairs listed). Population descriptives:
   `SOLVE_THREADS=32 SOLVE_KNUTH_SCORE_DB1=1 SOLVE_KNUTH_DB1_HIST=1 ./solve --estimate-knuth
   2000000000` (evidence file: `db1_tier1.out`). The argmax verification is arithmetic on the received sequence alone:
   for each group, list its members' KW ordinals and check that Drasny's room is the
@@ -546,4 +559,5 @@ first landing.)*
 | v1.18 | 2026-09-24 | **The FDR reading instruction carries the sidedness its own note states (Codex V3A-084#2, Q-742; wording only).** §3's instruction to the FDR reader said to "read this row as clearing global correction" with no sidedness, while the 2026-09-03 SIDEDNESS note directly above it shows that only the one-sided mass clears the BH rank-2 bar (6.8×10⁻⁴ < 1.0989×10⁻³) and the two-sided 1.36×10⁻³ this report publishes does not. The instruction is now scoped to the one-sided mass, with a ⚠ note in place. No measurement, threshold or verdict changed |
 | v1.19 | 2026-09-25 | **Five wording repairs, five recipe gaps, and one standard-error figure flagged (Q-759; Codex V3B-01).** (i) The abstract's BH-FDR clause for `trigarray` is scoped to the one-sided mass, as §3's SIDEDNESS note already was (#15). (ii) The two-sided rule, the smaller tail doubled, is stated at `tquartet`'s row, which it reproduces: 2 × 0.4243 ≈ 0.849 (#9). (iii) "Zero sampled mass" becomes "no hits in 2×10⁹ probes (not a bound)" (#11). (iv) "Could never have registered" carries the C1-only null (#18). (v) The estimator's seed base is printed (#25). (vi) Recipe gaps, each with a dated ⚠ note in place. The `se=` regeneration command was run and its output archived as evidence/dav_tier1_se_2026_09_25.out. It matches the published masses byte for byte, reproduces `pureplace`'s ≈0.1 SE, and gives ≈2.5 SE for `rotinv` where the text says ≈2.3. The ≈2.3 is flagged, not replaced (#8). Commands are printed for the corpus-control gate (#13), the withdrawn refutation's T-link checks (#17), the D-B1 group and room counts (#19), and the refutation's 32-pair table (#20). (vii) Also, the stack-frame sizes in the `--estimate-knuth` stack note are re-measured with `gcc -fstack-usage` (`main` ≈7.24 MiB, `estimate_tree_knuth` ≈1.48 MiB; the note had ~7.23 MB and about one megabyte), with a ⚠ note in place; the 16 MB requirement stands (Q-826). No other measurement, threshold or verdict changed |
 | v1.20 | 2026-10-01 | **The cover's reproduction promise is rescoped (Codex v3 review, finding V3B-08 #22 against TR-5, triaged by Fable; backlog Q-759).** The banner said every MEASURED result carries a reproduction command, while the reports themselves flag results that have none. It now says each one carries a command or says at the claim that it has none, which is what the reports index already said. GATE 9 holds the banner byte-identical across all twelve reports, so the same edit is made in each. Wording only; no figure, count or theorem changed. |
-| v1.21 *(current)* | 2026-10-17 | The execution-lane note says `scripts/exec_lane.sh` executes every command it classifies as runnable, not every documented command (the lane never runs its OPS, placeholder or fragment classes; Codex's final review, gpt-6-astra, CAL-009#62, CAL-010#97; triaged by Fable; fast-track batch FT2b-2). No figure changes. See CORRECTIONS.md (fast-track batches FT2b-2..4). |
+| v1.21 | 2026-10-17 | The execution-lane note says `scripts/exec_lane.sh` executes every command it classifies as runnable, not every documented command (the lane never runs its OPS, placeholder or fragment classes; Codex's final review, gpt-6-astra, CAL-009#62, CAL-010#97; triaged by Fable; fast-track batch FT2b-2). No figure changes. See CORRECTIONS.md (fast-track batches FT2b-2..4). |
+| v1.22 *(current)* | 2026-10-17 | **The BH rank re-derived, and five wording fixes (Codex's final review, gpt-6-astra; triaged by Fable; push group G4; F02-006#4 class with F03-006#1, CAL-018#88; F03-006#2/#6/#8, CAL-018#84/#86/#90/#96/#98/#101, F11-017#6/#7, F08-017#14).** A dated note says two-sided `trigarray` holds BH rank ≥ 3 behind C1 and `dav_rotinv`, so the FDR counterfactual holds on both masses (at least one verdict moves; the Bonferroni verdict is unchanged); the Rule of Ten reproduction names its G1/G2 merge; one sentence states how the registration's 10⁻⁴ is read; ≈42 SE replaces ≈45; the power note names its null; the closing sentence carries the `trigarray` exception; the subsumed trisection names `rs1`. No published verdict changes. See CORRECTIONS.md CX-35T-A and CX-35T-J. |

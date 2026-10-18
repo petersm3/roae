@@ -16,7 +16,7 @@ compression − statement cost. Conventions, declared up front:
   in bits is negligible at the precision quoted, but it must be stated in the right currency: the
   ±0.02% those estimates carry is the estimator's relative **standard error**, not a 95% half-width
   ([METHODS](../reports/METHODS.md) §"Statistics conventions": the tool prints mean ± 1.96·√(v̂ar/N) with
-  relerr = SE/mean), so the 95% interval is ±1.96·SE ≈ **±0.0006 bits** — the same conversion
+  relerr = SE/mean), so the 95% interval is ±1.96·SE ≈ **±0.00049 bits** (unrounded SE 0.0173%; the rounded 0.02% gave ±0.0006 until 2026-10-17, CX-35T-J), and the C1–C7 row's 0.78% SE gives ±0.022 bits — the same conversion
   [TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md) §1 carries. This bullet published the 1-SE
   conversion, understating the 95% interval by 1.96×, until 2026-09-02 (see the correction note below).
 - **Statement costs** are reported under TWO conventions, because the choice is philosophy-laden and a
@@ -81,8 +81,8 @@ the C1-only (start-unpinned) fraction is now also exact — 4.29341%, 3-prime CR
 ([CRITIQUE.md](CRITIQUE.md) §"Observable-selection accounting"); its marginal 3.0 bits are NOT claimed as
 explanation.
 ⁶ C6/C7 pin four slots: log₂(choices eliminated) ≈ their own compression — definitionally break-even.
-The cell's parenthetical "~20.6" is **underived**: it is the only cost figure in this ledger with no
-recorded derivation (it is near, but not equal to, the row's 21.3-bit marginal compression, and no
+The cell's parenthetical "~20.6" is **underived**: it is one of two cost figures in this ledger with no
+recorded derivation — the other is the gender row's "rule text ≈ 10–15", fn⁹ ("the only cost figure" until 2026-10-17, CX-35T-L) (it is near, but not equal to, the row's 21.3-bit marginal compression, and no
 computation producing 20.6 is on record in the corpus). It is retained, explicitly so labelled, because
 nothing rests on it — the row's verdict is definitional (cost ≈ compression ⇒ net ≈ 0) whatever the
 precise figure.
@@ -122,9 +122,9 @@ text statement cost 10-15 bits derivation'` returns `PRIOR_ART=NONE  surfaces se
 *.md, *.tsv, codex_transcripts/; roae *.md; git log --all -S on both repos`; every occurrence of the
 figure in the corpus is this cell, its TR-9 mirror, or a review transcript quoting one of them.
 Independently, the code-resident-predicates block in
-[LITERATURE_RULES_POPULATION_TESTS.md](LITERATURE_RULES_POPULATION_TESTS.md) records that no document states these literature rules formally enough
-for an independent team to re-encode them, so no rule-text length here is reproducible from a
-published source. It is retained, so labelled, because nothing rests on it: the row's verdict holds
+[LITERATURE_RULES_POPULATION_TESTS.md](LITERATURE_RULES_POPULATION_TESTS.md) recorded that no document stated these literature rules formally enough for an independent team to re-encode them; [LITERATURE_RULES_FORMAL.md](LITERATURE_RULES_FORMAL.md) has done so since 2026-10-02, but it states
+no rule-text length either, so no rule-text length here is reproducible from a
+published source (updated 2026-10-17, CX-35T-L). It is retained, so labelled, because nothing rests on it: the row's verdict holds
 across the whole band, and holds at 16.9 as well (fn⁸).
 
 > **Access boundary — `prior_art_check.sh` (fn⁷, fn⁹).** Those two footnotes cite
@@ -144,9 +144,9 @@ across the whole band, and holds at 16.9 as well (fn⁸).
 
 Knowing C1–C7 — every row of this table that the count conditions on; the gender-rule row is
 priced but is not part of C1–C7 — the sequence retains **log₂|C1–C7| = 105.4 bits** of
-unexplained information — the most conservative reading: unexplained by anything known, even the
-data-like pins. At the other end, the residual against the layers this ledger actually claims as
-*explanatory* — C1, C2 and C4 only, since the ledger itself prices C3 as circular and C5 as confirmed
+unexplained information — the most conservative reading: unexplained by any of the C1–C7 layers, even the data-like pins (known rules outside C1–C7, such as the gender row priced above, are not conditioned on; "by anything known" until 2026-10-17, CX-35T-J). At the other end, the residual against the layers this ledger actually claims as
+*explanatory* — C1, C2 and C4 only (counting all six of C4's bits as explanatory, including the orientation bit
+fn¹ calls definitional; clause added 2026-10-17, CX-35T-L), since the ledger itself prices C3 as circular and C5 as confirmed
 description — is **log₂|C1∩C2∩C4| = 139.1 bits**, an exact quantity (the logarithm of the exact
 7.5706×10⁴¹ count above). The published residual is therefore the range **105–139 bits**; the
 intermediate readings — ~126.6 (C1–C5, retaining the non-explanatory cuts of C3 and C5) and 129.7
@@ -163,7 +163,7 @@ pairing (now known optimal), a marginal 4.5 bits (≈ break-even once its statem
 no-five rule, and essentially nothing by C5, whose statement costs 1.7–2.5× what it explains (net −6 to −14
 bits depending on the stated coding convention; measured 2026-07-03, bracket derived 2026-07-10): the
 transition histogram is confirmed description, not explanation. The rest of the sequence is explained
-by nothing known today.**
+by none of the C1–C7 layers** (known rules outside them, such as the gender row, are not in the ledger; "by nothing known today" until 2026-10-17, CX-35T-J).
 
 **This residual is quantified to ±0.02 bits, not a gap in the analysis** (the 105.4 endpoint rests on
 the C1–C7 estimate, whose published 0.78% is the estimator's relative **standard error**, not a 95%
@@ -209,10 +209,10 @@ every coding this corpus states (+2.0 on the selection-only reading, +0.5 at the
 cost). ⚠ This note originally reached that conclusion by way of *negative* endpoints and inferred
 from them that C2's sign is a coding-convention choice; both the endpoints and the inference were
 withdrawn on 2026-09-02 — see fn⁷, which shows the arithmetic. C2 remains the only
-narrow rule that even reaches break-even. C5's net is widened to a bracket −6.3 to −13.9: the published
+narrow rule that even reaches break-even under the declared conventions (scoped 2026-10-17, CX-35T-L). C5's net is widened to a bracket −6.3 to −13.9: the published
 23.3-bit statement cost prices the full 6-class transition multiset, but the ledger's compression column
 is marginal, and the marginal-consistent price of only the 31 unimplied boundary transitions given C1+C2
-is log₂ C(35,4) = 15.7 bits (net −6.3, "costs ~1.7×"); C5 is net-negative under every convention, so the
+is log₂ C(35,4) = 15.7 bits (net −6.3, "costs ~1.7×"); C5 is net-negative under both declared conventions — not under every convention: a King-Wen-independent multinomial code prices it below the compression (TR-9 §Sections item 5; scoped 2026-10-17, CX-35T-L, the CX-378 sibling) — so the
 "descriptive, not explanation" verdict is unchanged. Two sub-0.1-bit rounding fixes from unrounded
 operands: C2 marginal 4.6 → 4.5, C6+C7 marginal 21.2 → 21.3. No conclusion moves.*
 

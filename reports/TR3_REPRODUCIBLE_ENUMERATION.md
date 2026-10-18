@@ -39,7 +39,8 @@ Stated precisely, because the unqualified form would overclaim:
 - **What is demonstrated.** The 560T artifact's sha256 was derived twice from scratch, weeks apart, on
   different Spot fleets, through twelve combined evictions, and on independently provisioned hardware —
   byte-identical both times. Independent re-derivation across machines, regions, thread counts and merge
-  paths is a *result*, not an aspiration. **Shard-partition invariance is demonstrated at 5.6T and 100T
+  paths is a *result*, not an aspiration — the region variation is the 10T campaign's; both 560T derivations
+  ran in one region (scoped 2026-10-17, CX-35T-J). **Shard-partition invariance is demonstrated at 5.6T and 100T
   and inherited at 560T:** both 560T derivations used the same depth-3 partition
   ([PARTITION_INVARIANCE.md](../documentation/PARTITION_INVARIANCE.md) §5a).
   ⚠ **[SCOPED 2026-09-24 (v1.15; Codex V3A-089#2, Q-742) — this bullet listed "shard partitions" among
@@ -96,7 +97,7 @@ Stated precisely, because the unqualified form would overclaim:
 ### 1. The reproducibility contract
 
 The claim this report defends is narrow and mechanical: `solutions.bin` — its decompressed record stream, which is what every canonical sha hashes (Verification Guide, step 3) — is a **mathematical function of
-its published launch configuration** — the enumeration depth `SOLVE_DEPTH`, the per-cell budget
+its published launch configuration** (abstract merge model; the implementation bridges B1–B4 are assumed, [lean/README](../lean/README.md) §"Tier 3") — the enumeration depth `SOLVE_DEPTH`, the per-cell budget
 `SOLVE_PER_SUB_BRANCH_LIMIT`, and the node budget `SOLVE_NODE_LIMIT` — together with the constraint
 system. Fix those and the output is determined: not determined up to ordering, not determined up to a
 tolerance, but byte-for-byte. What the reproducer actually chooses is *which anchor* to reproduce;
@@ -109,7 +110,7 @@ and sets only the node budget runs a different partition of the search and canno
 sha. Everything else in the
 engineering exists to make that claim survive contact with real hardware.
 
-Three things make it hold. First, the **partition-invariance theorem**: the output is independent of
+Three things make it hold. First, the **partition-invariance theorem** (abstract merge model; the implementation bridges B1–B4 are assumed, [lean/README](../lean/README.md) §"Tier 3"): the output is independent of
 thread count, machine, merge path, and shard partition. The enumeration is a set-valued computation, and
 the merge imposes a canonical order on that set, so how the work was divided cannot survive into the
 bytes. This is what licenses running on 128 threads today and 64 tomorrow, on a machine in one region
@@ -196,8 +197,10 @@ Preemptible capacity is cheap because the provider may reclaim it at any moment.
 measured in hundreds of hours, "start again" is not an option, so the checkpoint design is the campaign
 design.
 
-Checkpoints are **per-thread and intra-layer**, written durably as the walk proceeds, so a reclaimed
-machine resumes near where it stopped rather than at the last completed unit of work. The write ordering
+Checkpoints are **per cell**: a cell's `.dfs_state` is written durably when the cell reaches its budget, so a
+reclaimed machine skips every completed cell and re-walks only the cells that were in progress *(corrected
+2026-10-17, CX-35T-J: this said checkpoints are "per-thread and intra-layer, written durably as the walk
+proceeds", so that a machine resumes near where it stopped; the state is captured at budget exhaustion)*. The write ordering
 is an invariant, not an implementation detail: a cell's solution shard must become durable *before* the
 state record that says the cell is finished, or an eviction landing between the two loses solutions
 while claiming completeness. Getting that backwards is precisely the defect described below.
@@ -347,7 +350,7 @@ exactly as published (copy them verbatim — do *not* re-derive the per-cell bud
 # 1. enumerate (D128als_v7 Spot westus3 was used; 128 threads assumed by the resume paths)
 SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=560000000000000 SOLVE_PER_SUB_BRANCH_LIMIT=3536157207 \
 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=128 \
-SOLVE_SKIP_AUTOMERGE=1 ./solve            # shards to disk; after an eviction, re-run this same command in the same directory: each cell resumes from its .dfs_state checkpoint
+SOLVE_SKIP_AUTOMERGE=1 ./solve            # shards to disk; after an eviction, re-run this same command in the same directory: each completed cell is skipped (its .dfs_state is written when it reaches its budget); a cell that was in progress is re-walked
 
 # 2. merge separately, on a Standard (non-preemptible) VM — mid-merge eviction loses the work (external-merge settings: runs/20260419_100T_d3_d128westus3/README.md)
 ./solve --merge
@@ -417,4 +420,5 @@ parameters](../documentation/CANONICAL_HASHES.md#reproducibility-parameters).
 | v1.15 | 2026-09-24 | **Shard-partition invariance moved out of the 560T "demonstrated" bullet (Codex V3A-089#2, Q-742; wording only).** §"Scope of the reproducibility claim" listed shard partitions among what the twice-derived 560T sha demonstrates. [PARTITION_INVARIANCE.md](../documentation/PARTITION_INVARIANCE.md) records that both 560T derivations used the same depth-3 partition and that the partition-strategy re-run was deferred, so partition invariance at 560T is inherited from the 5.6T and 100T direct witnesses. The bullet now says so, with a ⚠ note in place. No sha, anchor or measurement changed |
 | v1.16 | 2026-09-25 | **The 171.5 h enumeration time is labelled as including its eviction-defer windows, and seven recipe gaps are closed or labelled (Q-759; Codex V3B-06).** (i) Five weekday evictions, each deferred to the 18:01 PT relaunch, account for ≈52.1 h of the 171.5 h wall time. The eviction times are from CAMPAIGN_METHODOLOGY's table. This is now stated at the three sites that use the figure, and §4's Spot-rate price says that it bills every hour (#17). (ii) "Visited 560 trillion" becomes "budgeted at" (#2). (iii) The reproducibility contract names the decompressed record stream that the sha hashes (#26). (iv) The kill-mid-walk test is named (`--selftest-resume`), and the recipe says how to resume after an eviction (#15, #16). (v) The `ARG_MAX` lesson shows the unsafe and the safe count; the IOPS lesson names the binary's exit-31 startup probe; the merge step points at the 100T run README's external-merge settings (#22, #23, #25). (vi) The self-test's "caught more … than any other mechanism" is scoped to the operator's experience, since no count is kept (#9). The #108 figures are sourced to PERFORMANCE_HISTORY.md's record of the run, and labelled single measurements whose bench scripts are private (#14). No sha, anchor or measurement changed |
 | v1.17 | 2026-09-28 | **The campaign timeline states the weekend interval it plots (Q-895, Q-889; wording and figure only — no timestamp, eviction or duration changed).** The figure's weekend note and §Figure's caption gave the weekend "~54 h" of clean runway, an interval that matches nothing plotted: Fri 18:01 → Mon 00:00, the defer-policy window, is 54.0 h, and the run finished Sun 20:33 PT, 50.5 h after the Fri 18:01 restart. The caption now names the policy window and the 50.5 h; the figure's note reads "Fri 18:01 → finish: 50.5 h uninterrupted" (asserted from the plotted times) and sits below the bar, and the deferred-downtime legend entry says the resume bars are reconstructed from the 18:01 PT policy. |
-| v1.18 *(current)* | 2026-10-01 | **The cover's reproduction promise is rescoped (Codex v3 review, finding V3B-08 #22 against TR-5, triaged by Fable; backlog Q-759).** The banner said every MEASURED result carries a reproduction command, while the reports themselves flag results that have none. It now says each one carries a command or says at the claim that it has none, which is what the reports index already said. GATE 9 holds the banner byte-identical across all twelve reports, so the same edit is made in each. Wording only; no figure, count or theorem changed. |
+| v1.18 | 2026-10-01 | **The cover's reproduction promise is rescoped (Codex v3 review, finding V3B-08 #22 against TR-5, triaged by Fable; backlog Q-759).** The banner said every MEASURED result carries a reproduction command, while the reports themselves flag results that have none. It now says each one carries a command or says at the claim that it has none, which is what the reports index already said. GATE 9 holds the banner byte-identical across all twelve reports, so the same edit is made in each. Wording only; no figure, count or theorem changed. |
+| v1.19 *(current)* | 2026-10-17 | **Three scope fixes (Codex's final review, gpt-6-astra; triaged by Fable; push group G4; CAL-015#24/#27, F11-011#2/#4).** The reproducibility contract and the partition-invariance theorem carry the abstract-merge-model clause (the implementation bridges B1–B4 are assumed); the eviction recipe and §3 say a completed cell is skipped and an in-progress cell is re-walked, since the `.dfs_state` is written at budget exhaustion; the re-derivation sentence says the region variation is the 10T campaign's. No sha, count or verdict changes. See CORRECTIONS.md CX-35T-K and CX-35T-J. |
