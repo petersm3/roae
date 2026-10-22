@@ -39,8 +39,8 @@ last columns differ visibly from the near-constant interior. The full reading gu
   ([TR-12 §2](../reports/TR12_QUERY_PROGRAM.md#2-visualization-program-v1v5), V5 caption; §12.1).
   What V5 adds over V2 is the per-layer marginal of w: on layers 1–30 the joint is within 0.0097 of
   the product of its two marginals, so the cross-tab is reconstructible from them there.
-- **Does not establish.** A measured dependence between d and w: on layers 1–30 the joint is close
-  to the product of its marginals. The rows do not identify individual pairs, nor even separate the seven pair-orbits, since w
+- **Does not establish.** Independence of d and w. The masses are exact and depart from the product of
+  their marginals, so a small dependence is measured; its size is not tested against a null. The rows do not identify individual pairs, nor even separate the seven pair-orbits, since w
   takes only three values across them. A column is not conditioned on King Wen's earlier choices. See
   [What this figure is allowed to claim](#what-this-figure-is-allowed-to-claim) and
   [What it may NOT claim](#what-it-may-not-claim).
@@ -58,7 +58,7 @@ last columns differ visibly from the near-constant interior. The full reading gu
   this figure alone:
 
   ```bash
-  cd reports/figures && python3 -c "import sys; sys.path.insert(0, '../../viz'); import report_figures as r; r.fig_tr12_kc_grammar('../tr12/scan/v5_grammar.tsv')"
+  cd reports/figures && python3 -c "import sys; sys.path.insert(0, '../../viz'); import report_figures as r; sys.exit(r.fig_tr12_kc_grammar('../tr12/scan/v5_grammar.tsv', n=31) is False)"
   ```
 
 - **Toolchain.** matplotlib 3.11.0 and numpy 2.4.4. Under that pin the documented command reproduced
@@ -99,7 +99,7 @@ dated corrections in place.*
 
 > ⚠ **Also orbit-replicated.** Any per-pair refinement of this grammar inherits the seven-orbit
 > structure of [V1](viz_kc_field.md): pairs in one orbit are exchanged by a symmetry of the space, so
-> their rows are **equal exactly**. At most **7** distinct pair-rows exist, not 32, and a per-pair
+> their rows are **equal exactly**. At most **8** distinct pair-rows exist (seven orbits and the pinned pair's zero row), not 32, and a per-pair
 > claim is really a claim about that pair's whole orbit. The pinned `w` axis is **coarser still**:
 > `w` is constant on every orbit and takes only three values across the seven
 > (`w=2`: orbits [3,7,11], [4,6,21], [10,15,20,23,27,29]; `w=4`: [1,9,17,19,22,25],
@@ -112,7 +112,7 @@ dated corrections in place.*
 🔴 **No longer true as of 2026-09-23 — V5 and [V2](viz_kc_river.md) now plot DIFFERENT numbers.**
 This read *"With only the distance-class axis available, V5 and V2 plot the same numbers"*, which was
 correct while the `w` axis was absent: the layer flow is N at every layer, so the conditional and the
-joint coincided. With the `(d,w)` cross-tab built, they do not. **What V5 adds over V2 is the per-layer `P(w|k)` marginal, not a measured dependence.** On layers
+joint coincided. With the `(d,w)` cross-tab built, they do not. **What V5 adds over V2 is the per-layer `P(w|k)` marginal and a measured (small) dependence; its size is not tested against a null.** On layers
 1–30 the joint `P(d,w|k)` is within **0.0097** of `P(d|k)·P(w|k)` (maximum at k=1, d=3, w=4;
 `V5_FACTORISATION_MAX_DEV_K_GE_1=0.0097`), so the cross-tab is reconstructible from its two marginals
 with maximum absolute cell error about 0.00972, or 0.972 percentage points, on layers 1–30 (6.4 % relative to the joint at that cell; ⚠ *corrected 2026-09-26, Codex VIZ1 F07: this read "to within 1 %"*). The all-layer maximum **0.173** (`V5_FACTORISATION_MAX_DEV_ALL=0.1732`) is a layer-0

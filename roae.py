@@ -4469,13 +4469,13 @@ def run_grammar_search(nsamp, nprobe, workers, batches, seed,
                 # back to an unordered map. (The literal flag name is deliberately
                 # not written here: Q-646's gate greps the whole file for it, so
                 # naming it in prose would hold that gate red forever.)
-                if key not in best:
-                    best[key] = idx
-                else:
-                    _cur = best[key]
-                    if ((_gs_cand_L(_GS["cands"][idx]), idx)
-                            < (_gs_cand_L(_GS["cands"][_cur]), _cur)):
-                        best[key] = idx
+                # G5a (Codex F04-014#2): the reduction step is _gs_phase_c_merge (end of this
+                # file), so tests.py drives this code rather than a copy of it. The comparison
+                # there is (L, idx) < (L, idx) against the current representative, as before;
+                # these comment lines keep the file's later line numbers, which documents
+                # cite, where they were.
+                #
+                _gs_phase_c_merge(best, key, idx)
     wall_c = time.time() - t0
     n_dist = len(best)
     sel = math.log2(n_dist)  # selection charge, pinned to THIS run's measure
@@ -4542,10 +4542,10 @@ def run_grammar_search(nsamp, nprobe, workers, batches, seed,
                     continue
                 # A row written before this fix has no `seed`; it cannot be shown to belong to this
                 # run, so it is refused rather than trusted. Silently accepting it is the defect.
-                bad = [k for k, v in _ck_ident.items() if rec.get(k) != v]
-                want_b = dict(jobs_by_batch).get(rec.get("batch"))
-                if want_b is not None and rec.get("want") != want_b:
-                    bad.append("want")
+                # G5a (Codex F04-015#5): the comparison is _gs_ck_row_mismatch (end of this file),
+                # every identity field plus the batch's `want`; tests.py executes it.
+                #
+                bad = _gs_ck_row_mismatch(rec, _ck_ident, jobs_by_batch)
                 if bad:
                     key = ",".join(sorted(bad))
                     rejected[key] = rejected.get(key, 0) + 1
@@ -5598,6 +5598,31 @@ def main():
         print("percentile (p ~ 0.13) does not survive. Weaker findings should be")
         print("interpreted with this caveat in mind.")
         print("---")
+
+
+def _gs_phase_c_merge(best, key, idx):
+    """Phase C's reduction step (Q-646): keep, per (kw, sig) key, the candidate with the least
+    (L, index). L alone ties structurally, so the index breaks the tie and the representative is a
+    property of the candidate set, not of worker arrival order. A helper so tests.py exercises
+    THIS reduction rather than a copy of it (G5a; Codex F04-014#2)."""
+    if key not in best:
+        best[key] = idx
+        return
+    cur = best[key]
+    if (_gs_cand_L(_GS["cands"][idx]), idx) < (_gs_cand_L(_GS["cands"][cur]), cur):
+        best[key] = idx
+
+
+def _gs_ck_row_mismatch(rec, ident, jobs_by_batch):
+    """The identity fields on which checkpoint row `rec` disagrees with this run (`ident`, plus
+    the row's `want` against its batch's). Empty means the row is reusable. A helper so tests.py
+    checks the comparison itself, not the presence of its spelling (G5a; Codex F04-015#5)."""
+    bad = [k for k, v in ident.items() if rec.get(k) != v]
+    want_b = dict(jobs_by_batch).get(rec.get("batch"))
+    if want_b is not None and rec.get("want") != want_b:
+        bad.append("want")
+    return bad
+
 
 if __name__ == "__main__":
     # main() returns None on every path except --self-test, and sys.exit(None) is exit 0, so this

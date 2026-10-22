@@ -21,8 +21,11 @@
 # CLASSES
 #   meta-mention  the text quotes the figure in the act of recording its correction.
 #                 Legitimate; flagging it would punish the fix.
-#   historical    a dated record that was TRUE when written and was later overtaken.
-#                 Legitimate; rewriting it would falsify the record.
+#   historical    a dated record kept as written — what was measured or believed on that day — later
+#                 overtaken, or withdrawn by a dated correction the why column names. Legitimate;
+#                 rewriting it would falsify the record. (Widened 2026-10-18, Codex F06-012 batch
+#                 F06-003#1: HISTORY.md's "~13 MB" row was never true, so "TRUE when written" did not
+#                 describe it; its why column names the correction.)
 #   literal       (2026-08-07, with the reports/evidence/ non-markdown corpus extension;
 #                 the name is GATE 18's, same meaning) the characters coincide with a
 #                 registered figure but denote a DIFFERENT quantity — e.g. a histogram

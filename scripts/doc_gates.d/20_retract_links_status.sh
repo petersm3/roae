@@ -818,6 +818,13 @@ for m, ln, d, s, key in bad:
     print(f'         WHY: nothing in {d} is named "{norm(s)}" — no heading contains that'
           f' normalised text, and no line-leading bold label BEGINS with it (ITEM B4: a bold'
           f' label matched mid-text is not an anchor)')
+# G5a (Codex F06-012#11): a meta-mention row (the reason begins "meta-mention") quotes a retired
+# pointer while recording its correction -- adjudicated, not a dangling reference -- so it prints as
+# [meta-mention] and is not counted among the OPEN DEFECTS; every other row stays [OPEN].
+metam = [o for o in opened if allow_why.get(o[4], "").startswith("meta-mention")]
+opened = [o for o in opened if o not in metam]
+for m, ln, d, s, key in metam:
+    print(f'  [meta-mention] {m}:{ln} -> {d} §"{s}"  ({allow_why.get(key)})')
 for m, ln, d, s, key in opened:
     print(f'  [OPEN] {m}:{ln} -> {d} §"{s}"  ({allow_why.get(key, "allowlisted")})')
 # ITEM B1 (2026-08-02, drain-2) — STALE ALLOWLIST ROWS ARE A FAILURE, not a tidiness issue.

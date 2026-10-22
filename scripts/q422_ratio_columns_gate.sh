@@ -163,10 +163,17 @@ verdict "$WORK/base" || fail "baseline: the consumer under test does not behave 
 
 # ---- mutants: each is a sed rewrite of a COPY and MUST turn a leg red ---------------------------
 mutant(){ # mutant <id> <sed-expr>
-  local id="$1" expr="$2" m="$WORK/m_$1"
-  mkdir -p "$m"; sed -e "$expr" "$WORK/base/solve.py" > "$m/solve.py"
+  local id="$1" expr="$2" m="$WORK/m_$1" why
+  # G5a (Codex F05-012#9): a mutant that was not BUILT, or that crashed or was interrupted, is not a
+  # kill: sed's status, a non-empty file that compiles, and a failing leg that is not a traceback or a
+  # signal exit (rc 124-143) are required.
+  mkdir -p "$m"; sed -e "$expr" "$WORK/base/solve.py" > "$m/solve.py" || fail "mutant $id: sed failed (rc $?) -- the mutant was not built"
+  [ -s "$m/solve.py" ] && python3 -m py_compile "$m/solve.py" 2>/dev/null || fail "mutant $id: the mutant solve.py is empty or does not compile -- it was not built"
   cmp -s "$m/solve.py" "$WORK/base/solve.py" && fail "mutant $id did not apply ($expr) -- anchors inside solve.py moved?"
-  if verdict "$m" >/dev/null 2>&1; then fail "mutant $id SURVIVED ($expr) -- this gate cannot detect that regression"; fi
+  if why=$(verdict "$m" 2>&1); then fail "mutant $id SURVIVED ($expr) -- this gate cannot detect that regression"; fi
+  if grep -q 'Traceback (most recent call last)' "$WORK/last.out" || grep -qE 'rc=(12[4-9]|13[0-9]|14[0-3])\b' <<<"$why"; then
+    fail "mutant $id crashed or was interrupted ($(head -1 <<<"$why")) -- that is not a semantic kill"
+  fi
   echo "  [gate] mutant $id killed"
 }
 mutant M1_atlas_f_zero          's/^def _atlas_f(x):$/def _atlas_f(x):\n    return "0"/'

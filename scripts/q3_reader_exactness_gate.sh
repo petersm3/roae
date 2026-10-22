@@ -94,8 +94,8 @@ PY
 # between anchors cost the control nothing. p_den[1] = N and p_den[i] = p_num[i-1] = g[i-1], so the
 # product telescopes to g[31]/N = 1/N exactly and every (g,g_parent) equals (p_num,p_den).
 N=1097051278789181790036112071176579186688       # |C1 n C2 n C4 n C5| at n=31 (TR-11)
-mktrace(){ # mktrace <out> <delta_den2> <delta_g2> <den2_lit_or_empty> <num1_lit_or_empty> [g26] [step_offset] [g30] [g31]
-  python3 - "$1" "$2" "$3" "$4" "$5" "$N" "${6:-52}" "${7:-0}" "${8:-}" "${9:-}" <<'PY'
+mktrace(){ # mktrace <out> <delta_den2> <delta_g2> <den2_lit_or_empty> <num1_lit_or_empty> [g26] [step_offset] [g30] [g31] [ovr] [den_at] [gp_at] [extra]
+  python3 - "$1" "$2" "$3" "$4" "$5" "$N" "${6:-52}" "${7:-0}" "${8:-}" "${9:-}" "${10:-}" "${11:-0}" "${12:-0}" "${13:-0}" <<'PY'
 import sys
 out,dden,dg,den2lit,num1lit,N=sys.argv[1],int(sys.argv[2]),int(sys.argv[3]),sys.argv[4],sys.argv[5],int(sys.argv[6])
 g26,stepoff=int(sys.argv[7]),int(sys.argv[8])
@@ -112,17 +112,26 @@ for i in range(1,32):
     else:         GA[i]=1
 if g30: GA[30]=int(g30)
 if g31: GA[31]=int(g31)
+# G5a (Codex F05-012#5-#8): [ovr] S:V sets one more shell (g(s_22), g(s_24)); [den_at] I breaks only
+# link I (p_den[I] = p_num[I-1] + 1, with g_parent following it); [gp_at] I breaks only g_parent[I];
+# [extra] 1 appends a consistent 32nd row (g = g_parent = p = 1), so only the step count is wrong.
+for kv in filter(None, sys.argv[11].split(",")):
+    k_, v_ = kv.split(":"); GA[int(k_)] = int(v_)
+den_at = int(sys.argv[12] or 0); gp_at = int(sys.argv[13] or 0); extra_row = sys.argv[14] == "1"
 rows=[]
 for i in range(1,32):
     g   = GA[i]
     den = N if i==1 else (GA[1]+dden if i==2 else GA[i-1])
+    if i == den_at: den += 1
     gg  = g+dg if i==1 else g          # dg lands on row 1, where g = M is above 2^53
-    gp  = den
+    gp  = den + (1 if i == gp_at else 0)
     pn  = num1lit if (i==1 and num1lit) else str(g)
     pd  = den2lit if (i==2 and den2lit) else str(den)
     if i==1 and num1lit: gg=num1lit      # keep (g,g_parent) == (p_num,p_den) as STRINGS, so
     if i==2 and den2lit: gp=den2lit      # only the canonical-form guard can reject this trace
     rows.append('\t'.join(map(str,[i+stepoff,i,2,16,0,1,1,1,gg,gp,pn,pd,0,1,1,1])))
+if extra_row:
+    rows.append('\t'.join(map(str,[32+stepoff,32,2,16,0,1,1,1,1,1,1,1,0,1,1,1])))
 open(out,'w').write('\n'.join(rows)+'\n')
 PY
 }
@@ -142,6 +151,12 @@ mktrace "$WORK/t_stepoff.tsv" 0 0 "" "" 52 1
 # g[30] = 0 = p_den[31] = g_parent[31], then p_num[31] = 1 -- formally telescoping, a 0/0 factor (leg 11).
 mktrace "$WORK/t_term2.tsv" 0 0 "" "" 52 0 "" 2
 mktrace "$WORK/t_zero30.tsv" 0 0 "" "" 52 0 0 ""
+# G5a (Codex F05-012#5-#8): one fixture per check no earlier leg isolates.
+mktrace "$WORK/t_anch22.tsv" 0 0 "" "" 52 0 "" "" 22:690175
+mktrace "$WORK/t_anch24.tsv" 0 0 "" "" 52 0 "" "" 24:5623
+mktrace "$WORK/t_row32.tsv"  0 0 "" "" 52 0 "" "" "" 0 0 1
+mktrace "$WORK/t_link3.tsv"  0 0 "" "" 52 0 "" "" "" 3
+mktrace "$WORK/t_gp5.tsv"    0 0 "" "" 52 0 "" "" "" 0 5
 
 run(){ # run <prog> <trace> <N> <NP>  -> prints rc; stdout in $WORK/last.out
   awk -F'\t' -v "N=$3" -v "NP=$4" -f "$1" "$2" > "$WORK/last.out" 2>"$WORK/last.err"; echo $?
@@ -182,6 +197,18 @@ verdict(){ # verdict <prog> ; 0 iff every leg behaves
   rc=$(run "$p" "$WORK/t_zero30.tsv" "$N" 31)
   [ "$rc" = 1 ] && grep -q 'non-positive' "$WORK/last.out" && ! grep -q 'EXACT' "$WORK/last.out" \
     || { echo "    leg 11 (zero shell at step 30) rc=$rc: a 0/0 factor was accepted as telescoping"; return 1; }
+  # Legs 12-16 (G5a; Codex F05-012#5-#8): each isolates one check the earlier legs left covered only
+  # incidentally -- the g(s_22) and g(s_24) anchors, the row count, a link after link 2, g_parent.
+  rc=$(run "$p" "$WORK/t_anch22.tsv" "$N" 31)
+  [ "$rc" = 1 ] && [ "$(nfails)" = 1 ] && grep -q 'g(s_22)' "$WORK/last.out" || { echo "    leg 12 (tail anchor g(s_22)) rc=$rc, READER_FAIL count $(nfails)"; return 1; }
+  rc=$(run "$p" "$WORK/t_anch24.tsv" "$N" 31)
+  [ "$rc" = 1 ] && [ "$(nfails)" = 1 ] && grep -q 'g(s_24)' "$WORK/last.out" || { echo "    leg 13 (tail anchor g(s_24)) rc=$rc, READER_FAIL count $(nfails)"; return 1; }
+  rc=$(run "$p" "$WORK/t_row32.tsv" "$N" 31)
+  [ "$rc" = 1 ] && [ "$(nfails)" = 1 ] && grep -q 'step count 32 != n 31' "$WORK/last.out" || { echo "    leg 14 (a consistent 32nd row) rc=$rc: the row count is not enforced"; return 1; }
+  rc=$(run "$p" "$WORK/t_link3.tsv" "$N" 31)
+  [ "$rc" = 1 ] && [ "$(nfails)" = 1 ] && grep -q 'p_den\[3\]=' "$WORK/last.out" || { echo "    leg 15 (link 3 broken) rc=$rc: links after the second are not checked"; return 1; }
+  rc=$(run "$p" "$WORK/t_gp5.tsv" "$N" 31)
+  [ "$rc" = 1 ] && [ "$(nfails)" = 1 ] && grep -q '^READER_FAIL.step 5: (g,g_parent)' "$WORK/last.out" || { echo "    leg 16 (g_parent[5] only) rc=$rc: the emitted g_parent column is not read"; return 1; }
   # The control must actually CARRY the anchors, or legs 8 and 9 are testing an empty check. This
   # is the precondition, asserted rather than assumed: leg 1 already required rc 0 on t_ctrl, and
   # t_ctrl and t_anch26 differ in exactly the g(s_26) cells.
@@ -190,14 +217,21 @@ verdict(){ # verdict <prog> ; 0 iff every leg behaves
   return 0
 }
 
-verdict "$WORK/reader.awk" || fail "baseline: the committed reader does not behave on one of the eleven legs (see above)"
+verdict "$WORK/reader.awk" || fail "baseline: the committed reader does not behave on one of the sixteen legs (see above)"
 
 # Mutants. Each is a sed rewrite of the extracted programme and MUST turn a leg red. A sed that
 # does not change the programme is itself a failure: it would be a mutant identical to the baseline.
 mutant(){ # mutant <id> <sed-expr>
-  local id="$1" expr="$2" m="$WORK/m_$1.awk"
-  sed -e "$expr" "$WORK/reader.awk" > "$m"
+  local id="$1" expr="$2" m="$WORK/m_$1.awk" crc
+  # G5a (Codex F05-012#9): a mutant that was not BUILT, or that does not RUN, is not a kill. sed's own
+  # status and a non-empty programme are required, and the mutant must still accept the control trace
+  # (rc 0, READER_FAILS 0) -- an empty, unreadable, crashed or interrupted programme fails leg 1 and
+  # used to be counted as killed.
+  sed -e "$expr" "$WORK/reader.awk" > "$m" || fail "mutant $id: sed failed (rc $?) -- the mutant was not built"
+  [ -s "$m" ] || fail "mutant $id: empty programme -- the mutant was not built"
   cmp -s "$m" "$WORK/reader.awk" && fail "mutant $id did not apply ($expr) -- anchors inside the programme moved?"
+  crc=$(run "$m" "$WORK/t_ctrl.tsv" "$N" 31)
+  [ "$crc" = 0 ] && grep -qx $'READER_FAILS\t0' "$WORK/last.out" || fail "mutant $id does not run on the control trace (rc $crc) -- that is a broken mutant, not a semantic kill"
   if verdict "$m" >/dev/null 2>&1; then fail "mutant $id SURVIVED ($expr) -- this gate cannot detect that regression"; fi
   echo "  [gate] mutant $id killed"
 }
@@ -216,5 +250,11 @@ mutant M7_anchor_by_row_index    's/if (step\[si\] != si "")/if (0) {} else if (
 # existed it SURVIVED, measured), and re-admit 0 as a canonical integer (killed by leg 11).
 mutant M8_no_terminal_identity   's/if (pn\[k\] != "1")/if (0)/'
 mutant M9_canon_admits_zero      's|return (s ~ /^\[1-9\]\[0-9\]\*\$/)|return (s ~ /^(0\|[1-9][0-9]*)$/)|'
-echo "  [gate] baseline PASS on 11 legs; 9/9 mutants killed"
+# M10-M13 (G5a; Codex F05-012#5-#8): the anchor list cut to g(s_26) alone (legs 12/13), the row count
+# dropped (leg 14), the link loop cut to link 2 (leg 15), p_den read in place of g_parent (leg 16).
+mutant M10_only_anchor_26        's/split("22:690176 24:5624 26:52", ANCH, " ")/split("26:52", ANCH, " ")/'
+mutant M11_no_step_count         's/if (k != NP+0) {/if (0) {/'
+mutant M12_link_2_only           's/for (i=2;i<=k;i++) if (pd\[i\] != pn\[i-1\])/for (i=2;i<=2;i++) if (pd[i] != pn[i-1])/'
+mutant M13_g_parent_is_p_den     's/gp\[k\]=\$10 ""/gp[k]=$12 ""/'
+echo "  [gate] baseline PASS on 16 legs; 13/13 mutants killed"
 echo "Q3_READER_EXACT_GATE=PASS"

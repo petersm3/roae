@@ -80,8 +80,8 @@
 #
 # WHAT THIS GATE CANNOT CATCH, stated rather than left to be rediscovered:
 #   * article-less naming uses of "exhaustive enumeration" for the actual runs -
-#     TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md:48 "alongside exhaustive enumeration
-#     (exact lower bounds; TR-3)" and CITATIONS.md:995 at 05a8d815 (removed 2026-09-02) "or exhaustive enumeration.
+#     TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md:48 (reworded "budget-limited enumeration" in
+#     G5a, Codex F06-012#6) and CITATIONS.md:995 at 05a8d815 (removed 2026-09-02) "or exhaustive enumeration.
 #     [analyzed]" are live borderline sites the fixed string cannot reach without
 #     swallowing the hypothetical-contrast sense corpus-wide. They are recorded here
 #     as prose (this comment) and belong to task #146's fix pass, not to a wider
@@ -156,4 +156,4 @@ allow	reports/TR1_EIGHT_CENTURIES_MEASURED.md	Zheng Qiao	scoped in the opening t
 # ---- rows owned by task #157. Fixing a line = delete its row here. ----
 allow	documentation/CRITIQUE.md	C1+C2+C3	Simultaneous C1+C2+C3 satisfaction	literal	Three-predicate sense: the unconditional null families against the three predicates C1, C2, C3. The line's former second use, the legacy alias ("706M orderings under C1+C2+C3"), now reads C1-C5, so the `open` row this replaces (#146) is closed (Q-763, 2026-09-25).
 open	documentation/CRITIQUE.md	Zheng Qiao	Zheng Qiao/Hu Yigui trigram clustering	A DIFFERENT claim (trigram clustering, not the 18:18 split) - but the bibliography's only remaining Zheng Qiao content is the correction itself, so this credit has no bibliographic anchor. #157: either source it independently (then re-adjudicate as `allow other-contribution`) or amend - the F4' registration is FROZEN, so the fix path is its own dated-amendment clause.
-allow	documentation/SOLVE_PY_CLI.md	C1+C2+C3	c constraints: C1+C2+C3(pb)	literal	QUOTED IN ORDER TO RETRACT IT. This is the .cnf emitter's OWN header string, reproduced verbatim so a reader recognises it in the artifact; the sentence it sits in says it "overstates the file's contents" and that the sole occurrence of C3 in kw.cnf is that comment. Measured 2026-08-31 (batch P06): --sat-c3 pb writes C3 only to the .opb sidecar. Remove this row when the emitter header is fixed.
+allow	documentation/SOLVE_PY_CLI.md	C1+C2+C3	c constraints: C1+C2+C3(pb)	literal	QUOTED IN ORDER TO RETRACT IT. This is the .cnf emitter's FORMER header string: the header was fixed 2026-09-02 (code batch C3; solve.py now writes `c constraints: C1+C2` and a `c NOT in this file:` line), and the paragraph's correction note quotes the old string to record what the header printed until then. Keep this row while that quotation stands; delete it with the quotation (G5a, Codex F06-012#10: the row said to remove it once the header was fixed, which had happened, and deleting it would fail the gate on the correction's own record).

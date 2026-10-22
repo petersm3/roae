@@ -638,7 +638,7 @@ require_pass_token() {
 #   DOC_GATE_SECREF_ALLOWLIST.txt   gate_secrefs, `ALLOW  =`        — python `for ln in open(...)`
 #   DOC_GATE_STATUS_ALLOWLIST.txt   gate_status, `allow =`          — python `for l in open(...)`
 #   DOC_GATE_UNMARKED_ALLOWLIST.txt gate_status, `alw5b =` (5b)     — python `for l in open(...)`
-#   DOC_GATE_NUMBER_ALLOWLIST.txt   gate_numbers, `allow=`          — `grep -qxF -- "$key" "$allow"`
+#   DOC_GATE_NUMBER_ALLOWLIST.txt   gate_numbers, `allow=`          — `grep -vxF -f <(grep '^=' "$allow")` (G5a)
 #   CORRECTIONS_INVENTORY.tsv       no gate in this suite reads it; corrections_inventory.sh WRITES
 #                                   it and its --check (Q-994, a blocking pre_push_gate.sh leg) reads it
 #                                   whole with `git show` + `cmp`; also CORRECTIONS.md's `awk` C4 recipe
@@ -1420,7 +1420,9 @@ if [ "${1:-}" = "--selftest" ]; then
   # it, the ERE is the first single-quoted token in the argument list, and the mutation body
   # opens at column 0. Keep the shape or GATE 16's per-invocation vacuity guard fails.
   assert_fires_why() {
-    local label="$1" gate="$2" want="$3" mut="$4" out rc
+    # G5a (Codex F06-012#7): an optional 5th argument is a second ERE the SAME run must also print
+    # (59b: the surviving figure still [OPEN] while the deleted one fails).
+    local label="$1" gate="$2" want="$3" mut="$4" also="${5:-}" out rc
     _inject "$mut" || { echo "  [FAIL] $label — could not inject, so the"
                         echo "         assertion did NOT run. A skipped assertion is not a pass."
                         printf '%s\n' "$INJECT_WHY"
@@ -1442,7 +1444,9 @@ if [ "${1:-}" = "--selftest" ]; then
     # construct was replaced at every site where the match can land before the end of a multi-line,
     # multi-KB string. A string flattened to ONE line (tr '\n' ' ') is immune and was left alone:
     # grep cannot match a line before reading all of it, so the writer always finishes first. MEASURED 2026-09-25 (Opus AY, every site's string length logged over one full --selftest): seven more pipe sites carried 3.7-20.9 KB and are here-strings now (G1OUT, _Q761_OUT x3, A7OUT x2, B1OUT); every other `printf | grep -q` in this file carried at most 2.8 KB, below one 4 KiB stdio write, so its writer finishes before grep reads.
-    if grep -qE -- "$want" <<<"$out"; then
+    if [ -n "$also" ] && ! grep -qE -- "$also" <<<"$out"; then
+      echo "  [FAIL] $label — $gate fired, but the same run does not also print \"$also\""; PASS=1
+    elif grep -qE -- "$want" <<<"$out"; then
       echo "  [ok]   $label — $gate fires, and WHY names: $want"
     else
       echo "  [FAIL] $label — $gate fired, but its output never names \"$want\","
@@ -2855,7 +2859,8 @@ L=open(a,encoding='utf-8').read().split(chr(10))
 h=[i for i,x in enumerate(L) if x.startswith(d+chr(9)+'8'+chr(9)+'31'+chr(9)+'98'+chr(9))]
 assert len(h)==1, 'the injection just seeded exactly one row for it; found %d' % len(h)
 del L[h[0]]
-open(a,'w',encoding='utf-8').write(chr(10).join(L))"
+open(a,'w',encoding='utf-8').write(chr(10).join(L))" \
+'7 of 31 ineligible -> 1/97 \(arithmetic gives 1/24\) — adjudicated open'
 
   # GATE 5b (inside `status`). 🔴 BOTH HALVES ARE assert_stays_clean_why BY MEASUREMENT, NOT
   # BY PREFERENCE, and the handed-on framing ("neither gate has ever demonstrated it can

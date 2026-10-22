@@ -222,7 +222,13 @@ fi
 # `timeout 0` means NO timeout. The gate supplies its own value to run_row, so a battery-side
 # default of 0 is invisible to every leg above.
 tmo=$(sed -n 's/^Q2_ENUM_TIMEOUT="\${TR12_Q2_ENUM_TIMEOUT:-\([0-9][0-9]*\)}"/\1/p' "$BATTERY" | head -1)
-if [ -n "$tmo" ] && [ "$tmo" -gt 0 ] 2>/dev/null; then
+# G5a (Codex F05-018#6): the FIRST matching assignment is not the effective one -- a later
+# `Q2_ENUM_TIMEOUT=0` (or a battery-side `TR12_Q2_ENUM_TIMEOUT=0`) disabled the bound unseen. The
+# default must be the battery's ONLY assignment to either name.
+nasg=$(grep -cE '^[[:space:]]*((export|local|readonly|declare)[[:space:]]+)?(TR12_)?Q2_ENUM_TIMEOUT=|[;&|({][[:space:]]*(TR12_)?Q2_ENUM_TIMEOUT=' "$BATTERY")
+if [ "$nasg" != 1 ]; then
+  r FAIL "leg 10: the battery assigns Q2_ENUM_TIMEOUT / TR12_Q2_ENUM_TIMEOUT $nasg times -- only the one default may set it, or the effective bound is not the one read here"
+elif [ -n "$tmo" ] && [ "$tmo" -gt 0 ] 2>/dev/null; then
   r ok "leg 10: the battery's wall-clock default is ${tmo}s, a real bound"
 else
   r FAIL "leg 10: the battery's TR12_Q2_ENUM_TIMEOUT default is '${tmo:-<unparseable>}' -- 0 or absent means NO timeout, and no other leg here reads the battery's own value"

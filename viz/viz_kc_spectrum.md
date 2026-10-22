@@ -60,7 +60,7 @@ flat lines. The full reading guide is [How to read it](#how-to-read-it) below.
   this figure alone:
 
   ```bash
-  cd reports/figures && python3 -c "import sys; sys.path.insert(0, '../../viz'); import report_figures as r; r.fig_tr12_kc_spectrum('../tr12/v3_spectrum.tsv')"
+  cd reports/figures && python3 -c "import sys; sys.path.insert(0, '../../viz'); import report_figures as r; sys.exit(r.fig_tr12_kc_spectrum('../tr12/v3_spectrum.tsv') is False)"
   ```
 
 - **Toolchain.** matplotlib 3.11.0 and numpy 2.4.4. Under that pin the documented command reproduced
@@ -128,9 +128,9 @@ as a finding**. The `dclass:*` observables are C5-forced in the same way.
    perform for this figure. Executed at n=9: `--kc-extremal fft_peak_amplitude|c3_total|edit_dist_kw|mean_transition_hamming DIR max`
    each exit 2 (unknown functional), and `--kc-extremal linechanges DIR max` prints
    `constant_on_space=yes`.*
-2. **Values are orbit-replicated.** G-invariant observables are constant on a whole orbit, so a
-   K-point rank grid samples far fewer independent values than K. The step structure that results
-   is symmetry, not signal — the same caveat V1 carries.
+2. **Orbit constancy does not reach this grid.** G-invariant observables are constant on a whole
+   orbit, but the committed 1,000 points lie in 1,000 distinct orbits, so no point repeats another's
+   orbit; the REL step structure is the walk's final hexagram (see "Step structure" below).
 
 
 ## Status (2026-08-22; updated 2026-09-24)

@@ -11675,3 +11675,23 @@ Q-686=DONE
   CORRECTIONS.md in "Where to start", "Going deeper" and the branch section.
 - No measured value, sha, certificate or verdict changed. `TestBatchG4` holds each cure. TR-1 v1.42, TR-2 v1.43, TR-3
   v1.19, TR-4 v1.44, TR-5 v2.24, TR-6 v1.16, TR-7 v2.13, TR-8 v1.24, TR-9 v1.36, TR-10 v1.22, TR-11 v1.36, TR-12 v1.32.
+
+## 2026-10-18 — push group G5a: test and gate quality from Codex's final review, the TR-12 figure checks, and Route D's pin cap
+
+- **Fast-track batch FT3e (CX-35U-A to CX-35U-C).** Codex (gpt-6-astra) found tests that could not fail on the defect
+  they name and figure code that drew what its checks did not reach. The TR-12 V2 figure now requires all 56 branches with
+  their shares equal to solutions/N, V4 binds its bars to the plotted shells and names a walk King Wen's only when the
+  producer's own check agrees, the standalone recipes carry `n` and exit non-zero on a refusal, and every figure guard
+  survives `python -O`. The visualization pages say what they measure (a small measured dependence, eight distinct rows,
+  62 traced walks, the deepening reading's keying, the archived PCA page scoped to its 2026-06 state). The tests that
+  checked a copy, a spelling or an unreachable guard now drive the code; four benchmark classes no longer truncate the
+  shared session VM log.
+- **Fast-track batch FT3g (CX-35U-D, CX-35U-E).** Each gate selftest Codex beat with a surviving mutant now kills it, and
+  the mutation helpers no longer count an unbuilt or crashed mutant as killed. Registry rows say why they are needed, the
+  inventory dates bind to the correction, the tree invariant reads any unquoted `%s`, the number allowlist lists reviewed
+  values, and GATE 64 reads the "boundaries beyond C1–C7 (…" form (Fable's recommendation, G4 pre-publication review).
+  TR-11's executive summary calls TR-3's enumeration budget-limited. The reviewer package's modes are fixed.
+- **Q-1027 (CX-35U-F).** `verify --dp-count` accepts up to 16 pinned steps (was 8), checked against brute force.
+- **Two held rows ruled.** F04-018#5 (a too-wide comment in the frozen C8 defcheck) is corrected in CX-35U-C, the file untouched; F06-003#1 is closed by widening GATE 3b's `historical` class (CX-35U-E).
+- No measured value, sha, certificate or verdict changed. `TestBatchG5a` and `TestQ1027FiveBoundaryPinCap` hold each cure.
+  TR-11 v1.37.

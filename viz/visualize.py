@@ -243,34 +243,54 @@ def load_solutions(filename):
                 lo, hi = min(a, b), max(a, b)
                 solutions[mask, i*2] = lo
                 solutions[mask, i*2+1] = hi
-    elif len(data) % 32 == 0 and len(data) % 64 != 0 and len(data) % 68 != 0:
-        # Pre-v1 packed 32-byte records, no header
-        n_solutions = len(data) // 32
-        raw = np.frombuffer(data, dtype=np.uint8).reshape(n_solutions, 32)
-        _check_packed(raw, filename)                                  # Q-898
-        solutions = np.zeros((n_solutions, 64), dtype=np.uint8)
-        for i in range(32):
-            pidx = raw[:, i] >> 2
-            for pi in range(32):
-                mask = pidx == pi
-                a, b = kw_pairs[pi]
-                lo, hi = min(a, b), max(a, b)
-                solutions[mask, i*2] = lo
-                solutions[mask, i*2+1] = hi
-        print(f"  Loaded {n_solutions:,} solutions from {filename} (pre-v1 32-byte packed records, no header)")
-    elif len(data) % 68 == 0 and (len(data) // 68) * 68 == len(data) and len(data) % 64 != 0:
-        # 68-byte format
-        n_solutions = len(data) // 68
-        raw = np.frombuffer(data, dtype=np.uint8).reshape(n_solutions, 68)
-        solutions = raw[:, :64].copy()
-        print(f"  Loaded {n_solutions:,} solutions from {filename} (68-byte legacy records)")
-    elif len(data) % 64 == 0:
-        # 64-byte format
-        n_solutions = len(data) // 64
-        solutions = np.frombuffer(data, dtype=np.uint8).reshape(n_solutions, 64)
-        print(f"  Loaded {n_solutions:,} solutions from {filename} (64-byte legacy records)")
     else:
-        raise ValueError(f"File size {len(data)} does not match any known format (no ROAE magic; not divisible by 32, 68, or 64)")
+        # G5a (Codex F04-019#5): headerless formats were told apart by file-size divisibility alone, so an
+        # even count of packed 32-byte records, and 16 legacy 68-byte records, are both multiples of 64
+        # and were decoded as 64-byte records. Each size-compatible format is now tried on the CONTENT
+        # (every record a permutation: 32 pair indices, or 64 hexagrams), and exactly one must fit.
+        u8 = np.frombuffer(data, dtype=np.uint8)
+        if not len(data):
+            raise ValueError(f"{filename} is empty (no ROAE magic, no records)")
+        sizes = [w for w in (32, 68, 64) if len(data) % w == 0]
+        fits = []
+        if len(sizes) == 1:
+            fits = sizes                  # one size-compatible format: its own checks speak below
+        elif len(data) % 32 == 0:
+            r32 = u8.reshape(-1, 32)
+            if not (r32 & 0x81).any() and (np.sort(r32 >> 2, axis=1) == np.arange(32, dtype=np.uint8)).all():
+                fits.append(32)
+        for w in ((68, 64) if len(sizes) > 1 else ()):
+            if len(data) % w == 0 and (np.sort(u8.reshape(-1, w)[:, :64], axis=1) == np.arange(64, dtype=np.uint8)).all():
+                fits.append(w)
+        if not sizes:
+            raise ValueError(f"File size {len(data)} does not match any known format (no ROAE magic; not divisible by 32, 68, or 64)")
+        if len(fits) != 1:
+            raise ValueError(f"File size {len(data)} (no ROAE magic) fits "
+                             + ("no known headerless format: not every record is a valid 32-byte packed, 68-byte or 64-byte record" if not fits
+                                else "more than one headerless format (%s bytes per record); refusing to guess" % ", ".join(map(str, fits))))
+        if fits[0] == 32:
+            # Pre-v1 packed 32-byte records, no header
+            n_solutions = len(data) // 32
+            raw = u8.reshape(n_solutions, 32)
+            _check_packed(raw, filename)                                  # Q-898
+            solutions = np.zeros((n_solutions, 64), dtype=np.uint8)
+            for i in range(32):
+                pidx = raw[:, i] >> 2
+                for pi in range(32):
+                    mask = pidx == pi
+                    a, b = kw_pairs[pi]
+                    lo, hi = min(a, b), max(a, b)
+                    solutions[mask, i*2] = lo
+                    solutions[mask, i*2+1] = hi
+            print(f"  Loaded {n_solutions:,} solutions from {filename} (pre-v1 32-byte packed records, no header)")
+        elif fits[0] == 68:
+            n_solutions = len(data) // 68
+            solutions = u8.reshape(n_solutions, 68)[:, :64].copy()
+            print(f"  Loaded {n_solutions:,} solutions from {filename} (68-byte legacy records)")
+        else:
+            n_solutions = len(data) // 64
+            solutions = u8.reshape(n_solutions, 64)
+            print(f"  Loaded {n_solutions:,} solutions from {filename} (64-byte legacy records)")
     return solutions
 
 def compute_features(solutions):
@@ -492,6 +512,49 @@ def generate_plots(solutions, features, projected, kw_idx, var_explained=None):
     plt.close(fig)
     print("  Saved viz_adjacency.png and viz_adjacency.svg")
 
+def _telemetry_cumulative(raw, resume, keyed):
+    """Cumulative compute-T from per-session heartbeat counters (plot_telemetry; G5a, Codex F04-019#6).
+
+    `raw` is each sample's compute_T (NaN = none), `resume` its resume_seq. With `keyed`, sessions are
+    the resume_seq runs: within one the counter only grows, so a sample is taken at the least value
+    from it to the session's end (a stale pre-restart heartbeat is ignored), and each session banks its
+    last value. Without resume_seq, a drop of more than 1T marks a restart, as before."""
+    out = [float('nan')] * len(raw)
+    eff = list(raw)
+    if keyed:
+        tail = {}
+        for i in range(len(raw) - 1, -1, -1):
+            c = raw[i]
+            if c != c:
+                continue
+            t = tail.get(resume[i])
+            tail[resume[i]] = eff[i] = c if t is None else min(c, t)
+    off = 0.0; prev = None; cmax = 0.0; sess = None
+    for i in range(len(raw)):
+        c = eff[i]
+        if c != c:
+            continue
+        if keyed:
+            if sess is not None and resume[i] != sess:       # a new session: bank the last one's total
+                off += prev
+            sess = resume[i]
+        elif prev is not None and c < prev - 1.0:          # heartbeat reset (dropped >1T nodes)
+            off += prev
+        prev = c
+        cum = max(off + c, cmax)                            # cumulative compute is monotonic
+        cmax = cum
+        out[i] = cum
+    return out
+
+
+def _telemetry_down(secs, resume, keyed, gap_sec=900.0):
+    """[i] = True when the interval before sample i is VM downtime (plot_telemetry; G5a, Codex
+    F04-019#7). A gap longer than gap_sec is downtime only when, with resume_seq recorded, a resume
+    boundary falls across it; a gap inside one session is missing telemetry, not an eviction."""
+    return [i > 0 and secs[i] - secs[i - 1] > gap_sec and (not keyed or resume[i] != resume[i - 1])
+            for i in range(len(secs))]
+
+
 def plot_telemetry(csv_path, outdir='.'):
     """Operational campaign-telemetry plots from campaign_telemetry_sampler.sh CSV.
 
@@ -538,9 +601,9 @@ def plot_telemetry(csv_path, outdir='.'):
     # before solve.c's first "…M/s" heartbeat, so throughput/compute_T/pct are NA → the rate/progress
     # lines would start a sample to the right, looking like a gap). Trim them so every line starts flush;
     # this matches the sampler's first-emit skip used by later campaigns. cells/cpu-freq are unaffected.
+    t0 = tparse(rows[0]['utc'])      # G5a (Codex F04-019#8): the LAUNCH sample, taken before the trim below
     while len(rows) > 1 and num(rows[0], 'throughput_M_s') != num(rows[0], 'throughput_M_s'):
         rows.pop(0)
-    t0 = tparse(rows[0]['utc'])
     secs = [(tparse(r['utc']) - t0).total_seconds() for r in rows]
     hrs = [s / 3600.0 for s in secs]
     resume = [int(num(r, 'resume_seq')) if num(r, 'resume_seq') == num(r, 'resume_seq') else 0 for r in rows]
@@ -558,19 +621,15 @@ def plot_telemetry(csv_path, outdir='.'):
     # carry the pre-reset value forward as an offset, so the panel shows true cumulative progress —
     # matching cells_scanned (which is filesystem-cumulative and unaffected). pct_complete is recomputed
     # from the cumulative. [Found 2026-06-24; root-cause carry-forward fix belongs in the sampler.]
-    _off = 0.0; _prev_raw = None; _cmax = 0.0
-    for i in range(len(rows)):
-        _c = num(rows[i], 'compute_T')
-        if _c != _c:
-            continue
-        if _prev_raw is not None and _c < _prev_raw - 1.0:   # heartbeat reset (dropped >1T nodes)
-            _off += _prev_raw
-        _prev_raw = _c
-        _cum = _off + _c
-        if _cum < _cmax:                                     # cumulative compute is monotonic; suppress the
-            _cum = _cmax                                     # ~0.4T dip from a lingering pre-eviction heartbeat
-        _cmax = _cum
-        rows[i]['compute_T'] = repr(_cum)                    # cumulative; pct recomputed after target_T
+    # G5a (Codex F04-019#6): sessions are keyed by resume_seq when the column is present. The 1T-drop
+    # rule missed a restart that had done less than 1T, and a stale pre-restart heartbeat read inside the
+    # next session was added to the offset a second time. Within a session the counter only grows, so a
+    # sample is taken at the least value from it to the session's end (a stale higher value is ignored),
+    # and each session adds its own last value to the offset. Without resume_seq the 1T-drop rule stays.
+    _keyed = any(num(r, 'resume_seq') == num(r, 'resume_seq') for r in rows)
+    for _r, _v in zip(rows, _telemetry_cumulative([num(r, 'compute_T') for r in rows], resume, _keyed)):
+        if _v == _v:
+            _r['compute_T'] = repr(_v)                       # cumulative; pct recomputed after target_T
 
     # Bridge SHORT interior telemetry gaps (a few samples where solve.c's heartbeat wasn't in the log
     # tail at sample time → NA, while the enum kept running — cells_scanned is continuous). Linearly
@@ -638,10 +697,16 @@ def plot_telemetry(csv_path, outdir='.'):
     # OFF (Spot eviction / deallocation) — there is NO data in that interval. We must NOT connect a
     # straight line across it. Rate/activity metrics are drawn dropping to 0 (no work happened);
     # cumulative/level metrics hold their last value flat (progress paused, not lost). The interval
-    # is shaded. Gap detection is purely time-based so it catches downtime even without a boot flip.
+    # is shaded. Without a resume_seq column gap detection is time-based alone (see _down below).
     GAP_SEC = 900.0   # 3× the 300s cadence
+    # G5a (Codex F04-019#7, F12-022#11): a gap alone is missing telemetry, not proof the VM was off. With
+    # resume_seq present, a gap is downtime only when a resume boundary falls across it; a gap inside one
+    # session is a sampler interruption and is drawn as missing data (no zeros, no band, no eviction).
+    _downs = _telemetry_down(secs, resume, _keyed, GAP_SEC)
+    def _down(i):
+        return _downs[i]
     gaps_h = [(secs[i - 1] / 3600.0, secs[i] / 3600.0)
-              for i in range(1, len(secs)) if secs[i] - secs[i - 1] > GAP_SEC]
+              for i in range(1, len(secs)) if _down(i)]
     RATE_KEYS = {'throughput_M_s', 'cpu_freq_avg_mhz', 'cpu_freq_min_mhz', 'iops_read', 'iops_write',
                  'rd_mbps', 'wr_mbps', 'disk_util_pct', 'disk_util_peak_pct', 'iowait_pct',
                  'avg_queue', 'load1'}
@@ -652,10 +717,12 @@ def plot_telemetry(csv_path, outdir='.'):
         y = col(k); rate = k in RATE_KEYS; X = []; Y = []
         eps = 1e-6
         for i in range(len(rows)):
-            if i > 0 and (secs[i] - secs[i - 1] > GAP_SEC):
+            if i > 0 and _down(i):
                 fill = 0.0 if rate else y[i - 1]
                 X.append(hrs[i - 1] + eps); Y.append(fill)   # drop/hold at gap start
                 X.append(hrs[i] - eps);     Y.append(fill)   # …across the downtime…
+            elif i > 0 and secs[i] - secs[i - 1] > GAP_SEC:  # a telemetry gap inside a session: no data
+                X.append(hrs[i - 1] + eps); Y.append(float('nan'))
             X.append(hrs[i]); Y.append(y[i])                 # real sample
         return X, Y
 
@@ -693,7 +760,7 @@ def plot_telemetry(csv_path, outdir='.'):
     # the rate fit). Built once; used by the ETA projection.
     _cum = 0.0; active_h = []
     for i in range(len(hrs)):
-        if i > 0 and (secs[i] - secs[i - 1] > GAP_SEC):
+        if i > 0 and _down(i):
             _cum += (secs[i] - secs[i - 1]) / 3600.0
         active_h.append(hrs[i] - _cum)
     downtime_h = _cum
@@ -937,7 +1004,7 @@ def plot_telemetry(csv_path, outdir='.'):
         thr = 0.95 * steady
         evs = []   # (start_h, end_h, seg, downtime_h, recovery_min)
         for i in range(1, len(rows)):
-            if secs[i] - secs[i - 1] > GAP_SEC:
+            if _down(i):
                 seg = resume[i]; recov = float('nan')
                 for j in range(i, len(rows)):
                     if resume[j] != seg:

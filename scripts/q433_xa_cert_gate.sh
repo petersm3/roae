@@ -154,13 +154,26 @@ def _l18():
     deep = w("deep.json", "[" * 100000 + "]" * 100000)
     return refused(w("nested.json", nested)) and refused(deep)
 leg("L18", _l18)
+# L19  G5a (Codex F05-014#7): every refusal above was asked of the LOADER; this asks the CONSUMER.
+# Through atlas_emit_xa, an absent, a pre-Q-772 and a kc-t certificate must price nothing: no row
+# may make an EXHAUSTIBLE or INFEASIBLE call (kills m7, a consumer that substitutes a default map).
+def _l19():
+    certs = [os.path.join(d, "absent19.json"),
+             w("old19.json", {"node_convention": {LEGACY: "CERTIFIED: 1 t-unit == 1 node"}}),
+             w("kct19.json", {"type": "roae-kc-t-node-convention-certificate", "version": 1})]
+    for p in certs:
+        v, rows = emit(p)
+        if v == "PASS" or any(c in ("EXHAUSTIBLE", "INFEASIBLE") for _x, c in rows.values()):
+            return False
+    return True
+leg("L19", _l19)
 PY
 
-NLEGS=19
+NLEGS=20
 legs(){ python3 "$WORK/legs.py" "$1" 2>/dev/null; }
 
 BASE=$(legs solve.py)
-# 19 since 2026-09-24 (Q-772): L1, L1b, L2-L18. A count that lags its population is a check that
+# 20 since G5a (L19); 19 since 2026-09-24 (Q-772): L1, L1b, L2-L18. A count that lags its population is a check that
 # has stopped counting, so the pin moves in the same change as the legs.
 [ "$(printf '%s\n' "$BASE" | grep -c '^L[0-9a-z]*=')" = "$NLEGS" ] \
   || fail "baseline produced $(printf '%s\n' "$BASE" | grep -c '^L[0-9a-z]*=') leg verdicts, not $NLEGS -- the gate measured nothing"
@@ -201,6 +214,14 @@ elif edit == "m3_checks_removed":
 elif edit == "m5_sha_unverified":
     old = '"sha256": hashlib.sha256(raw).hexdigest()'
     new = '"sha256": hashlib.sha256(b"").hexdigest()'
+elif edit == "m7_consumer_default_map":
+    old = '                          else _xa_node_mapping_load(cost.get("node_mapping_cert")))\n'
+    new = ('                          else _xa_node_mapping_load(cost.get("node_mapping_cert")))\n'
+           '        if xa_map is None and cost is not None:\n'
+           '            from fractions import Fraction as _F\n'
+           '            xa_map, xa_refusal = {"factor": _F(1), "kind": "exact", "residual": 0, "formula": "m",\n'
+           '                "law": "m", "sha256": "0" * 64, "path": "m", "provenance": {}, "engine_git": "m",\n'
+           '                "measured_n": [], "verdict_line": "m", "scope_n": None}, None\n')
 elif edit == "m6_prefix_match":
     old = '    m = re.fullmatch(r"([0-9]{1,%d})/([0-9]{1,%d})"'
     new = '    m = re.match(r"([0-9]{1,%d})/([0-9]{1,%d})"'
@@ -243,7 +264,8 @@ K=0
 for m in M0_accept_all:accept_all:L1b M0b_refuse_all:refuse_all:L1 \
          m1_factor_ignored:m1_factor_ignored:L15 m2_kind_ignored:m2_kind_ignored:L16 \
          m3_checks_removed:m3_checks_removed:L17 m4_recursive_find:m4_recursive_find:L18 \
-         m5_sha_unverified:m5_sha_unverified:L1 m6_prefix_match:m6_prefix_match:L17; do
+         m5_sha_unverified:m5_sha_unverified:L1 m6_prefix_match:m6_prefix_match:L17 \
+         m7_consumer_default_map:m7_consumer_default_map:L19; do
   IFS=: read -r mname medit mleg <<<"$m"
   mutate "$mname" "$medit" "$mleg"
   case $? in
@@ -252,6 +274,6 @@ for m in M0_accept_all:accept_all:L1b M0b_refuse_all:refuse_all:L1 \
     *) echo "Q433_XA_CERT=ERROR"; exit 2 ;;
   esac
 done
-[ "$K" = 8 ] || fail "evaluated $K mutants, expected 8"
-echo "  [gate] baseline PASS on $NLEGS legs; $K/8 mutants killed"
+[ "$K" = 9 ] || fail "evaluated $K mutants, expected 9"
+echo "  [gate] baseline PASS on $NLEGS legs; $K/9 mutants killed"
 echo "Q433_XA_CERT=PASS"

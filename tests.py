@@ -32,6 +32,12 @@ def _py_src(name):
     p = os.environ.get(env, "") if env else ""
     return os.path.abspath(p) if p else name + ".py"
 
+def _q908_error_is_environmental(stdout):
+    """True when every ERROR: line q908_join_accept.sh printed is a missing or stale binary (G5a)."""
+    errs = [l for l in stdout.splitlines() if l.startswith("ERROR:")]
+    env = re.compile(r"not found/executable|is older than|is OLDER than|carries SOURCE_SHA|no executable binary")
+    return bool(errs) and all(env.search(l) for l in errs)
+
 def _load(name):
     spec = importlib.util.spec_from_file_location(name, _py_src(name))
     m = importlib.util.module_from_spec(spec)
@@ -125,6 +131,22 @@ class TestTr8DofSampler(unittest.TestCase):
         # Bank order is the evaluation order — if these ever diverge every marginal is
         # attributed to the wrong template and nothing downstream would notice.
         self.assertEqual(len(solve.tr8_clause_values(KW)), len(bank))
+        # G5a (Codex F04-010#15): a length match does not bind descriptor k to value k. Recompute
+        # each value FROM ITS DESCRIPTOR (family, instance index, comparator) on orderings that
+        # differ from King Wen, and require the evaluator's k-th value to agree.
+        import random
+        kw = solve.tr8_kw_features()
+        rng = random.Random(20261018)
+        seqs = [list(reversed(KW))] + [rng.sample(list(KW), 64) for _ in range(6)]
+        for seq in seqs:
+            f = solve._tr8_features(seq)
+            vals = solve.tr8_clause_values(seq)
+            for k, (fam, idx, cmp, _desc) in enumerate(bank):
+                fi = "ABCDEFGHI".index(fam)
+                pos = idx // 4 - 1 if fam == "F" else idx - 1
+                a, b = f[fi][pos], kw[fi][pos]
+                want = 1 if (a == b if cmp == "eq" else a >= b) else 0
+                self.assertEqual(vals[k], want, "bank entry %d (%s%d) is not the value evaluated at %d" % (k, fam, idx, k))
 
     def test_h_a_king_wen_satisfies_every_template(self):
         # H-a: every clause is instantiated at King Wen's own value, so King Wen satisfies
@@ -1900,9 +1922,12 @@ class TestCheckArtifactControls(unittest.TestCase):
     def test_ctl_subrange_invocation_stays_green(self):
         # The geometry leg must fire ONLY on a whole-file read. A sub-range
         # request deliberately reads fewer records than the header declares and
-        # must not be reported as corrupt framing.
-        recs = [bytes.fromhex(self.KWREC_HEX)]
+        # must not be reported as corrupt framing. G5a (Codex F04-015#8): three records declared,
+        # one requested -- with one of each the inequality this control is for never arose.
+        recs = [bytes.fromhex(self.KWREC_HEX)] * 3
         p = self._artifact("sub.bin", recs)
+        with open(p, "rb") as fh:
+            self.assertEqual(struct.unpack("<Q", fh.read(16)[8:16])[0], 3, "precondition: the header declares 3")
         py = subprocess.run([sys.executable, "verify.py", p, "--check-artifact", "1"],
                             capture_output=True, text=True)
         self.assertEqual(py.returncode, 0)
@@ -4186,6 +4211,17 @@ class TestGrammarSearchCheckpointIdentity(unittest.TestCase):
                          "loader reverted to validating ncand alone — a row from a different "
                          "seed would be silently reused")
         self.assertIn("IGNORED", src, "mismatched rows must be reported, not dropped in silence")
+        # G5a (Codex F04-015#5): the comparison itself, executed -- a row that differs in any one
+        # identity field (or in `want`) is refused naming that field; the matching row is reused.
+        R = _load("roae")
+        ident = dict(seed=7, ncand=12, batches=4, nsamp=100, cands="abcd")
+        jobs = [(0, 5), (1, 6)]
+        good = dict(ident, batch=1, want=6, n=1, hits=0)
+        self.assertEqual(R._gs_ck_row_mismatch(good, ident, jobs), [])
+        for k in tuple(ident) + ("want",):
+            row = dict(good); row[k] = "other"
+            self.assertEqual(R._gs_ck_row_mismatch(row, ident, jobs), [k],
+                             "a row differing only in %r must be refused on %r" % (k, k))
 
 
 class TestSatLane12(unittest.TestCase):
@@ -5307,6 +5343,19 @@ class TestExtractionNull(unittest.TestCase):
             self.assertEqual(counts.get(5, 0), 0, f"{v!r} carries a distance-5 transition (breaks C2)")
             self.assertEqual(counts.get(0, 0), 0, f"{v!r} carries a distance-0 transition")
             self.assertTrue(all(0 <= d <= 6 for d in counts), f"{v!r} has an out-of-range distance")
+            # G5a (Codex F04-015#6): C1 fixes the 32 within-pair transitions, so every C1 ordering's
+            # multiset contains King Wen's within-pair distances; "1:63" passes the checks above.
+            for d, c in self._within_pair().items():
+                self.assertGreaterEqual(counts.get(d, 0), c,
+                                        f"{v!r} lacks the {c} within-pair distance-{d} transitions C1 forces")
+
+    @staticmethod
+    def _within_pair():
+        wp = {}
+        for i in range(0, 64, 2):
+            d = bin(KW[i] ^ KW[i + 1]).count("1")
+            wp[d] = wp.get(d, 0) + 1
+        return wp
 
     def test_king_wens_own_multiset_is_drawable(self):
         # Not a formality: it is the self-consistency anchor of the whole control. If KW's own
@@ -5612,6 +5661,20 @@ class TestAtlasExternalChecksAreReachableAndCanFail(unittest.TestCase):
         S = _load("solve")
         st, detail = S.atlas_a3_external_check(
             self._atlas(pert={"pair5": -20000, "pair4": 20000}))
+        self.assertEqual(st, "FAIL", detail)
+
+    def test_a3_fails_when_classes_1_and_5_move_with_class_3_fixed(self):
+        # G5a (Codex F05-015#3): every numerical A3 fixture above moved class 3, so a verdict that
+        # read class 3 alone passed the battery. Here classes 1 and 5 move 0.02 each; class 3 is fixed.
+        S = _load("solve")
+        st, detail = S.atlas_a3_external_check(self._atlas(pert={"pair4": 20000, "pair3": -20000}))
+        self.assertEqual(st, "FAIL", detail)
+
+    def test_a2_fails_on_cancelling_slot_errors(self):
+        # G5a (Codex F05-015#2): slot 2 +0.02 and slot 32 -0.02 keep their R-C1c sum; a check that
+        # compared the sum alone passed it. Each slot is its own anchor.
+        S = _load("solve")
+        st, detail = S.atlas_a2_slot_check(self._atlas(slot2=72000, slot32=58500))
         self.assertEqual(st, "FAIL", detail)
 
     def test_a3_fails_on_a_closer_that_is_not_eligible(self):
@@ -7502,15 +7565,10 @@ class TestGrammarSearchPhaseCIsOrderIndependent(unittest.TestCase):
         self.R._GS["cands"] = cands
 
         def reduce_shipped(order):
+            # G5a (Codex F04-014#2): the PRODUCTION reduction step, not a copy of it.
             best = {}
             for idx in order:
-                key = ("KW", 5)
-                if key not in best:
-                    best[key] = idx
-                else:
-                    cur = best[key]
-                    if ((self._L(cands[idx]), idx) < (self._L(cands[cur]), cur)):
-                        best[key] = idx
+                self.R._gs_phase_c_merge(best, ("KW", 5), idx)
             return best
 
         fwd = reduce_shipped(list(range(6)))
@@ -7789,6 +7847,10 @@ class TestMissingInputIsRefusedNotCrashed(unittest.TestCase):
         cls.text = os.path.join(cls.tmp, "text.bin")
         with open(cls.text, "w") as fh:
             fh.write("# not a solutions.bin, not JSON, not gzip\n")
+        cls.valid = os.path.join(cls.tmp, "valid.bin")      # a well-formed v1 file (G5a, F04-015#7)
+        kwrec = bytes(i << 2 for i in range(32))
+        with open(cls.valid, "wb") as fh:
+            fh.write(b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", 2) + b"\0" * 16 + kwrec * 2)
         cls.afile = os.path.join(cls.tmp, "afile")          # a FILE where a directory is needed
         with open(cls.afile, "w") as fh:
             fh.write("x\n")
@@ -7821,10 +7883,12 @@ class TestMissingInputIsRefusedNotCrashed(unittest.TestCase):
              r"COMPUTE_STATS=FAIL cannot read .*: No such file or directory"),
             (["--branch-yield-report", M + ".bin"], 2,
              r"ERROR: --branch-yield-report: cannot read SOLUTIONS_BIN .*: No such file or directory"),
-            (["--branch-yield-report", T, "--branch-yield-manifest", M + ".json"], 2,
-             r"ERROR: --branch-yield-report: cannot read (SOLUTIONS_BIN|MANIFEST_JSON) .*"),
-            (["--branch-yield-report", T, "--branch-yield-baseline", M + ".bin"], 2,
-             r"ERROR: --branch-yield-report: cannot read (SOLUTIONS_BIN|BASELINE_BIN) .*"),
+            # G5a (Codex F04-015#7): a VALID primary file, so the refusal is the secondary
+            # input's own guard; with the text file both cases stopped at SOLUTIONS_BIN first.
+            (["--branch-yield-report", self.valid, "--branch-yield-manifest", M + ".json"], 2,
+             r"ERROR: --branch-yield-report: cannot read MANIFEST_JSON .*"),
+            (["--branch-yield-report", self.valid, "--branch-yield-baseline", M + ".bin"], 2,
+             r"ERROR: --branch-yield-report: cannot read BASELINE_BIN .*"),
             (["--keystone-analysis", M + ".bin", os.path.join(self.tmp, "ks.md")], 1,
              r"KEYSTONE_ANALYSIS=FAIL cannot read .*: No such file or directory"),
             (["--compare-depth-profile", M + ".a", M + ".b"], 2,
@@ -10314,7 +10378,7 @@ class TestQ699Q3ReaderRefusesZeroAndChecksTerminal(unittest.TestCase):
                            capture_output=True, text=True, cwd=here)
         lines = r.stdout.splitlines()
         self.assertIn("Q3_READER_EXACT_GATE=PASS", lines, r.stdout + r.stderr)
-        self.assertIn("  [gate] baseline PASS on 11 legs; 9/9 mutants killed", lines)
+        self.assertIn("  [gate] baseline PASS on 16 legs; 13/13 mutants killed", lines)   # G5a: legs 12-16, M10-M13
         self.assertEqual(0, r.returncode)
 
 
@@ -10961,8 +11025,13 @@ class TestAtlasResidualRank(unittest.TestCase):
         for trial in range(40):
             m, nc, k = rng.randint(2, 9), rng.randint(2, 9), rng.randint(1, 5)
             base = [[rng.randint(-4, 4) for _ in range(nc)] for _ in range(k)]
-            rows = base + [[sum(rng.randint(-3, 3) * b[j] for b in base) for j in range(nc)]
-                           for _ in range(m)]
+            # G5a (Codex F04-015#9): ONE coefficient vector per appended row, so the row really is
+            # a combination of the base rows (fresh coefficients per column made it a new row).
+            rows = list(base)
+            for _ in range(m):
+                cs = [rng.randint(-3, 3) for _ in base]
+                rows.append([sum(c * b[j] for c, b in zip(cs, base)) for j in range(nc)])
+            self.assertEqual(qrank(rows), qrank(base), "precondition: the fixture is as deficient as stated")
             r, lo, up = solve._int_matrix_rank_certified(rows)
             self.assertEqual(r, qrank(rows), rows)
             self.assertTrue(lo and up, rows)
@@ -15668,7 +15737,7 @@ class TestQ847PerfBenchFreshWorkdir(unittest.TestCase):
     """
     ROOT = os.path.dirname(os.path.abspath(__file__))
     SCRIPT = os.path.join(ROOT, "scripts", "perf_bench.sh")
-    SESSION_LOG = "/tmp/claude_session_vms.txt"   # the script appends to it; restored below
+    SESSION_LOG = "/tmp/claude_session_vms.txt"   # never touched here: PB_SESSION_LOG points perf_bench at cls.tmp (G5a, F04-016#1)
 
     STUBS = {
         "az": r"""#!/bin/sh
@@ -15728,11 +15797,7 @@ chmod +x "$out"
         cls.probe_log = os.path.join(cls.tmp, "probe.log")
         cls.az_log = os.path.join(cls.tmp, "az.log")
         cls.env = dict(os.environ, PATH=cls.bin + os.pathsep + os.environ["PATH"],
-                       PB_FAKE_HOME=cls.home, PB_PROBE_LOG=cls.probe_log, PB_AZ_LOG=cls.az_log)
-        try:
-            cls.session_log_size = os.path.getsize(cls.SESSION_LOG)
-        except OSError:
-            cls.session_log_size = None
+                       PB_SESSION_LOG=os.path.join(cls.tmp, "session_vms.txt"), PB_FAKE_HOME=cls.home, PB_PROBE_LOG=cls.probe_log, PB_AZ_LOG=cls.az_log)
         cls.pids, cls.results_dirs, cls.runs = [], [], []
         # Two consecutive benches on the SAME fake host, default PGO workload.
         for _ in range(2):
@@ -15764,12 +15829,6 @@ chmod +x "$out"
                     os.remove(path)
         for d in set(getattr(cls, "results_dirs", [])):
             shutil.rmtree(d, ignore_errors=True)
-        size = getattr(cls, "session_log_size", None)
-        if size is None:
-            if os.path.exists(cls.SESSION_LOG):
-                os.remove(cls.SESSION_LOG)
-        elif os.path.exists(cls.SESSION_LOG):
-            os.truncate(cls.SESSION_LOG, size)
         if getattr(cls, "tmp", None) and os.path.isdir(cls.tmp):
             shutil.rmtree(cls.tmp, ignore_errors=True)
 
@@ -16621,7 +16680,7 @@ class TestQ851ScriptWorkdirTmpReuse(unittest.TestCase):
     ROOT = os.path.dirname(os.path.abspath(__file__))
     GATE = os.path.join(ROOT, "scripts", "selftest_resume_167_gate.sh")
     BENCH = os.path.join(ROOT, "scripts", "perf_bench.sh")
-    SESSION_LOG = "/tmp/claude_session_vms.txt"   # perf_bench appends to it; restored below
+    SESSION_LOG = "/tmp/claude_session_vms.txt"   # never touched here: PB_SESSION_LOG points perf_bench at cls.tmp (G5a, F04-016#1)
 
     STUB_SOLVE = r"""#!/bin/bash
 b=$(( ${SOLVE_NODE_LIMIT:?} / 10 ))
@@ -16678,13 +16737,9 @@ exec cp "$src" "$dst"
             os.chmod(path, 0o755)
         cls.scp_log = os.path.join(cls.tmp, "scp.log")
         cls.benv = dict(os.environ, PATH=cls.bin + os.pathsep + os.environ["PATH"],
-                        PB_FAKE_HOME=cls.home, PB_PROBE_LOG=os.path.join(cls.tmp, "probe.log"),
+                        PB_SESSION_LOG=os.path.join(cls.tmp, "session_vms.txt"), PB_FAKE_HOME=cls.home, PB_PROBE_LOG=os.path.join(cls.tmp, "probe.log"),
                         PB_AZ_LOG=os.path.join(cls.tmp, "az.log"), PB_SCP_LOG=cls.scp_log)
         cls.benv.pop("PB_GCC_FAIL", None)
-        try:
-            cls.session_log_size = os.path.getsize(cls.SESSION_LOG)
-        except OSError:
-            cls.session_log_size = None
         cls.pids, cls.results_dirs, cls.bench = [], [], {}
         for key, extra in (("ok1", {}), ("ok2", {}), ("fail", {"PB_GCC_FAIL": "1"})):
             open(cls.scp_log, "w").close()
@@ -16725,12 +16780,6 @@ exec cp "$src" "$dst"
                     os.remove(pth)
                 elif re.fullmatch(r"/tmp/perf_bench_src\.[^/]+/solve_(ctl|trt)\.c", pth):
                     shutil.rmtree(os.path.dirname(pth), ignore_errors=True)
-        size = getattr(cls, "session_log_size", None)
-        if size is None:
-            if os.path.exists(cls.SESSION_LOG):
-                os.remove(cls.SESSION_LOG)
-        elif os.path.exists(cls.SESSION_LOG):
-            os.truncate(cls.SESSION_LOG, size)
         if getattr(cls, "tmp", None) and os.path.isdir(cls.tmp):
             shutil.rmtree(cls.tmp, ignore_errors=True)
 
@@ -16871,9 +16920,10 @@ exec cp "$src" "$dst"
             self.assertTrue(os.path.isdir(d), d)
 
     def test_bench_session_vm_log_path_is_still_the_documented_one(self):
-        # CLAUDE.md names /tmp/claude_session_vms.txt as the session VM log; Q-851 keeps it.
+        # CLAUDE.md names /tmp/claude_session_vms.txt as the session VM log; Q-851 keeps it as the
+        # default (PB_SESSION_LOG redirects it for tests only; G5a, F04-016#1).
         with open(self.BENCH) as fh:
-            self.assertIn(">> /tmp/claude_session_vms.txt", fh.read())
+            self.assertIn('>> "${PB_SESSION_LOG:-/tmp/claude_session_vms.txt}"', fh.read())
 # end class TestQ851ScriptWorkdirTmpReuse (lane FL)
 
 
@@ -17346,7 +17396,7 @@ class TestQ856PerRunTmpAndCloudNames(unittest.TestCase):
     PGO = os.path.join(ROOT, "scripts", "build_pgo.sh")
     VERIFY = os.path.join(ROOT, "reports", "certificates", "verify_all.sh")
     BENCH = os.path.join(ROOT, "scripts", "perf_bench.sh")
-    SESSION_LOG = "/tmp/claude_session_vms.txt"   # perf_bench appends to it; restored below
+    SESSION_LOG = "/tmp/claude_session_vms.txt"   # never touched here: PB_SESSION_LOG points perf_bench at cls.tmp (G5a, F04-016#1)
     MARK = "q856-stub"
 
     PGO_GCC = r"""#!/bin/bash
@@ -17441,10 +17491,6 @@ echo "s VERIFIED"
         real_date = shutil.which("date")
         stubs["date"] = "#!/bin/bash\n[ \"$*\" = \"-u +%%H%%M\" ] && { echo 9999; exit 0; }\nexec %s \"$@\"\n" % real_date
         cls._write_stubs(cls.pb_bin, stubs)
-        try:
-            cls.session_log_size = os.path.getsize(cls.SESSION_LOG)
-        except OSError:
-            cls.session_log_size = None
         cls.pb_pids, cls.pb = [], {}
         for k in ("b1", "b2"):
             cls.pb[k] = cls._bench(k)
@@ -17488,7 +17534,7 @@ echo "s VERIFIED"
     def _bench(cls, key):
         az_log = os.path.join(cls.tmp, "az_%s.log" % key)
         env = dict(os.environ, PATH=cls.pb_bin + os.pathsep + os.environ["PATH"], PB_AZ_LOG=az_log,
-                   PB_FAKE_HOME=os.path.join(cls.tmp, "fakehost"),
+                   PB_SESSION_LOG=os.path.join(cls.tmp, "session_vms.txt"), PB_FAKE_HOME=os.path.join(cls.tmp, "fakehost"),
                    PB_PROBE_LOG=os.path.join(cls.tmp, "probe.log"))
         argv = ["bash", cls.BENCH, "--control-commit", "HEAD", "--treatment-commit", "HEAD",
                 "--scale", "1B", "--burn-seconds", "30", "--throttle-min-mhz", "0"]
@@ -17522,12 +17568,6 @@ echo "s VERIFIED"
             pth = "/tmp/perf_bench_%d.log" % pid
             if os.path.exists(pth):
                 os.remove(pth)
-        if hasattr(cls, "session_log_size"):
-            if cls.session_log_size is None:
-                if os.path.exists(cls.SESSION_LOG):
-                    os.remove(cls.SESSION_LOG)
-            elif os.path.exists(cls.SESSION_LOG):
-                os.truncate(cls.SESSION_LOG, cls.session_log_size)
         if getattr(cls, "tmp", None) and os.path.isdir(cls.tmp):
             shutil.rmtree(cls.tmp, ignore_errors=True)
 
@@ -19530,7 +19570,12 @@ print(json.dumps(rec))
         # absent: no file -> the figure of old, one line, no band, no key, the footer names only the curve
         # other n: the n=9 shape -> the same
         with open(self.KW, encoding="utf-8") as fh:   # Q-892: a whole walk ends at g = 1, so step 9 is given g = 1
-            nine = self._write("q3_profile.tsv", [l if i < 9 else re.sub(r"^((?:[^\t]*\t){8})[^\t]*", r"\g<1>1", l) for i, l in enumerate(fh.read().split("\n")[:10])] + [""])
+            # G5a: and its p_num/p_den/bits follow (V4 now requires p_num/p_den == g/g_parent at every step)
+            def _end(l):
+                c = l.split("\t"); c[8] = c[10] = "1"
+                c[13] = "%.6f" % math.log2(int(c[11]))
+                return "\t".join(c)
+            nine = self._write("q3_profile.tsv", [l if i < 9 else _end(l) for i, l in enumerate(fh.read().split("\n")[:10])] + [""])
         gone = os.path.join(self.tmp, "no_such.tsv")    # Q-891: an absent receipt is named, in stdout and in the footer
         for tag, curve, alts, pre, extra in (("absent", self.KW, gone, ["V4 band omitted: receipt absent " + gone], "  no_such.tsv@ABSENT"),
                                              ("n9", nine, self.BANK, [], "")):
@@ -19660,10 +19705,10 @@ class TestQ858Tr5Tr7RenderersVE(unittest.TestCase):
         self.assertEqual(edges[63], (63, 0, 3))
         self.assertEqual(sum(1 for _, _, d in edges if d % 2), 16)
         body = self.src.split("def fig_tr7_circular_cycle(", 1)[1].split("\ndef ", 1)[0]
-        for a in ("assert internal_odd == 15", "assert wrap_d == 3",
-                  "assert internal_odd + (wrap_d % 2) == 16"):
+        for a in ("_require(internal_odd == 15", "_require(wrap_d == 3",
+                  "_require(internal_odd + (wrap_d % 2) == 16"):
             self.assertIn(a, body)
-        self.assertLess(body.index("assert wrap_d == 3"), body.index("plt.subplots("),
+        self.assertLess(body.index("_require(wrap_d == 3"), body.index("plt.subplots("),
                         "the numbers must be checked before anything is drawn")
 
     def test_tr7_helper_refuses_a_sequence_that_is_not_a_permutation(self):
@@ -19684,7 +19729,7 @@ class TestQ858Tr5Tr7RenderersVE(unittest.TestCase):
         self.assertIn(rec, o["records"])                                     # King Wen is on the ring
         body = self.src.split("def fig_tr5_orbit_collapse(", 1)[1].split("\ndef ", 1)[0]
         self.assertIn("n_ring = len(o[\"records\"])", body)                  # the ring is the orbit
-        self.assertLess(body.index('assert len(o["records"]) == 24'), body.index("plt.subplots("))
+        self.assertLess(body.index('_require(len(o["records"]) == 24'), body.index("plt.subplots("))  # G5a: executed under -O by TestBatchG5a
 
     def test_tr5_record_is_orientation_blind_so_the_count_is_not_trivially_48(self):
         # Positive control for the record definition: a helper that kept orientation would see
@@ -23201,7 +23246,7 @@ class TestQ877PerfBenchRunsMustFinish(unittest.TestCase):
     """
     ROOT = os.path.dirname(os.path.abspath(__file__))
     SCRIPT = os.path.join(ROOT, "scripts", "perf_bench.sh")
-    SESSION_LOG = "/tmp/claude_session_vms.txt"   # the script appends to it; restored below
+    SESSION_LOG = "/tmp/claude_session_vms.txt"   # never touched here: PB_SESSION_LOG points perf_bench at cls.tmp (G5a, F04-016#1)
     SIG_LINE = "*** Signal received"
     SKIP_LINE = "SOLVE_SKIP_AUTOMERGE set; skipping bundled merge."
 
@@ -23277,10 +23322,6 @@ exit $rc
         with open(cls.runner, "w") as fh:
             fh.write(cls.RUNNER)
         os.chmod(cls.runner, 0o755)
-        try:
-            cls.session_log_size = os.path.getsize(cls.SESSION_LOG)
-        except OSError:
-            cls.session_log_size = None
         cls.pids, cls.results_dirs = [], []
         run = 'bash "$Q877_RUNNER" "$INSTR_BIN"'
         small = "SOLVE_HASH_LOG2=16 SOLVE_DEPTH=2 SOLVE_SKIP_AUTOMERGE=1"
@@ -23306,7 +23347,7 @@ exit $rc
         run_log = os.path.join(cls.tmp, key + ".runs")
         for f in (gcc_log, run_log):
             open(f, "w").close()
-        env = dict(os.environ, PATH=cls.bin + os.pathsep + os.environ["PATH"], PB_FAKE_HOME=home,
+        env = dict(os.environ, PATH=cls.bin + os.pathsep + os.environ["PATH"], PB_SESSION_LOG=os.path.join(cls.tmp, "session_vms.txt"), PB_FAKE_HOME=home,
                    PB_PROBE_LOG=os.path.join(cls.tmp, key + ".probe"), PB_AZ_LOG=os.path.join(cls.tmp, key + ".az"),
                    Q877_GCC_LOG=gcc_log, Q877_RUN_LOG=run_log, Q877_REAL=cls.real, Q877_RUNNER=cls.runner,
                    Q877_U_MODE=u_mode, Q877_SKIP_LINE=cls.SKIP_LINE)
@@ -23374,12 +23415,6 @@ exit $rc
                     os.remove(path)
         for d in set(getattr(cls, "results_dirs", [])):
             shutil.rmtree(d, ignore_errors=True)
-        if hasattr(cls, "session_log_size"):
-            if cls.session_log_size is None:
-                if os.path.exists(cls.SESSION_LOG):
-                    os.remove(cls.SESSION_LOG)
-            elif os.path.exists(cls.SESSION_LOG):
-                os.truncate(cls.SESSION_LOG, cls.session_log_size)
         if getattr(cls, "tmp", None) and os.path.isdir(cls.tmp):
             shutil.rmtree(cls.tmp, ignore_errors=True)
 
@@ -23777,11 +23812,12 @@ print(json.dumps(rec))
             "except AssertionError as e:\n    print('REFUSED', e)\n")
         d = os.path.join(self.tmp, "tr3_guard")
         os.makedirs(d, exist_ok=True)
-        r = subprocess.run([sys.executable, "-c", script, os.path.join(self.HERE, "viz")], cwd=d,
-                           capture_output=True, text=True, timeout=300)
-        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
-        self.assertIn("REFUSED annotation: 'Fri 18:01 → finish: 50.5 h uninterrupted'", r.stdout)
-        self.assertNotIn("SAVED", r.stdout)
+        for opt in ([], ["-O"], ["-OO"]):           # G5a (Codex F04-017#7): -O stripped the assert
+            r = subprocess.run([sys.executable] + opt + ["-c", script, os.path.join(self.HERE, "viz")], cwd=d,
+                               capture_output=True, text=True, timeout=300)
+            self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+            self.assertIn("REFUSED annotation: 'Fri 18:01 → finish: 50.5 h uninterrupted'", r.stdout, opt)
+            self.assertNotIn("SAVED", r.stdout, opt)
 
     # --- Q-890: the footer is the digest of the parsed bytes ---------------------------------
     def test_q890_prov_stamps_the_bytes_that_were_parsed(self):
@@ -29130,8 +29166,13 @@ class TestQ908PinnedWindowJoin(unittest.TestCase):
                                cwd=self.ROOT, env=env, capture_output=True, text=True)
             lines = set(r.stdout.splitlines())
             if r.returncode == 2 and "Q908_JOIN_ACCEPT=ERROR" in lines:
-                self.skipTest("Q908_JOIN_ACCEPT=SKIP:not-runnable (%s)" %
-                              " ".join(l for l in r.stdout.splitlines() if l.startswith("ERROR:")))
+                errs = " ".join(l for l in r.stdout.splitlines() if l.startswith("ERROR:"))
+                # G5a (Codex F04-017#4): only a missing or stale binary is the environment's; a
+                # --kc-build / --kc-g-build failure or a bad manifest after the binaries were found
+                # is the code's, and used to pass as a skip.
+                if not _q908_error_is_environmental(r.stdout):
+                    self.fail("Q908_JOIN_ACCEPT=ERROR with runnable binaries: " + errs + r.stdout[-3000:])
+                self.skipTest("Q908_JOIN_ACCEPT=SKIP:not-runnable (%s)" % errs)
             self.assertIn("Q908_JOIN_ACCEPT=PASS", lines, r.stdout[-4000:] + r.stderr[-1000:])
             self.assertEqual(r.returncode, 0, r.stdout[-4000:])
             self.assertIn("Q908_JOIN_FAILS=0", lines)
@@ -30242,6 +30283,9 @@ class TestG31SatCliEdges(unittest.TestCase):
         return env
 
     def _run(self, script, args, env=None, cwd=None):
+        # G5a (Codex F04-017#5): the tree's own script goes through _py_src, so ROAE_TESTS_SATPY_SRC /
+        # ROAE_TESTS_SOLVEPY_SRC select the mutant this class is run against; a path is run as given.
+        script = {"sat.py": _py_src("sat"), "solve.py": _py_src("solve")}.get(script, script)
         return subprocess.run([sys.executable, script] + args, capture_output=True, text=True,
                               env=env or self._env(), cwd=cwd or self.ROOT, timeout=600)
 
@@ -31936,8 +31980,10 @@ class TestPipeRecordSplitSafety(unittest.TestCase):
     def _defects(self, text):
         bad = []
         for line, kind, name, words in self._word_lists(text):
-            recs = [w for w in words if "|" in w]
-            if len(recs) < 2 or not self._split_on_pipe(text, kind, name):
+            # G5a (Codex F04-017#8): in a record list EVERY word is a record -- a zero-pipe word is a
+            # malformed one, and a single-record list can still carry `||`.
+            recs = words if any("|" in w for w in words) else []
+            if not recs or not self._split_on_pipe(text, kind, name):
                 continue
             arity = sorted({w.count("|") for w in recs})
             if len(arity) > 1:
@@ -33322,6 +33368,26 @@ class TestQ941TableFullLoud(unittest.TestCase):
         self.assertIn("if (new_log2 > 30) {", resize, "precondition: resize_hash_table() no longer caps at 2^30; re-decide whether a full table is reachable")
         self.assertIn("return;", resize, "precondition: the capped resize no longer returns without growing (the state the loaders can fill)")
 
+    def _reached(self, body, head, call):
+        """G5a (Codex F04-017#6): the call is the statement the exhausted loop falls into -- nothing but
+        whitespace between the loop's closing brace and the call, the call alone on its line, and no
+        preprocessor conditional from the loop head to it -- so `if (0)`, an early `return` or `#if 0`
+        cannot make it unreachable while every searched substring survives."""
+        i = body.find(head) + len(head) - 1
+        depth, j = 0, i
+        while j < len(body):
+            depth += {"{": 1, "}": -1}.get(body[j], 0)
+            if depth == 0:
+                break
+            j += 1
+        k = body.find(call)
+        self.assertEqual(body[j + 1:k].strip(), "", "the full-table check is not the statement right after the probe loop")
+        line = body[body.rfind("\n", 0, k) + 1:body.find("\n", k)]
+        line = re.sub(r"/\*.*?\*/\s*$", "", line).strip()
+        line = line[1:].strip() if line.startswith("}") else line      # the loop's own closing brace
+        self.assertEqual(line, call, "the full-table check shares its line with something that can bypass it")
+        self.assertFalse(re.search(r"^\s*#\s*if", body[body.find(head):k], re.M), "a preprocessor conditional sits between the loop and the check")
+
     def test_q941b_b_load_path_fails_loudly_when_the_probe_loop_is_exhausted(self):
         body = self._fn(self._src(), "static int dfs_state_load_prior_shard(")
         head = self._loop(body, "ts")
@@ -33329,6 +33395,7 @@ class TestQ941TableFullLoud(unittest.TestCase):
         self.assertTrue(head.startswith("int probe;"), "the LOAD path's probe variable is local to the for header, so the exhausted loop cannot be seen after it")
         self.assertEqual(body.count(call), 1, "the LOAD path does not call q941_table_full_fatal() when the probe loop is exhausted (silent drop)")
         self.assertGreater(body.find(call), body.find(head), "the full-table check must follow the probe loop")
+        self._reached(body, head, call)
         self.assertIn("void q941_table_full_fatal" + self.SIG + ";", body, "the LOAD path lacks the matching declaration of q941_table_full_fatal()")
 
     def test_q941b_c_consolidation_fails_loudly_when_the_probe_loop_is_exhausted(self):
@@ -33339,6 +33406,7 @@ class TestQ941TableFullLoud(unittest.TestCase):
         self.assertEqual(body.count(call), 1, "sub_ckpt_load() does not call q941_table_full_fatal() when the probe loop is exhausted (silent drop)")
         self.assertGreater(body.find(call), body.find(head), "the full-table check must follow the probe loop")
         self.assertLess(body.find(call), body.find("loaded_records++;"), "the full-table check must come before the record is counted as loaded")
+        self._reached(body, head, call)
         self.assertIn("void q941_table_full_fatal" + self.SIG + ";", body, "sub_ckpt_load() lacks the matching declaration of q941_table_full_fatal()")
 
     def test_q941b_d_the_helper_prints_a_named_fatal_line_and_exits_nonzero(self):
@@ -37060,11 +37128,19 @@ def _q956_fixture_binding(repo):
              "citation": "CITATION_LINE_GATE_TREE=%s\n" % t, "stamp": "TR12_REPRO_GATE_TREE=%s\n" % t}, tc)
 
 
+# G5a (Codex F04-018#2): the overrides OUTSIDE the ROAE_TESTS_ prefix that substitute another source,
+# script or binary for the tree's own; any of them set means the run did not measure HEAD's tree.
+# TestBatchG5a requires every path-defaulted override tests.py reads to be in this list or prefixed.
+_Q956_SOURCE_OVERRIDES = ("Q949_HOOK_SRC", "Q971_SRC_DIR", "Q951_SCRIPTS_ROOT", "ROAE_B39D_REVIEWER_DIR",
+                          "Q908_SOLVE_BIN", "Q908_VERIFY_BIN", "ROAE_P01_SCRIPT", "Q958_SCRIPT",
+                          "Q957_BATTERY", "ROAE_C8_DEFCHECK")
+
+
 def _q956_tests_tree(root):
     """Q-956: the tree this tests.py run measures, for prepush_verdict_record.sh: HEAD's tree when the
     tracked content equals HEAD, DIRTY when it does not, OVERRIDDEN when a ROAE_TESTS_* variable
     substitutes another source for the tree's own, NONE outside a git work tree."""
-    if any(k.startswith("ROAE_TESTS_") and v for k, v in os.environ.items()):
+    if any((k.startswith("ROAE_TESTS_") or k in _Q956_SOURCE_OVERRIDES) and v for k, v in os.environ.items()):
         return "OVERRIDDEN"
     env = {k: v for k, v in os.environ.items() if k not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE")}
     try:
@@ -41946,7 +42022,8 @@ class TestQ979Q986Batch44(unittest.TestCase):
         rc = r.returncode
         if leg == "published-consistency" and rc == 0:
             rc = 1 if "PUBLISHED_CONSISTENCY=FAIL" in out.split("\n") else 0
-        if leg == "generated" and "[FAIL] the generator" in out and "did not run cleanly" in out:
+        if leg == "generated" and "[FAIL] the generator" in out and "did not run cleanly" in out \
+                and "(timed out after 300 s)" in out:   # G5a (Codex F04-018#1): a timeout only, never a crash
             self.skipTest("roae.py did not finish inside GATE 8's own 300 s budget on this box (load); "
                           "the leg's verdict is about the host, not the plant")
         return rc, out
@@ -48857,6 +48934,766 @@ class TestBatchG4(unittest.TestCase):
         self.assertNotIn("(How old, precisely:", src[q:f], "F1: the provenance paragraph no longer separates question and answer")
         self.assertGreater(src.index("(How old, precisely:"), src.index("Scope: this is a combinatorial study of the *ordering* alone"))
 # end class TestBatchG4 (push group G4, CX-35T-A..CX-35T-M)
+
+
+class TestQ1027FiveBoundaryPinCap(unittest.TestCase):
+    """Q-1027 (2026-10-17): verify.c Route D (--dp-count) capped --dp-pin at a literal 8, so the
+    five-boundary pin set {1,4,21,25,27} -> slots 1,3,4,20,21 + the C6/C7 window 24..27 (9 pins)
+    was refused ('*** FAIL: more than 8 pins'). The cap is now DP_MAXPIN (16, overridable).
+    The convention this relies on is CHECKED here, not assumed, at small n where --ie-brute
+    (explicit permutation DFS) is a third instrument:
+      (a) a consecutive 4-slot window spelled as explicit pins (the --dp-pin-c6c7 shape) agrees
+          Route D == Route B == brute, and at full31 the explicit spelling of the C6/C7 window
+          produces the same --dp-size-only plan as --dp-pin-c6c7, as does the mixed five-boundary
+          spelling (5 explicit + --dp-pin-c6c7) vs all-nine-explicit;
+      (b) nine scattered pins give the brute-force count under BOTH instruments (several pin
+          sets, pinned to their own slots and in scrambled order, plus a duplicate pair -> 0).
+    Red half: a build with -DDP_MAXPIN=8 (the old cap) refuses the nine-pin case in both
+    spellings while still accepting eight pins (precondition); the shipped build accepts nine
+    and still refuses seventeen, a slot outside 1..n, a slot pinned twice and a pair outside the
+    instance. ROAE_TESTS_VERIFY_SRC swaps the source under test."""
+
+    HERE = os.path.dirname(os.path.abspath(__file__))
+    # (spec, pins, expected) — expected values were measured three-way (D == B == brute) on the
+    # raised-cap build 2026-10-17; the assertions below re-measure all three every run.
+    NINE = [
+        ("3.0,3.1,6.0@0", ["1:3", "3:11", "4:4", "6:21", "8:9", "9:17", "10:19", "11:22", "12:25"], 768),
+        ("6.0,6.1@0", ["1:1", "2:9", "3:17", "5:22", "6:25", "9:16", "10:18", "11:24", "12:28"], 4312),
+        ("6.0,6.1@0", ["1:9", "2:1", "3:17", "5:25", "6:22", "9:18", "10:16", "11:28", "12:24"], 3824),
+        ("3.0,3.1,4.0@0", ["1:3", "2:7", "3:11", "4:4", "5:6", "6:21", "7:5", "8:8", "9:26"], 384),
+    ]
+    WINDOW4 = ("3.0,3.1,6.0@0", ["5:6", "6:21", "7:1", "8:9"], 92160)      # the C6/C7 shape
+    EIGHT = ("3.0,3.1,6.0@0", ["1:3", "2:7", "3:11", "4:4", "5:6", "6:21", "7:1", "8:9"], 18432)
+    FIVE = ("3.0,3.1,6.0@0", ["1:3", "3:11", "4:4", "9:17", "10:19"], 29312)
+    DUP9 = ("3.0,3.1,6.0@0", ["1:3", "3:11", "4:4", "6:21", "8:9", "9:17", "10:19", "11:22", "12:3"], 0)
+    FIVEB_EXPL = ["1:1", "3:3", "4:4", "20:20", "21:21", "24:24", "25:25", "26:26", "27:27"]
+    FIVEB_MIXED = ["1:1", "3:3", "4:4", "20:20", "21:21"]                   # + --dp-pin-c6c7
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q1027_")
+        cls.src = os.environ.get("ROAE_TESTS_VERIFY_SRC", "verify.c")
+        cls.vbin = os.path.join(cls.tmp, "verify_q1027")
+        cls.vcap8 = os.path.join(cls.tmp, "verify_q1027_cap8")
+        cls.err = ""
+        r = subprocess.run(["gcc", "-O2", "-pthread", "-fopenmp", "-o", cls.vbin, cls.src, "-lz", "-lm"],
+                           capture_output=True, text=True, cwd=cls.HERE)
+        cls.vok = r.returncode == 0 and os.path.exists(cls.vbin)
+        cls.err += r.stderr[-1500:]
+        r = subprocess.run(["gcc", "-O2", "-pthread", "-fopenmp", "-DDP_MAXPIN=8", "-o", cls.vcap8, cls.src,
+                            "-lz", "-lm"], capture_output=True, text=True, cwd=cls.HERE)
+        cls.cok = r.returncode == 0 and os.path.exists(cls.vcap8)
+        cls.err += r.stderr[-1500:]
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _run(self, binary, *args):
+        r = subprocess.run([binary] + list(args), capture_output=True, text=True, timeout=300)
+        return r.returncode, r.stdout, r.stderr
+
+    def _dp(self, binary, spec, pins, *extra):
+        argv = ["--dp-count", "--dp-spec", spec, "--dp-threads", "1"]
+        for p in pins:
+            argv += ["--dp-pin", p]
+        rc, out, err = self._run(binary, *(argv + list(extra)))
+        m = re.findall(r"^RESULT +: N = (\d+)", out, re.M)
+        return rc, (int(m[-1]) if m else None), out + err
+
+    def _ie(self, binary, spec, pins, brute=False):
+        argv = ["--ie-count", "--ie-spec", spec, "--ie-no-quotient", "--ie-threads", "1"]
+        for p in pins:
+            argv += ["--ie-pin", p]
+        if brute:
+            argv.append("--ie-brute")
+        rc, out, err = self._run(binary, *argv)
+        key = r"^BRUTE +: N = (\d+)" if brute else r"^CRT +: N = (\d+)"
+        m = re.findall(key, out, re.M)
+        return rc, (int(m[-1]) if m else None), out + err
+
+    def _three_way(self, binary, spec, pins, expected):
+        rc_d, n_d, t_d = self._dp(binary, spec, pins)
+        rc_b, n_b, t_b = self._ie(binary, spec, pins)
+        rc_f, n_f, t_f = self._ie(binary, spec, pins, brute=True)
+        self.assertEqual((rc_d, rc_b, rc_f), (0, 0, 0), t_d[-800:] + t_b[-800:] + t_f[-800:])
+        self.assertEqual((n_d, n_b, n_f), (expected, expected, expected),
+                         "%s pins=%s: D=%s B=%s brute=%s" % (spec, pins, n_d, n_b, n_f))
+
+    def test_nine_scattered_pins_match_brute_force_on_both_instruments(self):
+        self.assertTrue(self.vok, self.err)
+        for spec, pins, expected in self.NINE:
+            self.assertEqual(len(pins), 9, "precondition: nine pins")
+            self.assertGreater(expected, 0, "precondition: a nonzero count discriminates")
+            self._three_way(self.vbin, spec, pins, expected)
+        spec, pins, expected = self.DUP9                      # one pair at two slots: 0 by definition
+        self._three_way(self.vbin, spec, pins, expected)
+
+    def test_window_and_other_pin_counts_match_brute_force(self):
+        self.assertTrue(self.vok, self.err)
+        for spec, pins, expected in (self.WINDOW4, self.EIGHT, self.FIVE):
+            self._three_way(self.vbin, spec, pins, expected)
+        # unpinned control (the published n=9 rung, N = 26112): the pin machinery is not what
+        # makes them agree. (The n=12 rung's unpinned brute walk, 133,118,976 leaves, is too
+        # slow for a per-test timeout on a loaded 2-core box; n=9 is the cheap control.)
+        self._three_way(self.vbin, "3.0,3.1,3.2@0", [], 26112)
+
+    def test_explicit_window_pins_produce_the_dp_pin_c6c7_plan_at_full31(self):
+        self.assertTrue(self.vok, self.err)
+        rc1, _, t1 = self._dp(self.vbin, "full31@0", [], "--dp-pin-c6c7", "--dp-size-only")
+        rc2, _, t2 = self._dp(self.vbin, "full31@0", ["24:24", "25:25", "26:26", "27:27"], "--dp-size-only")
+        self.assertEqual((rc1, rc2), (0, 0), t1[-600:] + t2[-600:])
+        self.assertIn("4 forced step(s) [slot:pair] 24:24,25:25,26:26,27:27", t1)
+        self.assertIn("peak resident (two adjacent layers) = 415.9 GB", t1)   # precondition: the real plan
+        self.assertEqual(t1, t2, "the explicit window spelling must print the same plan")
+        rc3, _, t3 = self._dp(self.vbin, "full31@0", self.FIVEB_MIXED, "--dp-pin-c6c7", "--dp-size-only")
+        rc4, _, t4 = self._dp(self.vbin, "full31@0", self.FIVEB_EXPL, "--dp-size-only")
+        self.assertEqual((rc3, rc4), (0, 0), t3[-600:] + t4[-600:])
+        self.assertIn("9 forced step(s) [slot:pair] 1:1,3:3,4:4,20:20,21:21,24:24,25:25,26:26,27:27", t4)
+        self.assertIn("nfree=22", t4)
+        self.assertIn("peak resident (two adjacent layers) = 11.9 GB", t4)
+        self.assertEqual(t3, t4, "mixed and all-explicit five-boundary spellings must print the same plan")
+
+    def test_red_old_cap_refuses_the_nine_pin_case_and_the_raise_admits_it(self):
+        self.assertTrue(self.vok and self.cok, self.err)
+        # precondition on the cap-8 build: eight pins still work and match brute force
+        spec, pins, expected = self.EIGHT
+        self._three_way(self.vcap8, spec, pins, expected)
+        # the explicit nine-pin spelling: argv parse refuses the ninth pin
+        rc, n, t = self._dp(self.vcap8, "full31@0", self.FIVEB_EXPL, "--dp-size-only")
+        self.assertNotEqual(rc, 0)
+        self.assertIsNone(n)
+        self.assertIn("max 8 pins", t)
+        # the mixed spelling: the c6c7 auto-pins push the count past the cap in the slot loop
+        rc, n, t = self._dp(self.vcap8, "full31@0", self.FIVEB_MIXED, "--dp-pin-c6c7", "--dp-size-only")
+        self.assertNotEqual(rc, 0)
+        self.assertIsNone(n)
+        self.assertIn("*** FAIL: more than 8 pins", t)
+        # the shipped build admits both spellings
+        for extra in (["--dp-size-only"],):
+            rc, _, t = self._dp(self.vbin, "full31@0", self.FIVEB_EXPL, *extra)
+            self.assertEqual(rc, 0, t[-600:])
+            rc, _, t = self._dp(self.vbin, "full31@0", self.FIVEB_MIXED, "--dp-pin-c6c7", *extra)
+            self.assertEqual(rc, 0, t[-600:])
+
+    def test_every_pin_guard_survives_the_raise(self):
+        self.assertTrue(self.vok, self.err)
+        sixteen = ["%d:%d" % (s, s) for s in range(1, 17)]
+        rc, _, t = self._dp(self.vbin, "full31@0", sixteen, "--dp-size-only")
+        self.assertEqual(rc, 0, t[-600:])
+        self.assertIn("16 forced step(s)", t)
+        rc, n, t = self._dp(self.vbin, "full31@0", sixteen + ["17:17"], "--dp-size-only")
+        self.assertNotEqual(rc, 0); self.assertIsNone(n); self.assertIn("max 16 pins", t)
+        rc, n, t = self._dp(self.vbin, "full31@0", ["0:1"], "--dp-size-only")
+        self.assertNotEqual(rc, 0); self.assertIn("pin slot 0 outside 1..31", t)
+        rc, n, t = self._dp(self.vbin, "full31@0", ["32:1"], "--dp-size-only")
+        self.assertNotEqual(rc, 0); self.assertIn("pin slot 32 outside 1..31", t)
+        rc, n, t = self._dp(self.vbin, "full31@0", ["5:5", "5:6"], "--dp-size-only")
+        self.assertNotEqual(rc, 0); self.assertIn("slot 5 pinned twice", t)
+        rc, n, t = self._dp(self.vbin, "3.0,3.1,6.0@0", ["1:2"], "--dp-size-only")
+        self.assertNotEqual(rc, 0); self.assertIn("pinned pair 2 not in the instance pair list", t)
+        rc, n, t = self._dp(self.vbin, "full31@0", ["5:5", "6:5"])
+        self.assertEqual((rc, n), (0, 0)); self.assertIn("DUPLICATE pinned pair -> N = 0", t)
+
+# end class TestQ1027FiveBoundaryPinCap (Q-1027)
+
+
+
+class TestBatchG5a(unittest.TestCase):
+    """Push group G5a (2026-10-18): Codex's final review (gpt-6-astra), fast-track batches FT3e (tests.py and
+    viz test quality) and FT3g (gate selftest / mutation coverage and allowlist hygiene), plus the GATE 64
+    widening Fable recommended (G4 pre-publication review, item N3). CX-35U-A..CX-35U-F.
+
+    Two kinds of test. A production, gate or document cure is RED on the uncured tree: each such test
+    asserts its precondition, then the cured behaviour. Where the cure IS a tests.py strengthening (the
+    test verified a copy, never reached its guard, or classified a failure as a skip), the test here plants
+    the mutant Codex built and requires the strengthened test to reject it; those pass on any tree that
+    carries this tests.py, by construction, and are marked `# mutant-kill`."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="g5a_")
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    # ---- helpers --------------------------------------------------------------------------------
+    def _read(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _mini(self, name, files, edits=()):
+        """A scratch tree holding `files` copied from this tree, with (rel, old, new) edits applied."""
+        d = os.path.join(self.tmp, name)
+        shutil.rmtree(d, ignore_errors=True)
+        for rel in files:
+            os.makedirs(os.path.dirname(os.path.join(d, rel)), exist_ok=True)
+            shutil.copy2(os.path.join(self.ROOT, rel), os.path.join(d, rel))
+        for rel, old, new in edits:
+            p = os.path.join(d, rel)
+            with open(p, encoding="utf-8") as fh:
+                t = fh.read()
+            self.assertEqual(t.count(old), 1, "precondition: the planted edit applies once to %s: %r" % (rel, old[:60]))
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(t.replace(old, new))
+        return d
+
+    def _gate(self, d, script, env=None, timeout=3600):
+        e = dict(os.environ); e.update(env or {})
+        r = subprocess.run(["bash", os.path.join(d, script)], cwd=d, env=e, capture_output=True, text=True,
+                           timeout=timeout)
+        return r.returncode, r.stdout + r.stderr
+
+    def _repo_copy(self):
+        if getattr(type(self), "_repo", None):
+            return type(self)._repo
+        d = os.path.join(self.tmp, "repo")
+        files = subprocess.run(["git", "-C", self.ROOT, "ls-files", "-z"], capture_output=True,
+                               check=True).stdout.decode("utf-8").split("\0")
+        for f in files:
+            src = os.path.join(self.ROOT, f)
+            if f and os.path.isfile(src):
+                os.makedirs(os.path.dirname(os.path.join(d, f)), exist_ok=True)
+                shutil.copy2(src, os.path.join(d, f))
+        g = ["git", "-C", d]
+        subprocess.run(g + ["init", "-q"], check=True)
+        subprocess.run(g + ["add", "-A"], check=True)
+        subprocess.run(g + ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "fixture"], check=True)
+        type(self)._repo = d
+        return d
+
+    def _in_repo(self, rel, old, new, argv, append=False):
+        """Run argv in the repo copy with one edit applied to `rel`, then restore it."""
+        d = self._repo_copy()
+        p = os.path.join(d, rel)
+        with open(p, encoding="utf-8") as fh:
+            keep = fh.read()
+        try:
+            if append:
+                t = keep + new
+            else:
+                self.assertEqual(keep.count(old), 1, "precondition: the plant applies to %s" % rel)
+                t = keep.replace(old, new)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(t)
+            r = subprocess.run(argv, cwd=d, capture_output=True, text=True, timeout=1800)
+        finally:
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(keep)
+        return r.returncode, r.stdout + r.stderr
+
+    # ---- FT3e: production code ---------------------------------------------------------------------
+    def test_phase_c_reduction_is_a_production_helper(self):  # F04-014#2, F04-015#4
+        R = _load("roae")
+        self.assertTrue(hasattr(R, "_gs_phase_c_merge"),
+                        "roae.py's Phase C reduction is inline, so tests.py can only test a copy of it")
+        R._GS["t_atoms"] = list(range(37)); R._GS["p_atoms"] = list(range(41))
+        R._GS["cands"] = [("d1", "T", 0, 0, a) for a in range(6)]
+        for order in (range(6), reversed(range(6))):
+            best = {}
+            for i in order:
+                R._gs_phase_c_merge(best, ("KW", 5), i)
+            self.assertEqual(best, {("KW", 5): 0})
+
+    def test_checkpoint_row_comparison_is_executed(self):  # F04-015#5
+        R = _load("roae")
+        self.assertTrue(hasattr(R, "_gs_ck_row_mismatch"), "the checkpoint loader's comparison is not callable")
+        ident = dict(seed=1, ncand=2, batches=3, nsamp=4, cands="x")
+        self.assertEqual(R._gs_ck_row_mismatch(dict(ident, batch=0, want=9), ident, [(0, 9)]), [])
+        self.assertEqual(R._gs_ck_row_mismatch(dict(ident, seed=2, batch=0, want=9), ident, [(0, 9)]), ["seed"])
+
+    VIZ_PROBE = (
+        "import sys\nsys.path.insert(0, sys.argv[1])\nimport report_figures as R\n"
+        "R.plt.subplots = lambda *a, **k: (_ for _ in ()).throw(RuntimeError('DREW'))\n"
+        "R.save = lambda *a, **k: print('SAVED')\n"
+        "s = list(R.binary_hexagrams); s[0], s[6] = s[6], s[0]\n"   # 16 internal odd edges, wrap d = 2
+        "R.binary_hexagrams = s\n"
+        "try:\n    R.fig_tr7_circular_cycle()\n    print('NO-REFUSAL')\n"
+        "except AssertionError as e:\n    print('REFUSED', e)\n"
+        "except RuntimeError as e:\n    print('REACHED', e)\n")
+
+    @unittest.skipUnless(importlib.util.find_spec("matplotlib"), "matplotlib absent")
+    def test_figure_refusals_survive_python_optimisation(self):  # F04-016#4, F04-017#7
+        src = self._read("viz/report_figures.py")
+        self.assertIn("def fig_tr7_circular_cycle(", src, "precondition: the renderer exists")
+        for opt in ([], ["-O"], ["-OO"]):
+            r = subprocess.run([sys.executable] + opt + ["-c", self.VIZ_PROBE, os.path.join(self.ROOT, "viz")],
+                               cwd=self.tmp, capture_output=True, text=True, timeout=600)
+            self.assertIn("REFUSED", r.stdout, "%s: a swapped sequence reached plotting: %s%s" % (opt, r.stdout, r.stderr[-800:]))
+        self.assertNotRegex(src, r"(?m)^\s*assert ", "a figure guard is still a bare assert (stripped by -O)")
+
+    @unittest.skipUnless(importlib.util.find_spec("matplotlib"), "matplotlib absent")
+    def test_svg_native_text_is_refused_not_measured_as_empty(self):  # F04-019#9
+        sys.path.insert(0, os.path.join(self.ROOT, "viz"))
+        try:
+            import report_figures as RF
+        finally:
+            sys.path.pop(0)
+        svg = '<svg width="720pt" height="10pt"><text x="0" y="5" style="font-size:2px">tiny</text></svg>'
+        with self.assertRaises(RF.FigureTextFloorError):
+            RF._svg_text_sizes(svg)
+
+    def _viz(self):
+        sys.path.insert(0, os.path.join(self.ROOT, "viz"))
+        try:
+            import report_figures as RF
+        finally:
+            sys.path.pop(0)
+        return RF
+
+    def _write_tsv(self, name, header, rows):
+        p = os.path.join(self.tmp, name)
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write("\t".join(header) + "\n")
+            for r in rows:
+                fh.write("\t".join(r[h] for h in header) + "\n")
+        return p
+
+    def _tsv(self, rel):
+        import csv
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            rd = csv.DictReader(fh, delimiter="\t")
+            return rd.fieldnames, list(rd)
+
+    @unittest.skipUnless(importlib.util.find_spec("matplotlib"), "matplotlib absent")
+    def test_v2_refuses_a_truncated_or_inconsistent_branch_table(self):  # F04-019#3/#4, F12-022#1
+        RF = self._viz()
+        saved = []
+        RF.save = lambda *a, **k: saved.append(a[1] if len(a) > 1 else "?")
+        river = os.path.join(self.ROOT, "reports/tr12/scan/v2_river.tsv")
+        h, br = self._tsv("reports/tr12/scan/v2_branches.tsv")
+        self.assertEqual(len(br), 56, "precondition: the committed branch table has 56 rows")
+        cases = {"55 rows": br[:55], "1 row": br[:1],
+                 "share 2": [dict(r, share="2") if i == 0 else r for i, r in enumerate(br)]}
+        for label, rows in cases.items():
+            p = self._write_tsv("v2b_%s.tsv" % label.replace(" ", "_"), h, rows)
+            saved.clear()
+            ok = RF.fig_tr12_kc_river(river, p, n=31)
+            self.assertIsNot(ok, True, "%s: the V2 branch panel was drawn" % label)
+            self.assertEqual(saved, [], "%s: a figure was saved" % label)
+        saved.clear()
+        self.assertTrue(RF.fig_tr12_kc_river(river, os.path.join(self.ROOT, "reports/tr12/scan/v2_branches.tsv"), n=31))
+        self.assertEqual(len(saved), 1, "the complete table must still render")
+
+    @unittest.skipUnless(importlib.util.find_spec("matplotlib"), "matplotlib absent")
+    def test_v4_binds_p_to_the_shells_and_kw_titles_to_the_walk(self):  # F04-019#1, F07-012#6, F12-022#2
+        RF = self._viz()
+        figs = []
+        RF.save = lambda fig, *a, **k: figs.append(fig)
+        h, rows = self._tsv("reports/tr12/q3_profile_kw.tsv")
+        # (1) p_num/p_den rescaled at step 2 so bits still match but g/g_parent does not
+        import math
+        bad = [dict(r) for r in rows]
+        bad[1]["p_den"] = str(int(rows[1]["p_den"]) * 3)   # p_num/p_den no longer g/g_parent; bits follow it
+        bad[1]["bits"] = "%.6f" % (math.log2(int(bad[1]["p_den"])) - math.log2(int(bad[1]["p_num"])))
+        d = os.path.join(self.tmp, "v4p"); os.makedirs(d, exist_ok=True)
+        p = os.path.join(d, "q3_profile_kw.tsv")
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write("\t".join(h) + "\n" + "".join("\t".join(r[k] for k in h) + "\n" for r in bad))
+        figs.clear()
+        self.assertIsNot(RF.fig_tr12_kc_shells(p, n=31), True, "a p_num/p_den that is not g/g_parent was drawn")
+        self.assertEqual(figs, [])
+        # (2) the orientation-flipped walk keeps pair order and every count; it is not King Wen's walk
+        flip = [dict(r) for r in rows]
+        flip[-1]["entry"], flip[-1]["exit"] = rows[-1]["exit"], rows[-1]["entry"]
+        d = os.path.join(self.tmp, "v4k"); os.makedirs(d, exist_ok=True)
+        p = os.path.join(d, "q3_profile_kw.tsv")
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write("\t".join(h) + "\n" + "".join("\t".join(r[k] for k in h) + "\n" for r in flip))
+        figs.clear()
+        RF.fig_tr12_kc_shells(p, alts=None, n=31)
+        self.assertEqual(len(figs), 1, "precondition: the flipped walk renders")
+        texts = " ".join(t.get_text() for ax in figs[0].axes for t in [ax.title] + ax.texts)
+        self.assertNotIn("King Wen's next choice", texts, "the flipped walk was titled as King Wen's")
+
+    def test_standalone_recipes_carry_n_and_fail_on_refusal(self):  # F07-011#3/#4
+        for page in ("viz/viz_kc_field.md", "viz/viz_kc_grammar.md", "viz/viz_kc_river.md", "viz/viz_kc_shells.md"):
+            m = re.search(r'python3 -c "(import sys; sys.path.insert\(0, \'../../viz\'\); import report_figures as r; .*)"', self._read(page))
+            self.assertIsNotNone(m, "precondition: %s has a standalone recipe" % page)
+            self.assertIn("n=31", m.group(1), "%s: the recipe omits n, which disables the universe checks" % page)
+            self.assertIn("sys.exit(", m.group(1), "%s: the recipe ignores the renderer's False" % page)
+        m = re.search(r'python3 -c "(import sys; sys.path.insert\(0, \'../../viz\'\); import report_figures as r; .*)"',
+                      self._read("viz/viz_kc_spectrum.md"))
+        self.assertIn("sys.exit(", m.group(1))
+        if not importlib.util.find_spec("matplotlib"):
+            return
+        # executed: the spectrum recipe on a table missing one row must exit non-zero
+        d = os.path.join(self.tmp, "recipe")
+        os.makedirs(os.path.join(d, "reports", "figures"), exist_ok=True)
+        os.makedirs(os.path.join(d, "reports", "tr12"), exist_ok=True)
+        if not os.path.exists(os.path.join(d, "viz")):
+            os.symlink(os.path.join(self.ROOT, "viz"), os.path.join(d, "viz"))
+            os.symlink(os.path.join(self.ROOT, "solve.py"), os.path.join(d, "solve.py"))
+        with open(os.path.join(self.ROOT, "reports/tr12/v3_spectrum.tsv"), encoding="utf-8") as fh:
+            L = fh.read().split("\n")
+        with open(os.path.join(d, "reports/tr12/v3_spectrum.tsv"), "w", encoding="utf-8") as fh:
+            fh.write("\n".join(L[:5] + L[6:]))
+        r = subprocess.run([sys.executable, "-c", m.group(1)], cwd=os.path.join(d, "reports", "figures"),
+                           capture_output=True, text=True, timeout=600)
+        self.assertIn("FIGURE_SHAPE=FAIL", r.stdout + r.stderr, "precondition: the renderer refused the table")
+        self.assertNotEqual(r.returncode, 0, "the documented standalone command exited 0 on a refused table")
+
+    @unittest.skipUnless(importlib.util.find_spec("numpy"), "numpy absent")
+    def test_visualize_headerless_formats_are_decided_by_content(self):  # F04-019#5
+        sys.path.insert(0, os.path.join(self.ROOT, "viz"))
+        try:
+            import visualize as V
+        finally:
+            sys.path.pop(0)
+        kw = bytes(V.KW)
+        legacy68 = b"".join(kw + b"\x00\x00\x00\x00" for _ in range(16))
+        packed = bytes(i << 2 for i in range(32)) * 2
+        for label, data, want in (("16 legacy-68", legacy68, 16), ("2 packed", packed, 2)):
+            p = os.path.join(self.tmp, label.replace(" ", "_") + ".bin")
+            with open(p, "wb") as fh:
+                fh.write(data)
+            self.assertEqual(len(data) % 64, 0, "precondition: %s is a multiple of 64 bytes" % label)
+            sol = V.load_solutions(p)
+            self.assertEqual(len(sol), want, "%s decoded as %d records" % (label, len(sol)))
+
+    def test_telemetry_progress_and_downtime(self):  # F04-019#6/#7/#8, F12-022#11
+        sys.path.insert(0, os.path.join(self.ROOT, "viz"))
+        try:
+            import visualize as V
+        finally:
+            sys.path.pop(0)
+        self.assertTrue(hasattr(V, "_telemetry_cumulative") and hasattr(V, "_telemetry_down"),
+                        "the progress and downtime rules are not separable from the plot")
+        self.assertAlmostEqual(V._telemetry_cumulative([0.8, 0.1, 0.4], [0, 1, 1], True)[-1], 1.2)
+        self.assertLessEqual(V._telemetry_cumulative([10, 0.2, 10, 0.6], [0, 1, 1, 1], True)[-1], 10.6 + 1e-9)
+        self.assertFalse(any(V._telemetry_down([0, 300, 2100, 2400], [0, 0, 0, 0], True)),
+                         "a sampling gap inside one session was drawn as an eviction")
+        self.assertTrue(V._telemetry_down([0, 300, 2100, 2400], [0, 0, 1, 1], True)[2])
+        src = self._read("viz/visualize.py")
+        i = src.index("    t0 = tparse(rows[0]['utc'])")
+        self.assertLess(i, src.index("    while len(rows) > 1 and num(rows[0], 'throughput_M_s')"),
+                        "t0 is taken after the warm-up trim, so the launch clock moves")
+
+    def test_reviewer_package_modes_do_not_follow_the_umask(self):  # F09-A06#6
+        digests = []
+        for u in (0o002, 0o022):
+            out = os.path.join(self.tmp, "pkg%o" % u)
+            env = dict(os.environ, ROAE_PKG_DRAFT="1")
+            r = subprocess.run(["bash", "-c", "umask %03o; bash reviewer/make_package.sh %s" % (u, out)],
+                               cwd=self.ROOT, env=env, capture_output=True, text=True, timeout=900)
+            self.assertIn("PACKAGE=OK", r.stdout.splitlines(), r.stdout[-1500:] + r.stderr[-500:])
+            digests.append(re.search(r"^PACKAGE_SHA256=([0-9a-f]{64})$", r.stdout, re.M).group(1))
+        self.assertEqual(digests[0], digests[1], "the same tree packed under umask 002 and 022 gave two digests")
+
+    def test_bench_classes_leave_the_session_vm_log_alone(self):  # F04-016#1
+        self.assertIn('>> "${PB_SESSION_LOG:-/tmp/claude_session_vms.txt}"', self._read("scripts/perf_bench.sh"))
+        mod = sys.modules[__name__]
+        for name in ("TestQ847PerfBenchFreshWorkdir", "TestQ851ScriptWorkdirTmpReuse",
+                     "TestQ856PerRunTmpAndCloudNames", "TestQ877PerfBenchRunsMustFinish"):
+            log = os.path.join(self.tmp, name + ".log")
+            with open(log, "w") as fh:
+                fh.write("entry written by someone else\n")
+            K = type("K", (getattr(mod, name),), {"SESSION_LOG": log, "session_log_size": 0, "tmp": None})
+            K.tearDownClass()
+            with open(log) as fh:
+                self.assertEqual(fh.read(), "entry written by someone else\n", "%s's cleanup truncated the shared log" % name)
+
+    def test_doc_gate_generator_failure_names_its_cause(self):  # F04-018#1
+        d = os.path.join(self.tmp, "py3stub"); os.makedirs(d, exist_ok=True)
+        real = shutil.which("python3")
+        with open(os.path.join(d, "python3"), "w") as fh:
+            fh.write('#!/bin/sh\ncase "$*" in *roae.py*) exit 1 ;; esac\nexec %s "$@"\n' % real)
+        os.chmod(os.path.join(d, "python3"), 0o755)
+        cache = os.path.join(self.tmp, "gencache_g5a")
+        shutil.rmtree(cache, ignore_errors=True); os.makedirs(cache)
+        env = dict(os.environ, PATH=d + os.pathsep + os.environ["PATH"], DOC_GATES_GEN_CACHE=cache)
+        r = subprocess.run(["bash", "scripts/doc_gates.sh", "generated"], cwd=self.ROOT, env=env,
+                           capture_output=True, text=True, timeout=900)
+        out = r.stdout + r.stderr
+        self.assertIn("did not run cleanly", out, "precondition: the stub made the generator fail")
+        self.assertIn("did not run cleanly (exit 1)", out, "the failure does not say it was not a timeout")
+
+    def test_wording_fixes(self):  # FT3e/FT3g document rows
+        must = {
+            "viz/archive/viz_graphs.md": ["Keyed by pair identity (orientation masked", "60.4% of the 560T records come from cells that yielded nothing at 11.2T",
+                                          "a gap in telemetry alone would also be drawn as downtime"],
+            "viz/archive/viz_pca.md": ["Archived page, scoped to its 2026-06 state", "392\n> is the full dataset's minimum",
+                                       "not in raw 32-dimensional pair-placement space"],
+            "viz/viz_kc_grammar.md": ["Independence of d and w.", "a measured (small) dependence; its size is not tested against a null",
+                                      "At most **8** distinct pair-rows"],
+            "viz/viz_kc_spectrum.md": ["the committed 1,000 points lie in 1,000 distinct orbits"],
+            "viz/viz_kc_shells.md": ["checked on 62 walks"],
+            "viz/README.md": ["only V3 is optional", "all 56 branches", "atlas_q3_trace_is_king_wen"],
+            "reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md": ["alongside budget-limited enumeration (exact lower bounds"],
+            "solve.py": ["except the docstring, lines 2-10, and line 147"],
+            "documentation/TREE_INVARIANTS.tsv": ["checked on every push"],
+            "documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt": ["a `f()` whose `{` is on the next line IS seen"],
+            "documentation/DOC_GATE_ALIAS_REACH.tsv": ["the header was fixed 2026-09-02"],
+            "documentation/DOC_GATE_SECREF_ALLOWLIST.txt": ['A row whose reason begins\n# "meta-mention" prints as [meta-mention]'],
+        }
+        gone = {
+            "viz/archive/viz_graphs.md": ["**deepening, not broadening** — growth is existing productive cells yielding more"],
+            "viz/viz_kc_grammar.md": ["A measured dependence between d and w: on layers", "At most **7** distinct pair-rows"],
+            "viz/viz_kc_spectrum.md": ["K-point rank grid samples far fewer independent values than K"],
+            "viz/viz_kc_shells.md": ["product check exhaustively over all 26,112 walks"],
+            "viz/README.md": ["A V figure whose table is absent is skipped with a message."],
+            "reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md": ["alongside exhaustive enumeration"],
+            "solve.py": ["on lines 1-163 except line 147, the four"],
+            "documentation/TREE_INVARIANTS.tsv": ["checked on every commit"],
+            "documentation/DOC_GATE_ALIAS_REACH.tsv": ["Remove this row when the emitter header is fixed."],
+            "documentation/DOC_GATE_SECREF_ALLOWLIST.txt": ["EVERY LINE BELOW IS AN OPEN DEFECT"],
+        }
+        probs = []
+        for f, needles in must.items():
+            t = self._read(f)
+            probs += ["%s lacks %r" % (f, n) for n in needles if n not in t]
+        for f, needles in gone.items():
+            t = self._read(f)
+            probs += ["%s still has %r" % (f, n) for n in needles if n in t]
+        self.assertEqual(probs, [])
+
+    # ---- FT3e: tests.py strengthenings (mutant-kill) --------------------------------------------------
+    def _run_test(self, cls, name, env=None):
+        """Run one test method of this module in a child process (so a patched module cannot leak)."""
+        e = dict(os.environ); e.update(env or {})
+        r = subprocess.run([sys.executable, os.path.join(self.ROOT, "tests.py"), "%s.%s" % (cls, name)],
+                           cwd=self.ROOT, env=e, capture_output=True, text=True, timeout=1800)
+        return r.returncode, r.stderr[-3000:]
+
+    def test_bank_integrity_rejects_a_descriptor_swap(self):  # F04-010#15  mutant-kill
+        src = self._read("solve.py")
+        old = '''    for i in range(36):
+        bank.append(("A", i + 1, "eq",'''
+        self.assertEqual(src.count(old), 1, "precondition: the family-A loop")
+        new = src.replace("    if len(bank) != TR8_B_RAW:\n        raise AssertionError(\"clause bank",
+                          "    bank[2], bank[3] = bank[3], bank[2]\n    if len(bank) != TR8_B_RAW:\n        raise AssertionError(\"clause bank", 1)
+        self.assertNotEqual(new, src, "precondition: the swap applied")
+        d = os.path.join(self.tmp, "bankmut"); os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, "solve.py"), "w", encoding="utf-8") as fh:
+            fh.write(new)
+        rc, err = self._run_test("TestTr8DofSampler", "test_bank_integrity",
+                                 env={"ROAE_TESTS_SOLVEPY_SRC": os.path.join(d, "solve.py")})
+        self.assertIn("is not the value evaluated at", err, "precondition: it failed for the swap: " + err[-600:])
+        self.assertNotEqual(rc, 0, "the integrity test accepted A3/A4 descriptors swapped against their values")
+
+    def test_c1c2_validity_rejects_all_unit_transitions(self):  # F04-015#6  mutant-kill
+        t = TestExtractionNull("test_every_vector_is_a_valid_C1C2_difference_wave")
+        t._run = lambda n, seed=None: (0, ["1:63"] * n, [])
+        with self.assertRaises(AssertionError):
+            t.test_every_vector_is_a_valid_C1C2_difference_wave()
+
+    def test_q908_skip_is_for_missing_binaries_only(self):  # F04-017#4  mutant-kill
+        self.assertTrue(_q908_error_is_environmental("ERROR: ./solve not found/executable (build: gcc)\nQ908_JOIN_ACCEPT=ERROR"))
+        self.assertFalse(_q908_error_is_environmental("ERROR: --kc-build failed (rc 1)\nQ908_JOIN_ACCEPT=ERROR"))
+        self.assertFalse(_q908_error_is_environmental("Q908_JOIN_ACCEPT=ERROR"))
+
+    def test_g31_run_honours_the_mutant_source_overrides(self):  # F04-017#5  mutant-kill
+        seen = []
+        real = subprocess.run
+        t = TestG31SatCliEdges("test_e1_modifier_without_subcommand_is_refused")
+        t._env = lambda *a, **k: {}
+        import unittest.mock as um
+        with um.patch.dict(os.environ, {"ROAE_TESTS_SATPY_SRC": "/x/sat_mut.py", "ROAE_TESTS_SOLVEPY_SRC": "/x/solve_mut.py"}):
+            with um.patch.object(subprocess, "run", lambda argv, **k: seen.append(argv) or real(["true"])):
+                t._run("sat.py", []); t._run("solve.py", [])
+        self.assertEqual([a[1] for a in seen], ["/x/sat_mut.py", "/x/solve_mut.py"])
+
+    def test_q941_rejects_an_unreachable_fatal_call(self):  # F04-017#6  mutant-kill
+        src = self._read("solve.c")
+        old = "        } if (probe == ts->ht_size) q941_table_full_fatal("
+        self.assertEqual(src.count(old), 1, "precondition: the LOAD path's check")
+        p = os.path.join(self.tmp, "solve_q941_mut.c")
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(src.replace(old, "        } if (0) if (probe == ts->ht_size) q941_table_full_fatal("))
+        rc, err = self._run_test("TestQ941TableFullLoud", "test_q941b_b_load_path_fails_loudly_when_the_probe_loop_is_exhausted",
+                                 env={"ROAE_TESTS_SOLVE_SRC": p})
+        self.assertNotEqual(rc, 0, "an `if (0)`-guarded fatal call passed the regression test")
+
+    def test_pipe_record_scanner_sees_zero_pipe_and_single_records(self):  # F04-017#8  mutant-kill
+        t = TestPipeRecordSplitSafety("test_positive_control_the_7dc566c0_shape_is_flagged")
+        zero = "R=(\n  'a|b|c'\n  'abc'\n)\nfor r in \"${R[@]}\"; do id=${r%%|*}; done\n"
+        one = "R=(\n  'a|[ x ] || y|c'\n)\nfor r in \"${R[@]}\"; do id=${r%%|*}; done\n"
+        self.assertNotEqual(t._defects(zero), [], "a zero-pipe record in a record list was invisible")
+        self.assertNotEqual(t._defects(one), [], "a single-record list carrying `||` was accepted")
+
+    def test_tree_binding_sees_every_source_override(self):  # F04-018#2  mutant-kill
+        import unittest.mock as um
+        for k in _Q956_SOURCE_OVERRIDES:
+            with um.patch.dict(os.environ, {k: "/somewhere/else"}):
+                self.assertEqual(_q956_tests_tree(self.ROOT), "OVERRIDDEN", k)
+        # the class: every path-defaulted override this file reads is prefixed or listed
+        names = set(re.findall(r'os\.environ\.get\("([A-Z0-9_]+)",\s*os\.path\.join', self._read("tests.py")))
+        names |= set(re.findall(r'os\.environ\.get\("([A-Z0-9_]+)"\)\s*or\s', self._read("tests.py")))
+        names = {n for n in names if not n.startswith("ROAE_TESTS_")}
+        self.assertTrue(names, "precondition: the scan found the overrides")
+        self.assertEqual(sorted(names - set(_Q956_SOURCE_OVERRIDES)), [])
+
+    # ---- FT3g: gates, each against the mutant Codex built ---------------------------------------------
+    Q3_FILES = ("scripts/q3_reader_exactness_gate.sh", "scripts/tr12_repro.sh",
+                "scripts/tr12_expected/n9/a2_q3_profile.txt", "scripts/tr12_expected/n9/a2_q3_reader.txt")
+
+    def test_q3_reader_gate_kills_the_four_new_mutants(self):  # F05-012#5-#8
+        muts = {
+            "anchor 26 only": ('split("22:690176 24:5624 26:52", ANCH, " ")', 'split("26:52", ANCH, " ")'),
+            "no row count": ('if (k != NP+0) {', 'if (0) {'),
+            "link 2 only": ('for (i=2;i<=k;i++) if (pd[i] != pn[i-1])', 'for (i=2;i<=2;i++) if (pd[i] != pn[i-1])'),
+            "g_parent from p_den": ('gp[k]=$10 ""', 'gp[k]=$12 ""'),
+        }
+        for label, (old, new) in muts.items():
+            d = self._mini("q3_" + label.replace(" ", "_"), self.Q3_FILES, [("scripts/tr12_repro.sh", old, new)])
+            rc, out = self._gate(d, "scripts/q3_reader_exactness_gate.sh")
+            self.assertNotIn("Q3_READER_EXACT_GATE=PASS", out.splitlines(), "%s survived the gate" % label)
+
+    def _sed_stub(self, name, when):
+        d = os.path.join(self.tmp, name); os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, "sed"), "w") as fh:
+            fh.write('#!/bin/sh\nfor a; do last=$a; done\ncase "$last" in %s) exit 4 ;; esac\nexec %s "$@"\n'
+                     % (when, shutil.which("sed")))
+        os.chmod(os.path.join(d, "sed"), 0o755)
+        return {"PATH": d + os.pathsep + os.environ["PATH"]}
+
+    def test_mutation_helpers_refuse_an_unbuilt_mutant(self):  # F05-012#9, F05-017#7
+        d = self._mini("q3_sedfail", self.Q3_FILES)
+        rc, out = self._gate(d, "scripts/q3_reader_exactness_gate.sh", env=self._sed_stub("sedA", "*/reader.awk"))
+        self.assertNotIn("Q3_READER_EXACT_GATE=PASS", out.splitlines(), "unbuilt mutants were counted as kills")
+        rc, out = self._gate(self.ROOT, "scripts/d5_08_q6_q10a_shell_gate.sh", env=self._sed_stub("sedB", "*/q6.row|*/q10a.row"))
+        self.assertNotIn("D5_08_Q6_Q10A_SHELL_GATE=PASS", out.splitlines(), "unbuilt mutants were counted as kills")
+
+    def test_d5_03_gate_sees_an_unreachable_row(self):  # F05-013#1
+        old = 'if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \\\n   && [ "$(py_import_state solve)" = PRESENT ]; then\n    row_begin a0_ls_w0\n'
+        d = self._mini("d503", ("scripts/tr12_repro.sh",), [("scripts/tr12_repro.sh", old, old.replace("if command", "if false && command", 1))])
+        rc, out = self._gate(self.ROOT, "scripts/d5_03_ls_w0_exact_gate.sh", env={"D5_03_SRC": os.path.join(d, "scripts/tr12_repro.sh")})
+        self.assertNotIn("D5_03_LS_W0_EXACT_GATE=PASS", out.splitlines(), "the row made unreachable was certified")
+
+    def test_q314_isolation_needs_the_comparison_gate_to_run(self):  # F05-013#9
+        d = os.path.join(self.tmp, "py3filter"); os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, "python3"), "w") as fh:
+            fh.write('#!/bin/bash\ncase "$*" in *--atlas-fault*) %s "$@" | grep -v "XA-24"; exit "${PIPESTATUS[0]}" ;; esac\nexec %s "$@"\n'
+                     % (shutil.which("python3"), shutil.which("python3")))
+        os.chmod(os.path.join(d, "python3"), 0o755)
+        rc, out = self._gate(self.ROOT, "scripts/q314_mod48_gate.sh", env={"PATH": d + os.pathsep + os.environ["PATH"]})
+        self.assertIn("XA-48 fired on the mod-48-only fault", out, "precondition: leg 2's fault ran")
+        self.assertNotIn("Q314_MOD48=PASS", out.splitlines(), "a fault run with no XA-24 line was read as isolating XA-48")
+
+    def test_q326_unrank_gate_needs_its_l3(self):  # F05-014#6
+        old = '  [ -n "$a" ] && [ "$a" = "$b" ]                                 && echo "L3=OK" || echo "L3=BAD"'
+        d = self._mini("q326u", ("scripts/q326_kc_unrank_m0_gate.sh", "solve.c", "documentation/VERIFY.md",
+                                 "scripts/lib_binary_currency.sh"),
+                       [("scripts/q326_kc_unrank_m0_gate.sh", old, '  echo "L3=OK"')])
+        rc, out = self._gate(d, "scripts/q326_kc_unrank_m0_gate.sh")
+        self.assertIn("baseline PASS on 4 legs", out, "precondition: the baseline ran: " + out[-1500:])
+        self.assertNotIn("Q326_UNRANK_M0=PASS", out.splitlines(), "the gate passed with its run-to-run leg disabled")
+
+    def test_q433_gate_asks_the_consumer(self):  # F05-014#7
+        old = '                          else _xa_node_mapping_load(cost.get("node_mapping_cert")))\n'
+        new = old + ('        if xa_map is None and cost is not None:\n            from fractions import Fraction as _F\n'
+                     '            xa_map, xa_refusal = {"factor": _F(1), "kind": "exact", "residual": 0, "formula": "m",\n'
+                     '                "law": "m", "sha256": "0" * 64, "path": "m", "provenance": {}, "engine_git": "m",\n'
+                     '                "measured_n": [], "verdict_line": "m", "scope_n": None}, None\n')
+        d = self._mini("q433", ("scripts/q433_xa_cert_gate.sh", "solve.py"), [("solve.py", old, new)])
+        rc, out = self._gate(d, "scripts/q433_xa_cert_gate.sh")
+        self.assertNotIn("Q433_XA_CERT=PASS", out.splitlines(), "a consumer that prices with a default map passed")
+
+    def test_q326_query_gate_covers_rank_and_member(self):  # F05-017#12
+        old = '                 strcmp(cmd, "--kc-enum-desc") == 0)                       allowed = KO_C3 | KO_LIMIT;\n'
+        new = old + '        else if (strcmp(cmd, "--kc-rank") == 0 || strcmp(cmd, "--kc-member") == 0) allowed = KO_C3;\n'
+        d = self._mini("q326q", ("scripts/q326_kc_query_surface_gate.sh", "solve.c", "documentation/VERIFY.md",
+                                 "scripts/lib_binary_currency.sh"), [("solve.c", old, new)])
+        rc, out = self._gate(d, "scripts/q326_kc_query_surface_gate.sh")
+        self.assertNotIn("Q326_QUERY_SURFACE=PASS", out.splitlines(), "rank/member accepting --kc-c3-max passed")
+
+    def test_q2_witness_reads_the_effective_timeout(self):  # F05-018#6
+        old = 'Q2_ENUM_TIMEOUT="${TR12_Q2_ENUM_TIMEOUT:-21600}"\n'
+        d = self._mini("q2w", ("scripts/tr12_repro.sh",), [("scripts/tr12_repro.sh", old, old + "Q2_ENUM_TIMEOUT=0\n")])
+        rc, out = self._gate(self.ROOT, "scripts/q2_witness_gate.sh", env={"BATTERY": os.path.join(d, "scripts/tr12_repro.sh")})
+        self.assertNotIn("Q2_WITNESS=PASS", out.splitlines(), "a later Q2_ENUM_TIMEOUT=0 passed leg 10")
+
+    def test_xa_gate_kills_the_three_post_parse_mutants(self):  # F05-018#10/#11/#12
+        muts = {
+            "CLI Fraction()": ('"usd_per_hour": args.xa_usd_per_hour,', '"usd_per_hour": _Fraction(args.xa_usd_per_hour),'),
+            "work factor via float": ('            x_wf = _xa_exact(cost["work_factor"])', '            x_wf = _Fraction(float(_xa_exact(cost["work_factor"])))'),
+            "undecided Call": ('            fh.write("\\nCall: the argmin branch is **%s** at the stated ceiling.\\n" % cheapest)',
+                               '            fh.write("\\nCall: the argmin branch is **%s** at the stated ceiling.\\n" % ("INFEASIBLE" if cheapest.startswith("UNDECIDED") else cheapest))'),
+        }
+        for label, (old, new) in muts.items():
+            d = self._mini("xa_" + label.split()[0], ("scripts/xa_exact_verdict_gate.sh", "solve.py"), [("solve.py", old, new)])
+            rc, out = self._gate(d, "scripts/xa_exact_verdict_gate.sh")
+            self.assertNotIn("XA_EXACT_VERDICT=OK", out.splitlines(), "%s survived the XA gate" % label)
+
+    def test_q8_gallery_gate_pins_the_bar(self):  # F05-019#2
+        d = self._mini("d502", ("scripts/tr12_repro.sh",), [("scripts/tr12_repro.sh", "100*$NUM < 3770*$k", "10*$NUM < 3770*$k")])   # the bar x10
+        rc, out = self._gate(self.ROOT, "scripts/d5_02_q8_chi2_gallery_gate.sh", env={"D5_02_SRC": os.path.join(d, "scripts/tr12_repro.sh")})
+        self.assertNotIn("D5_02_Q8_CHI2_GALLERY_GATE=PASS", out.splitlines(), "a tenfold bar passed")
+
+    def test_n3_gate_covers_the_q10a_predecessor_guard(self):  # F05-019#5
+        old = '        if [ "$c" != "0" ] || [ "$o" != "0" ] || [ "${prev:-}" != "NONE" ]; then\n'
+        d = self._mini("n3", ("scripts/n3_measured_nulls_gate.sh", "scripts/tr12_repro.sh"),
+                       [("scripts/tr12_repro.sh", old, old.replace(' || [ "${prev:-}" != "NONE" ]', ""))])
+        rc, out = self._gate(d, "scripts/n3_measured_nulls_gate.sh")
+        self.assertNotIn("N3_MEASURED_NULLS_GATE=PASS", out.splitlines(), "Q10a's predecessor guard could go")
+
+    def test_history_index_selftest_rejects_an_error_handler_that_continues(self):  # F06-011#3
+        old = '    print("HISTORY_INDEX=ERROR", file=sys.stderr if mode == "stdout" else sys.stdout)\n    sys.exit(2)\n'
+        d = self._mini("hidx", ("scripts/history_index.sh", "scripts/history_currency_gate.sh", "documentation/HISTORY.md"),
+                       [("scripts/history_index.sh", old, old.replace("    sys.exit(2)\n", "    return\n"))])
+        r = subprocess.run(["bash", "scripts/history_index.sh", "--selftest"], cwd=d, capture_output=True, text=True, timeout=900)
+        self.assertNotIn("HISTORY_INDEX_SELFTEST=PASS", r.stdout.splitlines(), "a broken checker passed the selftest")
+
+    def test_inventory_dates_bind_to_the_correction(self):  # F06-002#1
+        rows = {l.split("\t")[0]: l.split("\t") for l in self._read("documentation/CORRECTIONS_INVENTORY.tsv").splitlines()}
+        self.assertEqual(rows["INL-2c91616c"][5:7], ["documentation/CANONICAL_HASHES.md", rows["INL-2c91616c"][6]], "precondition")
+        self.assertEqual(rows["INL-2c91616c"][1], "2026-09-02")
+        self.assertEqual(rows["INL-11657c58"][1], "2026-07-04")
+
+    def test_tree_invariant_catches_both_unquoted_forms(self):  # F06-006#4/#5
+        pat = [l.split("\t")[0] for l in self._read("documentation/TREE_INVARIANTS.tsv").splitlines()
+               if l and not l.startswith("#")][0]
+        for s, want in (('"rm -rf %s"', True), ("\"rm -rf '%s' %s\"", True), ('"rm  -rf  %s"', True),
+                        ("\"rm -rf '%s'\"", False), ("\"rm -rf '%s' '%s'\"", False)):
+            r = subprocess.run(["grep", "-cE", "--", pat], input=s + "\n", capture_output=True, text=True)
+            self.assertEqual(r.stdout.strip() == "1", want, "pattern %r on %s" % (pat, s))
+
+    def test_retracted_phrase_exemptions_name_a_file_that_holds_the_phrase(self):  # F06-003#5
+        bad = []
+        for i, l in enumerate(self._read("documentation/RETRACTED_PHRASES.tsv").splitlines(), 1):
+            f = l.split("\t")
+            if l.startswith("#") or len(f) < 2 or "/" not in f[1] or f[1].endswith(("CORRECTIONS.md", "HISTORY.md")):
+                continue
+            p = os.path.join(self.ROOT, f[1])
+            if os.path.isfile(p):
+                with open(p, encoding="utf-8", errors="replace") as fh:
+                    t = fh.read()
+                if f[0] not in t and " ".join(f[0].split()) not in " ".join(t.replace("*", "").split()):
+                    bad.append("row %d: %s holds no %r" % (i, f[1], f[0][:40]))
+        self.assertEqual(bad, [])
+
+    def test_number_allowlist_keys_on_reviewed_values(self):  # F07-008#3, F07-014#1
+        rc, out = self._in_repo("reports/TR9_PRICING_THE_CONSTRAINTS.md", None,
+                                "\nA mistyped modulus 4611686018427387848 here.\n",
+                                ["bash", "scripts/doc_gates.sh", "numbers"], append=True)
+        self.assertIn("4611686018427387848", out, "an unreviewed near-twin of the reviewed moduli was suppressed")
+
+    def test_gate64_reads_the_beyond_form(self):  # Fable, G4 pre-publication review, item N3
+        rc, out = self._in_repo("reports/README.md", None,
+                                "\nKing Wen is singled out by identifying boundaries beyond C1–C7 (five at 560T).\n",
+                                ["bash", "scripts/doc_gates.sh", "identifying-set-arity"], append=True)
+        self.assertEqual(rc, 1, out[-1500:])
+        self.assertIn("boundaries beyond C1–C7 (five", out)
+        rc, out = subprocess.run(["bash", "scripts/doc_gates.sh", "identifying-set-arity"], cwd=self.ROOT,
+                                 capture_output=True, text=True, timeout=600).returncode, ""
+        self.assertEqual(rc, 0, "GATE 64 is red on the tree")
+
+    def test_secref_meta_mentions_are_not_open_defects(self):  # F06-012#11
+        r = subprocess.run(["bash", "scripts/doc_gates.sh", "secrefs"], cwd=self.ROOT, capture_output=True, text=True, timeout=900)
+        self.assertEqual(len(re.findall(r"^  \[meta-mention\] ", r.stdout, re.M)), 3, r.stdout[-1500:])
+        self.assertNotIn("allowlisted dangling reference(s) above are OPEN DEFECTS", r.stdout)
+
+    def test_selftest_59b_asserts_the_surviving_figure(self):  # F06-012#7
+        src = self._read("scripts/doc_gates.sh")
+        self.assertIn('local label="$1" gate="$2" want="$3" mut="$4" also="${5:-}" out rc', src)
+        i = src.index('assert_fires_why "GATE 59 (baseline, 59b)')
+        j = src.index("\n\n", i)
+        self.assertIn("'7 of 31 ineligible -> 1/97 \\(arithmetic gives 1/24\\) — adjudicated open'", src[i:j],
+                      "59b still asserts only the deleted figure's failure")
+# end class TestBatchG5a (push group G5a)
 
 
 if __name__ == "__main__":

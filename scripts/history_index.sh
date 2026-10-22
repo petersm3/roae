@@ -80,12 +80,16 @@ if [ "$MODE" = selftest ]; then
   T=$(mktemp -d) || { echo "HISTORY_INDEX_SELFTEST=FAIL"; exit 1; }
   trap 'rm -rf "$T"' EXIT
   fails=0
-  run() { bash "$0" --check --history "$T/H.md" --index "$T/I.md" --currency-gate "$T/C.sh" 2>&1; }
+  run() { bash "$0" --check --history "$T/H.md" --index "$T/I.md" --currency-gate "$T/C.sh" 2>&1; echo "selftest child rc $?"; }
   reset() { cp "$HIST" "$T/H.md" && cp "$CUR" "$T/C.sh" \
             && bash "$0" --stdout --history "$T/H.md" --currency-gate "$T/C.sh" > "$T/I.md"; }
   expect() {  # expect LABEL VERDICT OUTPUT
-    if grep -qx "HISTORY_INDEX=$2" <<<"$3"; then echo "  [ok]   $1 -> $2"
-    else echo "  [FAIL] $1: expected HISTORY_INDEX=$2, got: $(grep '^HISTORY_INDEX=' <<<"$3")"; fails=$((fails+1)); fi
+    # G5a (Codex F06-011#3): EXACTLY one verdict line, the expected one, and the child's exit status
+    # that verdict documents (CURRENT 0, STALE 1, ERROR 2) -- "ERROR then CURRENT" used to read [ok].
+    local want_rc; case "$2" in CURRENT) want_rc=0 ;; STALE) want_rc=1 ;; *) want_rc=2 ;; esac
+    if [ "$(grep -c '^HISTORY_INDEX=' <<<"$3")" = 1 ] && grep -qx "HISTORY_INDEX=$2" <<<"$3" \
+       && grep -qx "selftest child rc $want_rc" <<<"$3"; then echo "  [ok]   $1 -> $2"
+    else echo "  [FAIL] $1: expected HISTORY_INDEX=$2 (rc $want_rc) alone, got: $(grep -E '^HISTORY_INDEX=|^selftest child rc ' <<<"$3" | tr '\n' ' ')"; fails=$((fails+1)); fi
   }
   reset || { echo "  [FAIL] could not build the unmodified copies"; echo "HISTORY_INDEX_SELFTEST=FAIL"; exit 1; }
   expect "control: unmodified copies" CURRENT "$(run)"

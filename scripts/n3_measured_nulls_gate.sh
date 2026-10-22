@@ -177,12 +177,16 @@ check_all(){ # -> 0 iff every case returns its pinned token
   # (11) rank3 != class_first_rank3 + orient_idx -> the certificate is inconsistent; conclude nothing.
   got=$(run_case q10a-decomp q10a_kwrank_measure "$WORK/fx/w0_decomp.json")
   [ "$got" = "TR12_Q10A_KWRANK=ERROR:cert-decomposition-broken" ] || { $VERBOSE && echo "  [case] q10a-decomp -> ${got:-<none>}"; ok=1; }
+  # (12) G5a (Codex F05-019#5): the contradictory-predecessor certificate through Q10a too -- only Q1c
+  # was asked, so Q10a's own predecessor guard could go and the gate stayed green.
+  got=$(run_case q10a-liar q10a_kwrank_measure "$WORK/fx/w0_liar.json")
+  [ "$got" = "TR12_Q10A_KWRANK=ERROR:least-object-witnesses-disagree" ] || { $VERBOSE && echo "  [case] q10a-liar -> ${got:-<none>}"; ok=1; }
   return $ok
 }
 
 VERBOSE=true
-check_all || fail "baseline: the producers do not reproduce all eleven pinned verdicts (above)"
-echo "  [gate] baseline: 11/11 pinned verdicts reproduced (2 EMPTY, 2 refusals, 1 COMPUTABLE, 6 ERROR)"
+check_all || fail "baseline: the producers do not reproduce all twelve pinned verdicts (above)"
+echo "  [gate] baseline: 12/12 pinned verdicts reproduced (2 EMPTY, 2 refusals, 1 COMPUTABLE, 7 ERROR)"
 VERBOSE=false
 
 # ================================================================================================
@@ -202,6 +206,7 @@ for m in \
   's#\*"NOT computed"\*) : ;;#*) : ;;#' \
   's#if \[ "\$sum" != "\$r" \]; then#if false; then#' \
   's#if \[ "\$r" = "0" \]; then#if [ "$r" != "0" ]; then#' \
+  's# || \[ "\${prev:-}" != "NONE" \]; then#; then#' \
   ; do
   i=$((i+1)); cp "$BASE" "$WORK/base.keep"
   mutate "$m" || fail "mutant $i could not be applied"

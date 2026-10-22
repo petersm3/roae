@@ -183,20 +183,26 @@ gate_generated() {
     rm -f "$tmp/.roae_sha" "$tmp/fresh.txt" "$tmp/report.md" "$tmp/report.html" || {
       echo "  [FAIL] could not clear the regeneration cache $tmp, so a stale output could be compared"
       [ "$owned" = 1 ] && rm -rf "$tmp"; return 1; }
-    if ! timeout 300 python3 roae.py --all --seed "$ROAE_EXAMPLE_SEED" > "$tmp/fresh.txt" 2>/dev/null; then
-      echo "  [FAIL] the generator itself did not run cleanly"; [ "$owned" = 1 ] && rm -rf "$tmp"; return 1
+    # G5a (Codex F04-018#1): each failure names its cause, so a caller can tell GATE 8's own 300 s
+    # budget running out (rc 124) from a generator that failed outright.
+    local _grc
+    timeout 300 python3 roae.py --all --seed "$ROAE_EXAMPLE_SEED" > "$tmp/fresh.txt" 2>/dev/null; _grc=$?
+    if [ "$_grc" -ne 0 ]; then
+      echo "  [FAIL] the generator itself did not run cleanly ($( [ "$_grc" = 124 ] && echo 'timed out after 300 s' || echo "exit $_grc"))"; [ "$owned" = 1 ] && rm -rf "$tmp"; return 1
     fi
     # Codex v2 / fail-open class: these two runs had their exit status DISCARDED,
     # while the --all run above is checked. A failing --markdown then left no
     # report.md, and the "[skip] --markdown produced no report.md" arm below
     # returned 0 -- so a dead generator produced a PASS. Measured by stubbing
     # python3 to exit 1. Check both.
-    if ! ( cd "$tmp" && timeout 300 python3 "$OLDPWD/roae.py" --markdown --seed "$ROAE_EXAMPLE_SEED" >/dev/null 2>&1 ); then
-      echo "  [FAIL] the generator did not run cleanly for --markdown"
+    ( cd "$tmp" && timeout 300 python3 "$OLDPWD/roae.py" --markdown --seed "$ROAE_EXAMPLE_SEED" >/dev/null 2>&1 ); _grc=$?
+    if [ "$_grc" -ne 0 ]; then
+      echo "  [FAIL] the generator did not run cleanly for --markdown ($( [ "$_grc" = 124 ] && echo 'timed out after 300 s' || echo "exit $_grc"))"
       [ "$owned" = 1 ] && rm -rf "$tmp"; return 1
     fi
-    if ! ( cd "$tmp" && timeout 300 python3 "$OLDPWD/roae.py" --html --seed "$ROAE_EXAMPLE_SEED" >/dev/null 2>&1 ); then
-      echo "  [FAIL] the generator did not run cleanly for --html"
+    ( cd "$tmp" && timeout 300 python3 "$OLDPWD/roae.py" --html --seed "$ROAE_EXAMPLE_SEED" >/dev/null 2>&1 ); _grc=$?
+    if [ "$_grc" -ne 0 ]; then
+      echo "  [FAIL] the generator did not run cleanly for --html ($( [ "$_grc" = 124 ] && echo 'timed out after 300 s' || echo "exit $_grc"))"
       [ "$owned" = 1 ] && rm -rf "$tmp"; return 1
     fi
     [ -n "$cur_sha" ] && { gen_man=$(_gen_manifest) && printf '%s\n' "$gen_man" > "$tmp/.roae_sha" || rm -f "$tmp/.roae_sha"; }

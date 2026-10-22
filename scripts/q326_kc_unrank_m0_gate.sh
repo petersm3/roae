@@ -99,17 +99,20 @@ echo "  [gate] baseline PASS on 4 legs"
 
 # --- mutants -----------------------------------------------------------------------------
 # M1 restores the exact pre-fix block. M2 is the HALF-FIX: rc = 1, repr still printed.
-mutate(){ # mutate <name> <python-fragment-file> -> 0 if the mutant was KILLED
+mutate(){ # mutate <name> <python-fragment-file> <leg> -> 0 if the mutant was KILLED by <leg>
   local name="$1" py="$2"
   python3 "$py" solve.c "$WORK/m.c" || return 2
   cmp -s solve.c "$WORK/m.c" && { echo "  [ERROR] mutant $name did not change solve.c"; return 2; }
   build_verified "$WORK/m.c" mut
   case $? in 0) ;; *) echo "  [ERROR] mutant $name did not compile as itself"; return 2 ;; esac
+  [ -n "${Q326_M3_CTR:-}" ] && : > "$Q326_M3_CTR"     # M3's run counter starts at the legs, not the build check
   local out; out=$(legs "$WORK/b_mut/bin")
   [ "$(printf '%s\n' "$out" | grep -c '^L[0-9]*=')" = 4 ] || {
     echo "  [ERROR] mutant $name produced no leg verdicts -- nothing was measured"; return 2; }
-  case "$out" in *=BAD*) echo "  [gate] mutant $name killed"; return 0 ;; esac
-  echo "  [FAIL] mutant $name SURVIVED -- the gate cannot see this fault"; return 1
+  # G5a (Codex F05-014#6): killed by its NAMED leg, not by any leg -- M2 was "killed" by L2 alone,
+  # so L3 (run-to-run agreement) could be forced OK and the suite still read complete.
+  case "$out" in *"$3=BAD"*) echo "  [gate] mutant $name killed (by $3)"; return 0 ;; esac
+  echo "  [FAIL] mutant $name SURVIVED its leg $3 -- the gate cannot see this fault"; return 1
 }
 
 cat > "$WORK/m1.py" <<'PY'
@@ -151,11 +154,37 @@ if s.count(old) != 1:
 open(sys.argv[2],'w',encoding='utf-8').write(s.replace(old,new))
 PY
 
+# M3 (G5a; Codex F05-014#6): answers the m=0 diagnostic twice, then the representative -- rc 1 and the
+# first record are right, so ONLY L3's run-to-run comparison (legs' third run) can see it.
+cat > "$WORK/m3.py" <<'PY'
+import sys
+s=open(sys.argv[1],encoding='utf-8').read()
+old='''                if (m == 0) {
+                    printf("record\\tm=0\\t(class has no valid orientation completion)\\n");
+                    rc = 1;
+                } else {'''
+new='''                long q326_n = 0; { FILE *q326_f = fopen(getenv("Q326_M3_CTR"), "a+"); if (q326_f) { fseek(q326_f, 0, SEEK_END); q326_n = ftell(q326_f); fputc('x', q326_f); fclose(q326_f); } }
+                if (m == 0 && q326_n < 2) {
+                    printf("record\\tm=0\\t(class has no valid orientation completion)\\n");
+                    rc = 1;
+                } else if (m == 0) {
+                    rc = 1;
+                    printf("record\\tm=%llu\\t", (unsigned long long)m);
+                    kc_print_walk(kc, repr, stdout);
+                } else {'''
+if s.count(old) != 1:
+    raise SystemExit("M3 anchor drift: the code this mutant edits is no longer unique")
+open(sys.argv[2],'w',encoding='utf-8').write(s.replace(old,new))
+PY
+export Q326_M3_CTR="$WORK/m3.ctr"; : > "$Q326_M3_CTR"
+
 K=0
-for m in M1_guard_removed:m1 M2_rc_set_but_repr_still_printed:m2; do
-  mutate "${m%%:*}" "$WORK/${m##*:}.py" || { [ $? = 2 ] && { echo "Q326_UNRANK_M0=ERROR"; exit 2; }; echo "Q326_UNRANK_M0=FAIL"; exit 1; }
+for m in M1_guard_removed:m1:L1 M2_rc_set_but_repr_still_printed:m2:L2 M3_second_run_differs:m3:L3; do
+  IFS=: read -r mn mf ml <<<"$m"
+  : > "$Q326_M3_CTR"
+  mutate "$mn" "$WORK/$mf.py" "$ml" || { [ $? = 2 ] && { echo "Q326_UNRANK_M0=ERROR"; exit 2; }; echo "Q326_UNRANK_M0=FAIL"; exit 1; }
   K=$((K+1))
 done
-[ "$K" = 2 ] || fail "evaluated $K mutants, expected 2"
-echo "  [gate] baseline PASS on 4 legs; $K/2 mutants killed"
+[ "$K" = 3 ] || fail "evaluated $K mutants, expected 3"
+echo "  [gate] baseline PASS on 4 legs; $K/3 mutants killed, each by its own leg"
 echo "Q326_UNRANK_M0=PASS"

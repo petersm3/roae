@@ -64,7 +64,7 @@ The full reading guide is [How to read it](#how-to-read-it) below.
   this figure alone:
 
   ```bash
-  cd reports/figures && python3 -c "import sys; sys.path.insert(0, '../../viz'); import report_figures as r; r.fig_tr12_kc_river('../tr12/scan/v2_river.tsv', '../tr12/scan/v2_branches.tsv')"
+  cd reports/figures && python3 -c "import sys; sys.path.insert(0, '../../viz'); import report_figures as r; sys.exit(r.fig_tr12_kc_river('../tr12/scan/v2_river.tsv', '../tr12/scan/v2_branches.tsv', n=31) is False)"
   ```
 
 - **Toolchain.** matplotlib 3.11.0 and numpy 2.4.4. Under that pin the documented command reproduced

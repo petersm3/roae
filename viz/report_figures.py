@@ -54,10 +54,18 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
+
+def _require(cond, msg):
+    """A figure's refusal: raise AssertionError when `cond` is false. An `assert` statement is
+    stripped under `python -O`, which let a figure whose numbers disagree with its labels be drawn
+    and saved (G5a; Codex F04-016#4, F04-017#7). Same exception type, so callers are unchanged."""
+    if not cond:
+        raise AssertionError(msg)
+
 # Import solve.py (repo root) for the King Wen sequence — single source of truth.
 _REPO_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.insert(0, _REPO_ROOT)
-from solve import binary_hexagrams, reverse_6bit, _tsv_int  # noqa: E402
+from solve import binary_hexagrams, reverse_6bit, _tsv_int, atlas_q3_trace_is_king_wen  # noqa: E402
 
 # 🔴 MINIMUM LEGIBLE TEXT (VIZ1 F18, 2026-09-26). THE FLOOR IS A DISPLAYED SIZE, NOT A POINT SIZE.
 # These figures are read inline in rendered Markdown, where the viewer scales the WHOLE image to
@@ -101,6 +109,8 @@ def _svg_text_sizes(svg):
     m = re.search(r'<svg\b[^>]*\swidth="([0-9.]+)pt"', svg)
     if not m:
         raise FigureTextFloorError("SVG carries no width in pt; the text floor cannot be measured")
+    if re.search(r'<text\b', svg):      # G5a (Codex F04-019#9): native text has no glyph scale to read
+        raise FigureTextFloorError("SVG carries native <text> elements; the text floor cannot be measured")
 
     def factor(attrs):                   # the glyph-height scale one element's transform applies
         t = re.search(r'\btransform="([^"]*)"', attrs)
@@ -462,15 +472,15 @@ def fig_tr6_parity_alternations():
                for i in range(0, 64, 2)]
     s = "".join(classes)
     n_alt = sum(1 for i in range(31) if s[i] != s[i + 1])
-    assert s.count("E") == 16 and s.count("O") == 16, "16/16 split (TR-6 Lemma 2)"
-    assert n_alt == 15, "exactly 15 alternations (TR-6 theorem)"
+    _require(s.count("E") == 16 and s.count("O") == 16, "16/16 split (TR-6 Lemma 2)")
+    _require(n_alt == 15, "exactly 15 alternations (TR-6 theorem)")
 
     col = {"E": "#1f77b4", "O": "#e8a33d"}
     # Q-900 (Codex VIZ H2-09, 2026-09-28): the cell letter IS the non-colour encoding, and white on
     # the orange cells was 2.16:1. O is now set in #111111 (8.76:1); E stays white on blue (4.82:1).
     ink = {"E": "#ffffff", "O": "#111111"}
     for c in col:
-        assert _wcag_contrast(ink[c], col[c]) >= MIN_TEXT_CONTRAST, "TR-6 cell letter %s contrast" % c
+        _require(_wcag_contrast(ink[c], col[c]) >= MIN_TEXT_CONTRAST, "TR-6 cell letter %s contrast" % c)
     # VIZ1 F18 (2026-09-26): TWO ROWS OF 16, not one strip of 32. As one 16-inch strip the pair
     # positions rendered at 5.9 px on a 900-px display; no font size fixes that on a canvas that
     # wide, because the viewer shrinks the whole image. Pairs 1-16 are the top row, 17-32 the
@@ -497,8 +507,8 @@ def fig_tr6_parity_alternations():
             ax.plot([x + 0.96, x + 0.96], [y - 0.05, y + 1.05], color="#d32f2f", lw=2.2, zorder=5)
             ax.plot(x + 0.96, y + 1.15, marker="v", color="#d32f2f", ms=6, zorder=5)
     wrap = classes[ROW - 1] != classes[ROW]
-    assert wrap and (classes[ROW - 1], classes[ROW]) == ("O", "E"), \
-        "the 16->17 boundary is an O->E alternation (the connector label says so)"
+    _require(wrap and (classes[ROW - 1], classes[ROW]) == ("O", "E"), \
+        "the 16->17 boundary is an O->E alternation (the connector label says so)")
     # The connector: down from the end-of-row mark, back along the gap between the rows, and down
     # into the left edge of pair 17.
     yc = RY[0] - 0.62
@@ -545,9 +555,9 @@ def fig_tr7_circular_cycle():
     # TR-7 as published: 15 odd transitions in the linear reading, the wrap 64 -> 1 has d = 3, so the
     # circular reading has 16. The static labels below state exactly these numbers, so they are
     # asserted rather than formatted in.
-    assert internal_odd == 15, "15 odd transitions in the linear reading (TR-6/TR-7)"
-    assert wrap_d == 3, "the wrap edge 64 -> 1 has Hamming distance 3 (TR-7)"
-    assert internal_odd + (wrap_d % 2) == 16, "16 odd transitions around the cycle (TR-7)"
+    _require(internal_odd == 15, "15 odd transitions in the linear reading (TR-6/TR-7)")
+    _require(wrap_d == 3, "the wrap edge 64 -> 1 has Hamming distance 3 (TR-7)")
+    _require(internal_odd + (wrap_d % 2) == 16, "16 odd transitions around the cycle (TR-7)")
 
     # Position p (1-based) sits at angle 90 - (p - 0.5) * 360/64 degrees: #1 just clockwise of the
     # top, #64 just counter-clockwise of it, so the wrap edge is the short chord at 12 o'clock and
@@ -644,11 +654,11 @@ def fig_tr5_orbit_collapse():
     o = _tr5_kw_orbit()
     rev = (5, 4, 3, 2, 1, 0)
     # Every number the drawing states, asserted from the sequence (TR-5 §1, §4).
-    assert len(o["G"]) == 48, "B3 has order 48 (TR-5 §1)"
-    assert sorted(o["center"]) == sorted([o["ident"], rev]), "the centre is {I, reversal} = {±I}"
-    assert o["quotient_orders"] == {1: 1, 2: 9, 3: 8, 4: 6}, "G/{±I} has S4's element orders"
-    assert len(o["oriented"]) == 48, "48 distinct oriented sequences in King Wen's orbit"
-    assert len(o["records"]) == 24, "24 distinct canonical pair-order records: a free S4 orbit"
+    _require(len(o["G"]) == 48, "B3 has order 48 (TR-5 §1)")
+    _require(sorted(o["center"]) == sorted([o["ident"], rev]), "the centre is {I, reversal} = {±I}")
+    _require(o["quotient_orders"] == {1: 1, 2: 9, 3: 8, 4: 6}, "G/{±I} has S4's element orders")
+    _require(len(o["oriented"]) == 48, "48 distinct oriented sequences in King Wen's orbit")
+    _require(len(o["records"]) == 24, "24 distinct canonical pair-order records: a free S4 orbit")
     n_ring = len(o["records"])
 
     fig, (axl, axr) = plt.subplots(1, 2, figsize=(10.4, 6.3), dpi=150,
@@ -882,10 +892,10 @@ def fig_tr1_rules_tradeoff():
     # on the figure: the row now names the stations, and a note says what a station is (TR-2).
     kw = [2, 2, 2]      # numeric misses on the three graded rules
     gp = [0, 0, 0]
-    assert kw == [2, 2, 2] and gp == [0, 0, 0], "the cell texts below state these counts"
+    _require(kw == [2, 2, 2] and gp == [0, 0, 0], "the cell texts below state these counts")
     ink, ok_bg, miss_bg, head_bg = "#111111", "#e3f1e4", "#fbe3e1", "#e9edf3"
     for bg in (ok_bg, miss_bg, head_bg, "#ffffff"):
-        assert _wcag_contrast(ink, bg) >= MIN_TEXT_CONTRAST, "TR-1 table text contrast on %s" % bg
+        _require(_wcag_contrast(ink, bg) >= MIN_TEXT_CONTRAST, "TR-1 table text contrast on %s" % bg)
     fig, ax = plt.subplots(figsize=(9.6, 5.6), dpi=150)
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
@@ -965,7 +975,7 @@ def fig_tr3_campaign_timeline():
     # matches nothing plotted (Fri 18:01 -> Mon 00:00, the policy window, is 54.0 h; the run ended
     # inside it). The note now states the plotted interval, asserted from the two datetimes it names.
     runway_h = (enum_end - resumes[-1]).total_seconds() / 3600
-    assert f"{runway_h:.1f}" == "50.5", "annotation: 'Fri 18:01 → finish: 50.5 h uninterrupted'"
+    _require(f"{runway_h:.1f}" == "50.5", "annotation: 'Fri 18:01 → finish: 50.5 h uninterrupted'")
 
     # VIZ1 F18 (2026-09-26): 10 in wide, not 13, and no text under 10 pt -- see INLINE_PX.
     fig, ax = plt.subplots(figsize=(10, 3.9), dpi=150)
@@ -1107,7 +1117,7 @@ def fig_viz_scale():
     # Q-890 (2026-09-28): all of these are read from viz/viz_scale_inputs.tsv, each asserted against
     # the registry row it transcribes, and the footer carries that table's digest.
     SCALES, N = _scale_inputs(SCALE_INPUTS, SCALE_REGISTRY, SCALE_N_SOURCE)
-    assert N % 24 == 0, "TR-5 free-action gate: 24 | N (documentation/VERIFY.md)"
+    _require(N % 24 == 0, "TR-5 free-action gate: 24 | N (documentation/VERIFY.md)")
 
     budgets = np.array([s[0] for s in SCALES], dtype=float)
     records = np.array([s[1] for s in SCALES], dtype=float)
@@ -1115,24 +1125,24 @@ def fig_viz_scale():
     # viz/growth_curve.py publishes (α ≈ 0.67, CANONICAL_HASHES.md §"d3 560T").
     alpha, logk = np.polyfit(np.log(budgets), np.log(records), 1)
     kfit = math.exp(logk)
-    assert 0.6 < alpha < 0.75, "published 3-point fit is alpha ~ 0.67"
+    _require(0.6 < alpha < 0.75, "published 3-point fit is alpha ~ 0.67")
     # The gap, from the published constants alone: N / (deepest measured slice).
     decades = math.log10(N) - math.log10(SCALES[-1][1])
-    assert 28.5 < decades < 29.5, "viz_scale.md: the line sits ~29 decades up"
+    _require(28.5 < decades < 29.5, "viz_scale.md: the line sits ~29 decades up")
     # VIZ1 F11/F12 (2026-09-26): the embedded caption now names the two COUNTING UNITS and states
     # the extrapolation's premise. Its numbers are static text, so they are recomputed here from
     # the constants above and asserted, and a changed constant cannot leave the caption behind.
     # Like units: C4 admits at most 31! pair orderings, and each pair ordering's orientation
     # fiber holds 1 to 2^31 sequences, so N holds between N/2^31 and 31! pair orderings
     # (viz/viz_scale.md; SOLUTIONS_FORMAT.md §Deduplication).
-    assert f"{decades:.1f}" == "29.0", "caption: 'The plotted ratio is 29.0 decades'"
+    _require(f"{decades:.1f}" == "29.0", "caption: 'The plotted ratio is 29.0 decades'")
     like_lo, like_hi = N / 2 ** 31, float(math.factorial(31))
     gap_lo = math.log10(like_lo) - math.log10(SCALES[-1][1])
     gap_hi = math.log10(like_hi) - math.log10(SCALES[-1][1])
-    assert (f"{gap_lo:.1f}", f"{gap_hi:.1f}") == ("19.7", "23.9"), "caption: '19.7–23.9 decades'"
+    _require((f"{gap_lo:.1f}", f"{gap_hi:.1f}") == ("19.7", "23.9"), "caption: '19.7–23.9 decades'")
     nodes_lo, nodes_hi = (like_lo / kfit) ** (1 / alpha), (like_hi / kfit) ** (1 / alpha)
-    assert (f"{nodes_lo:.1e}", f"{nodes_hi:.1e}") == ("6.4e+38", "1.1e+45"), \
-        "caption: 'approximately 6.4×10³⁸–1.1×10⁴⁵ nodes per cell'"
+    _require((f"{nodes_lo:.1e}", f"{nodes_hi:.1e}") == ("6.4e+38", "1.1e+45"), \
+        "caption: 'approximately 6.4×10³⁸–1.1×10⁴⁵ nodes per cell'")
 
     # VIZ1 F18: 10 in wide (was 11.5) so the 10-pt text floor is reachable -- see INLINE_PX.
     fig, ax = plt.subplots(figsize=(10, 9.5), dpi=150)
@@ -1232,8 +1242,8 @@ def fig_viz_narrative_n1_object():
     # Bit convention (solve.py:32, restated verify.py): bit 0 = bottom line,
     # bit 5 = top; 1 = solid (yang), 0 = broken (yin). Source OEIS A102241.
     seq = list(binary_hexagrams)
-    assert len(seq) == 64 and sorted(seq) == list(range(64)), \
-        "the sequence must be a permutation of all 64 hexagrams"
+    _require(len(seq) == 64 and sorted(seq) == list(range(64)), \
+        "the sequence must be a permutation of all 64 hexagrams")
 
     # C1 (documentation/SPECIFICATION.md §C1): s_{i+1} = partner(s_i), where
     # partner is the reversal, or the complement for the 8 reversal-symmetric
@@ -1244,10 +1254,10 @@ def fig_viz_narrative_n1_object():
     pairs = [(seq[2 * i], seq[2 * i + 1]) for i in range(32)]
     kinds = []
     for a, b in pairs:
-        assert b == partner(a), "C1 pairing must hold on the received sequence"
+        _require(b == partner(a), "C1 pairing must hold on the received sequence")
         kinds.append("reversal" if reverse_6bit(a) != a else "complement")
-    assert kinds.count("reversal") == 28 and kinds.count("complement") == 4, \
-        "the received sequence pairs 28 by reversal and 4 by complement"
+    _require(kinds.count("reversal") == 28 and kinds.count("complement") == 4, \
+        "the received sequence pairs 28 by reversal and 4 by complement")
 
     C_REV, C_COMP, C_INK = "#1f77b4", "#d32f2f", "#222222"
     W, LT, LP = 1.0, 0.085, 0.155        # glyph width, line thickness, line pitch
@@ -1723,7 +1733,7 @@ def fig_tr12_kc_field(tsv, n=None):
     # _two_tone_floor(cyan, black) = 3.2:1 (WCAG's 3:1 for a graphical mark); the key is the same
     # two-tone stroke.
     KW_FG, KW_UNDER = "#4fc3f7", "#000000"
-    assert _two_tone_floor(KW_FG, KW_UNDER) >= MIN_MARK_CONTRAST, "V1 King Wen outline contrast"
+    _require(_two_tone_floor(KW_FG, KW_UNDER) >= MIN_MARK_CONTRAST, "V1 King Wen outline contrast")
     for i, j in kw:          # every under-stroke first, so no cell's black
         ax.add_patch(plt.Rectangle((j - 0.5, i - 0.5), 1, 1, fill=False,    # covers a neighbour's core
                                    edgecolor=KW_UNDER, lw=3.6))
@@ -1851,7 +1861,7 @@ def fig_tr12_kc_river(river_tsv, branches_tsv, n=None):
     # d = 3 at 2.2:1 on white. The text is now near-black (15.9:1); the leader and a swatch keep the
     # colour, so the label still points at, and matches, its band.
     LABEL_INK = "#222222"
-    assert _wcag_contrast(LABEL_INK, "#ffffff") >= MIN_TEXT_CONTRAST, "V2 band-label contrast"
+    _require(_wcag_contrast(LABEL_INK, "#ffffff") >= MIN_TEXT_CONTRAST, "V2 band-label contrast")
     for d, m, yl, c in zip(ds, mids, ys, colors):
         ax.annotate(f"d={d}", xy=(ks[-1] + 0.5, m), xytext=(ks[-1] + 2.1, yl),
                     fontsize=11, fontweight="bold", color=LABEL_INK, va="center", ha="left",
@@ -1893,6 +1903,21 @@ def fig_tr12_kc_river(river_tsv, branches_tsv, n=None):
         br = _read_tsv(branches_tsv, required=_V_SCHEMA["V2b"])
         bs = _check_grid(br, ("branch",), branches_tsv)[0]   # one contiguous row per branch
         _expect_inventory(branches_tsv, "branch", bs, range(len(bs)), "branches start at 0")
+        # G5a (Codex F04-019#3/#4, F12-022#1): the inventory above is judged against the rows that
+        # survived, so a table that lost its last branches (or all but one) still passed, and a share
+        # was plotted as read. The panel is the 56 first-free-slot branches at n = 31, their solutions
+        # partition N (the river's own layer mass), and each share is its solutions / N.
+        if n == 31 and len(br) != 56:
+            raise TsvShapeError(f"{branches_tsv}: {len(br)} branch rows; at n = 31 the branch panel is all 56 branches")
+        n_v2 = sum(_tsv_cell_int(r, "mass") for r in rows if _tsv_cell_int(r, "k") == ks[0])
+        sols = [_tsv_cell_int(r, "solutions") for r in br]
+        if sum(sols) != n_v2:
+            raise TsvShapeError(f"{branches_tsv}: the branches' solutions sum to {sum(sols)}, not the river's "
+                                f"N = {n_v2} -- the table is incomplete or is not this universe's")
+        for r, sv in zip(br, sols):
+            if not 0.0 <= float(r["share"]) <= 1.0 or abs(float(r["share"]) - sv / n_v2) > 1e-12:
+                raise TsvShapeError(f"{branches_tsv}: branch {r['branch']}: share = {r['share']!r}, but "
+                                    f"solutions / N = {sv / n_v2!r} -- the plotted bar would not be its share")
         br = sorted(br, key=lambda r: float(r["share"]), reverse=True)
         ax2 = axes[1]
         x = range(len(br))
@@ -1996,7 +2021,7 @@ def fig_tr12_kc_grammar(tsv, n=None):
     # It is drawn over a wider black under-stroke, so one of the two contrasts with ANY cell by at
     # least _two_tone_floor(white, black) = 4.6:1.
     KW_FG, KW_UNDER = "#ffffff", "#000000"
-    assert _two_tone_floor(KW_FG, KW_UNDER) >= MIN_MARK_CONTRAST, "V5 King Wen outline contrast"
+    _require(_two_tone_floor(KW_FG, KW_UNDER) >= MIN_MARK_CONTRAST, "V5 King Wen outline contrast")
     for i, j in marks:          # every under-stroke first, so no cell's black
         ax.add_patch(plt.Rectangle((j - 0.5, i - 0.5), 1, 1, fill=False,    # covers a neighbour's core
                                    edgecolor=KW_UNDER, lw=3.8))
@@ -2263,13 +2288,26 @@ def fig_tr12_kc_shells(tsv, alts=Q3_ALTS_BANKED, n=None):
                                 f"(p_num = {r['p_num']}, p_den = {r['p_den']}) -- the plotted bar "
                                 f"would not be the step's probability")
         bits.append(b)
+    # G5a (Codex F04-019#1): p_num / p_den was checked against `bits` only, never against the shells it
+    # names. Each step's p must be g / g_parent exactly, and each g_parent the previous step's g, so the
+    # bars telescope to log2 of the first g_parent (N) and the drawn surprisal is the plotted shells'.
+    for i, r in enumerate(rows):
+        g_i, gp_i = _tsv_cell_int(r, "g"), _tsv_cell_int(r, "g_parent")
+        if _tsv_cell_int(r, "p_num") * gp_i != _tsv_cell_int(r, "p_den") * g_i:
+            raise TsvShapeError(f"{tsv}: step {r['step']}: p_num/p_den = {r['p_num']}/{r['p_den']} is not "
+                                f"g/g_parent = {r['g']}/{r['g_parent']} -- the bar is not this shell's share")
+        if i and gp_i != _tsv_cell_int(rows[i - 1], "g"):
+            raise TsvShapeError(f"{tsv}: step {r['step']}: g_parent = {r['g_parent']} is not step "
+                                f"{rows[i - 1]['step']}'s g = {rows[i - 1]['g']} -- the shells do not nest")
     alts_n = [_tsv_cell_int(r, "alts") for r in rows]
     # Q-891 (2026-09-28): the titles said "King Wen's 31 free placements" for ANY table, including the
     # n = 9 battery's (whose sidecar reads q3_is_king_wen=SKIP:n=9) and a full-31 trace the consumer
     # marked NOT-KW. King Wen's wording is used only when the table is the _kw name, its sidecar (if
     # any) says q3_is_king_wen=PASS, and its rows ARE King Wen's shape: 31 steps, pair i at step i.
+    # G5a (Codex F07-012#6, F12-022#2): pair order alone ignores entry/exit -- the orientation-flipped or
+    # bit-reversed walk passed. The rows must also pass the producer's own row-for-row identity check.
     kw_walk = os.path.basename(tsv) == "q3_profile_kw.tsv" and len(rows) == 31 and all(
-        _tsv_cell_int(r, "pair") == _tsv_cell_int(r, "step") for r in rows)
+        _tsv_cell_int(r, "pair") == _tsv_cell_int(r, "step") for r in rows) and atlas_q3_trace_is_king_wen(rows)[0]
     if kw_walk and os.path.exists(tsv + ".provenance.txt"):
         with open(tsv + ".provenance.txt", encoding="utf-8") as fh:
             kw_walk = "q3_is_king_wen=PASS" in fh.read().splitlines()

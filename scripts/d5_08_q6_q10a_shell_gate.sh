@@ -265,9 +265,13 @@ mk "$WORK/q10.sh" "$WORK/q10a.row"; verdict_q10 "$WORK/q10.sh" || fail "baseline
 mutant(){ # mutant <q6|q10> <id> <sed-expr>
   local which="$1" id="$2" expr="$3" src m
   [ "$which" = q6 ] && src="$WORK/q6.row" || src="$WORK/q10a.row"
-  m="$WORK/m_${which}_$id.row"; sed -e "$expr" "$src" > "$m"
+  # G5a (Codex F05-017#7): a mutant that was not BUILT is not a kill -- sed's status, a non-empty
+  # row, mk's status and a harness bash can parse are required before any verdict is counted.
+  m="$WORK/m_${which}_$id.row"; sed -e "$expr" "$src" > "$m" || fail "mutant $which/$id: sed failed (rc $?) -- the mutant was not built"
+  [ -s "$m" ] || fail "mutant $which/$id: empty row -- the mutant was not built"
   cmp -s "$m" "$src" && fail "mutant $which/$id did not apply ($expr) -- anchors inside the row moved?"
-  mk "$WORK/m_${which}_$id.sh" "$m"
+  mk "$WORK/m_${which}_$id.sh" "$m" || fail "mutant $which/$id: the harness was not written"
+  bash -n "$WORK/m_${which}_$id.sh" 2>/dev/null || fail "mutant $which/$id: the harness does not parse -- a syntax error is not a semantic kill"
   if [ "$which" = q6 ]; then verdict_q6 "$WORK/m_${which}_$id.sh" >/dev/null 2>&1 && fail "mutant $which/$id SURVIVED ($expr)"
   else verdict_q10 "$WORK/m_${which}_$id.sh" >/dev/null 2>&1 && fail "mutant $which/$id SURVIVED ($expr)"; fi
   echo "  [gate] mutant $which/$id killed"

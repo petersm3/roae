@@ -1,4 +1,5 @@
-# TREE INVARIANTS — content facts that must stay true, checked on every commit.
+# TREE INVARIANTS — content facts that must stay true, checked on every push (GATE 81 runs in the push
+# gate's doc-gate pass; the pre-commit dispatcher does not run it — corrected in G5a, Codex F06-006#4).
 #
 # 🔴 WHY THIS FILE EXISTS. On 2026-09-04 the v4-query-program merge REVERTED a landed security fix
 # and nothing noticed for three hours of public exposure. `origin/main` had quoted `rm -rf '%s'` at
@@ -24,4 +25,4 @@
 # ⚠ ADDING A ROW IS A COMMITMENT. A ceiling raised to make a red gate green is the defect winning;
 # raise it only with the measurement and the reason, in the same commit, exactly as the compile
 # gate's warning baseline is a census rather than a budget.
-rm -rf %s	0	solve.c	Unquoted shell interpolation into `rm -rf`. Every path here derives from SOLVE_D3_GATE_TMPBASE, an ENV VAR, so an unquoted `%s` is a shell-injection and word-splitting hazard in a command that deletes recursively. main quoted all six sites; the 2026-09-04 merge reverted two and nothing caught it. The quoted form `rm -rf '%s'` does not match this pattern.
+rm[[:space:]]+-rf[[:space:]]+(%s|[^-"][^"]*[^']%s)	0	solve.c	Unquoted shell interpolation into `rm -rf`. Every path here derives from SOLVE_D3_GATE_TMPBASE, an ENV VAR, so an unquoted `%s` is a shell-injection and word-splitting hazard in a command that deletes recursively. main quoted all six sites; the 2026-09-04 merge reverted two and nothing caught it. The quoted form `rm -rf '%s'` does not match this pattern. G5a (Codex F06-006#5): the pattern was the exact substring `rm -rf %s`, so `rm -rf '%s' %s` and `rm  -rf  %s` passed; it now matches any `%s` after `rm -rf` that is not opened by a quote. Limitation, stated: an argument list that begins `--` is not read (the one such site, `rm -rf -- %s`, passes a sh_squote'd word).

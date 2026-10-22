@@ -628,6 +628,7 @@ reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	819	changelog	now reads	keep
 reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	824	changelog	CORRECTION	keep	-	revision-row	ab93778c33ff
 reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	825	changelog	CORRECTION	keep	-	revision-row	dd7365a391d6
 reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	828	changelog	now reads	keep	-	revision-row	97583c22fb13
+reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	834	changelog	now reads	keep	-	revision-row	4353d10150ea
 reports/TR12_QUERY_PROGRAM.md	23	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	a4b968ed7849
 reports/TR12_QUERY_PROGRAM.md	57	marker	Corrected	1	-	reviewed:sentence-already-says-witnesses-are-pinned	d1990517891c
 reports/TR12_QUERY_PROGRAM.md	212	marker	Corrected	1	-	reviewed:sentence-already-says-the-directory-is-tracked	180fe56529dc

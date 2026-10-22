@@ -88,7 +88,7 @@ K = solve.binary_hexagrams
 rc = 0
 
 
-def price(nodes, nps, uph, budget, hedge="1", wf="1"):
+def price(nodes, nps, uph, budget, hedge="1", wf="1", cost_override=None):
     """Run the REAL emitter over a one-branch atlas; return (branch row, Call line)."""
     A = {"n": 9, "N_total": "24", "type": "branch-atlas", "space": "xa-exact-gate-fixture",
          "semantics": "synthetic fixture for the XA exact-verdict boundary gate",
@@ -107,6 +107,8 @@ def price(nodes, nps, uph, budget, hedge="1", wf="1"):
             # thing it exists to measure instead of reporting "measured NOTHING".
             "node_mapping_cert": _CERT,
             "note":          "xa_exact_verdict_gate.sh boundary fixture"}
+    if cost_override is not None:
+        cost = cost_override
     with tempfile.TemporaryDirectory() as d:
         solve.atlas_emit_xa(A, d, cost=cost, atlas_path="xa_exact_verdict_gate.json")
         md = open(os.path.join(d, "xa_verdict.md")).read()
@@ -168,6 +170,17 @@ rowB, callB, mdB = price(NODES_B, "1", "0.1", str(BUDGET))
 grade("fixture B (typed decimal $/hour anchor)", "EXHAUSTIBLE", rowB, callB,
       "The operator's typed decimal is being round-tripped through binary64 before it is "
       "priced.  Keep the anchors as _ExactAnchor (argparse type=) so `.exact` survives.")
+
+# ---- FIXTURE W: exact WORK-FACTOR anchor (G5a; Codex F05-018#11) ----------
+# Every other fixture prices at work_factor 1, so rounding that anchor changed nothing they saw.
+NODES_W = 36000 * BUDGET                    # cost is EXACTLY the budget when the work factor is 1/10
+if not (Fraction(NODES_W, 3600) * Fraction("0.1") == BUDGET):
+    raise SystemExit("FIXTURE PRECONDITION FAILED: fixture W is not a tie")
+if not (Fraction(NODES_W, 3600) * Fraction(float(0.1)) > BUDGET):
+    raise SystemExit("FIXTURE PRECONDITION FAILED: fixture W has no gap")
+rowW, callW, mdW = price(NODES_W, "1", "1", str(BUDGET), wf="0.1")
+grade("fixture W (typed decimal work-factor anchor)", "EXHAUSTIBLE", rowW, callW,
+      "The work factor is being round-tripped through binary64 before it is priced.")
 
 # ---- FIXTURE C: exact RATE DIVISION -------------------------------------
 NODES_C = 1200 * BUDGET                     # rate 1/3 => cost = nodes*3/3600 = BUDGET exactly
@@ -259,6 +272,7 @@ def price_band(nodes, cert, budget, hours=False, hedge="2", extra=None):
     if not row:
         print("  [ERROR] hedge-band leg: no priced branch row -- this leg measured NOTHING.")
         print("XA_EXACT_VERDICT=ERROR"); sys.exit(2)
+    price_band.call = next((l for l in md.splitlines() if l.startswith("Call: ")), None)
     return [c.strip() for c in row[0].strip().strip("|").split("|")][7], v
 
 
@@ -280,6 +294,11 @@ for label, cert, hours, nodes, want_row, want_tok in (
     if (got_row, got_tok) != (want_row, want_tok):
         _band.append("fixture %s: row %s / token %s, want %s / %s"
                      % (label, got_row, got_tok, want_row, want_tok))
+    # G5a (Codex F05-018#12): the published Call line too -- the band fixtures read the row and the
+    # token only, so a Call saying INFEASIBLE under an UNDECIDED row passed.
+    want_call = "Call: the argmin branch is **%s** at the stated ceiling." % want_row
+    if price_band.call != want_call:
+        _band.append("fixture %s: Call line %r, want %r" % (label, price_band.call, want_call))
 for label, kw, needle in (("hedge below 1", dict(hedge="0.5"), ">= 1"),
                           ("two ceilings", dict(hours=True, extra={
                               "usd_per_hour": solve._ExactAnchor("1")}), "not both")):
@@ -325,6 +344,27 @@ if wrong:
 else:
     print("  [ok]   all %d --xa-* anchors are parsed as _ExactAnchor (typed decimal preserved)"
           % len(_ANCHORS))
+# LEG 3b (G5a; Codex F05-018#10): the parser's type is not the whole path -- the CLI then builds the
+# cost dictionary, and a conversion there (Fraction(float-subclass) takes the binary64 value) was
+# invisible. The REAL `cost = {...}` expression of the --atlas-queries handler is evaluated here on
+# parsed-looking anchors and priced on fixture B, which only the typed decimal 0.1 reads EXHAUSTIBLE.
+_cli = [n.value for n in ast.walk(ast.parse(open("solve.py").read()))
+        if isinstance(n, ast.Assign) and len(n.targets) == 1 and isinstance(n.targets[0], ast.Name)
+        and n.targets[0].id == "cost" and isinstance(n.value, ast.Dict)
+        and any(isinstance(k, ast.Constant) and k.value == "usd_per_hour" for k in n.value.keys)
+        and "args.xa_usd_per_hour" in ast.unparse(n.value)]
+if len(_cli) != 1:
+    print("  [ERROR] found %d CLI `cost = {...}` dictionaries built from args.xa_* -- leg 3b measured NOTHING." % len(_cli))
+    print("XA_EXACT_VERDICT=ERROR"); sys.exit(2)
+import types
+_args = types.SimpleNamespace(xa_nodes_per_sec=solve._ExactAnchor("1"), xa_usd_per_hour=solve._ExactAnchor("0.1"),
+                              xa_budget_usd=solve._ExactAnchor(str(BUDGET)), xa_budget_hours=None,
+                              xa_hedge=solve._ExactAnchor("1"), xa_work_factor=solve._ExactAnchor("1"),
+                              xa_anchor_note="xa gate leg 3b", xa_node_mapping_cert=_CERT)
+_cost = eval(compile(ast.Expression(_cli[0]), "solve.py", "eval"), dict(vars(solve)), {"args": _args})
+rowB3, callB3, _md3 = price(NODES_B, "1", "0.1", str(BUDGET), cost_override=_cost)
+grade("leg 3b (the CLI's own cost dictionary, fixture B)", "EXHAUSTIBLE", rowB3, callB3,
+      "The CLI converts an anchor after parsing; keep the _ExactAnchor objects as parsed.")
 if solve._xa_exact(solve._ExactAnchor("0.1")) != Fraction(1, 10):
     print("  [FAIL] _ExactAnchor('0.1') does not price as 1/10.")
     rc = 1

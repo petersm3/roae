@@ -1270,8 +1270,6 @@ REVIEWED = {
         ('n/a', 'reviewed:judged-paragraph-count-13-to-17-rises-when-spans-no-longer-hide-figures;verdict-stays-ok;notes-tied-by-line-to-PROJECT_OVERVIEW.md'),
     ('-', 'pop:GATE 66'):
         ('n/a', 'reviewed:FIX-line-of-the-GATE-66-verbatim-FAIL;the-TRIGRAM_STRUCTURE.md-one-file-run-prints-it;its-markers-are-class-3-GATE-66'),
-    ('-', 'pop:GATE 80'):
-        ('n/a', 'reviewed:rec-literal-count-31-to-30-falls-with-a-literal-inside-a-deleted-span;verdict-stays-ok;TR12-one-file-run'),
     ('-', 'pop:GATE 86'):
         ('n/a', 'reviewed:explanation-text-of-the-GATE-86-digest-FAIL;the-PREREG_CLASSA_QUERY_SET.md-one-file-run-prints-it;its-markers-are-class-3-GATE-86(file)'),
     ('-', 'pop:GATE 89'):

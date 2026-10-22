@@ -12572,7 +12572,7 @@ def atlas_load(path, allow_t_not_run=False):
     # NARROW ON PURPOSE: "not-run (requires --kc-tdir)" (solve.c:30157) is ALSO an un-run gate,
     # but VERIFY.md:1268 states as POLICY that it "is not a failed run". Reversing a documented
     # decision is an operator call, not a bug fix, so it is filed separately rather than folded in.
-    # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:6877,
+    # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:6940,
     # :6658; a2_slot_verdict_gate.sh:121, :269) must still load; an absent key is a different defect.
     failed = sorted(k for k, v in gates.items() if v in ("see fails", "not-emitted")); _atlas_gate_vocab_check(gates, path)  # Q-320 (3): a closed status vocabulary
     if fails != 0 or failed:
@@ -18338,7 +18338,7 @@ def qoy_gate(binary, n=100000, include_kw=True, timeout=1800):
 # C8_REFERENCE_SRC below is the exact text of the listed line ranges of the
 # defcheck as AMENDED by PREREG_C8SCREEN_AMENDMENT_1_2026_10_11.md §9-A1
 # (reports/evidence/c8screen/prereg_c8screen_defcheck_a1.py, sha256 28889b9f…; identical to the frozen
-# bb017ec5… on lines 1-163 except line 147, the four P-CM ranges 465 -> 496), with
+# bb017ec5… on lines 1-163 except the docstring, lines 2-10, and line 147, the four P-CM ranges 465 -> 496), with
 # the defcheck's chk()/print() verification lines left out. It is executed in a
 # private namespace, so its module-level names (rev, comp, partner, H16, PAIRS,
 # MEMBERS, ...) never rebind solve.py's own. TestC8Scorer pins its digest and,

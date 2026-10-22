@@ -4,7 +4,7 @@
 # It copies exactly the package's input files into roae-reviewer-package-<VERSION>/, adds
 # reviewer/MANIFEST.sha256 (the sha256 of every bundled file, required and checked by
 # reviewer/selfcheck.sh before its first step) and reviewer/PACKAGE_VERSION (the version and the
-# source commit), and writes a reproducible tar.gz: names sorted, owner and timestamps fixed,
+# source commit), and writes a reproducible tar.gz: names sorted, owner, modes and timestamps fixed,
 # gzip -9 -n. The list of files is not kept here: it is PKG_FILES in reviewer/selfcheck.sh, read
 # with `selfcheck.sh --files`, so the bundle and the self-check's manifest and scratch checks use
 # one list. Run from a git checkout it records the commit, and refuses a file that git does not
@@ -73,6 +73,14 @@ draft=""
 printf 'ROAE reviewer package %s%s\n%s\n' "$VERSION" "$draft" "$src" > "$ST/$NAME/reviewer/PACKAGE_VERSION"
 (cd "$ST/$NAME" && printf '%s\n' "${FILES[@]}" reviewer/PACKAGE_VERSION | LC_ALL=C sort | xargs sha256sum) \
   > "$ST/$NAME/reviewer/MANIFEST.sha256" || die "manifest failed"
+# Modes are fixed too (G5a; Codex F09-A06#6): `cp -p` kept the checkout's modes and mkdir and the two
+# generated files took the caller's umask, so the same commit packed under umask 002 and 022 gave two
+# digests. Directories are 755; a file is 755 when git records it executable (100755), else 644.
+find "$ST/$NAME" -type d -exec chmod 755 {} + && find "$ST/$NAME" -type f -exec chmod 644 {} + || die "chmod failed"
+for f in "${FILES[@]}"; do
+  if [ "$src" != "source: not a git checkout" ]; then x=$(git ls-files -s -- "$f" | cut -c1-6); else x=$([ -x "$f" ] && echo 100755); fi
+  if [ "$x" = 100755 ]; then chmod 755 "$ST/$NAME/$f" || die "chmod failed: $f"; fi
+done
 
 mkdir -p "$OUT" || die "cannot create $OUT"
 TGZ="$OUT/$NAME.tar.gz"

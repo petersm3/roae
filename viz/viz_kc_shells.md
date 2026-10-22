@@ -67,7 +67,7 @@ single admissible alternative costs 0 bits. The full reading guide is
   this figure alone (the band's receipt is found from the generator's own location):
 
   ```bash
-  cd reports/figures && python3 -c "import sys; sys.path.insert(0, '../../viz'); import report_figures as r; r.fig_tr12_kc_shells('../tr12/q3_profile_kw.tsv')"
+  cd reports/figures && python3 -c "import sys; sys.path.insert(0, '../../viz'); import report_figures as r; sys.exit(r.fig_tr12_kc_shells('../tr12/q3_profile_kw.tsv', n=31) is False)"
   ```
 
 - **Toolchain.** matplotlib 3.11.0 and numpy 2.4.4. Under that pin the documented command reproduced
@@ -259,8 +259,8 @@ to `1/N`, rather than trusting the engine's own `#o3-trace-summary` attestation.
 
 
 **Rehearsal at n=9 (sub-second, local):** build the n=9 f and g ladders as in
-[viz_kc_field.md](viz_kc_field.md) and run `solve --kc-o3-selftest`, which exercises the trace's
-flow identities and the `Π p_i = 1/N` product check exhaustively over all 26,112 walks. The n=9
+[viz_kc_field.md](viz_kc_field.md) and run `solve --kc-o3-selftest`: rank/unrank is exhaustive over all
+26,112 walks; the trace's flow identities and `Π p_i = 1/N` are checked on 62 walks. The n=9
 world has no King Wen, so the *figure* is full-31 only; the n=9 gate covers the machinery.
 
 **TSV → figure:** `viz/report_figures.py` (`fig_tr12_kc_shells`) — a semilog-y step plot of `g`

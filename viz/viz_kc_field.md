@@ -64,7 +64,7 @@ and the 31 free pairs share seven distinct rows, their symmetry orbits. The full
   this figure alone:
 
   ```bash
-  cd reports/figures && python3 -c "import sys; sys.path.insert(0, '../../viz'); import report_figures as r; r.fig_tr12_kc_field('../tr12/scan/v1_field.tsv')"
+  cd reports/figures && python3 -c "import sys; sys.path.insert(0, '../../viz'); import report_figures as r; sys.exit(r.fig_tr12_kc_field('../tr12/scan/v1_field.tsv', n=31) is False)"
   ```
 
 - **Toolchain.** matplotlib 3.11.0 and numpy 2.4.4. Under that pin the documented command reproduced

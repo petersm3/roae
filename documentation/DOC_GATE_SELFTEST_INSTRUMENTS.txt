@@ -7,7 +7,7 @@
 # against a run. That is the THIRD instance of one class — GATE 8's hand-taken proof, GATE
 # 4b's shared dispatch, and now this — so the answer is not more care. A new instrument in
 # the harness must now be DECLARED here, naming the assertion that proves it, or GATE 15
-# fails. COVERAGE (stated 2026-09-25, Q-763): GATE 15 sees a definition only when its `{` is on the definition line (`f() {`, `function f {`); a `f()` with the brace on the next line is invisible to it.
+# fails. COVERAGE: GATE 15 now reads definitions through a shell lexer cross-checked against bash's own parse, so a `f()` whose `{` is on the next line IS seen (the 2026-09-25 Q-763 note that it was invisible is stale; corrected in G5a, Codex F06-012#12).
 #
 # FORMAT: `function<TAB>proof-label<TAB>claims<TAB>note`, one per line. `#` comments and
 # blank lines ignored. Must end with a newline (the support-file preflight enforces that).

@@ -42,7 +42,11 @@ gate_numbers() {
   local found=0
   while read -r key; do
     [ -z "$key" ] && continue
-    if [ -f "$allow" ] && grep -qxF -- "$key" "$allow" 2>/dev/null; then continue; fi
+    # G5a (Codex F07-008#3, F07-014#1): a <length>:<prefix> key exempted EVERY integer of its group,
+    # so an unreviewed transcription error sharing the prefix inherited the review. The allowlist now
+    # lists the reviewed VALUES (`=<digits>`); a group is quiet only when every value in it is listed.
+    if [ -f "$allow" ] && ! awk -v K="$key" -F'\t' '$1==K {print "="$2}' "$tmp" | sort -u \
+         | grep -vxF -f <(grep '^=' "$allow") >/dev/null 2>&1; then continue; fi
     echo "  [WARN] near-twin long integers (same length, same 10-digit prefix) — key $key:"
     awk -v K="$key" -F'\t' '$1==K {print "      "$2"   <- "$3}' "$tmp" | sort -u
     found=1

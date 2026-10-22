@@ -5646,6 +5646,15 @@ static inline uint32_t dp_next_mask(uint32_t v) { /* Gosper: next same-popcount 
 }
 
 #define DP_MAXCOMB 4096
+/* Pin cap for --dp-pin (Q-1027, 2026-10-17). It was a literal 8 in two places (the argv parse and
+ * the slot loop) with pqa/pqb sized [8] to match; five-boundary pinning ({1,4,21,25,27} ->
+ * slots 1,3,4,20,21 plus the C6/C7 window 24..27) needs 9. Nothing else in this engine is sized
+ * per pin: pin_at/pin_ord are per STEP (32), pinstr[160] holds 16 "SS:PP," tokens (96 chars),
+ * DpStep.pin and DpLayer.kindsrc are pin ORDER indices (< npin). Overridable so a test can
+ * rebuild the old cap (-DDP_MAXPIN=8) and show the 9-pin case is refused there. */
+#ifndef DP_MAXPIN
+#define DP_MAXPIN 16
+#endif
 typedef struct {
     int n, start;
     int pl[32];                /* instance pair list (KW pair indices) */
@@ -5654,7 +5663,7 @@ typedef struct {
     int npin;
     int pin_at[32];            /* [step t-1] = pl-position forced, or -1 */
     int pin_ord[32];           /* [step t-1] = pin order index, or -1 */
-    int pqa[8], pqb[8];        /* pin order i -> its two hexagrams */
+    int pqa[DP_MAXPIN], pqb[DP_MAXPIN]; /* pin order i -> its two hexagrams */
     char pinstr[160];
     int nfree;
     int fpa[32], fpb[32];      /* free index -> hexagrams (PA/PB of the pair) */
@@ -5920,8 +5929,8 @@ static int dp_count_main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--dp-size-only")) size_only = 1;
         else if (!strcmp(argv[i], "--dp-pin") && i + 1 < argc) {
             int s, p;
-            if (sscanf(argv[++i], "%d:%d", &s, &p) != 2 || npin_cli >= 8) {
-                fprintf(stderr, "bad --dp-pin (want SLOT:PAIR, max 8 pins)\n"); return 2;
+            if (sscanf(argv[++i], "%d:%d", &s, &p) != 2 || npin_cli >= DP_MAXPIN) {
+                fprintf(stderr, "bad --dp-pin (want SLOT:PAIR, max %d pins)\n", DP_MAXPIN); return 2;
             }
             pin_slot[npin_cli] = s; pin_pair[npin_cli] = p; npin_cli++;
         }
@@ -5997,7 +6006,7 @@ static int dp_count_main(int argc, char **argv) {
                 printf("*** FAIL: slot %d pinned twice\n", s); return 1;
             }
             for (int j = 0; j < i; j++) if (pin_pair[j] == p) dup_pin = 1;
-            if (i >= 8) { printf("*** FAIL: more than 8 pins\n"); return 1; }
+            if (i >= DP_MAXPIN) { printf("*** FAIL: more than %d pins\n", DP_MAXPIN); return 1; }
             X.pin_at[s - 1] = q;
             char tb[16]; snprintf(tb, sizeof tb, "%s%d:%d", i ? "," : "", s, p);
             strncat(X.pinstr, tb, sizeof X.pinstr - strlen(X.pinstr) - 1);

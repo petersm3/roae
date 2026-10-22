@@ -80,6 +80,9 @@ elif mode=='edge':  ranks=[N//16-1]*500+[N//16]*500
 elif mode=='t4':
     counts=[71,55,64,59,75,58,53,74,51,49,64,60,58,81,60,68]
     for b,c in enumerate(counts): ranks+= [ (b*N)//16 + j for j in range(c) ]
+elif mode=='near':  # G5a (Codex F05-019#2): chi2 = 38.56, just above the 37.70 bar (t4 sits below it)
+    counts=[110,59,59,59,59,59,59,59,60,60,60,60,60,59,59,59]
+    for b,c in enumerate(counts): ranks+= [ (b*N)//16 + j for j in range(c) ]
 elif mode=='one':   ranks=[7]*1000
 elif mode=='overN': ranks=[(i*N)//1000 for i in range(999)]+[N]
 elif mode=='empty': ranks=[]
@@ -102,7 +105,7 @@ k=len(ranks); S=sum(c*c for c in h)
 print("%d/%d" % (16*S-k*k, k))
 PY
 }
-for m in grid edge t4 one overN empty; do d="$WORK/g_$m"; mkdir -p "$d"; mkgal "$d/q8_super.tsv" "$m"; done
+for m in grid edge t4 near one overN empty; do d="$WORK/g_$m"; mkdir -p "$d"; mkgal "$d/q8_super.tsv" "$m"; done
 mkdir -p "$WORK/g_n9"; cp "$GOLD_GALLERY" "$WORK/g_n9/q8_super.tsv"
 
 run(){ # run <harness> <galdir> <N> <k> -> rc; stdout in $WORK/last.out
@@ -116,9 +119,14 @@ verdict(){ # verdict <harness>; 0 iff every leg behaves
   rc=$(run "$h" "$WORK/g_edge" "$N" 1000)
   grep -qx $'0\t500' "$WORK/last.out" && grep -qx $'1\t500' "$WORK/last.out" \
     || { echo "    leg 2 (bucket edge N/16-1 | N/16) rc=$rc: buckets 0/1 are not 500/500 -- inexact bucketing"; return 1; }
+  [ "$rc" = 1 ] && grep -q '^Q8_CHI2_GALLERY.FINDING' "$WORK/last.out" \
+    || { echo "    leg 2 (bucket edge) rc=$rc: two full buckets were not a FINDING (G5a: the verdict, not only the counts)"; return 1; }
   rc=$(run "$h" "$WORK/g_t4" "$N" 1000)
   [ "$rc" = 0 ] && grep -qx $'chi2\t20.224' "$WORK/last.out" && grep -qx $'Q8_CHI2_GALLERY\tPASS' "$WORK/last.out" \
     || { echo "    leg 3 (2026-08-07 bucket counts) rc=$rc or chi2 != 20.224"; return 1; }
+  rc=$(run "$h" "$WORK/g_near" "$N" 1000)
+  [ "$rc" = 1 ] && grep -qx $'chi2\t38.560' "$WORK/last.out" && grep -q '^Q8_CHI2_GALLERY.FINDING' "$WORK/last.out" \
+    || { echo "    leg 8 (chi2 38.56, just over the 37.70 bar) rc=$rc: the bar is not where the prereg puts it"; return 1; }
   rc=$(run "$h" "$WORK/g_one" "$N" 1000)
   [ "$rc" = 1 ] && grep -q '^Q8_CHI2_GALLERY.FINDING' "$WORK/last.out" \
     || { echo "    leg 4 (all in one bucket) rc=$rc: accepted a non-uniform gallery"; return 1; }
@@ -134,15 +142,17 @@ verdict(){ # verdict <harness>; 0 iff every leg behaves
 }
 
 mk "$WORK/base.sh" "$WORK/row.sh"
-verdict "$WORK/base.sh" || fail "baseline: the committed row does not behave on one of the seven legs (see above)"
+verdict "$WORK/base.sh" || fail "baseline: the committed row does not behave on one of the eight legs (see above)"
 
 # Mutants. Each is a sed rewrite of the extracted row and MUST turn a leg red. A sed that does not
 # change the row is itself a failure: it would be a mutant identical to the baseline.
 mutant(){ # mutant <id> <sed-expr>
   local id="$1" expr="$2" m="$WORK/m_$1.row"
-  sed -e "$expr" "$WORK/row.sh" > "$m"
+  # G5a (Codex F05-017#7 sibling): a mutant that was not built is not a kill.
+  sed -e "$expr" "$WORK/row.sh" > "$m" || fail "mutant $id: sed failed (rc $?) -- the mutant was not built"
+  [ -s "$m" ] || fail "mutant $id: empty row -- the mutant was not built"
   cmp -s "$m" "$WORK/row.sh" && fail "mutant $id did not apply ($expr) -- anchors inside the row moved?"
-  mk "$WORK/m_$1.sh" "$m"
+  mk "$WORK/m_$1.sh" "$m" && bash -n "$WORK/m_$1.sh" 2>/dev/null || fail "mutant $id: the harness was not written or does not parse"
   if verdict "$WORK/m_$1.sh" >/dev/null 2>&1; then fail "mutant $id SURVIVED ($expr) -- this gate cannot detect that regression"; fi
   echo "  [gate] mutant $id killed"
 }
@@ -152,6 +162,8 @@ mutant M1_double_bucketing 's#awk -v N="$N_TOTAL" .{print "(16\*" $1 ")/" N}. "$
 mutant M2_finding_exits_0 's/^  exit 1$/  exit 0/'
 # M3: the bar moved from 37.70 to 37700
 mutant M3_bar_moved 's/3770\*\$k/3770000*$k/'
+# M6 (G5a; Codex F05-019#2): the bar raised tenfold -- t4 (20.224) still passes, so only leg 8 sees it.
+mutant M6_bar_tenfold 's/3770\*\$k/37700*$k/'
 # M4: ALL out-of-range protection dropped.
 # 🔴 THIS USED TO MUTATE ONLY THE RANGE CHECK AND IT STOPPED KILLING ON 2026-09-09. Not a
 # regression in the battery -- the opposite. The Q8 row gained a second, independent guard when its
@@ -166,5 +178,5 @@ mutant M3_bar_moved 's/3770\*\$k/3770000*$k/'
 mutant M4_no_range_check 's/b<0 || b>15/b<0/; s/\[ "\$CSUM" = "\$k" \]/true/'
 # M5: 15 buckets in the numerator
 mutant M5_wrong_numerator 's/16\*\$S - \$k\*\$k/15*$S - $k*$k/'
-echo "  [gate] baseline PASS on 7 legs; 5/5 mutants killed"
+echo "  [gate] baseline PASS on 8 legs; 6/6 mutants killed"
 echo "D5_02_Q8_CHI2_GALLERY_GATE=PASS"

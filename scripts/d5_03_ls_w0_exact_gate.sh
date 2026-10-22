@@ -44,12 +44,18 @@ command -v python3 >/dev/null 2>&1 || fail "python3 is not on PATH (the row and 
 [ -f solve.py ] || fail "solve.py missing"
 
 # Extract the two rows. If the anchors are gone the gate ERRORS -- it never passes blind.
-python3 - "$SRC" "$WORK/row.sh" "$WORK/mc.sh" <<'PY' || fail "could not extract the a0_ls_w0 / a0_ls_w0_mc rows from $SRC (anchors moved?)"
+python3 - "$SRC" "$WORK/row.sh" "$WORK/mc.sh" <<'PY' || fail "could not extract the a0_ls_w0 / a0_ls_w0_mc rows from $SRC (anchors moved, or the row's guard is not the pinned python3/solve.py test)"
 import sys
 s=open(sys.argv[1],encoding='utf-8').read()
 a=s.index('    row_begin a0_ls_w0\n'); b=s.index('row_end TR12_LS_W0 $rc', a)
 row=s[a:b]
 if 'pair_null_gender_le2_exact' not in row: raise SystemExit(3)
+# G5a (Codex F05-013#1): the row is extracted from INSIDE its guard, so a guard made false (the row
+# unreachable) left every extracted byte unchanged. The guard is pinned: the two lines before the
+# row must be exactly the python3/solve.py/import-state test, so `if false && ...` cannot pass.
+GUARD = ('if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \\\n'
+         '   && [ "$(py_import_state solve)" = PRESENT ]; then\n')
+if not s[:a].endswith(GUARD): raise SystemExit(5)
 a=s.index('row_begin a0_ls_w0_mc\n'); b=s.index('row_end TR12_LS_W0_COND_MC $rc', a)
 mc=s[a:b]
 if 'null-pair-constrained' not in mc: raise SystemExit(4)

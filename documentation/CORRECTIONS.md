@@ -34146,3 +34146,231 @@ calibration table has three rows, and that every non-main registry row is retire
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G4; the text was supplied by Fable
 (claude-fable-5-1)'s stand-alone review of README.md, with sites found by Codex (gpt-6-astra), final review, F08-004#30,
 F02-H05#26, F06-010#5.
+
+## CX-35U-A — the TR-12 figures drew what their checks did not reach: V2 took a truncated branch table and an unchecked share, V4 bound its bars to nothing and named any pair-ordered walk King Wen's, the standalone recipes skipped the universe checks and exited 0 on a refusal, the guards vanished under `python -O`, and native SVG text passed the text floor unmeasured (viz/report_figures.py; viz/README.md; viz/viz_kc_field.md; viz/viz_kc_grammar.md; viz/viz_kc_river.md; viz/viz_kc_shells.md; viz/viz_kc_spectrum.md; tests.py)
+
+**2026-10-18.** **Source.** Codex (gpt-6-astra), final review, F04-016#4, F04-017#7, F04-019#1, F04-019#3, F04-019#4,
+F04-019#9, F07-011#3, F07-011#4, F07-012#6, F12-022#1, F12-022#2 and F12-022#10, confirmed in fast-track batch FT3e; push
+group G5a.
+
+**What the code did, and what it does now.**
+- V2's branch inventory was judged against the rows that survived (`range(len(rows))`), so a 55-row or a 1-row table
+  passed, and each share was plotted as read (a share of 2 drew a 200% bar). At n = 31 the panel now requires all 56
+  branches; their `solutions` must sum to the river's N (its own layer mass) and each `share` must be `solutions / N`
+  (Codex executed both cases; the committed table passes).
+- V4 checked `bits` against `p_num/p_den` but never `p_num/p_den` against the shells. Each step's `p_num/p_den` must now
+  equal `g/g_parent` exactly, and each `g_parent` the previous step's `g`, so the bars telescope to the plotted shells.
+- V4 called a table King Wen's walk on its file name, 31 rows and pair order, which an orientation-flipped or bit-reversed
+  walk also has. It now also requires the producer's own row-for-row check, `solve.atlas_q3_trace_is_king_wen`.
+- The five TR-12 standalone recipes called the renderer without `n` (which disables the universe and branch-table checks)
+  and ignored its `False` return, so `FIGURE_SHAPE=FAIL` exited 0. They pass `n=31` (V3 takes none) and exit non-zero on a
+  refusal.
+- Every figure guard in `viz/report_figures.py` was an `assert`, which `python -O` strips: the TR-3 timeline drew its
+  "50.5 h" note over a 51.5 h interval and TR-7's cycle figure drew an altered sequence. All 27 are now `_require`, which
+  raises the same `AssertionError` at every optimisation level.
+- The text-floor measurement read only path glyphs, so an SVG carrying native `<text>` produced no sizes and passed. It now
+  refuses such an SVG as unmeasurable. No committed figure carries native text.
+- viz/README.md said a figure whose table is absent "is skipped with a message"; only V3 is optional, and a missing V1, V2,
+  V4 or V5 table fails the run.
+
+No committed figure, table or token changes: the committed tables pass every new check.
+
+**Tests.** `TestBatchG5a`: the 55-row, 1-row and share-2 branch tables are refused without a save while the committed table
+renders; a `p_den` tripled at step 2 (with `bits` following it) is refused; the orientation-flipped walk renders without
+King Wen's title; the spectrum recipe exits non-zero on a table missing a row; the TR-7 refusal holds under `-O` and `-OO`;
+an SVG with native text raises. The existing TR-3 refusal test now runs at all three optimisation levels.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5a; the sites were found by Codex
+(gpt-6-astra), final review, F04-016#4, F04-017#7, F04-019#1/#3/#4/#9, F07-011#3/#4, F07-012#6, F12-022#1/#2/#10.
+
+## CX-35U-B — the visualization pages and the telemetry renderer claimed more than they measured: a dependence called absent, seven rows where there are eight, an orbit explanation for a grid of distinct orbits, "exhaustive" for 62 traced walks, the deepening reading without its keying, gaps drawn as evictions, and file formats told apart by size alone (viz/viz_kc_grammar.md; viz/viz_kc_spectrum.md; viz/viz_kc_shells.md; viz/archive/viz_graphs.md; viz/archive/viz_pca.md; viz/visualize.py; tests.py)
+
+**2026-10-18.** **Source.** Codex (gpt-6-astra), final review, F07-011#1, F07-011#2, F07-011#8, F07-012#1, F07-012#2,
+F07-012#3, F07-012#4, F07-012#5, F06-006#11, F12-022#3, F12-022#4, F12-022#5, F12-022#6, F12-022#7, F12-022#8, F12-022#11,
+F04-019#5, F04-019#6, F04-019#7 and F04-019#8, confirmed in fast-track batch FT3e; push group G5a.
+
+**What was published, and what it says now.**
+- viz_kc_grammar: "Does not establish. A measured dependence between d and w" → the masses are exact and depart from the
+  product of their marginals, so a small dependence is measured; its size is not tested against a null. The same in the
+  V5-versus-V2 paragraph. "At most **7** distinct pair-rows" → 8: the seven orbits and the pinned pair's zero row (V1's
+  page already says 8).
+- viz_kc_spectrum: the rank grid's step structure was explained by orbit replication; the committed 1,000 points lie in
+  1,000 distinct orbits (Codex's census). The item now says so and points to the page's own account (the walk's final
+  hexagram).
+- viz_kc_shells: "flow identities and the Π p_i = 1/N product check exhaustively over all 26,112 walks" → rank/unrank is
+  exhaustive; the trace identities are checked on 62 walks (the selftest's own label).
+- viz/archive/viz_graphs: "strictly nested … deepening, not broadening" now carries its keying: pair identity, orientation
+  masked. Keyed by oriented enumeration prefix, the cell the page defines, 60.4% of the 560T records come from cells that
+  yielded nothing at 11.2T (HISTORY §"3-point per-cell scaling trajectory"). The telemetry caption says the grey bands are
+  the renderer's inference from sampling gaps.
+- viz/archive/viz_pca: one archive note scopes the page to its 2026-06 state and lists six readings it does not support
+  (the plotted colour range is 400–776; typicality is shown on two sample components, not in raw space; no figure measures
+  C3's selectivity; the positional "cascade" account is retracted; no four-boundary set identifies King Wen at 100T or
+  560T; colour value 2 is four pair-slot equalities, not closeness). The page is otherwise kept as written.
+
+**What the code did, and what it does now (viz/visualize.py, telemetry and legacy readers only; no published figure is
+regenerated).** Headerless files were told apart by size, so 16 legacy 68-byte records and an even number of packed
+records both decoded as 64-byte records; each size-compatible format is now tried on the content and exactly one must fit.
+Cumulative compute reset only on a drop of more than 1T and could add a session twice through a stale heartbeat; with
+`resume_seq` recorded, sessions are keyed by it. A sampling gap of more than 15 minutes was drawn as an eviction with zero
+work; with `resume_seq` recorded, a gap is downtime only across a resume boundary, and a gap inside a session is drawn as
+missing data. The launch clock was taken after the warm-up trim; it is taken before it.
+
+No figure, sha, count or verdict changes.
+
+**Tests.** `TestBatchG5a.test_wording_fixes` checks each page; `test_visualize_headerless_formats_are_decided_by_content`
+and `test_telemetry_progress_and_downtime` run Codex's fixtures through the readers. Each fails on the uncured tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5a; the sites were found by Codex
+(gpt-6-astra), final review, F07-011#1/#2/#8, F07-012#1/#2/#3/#4/#5, F06-006#11, F12-022#3/#4/#5/#6/#7/#8/#11,
+F04-019#5/#6/#7/#8.
+
+## CX-35U-C — tests that could not fail on the defect they name: a reducer tested as a copy, a loader tested by spelling, controls that never reached their inequality, skips that swallowed build and generator failures, an override list blind to most overrides, and a cleanup that erased the shared VM log (tests.py; roae.py; solve.py; scripts/perf_bench.sh; scripts/doc_gates.d/40_generated_appendonly_ledger_regdupes.sh)
+
+**2026-10-18.** **Source.** Codex (gpt-6-astra), final review, F04-010#15, F04-014#2, F04-015#4, F04-015#5, F04-015#6,
+F04-015#7, F04-015#8, F04-015#9, F04-016#1, F04-017#4, F04-017#5, F04-017#6, F04-017#8, F04-018#1, F04-018#2 and F04-018#4,
+confirmed in fast-track batch FT3e; push group G5a.
+
+**What was wrong, and what is done now.**
+- The Phase C tie-break test ran its own `reduce_shipped`; the reduction is now `roae._gs_phase_c_merge`, which Phase C calls
+  and the test drives. The checkpoint test checked that `_ck_ident` was spelled; the row comparison is now
+  `roae._gs_ck_row_mismatch`, and the test feeds it a row differing in each identity field.
+- The TR-8 bank test compared lengths; it now recomputes each value from its descriptor on seven orderings, so a swap of two
+  descriptors fails it. The C1&C2 difference-wave test now requires King Wen's 32 within-pair distances, which C1 fixes
+  ("1:63" passed). The two `--branch-yield-report` secondary-input cases supplied an invalid primary file, so they stopped
+  before the guard they name; they supply a valid one and accept only their own token. The sub-range control declared one
+  record and read one; it declares three. The rank fixtures drew fresh coefficients per column, so the "deficient" rows were
+  not combinations; they are, and the test asserts it.
+- Four benchmark classes truncated the shared session VM log to its pre-test size, erasing entries written meanwhile;
+  `perf_bench.sh` takes `PB_SESSION_LOG` (default unchanged) and the tests point it at their scratch directory.
+- `Q908_JOIN_ACCEPT=ERROR` was a skip whatever the cause; only a missing or stale binary is now a skip. GATE 8's generator
+  failure message now names timeout (rc 124) or exit status, and the generated-output tests skip only on the timeout.
+- `TestG31SatCliEdges._run` ran the literal `sat.py`; it resolves through the mutant-source overrides. The Q-941 tests
+  found the fatal call's text; they now also require it to be the statement the exhausted loop falls into. The pipe-record
+  scanner ignored zero-pipe words and single-record lists; every word of a record list is now a record.
+- The tests-log tree binding saw only `ROAE_TESTS_` overrides; ten more that substitute a source, script or binary
+  (`Q949_HOOK_SRC`, `Q971_SRC_DIR`, `Q951_SCRIPTS_ROOT`, `ROAE_B39D_REVIEWER_DIR`, `Q908_SOLVE_BIN`, `Q908_VERIFY_BIN`,
+  `ROAE_P01_SCRIPT`, `Q958_SCRIPT`, `Q957_BATTERY`, `ROAE_C8_DEFCHECK`) now mark the run OVERRIDDEN, and a test requires
+  every path-defaulted override in tests.py to be on that list.
+- solve.py's comment said the amended C8 defcheck matches the frozen one "on lines 1-163 except line 147"; the docstring,
+  lines 2-10, differs too (CX-354 item 4). The comment says so. The pinned extract is unchanged.
+
+**F04-018#5, carried here because the file is frozen.** `reports/evidence/c8screen/prereg_c8screen_defcheck_a1.py:279`
+(sha256 28889b9f…, listed in that directory's SHA256SUMS; not edited) says of the amendment-1 DEFINED rule "On every C1
+input the rule is vacuous." That is too wide. The class-P set sizes the rule requires (|B_2|, |B_3|, |B_4|, |B_odd| =
+8, 13, 7, 15) are forced by C1 together with C5, not by C1 alone, so a C1 ordering without C5 can leave a P-CM or
+P-DISP member NA — Codex's witness is the frozen gate-seed ordering: C1 holds, |B_odd| = 13, DEFINED is false. The rule
+is vacuous on every C1∩C5 leaf and, on any C1 input, for every member outside class P — which is what the file's own
+H1 check on the next lines and `tests.py` (`TestC8Scorer.test_controls_producer_amendment_1`) assert. Nothing computed
+changes: the §4.4 controls are non-C1 orderings, `defcheck_a1.out` and the extract solve.py carries are pinned and
+untouched. The frozen file keeps its comment; this paragraph is its correction.
+
+No figure, sha, count or verdict changes.
+
+**Tests.** `TestBatchG5a` runs each strengthened test against the mutant Codex built (descriptor swap, "1:63", an `if (0)`
+before the fatal call, the two malformed record lists, each override) and requires it to fail; the roae.py helpers, the
+session-log cleanup, the generator message and the solve.py comment are checked directly and fail on the uncured tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5a; the sites were found by Codex
+(gpt-6-astra), final review, F04-010#15, F04-014#2, F04-015#4/#5/#6/#7/#8/#9, F04-016#1, F04-017#4/#5/#6/#8, F04-018#1/#2/#4.
+
+## CX-35U-D — gate selftests that a surviving mutant passed: the Q3 reader, the d5 rows, Q314's isolation, both Q326 gates, Q433's consumer, the A2/A3 fixtures, Q2's timeout, the XA verdict, N3's Q10a guard, the history index and GATE 59's mixed run (scripts/q3_reader_exactness_gate.sh; scripts/q422_ratio_columns_gate.sh; scripts/d5_02_q8_chi2_gallery_gate.sh; scripts/d5_03_ls_w0_exact_gate.sh; scripts/d5_04_q7_witnesses_gate.sh; scripts/d5_08_q6_q10a_shell_gate.sh; scripts/q314_mod48_gate.sh; scripts/q326_kc_unrank_m0_gate.sh; scripts/q326_kc_query_surface_gate.sh; scripts/q433_xa_cert_gate.sh; scripts/q2_witness_gate.sh; scripts/xa_exact_verdict_gate.sh; scripts/n3_measured_nulls_gate.sh; scripts/history_index.sh; scripts/doc_gates.sh; documentation/DEVELOPMENT.md; tests.py)
+
+**2026-10-18.** **Source.** Codex (gpt-6-astra), final review, F05-012#5, F05-012#6, F05-012#7, F05-012#8, F05-012#9,
+F05-013#1, F05-013#9, F05-014#6, F05-014#7, F05-015#2, F05-015#3, F05-017#7, F05-017#12, F05-018#6, F05-018#10, F05-018#11,
+F05-018#12, F05-019#2, F05-019#5, F06-011#3 and F06-012#7, confirmed in fast-track batch FT3g; push group G5a. Codex
+executed each mutant against the gate's own fixtures.
+
+**What survived, and what kills it now.**
+- Q3 reader: legs 12–16 isolate the g(s_22) and g(s_24) anchors, the row count, a link after link 2 and the `g_parent`
+  column; mutants M10–M13 (anchor list cut to 26, row count dropped, link loop cut to 2, `p_den` read for `g_parent`) each
+  die. 16 legs, 13 mutants.
+- Mutation helpers in the Q3, Q422, d5_02, d5_04 and d5_08 gates counted a mutant that was never built, or that crashed,
+  as killed. Each now requires sed's status and a non-empty mutant; Q3 requires the mutant to run on the control, Q422 a
+  compiling file and a failure that is not a traceback or a signal exit, d5_02 and d5_08 a harness bash can parse.
+- d5_03 extracted its row from inside its guard, so an unreachable row passed; the guard is pinned. Q314's isolation
+  legs read "did not fire" from an absent line; the comparison gate must print PASS on the fault run.
+- Q326 unrank: each mutant must die on its named leg, and M3 (diagnostic twice, then the representative) makes L3 load-
+  bearing. Q326 query surface: legs 14–15 put `--kc-c3-max` on `--kc-rank` and `--kc-member`, and M6 admits it there.
+- Q433: L19 asks the consumer, through `atlas_emit_xa`, to price nothing on three refused certificates; m7 substitutes a
+  default mapping. DEVELOPMENT.md's leg and mutant counts are updated (they read 19 and six; there are 20 and nine).
+- The A2 and A3 test classes gain cancelling slot errors (A2) and a class 1/5 move with class 3 fixed (A3).
+- Q2 witness leg 10 read the first timeout assignment; the default must be the battery's only assignment.
+- XA verdict: fixture W prices a typed 0.1 work factor at a tie, leg 3b evaluates the CLI's own `cost = {...}`, and the
+  hedge-band fixtures check the Call line.
+- d5_02: leg 8 is a gallery at chi2 38.56, just over the bar, and leg 2 checks its FINDING; M6 (the bar raised tenfold)
+  dies. N3: case 12 asks Q10a about the contradictory predecessor; a tenth mutant drops that guard.
+- `history_index.sh --selftest` accepted any output containing the expected token; it now requires exactly one verdict and
+  the matching exit status. GATE 59's 59b now also requires the surviving figure to print `[OPEN]` in the same run.
+
+No figure, sha, count or verdict changes; every gate passes on this tree.
+
+**Tests.** `TestBatchG5a` plants Codex's mutant into a scratch copy of each gate's subject (or, for the helpers, makes sed
+fail) and requires the gate not to pass; each passed on the uncured gate.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5a; the sites were found by Codex
+(gpt-6-astra), final review, F05-012#5/#6/#7/#8/#9, F05-013#1/#9, F05-014#6/#7, F05-015#2/#3, F05-017#7/#12, F05-018#6/#10/
+#11/#12, F05-019#2/#5, F06-011#3, F06-012#7.
+
+## CX-35U-E — registries and allowlists whose rows no longer said why they were needed, inventory dates bound to the wrong event, a tree invariant one substring wide, number keys that exempted a whole prefix, GATE 64 blind to the "beyond C1–C7" form, TR-11's "exhaustive", and a package digest that followed the umask (scripts/corrections_inventory.sh; documentation/CORRECTIONS_INVENTORY.tsv; documentation/RETRACTED_PHRASES.tsv; documentation/TREE_INVARIANTS.tsv; documentation/DOC_GATE_ALIAS_REACH.tsv; documentation/DOC_GATE_SECREF_ALLOWLIST.txt; documentation/DOC_GATE_SELFTEST_INSTRUMENTS.txt; documentation/DOC_GATE_NUMBER_ALLOWLIST.txt; scripts/doc_gates.d/10_numbers_cli_citations.sh; scripts/doc_gates.d/20_retract_links_status.sh; scripts/doc_gates.d/95_derived_figures_scope.sh; scripts/doc_gates.sh; reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md; reviewer/make_package.sh; tests.py)
+
+**2026-10-18.** **Source.** Codex (gpt-6-astra), final review, F06-002#1, F06-003#5, F06-006#4, F06-006#5, F06-012#6,
+F06-012#10, F06-012#11, F06-012#12, F07-008#3, F07-014#1 and F09-A06#6, confirmed in fast-track batches FT3e and FT3g; and
+Fable's pre-publication review of push group G4 (claude-fable-5-1, item N3) for GATE 64. Push group G5a.
+
+**What was wrong, and what it is now.**
+- `corrections_inventory.sh` bound a date to its marker only when the date followed the token directly, so "**CORRECTED**
+  (self, 2026-07-04)" (CLAIMS_DECIDED) and a "withdrawn" inside "[CORRECTED 2026-09-02 — …]" (CANONICAL_HASHES) took
+  earlier dates. A short attribution is now allowed, and a token inside a bracketed marker takes that bracket's date. Ten
+  inventory dates move, each to the date its own marker carries.
+- RETRACTED_PHRASES rows 305, 307 and 403 allowed a file that no longer holds the phrase (403 named a regenerated receipt
+  as "the as-run receipt"); such an exemption can only hide a reintroduction. They allow none.
+- TREE_INVARIANTS said "checked on every commit"; the pre-commit dispatcher does not run GATE 81, the push gate does. Its
+  one pattern was the substring `rm -rf %s`, which `rm -rf '%s' %s` and `rm  -rf  %s` passed; it now matches any `%s`
+  after `rm -rf` not opened by a quote.
+- TR-11's executive summary called TR-3's budget-limited enumeration "exhaustive" (its own parenthesis says exact lower
+  bounds); it reads "budget-limited" (TR-11 v1.37). The alias registry's note on that site is updated.
+- DOC_GATE_ALIAS_REACH's SOLVE_PY_CLI row said to remove it once the emitter header was fixed; it was fixed 2026-09-02
+  and the row now guards the correction's own quotation, as it says. DOC_GATE_SECREF_ALLOWLIST called its three rows open
+  defects while each is an adjudicated meta-mention; GATE 4b now prints those as `[meta-mention]` and counts only the rest
+  as open. DOC_GATE_SELFTEST_INSTRUMENTS said GATE 15 cannot see a `f()` whose brace is on the next line; it can.
+- GATE 1's number allowlist keyed on length and prefix, so an unreviewed near-twin (Codex: 4611686018427387848 beside the
+  three CRT moduli) inherited the review. The allowlist now lists the reviewed values; a group is quiet only when every
+  value in it is listed.
+- GATE 64 read only "C1–C7 plus N"; "boundaries beyond C1–C7 (five …)" double-counts C6 and C7 the same way and is now
+  judged alike (a decimal such as "1.3287" is not read as a count). Ten claims are judged on this tree, all consistent.
+- `reviewer/make_package.sh` called its tar.gz reproducible while `cp -p` and the umask set its modes; directories are now
+  755 and files 644, or 755 where git records them executable.
+
+**F06-003#1, closed by scoping the class.** DOC_GATE_FIGURE_ALLOWLIST classed HISTORY.md's 2026-07-16 peak-RSS figure (a
+no-op relaunch's VmHWM) as `historical`, which the file defined as "TRUE when written"; the row's own reason says the figure was never
+true (a no-op relaunch's VmHWM; the working segment printed 24,122.0 MB, CX-97). HISTORY.md is append-only, so the
+figure cannot be marked, and retiring the row would make GATE 3b red on it forever. The class now reads "a dated
+record kept as written — what was measured or believed on that day — later overtaken, or withdrawn by a dated
+correction the why column names". No row, count or verdict moves.
+
+No figure, sha, count or verdict changes.
+
+**Tests.** `TestBatchG5a` checks both inventory rows, every allow file against its phrase, the invariant pattern on Codex's
+three fixtures, a planted near-twin, a planted "beyond C1–C7 (five" sentence (GATE 64 red) with the tree green, GATE 4b's
+meta-mention lines, and the package digest under two umasks. Each fails on the uncured tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5a; the sites were found by Codex
+(gpt-6-astra), final review, F06-002#1, F06-003#5, F06-006#4/#5, F06-012#6/#10/#11/#12, F07-008#3, F07-014#1, F09-A06#6,
+and by Fable (claude-fable-5-1), G4 pre-publication review, item N3.
+
+## CX-35U-F — verify.c's Route D refused more than eight pinned steps (verify.c; tests.py)
+
+**2026-10-18.** **Source.** Backlog item Q-1027 (Fable lane, claude-fable-5-1, 2026-10-17); push group G5a.
+
+**What the code did, and what it does now.** `verify --dp-count` capped `--dp-pin` at a literal 8, in the argument parse
+and again in the slot loop, with the per-pin arrays sized to match, so a pin set of nine steps was refused ("max 8 pins").
+The cap is now `DP_MAXPIN` (16, overridable at build time); nothing else in the engine is sized per pin.
+
+**Tests.** `TestQ1027FiveBoundaryPinCap` builds verify.c twice, as shipped and with `-DDP_MAXPIN=8`: nine scattered pins
+give the brute-force count under both Route D and Route B at small n (several pin sets, in scrambled order, and a duplicate
+pair giving 0); an explicit four-slot window gives the same plan as `--dp-pin-c6c7` at full31; the old cap refuses the
+nine-pin cases while still accepting eight; and every other pin guard still refuses. No published count changes.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5a; the change and its tests were written in
+the Q-1027 lane (claude-fable-5-1).

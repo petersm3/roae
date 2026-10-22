@@ -1,5 +1,16 @@
 # Visualization — PCA scatter plots (where each solution sits)
 
+> ⚠ **Archived page, scoped to its 2026-06 state** (G5a; Codex final review, F07-012, F12-022). It is
+> kept as written. Read it with these corrections: (1) the plotted dots' colour range is 400–776; 392
+> is the full dataset's minimum. (2) Typicality is shown only on the two sample principal components
+> (about 40.8% of the variance), not in raw 32-dimensional pair-placement space. (3) Every plotted
+> record already passed C3, so no figure here measures how selectively C3 filters. (4) The "cascade"
+> account of positions 3–19 is retracted ([SPECIFICATION](../../documentation/SPECIFICATION.md)), and
+> no loading result is given for the axes' back-half reading. (5) At 100T and 560T no four-boundary
+> set identifies King Wen (the minimum is five), so the "4-boundary" survivor reading does not apply
+> to this population. (6) Colour value 2 counts four fixed pair-slot equalities; it does not measure
+> closeness to King Wen.
+
 The four PCA scatter plots project a 1,000,000-record reservoir sample (seed 42, King Wen inserted if absent) of the d3 **560T** canonical solution set
 (sha `9a968fa2…`, 10,525,271,997 records) onto two dimensions, each colored by a
 different structural property. They answer **"where does each valid ordering sit, and

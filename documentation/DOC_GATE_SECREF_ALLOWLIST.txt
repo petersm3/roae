@@ -1,10 +1,11 @@
 # DOC_GATE_SECREF_ALLOWLIST.txt - GATE 4b (scripts/doc_gates.sh)
 #
-# EVERY LINE BELOW IS AN OPEN DEFECT, NOT AN EXEMPTION. GATE 4b re-prints each one as
-# [OPEN] on every run, with its reason, precisely so this file cannot become a place
-# where broken cross-references go to be forgotten. The allowlist exists only so that a
-# NEW dangling section reference fails the build immediately instead of being buried in
-# a list of pre-existing ones.
+# EVERY LINE BELOW IS RE-PRINTED ON EVERY RUN, with its reason, so this file cannot become a
+# place where broken cross-references go to be forgotten. A row whose reason begins
+# "meta-mention" prints as [meta-mention] (an adjudicated quotation, not a live reference);
+# any other row is an OPEN DEFECT and prints as [OPEN] (G5a, Codex F06-012#11: this header
+# called all rows open defects while the three rows below are adjudicated meta-mentions).
+# The allowlist exists so that a NEW dangling reference fails the build immediately.
 #
 # A ROW THAT NO LONGER CORRESPONDS TO A LIVE FINDING IS A HARD FAILURE (item B1,
 # 2026-08-02). GATE 4b compares the rows it actually consulted against the rows in this

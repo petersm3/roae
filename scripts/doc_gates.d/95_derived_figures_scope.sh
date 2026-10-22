@@ -752,7 +752,8 @@ PY
 # greedy-minimum sizes and, for rows whose last cell is ✓, S-2. Claims over tracked md (CORRECTIONS.md/
 # HISTORY.md excluded; `[CORRECTED …]` spans and `*Revision` paragraphs stripped): `C1–C5 plus (the) N`
 # needs N ∈ S; `C1–C7 plus (the) N` needs N ∈ {s-2}. N is a digit or a number word; a non-numeric
-# continuation ("plus the dedup semantics", "plus C6 and C7") is not a count and is skipped.
+# continuation ("plus the dedup semantics", "plus C6 and C7") is not a count and is skipped. "boundaries beyond
+# C1–C5/C1–C7 (N" (an optional parenthesis) is the same claim and is judged the same way (G5a).
 # POPULATION printed and floored at 1 claim.
 # MEASURED BEFORE LANDING (2026-09-02): pre-fix (`git show 89e7a9a1:documentation/SPECIFICATION.md`) ->
 # HIT "C1–C7 plus four" (4 ∉ {2,3}), rc 1; live -> "C1–C5 plus four", "C1–C7 plus two", "C1–C7 plus
@@ -804,8 +805,10 @@ for f in files:
         if p.lstrip().startswith("*Revision"): continue
         p=re.sub(r"\[CORRECTED\b.*?\]"," ",p,flags=re.S)
         flat=" ".join(p.replace("*","").split())
-        for m in re.finditer(r"C1[–-]C([57]) plus (?:the )?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b",flat):
-            v=m.group(2).lower(); N=int(v) if v.isdigit() else W[v]; base=m.group(1)
+        # G5a (Fable, G4 pre-publication review, item N3): the "boundaries beyond C1–C7 (five …)" form double-counts C6/C7 the
+        # same way "C1–C7 plus five" does, and the plus-only grammar never saw it. Both forms are judged alike.
+        for m in re.finditer(r"(?:C1[–-]C([57]) plus (?:the )?|boundaries beyond C1[–-]C([57]) \(?(?:the )?)(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b(?![.,]\d|\s?×)",flat):
+            v=m.group(3).lower(); N=int(v) if v.isdigit() else W[v]; base=m.group(1) or m.group(2)
             n+=1
             ss=0
             for b in re.finditer(r"(?<=[.!?])\s+(?=[A-Z])",flat[:m.start()]): ss=b.end()

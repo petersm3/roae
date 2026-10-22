@@ -178,7 +178,7 @@ az vm create -g "$RG" -n "$VM" --image Ubuntu2404 --size "$VM_SIZE" \
     --os-disk-size-gb "$DISK_GB" --storage-sku StandardSSD_LRS \
     --query priority -o tsv 2>&1 | sed 's/^/  /'
 
-echo "$(date -u +%FT%TZ) $VM $RG perf-bench-${SCALE}" >> /tmp/claude_session_vms.txt
+echo "$(date -u +%FT%TZ) $VM $RG perf-bench-${SCALE}" >> "${PB_SESSION_LOG:-/tmp/claude_session_vms.txt}"   # PB_SESSION_LOG: tests only (G5a)
 
 VM_IP=$(az vm show -d -g "$RG" -n "$VM" --query publicIps -o tsv)
 emit "  vm_ip=$VM_IP"

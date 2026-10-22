@@ -105,6 +105,10 @@ fi
 if grep -q 'XA-24.*FAIL' "$WORK/last.out"; then
   echo "  [FAIL] leg 2: the mod-24 gate ALSO fired -- this fault does not isolate XA-48,"
   echo "         so it cannot show the new gate adds coverage"; bad=1
+elif ! grep -q 'XA-24.*PASS' "$WORK/last.out"; then
+  # G5a (Codex F05-013#9): isolation needs the comparison gate to have RUN and passed; a deleted
+  # XA-24 line also "did not fire".
+  echo "  [FAIL] leg 2: the mod-24 gate printed no PASS line on the fault run -- isolation is not shown"; bad=1
 else
   echo "  [ok]   leg 2: the mod-24 gate did NOT fire -- the fault isolates XA-48"
 fi
@@ -129,6 +133,7 @@ if line2 | grep -c 'FAIL' >/dev/null; then echo "  [ok]   leg 3: V2-48 fired on 
 else echo "  [FAIL] leg 3: V2-48 did not fire on +24 to a class cell: $(line2)"; bad=1; fi
 if line1 | grep -c 'FAIL' >/dev/null; then
   echo "  [FAIL] leg 3: V1-16 ALSO fired -- the fault does not isolate V2-48"; bad=1
+elif ! line1 | grep -c 'PASS' >/dev/null; then echo "  [FAIL] leg 3: V1-16 printed no PASS line on the fault run -- isolation is not shown (G5a)"; bad=1
 else echo "  [ok]   leg 3: V1-16 did NOT fire -- the fault isolates V2-48"; fi
 
 rc=$(run --atlas-fault v1-mod16)
@@ -136,6 +141,7 @@ if line1 | grep -c 'FAIL' >/dev/null; then echo "  [ok]   leg 4: V1-16 fired on 
 else echo "  [FAIL] leg 4: V1-16 did not fire on +8 to a raw cell: $(line1)"; bad=1; fi
 if line2 | grep -c 'FAIL' >/dev/null; then
   echo "  [FAIL] leg 4: V2-48 ALSO fired -- the fault does not isolate V1-16"; bad=1
+elif ! line2 | grep -c 'PASS' >/dev/null; then echo "  [FAIL] leg 4: V2-48 printed no PASS line on the fault run -- isolation is not shown (G5a)"; bad=1
 else echo "  [ok]   leg 4: V2-48 did NOT fire -- the fault isolates V1-16"; fi
 
 # ---- legs 5 and 6: item 3's VERTICAL conservation, tested WITHOUT walks --------------------

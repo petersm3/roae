@@ -1,6 +1,8 @@
 # Allowlist for scripts/doc_gates.sh gate 1 (cross-file long-integer near-twins).
-# One key per line, format  <length>:<first-10-digits>.
-# Add a key ONLY after confirming the near-twin values are intentionally different.
+# One reviewed VALUE per line, format  =<all digits>  (G5a, Codex F07-008#3 / F07-014#1: a
+# <length>:<first-10-digits> key exempted every integer of its group, reviewed or not). A near-twin
+# group is quiet only when every value in it is listed. Add a value ONLY after confirming it is
+# intentionally different from its twins.
 # Reviewed 2026-08-01:
 #   12:1098367775 — solutions.bin byte counts WITH and WITHOUT the 32-byte header
 #                   (…536 vs …504 = exactly 32). Documented distinction, not a defect.
@@ -9,15 +11,50 @@
 #                   genuinely distinct measurements that share a prefix by coincidence of magnitude.
 #   12:3368087039 — solutions.bin size WITH the 32-byte header (…936 = 32 + 10,525,271,997×32)
 #                   vs the header-less figure (…904). Documented distinction, not a defect.
-12:1098367775
-12:1785714292
-12:1785714293
+# key 12:1098367775 -- its reviewed values (G5a: values, not the key, are exempt):
+=109836777504
+=109836777536
+# key 12:1785714292 -- its reviewed values (G5a: values, not the key, are exempt):
+=178571429220
+=178571429228
+=178571429272
+=178571429287
+=178571429288
+=178571429289
+=178571429291
+=178571429292
+=178571429293
+=178571429295
+=178571429296
+=178571429299
+# key 12:1785714293 -- its reviewed values (G5a: values, not the key, are exempt):
+=178571429300
+=178571429302
+=178571429303
+=178571429305
+=178571429306
+=178571429308
+=178571429309
+=178571429311
+=178571429312
+=178571429314
+=178571429315
+=178571429316
+=178571429317
+=178571429320
+=178571429321
+=178571429326
 # 12:1785714294 removed 2026-09-25 (Q-763): a dead key; 178,571,429,4xx occurs 0 times in tracked files.
-12:3368087039
+# key 12:3368087039 -- its reviewed values (G5a: values, not the key, are exempt):
+=336808703904
+=336808703936
 # Reviewed 2026-09-02 (prose batch P31):
 #   19:4611686018 - the three 62-bit CRT moduli of the exact start-free |C1 & C2| run
 #                   (2^62-57, 2^62-87, 2^62-117), published as a reproduction command in
 #                   reports/TR9_PRICING_THE_CONSTRAINTS.md §Verification Guide. They are
 #                   DELIBERATELY near-twins: three distinct primes just under 2^62 chosen so
 #                   their product exceeds |C1| = 32!*2^32. Intentional, not a transcription defect.
-19:4611686018
+# key 19:4611686018 -- its reviewed values (G5a: values, not the key, are exempt):
+=4611686018427387787
+=4611686018427387817
+=4611686018427387847

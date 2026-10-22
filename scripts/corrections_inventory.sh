@@ -363,15 +363,26 @@ classify() {
       if (match(text, /20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]/)) {
         dt = substr(text, RSTART, RLENGTH)
         if (src != "changelog") {
-          scan = low; off = 0
+          # G5a (Codex F06-002#1): the bound date may sit after a short attribution ("**CORRECTED**
+          # (self, 2026-07-04)"); and a token that sits INSIDE a bracketed marker ("[CORRECTED
+          # 2026-09-02 -- ... That claim is withdrawn; ...]") is dated by that bracket.
+          bound = ""; scan = low; off = 0
           while (match(scan, tokre[cls])) {
+            tpos = off + RSTART
             rest = substr(text, off + RSTART + RLENGTH)
             adv = RSTART + RLENGTH
-            if (match(rest, /^[^A-Za-z0-9]*20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]/) && RLENGTH <= 14) {
-              dt = substr(rest, RLENGTH - 9, 10); break
+            if ((match(rest, /^[^A-Za-z0-9]*20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]/) && RLENGTH <= 14) ||
+                (match(rest, /^[^A-Za-z0-9]*[A-Za-z]+, 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]/) && RLENGTH <= 24)) {
+              bound = substr(rest, RLENGTH - 9, 10); break
             }
+            head = substr(text, 1, tpos - 1); bo = 0; bdt = ""
+            while (match(substr(head, bo + 1), /\[[A-Za-z]+ 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]/)) {
+              bdt = substr(head, bo + RSTART + RLENGTH - 10, 10); bo += RSTART + RLENGTH - 1; bend = bo
+            }
+            if (bdt != "" && index(substr(head, bend + 1), "]") == 0) { bound = bdt; break }
             scan = substr(scan, adv); off += adv - 1
           }
+          if (bound != "") dt = bound
         }
       }
       else if (dt == "") dt = "-"

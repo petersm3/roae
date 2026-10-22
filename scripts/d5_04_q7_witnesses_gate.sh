@@ -449,7 +449,7 @@ echo "  [gate] leg 18: the green run carries pins_identical YES, Q7WIT_CONTRACT 
 mutant_row(){ # mutant_row <id> <file> <sed-expr> <fixture-dir> <fixture-name> <named-line-the-leg-greps>
   local id="$1" f="$2" expr="$3" fix="$4" out rc
   local m="$WORK/m_$id.sh"
-  sed -e "$expr" "$WORK/$f" > "$m"
+  sed -e "$expr" "$WORK/$f" > "$m" && [ -s "$m" ] || err "mutant $id: sed failed or wrote nothing -- the mutant was not built (G5a)"
   cmp -s "$m" "$WORK/$f" && err "mutant $id did not apply ($expr) -- anchors inside the row moved?"
   out=$(run_row "$m" "$WORK/helpers.sh" "$fix" 0 "$NOKISSAT:$BASEPATH"); rc=$?
   if [ "$rc" -ne 0 ] && grep -q "$6" <<<"$out"; then
@@ -469,7 +469,7 @@ echo "  [gate] mutant M3_prefix_agg_line killed"
 mutant_helpers(){ # mutant_helpers <id> <sed-expr> <fixture-dir> <fixture-name> <named-line-the-leg-greps>
   local id="$1" expr="$2" fix="$3" out rc
   local m="$WORK/mh_$id.sh"
-  sed -e "$expr" "$WORK/helpers.sh" > "$m"
+  sed -e "$expr" "$WORK/helpers.sh" > "$m" && [ -s "$m" ] || err "mutant $id: sed failed or wrote nothing -- the mutant was not built (G5a)"
   cmp -s "$m" "$WORK/helpers.sh" && err "mutant $id did not apply ($expr) -- anchors inside the helpers moved?"
   out=$(run_row "$WORK/wit.sh" "$m" "$fix" 0 "$NOKISSAT:$BASEPATH"); rc=$?; MH_RC=$rc
   if [ "$rc" -ne 0 ] && grep -q "$5" <<<"$out"; then

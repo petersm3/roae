@@ -19,9 +19,12 @@ across the three canonical depths (11.2T → 100T → 560T), with a power-law fi
 - Records grow **sublinearly** with budget: ×50 budget (11.2T→560T) yields only ×13.86 records
   (global power-law exponent α ≈ 0.67; recent-leg α ≈ 0.65). The three measured points
   (11.2T = 759,608,573; 100T = 3,432,399,297; 560T = 10,525,271,997) lie close to the fit line.
-- The enumeration is **strictly nested** (11.2T ⊆ 100T ⊆ 560T, 0 monotonicity violations) and
-  **deepening, not broadening** — growth is existing productive cells yielding more, not new cells
-  opening. None of the sampled sub-branches are exhausted at 560T, so the curve is the growth of a
+- Keyed by pair identity (orientation masked, the granularity at which the canonical dedups), the
+  enumeration is **strictly nested** (11.2T ⊆ 100T ⊆ 560T, 0 monotonicity violations) and **deepening,
+  not broadening**: cells newly yielding at 560T hold about 0.5% of its records, though their count
+  still grows from 9,799 to 10,618. Keyed by oriented enumeration prefix, the cell this page defines
+  below, the picture inverts: 60.4% of the 560T records come from cells that yielded nothing at 11.2T
+  (HISTORY §"3-point per-cell scaling trajectory"; the two keyings measure different cells). None of the sampled sub-branches are exhausted at 560T, so the curve is the growth of a
   fixed-budget *slice*, not an approach to a total. This reframed what a 1120T extension would have shown (that extension is **not planned**, 2026-08-01) as a
   **discriminating test of the growth asymptote**, not merely more data.
 
@@ -32,7 +35,7 @@ trajectory" for the full analysis, and [`../../documentation/CANONICAL_HASHES.md
 
 Sampled at a 5-minute cadence across the from-scratch 560T re-run (1,254 samples, **7 real Spot
 evictions / 8 resume segments**). These are *how the run executed* — archived outputs of `telemetry.csv`, which is **not distributed**
-(neither are its `telemetry_meta.txt` / `VIZ_*` settings), so these panels cannot be regenerated from this repository (Q-897, 2026-09-28; this read "reproduced from the preserved `telemetry.csv`"). Grey bands mark VM-off (eviction) intervals; boot-id keys each resume segment.
+(neither are its `telemetry_meta.txt` / `VIZ_*` settings), so these panels cannot be regenerated from this repository (Q-897, 2026-09-28; this read "reproduced from the preserved `telemetry.csv`"). Grey bands mark intervals the renderer treats as VM-off: it draws every gap of more than 15 minutes between samples as an eviction, so a gap in telemetry alone would also be drawn as downtime; boot-id keys each resume segment.
 The archived titles include the historical host label (a VM size name, not a cloud identifier); axes report the physical quantities described below.
 
 ### Compute & progress

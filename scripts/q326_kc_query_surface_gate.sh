@@ -172,16 +172,20 @@ legs(){ # legs <solve> -> L1..L13
   rc=$(q --kc-unrank "$WORK/f" 0 --kc-record --kc-c3-max -1)
   { [ "$rc" = 0 ] && [ "$(grep -cE '^record	m=[1-9][0-9]*	' "$WORK/o")" -eq 1 ]; } \
       && echo "L13=OK" || echo "L13=BAD(rc=$rc)"
+  # G5a (Codex F05-017#12): --kc-c3-max was tested on --kc-count only; rank and member were tested with
+  # other options, so admitting KO_C3 for those two alone restored the accept-and-ignore unseen.
+  rc=$(q --kc-rank "$WORK/f" "$WALK" --kc-c3-max 387);   [ "$rc" = 2 ] && echo "L14=OK" || echo "L14=BAD(rc=$rc)"
+  rc=$(q --kc-member "$WORK/f" "$WALK" --kc-c3-max 387); [ "$rc" = 2 ] && echo "L15=OK" || echo "L15=BAD(rc=$rc)"
 }
 
 BASE=$(legs "$SOLVE")
-[ "$(printf '%s\n' "$BASE" | grep -c '^L[0-9]*=')" = 13 ] \
-  || fail "baseline produced $(printf '%s\n' "$BASE" | grep -c '^L[0-9]*=') leg verdicts, not 13 -- the gate measured nothing"
+[ "$(printf '%s\n' "$BASE" | grep -c '^L[0-9]*=')" = 15 ] \
+  || fail "baseline produced $(printf '%s\n' "$BASE" | grep -c '^L[0-9]*=') leg verdicts, not 15 -- the gate measured nothing"
 case "$BASE" in *=BAD*)
   printf '%s\n' "$BASE" | grep '=BAD' | sed 's/^/  [FAIL] baseline /'
   echo "Q326_QUERY_SURFACE=FAIL"; exit 1 ;;
 esac
-echo "  [gate] baseline PASS on 13 legs"
+echo "  [gate] baseline PASS on 15 legs"
 
 # NEVER `legs | grep -q` under pipefail: grep -q exits at the first match, SIGPIPEs the producer,
 # the pipeline reports 141, and a KILLED mutant reads as SURVIVED. Capture, then match.
@@ -203,6 +207,9 @@ elif E == "mask_set_never_tested": # the half-fix: `used` is maintained but neve
 elif E == "unrank_c3_unconditional":  # Q-765 restored: --kc-c3-max admitted without --kc-record
     old = "allowed = KO_RECORD | (want_record ? KO_C3 : 0);\n"
     new = "allowed = KO_RECORD | KO_C3;\n"
+elif E == "rank_member_admit_c3":  # G5a: rank and member alone accept-and-ignore --kc-c3-max
+    old = '                 strcmp(cmd, "--kc-enum-desc") == 0)                       allowed = KO_C3 | KO_LIMIT;\n'
+    new = old + '        else if (strcmp(cmd, "--kc-rank") == 0 || strcmp(cmd, "--kc-member") == 0) allowed = KO_C3;\n'
 else: sys.exit(2)
 assert s.count(old) == 1, "mutant anchor drift: " + E
 open(os.environ["MUT"], "w", encoding="utf-8").write(s.replace(old, new))
@@ -210,7 +217,7 @@ PY
   cmp -s solve.c "$WORK/m.c" && { echo "  [ERROR] mutant $name did not change solve.c"; return 2; }
   build "$WORK/m.c" mut || { echo "  [ERROR] mutant $name did not compile"; return 2; }
   out=$(legs "$WORK/b_mut/bin")
-  [ "$(printf '%s\n' "$out" | grep -c '^L[0-9]*=')" = 13 ] \
+  [ "$(printf '%s\n' "$out" | grep -c '^L[0-9]*=')" = 15 ] \
     || { echo "  [ERROR] mutant $name produced no leg verdicts -- nothing was measured"; return 2; }
   case "$out" in *=BAD*) echo "  [gate] mutant $name killed"; return 0 ;; esac
   echo "  [FAIL] mutant $name SURVIVED -- the gate cannot see this fault"; return 1; }
@@ -218,10 +225,10 @@ PY
 K=0
 for m in M1_permissive_table:permissive_table M2_atoll_not_strtoll:atoll_not_strtoll \
          M3_int_narrowing:int_narrowing M4_mask_set_never_tested:mask_set_never_tested \
-         M5_unrank_c3_unconditional:unrank_c3_unconditional; do
+         M5_unrank_c3_unconditional:unrank_c3_unconditional M6_rank_member_admit_c3:rank_member_admit_c3; do
   mutate "${m%%:*}" "${m##*:}"
   case $? in 0) K=$((K+1)) ;; 1) echo "Q326_QUERY_SURFACE=FAIL"; exit 1 ;; *) echo "Q326_QUERY_SURFACE=ERROR"; exit 2 ;; esac
 done
-[ "$K" = 5 ] || fail "evaluated $K mutants, expected 5"
-echo "  [gate] baseline PASS on 13 legs; $K/5 mutants killed"
+[ "$K" = 6 ] || fail "evaluated $K mutants, expected 6"
+echo "  [gate] baseline PASS on 15 legs; $K/6 mutants killed"
 echo "Q326_QUERY_SURFACE=PASS"
