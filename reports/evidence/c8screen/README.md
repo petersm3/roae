@@ -25,10 +25,10 @@ outcome, as drafted by the verdict review (gate P4, Claude Fable 5.1) and used h
 > was 4.1×10⁻⁴ (member `C-N[392]`, against a bar of 3.8×10⁻⁶), which is the level a null family of this size produces by chance.
 > The remaining 669 members could not have reached their bar for any ordering: 632 of them (every entry-in-subgroup count
 > `C-M[H]`) take at most 14 consecutive values whose extreme has probability at least 2⁻¹³ under the pair-only null, so their
-> smallest possible two-sided p (2.4×10⁻⁴) exceeds the bar by a factor of 63; the other 37 have similarly coarse laws. Under the
+> smallest possible two-sided p (2.4×10⁻⁴) exceeds the bar by a factor of 63 (under the pair-only null N0 — under N1 the floor does not carry over and 208 of the 632 fall below it, all still ≥ 40× the bar: the 2026-10-17 note below); the other 37 have similarly coarse laws. Under the
 > frozen rule more than 5 % untestable members makes the family verdict **UNINFORMATIVE** rather than NULL, and that is the verdict
 > recorded: the instrument did not resolve the family, and no claim is made. This limit is a property of the family's composition
-> and bar, not of the run length — a larger run would not change it — and is recorded as a design lesson: a family-wise cap must
+> and bar, not of the run length — a larger run would not change it under N0 — and is recorded as a design lesson: a family-wise cap must
 > be priced against each member's minimum attainable p before freeze. King Wen's values on all 669 untestable members lie in the
 > bulk of their estimated laws (operative p ≥ 3.6×10⁻³), stated as description only. The registration, instrument, verdict script
 > and unfiltered run outputs are published with this note.

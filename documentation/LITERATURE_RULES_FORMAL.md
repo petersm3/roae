@@ -352,7 +352,7 @@ KW **((2, 12), (4, 12), (6, 8))**.
   in [LITERATURE_RULES_POPULATION_TESTS.md](LITERATURE_RULES_POPULATION_TESTS.md) live at that scope.
 - The executable check that this document is encodable covers §2 only (five rules, re-encoded from
   this text and compared to the code on 445 orderings). A test on finitely many sequences is not a
-  proof of equivalence; the SAT-side equivalence of the CC-N4 clause family over every C1-valid
-  ordering is a separate result (`sat.py --ccn4-equiv-cnf`, [SAT_CLI.md](SAT_CLI.md)).
+  proof of equivalence; the SAT-side equivalence of the CC-N4 clause family over every C1-valid ordering with the (63,0)
+  opening fixed (C1∩C4) is a separate result (`sat.py --ccn4-equiv-cnf`, [SAT_CLI.md](SAT_CLI.md)).
 
 *Developed with AI assistance (Claude, Anthropic). Errors are Claude's; corrections welcome.*

@@ -8,8 +8,8 @@
 
 ## In plain terms
 
-There are 48 ways to reshuffle and flip the six lines of every hexagram at once that keep the
-project's rules true. One of them, turning every hexagram upside down, changes nothing in a record (a
+There are 48 ways to reshuffle and flip the six lines of every hexagram at once that keep rules C1 to C5 true (C6 and C7 pin particular
+pairs and are left out; TR-5). One of them, turning every hexagram upside down, changes nothing in a record (a
 record lists the order of the 32 pairs, not which member of each pair comes first), so only 24
 different changes are left. The picture shows that these 24 turn King Wen's record into 24 different
 records, and TR-5 proves the same holds for every valid record. Any test that gives the same answer

@@ -582,7 +582,7 @@ One figure is **withdrawn**: an earlier "about 3.3×10³⁷" for C1 to C5, count
 merged. It was larger than its own ceiling, so it cannot be right. The 1.3287×10³⁸ above is a
 different count and stands. The withdrawal, and every correction since the ledger opened, is
 in [CORRECTIONS.md](../documentation/CORRECTIONS.md) ("every other correction this project has made" until
-2026-10-17, CX-35T-G; [CLAIMS_DECIDED](../documentation/CLAIMS_DECIDED.md) names what the ledger does not cover).
+2026-10-17, CX-35T-G; [CLAIMS_DECIDED](../documentation/CLAIMS_DECIDED.md) records the three pre-ledger correction groups and their 2026-09-02 back-fill).
 
 ### The main finding
 

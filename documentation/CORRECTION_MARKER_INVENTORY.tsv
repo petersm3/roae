@@ -11,7 +11,7 @@ CLAUDE.md	395	ledger-link	RETRACTED	n/a	-	not-a-marker	7ba6bb332493
 CLAUDE.md	396	ledger-link	CORRECTION	n/a	-	not-a-marker	0c0ac50fdb9d
 README.md	149	ledger-link	CORRECTION	n/a	-	not-a-marker	c2c141547338
 README.md	296	ledger-link	CORRECTION	n/a	-	not-a-marker	fca6f9b47e6d
-README.md	338	ledger-link	CORRECTION	n/a	-	not-a-marker	f639e1756165
+README.md	338	ledger-link	CORRECTION	n/a	-	not-a-marker	8b835976b944
 README.md	345	ledger-link	CORRECTION	n/a	-	not-a-marker	7dcd6ba6acd2
 documentation/BOUNDARY_MINIMUM.md	48	ledger-link	CORRECTION	n/a	-	not-a-marker	5c2b86f94f1e
 documentation/BOUNDARY_MINIMUM.md	48	marker	CORRECTED	1	-	reviewed:table-already-separates-greedy-set-and-4-set-family	5c2b86f94f1e
@@ -149,7 +149,7 @@ documentation/CRITIQUE.md	108	marker	Corrected	3	GATE 26	reanchored:GATE-26=ledg
 documentation/CRITIQUE.md	110	ledger-link	CORRECTION	n/a	-	not-a-marker	1e7dfc4068c5
 documentation/CRITIQUE.md	110	marker	Corrected	3	GATE 26	reanchored:GATE-26=ledger-anchor	1e7dfc4068c5
 documentation/CRITIQUE.md	135	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	ee9eb1d91620
-documentation/CRITIQUE.md	137	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	0e811b363ef9
+documentation/CRITIQUE.md	137	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	d5058fb50bd5
 documentation/CRITIQUE.md	139	marker	CORRECTED	1	-	reviewed:paragraph-already-closes-order-64-Costas-by-construction-and-C1	14f8e15eb91d
 documentation/CRITIQUE.md	158	marker	CORRECTED	1	-	reviewed:proof-already-says-only-all-32-reverse-pairs-together-are-ruled-out	7af2bf88c662
 documentation/CRITIQUE.md	226	marker	Corrected	1	-	reviewed:table-already-reads-12/12/8	515c7944c99a
@@ -354,7 +354,7 @@ documentation/PROJECT_OVERVIEW.md	152	ledger-link	CORRECTION	n/a	-	not-a-marker	
 documentation/QUERY_INVENTORY.md	222	marker	Corrected	1	-	reviewed:cell-already-states-the-lower-bound-direction	e41df972346c
 documentation/QUERY_INVENTORY.md	244	marker	Corrected	1	-	reviewed:stale-narrowing-is-already-struck-through	f6d6a86e800e
 documentation/QUERY_INVENTORY.md	250	marker	Corrected	2	-	reviewed:cell-above-still-gives-the-unbuilt-sat-witness-and-cert-path	dacbcd2e9d4c
-documentation/QUERY_INVENTORY.md	260	marker	Corrected	1	-	reviewed:cell-already-names-the-kc-figure	bcf36579e93c
+documentation/QUERY_INVENTORY.md	260	marker	Corrected	1	-	reviewed:cell-already-names-the-kc-figure	9600e1a20047
 documentation/QUERY_INVENTORY.md	269	marker	Corrected	1	-	reviewed:cell-already-names-the-landed-consumer	099315cf46f4
 documentation/QUERY_INVENTORY.md	382	marker	Corrected	1	-	reviewed:stale-clause-is-already-struck-through	b26b7cea9ea8
 documentation/QUERY_INVENTORY.md	382	narration	now reads	1	-	reviewed:stale-clause-is-already-struck-through	b26b7cea9ea8
@@ -408,7 +408,7 @@ documentation/SOLVE.md	27	marker	Corrected	1	-	reviewed:sentence-already-gives-t
 documentation/SOLVE.md	106	marker	Corrected	1	-	reviewed:bullet-already-gives-12.1%-ledger-and-12.09%-direct-estimate	9823cbd1f2ae
 documentation/SOLVE.md	166	marker	Corrected	1	-	reviewed:sentence-already-says-not-to-something-unique	fc308b1604d4
 documentation/SOLVE.md	169	marker	Corrected	1	-	reviewed:item-already-reads-92-94-percent	4e0d4a97a61d
-documentation/SOLVE.md	183	marker	Corrected	1	-	reviewed:paragraph-already-scopes-the-reconstruct-output	9d1d73f46a15
+documentation/SOLVE.md	183	marker	Corrected	1	-	reviewed:paragraph-already-scopes-the-reconstruct-output	8ebda32391dd
 documentation/SOLVE.md	212	marker	CORRECTED	1	-	reviewed:paragraph-already-gives-the-tie-aware-nulls	bc06215af301
 documentation/SOLVE.md	212	marker	Corrected	1	-	reviewed:paragraph-already-gives-the-tie-aware-nulls	bc06215af301
 documentation/SOLVE.md	234	marker	Corrected	1	-	reviewed:passage-already-gives-169-and-127-bits	4b0ce207ff97
@@ -601,7 +601,7 @@ reports/METHODS.md	576	ledger-link	CORRECTION	n/a	-	not-a-marker	2ae7abd23d87
 reports/METHODS.md	577	ledger-link	RETRACTED	n/a	-	not-a-marker	629963a97751
 reports/METHODS.md	612	ledger-link	CORRECTION	n/a	-	not-a-marker	a9e1def5639d
 reports/README.md	17	ledger-link	CORRECTION	n/a	-	not-a-marker	8912ba34280b
-reports/README.md	36	ledger-link	CORRECTION	n/a	-	not-a-marker	2c229c14e088
+reports/README.md	36	ledger-link	CORRECTION	n/a	-	not-a-marker	64c279eb92c8
 reports/README.md	43	ledger-link	CORRECTION	n/a	-	not-a-marker	9fb867b3160f
 reports/README.md	45	ledger-link	CORRECTION	n/a	-	not-a-marker	db25220c9d63
 reports/README.md	49	ledger-link	CORRECTION	n/a	-	not-a-marker	b015ef40d536
@@ -628,7 +628,7 @@ reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	819	changelog	now reads	keep
 reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	824	changelog	CORRECTION	keep	-	revision-row	ab93778c33ff
 reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	825	changelog	CORRECTION	keep	-	revision-row	dd7365a391d6
 reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	828	changelog	now reads	keep	-	revision-row	97583c22fb13
-reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	834	changelog	now reads	keep	-	revision-row	4353d10150ea
+reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	834	changelog	now reads	keep	-	revision-row	3aa7edcec799
 reports/TR12_QUERY_PROGRAM.md	23	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	a4b968ed7849
 reports/TR12_QUERY_PROGRAM.md	57	marker	Corrected	1	-	reviewed:sentence-already-says-witnesses-are-pinned	d1990517891c
 reports/TR12_QUERY_PROGRAM.md	212	marker	Corrected	1	-	reviewed:sentence-already-says-the-directory-is-tracked	180fe56529dc
@@ -767,7 +767,7 @@ reports/TR5_SYMMETRY.md	24	marker	CORRECTED	1	-	reviewed:text-already-says-the-a
 reports/TR5_SYMMETRY.md	118	marker	CORRECTED	1	-	reviewed:text-already-says-the-replacement-shipped	21ce077c312e
 reports/TR5_SYMMETRY.md	135	marker	CORRECTED	1	-	reviewed:text-already-says-the-inputs-are-public	9b0c1f76bf72
 reports/TR5_SYMMETRY.md	150	marker	Corrected	1	-	reviewed:text-already-names-the-tree-node-statistic	d739d3b3d7b0
-reports/TR5_SYMMETRY.md	194	marker	Corrected	1	-	reviewed:note-now-says-a-twin-lies-in-a-different-depth-3-cell	623e65680951
+reports/TR5_SYMMETRY.md	194	marker	Corrected	1	-	reviewed:note-now-says-a-twin-lies-in-a-different-depth-3-cell	bd866487a4b9
 reports/TR5_SYMMETRY.md	219	marker	Corrected	1	-	reviewed:paragraph-already-says-refuses-and-exits-1	6335beed5bb4
 reports/TR5_SYMMETRY.md	228	marker	CORRECTED	1	-	reviewed:bullet-already-gives-the-shipped-command;superseded-text-is-labelled	9dcd5360988f
 reports/TR5_SYMMETRY.md	230	marker	CORRECTED	1	-	reviewed:sits-inside-text-already-labelled-superseded	511a4ff2566e

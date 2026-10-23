@@ -77,8 +77,8 @@ in the enumeration is an artifact of the search setup, and why that changes no f
    right-skewed weight distribution, in the direction (low) such skew predicts; the 100× run supersedes it):
    C1–C5 raw (orientation-explicit) **1.3287×10³⁸** (0.02%); C1/C2/C4/C5 complete
    orderings 1.0971×10³⁹ (0.01%) — subsequently computed **exactly** at 1.097051×10³⁹ (two-instrument since 2026-07-25: independently recomputed at full scale by verify.c's IE transfer-walk engine, exact match — TR-11 §10(vi))
-   ([TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md), 2026-07-16): the estimate deviated by
-   0.0044%, well inside its stated envelope — the estimator's second absolute full-scale validation
+   ([TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md), 2026-07-16): the estimate deviated by 0.0033 % (the archived 1.097088×10³⁹ against
+   the exact value; "0.0044%", the four-figure 1.0971×10³⁹'s distance, until 2026-10-22), well inside its stated envelope — the estimator's second absolute full-scale validation
    (the C1–C5 raw figure itself remains an estimate); total tree nodes 2.0875×10⁴⁰ (0.00%). This supplies the terminal count of
    the reduction funnel (64! ≈ 1.3×10⁸⁹ → C1 skeleton 32!·2³² ≈ 1.1×10⁴⁵ → C1∩C2∩C4∩C5 ≈ 1.1×10³⁹ → ≈1.3×10³⁸; ⚠ *corrected 2026-09-25: the third stage read "~10⁴⁰", the tree-node count 2.0875×10⁴⁰, not an ordering count. Codex v3 review, V3B-07#10*). That
    funnel is lopsided: roughly **44 of the ~51 orders of magnitude come from C1 alone**, and only about
@@ -214,15 +214,15 @@ previously scattered across two documents:
 
 | Layer | Exact value | Prior Knuth estimate | est/exact | Deviation | Inside its stated envelope? |
 |---|---|---|---|---|---|
-| C1∩C2∩C4 | 757,058,601,340,255,440,651,419,713,405,330,315,358,208 (7.570586×10⁴¹) | 7.571×10⁴¹ ±0.01% | 1.0000547 | **+5.47×10⁻⁵** | yes |
+| C1∩C2∩C4 | 757,058,601,340,255,440,651,419,713,405,330,315,358,208 (7.570586×10⁴¹) | 7.571×10⁴¹ ±0.01% | 1.0000547 | **+5.47×10⁻⁵** | yes — inside the archived 2026-09-25 re-draw's 95% CI ([7.5700, 7.5728]×10⁴¹, 1.15 relative SE); one-SE containment of the original four-figure draw is unresolved, its unrounded output not archived (TR-11 §9) |
 | C1∩C2∩C4∩C5 | 1,097,051,278,789,181,790,036,112,071,176,579,186,688 (1.097051×10³⁹) | 1.097088×10³⁹, rel. SE 0.01%, 95% CI [1.0970, 1.0972]×10³⁹ (the published 1.0971×10³⁹ unrounded, from the archived same-seed re-run [evidence/knuth_whole_tree_5e10.out](evidence/knuth_whole_tree_5e10.out):4) | 1.0000335 | **+3.35×10⁻⁵** | yes — inside the 95% CI, under one relative SE from the estimate |
 | C1∩C2∩C4∩C5∩C6∩C7 (C3 dropped; C6/C7 pinned; raw, orientation-explicit like the two rows above) | 516,880,238,445,773,965,371,923,491,676,160 (5.16880×10³²) | 5.184964×10³², rel. SE 0.25%, 95% CI [5.1596, 5.2103]×10³² (§4's 5.18×10³² unrounded; [evidence/c67_probe.out](evidence/c67_probe.out):13) | 1.003127 | **+3.127×10⁻³** | yes — inside the 95% CI, 1.25 relative SE from the estimate |
 | C1–C5 (adds C3) | *none — no exact value exists* | 1.3287×10³⁸ | — | — | **uncalibrated** |
 
-**Coverage: 3 of 3.** At all three layers where ground truth exists, the exact value falls inside the
-estimator's stated envelope. At the two ±0.01% layers the exact value lies within the printed 0.01% relative
-SE of the estimate (+5.47×10⁻⁵ against the four-figure 7.571×10⁴¹, whose unrounded output is not archived; the archived 2026-09-25 re-draw of that layer, 7.571405×10⁴¹, is 0.0108 % above the exact value, 1.15 relative SE by its archived interval and inside it — TR-11 §9;
-+3.35×10⁻⁵ against the archived 1.097088×10³⁹). At the pinned layer the envelope is the archived 95% interval: the exact value lies 0.3117%
+**Coverage: 3 of 3 (95 % intervals).** At all three layers where ground truth exists, the exact value falls inside the
+estimator's stated envelope. At the C1∩C2∩C4∩C5 layer the exact value lies within the printed 0.01 % relative SE (+3.35×10⁻⁵
+against the archived 1.097088×10³⁹); at the C1∩C2∩C4 layer it lies +5.47×10⁻⁵ from the four-figure 7.571×10⁴¹, whose unrounded output is not archived, so one-SE containment is unresolved there (the archived 2026-09-25 re-draw of that layer, 7.571405×10⁴¹, is 0.0108 % above the exact value, 1.15 relative
+SE by its archived interval and inside it — TR-11 §9). At the pinned layer the envelope is the archived 95% interval: the exact value lies 0.3117%
 below the estimate, which is 1.25 relative standard errors, so it is inside that interval (half-width
 0.489%) and outside a ±1 SE band. The ±0.25% there is a standard error, not an interval
 ([METHODS.md](METHODS.md) §"Canonical quantities"). This is the first
@@ -367,9 +367,9 @@ gain, and the k = 3 step's 11.10 bits exceeds it). Since
 identifying King Wen in the C1–C5 space requires 126.6 bits, dividing through gives
 an observed-rate extrapolation of **~12 boundaries** (explicitly NOT a lower bound — see v1.15) and a projection of **≈ 13** — tightening this report's earlier
 13–20 extrapolation toward its lower end (neither end of that band survives: the 13–14 figure was superseded by
-the 2026-07-05 measurement below and the ~15–20 band withdrawn in v1.35; §Sections item 4 states what holds). (Heuristic: boundary synergies can beat the *unconditional*
-single-boundary maximum, and the measured chain already does — the k = 3 gain of 11.10 bits exceeds the
-k = 1 gain of 10.38, which is exactly why 11.10 is the divisor above. What the five steps show is that
+the 2026-07-05 measurement below and the ~15–20 band withdrawn in v1.35; §Sections item 4 states what holds). (Heuristic: boundary synergies can beat the first-chosen boundary's gain, and
+the measured chain already does — the k = 3 gain of 11.10 bits exceeds the k = 1 gain of 10.38, the 560T slice's greedy pick and not a shown
+full-space maximum (the scoping above) — which is exactly why 11.10 is the divisor above. What the five steps show is that
 the gains stay within about 1 bit of each other, not that no synergy exists.) Full arithmetic
 in SEARCH_SPACE_SIZE.md; sharpened by the 2026-07-05 S(6)–S(8) measurement below.
 
@@ -413,7 +413,7 @@ v1.7 resolves in the anti-synergy direction — later boundaries overlap more wi
 already say. Honesty caveats: at k >= 7 the 2x10^9-probe SELECTION sweeps are starvation-limited
 (several candidates sample zero mass), so greedy CHOICE optimality is soft — each S(k) is an honest
 measurement of its chosen boundary set but possibly not the minimal one, making these values
-estimates of a possibly non-minimal set's mass, not bounds — an estimate can land below the truth, as the ladder's 7-free rung does (2,222.657 estimated against 2,232 exact, `evidence/knuth_ladder/`) — so the bit-gains are conservative only in expectation *(scoped 2026-10-17, CX-35T-J: this read "upper bounds on the greedy-optimal masses (and the bit-gains correspondingly conservative)")*; and estimator
+estimates of a possibly non-minimal set's mass, not bounds — an estimate can land below the truth, as the ladder's 7-free rung does (2,222.657 estimated against 2,232 exact, `evidence/knuth_ladder/`) — so the bit-gains are not bounds in either direction: a non-minimal set has more mass, which understates a gain, while the logarithm of an unbiased mass estimate overstates it in expectation (Jensen) *(scoped 2026-10-17, CX-35T-J: this read "upper bounds on the greedy-optimal masses (and the bit-gains correspondingly conservative)", and "conservative only in expectation" until 2026-10-22)*; and estimator
 relative error grows with depth at fixed probe count. Evidence: reports/evidence/ (sk8 outputs) and
 the private working log (not publicly accessible — the public evidence is the `reports/evidence/`
 outputs; the private log adds working narrative, and this report rests no claim on it).
@@ -462,4 +462,5 @@ outputs; the private log adds working narrative, and this report rests no claim 
 | v1.41 | 2026-10-17 | **The §Figure caption now carries the 6.14-bit gain's evidence label (Fable's front-page review of 2026-10-17; fast-track batch FT2b-1).** The executive summary and §Sections item 4 already said, at the k ≈ 14 marker, that the 6.14-bit gain is computed from N(7), for which no committed artifact exists (v1.39); the caption, and the README excerpt of it, used the gain without that label. The same sentence is added to both. Wording only; no gain, S(k) value, floor or marker position changed. See CORRECTIONS.md (fast-track batch FT2b-1). |
 | v1.42 | 2026-10-17 | **The per-cell size/yield correlations say at the claim that no command computes them (Codex's final review, gpt-6-astra; CAL-002#88; triaged by Fable; fast-track batch FT2b-2).** The cover's reproduction promise allows a result to say at the claim that it has no command; this one did not. No figure changes. See CORRECTIONS.md (fast-track batches FT2b-2..4). |
 | v1.43 | 2026-10-17 | **The abstract and §Sections item 3 now give the identifying set's size per dataset (Fable's pre-publication review of push group G2, FIX-1 follow-up).** Both said King Wen is singled out within the enumerated datasets only by "the five-boundary identifying set"; BOUNDARY_MINIMUM.md gives four boundaries for both 10T datasets and five for 100T and 560T. Both now say "an identifying set of boundaries beyond C1–C5 (five at 100T and 560T, four at 10T — two of them being C6 and C7, so three beyond C1–C7 at 100T and 560T, two at 10T)", the README's wording since push group G2 (CX-389). Wording only; no count, set or survivor figure changed. See CORRECTIONS.md (CX-404). |
-| v1.44 *(current)* | 2026-10-17 | **Five labels and scopes (Codex's final review, gpt-6-astra; triaged by Fable; push group G4; F08-004#7/#21/#23/#24; F02-004#4/#6, CAL-002#100/#104/#105).** The executive summary says the estimator is validated at the three full-scale anchors, not at every scale where exact counts exist; the 16,504-vs-16,422 rung is labelled as oriented C1–C5 leaves (899 pair orderings); the status caveat excepts the exact integers from "all quantities here are Monte-Carlo estimates"; the information-rate update says the first four boundaries are the 560T slice's greedy picks. §Update's S(k) values are estimates of a possibly non-minimal set's mass, not upper bounds. No figure changes. See CORRECTIONS.md CX-35T-J. |
+| v1.44 | 2026-10-17 | **Five labels and scopes (Codex's final review, gpt-6-astra; triaged by Fable; push group G4; F08-004#7/#21/#23/#24; F02-004#4/#6, CAL-002#100/#104/#105).** The executive summary says the estimator is validated at the three full-scale anchors, not at every scale where exact counts exist; the 16,504-vs-16,422 rung is labelled as oriented C1–C5 leaves (899 pair orderings); the status caveat excepts the exact integers from "all quantities here are Monte-Carlo estimates"; the information-rate update says the first four boundaries are the 560T slice's greedy picks. §Update's S(k) values are estimates of a possibly non-minimal set's mass, not upper bounds. No figure changes. See CORRECTIONS.md CX-35T-J. |
+| v1.45 *(current)* | 2026-10-22 | **Four calibration and boundary-chain sentences put back to their sources (Codex's fix-verification pass, gpt-6-astra; triaged by Fable; push group FV1; FV-FT1-C#1, FV-FT2A-C3#6, FV-G4-C6#1, FV-G4-C6#2).** §3's C1/C2/C4/C5 deviation is the archived estimate's 0.0033 %, not the four-figure value's 0.0044 %; the calibration paragraph keeps one-SE containment to the C1∩C2∩C4∩C5 layer and calls it unresolved at the C1∩C2∩C4 layer, and "Coverage: 3 of 3" names the 95 % intervals; the calibration table's C1∩C2∩C4 row says its "yes" is the archived re-draw's 95 % CI, one-SE containment of the original draw unresolved; the S(k) bit-gains are bounds in neither direction, not "conservative only in expectation"; the synergy heuristic compares the k = 3 gain with the first-chosen boundary's, not with an unconditional maximum. No figure changes. See CORRECTIONS.md CX-35Y-F. |

@@ -908,7 +908,7 @@ def build_ccn4_equiv(side, req=None):
     run through the `rule ccn4` family, and until this date that family was validated at King
     Wen only (`ccn4-kwtest` / `ccn4-kwfail`, both KW-forced) plus a unit-propagation check on 44
     public witnesses, 43 of which violate the rule. This instance asks a solver the question for
-    EVERY C1-valid ordering with the (63,0) opening fixed (C1∩C4, the universe the conflict instances share) at once: is there a (pair, orient) assignment on which the shipped
+    EVERY C1-valid ordering with the (63,0) opening fixed (C1∩C4 — a superset of the C1∩C2∩C4∩C5 base the conflict instances share, so the equivalence covers them; "the universe the conflict instances share" until 2026-10-22) at once: is there a (pair, orient) assignment on which the shipped
     clauses and an independently written encoding of `solve.reg_ccn4` disagree?
 
     Universe: the `C1 one (pair,orient) per slot`, `C1 each pair exactly once` and

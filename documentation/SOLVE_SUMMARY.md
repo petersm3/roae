@@ -274,8 +274,8 @@ second wave of results, each with a full [technical report](../reports/README.md
   [[TR-2](../reports/TR2_THE_RULES_CONFLICT.md)]
 - **In information terms, half the sequence is explained** — nearly all of it by the pairing rule, which
   turns out to be mathematically *optimal* among pairing rules of its kind (complement/reversal
-  matchings; [Radisic 2026](CITATIONS.md#radisic2026)). The other half is explained by nothing anyone
-  has found yet. [[TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md)]
+  matchings; [Radisic 2026](CITATIONS.md#radisic2026)). The other half is explained by none of the C1–C7 layers; known rules outside them restrict it further
+  but are not conditioned on. [[TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md)]
 
 Each of these is reported in full: every MEASURED result carries a reproduction command or says at the claim that it has none, and every proof
 cited as machine-checked names its certificate or Lean theorem. That is not the same as saying all four

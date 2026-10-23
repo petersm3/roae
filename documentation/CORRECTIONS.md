@@ -34374,3 +34374,333 @@ nine-pin cases while still accepting eight; and every other pin guard still refu
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5a; the change and its tests were written in
 the Q-1027 lane (claude-fable-5-1).
+
+## CX-35Y-A — the front page said more than its sources in five places, among them DRAT certificates for every UNSAT answer, the pair structure and the combined constraints as the only survivors, a kernel shown not to distinguish King Wen, and a C3 instrument both absent and present; four pages pointed readers at an exception the ledger no longer has (README.md; documentation/CLAIMS_DECIDED.md; reports/CAPSTONE_GUIDE.md; reports/README.md; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), fix-verification pass, FV-G4-C4#2, #3, #9, #11 and out-of-scope note
+11684, FV-G23-C1#1, FV-G23-C3#13 and FV-G23-C4#4; confirmed by Fable's triage of that pass (claude-fable-5-1, items
+FV1-1 to FV1-4, FV1-7 and FV1-30). Push group FV1.
+
+**What was published, and what it says now.**
+- The `sat.py` row: "UNSAT answers carry independently checkable DRAT certificates, each scoped to the
+  C1∩C2∩C4∩C5-valid space." reports/certificates/README.md excepts the rigidity certificate (a graph-automorphism
+  statement) and the two `noY` proofs (cardinality-only), and the two CC-N4 equivalence decisions carry no certificate
+  (TR-2 §2). It now names each kind (Fable's text).
+- "Of the 28-analysis exploratory battery, only the pair structure and the combined constraints survive
+  multiple-comparison correction". CRITIQUE §"Observable-selection accounting" lists C3's unconditional rarity among the
+  survivors (28,356 of 10⁹ = 2.8×10⁻⁵, under the battery bar 0.05/28 = 1.8×10⁻³). It now names the three and cites
+  CRITIQUE.
+- The TR-12 bullet's negative result: "the one-step kernel does not distinguish King Wen (0.10 bits from the population
+  mean)". TR-12 §12.4 says the atlas does not show the kernel distinguishing King Wen and cannot show that it does not.
+  It now reads "does not single King Wen out at the scale its marginals fix", and says the full-walk score is not
+  computed (the phrase reports/README.md already uses).
+- "C3 is the only constraint without an exact full-scale instrument; one exists". It now says the missing thing is the
+  count; the instrument (`solve --f1-c3-hist --with-c5`) exists and its run was priced and declined (METHODS
+  §"Canonical quantities").
+- "Three scope notes" introduced four bullets; it says four.
+- The ledger's coverage. CLAIMS_DECIDED said the ledger "is also not exhaustive over the digest below" and, two
+  sentences later, that all three earlier correction groups were back-filled into it on 2026-09-02. It now says the
+  ledger was not exhaustive until 2026-09-02 and that every item of the digest now has a ledger entry. CAPSTONE_GUIDE and
+  reports/README.md sent readers to CLAIMS_DECIDED for "what the ledger does not cover"; they now say it records the
+  three pre-ledger correction groups and their back-fill. The front page's "every claim we published and later changed"
+  is dated to the ledger's opening on 2026-08-02, with the back-fill named.
+
+**Notes on earlier entries (append-only; those entries are not edited).**
+- **CX-35T-M note.** HISTORY's G4 entry, which CX-35T-M cites for the page's additions, describes the `sat.py` row's
+  certificate link "with its scope", the battery sentence and the C3 instrument as changing no published claim. The
+  first three bullets above are corrections to those additions.
+- **CX-35T-G note.** CX-35T-G's pointer "names what the ledger does not cover" referred to a list whose every item had
+  been back-filled on 2026-09-02; it is replaced above.
+
+No figure, sha, count or verdict changes.
+
+**Tests.** `TestBatchFV1.test_readme_front_page` measures what the tree can first (the certificates README's two
+exceptions, CRITIQUE's survivor line and C3's 28,356 of 10⁹ against 0.05/28, TR-12's "cannot show that it does not",
+the `--f1-c3-hist` and `--with-c5` options in `solve.c`, the four scope-note bullets, CLAIMS_DECIDED's back-fill
+sentence) and then requires the cured text and the absence of the old. `TestBatchG4.test_readme_standalone`'s certificate
+needle follows the new sentence, and `test_critique_wording`'s README needle is now the parent wording ("still heads the
+test as a validated specificity result", FV-G4-G1#4). Each fails on the uncured tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV1; the sites were found by Codex
+(gpt-6-astra), fix-verification pass, FV-G4-C4, FV-G23-C1, FV-G23-C3, FV-G23-C4; the cure text is Fable's.
+
+## CX-35Y-B — TR-1 said the pair-order measurements hold every within-pair orientation at King Wen's, and that one joint measurement was made where three were (reports/TR1_EIGHT_CENTURIES_MEASURED.md; documentation/LITERATURE_RULES_POPULATION_TESTS.md; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), fix-verification pass, FV-FT2A-C2#3 (duplicates FV-G4-C2#1, FV-G23-C3#7),
+FV-G23-C3#2 and #3; confirmed by Fable's triage (items FV1-5, FV1-6). Push group FV1.
+
+**What was published, and what it says now.**
+- TR-1 §7: "Everything above concerns which pair goes where, with every within-pair orientation held at King Wen's (the
+  Moore rhythm and CC-N4 scores do depend on orientation)." The population estimator iterates both orientations of every
+  placed pair (`solve.c`, the Knuth walk's orientation loop) and §1(b) says the fractions are over orientation-resolved
+  sequences; only King Wen's own rule values are read at its orientations. It now says so (Fable's text; the G4 sentence
+  was also Fable's).
+- TR-1 §6's caveat: "neither does the one joint measurement made — Moore's two strict rules". TR-1 §2 publishes both
+  Moore rules at King Wen's level jointly (1.85×10⁻⁵ of C1–C5 mass) and TR-2 the triple-strict population (≈4.5×10²⁵).
+  It now names all three. LITERATURE_RULES_POPULATION_TESTS item 5's "singly or jointly" is scoped the same way, pointing
+  at TR-1 §6 (Fable's text said §7; the caveat is item 6).
+
+**Notes on earlier entries.** **CX-35T-B note:** CX-35T-B's "the orientation the pair-order layer holds fixed" described
+the population measurements wrongly in the same way; corrected above. **CX-393 note:** CX-393 replaced "no joint
+measurement" with "the one joint measurement made", which undercounts; corrected above.
+
+No figure changes. TR-1 v1.43.
+
+**Tests.** `TestBatchFV1.test_tr1_orientation_and_joint` checks that `solve.c`'s Knuth walk iterates both orientations
+and that TR-1 §2 and TR-2 carry the two further joint measurements, then requires the cured sentences.
+`TestBatchG4.test_tr1_orientation_held_fixed` keeps its orientation-dependence preconditions and now requires the new
+sentence. Each fails on the uncured text.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV1; the sites were found by Codex
+(gpt-6-astra), fix-verification pass, FV-FT2A-C2, FV-G23-C3; the cure text is Fable's.
+
+## CX-35Y-C — the LEDGER SCOPED note doubled the Bonferroni bar with the two-sided p-value and said no roster gives the BH rank that its own survivors give; TR-10's abstract kept "by this one-sided mass only"; METHODS kept "everything else unchanged" (reports/METHODS.md; reports/TR8_REORDERING_REVISITED.md; reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), fix-verification pass, FV-FT2A-C3#4 and #5, FV-G4-C1#1, #2 and #3
+(duplicates FV-G4-C1#4, FV-FT2A-G#1, #2, FV-G4-G2#2); confirmed by Fable's triage (items FV1-9, FV1-14). Push group FV1.
+
+**Measured (Fractions).** At n = 1,446 the Bonferroni bar is α/n = 0.05/1,446 = 3.458×10⁻⁵, whatever the sidedness of
+the p-value it is compared with (METHODS' own convention: the margin halves on the two-sided mass). The rarity
+r = 47/445,740 = 1.054426×10⁻⁴ is r/bar = 3.0494× above it one-sided; two-sided 2r = 2.108853×10⁻⁴ is 2r/bar = 6.0988×
+above it. The note compared 2r with 2·bar = 6.92×10⁻⁵ and reported 3.05× for both. BH: the rarity needs rank *i* with
+*i*·0.05/1,446 ≥ its p-value; one-sided ⌈r·1,446/0.05⌉ = 4, and 4·0.05/1,446 = 1.38×10⁻⁴ > r; two-sided ⌈2r·1,446/0.05⌉ = 7.
+The three ledger survivors below the rarity on the one-sided reading (C1, C3's unconditional rarity, `dav_rotinv`; the
+RANK RE-DERIVED note) give rank ≥ 4, so one-sided the rarity would clear BH at n = 1,446 while failing Bonferroni; with only
+those three below it, 4·0.05/n ≥ r holds for n ≤ 1,896.
+
+**What it says now.** METHODS and TR-8, the LEDGER SCOPED note: "two-sided 2.108853×10⁻⁴ sits 6.10× above the same bar
+… two-sided it needs rank ≥ 7, which no roster yet gives", with in-place markers for both replaced phrases (Fable's
+text). TR-10's abstract: under BH-FDR the 91-observable ledger would be cleared on either mass, rank ≥ 3 behind C1 and
+`dav_rotinv` (§3's RANK RE-DERIVED note), where it said "by this one-sided mass only, not by the two-sided 1.36×10⁻³".
+METHODS §"Correction-family disclosure" gains a dated scope note: the RANK RE-DERIVED note shows at least one verdict moves
+under BH, and "everything else unchanged" and "every published verdict but one" are not shown while the 91-vector is not
+assembled.
+
+**Notes on earlier entries.** **CX-379 note:** CX-379's "Measured" paragraph carries the same 3.05× two-sided figure and
+the same "which no roster yet gives"; both are corrected above. **CX-35T-A note:** CX-35T-A conceded that the three
+survivors give rank ≥ 4 at n ≥ 1,446 and left the sentence for the roster rebuild; the sentence is now corrected, and the
+roster rebuild remains a separate item.
+
+**No published verdict moves.** The suite's verdicts are Bonferroni verdicts: TR-8's rarity stays a family-level NOTABLE
+against the enlarged ledger, and `trigarray` fails Bonferroni on either mass. TR-8 v1.25, TR-10 v1.23.
+
+**Tests.** `TestBatchFT2a.test_ledger_floor` now asserts 2r/bar = 6.10 (it asserted 2r/(2·bar) = 3.05), the two-sided
+rank 7 and the one-sided BH line 1.38×10⁻⁴, and its note window is widened for the longer note.
+`TestBatchFV1.test_ledger_note_arithmetic` re-derives the 6.10×, the ranks and the n ≈ 1,900 crossing and binds them to
+the published note; `test_tr10_abstract_bh` requires the abstract to agree with §3's note. Each fails on the uncured text.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV1; the sites were found by Codex
+(gpt-6-astra), fix-verification pass, FV-FT2A-C3, FV-G4-C1; the cure text and the arithmetic are Fable's, re-executed
+here.
+
+## CX-35Y-D — CRITIQUE called the corpus control a specificity result and denied it in the same sentence, headed it "Specificity", put C1's six family sizes at 10⁹ each, kept 1.86 B on the survivor list, and left the Gray-code question open after a witness closed it (documentation/CRITIQUE.md; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), fix-verification pass, FV-G4-C5#1 and #2, out-of-scope notes 7855 and
+7857 (duplicates FV-G4-G1#1, FV-G23-C4 out-of-scope 13735); confirmed by Fable's triage (item FV1-8). Push group FV1.
+
+**What was published, and what it says now.**
+- The corpus-control thesis: "this is a specificity result about the instrument — a positive control, not a specificity
+  test". CX-35T-H replaced the continuation and left the opening clause beside its denial. It now reads "this is a
+  positive control for the instrument, not a specificity test", with both earlier wordings in the in-place marker; the
+  section heading "Specificity, measured three ways" now reads "Detection and calibration, measured three ways (not
+  specificity — the corpus holds no negative control)".
+- "C1 is 0 of 10⁹ sampled in each". The six unconditional families are 134,217,728, 256, 10⁵, 1,625,702,400, 720 and 10⁹
+  (sum 2,760,021,104, the page's own total); two are sampled (10⁹ random permutations, 10⁵ Gray-code walks) and four are
+  exhaustive. It now says so.
+- The survivor list's "0 of 1.86 B across six structured families" is the pre-2026-09-02 total; it reads 2.76 B.
+- The 2026-09-02 SCOPE CORRECTED marker ended "Whether any 6-bit Gray code has C3 < 776 is **open**". On 2026-09-24
+  MCKENNA.md §"What holds up" (Q-757) published a closed 6-bit Gray code with C3 = 640. The marker now says the question
+  was open on its date and was closed on 2026-09-24.
+
+**Note on an earlier entry.** **CX-35T-H note:** CX-35T-H's "a specificity label for a positive control" cure left the
+label's opening clause in place, and its "0 of 10⁹ sampled in each" replaced "0%" with a wrong denominator; both are
+corrected above.
+
+No figure changes.
+
+**Tests.** `TestBatchFV1.test_critique_sites` sums the six family rows of CRITIQUE's own table to 2,760,021,104, runs
+MCKENNA's witness (a permutation of 0..63, every cyclic step Hamming-1, C3 = 640), and then requires the cured text and
+the absence of the old. It fails on the uncured text.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV1; the sites were found by Codex
+(gpt-6-astra), fix-verification pass, FV-G4-C5; the cure text is Fable's.
+
+## CX-35Y-E — the CC-N4 equivalence universe was called the one the conflict instances share; the import guard was said to check the gender predicates; the f11 registration was said to fix the grids; TR-2 called a design summary the publicly committed frozen design (documentation/SAT_CLI.md; sat.py; documentation/LITERATURE_RULES_FORMAL.md; reports/evidence/f11/RESULTS.md; reports/TR2_THE_RULES_CONFLICT.md; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), fix-verification pass, FV-G4-C3#2, #3 and #5 (duplicate FV-G4-K#1),
+FV-G23-C3#12 and #14; confirmed by Fable's triage (items FV1-11, FV1-12, FV1-13, FV1-24). Push group FV1.
+
+**What was published, and what it says now.**
+- SAT_CLI §`--ccn4-equiv-cnf` (twice) and `build_ccn4_equiv`'s docstring: "(C1∩C4, the universe the conflict instances
+  share)". The conflict instances' base is C1∩C2∩C4∩C5 (TR-2 §2; `sat.py`'s conflict builders); C1∩C4 is the larger
+  universe, which covers them. Each site now says so (Fable's text; the G4 wording was also Fable's). The shorter
+  "(C1∩C4)" in the usage text, comment and CNF header stands. LITERATURE_RULES_FORMAL §5's "over every C1-valid ordering"
+  gains "with the (63,0) opening fixed (C1∩C4)".
+- SAT_CLI's opening: the two gender-violation predicates were "checked against `solve.py`'s parity table at import".
+  The import-time guards compare King Wen's violation set with `solve.rc4_violations` and a local parity identity; they
+  never call `viol_hex` or `viol_ex` (Codex executed both return-False mutants; each imports cleanly). It now says what the
+  guards check and what does exercise the predicates.
+- f11/RESULTS.md and TR-2's sensitivity bullet: "the registration fixed the two corruption-location variants and the
+  grids". RESULTS §0 says the frozen registration holds symbolic grid placeholders and the numeric grids were declared at
+  computation time. It now says the registration fixed that the priors would be marginalised over declared grids.
+- TR-2: the four-class comparison's "frozen design was publicly committed in v1.9 … the publicly-anchored form of the
+  discipline". TR-2's own later account says the public summary omitted the grids and the confusability bar, which were
+  frozen privately. It now says a design summary was committed publicly, "a partly public anchor".
+
+**Note on an earlier entry.** **CX-35T-F note:** CX-35T-F's universe sentence ("the universe the conflict instances
+share"), its "checked against `solve.py`'s parity table at import" and its "the registration fixed … the grids" are each
+corrected above; CX-35T-F is not edited.
+
+No figure, certificate or verdict changes. TR-2 v1.44.
+
+**Tests.** `TestBatchFV1.test_sat_and_f11_sites` builds a C1∩C4 ordering outside C5 (King Wen with its second and
+third pairs exchanged) and checks the equivalence instance represents it while the conflict base excludes it, reads the guard source to confirm neither predicate is
+called at import, reads RESULTS §0's placeholder sentence, and then requires the cured text. `TestBatchG4`'s SAT_CLI
+needle follows the new sentence. Each fails on the uncured text.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV1; the sites were found by Codex
+(gpt-6-astra), fix-verification pass, FV-G4-C3, FV-G23-C3; the cure text is Fable's.
+
+## CX-35Y-F — the estimator-calibration and boundary-chain sentences: the C1∩C2∩C4 anchor's envelope asserted beside its unresolved caveat, the C5 anchor's deviation quoted at the rounded figure, bit-gains "conservative only in expectation", a synergy measured against an unshown maximum, the orientation bits subtracted twice, and two unscoped labels (reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md; reports/TR4_SIZE_OF_THE_SPACE.md; documentation/SEARCH_SPACE_SIZE.md; documentation/DESCRIPTION_LENGTH.md; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), fix-verification pass, FV-FT2A-C3#6 and #7 (duplicate FV-FT2A-G#3),
+FV-FT1-C#1 (duplicates FV-FT1-G#1, FV-FT2A-C3 out-of-scope 5827), FV-G4-C6#1 and #2, FV-G4-C7#1, #2 and #8; confirmed by
+Fable's triage (items FV1-10, FV1-17, FV1-18, FV1-19). Push group FV1.
+
+**What was published, and what it says now.**
+- The C1∩C2∩C4 anchor. TR-11's executive summary and calibration bullet, TR-4's calibration paragraph and
+  SEARCH_SPACE_SIZE said the exact value falls inside the estimate's stated ±0.01 % envelope, then that the original
+  draw's error is unresolved (a four-figure rounding interval allows up to 0.012 %). Each now says the exact value lies
+  0.0055 % from the four-figure estimate, that one-SE containment of the original draw is unresolved, and that the
+  archived re-draw is 1.15 relative SE off, inside its 95 % interval. TR-4 keeps one-SE containment to the
+  C1∩C2∩C4∩C5 layer and labels its coverage line "3 of 3 (95 % intervals)". Its calibration table's C1∩C2∩C4 row, whose "yes" stood beside "7.571×10⁴¹ ±0.01%", now says the yes is the archived re-draw's 95 % CI and that one-SE containment of the original draw is unresolved. DESCRIPTION_LENGTH's 2026-07-04 exactness note, which still says the estimate "contains the exact value inside its stated envelope" and is "well within ±0.01%", gains a dated note naming both (CX-380 withdrew that wording elsewhere).
+- TR-4 §3: "the estimate deviated by 0.0044%". That is the four-figure 1.0971×10³⁹'s distance; the archived 1.097088×10³⁹
+  is 0.0033 % (0.003347 %) from the exact value, the figure TR-4's calibration table already carries.
+- TR-4: "the bit-gains are conservative only in expectation". A non-minimal boundary set has more mass, which
+  understates a gain, while the logarithm of an unbiased mass estimate overstates it in expectation (Jensen; Codex's
+  exact 5-free subtree gives E[log₂(52/est)] = 3.8056 against the exact 3.7004). It now says they are bounds in neither
+  direction.
+- TR-4 and SEARCH_SPACE_SIZE: boundary synergies "can beat the unconditional single-boundary maximum, and the measured
+  chain already does". The scoping just above says boundary 4 is not shown to be that maximum. Both now compare the k = 3
+  gain with the first-chosen boundary's, the 560T slice's greedy pick.
+- SEARCH_SPACE_SIZE: "of the ≈105.9 bits of the pair-ordering floor they can reach at most ≈85.2 (105.93 − 20.71)".
+  105.93 already is 126.64 − 20.71 (log₂(1.328729×10³⁸/1,720,320) = 105.93), so the edit replaced one double subtraction
+  (84.65) with another. It now reads "of the ≈126.6 bits that identify an oriented ordering these boundaries can reach at
+  most ≈105.9 (126.64 − 20.71, the pair-ordering floor …)".
+- DESCRIPTION_LENGTH fn⁶: "one of two cost figures in this ledger with no recorded derivation". TR-9 §Sections item 3
+  marks C2's ~1.4-bit grammar overhead underived in the same sense; it now says three (Fable's text cited item 5; the
+  overhead note is in item 3). TR-9's own "the only cost figure" sentence is left for the novelty-wording group.
+- SEARCH_SPACE_SIZE: "nearly independent of its total tree size" now reads "of its un-budgeted C1–C5 leaf count", the
+  column the table above compares (CX-35T-L changed the table, not the conclusion).
+
+**Notes on earlier entries.** **CX-35T-J note:** CX-35T-J's TR-4 scope "conservative only in expectation" and the
+synergy sentence beside its own scoping are corrected above. **CX-35T-L note:** CX-35T-L's "≈85.2 (105.93 − 20.71)"
+subtracted the orientation bits a second time, its "one of two cost figures" undercounted, and its SEARCH_SPACE_SIZE table
+change left the conclusion on the old column; each is corrected above. **CX-380 note:** CX-380 left the "falls inside"
+assertions standing beside the caveat it added; corrected above.
+
+No figure changes: every number now printed was already published or is the arithmetic of published numbers. TR-4 v1.45,
+TR-11 v1.38.
+
+**Tests.** `TestBatchFT2a`'s TR-11 and TR-4 calibration pins follow the new sentences (their red halves still restore the
+pre-CX-380 wording). `TestBatchG4.test_documentation_wording` now requires "at most ≈105.9 (126.64 − 20.71" and checks
+126.64 − 20.71 = 105.93. `TestBatchFV1.test_estimator_and_chain` recomputes 105.93 from 1.328729×10³⁸ and 1,720,320,
+0.0033 % from the archived estimate and the exact count, and the Jensen direction on a two-point estimator, then requires
+the cured text. Each fails on the uncured text.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV1; the sites were found by Codex
+(gpt-6-astra), fix-verification pass, FV-FT2A-C3, FV-FT1-C, FV-G4-C6, FV-G4-C7; the cure text is Fable's.
+
+## CX-35Y-G — the residual's restatements: known rules outside C1–C7 were said not to be in the ledger, the abstract and SOLVE_SUMMARY kept "all known rules" and "nothing anyone has found", and two C5 cells kept "under every convention" (reports/TR9_PRICING_THE_CONSTRAINTS.md; documentation/DESCRIPTION_LENGTH.md; documentation/SOLVE_SUMMARY.md; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), fix-verification pass, FV-G4-C6#5, FV-G4-C7#6, out-of-scope notes
+FV-G4-C4 11686 and FV-G4-C7 10795; confirmed by Fable's triage (item FV1-15). Push group FV1.
+
+**What was published, and what it says now.**
+- TR-9 §4 and DESCRIPTION_LENGTH: known rules outside the C1–C7 layers, "such as the gender row, are not in the ledger".
+  The gender rule is a priced ledger row (TR-9 §2, DESCRIPTION_LENGTH's table); the residual is not conditioned on it.
+  Both now say "priced in the ledger but not conditioned on".
+- TR-9's abstract: "After all known rules are applied, between about 105 and 139 bits … remain unexplained". It now
+  says after the C1–C7 layers, known rules outside them restricting the residual further (§4).
+- SOLVE_SUMMARY: "The other half is explained by nothing anyone has found yet." It now says by none of the C1–C7 layers.
+- DESCRIPTION_LENGTH's C5 row and TR-9's: "descriptive under every convention"; TR-9 §3: "net-negative under every
+  convention". The SCOPED notes (TR-9 §5(b), DESCRIPTION_LENGTH) show a King-Wen-independent multinomial code prices C5
+  below its compression; the cells now read "under both declared conventions".
+
+**Note on an earlier entry.** **CX-35T-J note:** CX-35T-J's "are not in the ledger" is corrected above.
+
+No figure changes. TR-9 v1.37.
+
+**Tests.** `TestBatchFV1.test_residual_conventions` checks that the gender row is a ledger row in TR-9 and
+DESCRIPTION_LENGTH and that the SCOPED notes carry the multinomial code, then requires the cured text and the absence of
+the old. It fails on the uncured text.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV1; the sites were found by Codex
+(gpt-6-astra), fix-verification pass, FV-G4-C6, FV-G4-C7, FV-G4-C4; the cure text is Fable's.
+
+## CX-35Y-H — nine sentences beside the notes that scoped them: a twin called a late leaf, a t-unit share called walk-uniform, an interior field unscoped, two recipes called sha-equivalent, a table row that split into nine cells, an N0 floor stated as fact, the 48 symmetries keeping "the project's rules", a sample minimum that "suggests", an unscoped theorem, and five boundaries at every dataset (reports/TR5_SYMMETRY.md; documentation/SYMMETRY_SEARCH.md; reports/TR12_QUERY_PROGRAM.md; documentation/QUERY_INVENTORY.md; reports/evidence/c8screen/README.md; reports/evidence/c8screen/SHA256SUMS; viz/viz_tr5_orbit_collapse.md; documentation/SPECIFICATION.md; documentation/REBUILD_FROM_SPEC.md; documentation/SOLVE.md; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), fix-verification pass, FV-G4-C2#4 and #8 (duplicate FV-G4-G1#2),
+FV-G23-C1#2 and #5, FV-FT2A-C1#10, FV-G23-C5#1, FV-FT2A-C3#1, FV-G4-C7#3, FV-G4-C3#9 and FV-G23-C2#3; confirmed by
+Fable's triage (items FV1-16, FV1-20 to FV1-23, FV1-25 to FV1-29). Push group FV1.
+
+**What was published, and what it says now.**
+- TR-5 §5: "each relabeled twin is a late leaf of its own cell", beside the note that its rank inside its cell is not
+  measured. It now says the twin lies in a different depth-3 cell at an unmeasured rank. SYMMETRY_SEARCH.md's twins bullet carried the same sentence with no note beside it; it now says the same, citing TR-5 §5's note.
+- TR-12 §12's preamble: every token figure is "walk-uniform, N-weighted"; the doomed-prefix share is in t-units (§3). It
+  is now excepted. The ledger row's "positional field flat to 0.0329" is the interior field, rows 2–30. The build note's "by the next sentence the two are sha-equivalent": the next sentences say
+  compiler and flag invariance is observed on other artifacts, not on these layer shas; it now says the two recipes are
+  expected, not shown, to give the same shas.
+- QUERY_INVENTORY's V3 command cell carried two unescaped `|` and rendered as nine cells under a seven-column header;
+  both are escaped as the table's other cells are.
+- c8screen/README's verdict block stated the 2⁻¹³ floor ("a factor of 63", "a larger run would not change it") without
+  its null; the 2026-10-17 note below it says the floor is an N0 fact and 208 of the 632 members fall below it under N1.
+  Both clauses now carry N0. SHA256SUMS lists the README and is updated for it; the frozen registration is untouched.
+- viz_tr5_orbit_collapse: "48 ways … that keep the project's rules true". Two of the 48 keep C6 and C7 (Codex
+  enumerated); it now reads "that keep rules C1 to C5 true", CX-378's wording for viz/README.md.
+- SPECIFICATION §C3: "which suggests that sample is not drawn from this population". A sample minimum is never below
+  its population's minimum, so it suggests nothing; it now says so.
+- REBUILD_FROM_SPEC: "the Partition Invariance theorem" gains CX-35T-K's clause (abstract merge model; bridges B1–B4
+  assumed).
+- SOLVE.md's open question 4: "plus the five greedy boundary constraints `{4, 27, 25, 21, 1}`". At either 10T dataset the
+  identifying set has four (BOUNDARY_MINIMUM.md); it now gives the set per dataset, as CX-404 did for TR-4. The
+  `--reconstruct` print of the same sentence in `solve.py` is left for the engine-strings group.
+
+**Notes on earlier entries.** **CX-35T-C note:** CX-35T-C's TR-5 note left "a late leaf" in the sentence it scoped, and left SYMMETRY_SEARCH.md's copy of it untouched.
+**CX-382 note:** CX-382's "walk-uniform, N-weighted" preamble included the t-unit share. **CX-385 note:** CX-385 rewrote
+the sentences that follow "sha-equivalent" and left it. **CX-35T-D note:** CX-35T-D's corrected V3 command broke its
+table row. **CX-402 note:** CX-402 added the N0 note below an unmarked verdict block. **CX-378 note:** CX-378 corrected
+viz/README.md and not this page. **CX-35T-L note:** CX-35T-L's "which suggests" and its REBUILD_FROM_SPEC edit are
+corrected above. **CX-404 note:** CX-404's per-dataset wording did not reach SOLVE.md's open question 4.
+
+No figure, sha, count or verdict changes. TR-5 v2.25, TR-12 v1.33.
+
+**Tests.** `TestBatchFV1.test_report_and_doc_siblings` measures first (TR-12's doomed-share t-unit label, the V3 row's
+cell count against its header, the c8screen note's 208 of 632 and SHA256SUMS, BOUNDARY_MINIMUM's four-boundary 10T sets)
+and then requires the cured text. `TestBatchFT2b1`'s framing pin follows the new preamble. Each fails on the uncured text.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV1; the sites were found by Codex
+(gpt-6-astra), fix-verification pass, FV-G4-C2, FV-G23-C1, FV-FT2A-C1, FV-G23-C5, FV-FT2A-C3, FV-G4-C7, FV-G4-C3,
+FV-G23-C2; the cure text is Fable's.
+
+## CX-35Y-I — four G4 "Tests." paragraphs described measurements their tests do not make (documentation/CORRECTIONS.md)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), fix-verification pass, FV-G4-G1#17 (class with FV-G4-C1#9, FV-G4-C2#3,
+FV-G4-C6#7, FV-G4-C7#12); confirmed by Fable's triage (item FV1-31). Push group FV1.
+
+**What the ledger says, and what the tests do.** The entries are append-only and are not edited; this is their note.
+- **CX-35T-B:** "`test_tr1_orientation_held_fixed` flips slot 3 and slot 21 and measures the rhythm and CC-N4 change".
+  The test flips slot 21 only and measures CC-N4 only.
+- **CX-35T-I:** "`test_methods_wording` … counts rung tags per Verification Guide". It checks the four verify flags and
+  the sentences; it makes no rung-tag census.
+- **CX-35T-J:** "`test_report_wording_sweep` measures … the archived thread counts". It reads no archived thread count.
+- **CX-35T-L:** "`test_documentation_wording` checks each site after measuring … `--recount-subtree`'s pair-ordering
+  lines … the d2 10T log's step-3 survivors, the 100T dist-2 count". It runs neither command nor reads either log; it
+  checks those sites by text.
+
+The cures those entries record are unaffected; only the descriptions of their tests overstated.
+`TestBatchFV1.test_ledger_tests_note` checks that the G4 orientation test flips no slot-3 pair and that this note names
+the four entries.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV1; found by Codex (gpt-6-astra),
+fix-verification pass, FV-G4-G1#17.

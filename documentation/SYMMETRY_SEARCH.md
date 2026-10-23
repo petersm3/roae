@@ -471,8 +471,8 @@ shared subgroup neither result overlaps, duplicates, or extends the other — se
 - Whether KW's 23 twins appear in budgeted canonicals is now MEASURED (2026-07-02, direct bisection of the
   560T canonical): **King Wen is present; all 23 twins are absent.** Their membership in the full solution
   set is proven — their absence from the budgeted set is a search-orientation effect: the enumeration's
-  variable order is derived from King Wen, so KW lies on the early DFS path of its cell while each
-  relabeled twin is a late leaf of its own cell. Presence in a budgeted canonical therefore reflects the
+  variable order is derived from King Wen, so KW lies on the early DFS path of its cell while each relabeled twin lies in a different depth-3 cell, at
+  a rank inside that cell that is not measured ([TR-5](../reports/TR5_SYMMETRY.md) §5's 2026-09-25 note; "a late leaf of its own cell" until 2026-10-22). Presence in a budgeted canonical therefore reflects the
   search's frame of reference, not a mathematical property of the ordering — the strongest concrete
   illustration yet of the caveat in [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md) §"Is finding King Wen
   early then an artifact".

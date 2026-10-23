@@ -52,7 +52,7 @@ compression − statement cost. Conventions, declared up front:
 | baseline (any ordering) | 64! | 296.0 | — | — | — |
 | + C1 (pairing) + C4 (start) | 31!·2³¹ | 143.7 | **146.3** (C1) + 6.0 (C4)¹ | ~0 (derived²) / ~13 (family³) | **+133 to +146** |
 | + C2 (no-5) | **7.5706×10⁴¹ — EXACT** (757,058,601,340,255,440,651,419,713,405,330,315,358,208; S4-orbit dynamic program, 2026-07-04) | 139.12 | 4.5 | ~2.6–4 (family of per-distance bans) | **≈ 0 (+0.5 to +2.0)**⁷ |
-| + C5 (transition multiset) | **1.097051×10³⁹ — EXACT, two-instrument** (1,097,051,278,789,181,790,036,112,071,176,579,186,688; out-of-core S4-orbit dynamic program, 2026-07-16; independently recomputed at full scale 2026-07-25 by verify.c's IE transfer-walk engine — exact match, mod-24 verified, [TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §10(vi)) | 129.7 | 9.4 | 15.7–23.3⁴ | **−6.3 to −13.9 (descriptive under every convention⁴)** |
+| + C5 (transition multiset) | **1.097051×10³⁹ — EXACT, two-instrument** (1,097,051,278,789,181,790,036,112,071,176,579,186,688; out-of-core S4-orbit dynamic program, 2026-07-16; independently recomputed at full scale 2026-07-25 by verify.c's IE transfer-walk engine — exact match, mod-24 verified, [TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §10(vi)) | 129.7 | 9.4 | 15.7–23.3⁴ | **−6.3 to −13.9 (descriptive under both declared conventions⁴)** |
 | + C3 (complement ceiling) | **1.3287×10³⁸ — ESTIMATE** (Knuth random-probe, 95% CI [1.3283, 1.3292]×10³⁸, 0.02%) | 126.6 | 3.0 | circular⁵ | ≈ 0 |
 | + C6 + C7 | **5.21×10³¹ — ESTIMATE** (Knuth random-probe, 95% CI [5.13, 5.29]×10³¹, 0.78%; [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) §4 owns the measurement) | 105.4 | 21.3 | data-like (slot pins: ~20.6 — underived⁶) | ≈ 0 |
 | strongest *principled* literature rule ([Schulz](CITATIONS.md#schulz1990-motifs) gender — "strongest" among rules stated independently of King Wen; the data-like trigram rule scores higher but is descriptive) | — | — | 13.5⁸ | rule text ≈ 10–15 — underived⁹ | ≈ 0 to small + |
@@ -81,8 +81,8 @@ the C1-only (start-unpinned) fraction is now also exact — 4.29341%, 3-prime CR
 ([CRITIQUE.md](CRITIQUE.md) §"Observable-selection accounting"); its marginal 3.0 bits are NOT claimed as
 explanation.
 ⁶ C6/C7 pin four slots: log₂(choices eliminated) ≈ their own compression — definitionally break-even.
-The cell's parenthetical "~20.6" is **underived**: it is one of two cost figures in this ledger with no
-recorded derivation — the other is the gender row's "rule text ≈ 10–15", fn⁹ ("the only cost figure" until 2026-10-17, CX-35T-L) (it is near, but not equal to, the row's 21.3-bit marginal compression, and no
+The cell's parenthetical "~20.6" is **underived**: it is one of three cost figures in this ledger with an underived component — the gender
+row's "rule text ≈ 10–15" (fn⁹) and the ~1.4-bit grammar overhead inside C2's ~4 (TR-9 §Sections item 3) are the others ("the only cost figure" until 2026-10-17, CX-35T-L, then "one of two" until 2026-10-22) (it is near, but not equal to, the row's 21.3-bit marginal compression, and no
 computation producing 20.6 is on record in the corpus). It is retained, explicitly so labelled, because
 nothing rests on it — the row's verdict is definitional (cost ≈ compression ⇒ net ≈ 0) whatever the
 precise figure.
@@ -163,7 +163,7 @@ pairing (now known optimal), a marginal 4.5 bits (≈ break-even once its statem
 no-five rule, and essentially nothing by C5, whose statement costs 1.7–2.5× what it explains (net −6 to −14
 bits depending on the stated coding convention; measured 2026-07-03, bracket derived 2026-07-10): the
 transition histogram is confirmed description, not explanation. The rest of the sequence is explained
-by none of the C1–C7 layers** (known rules outside them, such as the gender row, are not in the ledger; "by nothing known today" until 2026-10-17, CX-35T-J).
+by none of the C1–C7 layers** (known rules outside them, such as the gender row, are priced in the ledger but not conditioned on; "by nothing known today" until 2026-10-17, CX-35T-J; "are not in the ledger" until 2026-10-22).
 
 **This residual is quantified to ±0.02 bits, not a gap in the analysis** (the 105.4 endpoint rests on
 the C1–C7 estimate, whose published 0.78% is the estimator's relative **standard error**, not a 95%
@@ -192,7 +192,7 @@ symmetry-quotient dynamic program (`solve --f1-exact-c1c2c4`, ~4 minutes on 64 c
 by 24 as the free-action theorem requires. The prior Knuth estimate (7.571×10⁴¹ ±0.01%) contains
 the exact value inside its stated envelope — the estimator's first validation against full-scale ground
 truth. (The apparent 5.5×10⁻⁵ gap is the distance to the estimate's four-sig-fig rounding, not a measured
-estimator error; the true error is unresolved at the published precision but well within ±0.01%.)*
+estimator error; the true error is unresolved at the published precision but well within ±0.01%.)* *(2026-10-22: "contains the exact value inside its stated envelope" and "well within ±0.01%" are not established — the rounding interval allows up to 0.012 %, so one-SE containment of the original draw is unresolved; the archived 2026-09-25 re-draw's 95 % interval does contain the exact value; TR-11 §9, CX-380.)*
 
 *Exactness note (2026-07-16): the |C1∩C2∩C4∩C5| cell is now an EXACT integer too — computed by the
 out-of-core symmetry-quotient dynamic program (`solve --f1-exact-c1c2c4c5 --f1-out-of-core DIR`,

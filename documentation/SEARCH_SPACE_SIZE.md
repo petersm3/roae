@@ -66,7 +66,7 @@ Cross-plotting each cell's **budgeted yield** (distinct orderings found within t
 | un-budgeted C1–C5 oriented leaves per cell (`leaves_canonical`; the tree itself, `tree_nodes`, spans 14.0×) | 10^31.8 – 10^33.8 (≈2 orders, spread 94.6×) |
 | **log-log correlation (full population)** | **Pearson r = 0.17, Spearman ρ = 0.15 → essentially uncorrelated** |
 
-**A cell's budgeted yield is nearly independent of its total tree size.** The cells are all comparably enormous, but how many orderings each surfaces *within a fixed budget* varies by nearly six orders of magnitude and does not track total size. Yield is therefore a **local-density** phenomenon — how record-rich the shallow frontier is — not a size phenomenon. (The full-population result confirms the earlier 605-cell sample, r≈0.15.)
+**A cell's budgeted yield is nearly independent of its un-budgeted C1–C5 leaf count.** The cells are all comparably enormous, but how many orderings each surfaces *within a fixed budget* varies by nearly six orders of magnitude and does not track total size. Yield is therefore a **local-density** phenomenon — how record-rich the shallow frontier is — not a size phenomenon. (The full-population result confirms the earlier 605-cell sample, r≈0.15.)
 
 ## Why is King Wen found "early" if the space is ≈10³⁸?
 
@@ -221,9 +221,9 @@ projection with no replacement band: if no later boundary gains more than the ei
 until 2026-09-07.** A boundary constraint fixes pair IDENTITY; the orientation bit per pair is untouched.
 Measured with every one of the 31 pinnable steps pinned, C6/C7 on or off: **1,720,320 orientations
 survive** — the same C4-oriented fiber already published at `TR1_EIGHT_CENTURIES_MEASURED.md:346`. That
-is **log₂(1,720,320) ≈ 20.71 bits** these boundaries cannot close, so of the ≈105.9 bits of the pair-ordering
-floor they can reach at most ≈85.2 (105.93 − 20.71; this read "≈84.65", which is 105.36 − 20.71, the C1–C7
-population's figure, until 2026-10-17, CX-35T-L). The projection is sound for the pair-ordering object and cannot be read as a route to a
+is **log₂(1,720,320) ≈ 20.71 bits** these boundaries cannot close, so of the ≈126.6 bits that identify an oriented ordering these boundaries
+can reach at most ≈105.9 (126.64 − 20.71, the pair-ordering floor; this read "≈84.65" until 2026-10-17, CX-35T-L, and "≈85.2 (105.93 − 20.71)" until 2026-10-22, each subtracting
+the 20.71 orientation bits a second time from a floor that already excludes them). The projection is sound for the pair-ordering object and cannot be read as a route to a
 unique oriented sequence. A bracketing exploration choosing among the *weakest* remaining boundaries
 (k = 5–8) reported roughly ×15–17 per boundary, but ⚠ **that band is not reproducible from published
 material and is offered as illustration, not measurement** (restated 2026-09-02; both archived S(k)
@@ -239,7 +239,7 @@ masses starve below ~10⁻¹³ hit rates); it was completed 2026-07-05 (S(6)–S
 The estimator now has a full-scale ground-truth anchor: |C1∩C2∩C4| was computed EXACTLY
 (757,058,601,340,255,440,651,419,713,405,330,315,358,208, via the S4-orbit-quotient dynamic program — see
 [DESCRIPTION_LENGTH.md](DESCRIPTION_LENGTH.md) and [reports/TR5](../reports/TR5_SYMMETRY.md)). The Knuth estimate of the same quantity (7.571×10⁴¹, stated
-±0.01%) contains the exact value inside its stated envelope. (The apparent 5.5×10⁻⁵ gap is the distance to the estimate's four-sig-fig rounding, not a measured estimator error; the original draw's error is unresolved at
+±0.01%) lies 5.5×10⁻⁵ from the exact value; whether the original draw lay within its stated ±0.01 % relative SE is unresolved ("contains the exact value inside its stated envelope" until 2026-10-22). (The apparent 5.5×10⁻⁵ gap is the distance to the estimate's four-sig-fig rounding, not a measured estimator error; the original draw's error is unresolved at
 the published precision — the rounding interval allows up to 0.012 %, more than the 0.01 % SE — and the archived 2026-09-25 re-draw, 7.571405×10⁴¹ (`reports/evidence/knuth_relax_c5_1e7.out`),
 is 0.0108 % above the exact value, 1.15 relative SE by its archived interval, inside its 95 % interval; mirrors TR-11 §9.) Every other estimate in this document uses the same
 machinery, but ⚠ **NOT at comparable hit rates, and this sentence claimed otherwise until
@@ -287,9 +287,9 @@ attributed to was not
   premise — that 10.38 is a universal per-boundary cap — but this bullet was left deriving 13 from it,
   so the paragraph contradicted itself. The divisor must be the maximum over all contexts, not the
   unconditional maximum.)* This is heuristic, not a
-  theorem — boundary synergies can exceed the *unconditional* single-boundary maximum, and this chain
-  already shows one: step 3's 11.10 bits exceeds step 1's 10.38, which is precisely why 11.10 is the
-  divisor above. What the five steps show is flatness (all within ~1 bit, close to the naive
+  theorem — boundary synergies can exceed the first-chosen boundary's gain, and this chain already shows one: step 3's 11.10 bits exceeds
+  step 1's 10.38, the 560T slice's greedy pick and not a shown full-space maximum (the scoping above) — which is precisely why 11.10 is
+  the divisor above. What the five steps show is flatness (all within ~1 bit, close to the naive
   slot-information value), not the absence of synergy. *(Corrected 2026-09-02, prose batch P34: the retired wording
   denied any synergy across the five steps while this same bullet divided by 11.10 precisely because
   step 3 exceeds step 1. See CORRECTIONS.md, RP-fa6c3b89, and TR-4 v1.15.)*

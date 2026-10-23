@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 5 place(s) over all 208 dated sections, 4 of them among the 132 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 5 place(s) over all 209 dated sections, 4 of them among the 133 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -228,6 +228,7 @@
 | 206 | 2026-10-17 | iso | 11619 | [open](HISTORY.md#2026-10-17--fast-track-batches-ft2b-24-report-wording-push-path-gates-and-pre-registration-notes-from-codexs-final-review) 2026-10-17 — fast-track batches FT2b-2..4: report wording, push-path gates and pre-registration notes from Codex's final review |
 | 207 | 2026-10-17 | iso | 11652 | [open](HISTORY.md#2026-10-17--push-group-g4-claim-scope-wording-in-the-reports-the-documentation-and-the-front-page-from-codexs-final-review-and-the-front-page-made-to-stand-alone) 2026-10-17 — push group G4: claim-scope wording in the reports, the documentation and the front page, from Codex's final review, and the front page made to stand alone |
 | 208 | 2026-10-18 | iso | 11679 | [open](HISTORY.md#2026-10-18--push-group-g5a-test-and-gate-quality-from-codexs-final-review-the-tr-12-figure-checks-and-route-ds-pin-cap) 2026-10-18 — push group G5a: test and gate quality from Codex's final review, the TR-12 figure checks, and Route D's pin cap |
+| 209 | 2026-10-22 | iso | 11699 | [open](HISTORY.md#2026-10-22--push-group-fv1-wording-corrections-from-codexs-fix-verification-pass) 2026-10-22 — push group FV1: wording corrections from Codex's fix-verification pass |
 
 ## Sections with no date in the heading, in file order
 

@@ -111,7 +111,7 @@ document, 70+ lines away; it is now beside the numbers it produces.)*
    corrected at v1.32 in the same pass.)*
 4. **The classical 18:18 split is weak as a discriminator** (36% of all valid orderings have it) — its
    significance is historical attestation, not statistical rarity.
-5. None of these rules, singly or jointly, approaches uniqueness (the full C1–C7 space itself holds
+5. None of these rules approaches uniqueness singly, nor do the joint measurements made (TR-1 §6; no joint measurement over the whole inventory exists) (the full C1–C7 space itself holds
    ≈5.2×10³¹ orderings — see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md)). Accordingly **none is promoted
    into the formal constraint system**; they are measured properties of King Wen's position in the
    population, with description-length and attestation recorded for each.

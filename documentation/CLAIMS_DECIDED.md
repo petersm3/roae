@@ -54,13 +54,13 @@ Most corrections to our own published numbers are itemised one-per-entry in
 [CORRECTIONS.md](CORRECTIONS.md) — the append-only record, which for each entry states what was
 claimed before, what is claimed now, and how it was found; a `Commits` field is carried by some
 entries (5 of the 35 CX entries at this writing) but is not yet part of every entry, and backfilling
-it is open. That record is also not exhaustive over the digest below: the MDL arithmetic cascade is
+it is open. That record was not exhaustive over the digest below until 2026-09-02: the MDL arithmetic cascade is
 recorded in place, in [DESCRIPTION_LENGTH.md](DESCRIPTION_LENGTH.md)'s dated correction note and
 TR-9's draft-stage corrections note, and the TR-1/2/3/9 v1.5 scope corrections in those four
 reports' own Revision-history rows — and the `--verify-wrap-parity` false theorem in
 [TR7_CIRCULAR_READING.md](../reports/TR7_CIRCULAR_READING.md)'s Verification Guide, which names the
 public fix commit `0c24637` (2026-07-03). All three predate that ledger's creation on 2026-08-02, and each
-was back-filled into it on 2026-09-02 (CORRECTIONS.md, the two 2026-09-02 entries for prose batches B2 and B3). The summary
+was back-filled into it on 2026-09-02 (CORRECTIONS.md, the two 2026-09-02 entries for prose batches B2 and B3), so every item of the digest now has a ledger entry. The summary
 paragraph that follows is therefore a digest of the self-correction practice as a whole, not of that
 one file, and not a substitute for either.
 

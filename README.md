@@ -23,7 +23,7 @@ same seven. Whatever fixed the received order, these seven rules alone did not. 
 about the rules we tested, not about every rule that could exist — rules nobody has written down
 remain entirely possible.
 
-**What this does — and does not — mean.** Three scope notes worth carrying from the start:
+**What this does — and does not — mean.** Four scope notes worth carrying from the start:
 
 - **It does not say the sequence is random, or that nobody designed it.** The test is of the
   literature's rules *as stated*. An arranger may have followed considerations nobody wrote down;
@@ -77,8 +77,8 @@ literature, this is **a measured confirmation of prior under-determination claim
 is a single-instrument estimate**: the direction was asserted qualitatively before this project
 measured it (see the prior negatives below), and the C1–C7 figure comes from `solve.c`'s estimator alone — every two-instrument exact quantity in the suite is
 C3-free ([TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)), including C1–C7 **with C3 dropped**, exact
-at 516,880,238,445,773,965,371,923,491,676,160 ≈ 5.16880×10³². C3 is the only constraint without an exact full-scale
-instrument; one exists (C3 = 16 + 8·G, a Lean theorem) and the run was priced and declined, not found impossible
+at 516,880,238,445,773,965,371,923,491,676,160 ≈ 5.16880×10³². C3 is the only constraint without an exact full-scale count; the
+instrument exists (C3 = 16 + 8·G, a Lean theorem; `solve --f1-c3-hist --with-c5`) and the run was priced and declined, not found impossible
 ([METHODS](reports/METHODS.md) §"Canonical quantities"). Neither label doubts the number: the estimator is externally
 validated at all three full-scale anchors where exact ground truth exists, inside its stated envelope each time ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md) §"Estimator
 calibration"), and the C6–C7 verdict is corroborated exactly at small scope (the 8 oriented
@@ -183,7 +183,7 @@ C1–C5, with C6–C7 added only where the text says so.
 |---|---|
 | **[solve.c](solve.c)** | The enumerator. Multi-threaded C; produces byte-reproducible enumeration slices anchored by sha256 ([CANONICAL_HASHES](documentation/CANONICAL_HASHES.md)); also an unbiased estimator of the full space. Deepest artifact: 10.5 billion orderings, derived twice byte-identically on preemptible cloud. |
 | **[solve.py](solve.py)** | The independent ground truth. Every constraint implemented a second time, in Python, and cross-checked against the C. |
-| **[sat.py](sat.py)** | The decision layer. Encodes exact questions ("does an ordering with property X exist?") for a SAT solver; UNSAT answers carry independently checkable [DRAT certificates](reports/certificates/README.md), each scoped to the C1∩C2∩C4∩C5-valid space. |
+| **[sat.py](sat.py)** | The decision layer. Encodes exact questions ("does an ordering with property X exist?") for a SAT solver; UNSAT answers carry independently checkable [DRAT certificates](reports/certificates/README.md) — the rule-conflict ones scoped to the C1∩C2∩C4∩C5-valid space, the rigidity certificate a graph-automorphism statement, the two `noY` proofs cardinality-only; the two CC-N4 equivalence decisions are recorded solver decisions with no certificate (TR-2 §2). |
 | **[roae.py](roae.py)** | The exploratory analysis suite: 28 analyses of the sequence — most with null-model comparisons, several descriptive-only, and [CRITIQUE.md](documentation/CRITIQUE.md) names which are which ([example output](example/)). |
 | **[lean/](lean/)** | Machine-checked theorems (Lean 4): the core lemmas, four sequence-level theorems, the trigram-level structure ([TRIGRAM_STRUCTURE](documentation/TRIGRAM_STRUCTURE.md)), and the model-level merge/partition-invariance theorems (see [lean/README.md](lean/README.md) for the trust-base and scope notes). |
 | **[tests.py](tests.py)** · **[verify.py](verify.py)** · **[verify_all.sh](reports/certificates/verify_all.sh)** | The verification layer — the instrument that checks the other five: Python regression harness, two-language record verifier, and the one-command check of the enumerator selftest, the two-language gates, every archived DRAT certificate, the Lean proofs, the regression harness, `roae.py`'s ground-truth self-check and the documentation gates (`scripts/doc_gates.sh` in its `all` mode, whose PASS banner covers the hard gates only). Scope: section 6 runs `roae.py --verify` — the deterministic ground-truth check — and **not** the 28 analyses. |
@@ -274,7 +274,7 @@ Headlines only — each links to its full treatment (technical reports in [repor
   imposed), the n=31 atlas recovers the C5 budget exactly from its own column sums (a parameter the run was
   given); finds **68.67 %** of the pruned search tree doomed (in t-units); and places King Wen's transition low
   in its distance class at **24 of 31** steps — a pointer with no p-value. Two results are **negative**: the
-  one-step kernel does not distinguish King Wen (0.10 bits from the population mean), and the interior positional
+  one-step kernel does not single King Wen out at the scale its marginals fix (0.10 bits from the population mean; whether the full-walk score would is not computed, TR-12 §12.4), and the interior positional
   pair field is within total-variation 0.0329 of uniform. Two checks against C1–C5 figures from a different
   instrument **FAIL by ~12× tolerance** — the populations differ by C3, an inference, not a measurement of C3.
   The exhaustibility verdict is one-sided (every branch INFEASIBLE from a lower-bound certificate); wave 3 never
@@ -302,8 +302,8 @@ the battery does detect algorithmic construction where it exists. It is *not* a 
 both available controls lit up, so the only quiet case in the corpus is the object of study itself.
 CRITIQUE now labels the test a positive control too; its constraint-family sequel counts three
 alternative orderings, Fu Xi included, and the reading on this page is the narrower one.
-Of the 28-analysis exploratory battery, only the pair structure and the combined constraints survive
-multiple-comparison correction; entropy is mildly low but not significant after Bonferroni, the Markov structure is
+Of the 28-analysis exploratory battery, the pair structure, the combined constraints and the unconditional complement-distance rarity survive multiple-comparison correction
+([CRITIQUE](documentation/CRITIQUE.md) §"Observable-selection accounting"); entropy is mildly low but not significant after Bonferroni, the Markov structure is
 typical against a shuffle that does not preserve pairs, path length and palindromes are typical under the
 pair-preserving null, and no periodicity is established — or excluded ([PROJECT_OVERVIEW](documentation/PROJECT_OVERVIEW.md) §Observations).
 
@@ -335,7 +335,7 @@ its evidence.
 ## Going deeper
 **If you read one thing**: [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md) — the literature's rules, measured and decided.
 [reports/](reports/) — the full technical report suite (start at its [index](reports/README.md) for the map and reading paths) · [PROJECT_OVERVIEW](documentation/PROJECT_OVERVIEW.md) — the detailed findings narrative formerly on this page ·
-[CLAIMS_DECIDED](documentation/CLAIMS_DECIDED.md) — the empirical scorecard (what's refuted, corrected, forced, confirmed) · [SOLVE_SUMMARY](documentation/SOLVE_SUMMARY.md) — plain-language results · [CITATIONS](documentation/CITATIONS.md) — every source, every attribution, annotated bibliography · [HISTORY](documentation/HISTORY.md) — the project narrative including its mistakes. · [CORRECTIONS](documentation/CORRECTIONS.md) — the append-only record of every claim we published and later changed.
+[CLAIMS_DECIDED](documentation/CLAIMS_DECIDED.md) — the empirical scorecard (what's refuted, corrected, forced, confirmed) · [SOLVE_SUMMARY](documentation/SOLVE_SUMMARY.md) — plain-language results · [CITATIONS](documentation/CITATIONS.md) — every source, every attribution, annotated bibliography · [HISTORY](documentation/HISTORY.md) — the project narrative including its mistakes. · [CORRECTIONS](documentation/CORRECTIONS.md) — the append-only record of every claim we published and later changed since the ledger opened on 2026-08-02 (the three earlier correction groups were back-filled; [CLAIMS_DECIDED](documentation/CLAIMS_DECIDED.md)).
 
 **Citing:** cite `main` at the commit sha you read, plus the report version (e.g. "TR-2 v1.24, commit abc1234");
 [CITATION.cff](CITATION.cff) carries the fields and, by design, stamps no commit, version or DOI ([reports/README](reports/README.md) §"Living documents").

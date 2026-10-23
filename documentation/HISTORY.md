@@ -11695,3 +11695,24 @@ Q-686=DONE
 - **Two held rows ruled.** F04-018#5 (a too-wide comment in the frozen C8 defcheck) is corrected in CX-35U-C, the file untouched; F06-003#1 is closed by widening GATE 3b's `historical` class (CX-35U-E).
 - No measured value, sha, certificate or verdict changed. `TestBatchG5a` and `TestQ1027FiveBoundaryPinCap` hold each cure.
   TR-11 v1.37.
+
+## 2026-10-22 — push group FV1: wording corrections from Codex's fix-verification pass
+
+- **Codex's fix-verification pass (CX-35Y-A to CX-35Y-I).** Codex (gpt-6-astra) re-read the sites the FT1, FT2a, G2/G3
+  and G4 fixes touched, and Fable triaged the 383 rows; FV1 is the claim-level batch, 47 rows. Twenty-one of its sentences
+  were written by the fix batches themselves. The front page names which UNSAT answers carry DRAT certificates, lists C3's
+  unconditional rarity among the battery's survivors, says the one-step kernel does not single King Wen out at the scale
+  its marginals fix, and says C3 lacks an exact count, not an instrument. The LEDGER SCOPED note's two-sided shortfall is
+  6.10×, not 3.05×, and one-sided the rarity would clear BH at n = 1,446 while failing Bonferroni; TR-10's abstract agrees
+  with §3's BH rank. TR-1's pair-order measurements range over both orientations, and three joint measurements exist, not
+  one. CRITIQUE's corpus control is a positive control throughout, C1's six families are 2,760,021,104 orderings with four
+  exhaustive, and the Gray-code question is recorded as closed by MCKENNA's witness. The CC-N4 equivalence universe C1∩C4
+  is a superset of the conflict base; the C1∩C2∩C4 anchor's envelope is unresolved rather than asserted; the S(k)
+  bit-gains are bounds in neither direction; SEARCH_SPACE_SIZE no longer subtracts the orientation bits twice. Further
+  sentences in TR-2, TR-4, TR-5, TR-9, TR-11, TR-12, DESCRIPTION_LENGTH, SOLVE_SUMMARY, SPECIFICATION,
+  REBUILD_FROM_SPEC, SOLVE, QUERY_INVENTORY, the c8screen evidence note and a visualization page say what their sources
+  say. Each earlier CX entry the cures correct carries a dated note in the new entries, and CX-35Y-I notes four G4
+  "Tests." paragraphs that described measurements their tests do not make.
+- No measured value, sha, certificate or verdict changed. `TestBatchFV1` holds each cure; the pinned sentences in
+  `TestBatchG4`, `TestBatchFT2a` and `TestBatchFT2b1` follow them. TR-1 v1.43, TR-2 v1.44, TR-4 v1.45, TR-5 v2.25, TR-8
+  v1.25, TR-9 v1.37, TR-10 v1.23, TR-11 v1.38, TR-12 v1.33.

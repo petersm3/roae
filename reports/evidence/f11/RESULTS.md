@@ -270,7 +270,7 @@ that clears the frozen bands also clears both published tables. See the full ban
 - **Variant U (uniform edit location): BF ≈ 6.6×10³ → STRONG evidence for M_corr** (corruption),
   ~66× beyond the strong threshold.
 - **Variant A (bamboo-adjacent-biased): BF ≈ 7.9×10³ → STRONG evidence for M_corr**, ~79× beyond.
-- Every one of the 24 marginal configurations (the registration fixed the two corruption-location variants and the grids and committed to publishing the full sensitivity table; it did not name the 24 — "pre-committed" until 2026-10-17, CX-35T-F) is in the strong band
+- Every one of the 24 marginal configurations (the registration fixed the two corruption-location variants and that the priors would be marginalised over declared grids, and committed to publishing the full sensitivity table; the numeric grids were declared at computation time (§0) and it did not name the 24 — "pre-committed" until 2026-10-17, CX-35T-F) is in the strong band
   (range 1.4×10³ – 2.7×10⁴); the direction never flips anywhere in the sensitivity space,
   including every per-gridpoint cell.
 

@@ -495,7 +495,7 @@ REVIEWED = {
     # re-keyed batch 35 (was 85bc4c72984a): only a line-number cite on the line moved; re-read, same verdict.
     ('documentation/QUERY_INVENTORY.md', 'b26b7cea9ea8'):
         ('1', 'reviewed:stale-clause-is-already-struck-through'),
-    ('documentation/QUERY_INVENTORY.md', 'bcf36579e93c'):  # re-keyed 2026-10-17, push group G4 (line edited; verdict re-read, stands)
+    ('documentation/QUERY_INVENTORY.md', '9600e1a20047'):  # re-keyed 2026-10-22, push group FV1 (line edited; verdict re-read, stands)
         ('1', 'reviewed:cell-already-names-the-kc-figure'),
     # re-keyed CX-321 (was 94c1605ab856): the line gained the CX-321 note; re-read, the cell above still
     # reads "the row is unbuilt either way", same verdict.
@@ -609,7 +609,7 @@ REVIEWED = {
         ('1', 'reviewed:proof-already-separates-containment-and-attainment'),
     ('documentation/SOLVE.md', '9628b670d156'):
         ('1', 'reviewed:sentence-already-gives-the-four-independent-constraints'),
-    ('documentation/SOLVE.md', '9d1d73f46a15'):
+    ('documentation/SOLVE.md', '8ebda32391dd'):  # re-keyed 2026-10-22, push group FV1 (line edited; verdict re-read, stands)
         ('1', 'reviewed:paragraph-already-scopes-the-reconstruct-output'),
     ('documentation/SOLVE.md', 'a99732fec1d5'):
         ('1', 'reviewed:status-already-reads-4-then-5'),
@@ -1309,7 +1309,7 @@ REVIEWED = {
         ('1', 'reviewed:note-now-says-the-halves-are-witnessed'),
     ('reports/TR3_REPRODUCIBLE_ENUMERATION.md', '7a5e3fbf522c'):
         ('1', 'reviewed:sentence-now-says-completed-cells-are-skipped-and-in-progress-cells-rewalked'),
-    ('reports/TR5_SYMMETRY.md', '623e65680951'):
+    ('reports/TR5_SYMMETRY.md', 'bd866487a4b9'):  # re-keyed 2026-10-22, push group FV1 (line edited; verdict re-read, stands)
         ('1', 'reviewed:note-now-says-a-twin-lies-in-a-different-depth-3-cell'),
     ('reports/TR5_SYMMETRY.md', '8ed64452227e'):
         ('1', 'reviewed:bullet-now-names-the-shipped-command'),
