@@ -63,14 +63,14 @@ TAB="$WORK/results.md"
   echo "|---|---|---|---|---|---|---|---|"
 } > "$TAB"
 
-fails=0
+fails=0; ran=0   # G5b (Codex F04-021#12): a whitespace-only KC_MIDN_NS ran nothing and printed ALL PASS
 for n in $NS; do
   if [ "$n" -gt "$MAXN" ]; then
     echo "REFUSED: n=$n exceeds the local light ceiling (KC_MIDN_MAX_N=$MAXN)." >&2
     echo "         Larger n is a GATED Spot-worker job — do not run on the orchestrator." >&2
     exit 3
   fi
-  d="$WORK/kc$n"
+  d="$WORK/kc$n"; ran=$((ran + 1))
   echo "-- n=$n: exhaustive --kc-build (retained layers) --"
   "$BIN" --kc-build "$d" --f1-pairs "$n" > "$WORK/build_$n.log" 2>&1
   kc_count=$("$BIN" --kc-count "$d" | awk '{print $NF}')
@@ -106,5 +106,5 @@ echo
 echo "== results table ($TAB) =="
 cat "$TAB"
 echo
-if [ "$fails" -eq 0 ]; then echo "== kc mid-n validation: ALL PASS =="; else
+if [ "$ran" -eq 0 ]; then echo "== kc mid-n validation: NO LADDER RAN (KC_MIDN_NS='$NS') -- not a pass =="; exit 1; elif [ "$fails" -eq 0 ]; then echo "== kc mid-n validation: ALL PASS =="; else
   echo "== kc mid-n validation: $fails FAILURE(S) =="; exit 1; fi

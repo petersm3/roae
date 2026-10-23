@@ -259,7 +259,7 @@ which is what produced every published figure — with the divergence disclosed:
   `python3 verify.py --orbit-coverage reports/evidence/knuth195_percell_100000.csv.gz` →
   `RELERR_GE_10_N=47103`, `RELERR_GE_10_WALD95_COV=94.4`, `RELERR_GE_10_FIX20_COV=85.8`,
   `RELERR_GE_10_LOGN95_COV=94.9`, …, `MEDIAN_PRINTED_SE_OVER_REPLICATE_SD=1.031`, and
-  `Q696_COVERAGE=PASS` only when every figure in this paragraph is matched at its printed precision
+  `Q696_COVERAGE=PASS` only when every figure the flag recomputes here is matched at its printed precision (all but the ±SE controls' 72% / 99.9%, which are their own runs, and the 0.1-point exclusion check; corrected 2026-10-22, CX-35V-F)
   ([VERIFY.md](../documentation/VERIFY.md) lists the tokens); the positive control is
   `--orbit-coverage-se-scale 0.5` / `2` (ends `Q696_COVERAGE=CONTROL`, never `PASS`); the orbit
   action is the one `verify.py --orbit-cv` gates, and the two flags share one table reader. No published figure moved: no report applied

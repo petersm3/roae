@@ -14,6 +14,8 @@ PROBES=${PROBES:-10000000}
 for SEED in 1 2 3 4 5 6 7 8 9 10 11 12; do
   f=$(printf '%s/rep%02d_seed%d.out' "$OUT" "$SEED" "$SEED")
   SOLVE_THREADS=2 SOLVE_KNUTH_SCORE_DAV=1 SOLVE_KNUTH_SEED=$SEED \
-    "$BIN" --estimate-knuth "$PROBES" > "$f" 2>&1
-  echo "REPLICATE seed=$SEED rc=$? file=$f $(date -u +%FT%TZ)"
+    "$BIN" --estimate-knuth "$PROBES" > "$f" 2>&1; rc=$?; [ "$rc" -eq 0 ] || fails=$(( ${fails:-0} + 1 ))
+  echo "REPLICATE seed=$SEED rc=$rc file=$f $(date -u +%FT%TZ)"
 done
+# G5b (Codex F02-010#6): the launcher's status was the last echo's, 0 even when all 12 calls failed.
+[ "${fails:-0}" -eq 0 ] || { echo "REPLICATES FAILED: ${fails} of 12 estimator call(s) exited nonzero"; exit 1; }

@@ -928,9 +928,9 @@ static int sol_write_meta_json(const char *meta_path, const char *bin_path,
  * form should be 0x14 (20). Any drift is caught at compile time. */
 _Static_assert(SOL_RECORD_SIZE == 32, "record size locked at 32 bytes (one per position)");
 _Static_assert(SOL_HEADER_SIZE == 32,  "header size locked at 32 bytes (matches record size)");
-_Static_assert((((5 << 2) | (1 << 1)) & 0xFF) == 22, "pair_index=5, orient=1 must encode to byte 22");
-_Static_assert((22 & 0xFC) == 20, "canonical mask 0xFC must zero orient bit while preserving pair_index");
-_Static_assert((((31 << 2) | (1 << 1)) & 0xFC) == (31 << 2), "max pair_index survives canonical mask");
+#define SOL_PACK(pidx, orient) ((unsigned char)(((pidx) << 2) | ((orient) << 1)))   /* G5b F04-002#16: THE pack expression; the writer uses it and these asserts test it */
+_Static_assert(SOL_PACK(5, 1) == 22 && (SOL_PACK(5, 1) & 0xFC) == 20, "pair_index=5, orient=1 must encode to byte 22, canonical 20");
+_Static_assert((SOL_PACK(31, 1) & 0xFC) == (31 << 2) && SOL_PACK(31, 0) == 124 && SOL_PACK(0, 1) == 2, "max pair_index survives the canonical mask; orient is bit 1, bit 0 clear");
 
 typedef struct {
     int edit_dist;
@@ -3415,7 +3415,7 @@ static int do_verify_shard_manifest(const char *manifest_path,
         return 30;
     }
     int total = 0;
-    { char buf[4096]; while (fgets(buf, sizeof(buf), mf)) total++; }
+    { char buf[4096]; while (fgets(buf, sizeof(buf), mf)) if (buf[strspn(buf, " \t\r\n")] != '\0') total++; }   /* G5b F04-001#11: a blank line is not an entry */
     fclose(mf);
     if (total == 0) {
         /* 🔴 Q-367 (Codex R12b): a zero-entry manifest used to return 0 == PASS. That is exactly
@@ -4750,8 +4750,8 @@ static void analyze_solution(ThreadState *ts, const int seq[64]) {
     for (int i = 0; i < 32; i++) {
         int pidx = sol_pair_idx[i];  /* already computed above */
         int orient = (seq[i * 2] == pairs[pidx].b) ? 1 : 0;
-        record[i] = (unsigned char)((pidx << 2) | (orient << 1));
-        canonical[i] = (unsigned char)(pidx << 2);  /* orient cleared */
+        record[i] = SOL_PACK(pidx, orient);   /* G5b: the expression the _Static_asserts test */
+        canonical[i] = SOL_PACK(pidx, 0);  /* orient cleared */
     }
 
     /* FNV-1a hash of canonical bytes (pair identity only, no orientation) */
@@ -23839,11 +23839,11 @@ static int kc_g_selftest(void) {
 
 static int kc_parse_walk(const KC *kc, const char *s, uint8_t *E) {
     int vals[2 * KC_MAX_PAIRS], nv = 0;
-    const char *p = s;
-    while (*p && nv < 2 * kc->n) {
-        if (*p >= '0' && *p <= '9') vals[nv++] = (int)strtol(p, (char **)&p, 10);
-        else p++;
-    }
+    int g5b_strict_ints(const char *, int *, int);   /* G5b F04-006#1: strict tokens; signs, junk and extra values refused */
+    nv = g5b_strict_ints(s, vals, 2 * kc->n);
+    if (nv < 0) { fprintf(stderr, "ERROR: [kc] walk '%.60s' holds a token that is not a plain decimal 0..63\n", s); return -1; }
+    /* nv counts EVERY token, so a trailing extra value fails the count test below */
+    /* (was: a scan that skipped minus signs and stopped after 2n values) */
     if (nv != 2 * kc->n) {
         fprintf(stderr, "ERROR: [kc] walk needs %d hexagrams (entry,exit per pair), got %d\n",
                 2 * kc->n, nv);
@@ -25278,12 +25278,12 @@ static int kc_h_arr_parse(const char *arg, int *s) {
         for (int i = 0; i < 64; i++) s[i] = KW[i];
         return 0;
     }
-    int n = 0;
-    const char *p = arg;
-    while (*p && n < 65) {
-        if (*p >= '0' && *p <= '9') s[n < 64 ? n : 63] = (int)strtol(p, (char **)&p, 10), n++;
-        else p++;
-    }
+    int g5b_strict_ints(const char *, int *, int);   /* G5b F04-006#1: -63 no longer reads as 63 */
+    int n = g5b_strict_ints(arg, s, 64);
+    /* out-of-range values are kept (as 999) and judged by kc_h_arr_check's */
+    /* permutation test; a sign, a non-digit or a 65th value is refused here */
+    /* (was: a scan that skipped minus signs and kept the 65th value) */
+    (void)0;
     return n == 64 ? 0 : -1;
 }
 
@@ -25850,7 +25850,7 @@ static int kc_h_oracle_file(const KC *kc, const int *p2q, const char *path,
     const char *tool = sha256_tool();
     if (tool) {
         char scmd[512];
-        snprintf(scmd, sizeof(scmd), "%s | cut -d' ' -f1 > '%s'", tool, shafile);
+        snprintf(scmd, sizeof(scmd), "%s > '%s.raw' && cut -d' ' -f1 '%s.raw' > '%s'; s=$?; rm -f '%s.raw'; exit $s", tool, shafile, shafile, shafile, shafile);   /* G5b F04-006#5: the HASH tool's status, not cut's */
         shp = popen(scmd, "w");
     }
     int rc = 0;
@@ -25878,7 +25878,7 @@ static int kc_h_oracle_file(const KC *kc, const int *p2q, const char *path,
             uint8_t E[KC_MAX_PAIRS];
             for (;;) {
                 size_t r = fread(rec, 1, 32, in);
-                if (r == 0) break;
+                if (r == 0) { if (ferror(in)) { st->io_error = 1; rc = -1; } break; }   /* G5b F04-006#4: a read ERROR is not EOF */
                 if (r != 32) { st->io_error = 1; rc = -1; break; }
                 if (shp) fwrite(rec, 1, 32, shp);
                 const uint64_t idx = st->records++;
@@ -26008,7 +26008,7 @@ static void kc_h_oracle_cert_write(FILE *f, const KC *kc, const char *fdir,
             esc, kc->n, tdec);
     fprintf(f, "  \"pl_hash\": \"%016llx\",\n", (unsigned long long)f1_pl_hash(&kc->c));
     fprintf(f, "  \"c3max\": %lld,\n  \"check_repr\": %d,\n  \"n_files\": %d,\n",
-            o->c3max, o->check_repr, nf);
+            o->c3max, o->check_repr, nf); { void g5b_cert_expect_write(FILE *); g5b_cert_expect_write(f); }   /* G5b F04-006#3 */
     for (int i = 0; i < nf; i++) {
         const KcOrFile *s = &st[i];
         kc_h_json_escape(s->path, esc, sizeof(esc));
@@ -26056,7 +26056,7 @@ static int kc_oracle_main(int argc, char *argv[]) {
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-c3-max") == 0) { if (argv_ll(argv[1], "--kc-c3-max", argv[++ai], -1, LLONG_MAX, &o.c3max)) { printf("KC_ORACLE=ERROR\n"); return 2; } }  /* Q-865 */
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-dump") == 0) { if (argv_int(argv[1], "--kc-dump", argv[++ai], 0, INT_MAX, &o.dump_max)) { printf("KC_ORACLE=ERROR\n"); return 2; } }  /* Q-865 */
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cert-out") == 0) cert_out = argv[++ai];
-        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-expect-count") == 0) expect = argv[++ai];
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-expect-count") == 0) { expect = argv[++ai]; void g5b_set_expect(const char *); g5b_set_expect(expect); }   /* G5b F04-006#3 */
         else if (argv[ai][0] == '-') {
             fprintf(stderr, "ERROR: [kc-oracle] unknown option %s\n", argv[ai]);
             printf("KC_ORACLE=ERROR\n");
@@ -27306,7 +27306,7 @@ static int kc_h1cert_cmp(const KcH1Cert *c, const KcOrFile *red, const KC *kc,
         snprintf(t, sizeof(t), "%016llx", (unsigned long long)f1_pl_hash(&kc->c));
         KCH_CK("pl_hash matches the ladder", strcmp(t, c->plhash) == 0);
     }
-    int all_pass = 1;
+    int all_pass = 1; int g5b_h1cert_expect_holds(const KcOrFile *, int);
     for (int i = 0; i < c->nf; i++) {
         const KcOrFile *a = &c->rec[i], *b = &red[i];
         char nm[128];
@@ -27333,7 +27333,7 @@ static int kc_h1cert_cmp(const KcH1Cert *c, const KcOrFile *red, const KC *kc,
         if (!kc_h_oracle_file_pass(b, &c->opts)) all_pass = 0;
     }
     KCH_CK("verdict matches recomputed pass/fail",
-           strcmp(c->verdict, all_pass ? "PASS" : "FAIL") == 0);
+           strcmp(c->verdict, (all_pass && g5b_h1cert_expect_holds(red, c->nf)) ? "PASS" : "FAIL") == 0);   /* G5b F04-006#3 */
 #undef KCH_CK
     return fails;
 }
@@ -27365,7 +27365,7 @@ static int kc_h1cert_verify(const char *buf, const char *fdir_ov, int force_ooc,
     int dump_left = 0;
     for (int i = 0; i < c->nf; i++)
         kc_h_oracle_file(kc, p2q, c->rec[i].path, &c->opts, &red[i], &dump_left);
-    int fails = kc_h1cert_cmp(c, red, kc, quiet);
+    int g5b_h1cert_prep(const char *, int, int); int fails = g5b_h1cert_prep(buf, kc->n, quiet); fails += kc_h1cert_cmp(c, red, kc, quiet);   /* G5b F04-006#2/#3: n is checked; the expect-count is loaded first */
     /* K-2 machine-readable digest state: UNAVAILABLE (a compared side was
      * never meaningfully populated) / MISMATCH / MATCHED. */
     int dig_unavail = 0, dig_mismatch = 0;
@@ -30434,7 +30434,7 @@ static int kc_scan_main(int argc, char *argv[]) {
                    T.gate_fails ? "FAIL" : "PASS", T.gate_fails,
                    T.gate_fails == 1 ? "" : "s");
             printf("KC_SCAN=%s\n", T.gate_fails ? "FAIL" : "OK");
-            rc = T.gate_fails ? 1 : 0;
+            rc = T.gate_fails ? 1 : 0; { void g5b_strict_tail_unlink(const char *, int, int); g5b_strict_tail_unlink(outp, T.gate_fails, T.tail_report_ran ? T.tail_report_fails : 0); }   /* G5b F04-006#12 */
             }
         }
     } else {
@@ -32569,7 +32569,7 @@ static int kc_profile_main(int argc, char *argv[]) {
                GIT_BRANCH, GIT_HASH, SOURCE_SHA, P->n);
         printf("KC_PROFILE_PRODUCT=%s\n", P->product_exact ? "EXACT" : "MISMATCH");
         if (!P->product_exact) rc = 1;
-        printf("KC_PROFILE=%s\n", rc == 0 ? "OK" : "FAIL");
+        /* (G5b F04-006#10: KC_PROFILE= is printed after the TSV block below, so a failed append prints FAIL) */
         /* 🔴 THE TSV WAS WRITTEN AND CLOSED BEFORE THIS VERDICT EXISTED (RCQ02 F3, 2026-09-09).
          * kc_prof_write_table(tf, P) runs ~15 lines above; product_exact is only decided HERE. So
          * a run that FAILS its product identity left a complete, well-formed, TOKEN-LESS table on
@@ -32590,14 +32590,14 @@ static int kc_profile_main(int argc, char *argv[]) {
                 FILE *tf = fopen(tsv, "a");
                 if (!tf) {
                     fprintf(stderr, "ERROR: [kc-profile] cannot append the verdict to %s\n", tsv);
-                    rc = 1;
+                    rc = 1; kc_h_unlink_regular(tsv);   /* G5b F04-006#10: no token-less table is left behind */
                 } else {
                     fprintf(tf, "KC_PROFILE_PRODUCT=%s\n", P->product_exact ? "EXACT" : "MISMATCH");
                     fprintf(tf, "KC_PROFILE=%s\n", "OK");
                     if (kc_h_close_artifact(tf, tsv, "kc-profile") != 0) rc = 1;
                 }
             }
-        }
+        } printf("KC_PROFILE=%s\n", rc == 0 ? "OK" : "FAIL");
     }
     kc_free(fkc);
     kc_free(gkc);
@@ -34551,7 +34551,7 @@ static int kc_t_cert_main(const char *outp) {
         else printf("[kc-t-cert] certificate written: %s\n", outp);
     }
     printf("[kc-t-cert] VERDICT: %s (%d gate failure%s)\n",
-           fails ? "FAIL" : "PASS", fails, fails == 1 ? "" : "s");
+           (fails || rc) ? "FAIL" : "PASS", fails, fails == 1 ? "" : "s");   /* G5b F04-006#10: a failed certificate write is a FAIL */
     for (int k = 0; k <= f9->n; k++) f1c5_layer_free(&TL9[k]);
     for (int k = 0; k <= f13->n; k++) f1c5_layer_free(&TL13[k]);
     free(TL13);
@@ -35204,7 +35204,7 @@ static int kc_enum_desc_selftest(void) {
 
 static int kc_h_sh(const char *cmd) {
     int st = system(cmd);
-    return st == -1 ? -1 : WEXITSTATUS(st);
+    return st == -1 ? -1 : WIFEXITED(st) ? WEXITSTATUS(st) : 128 + (WIFSIGNALED(st) ? WTERMSIG(st) : 0);   /* G5b F04-006#21: a signalled shell is not rc 0 */
 }
 
 /* run this binary with ARGS, tee stdout+stderr to LOGPATH; returns exit code */
@@ -36725,8 +36725,8 @@ static int kc_wit_realise(const KC *f, const KC *g, const KcWit *X, uint8_t *E) 
 static int kc_wit_check(const KC *f, const KC *g, const KcWit *X, const uint8_t *E, KcWitCheck *C) {
     const int n = f->n;
     uint32_t rids[KC_MAX_PAIRS + 1];
-    if (X->k < 0 || X->k >= n || X->q < 0 || X->q >= n || X->lastc < 0 || X->lastc > 63 ||
-        ((X->cm >> X->q) & 1) || X->rid >= f->B.R) {
+    if (X->k < 0 || X->k >= n || X->q < 0 || X->q >= n || X->lastc < 0 || X->lastc > 63 || X->o < 0 || X->o > 1 ||   /* G5b F04-006#8 */
+        ((X->cm >> X->q) & 1) || X->rid >= f->B.R || X->qpair != (int)f->c.pl[X->q]) {
         /* a witness that names no transition of this ladder: every check false, no lookup */
         C->valid = C->through = C->f_ok = C->g_ok = C->w_ok = 0;
         return 0;
@@ -36739,7 +36739,7 @@ static int kc_wit_check(const KC *f, const KC *g, const KcWit *X, const uint8_t 
         const int last = X->k ? E[X->k - 1] : f->start_exit;
         int entry, exitx, cls;
         kc_wit_step(f, X, &entry, &exitx, &cls);
-        C->through = m == X->cm && last == X->lastc && rids[X->k] == X->rid && X->k < n && E[X->k] == exitx;
+        C->through = m == X->cm && last == X->lastc && rids[X->k] == X->rid && X->k < n && E[X->k] == exitx && cls == X->d;   /* G5b F04-006#8: the declared class is the realised one */
     }
     C->f_src = kc_flookup(f, X->k, X->cm, X->lastc, X->rid);
     C->f_ok = f1_eq(&C->f_src, &X->fv);
@@ -36846,8 +36846,7 @@ static int kc_witness_walks_main(int argc, char *argv[]) {
     printf("#provenance\tengine=solve.c/kc-witness-walks\tbranch=%s\tgit=%s\tsource_sha=%s\tn=%d\t"
            "semantics=certificate-not-proof;one-walk-per-witness;first-predecessor+first-completion\n",
            GIT_BRANCH, GIT_HASH, SOURCE_SHA, fkc->n);
-    printf("KC_WITNESS_WALKS_N=%d\nKC_WITNESS_WALKS_OK=%d\nKC_WITNESS_WALKS=%s\n", cnt, nok, rc == 0 ? "OK" : "FAIL");
-    if (o) {
+    if (o) {   /* G5b F04-006#10: the artifact is closed BEFORE the stdout verdict, so a failed close prints FAIL */
         fprintf(o, "KC_WITNESS_WALKS_N=%d\nKC_WITNESS_WALKS_OK=%d\nKC_WITNESS_WALKS=%s\n", cnt, nok, rc == 0 ? "OK" : "FAIL");
         if (kc_h_close_artifact(o, outp, "kc-witness") != 0) rc = 1;
         if (rc != 0) {
@@ -36855,6 +36854,7 @@ static int kc_witness_walks_main(int argc, char *argv[]) {
             fprintf(stderr, "ERROR: [kc-witness] verdict is FAIL; removed %s\n", outp);
         }
     }
+    printf("KC_WITNESS_WALKS_N=%d\nKC_WITNESS_WALKS_OK=%d\nKC_WITNESS_WALKS=%s\n", cnt, nok, rc == 0 ? "OK" : "FAIL");
     free(W);
     kc_free(fkc); kc_free(gkc); free(fkc); free(gkc);
     return rc;
@@ -39937,12 +39937,12 @@ int main(int argc, char *argv[]) {
     { const char *tv = getenv("SOLVE_REG_TESTVEC");
       const char *kr = getenv("SOLVE_KNUTH_SCORE_REG");
       if (tv && kr && atoi(kr) == 2) {
-          int tseq[64], n = 0;
+          int tseq[64], n = 0; int g5b_strict_ints(const char *, int *, int);   /* G5b F04-001#15, F04-007#4 */
           const char *p = tv;
-          while (*p && n < 64) {
-              if (*p >= '0' && *p <= '9') tseq[n++] = (int)strtol(p, (char**)&p, 10);
-              else p++;
-          }
+          n = g5b_strict_ints(p, tseq, 64);   /* every token a plain decimal; a sign, a non-digit or */
+          if (n < 0) n = -1;                  /* a 65th value is refused below, never skipped */
+          (void)p;
+          /* (was: a scan that skipped minus signs and non-digits and stopped at 64 values) */
           { uint64_t seen = 0; for (int i = 0; i < n; i++) if ((unsigned)tseq[i] < 64u) seen |= 1ULL << tseq[i]; if (n != 64 || seen != ~0ULL) { fprintf(stderr, "SOLVE_REG_TESTVEC: need 64 distinct ints 0..63 (a permutation), got %d ints\n", n); return 1; } }  /* EE: a repeated/out-of-range value left pos[]/pi_bot[] slots unset (stack garbage; the pattern-init build segfaulted) or wrote past them; solve.py perm_verify raises on the same input */
           KnuthArg ta; memset(&ta, 0, sizeof(ta));
           ta.min_rm2 = -1; ta.reg_min_mmt3 = -1; ta.reg_min_c1 = -1;
@@ -39962,12 +39962,12 @@ int main(int argc, char *argv[]) {
     { const char *tv = getenv("SOLVE_F5_TESTVEC");
       const char *kf = getenv("SOLVE_KNUTH_SCORE_F5");
       if (tv && kf && atoi(kf) == 2) {
-          int tseq[64], n = 0;
+          int tseq[64], n = 0; int g5b_strict_ints(const char *, int *, int);   /* G5b F04-001#15, F04-007#4 */
           const char *p = tv;
-          while (*p && n < 64) {
-              if (*p >= '0' && *p <= '9') tseq[n++] = (int)strtol(p, (char**)&p, 10);
-              else p++;
-          }
+          n = g5b_strict_ints(p, tseq, 64);   /* every token a plain decimal; a sign, a non-digit or */
+          if (n < 0) n = -1;                  /* a 65th value is refused below, never skipped */
+          (void)p;
+          /* (was: a scan that skipped minus signs and non-digits and stopped at 64 values) */
           { uint64_t seen = 0; for (int i = 0; i < n; i++) if ((unsigned)tseq[i] < 64u) seen |= 1ULL << tseq[i]; if (n != 64 || seen != ~0ULL) { fprintf(stderr, "SOLVE_F5_TESTVEC: need 64 distinct ints 0..63 (a permutation), got %d ints\n", n); return 1; } }  /* EE: a repeated/out-of-range value left pos[]/pi_bot[] slots unset (stack garbage; the pattern-init build segfaulted) or wrote past them; solve.py perm_verify raises on the same input */
           int v[11];
           f5_compute(tseq, v);
@@ -39984,12 +39984,12 @@ int main(int argc, char *argv[]) {
     { const char *tv6 = getenv("SOLVE_F6_TESTVEC");
       const char *kf6 = getenv("SOLVE_KNUTH_SCORE_F6");
       if (tv6 && kf6 && atoi(kf6) == 2) {
-          int tseq[64], n = 0;
+          int tseq[64], n = 0; int g5b_strict_ints(const char *, int *, int);   /* G5b F04-001#15, F04-007#4 */
           const char *p = tv6;
-          while (*p && n < 64) {
-              if (*p >= '0' && *p <= '9') tseq[n++] = (int)strtol(p, (char**)&p, 10);
-              else p++;
-          }
+          n = g5b_strict_ints(p, tseq, 64);   /* every token a plain decimal; a sign, a non-digit or */
+          if (n < 0) n = -1;                  /* a 65th value is refused below, never skipped */
+          (void)p;
+          /* (was: a scan that skipped minus signs and non-digits and stopped at 64 values) */
           { uint64_t seen = 0; for (int i = 0; i < n; i++) if ((unsigned)tseq[i] < 64u) seen |= 1ULL << tseq[i]; if (n != 64 || seen != ~0ULL) { fprintf(stderr, "SOLVE_F6_TESTVEC: need 64 distinct ints 0..63 (a permutation), got %d ints\n", n); return 1; } }  /* EE: a repeated/out-of-range value left pos[]/pi_bot[] slots unset (stack garbage; the pattern-init build segfaulted) or wrote past them; solve.py perm_verify raises on the same input */
           f4p_pal_init();
           int v[7];
@@ -40009,12 +40009,12 @@ int main(int argc, char *argv[]) {
     { const char *tvp = getenv("SOLVE_PERM_TESTVEC");
       const char *kfp = getenv("SOLVE_KNUTH_SCORE_PERM");
       if (tvp && kfp && atoi(kfp) == 2) {
-          int tseq[64], n = 0;
+          int tseq[64], n = 0; int g5b_strict_ints(const char *, int *, int);   /* G5b F04-001#15, F04-007#4 */
           const char *p = tvp;
-          while (*p && n < 64) {
-              if (*p >= '0' && *p <= '9') tseq[n++] = (int)strtol(p, (char**)&p, 10);
-              else p++;
-          }
+          n = g5b_strict_ints(p, tseq, 64);   /* every token a plain decimal; a sign, a non-digit or */
+          if (n < 0) n = -1;                  /* a 65th value is refused below, never skipped */
+          (void)p;
+          /* (was: a scan that skipped minus signs and non-digits and stopped at 64 values) */
           { uint64_t seen = 0; for (int i = 0; i < n; i++) if ((unsigned)tseq[i] < 64u) seen |= 1ULL << tseq[i]; if (n != 64 || seen != ~0ULL) { fprintf(stderr, "SOLVE_PERM_TESTVEC: need 64 distinct ints 0..63 (a permutation), got %d ints\n", n); return 1; } }  /* EE: a repeated/out-of-range value left pos[]/pi_bot[] slots unset (stack garbage; the pattern-init build segfaulted) or wrote past them; solve.py perm_verify raises on the same input */
           int v[13], tm[2];
           perm_compute(tseq, v, tm);
@@ -40440,7 +40440,7 @@ int main(int argc, char *argv[]) {
                  "%s 0 > /dev/null 2> selftest_child.stderr && "   /* Q-886 (3): stderr captured, not discarded; relayed by selftest_relay_child_stderr() */
                  /* #169: solutions.bin may be gz — hash the DECOMPRESSED (logical)
                   * content so the canonical selftest sha 403f7202 is unchanged. */
-                 "{ gzip -dc solutions.bin 2>/dev/null || cat solutions.bin; } | %s | cut -d' ' -f1",
+                 "{ gzip -dc solutions.bin 2>/dev/null || cat solutions.bin; } | %s > selftest_sha.out && cut -d' ' -f1 selftest_sha.out",   /* G5b F04-022#4: the hash tool's status gates the digest */
                  q_dir, selftest_threads, q_solve, tool);
         FILE *fp = popen(cmd, "r");
         if (!fp) {
@@ -40453,7 +40453,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "ERROR: selftest child produced no output\n"); selftest_relay_child_stderr(tempdir_template, 1);   /* Q-886 (3) */
             return 40;
         }
-        pclose(fp);
+        int g5b_pst = pclose(fp);   /* G5b F04-022#4: a pipeline that did not exit clean is not a PASS */
         /* Strip trailing newline */
         for (char *p = actual_sha; *p; p++) if (*p == '\n') { *p = 0; break; }
         printf("[--selftest] Actual sha256:   %s\n", actual_sha); fflush(stdout); selftest_relay_child_stderr(tempdir_template, strcmp(actual_sha, expected_sha) != 0);   /* Q-886 (3): before the rm -rf below */
@@ -40461,11 +40461,11 @@ int main(int argc, char *argv[]) {
         char rm_cmd[8600];
         snprintf(rm_cmd, sizeof(rm_cmd), "rm -rf -- %s", q_dir);  /* q_dir is already ONE single-quoted word (sh_squote), so this is not an unquoted interpolation */
         int _rm = system(rm_cmd); (void)_rm;
-        if (strcmp(actual_sha, expected_sha) == 0) {
+        if (strcmp(actual_sha, expected_sha) == 0 && g5b_pst == 0) {
             printf("[--selftest] PASS — sha256 matches canonical baseline\n");
             return 0;
         } else {
-            fprintf(stderr, "[--selftest] FAIL — sha mismatch!\n");
+            fprintf(stderr, g5b_pst ? "[--selftest] FAIL — the enumeration/hash pipeline exited with status %d; a digest from a failed run is not evidence\n" : "[--selftest] FAIL — sha mismatch!\n", g5b_pst);
             fprintf(stderr, "             Expected: %s\n", expected_sha);
             fprintf(stderr, "             Got:      %s\n", actual_sha);
             fprintf(stderr, "             Enumeration path has regressed — investigate.\n");
@@ -40846,7 +40846,7 @@ int main(int argc, char *argv[]) {
         /* PHASE_A at 50M in tdir_A. SOLVE_ALLOW_SUB_CANONICAL/SOLVE_SKIP_CANONICAL_LOCK
          * needed because 50M/200M are sub-canonical scales. */
         snprintf(cmd, sizeof(cmd),
-                 "cd %s && unset SOLVE_DEPTH && "
+                 "cd %s && for v in $(env | sed -n 's/^\\(SOLVE_[A-Za-z0-9_]*\\)=.*/\\1/p'); do unset \"$v\"; done && "   /* G5b F04-001#13: no inherited SOLVE_* (a PSB override gave all three legs one budget) */
                  "SOLVE_THREADS=4 SOLVE_NODE_LIMIT=50000000 "
                  "SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 "
                  "SOLVE_ALLOW_SUB_CANONICAL=1 SOLVE_SKIP_CANONICAL_LOCK=1 "
@@ -40862,7 +40862,7 @@ int main(int argc, char *argv[]) {
 
         /* PHASE_B at 200M in same tdir_A (resumes from PHASE_A checkpoint) */
         snprintf(cmd, sizeof(cmd),
-                 "cd %s && unset SOLVE_DEPTH && "
+                 "cd %s && for v in $(env | sed -n 's/^\\(SOLVE_[A-Za-z0-9_]*\\)=.*/\\1/p'); do unset \"$v\"; done && "   /* G5b F04-001#13: no inherited SOLVE_* (a PSB override gave all three legs one budget) */
                  "SOLVE_THREADS=4 SOLVE_NODE_LIMIT=200000000 "
                  "SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 "
                  "SOLVE_ALLOW_SUB_CANONICAL=1 SOLVE_SKIP_CANONICAL_LOCK=1 "
@@ -40878,7 +40878,7 @@ int main(int argc, char *argv[]) {
 
         /* Single-shot 200M in fresh tdir_B */
         snprintf(cmd, sizeof(cmd),
-                 "cd %s && unset SOLVE_DEPTH && "
+                 "cd %s && for v in $(env | sed -n 's/^\\(SOLVE_[A-Za-z0-9_]*\\)=.*/\\1/p'); do unset \"$v\"; done && "   /* G5b F04-001#13: no inherited SOLVE_* (a PSB override gave all three legs one budget) */
                  "SOLVE_THREADS=4 SOLVE_NODE_LIMIT=200000000 "
                  "SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 "
                  "SOLVE_ALLOW_SUB_CANONICAL=1 SOLVE_SKIP_CANONICAL_LOCK=1 "
@@ -42153,9 +42153,9 @@ int main(int argc, char *argv[]) {
         int seq[64]; int have_arg = (argc > 2);
         if (have_arg) {
             int n = 0; char *tv = strdup(argv[2]);
-            for (char *tok = strtok(tv, ", "); tok && n < 64; tok = strtok(NULL, ", ")) seq[n++] = atoi(tok);
+            { int g5b_strict_ints(const char *, int *, int), g5b_is_perm64(const int *); n = g5b_strict_ints(tv, seq, 64); if (n == 64 && !g5b_is_perm64(seq)) n = -2; }   /* G5b F04-001#14: atoi read signs, junk and a 65th token */
             free(tv);
-            if (n != 64) { fprintf(stderr, "--rc1c-verify: need 64 ints, got %d\n", n); return 1; }
+            if (n != 64) { fprintf(stderr, "--rc1c-verify: need 64 distinct ints 0..63 (a permutation), got %s\n", n == -2 ? "a non-permutation" : n < 0 ? "a token that is not a decimal" : "another count"); return 1; }
         } else memcpy(seq, KW, sizeof(seq));
         int s2 = ((seq[2]==21&&seq[3]==42)||(seq[2]==42&&seq[3]==21));
         int s32 = ((seq[62]==21&&seq[63]==42)||(seq[62]==42&&seq[63]==21));
@@ -42184,9 +42184,9 @@ int main(int argc, char *argv[]) {
         int seq[64]; int have_arg = (argc > 2);
         if (have_arg) {
             int n = 0; char *tv = strdup(argv[2]);
-            for (char *tok = strtok(tv, ", "); tok && n < 64; tok = strtok(NULL, ", ")) seq[n++] = atoi(tok);
+            { int g5b_strict_ints(const char *, int *, int), g5b_is_perm64(const int *); n = g5b_strict_ints(tv, seq, 64); if (n == 64 && !g5b_is_perm64(seq)) n = -2; }   /* G5b F04-001#14: atoi read signs, junk and a 65th token */
             free(tv);
-            if (n != 64) { fprintf(stderr, "--r11-verify: need 64 ints, got %d\n", n); return 1; }
+            if (n != 64) { fprintf(stderr, "--r11-verify: need 64 distinct ints 0..63 (a permutation), got %s\n", n == -2 ? "a non-permutation" : n < 0 ? "a token that is not a decimal" : "another count"); return 1; }
         } else memcpy(seq, KW, sizeof(seq));
         int g[8]; r11_axes(seq, g);
         if (have_arg) {
@@ -42222,9 +42222,9 @@ int main(int argc, char *argv[]) {
         int seq[64]; int have_arg = (argc > 2);
         if (have_arg) {
             int n = 0; char *tv = strdup(argv[2]);
-            for (char *tok = strtok(tv, ", "); tok && n < 64; tok = strtok(NULL, ", ")) seq[n++] = atoi(tok);
+            { int g5b_strict_ints(const char *, int *, int), g5b_is_perm64(const int *); n = g5b_strict_ints(tv, seq, 64); if (n == 64 && !g5b_is_perm64(seq)) n = -2; }   /* G5b F04-001#14: atoi read signs, junk and a 65th token */
             free(tv);
-            if (n != 64) { fprintf(stderr, "--rc4b-verify: need 64 ints, got %d\n", n); return 1; }
+            if (n != 64) { fprintf(stderr, "--rc4b-verify: need 64 distinct ints 0..63 (a permutation), got %s\n", n == -2 ? "a non-permutation" : n < 0 ? "a token that is not a decimal" : "another count"); return 1; }
         } else memcpy(seq, KW, sizeof(seq));
         int cls_of[64], ncls = 0, l3pos[12], nl3 = 0, viol = 0, vp0 = 0, vp1 = 0;
         for (int z=0;z<64;z++) cls_of[z] = -1;
@@ -48485,7 +48485,7 @@ sub_enum_done:
         if (node_limit > 0 && total_branches > 0) {
             int concentrate = getenv("SOLVE_CONCENTRATE_BUDGET") && strcmp(getenv("SOLVE_CONCENTRATE_BUDGET"), "1") == 0;  /* lane HAJ: 1 = on, 0 or unset = off; the preflight refuses any other value, empty included */
             int divisor = (concentrate && n_sub > 0) ? n_sub : total_branches;
-            per_branch_node_limit = node_limit / divisor;
+            per_branch_node_limit = node_limit / divisor; { int g5b_psb_zero(long long, int, long long); if (g5b_psb_zero(node_limit, divisor, per_sub_branch_override)) return 2; }   /* G5b F04-002#15 */
             if (concentrate && n_skipped > 0) {
                 fprintf(stderr,
                     "WARNING: SOLVE_CONCENTRATE_BUDGET active — per-sub-branch budget\n"
@@ -49626,7 +49626,7 @@ sub_enum_done:
     if (node_limit > 0 && total_branches > 0) {
         int concentrate = getenv("SOLVE_CONCENTRATE_BUDGET") && strcmp(getenv("SOLVE_CONCENTRATE_BUDGET"), "1") == 0;  /* lane HAJ: 1 = on, 0 or unset = off; the preflight refuses any other value, empty included */
         int divisor = (concentrate && n_all_subs > 0) ? n_all_subs : total_branches;
-        per_branch_node_limit = node_limit / divisor;
+        per_branch_node_limit = node_limit / divisor; { int g5b_psb_zero(long long, int, long long); if (g5b_psb_zero(node_limit, divisor, per_sub_branch_override)) return 2; }   /* G5b F04-002#15 */
         if (concentrate && n_skipped_subs > 0) {
             fprintf(stderr,
                 "WARNING: SOLVE_CONCENTRATE_BUDGET active — per-sub-branch budget\n"
@@ -49959,7 +49959,7 @@ sub_enum_done:
     char hash_only[65] = {0};
     int total_done_final = 0;
     int ckpt_exhausted = 0, ckpt_budgeted = 0, ckpt_interrupted = 0;
-    if (global_timed_out && !getenv("SOLVE_SKIP_AUTOMERGE") && !q881_allow_incomplete()) { fprintf(stderr, "WARNING: this run was STOPPED before every sub-branch was walked (signal or time limit), so its shards are an incomplete set:\n         the bundled merge is SKIPPED and no solutions.bin is written (Q-881). Relaunch the same command to resume; the merge runs when the run finishes\n         (SOLVE_MERGE_ALLOW_INCOMPLETE=1 merges the partial set instead).\n"); printf("ENUM_AUTOMERGE=SKIPPED\n"); total_done_final = branches_done + n_completed_subs; }  /* Q-881: this merge used to write a partial solutions.bin and exit 0 */
+    int g5b_env_set(const char *); if (global_timed_out && !g5b_env_set(getenv("SOLVE_SKIP_AUTOMERGE")) && !q881_allow_incomplete()) { fprintf(stderr, "WARNING: this run was STOPPED before every sub-branch was walked (signal or time limit), so its shards are an incomplete set:\n         the bundled merge is SKIPPED and no solutions.bin is written (Q-881). Relaunch the same command to resume; the merge runs when the run finishes\n         (SOLVE_MERGE_ALLOW_INCOMPLETE=1 merges the partial set instead).\n"); printf("ENUM_AUTOMERGE=SKIPPED\n"); total_done_final = branches_done + n_completed_subs; }  /* Q-881: this merge used to write a partial solutions.bin and exit 0 */
     /* SOLVE_SKIP_AUTOMERGE (re-landed 2026-05-27 — was lost in 9f10f05 v3 reset,
      * originally landed in 52cac4a 2026-05-13): exit cleanly after enum,
      * leaving shards on disk for a separate merge VM. Use case: canonical
@@ -49975,7 +49975,7 @@ sub_enum_done:
      * enum/merge pipeline pattern silently no-op'd from 2026-05-25 (v3 reset)
      * through 2026-05-27 (this re-land), running auto-merge on the enum VM
      * against the canonical-pipeline rule. */
-    if (getenv("SOLVE_SKIP_AUTOMERGE") != NULL) {
+    if (g5b_env_set(getenv("SOLVE_SKIP_AUTOMERGE"))) {   /* G5b F04-001#26: empty == unset, as --print-config shows it */
         printf("SOLVE_SKIP_AUTOMERGE set; skipping bundled merge. "
                "Shards remain on disk. Run `solve --merge` separately.\n");
         printf("ENUM_RUN=%s\n", global_timed_out ? "STOPPED" : "FINISHED"); { int q317_budget_token(int, int, int, int, int, int, int); q317_budget_token(0, -1, -1, -1, -1, -1, -1); } fflush(stdout);  /* Q-828: this exit printed the same line finished or stopped. Q-317 (5), batch 33: BUDGET_EXHAUSTED=YES|NO|UNKNOWN on the next line, from the checkpoint files */
@@ -51878,12 +51878,12 @@ static int qoy_verify_main(int argc, char *argv[]){
     if (!qf) { fprintf(stderr, "ERROR: --qoy-verify cannot open '%s'\nQOY_VERIFY_ARGS=REFUSED\n", argv[2]); return 2; }
     long nl = 0; int sq[64];
     for (;;) {
-        int got = 0, seen[64] = {0}, bad = 0;
-        for (int j = 0; j < 64; j++) {
-            if (fscanf(qf, "%d", &sq[j]) != 1) break;
-            got++;
-            if (sq[j] < 0 || sq[j] > 63 || seen[sq[j]]++) bad = 1;
-        }
+        int got = 0, seen[64] = {0}, bad = 0; int g5b_read_line64(FILE *, int *);   /* G5b F04-001#17: ONE line per ordering */
+        { int lr = g5b_read_line64(qf, sq);   /* 1 = a line of 64 integers, 0 = clean EOF, -1 = anything else */
+          if (lr == 0) break;
+          got = lr > 0 ? 64 : -1;
+          for (int j = 0; lr > 0 && j < 64; j++) if (sq[j] < 0 || sq[j] > 63 || seen[sq[j]]++) bad = 1; }
+        /* (was: fscanf across line boundaries, a failed first scan read as EOF) */
         if (got == 0) break;
         if (got != 64 || bad) { fprintf(stderr, "ERROR: --qoy-verify ordering %ld is not a permutation of 0..63\nQOY_VERIFY_INPUT=REFUSED\n", nl + 1); fclose(qf); return 2; }
         qoy_print_line(sq); nl++;
@@ -52165,8 +52165,8 @@ static int c8_verify_main(int argc, char *argv[]){
     if (!f) { fprintf(stderr, "ERROR: --c8-verify cannot open '%s'\nC8_VERIFY_ARGS=REFUSED\n", argv[2]); return 2; }
     long nl = 0; int sq[64], v[C8_K];
     for (;;) {
-        int got = 0, seen[64] = {0}, bad = 0;
-        for (int j = 0; j < 64; j++) { if (fscanf(f, "%d", &sq[j]) != 1) break; got++; if (sq[j] < 0 || sq[j] > 63 || seen[sq[j]]++) bad = 1; }
+        int got = 0, seen[64] = {0}, bad = 0; int g5b_read_line64(FILE *, int *); int lr = g5b_read_line64(f, sq);   /* G5b F04-001#17, F04-018#3 */
+        if (lr > 0) { got = 64; for (int j = 0; j < 64; j++) if (sq[j] < 0 || sq[j] > 63 || seen[sq[j]]++) bad = 1; } else got = lr;
         if (got == 0) break;
         if (got != 64 || bad || !c8_is_c1(sq)) { fprintf(stderr, "ERROR: --c8-verify ordering %ld is not a C1 permutation of 0..63\nC8_VERIFY_INPUT=REFUSED\n", nl + 1); fclose(f); return 2; }
         if (c8_compute(sq, v)) { fprintf(stderr, "ERROR: --c8-verify ordering %ld has an undefined member\nC8_VERIFY_INPUT=REFUSED\n", nl + 1); fclose(f); return 2; }
@@ -55217,4 +55217,126 @@ static int kc_midjoin_selftest(void) {
     printf("[kc-midjoin-selftest] %s (%d failure%s)\n", fails ? "FAIL" : "PASS", fails, fails == 1 ? "" : "s");
     printf("KC_MIDJOIN_SELFTEST=%s\n", fails ? "FAIL" : "PASS");
     return fails ? 1 : 0;
+}
+
+/* ===========================================================================
+ * Push group G5b (2026-10-22; Codex gpt-6-astra final review, fast-track FT3b-1). Appended at the
+ * END of the file so that no line SOLVE_C_CLI.md cites moves; each helper is declared at its one
+ * call site. Every helper REFUSES or reports; none changes a record the enumeration writes.
+ * ===========================================================================*/
+
+/* Per-sub-branch budget derived as SOLVE_NODE_LIMIT / partition: integer division turns a positive
+ * total smaller than the partition into 0, and both DFS paths read a per-sub-branch limit of 0 as
+ * UNLIMITED, so a deliberately tiny bounded run became an uncapped search (Codex F04-002#15). */
+int g5b_psb_zero(long long node_limit, int divisor, long long override) {
+    if (node_limit <= 0 || divisor <= 0 || override > 0 || node_limit / divisor > 0) return 0;
+    fprintf(stderr,
+        "FATAL (G5b): SOLVE_NODE_LIMIT=%lld over %d sub-branches is a per-sub-branch limit of 0, and\n"
+        "       0 means UNLIMITED to the DFS. Refusing to turn a bounded run into an uncapped one: raise\n"
+        "       SOLVE_NODE_LIMIT to at least %d, or set SOLVE_PER_SUB_BRANCH_LIMIT.\n",
+        node_limit, divisor, divisor);
+    return 1;
+}
+
+/* SOLVE_SKIP_AUTOMERGE was consumed by presence (getenv != NULL) while --print-config shows an EMPTY
+ * value as "(unset)", so `SOLVE_SKIP_AUTOMERGE= ./solve` skipped the merge under a configuration the
+ * dump called default (Codex F04-001#26). Empty is now unset at the consumer too. */
+int g5b_env_set(const char *v) {   /* v = getenv(...) at the call site, so the env-classification test still sees the read */
+    return v != NULL && v[0] != '\0';
+}
+
+/* Strict integer tokens for every 64-int / 2n-int argument parser (Codex F04-001#14/#15, F04-006#1,
+ * F04-007#4). The old scanners skipped any non-digit -- so "-1" read as 1 and a negative vector
+ * decoded as King Wen -- narrowed strtol to int, and stopped at the expected count without looking at
+ * the rest. Here a token is a run of decimal digits between separators (comma, space, tab, newline);
+ * anything else in a token is a refusal (-1). Values above 63 are stored as 999 so the callers'
+ * range tests reject them without overflow. Returns the number of tokens (it keeps counting past
+ * cap, storing the first cap), so a trailing extra value fails the caller's count test. */
+int g5b_strict_ints(const char *s, int *out, int cap) {
+    int n = 0;
+    const char *p = s;
+    for (;;) {
+        while (*p == ',' || *p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') p++;
+        if (!*p) break;
+        long v = 0; int nd = 0;
+        while (*p >= '0' && *p <= '9') { if (nd < 6) v = v * 10 + (*p - '0'); nd++; p++; }
+        if (nd == 0 || (*p && *p != ',' && *p != ' ' && *p != '\t' && *p != '\n' && *p != '\r')) return -1;
+        if (n < cap) out[n] = (nd > 3 || v > 63) ? 999 : (int)v;
+        n++;
+    }
+    return n;
+}
+
+int g5b_is_perm64(const int *s) {
+    uint64_t seen = 0;
+    for (int i = 0; i < 64; i++) {
+        if (s[i] < 0 || s[i] > 63 || ((seen >> s[i]) & 1)) return 0;
+        seen |= 1ULL << s[i];
+    }
+    return seen == ~0ULL;
+}
+
+/* --qoy-verify / --c8-verify: one ordering per LINE (Codex F04-001#17, F04-004#5, F04-018#3). The
+ * readers scanned integers across line boundaries and read a failed first scan as EOF, so a
+ * nonnumeric token -- even after valid records -- ended the stream with rc 0 and a partial count.
+ * Blank lines are skipped, as solve.py's readers skip them. Returns 1 with sq filled from a line of
+ * exactly 64 integers, 0 at a clean EOF, -1 for anything else (a read error included). */
+int g5b_read_line64(FILE *f, int *sq) {
+    char *line = NULL; size_t cap = 0; ssize_t len;
+    for (;;) {
+        len = getline(&line, &cap, f);
+        if (len < 0) { int err = ferror(f); free(line); return err ? -1 : 0; }
+        const char *q = line;
+        while (*q == ' ' || *q == '\t' || *q == '\r' || *q == '\n') q++;
+        if (*q) break;
+    }
+    int n = 0, ok = 1;
+    char *p = line;
+    for (;;) {
+        while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+        if (!*p) break;
+        char *e; long v = strtol(p, &e, 10);
+        if (e == p || (*e && *e != ' ' && *e != '\t' && *e != '\r' && *e != '\n')) { ok = 0; break; }
+        if (n < 64) sq[n] = (v < -1 || v > 999) ? 999 : (int)v;
+        n++; p = e;
+    }
+    free(line);
+    return (ok && n == 64) ? 1 : -1;
+}
+
+/* --kc-oracle --kc-expect-count: the expectation shaped the verdict but was not in the certificate,
+ * so --verify-certificate recomputed PASS from the per-file checks and rejected an authentic
+ * expectation-FAIL certificate as inconsistent (Codex F04-006#3). It is now recorded and re-applied.
+ * Single-threaded CLI state, set once per command. */
+static char g5b_expect_s[96];
+void g5b_set_expect(const char *e) { snprintf(g5b_expect_s, sizeof(g5b_expect_s), "%s", e ? e : ""); }
+void g5b_cert_expect_write(FILE *f) {
+    if (g5b_expect_s[0]) fprintf(f, "  \"expect_count\": \"%s\",\n", g5b_expect_s);
+}
+/* --verify-certificate (h1-oracle): the certificate's n must be the ladder's (Codex F04-006#2: n was
+ * published and never read, so a certificate claiming another universe passed and ALL CAUGHT), and
+ * its expect_count, if any, is loaded for kc_h1cert_cmp's verdict check. Returns #mismatches. */
+int g5b_h1cert_prep(const char *buf, int ladder_n, int quiet) {
+    char t[96];
+    g5b_expect_s[0] = '\0';
+    if (kc_h_field(buf, "expect_count", t, sizeof(t)) == 0) g5b_set_expect(t);
+    int ok = kc_h_field(buf, "n", t, sizeof(t)) == 0 && t[0] && strspn(t, "0123456789") == strlen(t) && atoi(t) == ladder_n;
+    if (!quiet) printf("[verify-certificate]   %-52s %s\n", "n matches the ladder", ok ? "PASS" : "FAIL");
+    return ok ? 0 : 1;
+}
+int g5b_h1cert_expect_holds(const KcOrFile *red, int nf) {
+    if (!g5b_expect_s[0]) return 1;
+    uint64_t tot = 0;
+    for (int i = 0; i < nf; i++) tot += red[i].records;
+    F1U192 e, g2 = {tot, 0, 0};
+    return kc_u192_from_dec(g5b_expect_s, &e) == 0 && f1_eq(&e, &g2);
+}
+/* --kc-scan whole-atlas path under SOLVE_KC_SCAN_TAIL_STRICT=1: a strict tail failure leaves no atlas,
+ * as the merge path already did and the atlas's own tail_checks comment says (Codex F04-006#12). */
+void g5b_strict_tail_unlink(const char *outp, int gate_fails, int tail_fails) {
+    const char *st = getenv("SOLVE_KC_SCAN_TAIL_STRICT");
+    if (!(gate_fails && tail_fails > 0 && st && strcmp(st, "1") == 0)) return;
+    if (unlink(outp) == 0)
+        fprintf(stderr, "ERROR: [kc-scan] SOLVE_KC_SCAN_TAIL_STRICT=1 and %d tail check(s) FAILED; removed %s\n",
+                tail_fails, outp);
 }

@@ -11716,3 +11716,24 @@ Q-686=DONE
 - No measured value, sha, certificate or verdict changed. `TestBatchFV1` holds each cure; the pinned sentences in
   `TestBatchG4`, `TestBatchFT2a` and `TestBatchFT2b1` follow them. TR-1 v1.43, TR-2 v1.44, TR-4 v1.45, TR-5 v2.25, TR-8
   v1.25, TR-9 v1.37, TR-10 v1.23, TR-11 v1.38, TR-12 v1.33.
+
+## 2026-10-22 — push group G5b: the python and C verification gates from Codex's final review that could pass over a defect
+
+- **Fast-track batch FT3b-1 (CX-35V-A to CX-35V-J).** Codex (gpt-6-astra) ran the final review and Fable triaged rounds
+  3a and 3b. The certificate driver's tests leg subtracts skipped tests and holds the suite to 1,500 executed tests, not
+  128 (F05-020). The TR-8 sampler's merge refuses a shard with a missing or short predicate row or the wrong draw count,
+  and the replication gate compares `r_kw` (F02-009, F11-015, F12-004, F12-005). The atlas consumer's selftest fails on a
+  verdict its own run wrote as FAIL, and its loader refuses an absent t-identity gate at full n (F04-011, F04-012,
+  F04-015, F12-005). Four `--extended-selftest` legs can now fail on the defect they name, and the "combined partition +
+  resume" leg partitions (F04-011, F12-001, F12-011). In verify.py the Q1 oracle counts distinct walks, the nuclear gate
+  reads the engine's own expression, and the FULL31 readers refuse a row of the wrong width (F04-013, F11-019, F12-006).
+  roae.py's H1/H3 resume checks the batch partition and survives a torn row (F04-014, F04-015, F12-012). solve.c's
+  sequence parsers and QOY/C8 readers are strict, a zero per-sub-branch budget is refused, `--selftest` checks its hash
+  tool's status, and the KC tools print a verdict only after the artifact it describes (F04-001, F04-002, F04-006,
+  F04-022). verify.c fails a truncated gzip trailer, checks key order in the t ladder, and pins the budget in its resume
+  record (F04-009, F12-014, F12-006). SOLVE_PY_CLI.md, VERIFY.md, SOLVE_C_CLI.md and LARGE_SCALE_CAMPAIGNS.md now say
+  what the code does at fourteen sites.
+- Held: F04-010#3 and F04-010#10, whose cure can move a published figure that needs a long run to re-derive (CX-35V-E).
+  The Lean census and the two SAT-semantics rows of the batch are Fable's.
+- No canonical sha, count, certificate or verdict changed; `solve --selftest` still prints 403f7202…, and the TR-8 pools
+  reproduce byte for byte. `TestBatchG5b` holds each cure and fails on the uncured tree.

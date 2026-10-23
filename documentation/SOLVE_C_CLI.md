@@ -308,7 +308,7 @@ path that canonical extensions (e.g. 560T → 1120T) rely on. *(2026-09-26, Q-84
 > ("single-branch eviction-resume invariance"), which calls `proc.terminate()`
 > during a `--branch` walk and then resumes — solve.py:7298-7353.
 > *(Corrected 2026-09-01: this paragraph described the gate as interrupting
-> the run and as covering eviction recovery.)* ⚠ *(Scoped 2026-09-25, CX-134: until that fix the per-branch file subtest 8 hashes held 0 records, so its clean-vs-resumed sha comparison compared two copies of one header-only sha (`4cd43b2b…`) and could fail only on an exit code; its first content check is its PASS on the fixed binary (measured 2026-09-25). See documentation/CORRECTIONS.md CX-134.)*
+> the run and as covering eviction recovery.)* ⚠ *(Scoped 2026-09-25, CX-134: until that fix the per-branch file subtest 8 hashes held 0 records, so its clean-vs-resumed sha comparison compared two copies of one header-only sha (`4cd43b2b…`) and could fail only on an exit code; its first content check is its PASS on the fixed binary (measured 2026-09-25). See documentation/CORRECTIONS.md CX-134.)* ⚠ *(Scoped 2026-10-22, CX-35V-D: until then the interrupted phase was launched without `SOLVE_ALLOW_SUB_CANONICAL`, so from a clean environment it exited 25 at the sub-canonical gate before walking and the test compared two clean runs. It now launches with the override, sends SIGTERM once a checkpoint exists, and requires `ENUM_RUN=STOPPED` in the interrupted run's log.)*
 
 Any commit touching the checkpoint format or resume logic MUST keep this
 passing (see the checkpoint-format merge gate). Exits 0 on PASS, non-zero
@@ -757,7 +757,7 @@ cutoff overshoots by a thread-timing-dependent amount, so node counts
 wiggle slightly even on identical inputs — for the full enumeration the solution sha256 is the
 byte-exact anchor, but a budgeted parallel `--sub-branch` shard sha is no anchor, because there the record set itself varies run to run (⚠ *corrected 2026-09-27, Q-871; see §--sub-branch*); this catches *gross* tree-walk divergence. For full
 (EXHAUSTED) runs the profiles match exactly. Exit 0 = PASS, 1 = FAIL,
-2 = missing/empty profile.
+2 = missing/empty profile, or one whose `DEPTH_PROFILE` lines total zero nodes (since 2026-10-22, CX-35V-D: two zero-node profiles compared as divergence 0 and printed PASS).
 
 ### --verify
 
@@ -3046,8 +3046,8 @@ and compares the two **freshly produced** hashes
 [CANONICAL_HASHES.md](CANONICAL_HASHES.md) anywhere in the block — the
 subcommand's own header comment states the property it checks
 (solve.c:42887-42904). Note the practical consequence: it cannot catch a
-common-mode regression that moves both paths identically. Exits 50 on any
-phase failure or sha mismatch. *(2026-09-27, Q-852: it takes at most one argument (the budget); any further argument is refused with exit 2 and a `REGRESSION_TEST_ARGS=REFUSED` line naming the first one, before any enumeration starts. Before that it was accepted and silently ignored.)* *(2026-09-27, Q-865: The budget must be a whole decimal number of 1 or more; anything else, such as `1e6`, is refused with exit 2 and a `REGRESSION_TEST_ARGS=REFUSED` line naming it, before anything runs. Before that `atoll` read it as 0 or as its numeric prefix, so `1e6` ran a budget of 1.)*
+common-mode regression that moves both paths identically. Exits 50 on a
+phase failure and **60** on a sha mismatch ("partition invariance VIOLATED"; this read "50 on any phase failure or sha mismatch" until 2026-10-22, CX-35V-J, Codex F04-007#9). *(2026-09-27, Q-852: it takes at most one argument (the budget); any further argument is refused with exit 2 and a `REGRESSION_TEST_ARGS=REFUSED` line naming the first one, before any enumeration starts. Before that it was accepted and silently ignored.)* *(2026-09-27, Q-865: The budget must be a whole decimal number of 1 or more; anything else, such as `1e6`, is refused with exit 2 and a `REGRESSION_TEST_ARGS=REFUSED` line naming it, before anything runs. Before that `atoll` read it as 0 or as its numeric prefix, so `1e6` ran a budget of 1.)*
 
 *(Corrected 2026-09-01. The argument is a budget, not a scope name: measured,
 `solve --regression-test 100B` parses as **100 nodes** — it does
@@ -3339,7 +3339,7 @@ completeness and honesty, not as knobs to set.
 | 30 | Logic error (decode failed mid-record; depth mismatch; iterator stack overflow) — or auto-verify-solutions FAIL after merge (C1-C5 violation). For auto-verify case: do NOT archive solutions.bin; investigate. |
 | **31** | **Disk-IOPS pre-check failed** (task #107, retooled #115) — the projected fsync-wait would consume too large a fraction of the estimated enum wall (default cap 25%). The gate runs a **concurrent** probe (`min(threads,32)` pthreads measuring *aggregate* fsync/sec, so it adapts to the box — D64 vs D128 — and to the storage's real parallel throughput, not a single-thread number), projects expected fsyncs (`node_limit / 1.4e7 / SOLVE_FSYNC_BATCH_SIZE`) against estimated wall (`node_limit / (threads × 1e7)`), and refuses if `fsync_wait / est_wall > 0.25`. (The earlier revision gated on a raw single-thread "below 1000 fsync/sec" threshold, which mis-fired on Premium SSD — 218/sec single-thread but 2464/sec concurrent.) Canonical enum's per-shard/.budget/.dfs_state/per-thread-checkpoint fsyncs bottleneck on slow storage. The probe result is recorded in `canonical-host-fingerprint.json` under `disk_iops`. Recovery: put the run-dir on Standard/Premium SSD, OR `SOLVE_SKIP_IOPS_CHECK=1` (skip probe) / `SOLVE_ALLOW_SLOW_IOPS=1` (probe + proceed). |
 | **34** | **Resume-shape contract violation** (2026-07-17) — a live `*.dfs_state` frontier is present and `resume_contract.txt` records a different thread count or depth than this run's. Kill/resume byte-reproducibility is only asserted for same build + same shape. Recovery: rerun with the stamped `SOLVE_THREADS`/`SOLVE_DEPTH`, or `SOLVE_RESUME_SHAPE_OVERRIDE=1` (voids byte-reproducibility for that dir). |
-| 50 | **Regression-test / internal-consistency failure** — a phase failure or sha mismatch in `--regression-test` / `--double-regression-test`, or a startup King Wen self-check failure (`solve.c` has 19 `return 50` sites; e.g. :40976, :41150, :41910). ⚠ Row corrected 2026-09-01: this row previously attributed code 50 to a `--selftest` sha mismatch. `--selftest` returns **40** on sha mismatch (`solve.c:40468-40472`), not 50. |
+| 50 | **Regression-test / internal-consistency failure** — a phase failure in `--regression-test` / `--double-regression-test` (a sha mismatch there is **60**; corrected 2026-10-22, CX-35V-J), or a startup King Wen self-check failure (`solve.c` has 19 `return 50` sites; e.g. :40976, :41150, :41910). ⚠ Row corrected 2026-09-01: this row previously attributed code 50 to a `--selftest` sha mismatch. `--selftest` returns **40** on sha mismatch (`solve.c:40468-40472`), not 50. |
 
 **Subcommand-specific exit codes** (distinct from the enum-path codes above): `--merge`, `--merge-layers` and the end-of-enumeration merge exit **35** when the input is an enumeration that has not finished, with `MERGE_INPUT=INCOMPLETE` (Q-881, 2026-09-27; see `--merge`). *(2026-10-02, Q-888 (4), batch 33: the same three paths also exit **35** with `MERGE_INPUT=LEGACY_PROMOTED_SUSPECT` when a sub-branch's `INTERRUPTED` line is finished only by a `[v3.1 promoted]` line, the signature a binary older than CX-235 left when it promoted a stopped cell's partial shard; relaunching the enumeration there walks the cell again and clears it; see `--merge`.)* An enumeration launch, `--merge`, `--merge-layers` or the end-of-enumeration merge also exits **35**, with `MERGE_OVERRIDE=REFUSED`, when `SOLVE_MERGE_ALLOW_INCOMPLETE=1` meets a run at canonical scale or one whose budget cannot be determined (Q-881 follow-up, lane HAJ, 2026-09-27; see `--merge`). `--branch`, and `--sub-branch` on its single-threaded path, exit **36** with `BRANCH_OUTPUT=PARTIAL` when a signal or the time limit stopped the run; the partial set is under the `.partial` names (Q-888 (1), lane B31, 2026-10-01; see `--branch`). *(2026-10-03, Q-941, batch 36: `--merge`, `--merge-layers` and the end-of-enumeration merge exit **20** with `MERGE_INPUT=UNRECOGNIZED_STATUS` when a checkpoint line names a sub-branch with a status that is not `EXHAUSTED`, `BUDGETED`, `COMPLETE` or `INTERRUPTED`; there is no override; see `--merge`.)*
 - `--validate-canonical`: **33** sha mismatch, **40** enum error (in addition to 0/2/10).
@@ -3927,7 +3927,7 @@ needs --kc-record here)`). Until 2026-09-24 it was accepted and silently ignored
 | `--kc-chi2-samples` | 1 integer | `solve.c:38530` | `M` |
 | `--kc-class-uniform` | none (boolean) | `solve.c:38850` | `class_uniform` |
 | `--kc-dump` | 1 integer | `solve.c:26057` | `dump_max` |
-| `--kc-expect-count` | 1 string | `solve.c:26059` | `expect` |
+| `--kc-expect-count` | 1 string | `solve.c:26059` | `expect` (since 2026-10-22 also written into the certificate as `"expect_count"` and re-applied by `--verify-certificate`, CX-35V-I) |
 | `--kc-g-ooc` | none (boolean) | `solve.c:38569` | `gooc` |
 | `--kc-oracle-repr` | none (boolean) | `solve.c:26054` | `check_repr` |
 | `--kc-record` | none (boolean) | `solve.c:38851` | `want_record` |

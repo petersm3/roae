@@ -1451,7 +1451,7 @@ def print_stats(trials=100000):
     pct = no_five_count / trials * 100
     print(f"Permutations with no 5-line transitions: {no_five_count:,}/{trials:,} ({pct:.2f}%)")
     if no_five_count == 0:
-        print("None observed — the King Wen property is extremely rare.")
+        print(f"None observed in {trials:,} trials" + (f" (rule of three: rate < {300.0 / trials:.3g}%)." if trials >= 3 else " -- too few trials to say anything about its rarity."))   # G5b F12-012#7
     else:
         ratio = trials // no_five_count
         odds = (trials - no_five_count) / max(no_five_count, 1)
@@ -2762,14 +2762,14 @@ def print_bootstrap(trials=100000):
     print(f"Bootstrap resamples: {n_bootstrap}")
     print(f"\nNo-5-line-transition rate: {base_rate:.3f}%")
     _hits = sum(results)  # Q-751 / V3A-098#2: resampling an all-0 (or all-1) vector gives a zero-width interval; use the rule of three
-    print(f"95% confidence interval: [{ci_lower:.3f}%, {ci_upper:.3f}%]\nInterval width: {ci_upper - ci_lower:.3f} percentage points" if 0 < _hits < trials else f"95% bound (rule of three, {_hits:,}/{trials:,} hits; the bootstrap cannot resample a constant vector): " + (f"< {300.0 / trials:.3f}%" if _hits == 0 else f"> {100 - 300.0 / trials:.3f}%"))
+    print(f"95% confidence interval: [{ci_lower:.3f}%, {ci_upper:.3f}%]\nInterval width: {ci_upper - ci_lower:.3f} percentage points" if 0 < _hits < trials else f"95% bound (rule of three, {_hits:,}/{trials:,} hits; the bootstrap cannot resample a constant vector): " + (f"< {300.0 / trials:.3f}%" if _hits == 0 else f"> {100 - 300.0 / trials:.3f}%") if trials >= 3 else f"No interval: {_hits:,}/{trials:,} hits is a constant vector and {trials} trial(s) is below the rule of three's n >= 3 (G5b, F04-014#3)")
 
     if base_rate > 0:
         approx_ratio = 100 / base_rate
         ci_ratio_lower = 100 / ci_upper if ci_upper > 0 else float('inf')
         ci_ratio_upper = 100 / ci_lower if ci_lower > 0 else float('inf')
         print(f"\nApproximately 1 in {approx_ratio:.0f} random orderings")
-        print(f"95% CI: 1 in {ci_ratio_lower:.0f} to 1 in {ci_ratio_upper:.0f}")
+        print(f"95% CI: 1 in {ci_ratio_lower:.0f} to 1 in {ci_ratio_upper:.0f}" if 0 < _hits < trials else "95% CI: none (the bootstrap cannot resample a constant vector; see the bound above)")   # G5b F04-014#3
 
     print(f"\nNote: These CIs measure the precision of the Monte Carlo estimate, not")
     print(f"fundamental uncertainty about the true proportion. They reflect how much")
@@ -3206,11 +3206,11 @@ def print_explain(position):
         pos = int(position)
     except ValueError:
         print(f"Expected a number (1-63), got: {position}")
-        return
+        sys.exit(2)   # G5b F12-012#11: an invalid argument is exit 2 (ROAE_PY_CLI.md)
 
     if pos < 1 or pos > 63:
         print(f"Position must be between 1 and 63 (there are 63 transitions).")
-        return
+        sys.exit(2)   # G5b F12-012#11
 
     i = pos - 1  # 0-indexed
     a = binary_hexagrams[i]
@@ -4334,11 +4334,11 @@ def _guard_seed_stream_disjointness(batches, workers, seed=None):
     that looks exactly like a valid one. Not an `assert` -- guards must survive
     `python3 -O` (tests.py TestNoBareAsserts pins that convention).
     """
-    if seed is not None and seed < 0: raise SystemExit(f"roae.py: --seed {seed} refused: CPython seeds random.Random(n) by |n|, so a negative base seed mirrors the streams across zero (--seed -5050 makes the probe stream seed+100 and the rarity stream seed+10000 both |4950|). Use a seed >= 0.")
+    if seed is not None and seed < 0: _g5b_exit2(f"roae.py: --seed {seed} refused: CPython seeds random.Random(n) by |n|, so a negative base seed mirrors the streams across zero (--seed -5050 makes the probe stream seed+100 and the rarity stream seed+10000 both |4950|). Use a seed >= 0.")
     if batches is None or batches < 1:
-        raise SystemExit(f"roae.py: --gs-batches must be >= 1, got {batches!r}")
+        _g5b_exit2(f"roae.py: --gs-batches must be >= 1, got {batches!r}")
     if workers is None or workers < 1:
-        raise SystemExit(f"roae.py: --gs-workers must be >= 1, got {workers!r}")
+        _g5b_exit2(f"roae.py: --gs-workers must be >= 1, got {workers!r}")
     if batches >= _SEED_STREAM_GAP:
         head = (f"roae.py: --gs-batches {batches} refused for seed-stream "
                 f"disjointness (limit {_SEED_STREAM_GAP - 1}).\n"
@@ -4362,10 +4362,10 @@ def _guard_seed_stream_disjointness(batches, workers, seed=None):
                    f"largest index is {_SEED_STREAM_GAP - 1}); it is refused "
                    f"only so the guard does not sit on the boundary it "
                    f"protects.")
-        raise SystemExit(head + why + "\n  Raise the OFFSETS if you need more "
+        _g5b_exit2(head + why + "\n  Raise the OFFSETS if you need more "
                          "batches; do not raise this limit alone.")
     if workers >= _SEED_STREAM_GAP - _SEED_STREAM_OFFSETS["probe"]:
-        raise SystemExit(
+        _g5b_exit2(
             f"roae.py: --gs-workers {workers} would break seed-stream "
             f"disjointness (limit "
             f"{_SEED_STREAM_GAP - _SEED_STREAM_OFFSETS['probe'] - 1}).\n"
@@ -4542,10 +4542,10 @@ def run_grammar_search(nsamp, nprobe, workers, batches, seed,
                     continue
                 # A row written before this fix has no `seed`; it cannot be shown to belong to this
                 # run, so it is refused rather than trusted. Silently accepting it is the defect.
-                # G5a (Codex F04-015#5): the comparison is _gs_ck_row_mismatch (end of this file),
-                # every identity field plus the batch's `want`; tests.py executes it.
-                #
-                bad = _gs_ck_row_mismatch(rec, _ck_ident, jobs_by_batch)
+                bad = _gs_ck_row_mismatch(rec, _ck_ident, jobs_by_batch)   # G5a F04-015#5: identity + want (helper at end of file)
+                want_b = dict(jobs_by_batch).get(rec.get("batch"))   # G5b F04-015#2: an unknown batch, or hits/n of the wrong shape, is refused
+                if want_b is None or rec.get("n") != want_b or not isinstance(rec.get("hits"), list) or len(rec["hits"]) != len(ridx):
+                    bad.append("want/batch/n/hits")
                 if bad:
                     key = ",".join(sorted(bad))
                     rejected[key] = rejected.get(key, 0) + 1
@@ -4867,8 +4867,8 @@ def _ph_run_stream(label, seed, seed_off, ntotal, workers, batches,
     if ckpt_path and os.path.exists(ckpt_path):
         with open(ckpt_path) as f:
             for line in f:
-                rec = json.loads(line)
-                if rec.get("phase") == phase_tag and rec.get("seed") == seed:
+                rec = _ph_ck_row(line, label)   # G5b F04-014#5: a torn (unparsable) row is skipped, not fatal
+                if rec is not None and _ph_ck_ok(rec, phase_tag, seed, seed_off, jobs, label):   # G5b F12-012#2, F04-014#1
                     done[rec["batch"]] = rec
         if done:
             print(f"[{label}] checkpoint: {len(done)} batches already "
@@ -4880,7 +4880,7 @@ def _ph_run_stream(label, seed, seed_off, ntotal, workers, batches,
     with Pool(workers) as pool:
         for (batch_idx, n_b, trials_b, ha, hp, hq, pv, cpu_b) in \
                 pool.imap(_ph_batch, todo):
-            rec = dict(phase=phase_tag, seed=seed, batch=batch_idx, n=n_b,
+            rec = dict(phase=phase_tag, seed=seed, seed_off=seed_off, batches=len(jobs), want=dict((j[0], j[3]) for j in jobs).get(batch_idx), batch=batch_idx, n=n_b,   # G5b: the partition is part of the identity
                        trials=trials_b, parity_viol=pv, hist_a=ha,
                        hist_p=hp, hist_q=hq)
             done[batch_idx] = rec
@@ -5408,7 +5408,7 @@ def main():
                         help="Include 64->1 wrap-around transition in wave")
     parser.add_argument("--order", type=int, default=1,
                         help="Compute Nth order of difference (default: 1)")
-    parser.add_argument("--trials", type=int, default=100000,
+    parser.add_argument("--trials", type=_g5b_pos_int, default=100000,   # G5b F12-012#7: >= 1, exit 2 otherwise
                         help="Number of Monte Carlo trials (default: 100000)")
     parser.add_argument("--seed", type=int, default=None,
                         help="Random seed for reproducible results (each analysis "
@@ -5623,6 +5623,62 @@ def _gs_ck_row_mismatch(rec, ident, jobs_by_batch):
         bad.append("want")
     return bad
 
+
+# ===========================================================================
+# Push group G5b (2026-10-22; Codex gpt-6-astra final review). Appended at the END of the file so
+# that no line cited elsewhere moves.
+# ===========================================================================
+def _g5b_exit2(msg):
+    """An argument refusal: the message on stderr and exit 2, as ROAE_PY_CLI.md documents (Codex
+    F04-014#6: SystemExit(<str>) exits 1)."""
+    print(msg, file=sys.stderr)
+    raise SystemExit(2)
+
+
+def _g5b_pos_int(v):
+    import argparse
+    try:
+        n = int(v)
+    except ValueError:
+        raise argparse.ArgumentTypeError("must be an integer >= 1, got %r" % v)
+    if n < 1:
+        raise argparse.ArgumentTypeError("must be >= 1, got %d" % n)   # Codex F12-012#7: 0 crashed, < 0 concluded from nothing
+    return n
+
+
+def _ph_ck_row(line, label):
+    """One H1/H3 checkpoint row, or None for a blank or torn (unparsable) row -- the typical state
+    after an interrupted append. Until G5b one torn tail made the whole checkpoint unreadable and
+    the completed batches before it unrecoverable (Codex F04-014#5)."""
+    line = line.strip()
+    if not line:
+        return None
+    try:
+        rec = json.loads(line)
+    except ValueError:
+        print(f"[{label}] checkpoint: skipped an unparsable (torn) row; its batch is re-run")
+        return None
+    return rec if isinstance(rec, dict) else None
+
+
+def _ph_ck_ok(rec, phase_tag, seed, seed_off, jobs, label):
+    """An H1/H3 checkpoint row is reused only when it belongs to THIS run: phase, seed, seed offset,
+    the batch partition (batch count and the batch's own sample count), a batch this run has, and
+    histograms that hold exactly its n samples. Until G5b only phase and seed were compared, so a
+    different --gs-batches reused another partition's samples under the same total (Codex F12-012#2,
+    F04-014#1). A row from an older run that lacks these fields cannot show it belongs and is
+    re-run rather than trusted."""
+    if rec.get("phase") != phase_tag or rec.get("seed") != seed:
+        return False
+    want = dict((j[0], j[3]) for j in jobs).get(rec.get("batch"))
+    ok = (want is not None and rec.get("seed_off") == seed_off and rec.get("batches") == len(jobs)
+          and rec.get("want") == want and rec.get("n") == want
+          and all(isinstance(rec.get(k), dict) and sum(rec[k].values()) == want
+                  for k in ("hist_a", "hist_p", "hist_q")))
+    if not ok:
+        print(f"[{label}] checkpoint: IGNORED batch {rec.get('batch')!r} -- its partition or shape is "
+              f"not this run's (batches={len(jobs)}, want={want}); it is re-run")
+    return ok
 
 if __name__ == "__main__":
     # main() returns None on every path except --self-test, and sys.exit(None) is exit 0, so this

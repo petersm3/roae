@@ -167,7 +167,7 @@ def section_rows(n_sec, width):
             continue
         if sec and l.startswith("|"):
             c = [x.strip().replace(",", "") for x in l.strip().strip("|").split("|")]
-            if len(c) == width:
+            if len(c) == width or (len(c) not in {1: (8,), 2: (5, 8)}.get(n_sec, (width,)) and any(re.fullmatch(r"[0-9]+", x) for x in c) and leg(False, "section %d: a data row has %d cells, a width this page does not use (G5b, F11-019#1): %s" % (n_sec, len(c), l.strip()[:60]))):
                 rows.append(c)
     return rows
 

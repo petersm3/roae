@@ -34704,3 +34704,361 @@ the four entries.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV1; found by Codex (gpt-6-astra),
 fix-verification pass, FV-G4-G1#17.
+
+## CX-35V-A — the certificate driver's tests leg counted skipped tests and held the suite to 128 of its 1,900-odd methods, and its witness-annotation check skipped a signed or malformed annotation (reports/certificates/verify_all.sh; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, F05-020#8, F05-020#9 and F01-001#2; confirmed by Fable's
+fast-track triage (rounds 3a and 3b, batch FT3b-1). Push group G5b.
+
+**What was wrong, and what it does now.**
+- §5 ran `tests.py` through a floor of 128 on unittest's `Ran N tests` line. That count includes skipped tests, so
+  `OK (skipped=1600)` passed with nothing executed, and 128 was the population of 2026-09-02: a suite that lost nine
+  tenths of its tests still passed. The leg now subtracts the reported skips and requires at least 1,500 executed tests
+  (tests.py declares over 1,900), printing `TESTS_PY_RAN=`, `TESTS_PY_SKIPPED=` and `TESTS_PY_EXECUTED=`.
+- §3b recomputed each `yangcount=`/`entryyang=` annotation found by an unsigned regex, so `yangcount=-1` read as no
+  annotation and the witness file passed with one fewer check. Every occurrence is now read, and one that is not an
+  unsigned decimal fails.
+
+**Tests.** `TestBatchG5b.test_va_tests_leg_refuses_an_all_skipped_suite`, `test_va_tests_leg_refuses_a_suite_of_128`
+(with a 1,888-executed positive control) and `test_va_witness_annotation_must_parse`. Each fails on the uncured script.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5b; the defects were found by Codex
+(gpt-6-astra), final review, F05-020 and F01-001.
+
+## CX-35V-B — the TR-8 sampler's merge accepted shards with a missing or short predicate row, or fewer draws than declared; the replication gate did not compare `r_kw` or the draws used; the bank-gate reason did not follow the documented order; and a censored median was printed below its own value (solve.py; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, F02-009#5, F11-015#3/#4/#5, F12-004#1, F12-004#6,
+F12-005#9 and F08-015#12; confirmed by Fable's fast-track triage. Push group G5b.
+
+**What was wrong, and what it does now.**
+- `--tr8-dof-merge` summed each hit row by its own length and checked shard ids only. A shard missing its K = 16 row, or
+  carrying a shortened one, added zero hits while its draws entered the denominator; Codex moved the K = 16 median from
+  3.6×10⁻⁶ to 3.2×10⁻⁶ that way with every gate passing. Halving every shard's draws kept the headers and merged on
+  5×10⁶. Each shard must now carry every declared K row, each exactly `n_pred` counts in 0..draws, its declared draws
+  (`n_pool / n_shards`), and the shards must sum to `n_pool`.
+- `tr8_replication_gate` compared a fixed header list that omitted `r_kw`, the frozen rarity threshold, and compared
+  declared headers only. `r_kw` is compared now, and each merged pool must have used exactly its declared `n_pool`.
+- `_tr8_bank_gate_override` returned the floor's reason first; SOLVE_PY_CLI.md says the overwrites run "… then the bank
+  floor, then b_raw". With both failing, the `b_raw` reason is now the one returned.
+- The results renderer printed `< 1/N_pool (CENSORED)` for every censored median. With exactly half the predicates at
+  zero hits the computed median can exceed 1/N_pool (500 zeros and 500 fours give 2×10⁻⁷ against 10⁻⁷). Such a median
+  is now printed as its value, marked CENSORED. A median of zero (the K = 24 row of the shipped pools) prints as before.
+- **Frozen registrations, not edited.** Addendum A1's rule (lines 116–122) reports "exactly half" as the bound
+  `< 1/N_pool`; that bound does not follow from its own median definition, and the renderer no longer prints it where it
+  is false (F08-015#12, F11-015#3). A1's completeness promise (lines 185–200) is now enforced by the merge.
+
+The shipped pools reproduce unchanged: both merges, run here, write byte-identical `results.json` and `RESULTS.md`.
+No figure, verdict or sha moves.
+
+**Tests.** `TestBatchG5b.test_tr8_merge_refuses_a_missing_or_short_k_row`, `test_tr8_merge_refuses_a_halved_pool`,
+`test_tr8_replication_refuses_a_different_r_kw`, `test_tr8_bank_gate_reason_follows_the_documented_order` and
+`test_tr8_censored_median_is_not_printed_below_itself`. Each plants Codex's fixture in a copy of the shipped pool and
+fails on the uncured solve.py.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5b; the defects were found by Codex
+(gpt-6-astra), final review, F02-009, F08-015, F11-015, F12-004 and F12-005.
+
+## CX-35V-C — the atlas consumer and its siblings: the selftest ignored verdicts its own run wrote, the t-gate opt-in did not reach the second load, an absent t-identity gate loaded at full n, kernel masses escaped the load-time count check, malformed structures were tracebacks, a stale Q3 profile survived, and five smaller exits read as success (solve.py; documentation/SOLVE_PY_CLI.md; scripts/q314_mod48_gate.sh; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, F04-012#1/#2/#3/#4, F12-005#2/#3/#4/#5/#7/#8,
+F05-012#12, F04-011#13/#14, F04-015#1 and F12-004#7; confirmed by Fable's fast-track triage. Push group G5b.
+
+**What was wrong, and what it does now.**
+- `--atlas-selftest` aggregated its own arithmetic gates only. With `--atlas-fault xa-strip-tsource` it wrote
+  `TR12_XA_B=FAIL:t_source=ABSENT`, and with one zero-mass V1 row dropped `TR12_RATIO_COLUMNS=FAIL:1-bad-cell(s)`, and
+  printed `ATLAS_CONSUMER=PASS`, exit 0, both times. A query verdict the run writes as FAIL or ERROR is now a selftest
+  failure, named on its own line; `scripts/q422_ratio_columns_gate.sh` inherits the cure, and the isolation leg of
+  `scripts/q314_mod48_gate.sh` reads gate lines only, not those verdict lines. The healthy n = 9 transcript is unchanged.
+- `--atlas-allow-t-not-run` reached the selftest's first load and not the nested `atlas_queries` load, which refused.
+  It is forwarded.
+- `atlas_load` refused an explicit `"not-run (requires --kc-tdir)"` but loaded an atlas whose t-identity gate was deleted,
+  or whose gates were `{"fails": 0}`. At n ≥ 15 an atlas carrying the producer's `engine_source_sha` must carry the
+  gate; hand-built fixtures without that provenance keep their minimal gates, a residual the loader states.
+- Kernel masses did not pass `_atlas_int` at load, so a bare JSON integer loaded and was refused later by V5. They are
+  checked at load.
+- A layer without `flow`, `layers: null` and a walk row reading `not-a-walk` were tracebacks; they are now `AtlasError`
+  and `ATLAS_CONSUMER=FAIL:refused-walks`.
+- A query run with Q3 selected and no trace left the previous run's Q3 profile and sidecar for the figure selector. Both
+  names are removed on such a run.
+- `--qoy-gate` with zero orderings verified nothing and printed `QOY_VERIFY=PASS`; it now requires one ordering.
+  `--qoy-verify`, `--c8-print` and `--v3-spectrum` traced back on a missing input; they refuse in their own vocabulary.
+  `--kc-class-swap-detect` printed CLEAN before a failed `--json` write and then ERROR; the JSON is written first, so a
+  failed write prints ERROR alone. Its exact mode named the first mismatch as the worst cell; mismatches are sorted by
+  size. The XA ceiling conflict (`--xa-budget-hours` with a $ anchor) was checked only after a certificate was
+  accepted; it is checked first.
+
+**Tests.** `TestBatchG5b.test_atlas_selftest_reads_its_own_query_verdicts`,
+`test_atlas_selftest_fails_on_a_dropped_zero_mass_row`, `test_atlas_selftest_forwards_allow_t_not_run`,
+`test_atlas_load_requires_the_t_gate_at_full_n`, `test_atlas_load_checks_kernel_masses`,
+`test_atlas_malformed_structure_is_a_refusal`, `test_atlas_queries_removes_a_stale_q3_profile`,
+`test_qoy_gate_refuses_zero_orderings`, `test_missing_inputs_refuse_without_a_traceback`,
+`test_class_swap_failed_json_prints_one_verdict`, `test_class_swap_exact_worst_cell_is_the_largest` and
+`test_xa_conflicting_ceilings_refused_without_a_certificate`, on a real n = 9 atlas and the published n = 31 atlas. Each
+fails on the uncured solve.py.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5b; the defects were found by Codex
+(gpt-6-astra), final review, F04-011, F04-012, F04-015, F05-012, F12-004 and F12-005.
+
+## CX-35V-D — four `--extended-selftest` legs could not fail on the defect they name, the "combined partition + resume" leg partitioned nothing, and two zero-node depth profiles compared as PASS (solve.py; documentation/SOLVE_C_CLI.md; documentation/LARGE_SCALE_CAMPAIGNS.md; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, F04-011#1/#2/#3/#4/#5, F12-001#16/#19/#20/#21 and
+F12-011#23/#24/#25/#26/#27; confirmed by Fable's fast-track triage. Push group G5b.
+
+**What was wrong, and what it does now.**
+- Subtest 8 launched its interrupted phase without the `SOLVE_ALLOW_SUB_CANONICAL` override `_run` supplies. From a
+  clean environment that phase exited 25 at the sub-canonical gate before walking, its status was ignored, and the
+  "resume" was a second clean run. It now launches with the override, sends SIGTERM once a checkpoint exists, and
+  requires `ENUM_RUN=STOPPED` in that phase's log.
+- Subtest 7 compared the two merged shas only when both were present; a missing sha now fails it.
+- Every child inherited the parent's `SOLVE_*` environment, so an exported `SOLVE_DFS_ITERATIVE=1` made the
+  "recursive" and v1 legs iterative. The children start from an environment with every `SOLVE_*` removed.
+- Subtest 4 passed on one matching shard filename whatever the exit, and called any crash the known merge SIGSEGV. It
+  now requires a nonempty shard, the log's `ENUM_RUN=FINISHED` line, and exit 0 or -11.
+- Subtest 9 fingerprinted shards by name and size; it hashes their bytes.
+- Subtest 6 repeated subtest 2. It now resumes a partition: `--branch 1 0` and `--branch 2 0` at 50M extended to 100M in
+  one directory and merged, against the same branches single-shot (equal shas, measured here at 50M → 100M).
+- `--compare-depth-profile` replaced a zero total by one; two profiles with zero nodes printed `VERDICT: PASS`. A profile
+  totalling zero nodes is now the missing/empty-profile refusal, exit 2.
+
+SOLVE_C_CLI.md's subtest-8 paragraph and LARGE_SCALE_CAMPAIGNS.md's items 4 and 6–9 and its known-anomaly row carry
+dated notes. The full nine-subtest run was not repeated here; the changed configurations (subtest 4's 128-thread run,
+subtest 6's partitioned resume, subtest 8's SIGTERM, which exits 36 with `ENUM_RUN=STOPPED`) were each run on the
+current binary.
+
+**Tests.** `TestBatchG5b.test_ext_subtest8_startup_refusal_is_not_a_resume`, `test_ext_subtest7_missing_merge_sha_fails`,
+`test_ext_parent_iterative_env_does_not_leak`, `test_ext_subtest4_early_crash_fails`,
+`test_ext_subtest9_same_size_content_change_fails`, `test_ext_subtest6_partitions` (with an all-pass positive control) and
+`test_depth_profile_zero_nodes_is_not_a_pass`, against a stub `solve` that plants each fault. Each fails on the uncured
+solve.py. `TestV3A134BranchSelftestIsNotBlind`'s stub now prints `ENUM_RUN=STOPPED` so its positive control still
+reaches subtest 8's comparison.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5b; the defects were found by Codex
+(gpt-6-astra), final review, F04-011, F12-001 and F12-011.
+
+## CX-35V-E — solve.py's other instruments: SC-8's witnesses, the reconstruct counts at the C6/C7 slots, a greedy cover called the minimum, the solutions.bin header and body, three P2 statistics, the branch-yield sanity check, the SEQ wrappers, the R11 builder and H2 helpers, and the `--v3-spectrum` help (solve.py; documentation/SOLVE_PY_CLI.md; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, F01-008#2/#4, F04-012#5, F04-010#4/#5/#6/#7/#8/#9/#11/#12/#13,
+F11-021#1, F12-004#2, F04-011#6/#7/#8/#9/#10/#11/#12 and F12-005#11; confirmed by Fable's fast-track triage. Push group G5b.
+
+**What was wrong, and what it does now.**
+- `--symmetry-completeness` SC-8 never checked that a W2 witness holds the requested pair: a builder returning King Wen
+  for every request passed with 63 of 1,824 pairs covered. It now requires `s[:2] == [a, b]`. Its "C1/C4" witness was
+  `[63, 0, 1, 2, …]`, which breaks C1 at (1, 2); it is King Wen, checked with `has_pair_structure_c1`.
+- `--reconstruct` counted, at the C7 and C6 slots, pairs that cannot satisfy the pin: 15 and 10 choices where 2 and 1
+  satisfy it. Those slots now count only pairs with the required identity. SOLVE_PY_CLI.md no longer says the replay
+  verifies uniqueness.
+- `--fingerprint` printed a greedy set cover as "Minimum adjacency constraints needed"; it reads "Greedy adjacency
+  constraint cover … an upper bound on the minimum".
+- `_p2_read_header` returned any version and ignored the reserved bytes, and both readers stopped at the declared count,
+  so surplus records or a trailing partial record passed `COMPUTE_STATS=PASS`. Version 1, zero reserved bytes and a body
+  of exactly `count × 32` bytes are required.
+- `--marginals` printed the configured bin edges as an integer row's Min and Max; it prints the observed extrema. The
+  uniform-marginals float percentile clamped an out-of-support King Wen value into an end bin (75% or 25% where the rank
+  is 100% or 0%); outside the support it is 100% or 0%. The native KDE wrappers dropped the rest of a short pipe write
+  and leaked the fit file when the scorer did not start; both are fixed. No published percentile sits outside its support.
+- `--branch-yield-report` at depth 1 applied an override naming a deeper sub-branch to the whole first-level bucket, so a
+  changed default-budget sub-branch read as the expected change: `BRANCH_YIELD_SANITY=PASS`. A bucket that mixes the two
+  budgets now fails the check with a reason.
+- `--perm-verify`, `--rc1c-verify`, `--rc4b-verify` and `--r11-verify` checked length only: a negative value aliased a
+  Python index and scored, 64 zeros raised IndexError. They require a permutation of 0..63.
+- `--r11-builder-verify` labelled a synthetic draw with C3 = 792 "valid C1..C5"; it reports the C5 multiset and the C3
+  value the builder does not apply. `r11_builder_numerator` gave reversed King Wen a positive likelihood; an opening other
+  than the builder's forced (63, 0) raises. Its docstring called the vetoed four-class integration pending. A comment
+  called the 6.1% relative SE of N_gs a 95% interval. `--h2-verify` with a check count of 0 printed PASS; the count must
+  be at least 1. `--h2-mass` carried `nan` leaf values into its estimate; they are refused.
+- The `--v3-spectrum` help promised a `kw_` column for every observable; it names the four the writer omits.
+
+No published figure moves. `--reconstruct`'s two slot counts are diagnostic output that no report quotes.
+
+**Tests.** `TestBatchG5b.test_sc8_rejects_a_witness_without_the_requested_pair` (Codex's mutant, planted),
+`test_sc8_c1_witness_is_c1_valid`, `test_reconstruct_counts_only_candidates_with_the_pinned_identity`,
+`test_fingerprint_greedy_cover_is_not_called_the_minimum`, `test_p2_header_refuses_version_reserved_and_body_mismatch`,
+`test_p2_int_marginal_prints_observed_extrema`, `test_t5_float_percentile_outside_the_support`,
+`test_native_kde_wrappers_write_all_and_clean_up`, `test_branch_yield_depth1_cannot_hide_a_default_subbranch_change`,
+`test_seq_wrappers_refuse_non_permutations`, `test_r11_builder_smoke_test_does_not_call_a_c3_violator_c1_c5`,
+`test_r11_numerator_refuses_an_unreachable_opening`, `test_h2_constants_comment_names_the_se_not_a_ci`,
+`test_h2_verify_zero_checks_is_not_a_pass`, `test_h2_mass_refuses_non_finite_leaves` and
+`test_v3_spectrum_help_names_the_omitted_kw_columns`. Each fails on the uncured solve.py.
+
+**Held.** Two rows of the same review are not landed: F04-010#3 (`--differential`'s rank rule misses a tied minimum;
+the symmetric rule can add tied-minimum features to SOLVE.md's published list, which needs the 1-billion-node run to
+re-derive) and F04-010#10 (the KDE wrappers send the bandwidth at six significant digits; full precision can move a
+published KDE percentile, which needs the 100T chunks to re-derive).
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5b; the defects were found by Codex
+(gpt-6-astra), final review, F01-008, F04-010, F04-011, F04-012, F11-021, F12-004 and F12-005.
+
+## CX-35V-F — verify.py: a duplicated walk kept the Q1 oracle's count, an empty atlas passed the orbit-frame gate, three certificate checks read their bound or completion from the input, sidecars and table rows were overwritten or skipped before checking, a torn gzip record read as EOF, the nuclear gate never read the engine, and METHODS said every figure of its paragraph is gated (verify.py; reviewer/selfcheck.sh; reports/METHODS.md; documentation/VERIFY.md; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, F04-013#1/#2/#3/#4/#5/#6/#7/#8/#10, F07-008#1, F11-019#1,
+F12-006#3/#9/#10 and CAL-020#115; confirmed by Fable's fast-track triage. Push group G5b.
+
+**What was wrong, and what it does now.**
+- `--q1-labeling-oracle` counted lines; replacing one walk above the anchor with another kept the count and every rank.
+  The universe must hold 26,112 DISTINCT walks.
+- `--check-atlas-orbit-frames` passed `{"n": 0, "layers": []}` with zero cells checked; a pass needs at least one cell.
+- The v2 layer reader ignored bytes before the first indexed stream; `kidx[0]` and `vidx[0]` must be 0.
+- `--check-certificate` took C(31, k) from the same log row as the mask count; it computes it. It read
+  `last_complete_k=31` as a substring, so 310 passed; it reads the line.
+- `--check-layer-sidecars` keyed sidecars by `k`, so a second file for one layer hid the first; a duplicate fails.
+- The gzip path of `--twins-bisect` read a trailing partial record as EOF; it fails as a torn stream, as the raw path did.
+- The decompressed temporary was removed by `atexit` only, which SIGTERM never reached; SIGTERM now exits through it.
+- `--nuclear-selftest` compared the line definition with a Python restatement of the engine inside verify.py, so an
+  engine-only change could not turn it red. It reads `f5_nuc` from solve.c and evaluates that expression.
+- The FULL31 readers (`--recount-orbit-widths`, `--recount-rung-layers`, the canonical-mask reader) and
+  `reviewer/selfcheck.sh` skipped a row of an unexpected width before checking its values, so a contradictory row with one
+  extra cell passed both recounts and the pinned table digest. A data row of the wrong width is now a failure.
+- `--t3-stats` printed "VERDICT: PASS" and "(a) uniformity : PASS" beside a population failure; it prints no PASS
+  off the pre-registered population.
+- Verdict tokens that VERIFY.md calls whole lines were not: `TWIN_*=` and `SIGMA_ISOMORPHISM_ALL48=` carried suffixes, and
+  a bad header printed prose with no `VERIFY=ERROR`. Each token now owns its line.
+- The `--check-parity-alternation` help promised "every published figure in PARITY_ALTERNATION.md"; the page names other
+  commands for two of them, and the help says so.
+- METHODS §"Statistics conventions" said `Q696_COVERAGE=PASS` only when every figure in its Q-696 paragraph matched; the
+  median z (−0.04), 51.7% below the proxy, and the 19 / 0 cells above 30% / 50% relerr were not gated, and Codex's +0.1
+  median mutant passed. They are gated now; the sentence names the two figures the flag does not recompute (the ±SE
+  controls' 72% / 99.9%, and the 0.1-point exclusion check); a test holds every gated constant to the paragraph.
+
+No published figure moves; each check passes on the shipped data (run here).
+
+**Tests.** `TestBatchG5b.test_q1_oracle_requires_distinct_walks`, `test_atlas_orbit_frames_empty_atlas_is_not_a_pass`,
+`test_v2_layer_index_must_start_at_zero`, `test_certificate_computes_the_binomial_bound`,
+`test_certificate_reads_last_complete_k_as_a_line`, `test_sidecars_duplicate_layer_fails`,
+`test_twins_gzip_partial_trailing_record_fails`, `test_invalid_header_emits_verify_error`,
+`test_gzip_temp_removed_on_sigterm`, `test_full31_readers_refuse_an_extra_cell_row`,
+`test_nuclear_selftest_reads_the_engine` (an engine-only shift mutant, planted), `test_parity_help_does_not_promise_every_figure`,
+`test_t3_stats_prints_no_pass_off_population` and `test_q696_median_z_is_gated` (Codex's median mutant). Each fails on the
+uncured files.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5b; the defects were found by Codex
+(gpt-6-astra), final review, F04-013, F07-008, F11-019, F12-006 and CAL-020.
+
+## CX-35V-G — roae.py: the H1/H3 resume reused another batch partition's samples and lost every completed batch to a torn row, the grammar search reused rows for batches it does not have, the bootstrap printed an interval from one trial, and four argument refusals exited 0 or 1 where exit 2 is documented (roae.py; documentation/ROAE_PY_CLI.md; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, F12-012#2, F04-014#1/#3/#5/#6, F04-015#2, F12-012#7
+and F12-012#11; confirmed by Fable's fast-track triage. Push group G5b.
+
+**What was wrong, and what it does now.**
+- The H1/H3 checkpoint kept rows on phase and seed only. A resume under another `--gs-batches` reused a different
+  partition's samples while the total-sample check passed (Codex: resumed and fresh histograms differ). Each row now
+  records its seed offset, the batch count and the batch's sample count, and a row that is not this run's is re-run.
+  A torn final row (an interrupted append) made the whole file unreadable; an unparsable row is skipped and its batch
+  re-run. No H1/H3 verdict was ever issued (Q-641), so nothing published moves. The frozen registration's
+  reproducibility tuple (PREREG_H1_H3_TEST_2026_07_26.md, lines 149–150 and 241–243) omits the partition; it is not
+  edited, and this entry records the gap.
+- The grammar search's Phase D accepted a row for a batch outside the job set, and a hit vector shorter than the
+  candidate list; both are refused.
+- `--bootstrap --trials 1` printed "> -200.000%" and "95% CI: 1 in 1 to 1 in 1"; below three trials no interval is
+  printed, and no ratio interval is printed for a constant vector.
+- `--seed -25000` and `--gs-batches 0` raised `SystemExit` with a message, which exits 1; they exit 2. `--trials 0`
+  crashed and `--trials -1` printed a conclusion; `--trials` must be at least 1 (exit 2). `--explain 64` exited 0; it
+  exits 2. `--stats` no longer calls a zero count in a tiny sample "extremely rare"; it prints the rule-of-three bound.
+
+**Tests.** `TestBatchG5b.test_h1h3_resume_does_not_reuse_another_partition`, `test_h1h3_torn_tail_resumes`,
+`test_gs_checkpoint_refuses_unknown_batches_and_short_hits`, `test_bootstrap_one_trial_prints_no_interval` and
+`test_roae_argument_refusals_exit_2`. Each fails on the uncured roae.py.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5b; the defects were found by Codex
+(gpt-6-astra), final review, F04-014, F04-015 and F12-012.
+
+## CX-35V-H — the Q-374 replicate scripts labelled a mass of 1 "zero sampled mass", accepted a run with no Davis rows or mixed null settings, and exited 0 when every estimator call failed; the mid-n ladder driver printed ALL PASS on an empty ladder list (reports/evidence/q374_se_replicates/analyze.py; reports/evidence/q374_se_replicates/run_replicates.sh; reports/evidence/q374_se_replicates/README.md; scripts/kc_midn_validate.sh; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, F02-010#4/#5/#6 and F04-021#12; confirmed by Fable's
+fast-track triage. Push group G5b.
+
+**What was wrong, and what it does now.**
+- `analyze.py` labelled every constant row "DEGENERATE (zero sampled mass in every replicate)", including parallel3040
+  and eccplace `below`, whose mass is 1 in every replicate. The label names the constant mass. The README's verbatim
+  transcript is the current output (eight labels change; no number does).
+- It required twelve files and twelve seeds but not the nine Davis candidates, and ignored the recorded null flags:
+  with every Davis row removed it returned normally with zero rows. It refuses unless all nine candidates are present
+  and every replicate records the same null settings.
+- `run_replicates.sh` echoed each estimator status and exited with the last echo's; it exits 1 when any call failed.
+- `scripts/kc_midn_validate.sh` with `KC_MIDN_NS=' '` ran no ladder and printed ALL PASS; zero ladders run is a failure.
+
+**Tests.** `TestBatchG5b.test_q374_degenerate_label_names_the_constant_mass`,
+`test_q374_analyzer_refuses_missing_candidates_and_mixed_nulls`, `test_q374_launcher_propagates_estimator_failure` and
+`test_kc_midn_validate_empty_ladder_is_not_all_pass`. Each fails on the uncured scripts.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5b; the defects were found by Codex
+(gpt-6-astra), final review, F02-010 and F04-021.
+
+## CX-35V-I — solve.c's verification gates: a blank-line manifest passed, `--selftest-resume` ran all three legs on an inherited budget, sequence parsers skipped signs and extra values, the QOY/C8 readers read junk as EOF, an empty `SOLVE_SKIP_AUTOMERGE` skipped the merge, a zero per-sub-branch budget ran uncapped, the pack asserts tested literals, and the self-test and KC tools printed success over failed steps (solve.c; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, F04-001#11/#13/#14/#15/#17/#26, F04-002#14/#15/#16,
+F04-004#5, F04-006#1/#2/#3/#4/#5/#8/#10/#12/#21, F04-007#3/#4, F04-018#3 and F04-022#4; confirmed by Fable's fast-track
+triage. Push group G5b.
+
+**What was wrong, and what it does now.** Every change refuses or reports; none changes a record the enumeration
+writes. `solve --selftest` still prints 403f7202… (run here), and the record writer's expression is unchanged.
+- `--verify-shard-manifest` counted physical lines, so a manifest of one newline verified PASS with no shard; blank lines
+  are no longer entries, and such a manifest is the zero-entry refusal.
+- `--selftest-resume` let its three children inherit `SOLVE_PER_SUB_BRANCH_LIMIT`, which gave Phase A, Phase B and the
+  baseline one budget; every inherited `SOLVE_*` is removed before each child runs.
+- The four `SOLVE_*_TESTVEC` hooks, `--rc1c/--r11/--rc4b-verify`, the KC walk parser and the arrangement parser skipped
+  non-digits, so `-63` read as 63 and a negative King Wen vector scored as King Wen; `strtol` was narrowed to int; and
+  a 65th value was ignored. One strict tokenizer now serves all of them: a token is digits between commas or spaces,
+  anything else refuses, and the count includes every token.
+- `--qoy-verify` and `--c8-verify` read a failed first scan as EOF and joined integers across lines; a nonnumeric token,
+  even after valid records, returned rc 0 with a partial count. They read one ordering per line and refuse anything else.
+- An empty `SOLVE_SKIP_AUTOMERGE` skipped the merge while `--print-config` showed it unset; empty is unset at the consumer.
+- `SOLVE_NODE_LIMIT` smaller than the partition gave a per-sub-branch limit of 0, which both DFS paths read as unlimited;
+  that configuration is refused.
+- The record-encoding `_Static_assert`s tested literal arithmetic, so changing the writer's expression still compiled.
+  The writer and the asserts now share one macro, `SOL_PACK`.
+- `--selftest` ended its digest pipeline in `cut` and ignored `pclose`: a hash tool that printed the right digest and
+  failed still gave PASS. The tool's status now gates the digest. The KC oracle's digest co-process had the same shape;
+  its status is the hash tool's.
+- The KC oracle read a zero-byte `fread` as EOF without `ferror`. The H1 certificate published `n` and never checked it,
+  and omitted `--kc-expect-count`, so an authentic expectation-FAIL certificate failed re-verification. `n` is checked and
+  the expectation is recorded and re-applied.
+- `--kc-witness-walks` never checked a witness's pair identity or orientation, and printed OK before its output file was
+  closed; `--kc-profile` printed OK before its TSV trailer was appended and left a token-less table when the reopen
+  failed; `--kc-t-cert` printed PASS after a failed certificate write. Each verdict now follows its artifact.
+- Under `SOLVE_KC_SCAN_TAIL_STRICT=1` a whole-atlas scan left its atlas on disk after a tail failure; it is removed, as
+  the merge path already did.
+- `kc_h_sh` applied `WEXITSTATUS` without `WIFEXITED`; a signalled shell read as rc 0.
+
+**Tests.** `TestBatchG5b.test_c_manifest_of_one_blank_line_is_refused`, `test_c_selftest_resume_children_inherit_no_solve_env`,
+`test_c_testvec_and_seq_parsers_are_strict`, `test_c_qoy_and_c8_readers_refuse_malformed_lines`,
+`test_c_empty_skip_automerge_is_unset`, `test_c_zero_per_sub_branch_budget_is_refused`,
+`test_c_pack_asserts_test_the_pack_expression` (Codex's mutant, planted), `test_c_selftest_needs_a_clean_hash_pipeline`,
+`test_c_kc_h_sh_reports_a_signal`, `test_c_oracle_certificate_carries_n_and_expect_count`,
+`test_c_oracle_read_loop_checks_ferror`, `test_c_oracle_digest_status_is_the_hash_tools`,
+`test_c_witness_checks_qpair_orientation_and_close`, `test_c_profile_verdict_follows_the_tsv` and
+`test_c_strict_tail_failure_removes_the_whole_scan_atlas`, built with `-fopenmp` on a real n = 9 ladder. The ferror and
+co-process legs and the profile reopen are not injectable from a test; those three tests hold the code shape. Each test
+fails on the uncured solve.c.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5b; the defects were found by Codex
+(gpt-6-astra), final review, F04-001, F04-002, F04-004, F04-006, F04-007, F04-018 and F04-022.
+
+## CX-35V-J — verify.c read a truncated gzip trailer as a clean end, its t-ladder checker skipped the key-order and stored-domain guards, and its resume record did not pin the budget; the CLI references said more than the code in fourteen places (verify.c; documentation/SOLVE_PY_CLI.md; documentation/VERIFY.md; documentation/SOLVE_C_CLI.md; documentation/LARGE_SCALE_CAMPAIGNS.md; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, F04-009#5, F12-014#1, F12-006#1/#6/#8/#11, F12-004#3/#4/#5,
+F12-005#1/#10/#12/#13 and F04-007#9; confirmed by Fable's fast-track triage. Push group G5b.
+
+**What was wrong, and what it does now.**
+- `verify --check-artifact` (and `--check-repr`) read `gzread() == 0` as a clean end and ignored `gzclose`, so a stream
+  missing its gzip trailer certified `ARTIFACT=PASS`. A zlib error at the end, or a failed close, now fails.
+- `--check-t-ladder` never called the span guards the g checker uses, so matching malformed keys in f and t (two
+  entries swapped, or a `last` outside the mask's pairs) passed every mass identity. It checks key order and the stored
+  domain on every t entry.
+- The `LC_RESUME` header pinned `n` and `pl_hash` only, so a record from a run with the same pairs and another budget
+  replayed into the other run's check. The record is `LC_RESUME_V3`, whose header also pins `start_exit` and `b0`; a V2
+  record is refused.
+- Wording: SOLVE_PY_CLI.md said `--reconstruct` verifies uniqueness, that Q6's percentile reads the trace, that `adder`'s
+  DIMACS file is byte-identical to `none`'s, that the Q3 profile is re-rendered from the enumeration, that the default XA
+  token is `PENDING:xa-throughput-anchors`, that every atlas count is a decimal string, and described the reduced V5 form
+  as reachable on a quotient-only scan; VERIFY.md said the enumeration reference applies oriented C4, that each
+  membership control breaks exactly one constraint, that the compile gate requires a warning-free build, and described
+  the V2 resume header; SOLVE_C_CLI.md gave `--regression-test`'s sha mismatch as exit 50 (it is 60). Each sentence now
+  says what the code does, with a dated note.
+
+**Tests.** `TestBatchG5b.test_vc_artifact_with_a_truncated_gzip_trailer_fails`, `test_vc_t_ladder_holds_the_span_guards`,
+`test_vc_resume_record_pins_the_budget`, `test_doc_solve_py_cli_says_what_the_code_does`,
+`test_doc_verify_md_says_what_the_code_does` and `test_doc_solve_c_cli_and_campaigns_say_what_the_code_does`. Each fails
+on the uncured files.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5b; the defects were found by Codex
+(gpt-6-astra), final review, F04-007, F04-009, F12-004, F12-005, F12-006 and F12-014.

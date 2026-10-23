@@ -451,7 +451,7 @@ static int vc_check_artifact_main(int argc, char **argv) {
 
     while (want < 0 || n < want) {
         int got = gzread(fh, rec, 32);
-        if (got == 0) break;
+        if (got == 0) { int ge = Z_OK; gzerror(fh, &ge); if (ge != Z_OK && ge != Z_STREAM_END) { printf("ARTIFACT=FAIL_stream_error (zlib %d: the stream did not end cleanly)\n", ge); gzclose(fh); return 2; } break; }   /* G5b F04-009#5 */
         if (got != 32) { printf("ARTIFACT=FAIL_partial_record\n"); gzclose(fh); return 2; }
         long long idx = off + n;
         n++;
@@ -529,7 +529,7 @@ static int vc_check_artifact_main(int argc, char **argv) {
          * can. */
         for (int d = 0; d < 7; d++) if (budget[d] != 0) { bad_residue++; break; }
     }
-    gzclose(fh);
+    if (gzclose(fh) != Z_OK) { printf("ARTIFACT=FAIL_stream_close (gzip trailer/CRC: the stream did not end cleanly)\n"); return 2; }   /* G5b F04-009#5 */
 
     /* GEOMETRY: the declared record count must match the stream. Only meaningful
      * on a WHOLE-FILE read. Ignoring the count for loop TERMINATION is a
@@ -585,7 +585,7 @@ static int vc_check_repr_main(int argc, char **argv) {
     unsigned char mine[32];
     while (checked < want) {
         int got = gzread(fh, rec, 32);
-        if (got == 0) break;
+        if (got == 0) { int ge = Z_OK; gzerror(fh, &ge); if (ge != Z_OK && ge != Z_STREAM_END) { printf("CHECK_REPR=FAIL_stream_error (zlib %d)\n", ge); gzclose(fh); return 2; } break; }   /* G5b F04-009#5 sibling */
         if (got != 32) { printf("CHECK_REPR=FAIL_partial_record\n"); gzclose(fh); return 2; }
         int key[32]; uint32_t seen = 0; int bad = 0;
         for (int i = 0; i < 32; i++) {
@@ -602,7 +602,7 @@ static int vc_check_repr_main(int argc, char **argv) {
             if (disagree <= 3) printf("  record %lld: stored != independent repr\n", off + checked - 1);
         }
     }
-    gzclose(fh);
+    if (gzclose(fh) != Z_OK) { printf("CHECK_REPR=FAIL_stream_close (gzip trailer/CRC)\n"); return 2; }   /* G5b F04-009#5 sibling */
 
     printf("CHECKED=%lld\nAGREE=%lld\nDISAGREE=%lld\nINCOMPUTABLE=%lld\n",
            checked, agree, disagree, incomputable);
@@ -1162,8 +1162,8 @@ static uint64_t lc_rec_hash(const char *s) {
  * (`key >> 22`). The producer writes a positive entry only at an exit hexagram of a pair the
  * entry's mask selects, so `last` must be an element of one of those pairs (layer 0: the
  * start exit). An entry whose `last` is the anchor pair's 63 kept every other invariant and
- * passed --check-layers and --scan-layers. The g/t span checker (gt_span_checks) already held
- * this guard; this is the same bitmap, built from the manifest's pl= table. LC_ALLOW_ON is
+ * passed --check-layers and --scan-layers. The g span checker (gt_span_checks) already held
+ * this guard (the t checker did not call it until 2026-10-22, G5b: lc_t_layer now checks key order and this membership); this is the same bitmap, built from the manifest's pl= table. LC_ALLOW_ON is
  * set by lc_check_layers_impl() once the manifest is read; while it is 0 the check is off. */
 static uint64_t LC_ALLOW_PE[32];
 static uint32_t LC_ALLOW_N = 0, LC_ALLOW_SE = 0;
@@ -1568,7 +1568,7 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
      * and how many were replayed (LAYERS_REDERIVED= / LAYERS_REPLAYED=), so a
      * resumed run cannot attest "re-derived at every layer" (Codex V2-F59 #2:
      * a record with its mass edited to 999 replayed and the label still read
-     * "re-derived at every layer", rc 0). The header pins n + pl_hash: a
+     * "re-derived at every layer", rc 0). The header pins n + pl_hash (+ start_exit + b0 since V3, G5b): a
      * resume file from another run is REFUSED (a finding, not silently
      * ignored); a row failing its hash REFUSES the whole resume, as the IE
      * checkpoint has since Q-286; a V1 file (no hashes) fails the header
@@ -1581,13 +1581,13 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
     if (rf_path) {
         FILE *in = fopen(rf_path, "r");
         if (in) {
-            char line[512]; uint32_t hn = 0; unsigned long long hh = 0; int hdr_ok = 0;
-            if (fgets(line, sizeof line, in) &&
-                sscanf(line, "LC_RESUME_V2 n=%u pl_hash=%llx", &hn, &hh) == 2 &&
-                hn == mn && hh == (unsigned long long)m_plhash) hdr_ok = 1;
+            char line[512]; uint32_t hn = 0, hse = 0; unsigned long long hh = 0; int hdr_ok = 0, hb[5] = {0, 0, 0, 0, 0};
+            if (fgets(line, sizeof line, in) &&   /* G5b (Codex F12-006#1): V3 pins start_exit and the budget b0 too */
+                sscanf(line, "LC_RESUME_V3 n=%u pl_hash=%llx se=%u b0=%d,%d,%d,%d,%d", &hn, &hh, &hse, &hb[0], &hb[1], &hb[2], &hb[3], &hb[4]) == 8 &&
+                hn == mn && hh == (unsigned long long)m_plhash && hse == mse && memcmp(hb, b0v, sizeof hb) == 0) hdr_ok = 1;
             if (!hdr_ok) {
-                printf("*** FAIL: LC_RESUME file %s does not match this run (n/pl_hash header;\n"
-                       "          a pre-2026-09-03 LC_RESUME_V1 file has no row hashes and is refused)\n",
+                printf("*** FAIL: LC_RESUME file %s does not match this run (n/pl_hash/start_exit/b0 header;\n"
+                       "          a V1 or V2 file (no row hashes, or no budget in its identity) is refused)\n",
                        rf_path);
                 fclose(in); return 1;
             }
@@ -1618,7 +1618,7 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
         rf = fopen(rf_path, "a");
         if (!rf) { printf("*** FAIL: cannot open LC_RESUME file %s for append\n", rf_path); return 1; }
         if (ftell(rf) == 0) {
-            fprintf(rf, "LC_RESUME_V2 n=%u pl_hash=%016llx\n", mn, (unsigned long long)m_plhash);
+            fprintf(rf, "LC_RESUME_V3 n=%u pl_hash=%016llx se=%u b0=%d,%d,%d,%d,%d\n", mn, (unsigned long long)m_plhash, mse, b0v[0], b0v[1], b0v[2], b0v[3], b0v[4]);
             fflush(rf); fsync(fileno(rf));
         }
     }
@@ -3526,7 +3526,7 @@ static int lc_check_g(const char *fdir, const char *gdir, int maxk) {
 }
 
 /* ---- t mode: one layer (geometry mirror + the f*t node identity) ---- */
-static int lc_t_layer(const char *fdir, const char *tdir, int k, uint32_t n, uint32_t se,
+static int lc_t_layer(const char *fdir, const char *tdir, int k, uint32_t n, uint32_t se, const uint32_t *pl,   /* pl: G5b F12-014#1 */
                       uint64_t plh, const int b0v[5], const uint32_t rad[5], uint32_t R,
                       uint8_t rp[24][32], int geff,
                       const u192 *Sk, int have_S, u192 *troot_out, int *troot_got,
@@ -3550,12 +3550,12 @@ static int lc_t_layer(const char *fdir, const char *tdir, int k, uint32_t n, uin
     uint64_t bad_key = 0, bad_rid = 0, bad_zero = 0, bad_seed = 0;
     uint32_t troot_key = 0;
     for (uint64_t i = 0; i < tc.nm && !fail; i++) {
-        u192 msum = {{0,0,0}};
+        u192 msum = {{0,0,0}}; uint32_t prev_tk = 0;
         uint64_t cnt = tc.off[i+1] - tc.off[i];
         for (uint64_t j = 0; j < cnt; j++) {
-            uint32_t fk, tk; u192 fv, tv;
+            uint32_t fk, tk; u192 fv, tv; int g5b_last_in_mask(uint32_t, uint32_t, int, uint32_t, const uint32_t *, uint32_t);
             if (gt_next(&fc, &fk, &fv) != 1 || gt_next(&tc, &tk, &tv) != 1) { fail = 1; break; }
-            if (fk != tk || (tk >> 22)) bad_key++;
+            if (fk != tk || (tk >> 22) || (j && tk <= prev_tk) || !g5b_last_in_mask(tk >> 16, tc.masks[i], k, se, pl, n)) { bad_key++; } prev_tk = tk;   /* G5b F12-014#1: the gt_span_checks guards (ascending keys, last in the mask's pairs) */
             uint32_t rid = tk & 0xffff;
             if (rid >= R || lc_rid_digits(rid, b0v, rad) != k) bad_rid++;
             if (u192_zero(tv)) bad_zero++;
@@ -3568,7 +3568,7 @@ static int lc_t_layer(const char *fdir, const char *tdir, int k, uint32_t n, uin
         if (u192_add(&acc, msum)) ovf = 1;
     }
     #define TCF(cnt,msg) do{ if (cnt) { printf("  [t] k=%2d  *** FAIL: %llu %s\n", k, (unsigned long long)(cnt), msg); fail=1; } }while(0)
-    TCF(bad_key,  "entries whose key differs from the f layer (geometry mirror broken)");
+    TCF(bad_key,  "entries whose key differs from the f layer, is not strictly ascending in its span, or names a last outside its mask's pairs");
     TCF(bad_rid,  "entries with rid >= R or digit-sum != k (SUM INVARIANT)");
     TCF(bad_zero, "zero t values (every node count is >= 1)");
     TCF(bad_seed, "seed-layer values != 1");
@@ -3663,7 +3663,7 @@ static int lc_check_t(const char *fdir, const char *tdir, int maxk) {
         }
         fclose(t);
         int idone = 0;
-        fails += lc_t_layer(fdir, tdir, k, n, se, plh, b0v, rad, R, rp, geff,
+        fails += lc_t_layer(fdir, tdir, k, n, se, pl, plh, b0v, rad, R, rp, geff,
                             have_S ? &S[k] : NULL, have_S, &troot, &troot_got, &idone);
         checked++;
         if (idone) ident_checked++; else ident_skipped++;
@@ -8141,4 +8141,18 @@ int main(int argc, char **argv) {
     printf("PLAINDP_RESULT=%s\n", dp_fails ? "FAIL" : "PASS");
     printf("======================================================================\n");
     return dp_fails ? 1 : 0;
+}
+
+/* ===========================================================================
+ * Push group G5b (2026-10-22; Codex gpt-6-astra final review). Appended at the END of the file so
+ * that no cited line moves; declared at its one call site.
+ * ===========================================================================*/
+/* --check-t-ladder: is `last` an element of a pair the mask selects (layer 0: the start exit)? The
+ * g checker held this guard through gt_span_checks; the t checker never called it, so matching
+ * malformed keys in f and t passed every mass identity (Codex F12-014#1). */
+int g5b_last_in_mask(uint32_t last, uint32_t m, int k, uint32_t se, const uint32_t *pl, uint32_t n) {
+    if (k == 0) return last == se;
+    for (uint32_t b = 0; b < n; b++)
+        if (((m >> b) & 1) && (last == (uint32_t)PA[pl[b]] || last == (uint32_t)PB[pl[b]])) return 1;
+    return 0;
 }

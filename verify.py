@@ -1730,8 +1730,8 @@ def check_atlas_orbit_frames(path):
                 print("  MISMATCH layer k=%s orbit=%s quotient=%d raw=%d"
                       % (L.get("k"), o, qs, rs))
     print("cells checked = %d" % checked)
-    print("ATLAS_ORBIT_FRAMES=%s" % ("PASS" if bad == 0 else "FAIL"))
-    return 0 if bad == 0 else 1
+    print("ATLAS_ORBIT_FRAMES=%s" % ("PASS" if bad == 0 and checked > 0 else "FAIL"))   # G5b F04-013#8: 0 cells is not a pass
+    return 0 if bad == 0 and checked > 0 else 1
 
 
 def q1_labeling_oracle(path, anchor):
@@ -1789,9 +1789,9 @@ def q1_labeling_oracle(path, anchor):
         print("Q1_LABELING_FAIL\tno pinned universe size for n=%d; this oracle enumerates every "
               "walk and is pinned only where that is tractable" % n_pairs)
         return 1
-    if len(walks) != expect_walks:
-        print("Q1_LABELING_FAIL\tuniverse is %d walks, expected exactly %d at n=%d -- a rank over "
-              "a truncated universe is not a rank" % (len(walks), expect_walks, n_pairs))
+    if len(walks) != expect_walks or len(set(walks)) != len(walks):   # G5b F04-013#1: DISTINCT walks
+        print("Q1_LABELING_FAIL\tuniverse is %d walks (%d distinct), expected exactly %d distinct at n=%d -- a "
+              "rank over a truncated universe is not a rank" % (len(walks), len(set(walks)), expect_walks, n_pairs))
         return 1
     anchor_t = tuple(int(v) for v in anchor.split(","))
     if anchor_t not in set(walks):
@@ -1976,9 +1976,9 @@ def nuclear_selftest():
             out |= b << (3 + i)
         return out
 
-    def nuc_engine(h):
-        # the encoding solve.c:6817 uses, restated for comparison only
-        return ((h >> 1) & 7) | (((h >> 2) & 7) << 3)
+    def nuc_engine(h, _f=[]):
+        # G5b (Codex F04-013#2, F12-006#3): solve.c's OWN f5_nuc expression, read from the engine source
+        return (_f or _f.append(_g5b_engine_nuc()) or _f)[0](h)
 
     bad = []
     for h in range(64):
@@ -2507,7 +2507,7 @@ def _published_rung_layers(n):
         if not in_s2 or not line.startswith("|"):
             continue
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if len(cells) not in (5, 8) or col + 1 >= len(cells):
+        if _f31_width(cells, (5, 8), "section 2") or col + 1 >= len(cells):   # G5b F11-019#1
             continue
         k, m = cells[col], cells[col + 1]
         if not re.fullmatch(r"\d+", k): continue
@@ -2621,7 +2621,7 @@ def _f1_dec_published_masses():
         if not in_s1 or not line.startswith("|"):
             continue
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if len(cells) != 8 or not re.fullmatch(r"\d+", cells[0]):
+        if _f31_width(cells, (8,), "section 1") or not re.fullmatch(r"\d+", cells[0]):   # G5b F11-019#1
             continue
         if not re.fullmatch(r"[\d,]+", cells[7]):
             continue
@@ -2751,8 +2751,8 @@ def _parse_v2_vals(path, raw, hs, nm, ne, blk):
     kbase = idx0 + 2 * 8 * (nblk + 1)
     vbase = kbase + (kidx[nblk] if nblk else 0)
     want = vbase + (vidx[nblk] if nblk else 0)
-    if len(raw) != want:
-        raise RuntimeError(f"{path}: {len(raw)} bytes but v2 index implies {want} "
+    if len(raw) != want or (nblk and (kidx[0] or vidx[0])):   # G5b F04-013#3: both indexes start at 0
+        raise RuntimeError(f"{path}: {len(raw)} bytes but v2 index implies {want} (kidx[0]={kidx[0] if nblk else 0}, vidx[0]={vidx[0] if nblk else 0}) "
                            f"(nm={nm}, ne={ne}, nblk={nblk}) -- layout disagreement")
     vals = []
     for b in range(nblk):
@@ -3131,7 +3131,7 @@ def _published_canonical_masks():
         if not in_s1 or not line.startswith("|"):
             continue
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if len(cells) != 8 or not re.fullmatch(r"\d+", cells[0]):
+        if _f31_width(cells, (8,), "section 1") or not re.fullmatch(r"\d+", cells[0]):   # G5b F11-019#1
             continue
         k = int(cells[0]); _why = (f"row k={k} is outside 1..31" if not 1 <= k <= 31 else f"row k={k} has a malformed canonical_masks {cells[1]!r}" if not re.fullmatch(r"\d{1,3}(,\d{3})*", cells[1]) else f"layer k={k} appears more than once" if k in got else None)  # 2026-10-03 (Codex PKG-V3 finding 5): a repeated layer used to overwrite the first, and a row outside 1..31 or with a malformed cell was skipped; each is now a failure
         if _why: raise RuntimeError(f"{_AGG_DOC} section 1: {_why}")
@@ -4386,8 +4386,8 @@ def twins_bisect(path):
             print(f"[*FAIL*] cannot read {path}: {e}")
             print("TWINS_BISECT=FAIL")
             return 1
-        if seen != n:
-            print(f"[*FAIL*] header declares {n:,} records, stream held {seen:,}")
+        if seen != n or len(rec) != 0:   # G5b F04-013#7: a trailing partial record is a torn stream, not EOF
+            print(f"[*FAIL*] header declares {n:,} records, stream held {seen:,}" + (f" and a partial record of {len(rec)} byte(s)" if rec else ""))
             print("TWINS_BISECT=FAIL")
             return 1
     else:
@@ -4433,7 +4433,7 @@ def twins_bisect(path):
         npres += p
         tag = "KW" if idx == 0 else f"{idx:02d}"
         perm = "".join(str(x) for x in g)
-        print(f"TWIN_{tag}={'PRESENT' if p else 'ABSENT'}  sigma={perm}  "
+        print(f"TWIN_{tag}={'PRESENT' if p else 'ABSENT'}\n  sigma={perm}  "   # G5b F12-006#10: the token owns its line
               f"slots={' '.join(str(x) for x in slots)}")
     print(f"KW_PRESENT={'YES' if present.get(kw_key) else 'NO'}")
     print(f"TWINS_PRESENT={npres - (1 if present.get(kw_key) else 0)}")
@@ -4759,7 +4759,7 @@ def orbit_coverage(table, se_scale=1.0):
     n10 = len([r for r in recs if r[0] >= 0.10])
     n20 = len([r for r in recs if r[0] >= 0.20])
     gate("cells at relerr >= 10% (published 47,103)", n10, 47103)
-    gate("cells at relerr >= 20% (published 1,353)", n20, 1353)
+    gate("cells at relerr >= 20% (published 1,353)", n20, 1353); gate("cells at relerr 30-50% and >= 50% (published 19, none)", (sum(1 for r in recs if 0.30 <= r[0] < 0.50), sum(1 for r in recs if r[0] >= 0.50)), (19, 0))   # G5b CAL-020#115
     for tag, key, want in (("RELERR_GE_10", "WALD95_COV", "94.4"),
                            ("RELERR_GE_10", "FIX20_COV", "85.8"),
                            ("RELERR_GE_10", "LOGN95_COV", "94.9"),
@@ -4774,12 +4774,12 @@ def orbit_coverage(table, se_scale=1.0):
                            ("BIN_20_30", "WALD95_COV", "92.7"),
                            ("BIN_10_15", "FIX20_COV", "89.0"),
                            ("BIN_15_20", "FIX20_COV", "77.8"),
-                           ("BIN_20_30", "FIX20_COV", "69.9")):
+                           ("BIN_20_30", "FIX20_COV", "69.9"), ("RELERR_GE_10", "FRAC_EST_BELOW_PROXY", "51.7")):   # G5b: METHODS' 51.7%
         gate(f"{tag} {key}", S[tag].get(key), want)
     gate("orbits with >= 5 productive cells and non-zero replicate SD (published 3,727)", len(rat), 3727)
     gate("orbits with >= 5 productive cells and ZERO replicate SD (published 5)", zero_sd, 5)
     gate("median printed SE / replicate SD (published 1.031)",
-         f"{st.median(rat):.3f}" if rat else None, "1.031")
+         f"{st.median(rat):.3f}" if rat else None, "1.031"); gate("RELERR_GE_10 median z at METHODS' precision (published -0.04)", f"{float(S['RELERR_GE_10'].get('MEDIAN_Z', 'nan')):.2f}", "-0.04")   # G5b CAL-020#115
     print(f"Q696_COVERAGE={'PASS' if rc == 0 else 'FAIL'}")
     return rc
 
@@ -4830,7 +4830,7 @@ def sigma_isomorphism_all48(limit=None):
         verdict = "PASS"
     else:
         verdict = "PARTIAL"
-    print(f"SIGMA_ISOMORPHISM_ALL48={verdict}  ({time.time() - t_all:.0f}s)")
+    print(f"SIGMA_ISOMORPHISM_ALL48={verdict}\n  elapsed {time.time() - t_all:.0f}s")   # G5b F12-006#10: whole-line token
     return rc
 
 def recount_subtree():
@@ -5397,7 +5397,7 @@ def check_certificate(dirpath):
 
     if lay:
         chk("every layer: canonical_masks <= C(31,k)",
-            all(cm <= cb for _k, cm, cb, _s, _e, _v, _m in lay), "combinatorial bound")
+            all(cm <= cb == __import__("math").comb(31, _k) for _k, cm, cb, _s, _e, _v, _m in lay), "combinatorial bound, C(31,k) computed here (G5b F04-013#4)")
         chk("every layer: states <= canonical_masks * 2k",
             all(st <= cm * 2 * k for k, cm, _cb, st, _e, _v, _m in lay),
             "each placed pair offers <=2 exits; C2 removes some (equality FAILS at small k)")
@@ -5425,7 +5425,7 @@ def check_certificate(dirpath):
         mine = tuple(between.get(d, 0) for d in (1, 2, 3, 4, 6))
         chk("manifest b0 == KW between-pair boundary multiset (derived independently)",
             got == mine, f"manifest={got} derived={mine}")
-        chk("manifest reports last_complete_k=31", 'last_complete_k=31' in mtxt)
+        chk("manifest reports last_complete_k=31", any(l.strip() == 'last_complete_k=31' for l in mtxt.splitlines()))   # G5b F04-013#5: the line, not a substring
     else:
         # V2-F58 #3/#4 class (2026-08-30): an absent manifest used to be an "n/a"
         # row that left ok[0] untouched — absent expected evidence must go RED.
@@ -5523,12 +5523,12 @@ def check_layer_sidecars(dirpath):
                 k_, v_ = line.strip().split("=", 1)
                 man[k_] = v_
 
-    layers = {}
+    layers, dup_k = {}, []   # G5b F04-013#6: two sidecars for one layer FAIL; the later no longer hides the earlier
     for f in files:
         d = json.load(open(f))
-        layers[d["k"]] = d
+        dup_k += [d["k"]] if d["k"] in layers else []; layers.setdefault(d["k"], d)
 
-    fails, n, skipped = [], [0], []
+    fails, n, skipped = ([f"duplicate sidecar(s) for layer k in {sorted(set(dup_k))}"] if dup_k else []), [0], []
     chain_links = [0]
     def ck(cond, label):
         n[0] += 1
@@ -6199,7 +6199,7 @@ def t3_stats(path):
         print(f"    bucket {i:2d}: {c:9,}   ({100.0 * (c - exp) / exp:+.2f}%)")
     print(f"  chi^2 = {chi2:.4f}   bar = {T3_CHI2_BAR:.2f}")
     uni_pass = chi2 < T3_CHI2_BAR
-    print("  VERDICT: " + ("PASS — rank stream is uniform on [0, N)" if uni_pass else
+    print("  VERDICT: " + (("PASS — rank stream is uniform on [0, N)" if pop_ok else "chi^2 below the bar, but NO PASS: not the pre-registered population (G5b F12-006#9)") if uni_pass else
                            "*** FINDING — chi^2 >= bar. QUARANTINE the sample. "
                            "Investigate the RNG/unrank path. DO NOT REDRAW. ***"))
 
@@ -6230,7 +6230,7 @@ def t3_stats(path):
     print("  uniform null; it says nothing about whether any particular downstream")
     print("  observable is well-behaved.")
     print("\n=== SUMMARY ===")
-    print("  (a) uniformity  : %s" % ("PASS" if uni_pass else "FINDING"))
+    print("  (a) uniformity  : %s" % (("PASS" if pop_ok else "below bar (no PASS: population)") if uni_pass else "FINDING"))
     print("  (b) membership  : not run here (--t3-membership)")
     print("  (c) C3 fraction : %s" % ("within bar" if c3_ok else "FINDING"))
     print("  population      : %s" % ("pre-registered" if pop_ok else "NOT pre-registered — FAIL"))
@@ -7153,8 +7153,8 @@ def main():
                              'measuring harness used a character class that excluded digits, so '
                              'BAD_HD5 never matched. Reads no files.')
     parser.add_argument('--check-parity-alternation', action='store_true',
-                        help='re-derive every published figure in PARITY_ALTERNATION.md '
-                             'from KW itself (GATE 25 LEG 2, 2026-08-16)')
+                        help='re-derive the parity-alternation figures of PARITY_ALTERNATION.md from KW itself '
+                             '(GATE 25 LEG 2, 2026-08-16); not the 48-element group or Moore 16/18, which that page names other commands for')
     parser.add_argument('--check-zhu-yuansheng', action='store_true',
                         help="verify 朱元昇's (d.c.1273) twelve quadruples against this "
                              "file's own bit operations; see CITATIONS.md#zhuyuansheng")
@@ -7418,7 +7418,7 @@ def main():
     if _is_gz:
         _fd, _tmp = tempfile.mkstemp(prefix='verify_solbin_', suffix='.bin')
         os.close(_fd)
-        atexit.register(lambda p=_tmp: os.path.exists(p) and os.remove(p))
+        atexit.register(lambda p=_tmp: os.path.exists(p) and os.remove(p)); _g5b_sigterm_runs_atexit()   # G5b F04-013#10
         print(f"Detected gzip-compressed solutions.bin; decompressing to {_tmp} for verification...")
         with gzip.open(path, 'rb') as _fin, open(_tmp, 'wb') as _fout:
             shutil.copyfileobj(_fin, _fout, length=1 << 24)
@@ -7431,17 +7431,17 @@ def main():
     try:
         declared_records = parse_header(head)
     except ValueError as e:
-        print(f"ERROR: invalid solutions.bin header: {e}")
+        print(f"ERROR: invalid solutions.bin header: {e}\nVERIFY=ERROR")   # G5b F12-006#10
         sys.exit(2)
 
     file_size = os.path.getsize(path)
     record_bytes = file_size - SOL_HEADER_SIZE
     if record_bytes % 32 != 0:
-        print(f"ERROR: record stream size {record_bytes} not a multiple of 32")
+        print(f"ERROR: record stream size {record_bytes} not a multiple of 32\nVERIFY=ERROR")
         sys.exit(2)
     n = record_bytes // 32
     if n != declared_records:
-        print(f"ERROR: header declares {declared_records} records but file has {n}")
+        print(f"ERROR: header declares {declared_records} records but file has {n}\nVERIFY=ERROR")
         sys.exit(2)
     # Q-285 SIBLING (Codex V2-F63 #1, landed 2026-09-03). The verdict at the bottom of this
     # function is the SUM OF OBSERVED FAILURES, and a file with no records produces no
@@ -8067,6 +8067,54 @@ def _mj_dispatch(args, parser):
         sys.exit(check_midjoin(*args.check_midjoin, walk=args.midjoin_walk, tdir=args.midjoin_tdir))
     if args.midjoin_walk is not None or args.midjoin_tdir is not None:
         parser.error("--midjoin-walk and --midjoin-tdir only make sense with --check-midjoin")
+
+
+# ===========================================================================
+# Push group G5b (2026-10-22; Codex gpt-6-astra final review). Appended at the END of the file so
+# that no line cited elsewhere moves.
+# ===========================================================================
+def _g5b_engine_nuc():
+    """--nuclear-selftest: the engine's f5_nuc, read from solve.c beside this file and evaluated here.
+    Until G5b the "engine" side of the comparison was a Python restatement inside verify.py, so a
+    change confined to solve.c could not turn the gate red (Codex F04-013#2, F12-006#3). This reads
+    the engine's expression -- the definition side stays the classical line construction -- and
+    refuses anything but a shift-and-mask expression of h. A missing or unparseable engine is a FAIL
+    (every hexagram reads -1), never a pass."""
+    import re
+    src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "solve.c")
+    try:
+        txt = open(src, encoding="utf-8", errors="replace").read()
+    except OSError as e:
+        print("nuclear: cannot read the engine %s (%s) -- the engine is NOT compared" % (src, e))
+        return lambda h: -1
+    m = re.search(r"static\s+inline\s+int\s+f5_nuc\s*\(\s*int\s+h\s*\)\s*\{\s*return\s+([^;]+);\s*\}", txt)
+    if not m or not re.fullmatch(r"[h0-9()&|<> \t]+", m.group(1)):
+        print("nuclear: no shift-and-mask f5_nuc(int h) found in %s -- the engine is NOT compared" % src)
+        return lambda h: -1
+    print("nuclear: engine f5_nuc read from %s: %s" % (os.path.basename(src), " ".join(m.group(1).split())))
+    return eval("lambda h: " + m.group(1), {"__builtins__": {}})
+
+
+def _g5b_sigterm_runs_atexit():
+    """The gzip path decompresses to a temporary file removed by atexit, which SIGTERM never reached
+    (Codex F04-013#10). In the process that registered it, SIGTERM now exits through SystemExit, so
+    the atexit cleanup runs; a forked worker keeps the immediate exit it had."""
+    import signal
+    pid = os.getpid()
+    signal.signal(signal.SIGTERM, lambda s, f: sys.exit(143) if os.getpid() == pid else os._exit(143))
+
+
+def _f31_width(cells, widths, where):
+    """FULL31 table readers: True to skip a row that is not a data row of the expected width; a DATA
+    row (any cell a plain count) of the wrong width is refused. Until G5b a contradictory row with one
+    extra cell was skipped before its values or its layer number were checked (Codex F11-019#1)."""
+    import re
+    if len(cells) in widths:
+        return False
+    if any(re.fullmatch(r"[0-9][0-9,]*", c) for c in cells):
+        raise RuntimeError(f"{_AGG_DOC} {where}: a data row has {len(cells)} cells, not "
+                           f"{' or '.join(map(str, widths))}: | {' | '.join(cells)[:80]} |")
+    return True
 
 if __name__ == "__main__":
     main()

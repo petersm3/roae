@@ -18,12 +18,12 @@ d = sys.argv[1]
 files = sorted(glob.glob(d + "/rep*_seed*.out"))
 rx = re.compile(r"\[dav (\d+) (\S+)\s*\] mean=(\S+) min=\S+ max=\S+ kw=\S+ below=(\S+) at=(\S+) above=(\S+) se=(\S+)/(\S+)/(\S+)")
 data = {}  # name -> list of (below, at, above, se_b, se_a, se_ab)
-seeds = []
+seeds = []; nulls = set()  # G5b (Codex F02-010#5): the recorded null flags must agree across replicates
 leaves = []
 for f in files:
     t = open(f).read()
-    m = re.search(r"KNUTH-PROVENANCE seed_base=(0x[0-9a-f]+)", t)
-    seeds.append(m.group(1))
+    m = re.search(r"KNUTH-PROVENANCE seed_base=(0x[0-9a-f]+) (moore_strict=\S+ gender_strict=\S+ score=\S+ r11_hist=\S+)", t)
+    seeds.append(m.group(1)); nulls.add(m.group(2))
     p = re.search(r"KNUTH-ESTIMATE probes=(\d+) threads=(\d+)", t)
     assert p.group(1) == "10000000" and p.group(2) == "2", (f, p.group(0))
     lc = re.search(r"leaves_canonical_C1C5 : est=(\S+)\s+95%CI=\[(\S+), (\S+)\]\s+relerr=(\S+)%", t)
@@ -32,6 +32,7 @@ for f in files:
         data.setdefault(mm.group(2), []).append(tuple(float(x) for x in mm.groups()[3:]))
 n = len(files)
 assert n == 12 and len(set(seeds)) == 12, (n, seeds)
+if len(nulls) != 1 or len(data) != 9: raise SystemExit("REFUSED: %d distinct recorded null setting(s) %s and %d Davis candidate(s) %s; need 1 and the 9 the README lists" % (len(nulls), sorted(nulls), len(data), sorted(data)))
 print("REPLICATES=%d SEEDS=%s" % (n, ",".join(seeds)))
 assert n == 12
 lo = math.sqrt((n - 1) / _q[0]); hi = math.sqrt((n - 1) / _q[1])
@@ -49,7 +50,7 @@ for name, rows in data.items():
         vals = [r[j] for r in rows]; ses = [r[3 + j] for r in rows]
         sdv = statistics.stdev(vals); mse = statistics.fmean(ses); mv = statistics.fmean(vals)
         if sdv == 0 and mse == 0:
-            print("%-13s %-6s %12.6e %12s %10s %8s %s" % (name, lab, mv, "0", "0", "n/a", "DEGENERATE (zero sampled mass in every replicate)"))
+            print("%-13s %-6s %12.6e %12s %10s %8s %s" % (name, lab, mv, "0", "0", "n/a", "DEGENERATE (constant across replicates: mass %g in every one)" % mv))  # G5b F02-010#4
             continue
         r = mse / sdv if sdv > 0 else float("inf")
         v = "in-band" if lo <= r <= hi else "OUT-OF-BAND"

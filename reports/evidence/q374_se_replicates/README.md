@@ -31,8 +31,8 @@ binary sha256 `23798b06f5f525dd2fb383abc5bb8aa627e05237d629f1ed09bb3af50c6acd71`
 For each mass m ∈ {below, at, above} of each of the 9 Davis candidates:
 **ratio = (mean over the 12 replicates of the printed `se=`) / (sample SD, n−1, of the 12 estimates).**
 If the printed SE is correct, SD/SE ~ √(χ²₁₁/11), so the two-sided 95% band on SE/SD is
-**[√(11/21.92), √(11/3.816)] = [0.71, 1.70]**. Rows with zero sampled mass in every replicate are
-degenerate (SD = SE = 0) and are reported as such, not as ratios.
+**[√(11/21.92), √(11/3.816)] = [0.71, 1.70]**. Rows whose mass is the same in every replicate are
+degenerate (SD = SE = 0) and are reported as such, not as ratios; the label names that constant mass (1 for two `below` rows), where until 2026-10-22 it read "zero sampled mass" for all of them (Codex F02-010#4; CORRECTIONS.md CX-35V-H; the transcript below is the current output).
 
 ## Result (`analyze.py` output, verbatim)
 ```
@@ -49,21 +49,21 @@ compmirror    above  1.303667e-05    4.260e-05  1.218e-05    0.286 OUT-OF-BAND
 trigarray     below  9.992303e-01    3.614e-04  3.315e-04    0.917 in-band
 trigarray     at     7.670550e-04    3.626e-04  3.314e-04    0.914 in-band
 trigarray     above  2.680833e-06    9.287e-06  2.681e-06    0.289 OUT-OF-BAND
-parallel3040  below  1.000000e+00            0          0      n/a DEGENERATE (zero sampled mass in every replicate)
-parallel3040  at     0.000000e+00            0          0      n/a DEGENERATE (zero sampled mass in every replicate)
-parallel3040  above  0.000000e+00            0          0      n/a DEGENERATE (zero sampled mass in every replicate)
+parallel3040  below  1.000000e+00            0          0      n/a DEGENERATE (constant across replicates: mass 1 in every one)
+parallel3040  at     0.000000e+00            0          0      n/a DEGENERATE (constant across replicates: mass 0 in every one)
+parallel3040  above  0.000000e+00            0          0      n/a DEGENERATE (constant across replicates: mass 0 in every one)
 palnbr        below  9.209133e-01    3.503e-03  3.211e-03    0.917 in-band
 palnbr        at     5.877592e-02    2.729e-03  2.792e-03    1.023 in-band
 palnbr        above  2.031079e-02    1.978e-03  1.668e-03    0.844 in-band
 rotinv        below  9.999481e-01    5.831e-05  4.038e-05    0.693 OUT-OF-BAND
 rotinv        at     5.186583e-05    5.831e-05  4.038e-05    0.693 OUT-OF-BAND
-rotinv        above  0.000000e+00            0          0      n/a DEGENERATE (zero sampled mass in every replicate)
+rotinv        above  0.000000e+00            0          0      n/a DEGENERATE (constant across replicates: mass 0 in every one)
 pureplace     below  9.946540e-01    5.678e-04  8.854e-04    1.559 in-band
 pureplace     at     5.345955e-03    5.678e-04  8.854e-04    1.559 in-band
-pureplace     above  0.000000e+00            0          0      n/a DEGENERATE (zero sampled mass in every replicate)
-eccplace      below  1.000000e+00            0          0      n/a DEGENERATE (zero sampled mass in every replicate)
-eccplace      at     0.000000e+00            0          0      n/a DEGENERATE (zero sampled mass in every replicate)
-eccplace      above  0.000000e+00            0          0      n/a DEGENERATE (zero sampled mass in every replicate)
+pureplace     above  0.000000e+00            0          0      n/a DEGENERATE (constant across replicates: mass 0 in every one)
+eccplace      below  1.000000e+00            0          0      n/a DEGENERATE (constant across replicates: mass 1 in every one)
+eccplace      at     0.000000e+00            0          0      n/a DEGENERATE (constant across replicates: mass 0 in every one)
+eccplace      above  0.000000e+00            0          0      n/a DEGENERATE (constant across replicates: mass 0 in every one)
 asymhalf      below  4.762815e-02    2.170e-03  2.546e-03    1.173 in-band
 asymhalf      at     1.463820e-01    3.029e-03  4.374e-03    1.444 in-band
 asymhalf      above  8.059899e-01    3.387e-03  4.867e-03    1.437 in-band

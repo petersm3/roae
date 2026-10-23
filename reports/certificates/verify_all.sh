@@ -208,6 +208,29 @@ require_floor() {          # $1 = token name  $2 = floor  $3 = text before N  $4
   return 0
 }
 
+# require_floor for a unittest suite (2026-10-22, push group G5b; Codex gpt-6-astra F05-020#8/#9).
+# `Ran N tests` counts SKIPPED tests, so `OK (skipped=128)` met the old floor of 128 with nothing
+# executed; and 128 was the 2026-09-02 population while tests.py now declares over 1,900 test
+# methods, so a suite that lost nine tenths of itself still passed. This leg subtracts the skipped
+# count unittest reports and holds the EXECUTED count to the floor. Emits TESTS_PY_RAN,
+# TESTS_PY_SKIPPED and TESTS_PY_EXECUTED as whole-line tokens.
+require_tests_floor() {    # $1 = floor  $2.. = command and arguments
+  local floor=$1; shift
+  local out rc line n="" k=0
+  out=$("$@" 2>&1); rc=$?
+  printf '%s\n' "$out"
+  [ "$rc" -eq 0 ] || { echo "NONZERO EXIT $rc from: $*"; return "$rc"; }
+  while IFS= read -r line; do                     # here-string, not a pipe: see the note above
+    case $line in "Ran "*" test"*) n=${line#Ran }; n=${n%% *} ;; esac
+    case $line in "OK ("*"skipped="*|"FAILED ("*"skipped="*) k=${line#*skipped=}; k=${k%%[!0-9]*} ;; esac
+  done <<< "$out"
+  case $n in ''|*[!0-9]*) echo "TESTS_PY_RAN=ABSENT"; echo "COUNT LINE NOT FOUND: expected 'Ran N tests'"; return 1 ;; esac
+  case $k in ''|*[!0-9]*) echo "TESTS_PY_SKIPPED=ABSENT"; echo "SKIPPED COUNT UNPARSEABLE"; return 1 ;; esac
+  echo "TESTS_PY_RAN=$n"; echo "TESTS_PY_SKIPPED=$k"; echo "TESTS_PY_EXECUTED=$((n - k))"
+  [ "$((n - k))" -ge "$floor" ] || { echo "EXECUTED COUNT BELOW FLOOR: $((n - k)) < $floor (ran $n, skipped $k)"; return 1; }
+  return 0
+}
+
 # SIBLING SWEPT 2026-09-02, one line below the class-B site above: `diff <(A) <(B)` is fail-open.
 # Process substitution does not propagate either producer's exit status — `pipefail` does not
 # reach inside `<()` — so if BOTH instruments fail and print nothing to stdout, diff compares two
@@ -669,15 +692,16 @@ for ln in open('reports/certificates/c3_positional_witnesses.txt'):
                          for k in range(32))
         if not g95_layout:
             raise SystemExit(f'FAIL witness {n}: the G=95 tie row repeats KW pair-slot layout')
+    # EVERY occurrence, and an occurrence that is not an unsigned decimal FAILS (2026-10-22, G5b;
+    # Codex F01-001#2): the old unsigned regex read yangcount=-1 as no annotation at all.
     for _name, _j in (('yangcount', 1), ('entryyang', 0)):      # solve.py _yang_count: exit / entry
-        _m = re.search(_name + r'=(\d+)', hdr)
-        if _m is None:
-            continue
+        _vals = re.findall(r'\b' + _name + r'=([^\s,;)]*)', hdr)
         _got = sum(bin(seq[2*k + _j]).count('1') for k in range(1, 32))   # the 31 free slots
-        if _got != int(_m.group(1)):
-            raise SystemExit(f'FAIL witness {n}: annotated {_name}={_m.group(1)} but the '
-                             f'sequence has {_name}={_got}')
-        annotations += 1
+        for _v in _vals:
+            if not re.fullmatch(r'[0-9]+', _v) or _got != int(_v):
+                raise SystemExit(f'FAIL witness {n}: annotated {_name}={_v} but the '
+                                 f'sequence has {_name}={_got}')
+            annotations += 1
     seen_g.append(g)
     n += 1
 if n != 42:
@@ -905,10 +929,12 @@ echo "== 5. Python regression harness (python3 tests.py) =="
 # FAIL for a missing tool — the exact confusion the SKIP machinery at the top of this file exists
 # to prevent. Gated the same way the f4p check above is gated.
 if [ "$HAVE_PY" = "0" ] || [ "$HAVE_GCC" = "0" ]; then
-  skip "tests.py (regression harness, >= 128 tests)" "needs gcc + python3 (tests.py builds verify.c)"
+  skip "tests.py (regression harness, >= 1500 executed tests)" "needs gcc + python3 (tests.py builds verify.c)"
 else
-  check "tests.py (regression harness, >= 128 tests)" \
-    "require_floor TESTS_PY_RAN 128 'Ran ' ' test' python3 tests.py"
+  # FLOOR 1500 EXECUTED (2026-10-22, G5b): tests.py declares over 1,900 test methods; the floor
+  # leaves room for the skips a host without the optional tools (Lean, a SAT solver) takes.
+  check "tests.py (regression harness, >= 1500 executed tests)" \
+    "require_tests_floor 1500 python3 tests.py"
 fi
 
 echo "== 6. Analysis-battery ground-truth smoke (python3 roae.py --verify) =="

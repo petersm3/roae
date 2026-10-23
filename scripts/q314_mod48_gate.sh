@@ -176,7 +176,10 @@ else
 fi
 # THE ISOLATION, asserted rather than claimed: if any PRE-EXISTING gate also fires here, these
 # legs are a second opinion, not new coverage. Before they landed this run was 0 failures.
-OTHER=$(grep 'FAIL' "$WORK/nw.out" | grep -v 'V2-B0' | grep -v '^ATLAS_CONSUMER=')
+# The selftest's own GATE lines are what this isolates. Since 2026-10-22 (push group G5b, CX-35V-C) the selftest also
+# prints each query verdict its run wrote as FAIL ("[atlas-consumer] query verdict K=V written by this run ..."); those
+# are the consumer's verdicts, not selftest gates, so they are outside this check.
+OTHER=$(grep 'FAIL' "$WORK/nw.out" | grep -v 'V2-B0' | grep -v '^ATLAS_CONSUMER=' | grep -v '^\[atlas-consumer\] query verdict ')
 if [ -n "$OTHER" ]; then
   echo "  [FAIL] leg 6: a pre-existing gate ALSO fired on v2-class-swap without walks, so the"
   echo "         V2-B0 legs do not isolate the fault:"; printf '%s\n' "$OTHER" | sed 's/^/         /'; bad=1

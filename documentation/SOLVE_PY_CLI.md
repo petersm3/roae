@@ -134,7 +134,7 @@ constraint structure.
 | `--differential-apply-c3` | Modifier for `--differential`: also apply C3 to the differential population. **Circularity note (self-documented in the flag):** King Wen is at the C3 ceiling by construction in that population, so complement-distance extremality there is a *tautology, not a finding*. |
 | `--rule7` | Test the "Rule 7" candidates: filter by extremal complement distance and line autocorrelation (bounded by `--max-nodes` / `--time-limit`). |
 | `--fingerprint` | Fingerprint analysis: free positions, edit distances, minimum-constraint set (bounded by `--max-nodes` / `--time-limit`). |
-| `--reconstruct` | Reconstruct King Wen step by step, verifying uniqueness at each step. |
+| `--reconstruct` | Replay King Wen's own choices step by step and count, at each step, the alternatives admissible there (no lookahead; C3 is checked at the last step only), so it does not verify uniqueness ("verifying uniqueness at each step" until 2026-10-22, CX-35V-J). Since that date the C7 and C6 slots count only pairs that satisfy the pin (2 and 1; they read 15 and 10, CX-35V-E). |
 
 ### Null model
 
@@ -261,11 +261,11 @@ itself was written nowhere, since no `.opb` is produced in `adder` mode. It
 therefore cost a 16 MB file and bought nothing over `none`.
 
 **Fixed 2026-09-02: `adder` now emits no scaffolding and is byte-identical to
-`none`** — 4,096 vars / 272,128 clauses. ⚠ **Its clause-sha therefore MOVED, from
+`none`** *(in its clauses: the DIMACS files still differ by the one `c` comment line `adder` writes; scoped 2026-10-22, CX-35V-J)* — 4,096 vars / 272,128 clauses. ⚠ **Its clause-sha therefore MOVED, from
 `968090af86ae3ffd16c1918b1f451800d13d17c137b14c18356d738184b76d18` to
 `de6749511bf06a95b810adac19f740ed595b2ad148f600092237fda231699a15` (the
 `sha256_clauses_only` field of the `.meta.json` sidecar — the same value `none`
-carries, as it must now that the two are byte-identical), and that move is INTENDED.** A reader comparing
+carries, as it must now that the two clause sets are identical), and that move is INTENDED.** A reader comparing
 against the pre-fix figures should expect it. `pb` is unchanged, `.opb` included.
 
 The removal needed no model-count argument: the linking is a full Tseitin
@@ -604,7 +604,7 @@ had been claiming.]
 --atlas-q3-trace FILE        The Q3 source. EITHER `solve --kc-o3-rank F G WALK
                              --kc-trace` text OR a `solve --kc-profile F G WALK
                              --kc-tsv FILE` table (auto-detected). Supplies Q3/V4
-                             and Q6's per-layer percentile column.
+                             only (not Q6: its percentile columns read the atlas; corrected 2026-10-22, CX-35V-J).
 --atlas-verdicts FILE        KEY=value verdict file (default <out>/VERDICTS.txt).
 --atlas-selftest ATLAS_JSON  Reduced-n (n <= 13) brute-force gate over the whole
                              consumer; prints ATLAS_CONSUMER=PASS|FAIL|SKIP:<reason>.
@@ -1156,7 +1156,7 @@ had been claiming.]
 | `<out>/scan/v1_field.tsv` | **V1**, Q6 | `k slot pair mass p kw` — the positional-marginal field, RAW frame (requires an atlas built with `--kc-raw`; a quotient-only atlas is refused, not plotted). |
 | `<out>/scan/v2_river.tsv` | **V2** | `k d mass p kw_d` — per-layer boundary-distance class mass. |
 | `<out>/scan/v2_branches.tsv` | **V2** panel (b) | `branch pair entry exit d solutions share prefixes_t_units t_source kw`. |
-| `<out>/scan/v5_grammar.tsv` | **V5** | `k d w mass p_cond kw_d kw_w` — the (distance × within-pair) cross-tab, `31 × 5 × 3 = 465` rows at full-31. ⚠ **Updated 2026-09-23:** this read "`w = -1` where the … cross-tab is not emitted by the scan". The cross-tab needs **no** scan-side emission: it is a consumer-side derivation over `layers[].kernel`, which already ships (`d = popcount(a ^ b)` and `w = popcount(b ^ partner(b))` are both functions of the `m<a>_<b>` key alone), and the category `w` was **pinned by operator ruling** to the within-pair Hamming distance per `viz/viz_kc_grammar.md`. `w = -1` now means only that the atlas carries **no kernel** to refine by (a quotient-only scan above n = 13); the full 5 × 3 product is emitted including zero cells, because the figure's row axis is the class set and a hole would fail the renderer's grid check. |
+| `<out>/scan/v5_grammar.tsv` | **V5** | `k d w mass p_cond kw_d kw_w` — the (distance × within-pair) cross-tab, `31 × 5 × 3 = 465` rows at full-31. ⚠ **Updated 2026-09-23:** this read "`w = -1` where the … cross-tab is not emitted by the scan". The cross-tab needs **no** scan-side emission: it is a consumer-side derivation over `layers[].kernel`, which already ships (`d = popcount(a ^ b)` and `w = popcount(b ^ partner(b))` are both functions of the `m<a>_<b>` key alone), and the category `w` was **pinned by operator ruling** to the within-pair Hamming distance per `viz/viz_kc_grammar.md`. `w = -1` now means only that the atlas carries **no kernel** to refine by (a quotient-only scan above n = 13, which the loader itself refuses on its `not-emitted` gates, so the CLI does not reach this form there; CX-35V-J); the full 5 × 3 product is emitted including zero cells, because the figure's row axis is the class set and a hole would fail the renderer's grid check. |
 | `<out>/scan/q6_layer_mass.tsv` | **Q6** | `k slot d mass p is_argmax is_argmin_nonzero`. |
 | `<out>/scan/q6_layer_extremes.tsv` | **Q6** | per-layer argmax / argmin-nonzero, their ratio, and King Wen's own class `kw_d`, its class mass `kw_class_mass`, `kw_p = m_k(d_KW)/N` and `kw_class_pct = Σ_{d: m_k(d) ≤ m_k(d_KW)} m_k(d)/N` (−1 below n=31, where KW is absent). ⚠ **Corrected 2026-09-05 (Q-394 item 3 / Codex A09 f3):** until then the last two columns were `kw_mass_below` / `kw_pct`, read from the `--kc-trace` `mass_below` column — an O3 rank-block contribution, not a percentile numerator (n=9 k=1: 2720 beside a `g_parent` of 2368), and identically 0 for KW at full-31 under KW-derived labels. The KW columns no longer read `--atlas-q3-trace`. The shell leg `scripts/tr12_repro.sh` row `c_q6` computes the same two statistics for the battery's anchor walk (`anchor_p`, `anchor_class_pct`), so the two implementations are comparable at n=31. Since 2026-09-26 (Q-615) row `c_xcheck` does compare them: where this table has `kw_d >= 0`, the shell anchor's class and class mass must equal `kw_d` and `kw_class_mass` as strings. |
 | `<out>/q3_profile_kw.tsv` (King Wen's walk at n = 31) or `<out>/q3_profile.tsv` (everything else) | **Q3**, **V4**, EW-1 | `step pair entry exit orient alts mass_below f g g_parent p_num p_den p bits`, plus `dclass g_alt_min g_alt_max choice_rank` when the source was `--kc-profile --kc-tsv` (those four are V4's optional alternatives band). `mass_below` is an O3-rank quantity: it reads `-1`, not a guess, when the source was `--kc-profile`. The table is named `q3_profile_kw.tsv` only when the trace is King Wen's walk at n = 31, and `q3_profile.tsv` otherwise: every n ≠ 31, **and** an n = 31 trace that is not King Wen's (`TR12_Q3_KW=NOT-KW`). ⚠ *Corrected 2026-09-24 (Q-776): the file column read "`<out>/q3_profile_kw.tsv` (`q3_profile.tsv` at n ≠ 31)", which left out the n = 31 NOT-KW case.* Each write first **removes the other name**, the other name's `.provenance.txt` sidecar and this name's own old sidecar (Q-766), so a reused `--atlas-out` never holds both. The sidecar `<table>.provenance.txt` (`q3_table=`, `q3_is_king_wen=`, `q3_reason=`, `atlas_n=`, `atlas_N_total=`, `atlas_space=`, `atlas_pl_hash=`, and since 2026-09-28 `q3_table_sha256=`, the sha256 of the table's bytes) is written whenever an atlas was loaded. `viz/report_figures.py` `tr12_figures` chooses V4's table **by the sidecar, not by which name exists** (`_tr12_q3_table`): it takes `q3_profile_kw.tsv` only when that table's own sidecar reads `q3_is_king_wen=PASS` and `q3_table=q3_profile_kw.tsv` and its `q3_table_sha256=` equals the table's sha256 (lane VR4, 2026-09-28: a PASS without that digest, or with another one, is refused; a plain table's sidecar digest, when present, must match too), and it refuses to draw V4 when both names are present, when the KW table's sidecar contradicts it, or when the KW table has no sidecar while `q3_profile.tsv.provenance.txt` sits beside it (a leftover of an earlier run). ⚠ *Corrected 2026-09-25 (Q-776): this listed the first two refusals only.* One exception: a directory with no sidecar for either name, such as the committed `reports/tr12/` tree, has its KW table taken as written. |
@@ -1236,7 +1236,7 @@ rationals from the written TSV. The engine does not grade its own homework.
 | `TR12_Q6` | `PASS:REDUCED-DISTANCE-CLASS` | The atlas carries per-layer per-**distance-class** mass, not the spec's per-`(state, choice)` extremes. |
 | `TR12_Q6_EXTREMES` | `PASS` · `FAIL:<n>-bad-row(s)` | Added 2026-09-11 for reviewer R5 item 1b. `q6_layer_extremes.tsv` — the argmax/argmin/ratio columns and King Wen's `kw_class_mass`/`kw_p`/`kw_class_pct` — **had no check that runs at n=31**. The existing gate lives in the brute-force selftest, which refuses `n > 13`, and reads `B["byclass"]`, the **recount**, not the atlas — so the queued RCQ04 F1 lift ("lift the 22 no-walks gates into `atlas_queries`") **does not reach it**, before or after F1 closes. ⚠ *(2026-09-25: F1 has now landed, see "The n-independent gates run at every n" below, and this still holds: the lifted gates read the emitted tables, never a recount.)* This token is the atlas-sourced twin: it recomputes every published cell from `atlas.layers[k].by_class` in exact integer arithmetic and compares. It is n-independent, and an absent table **FAILS rather than skips** — a checker that cannot read its subject must not report agreement. ⚠ It does **not** see a whole-row class permutation; nothing atlas-sourced can. |
 | `TR12_RATIO_COLUMNS` | `PASS` · `FAIL:<n>-bad-cell(s)` · `FAIL:no-cell-judged` | Added 2026-09-26 (Q-615). This is the sibling of `TR12_Q6_EXTREMES` for the other ratio columns: V1 `p`, V2 `p`, V5 `p_cond`, Q6-mass `p` and the `share` column of `v2_branches.tsv` and `xa_branches.tsv`. Until then every checker of those columns lived in the brute-force selftest, which refuses `n > 13`, so at n=31 nothing checked them. The token recomputes each cell from the atlas's integers: `marginal_raw`, `by_class`, the `(d, w)` sum of `kernel` over `flow`, and `branch_atlas[].solutions` over `N_total`. The printed mass must equal that integer, and the ratio must be its correctly rounded 17-digit form. The check uses the `TR12_Q6_EXTREMES` oracle, which shares no code with `_atlas_f`. A dropped or extra row fails, and so does an absent table. The token is written only when one of `v1`, `v2`, `v5`, `q6` or `xa` is selected. ⚠ Like its twin, it cannot see a defect in the atlas itself. |
-| `TR12_V5` | `PASS` · `PASS:REDUCED-NO-CROSSTAB` | ⚠ **Updated 2026-09-23.** This row read `PASS:REDUCED-NO-CROSSTAB` unconditionally, with "the new-pair-category axis is PENDING, so every row is emitted with the honest placeholder `w = -1`". The axis has landed: the operator pinned the category as the within-pair distance `w = popcount(entry ^ exit) ∈ {2, 4, 6}` and the cross-tab derives from `layers[].kernel` with no scan-side change. The token now names the form actually written — bare `PASS` for the `(d, w)` cross-tab, `PASS:REDUCED-NO-CROSSTAB` when the atlas carries no kernel and the honest `w = -1` table is emitted instead. A verdict hardcoded to REDUCED would under-report a landed axis, the mirror of the bare `PASS` it replaced overstating a pending one. |
+| `TR12_V5` | `PASS` · `PASS:REDUCED-NO-CROSSTAB` | ⚠ **Updated 2026-09-23.** This row read `PASS:REDUCED-NO-CROSSTAB` unconditionally, with "the new-pair-category axis is PENDING, so every row is emitted with the honest placeholder `w = -1`". The axis has landed: the operator pinned the category as the within-pair distance `w = popcount(entry ^ exit) ∈ {2, 4, 6}` and the cross-tab derives from `layers[].kernel` with no scan-side change. The token now names the form actually written — bare `PASS` for the `(d, w)` cross-tab, `PASS:REDUCED-NO-CROSSTAB` when the atlas carries no kernel and the honest `w = -1` table is emitted instead. A verdict hardcoded to REDUCED would under-report a landed axis, the mirror of the bare `PASS` it replaced overstating a pending one. ⚠ *(Scoped 2026-10-22, CX-35V-J; Codex F12-005#13: the reduced form is not reachable through `--atlas-queries` on a real quotient-only scan, whose raw and kernel gates read `not-emitted`, which `atlas_load` refuses before V5 runs. `PASS:REDUCED-NO-CROSSTAB` is emitted only for a kernel-less atlas whose gates ran.)* |
 | `TR12_V2` | `PASS:REDUCED-NO-BRANCH-CLASS-RIVER` | `viz/viz_kc_river.md` row (c), the branch-class river, is PENDING and is not a flag. |
 
 A bare `PASS` is a claim about the **query**; these are claims about a
@@ -1288,7 +1288,7 @@ shell can act on, and the two must agree. Pinned by
 
 ### Precision contract
 
-Every count in the atlas is a **decimal string** carrying up to a 192-bit
+Every count in the atlas but three (`branch_atlas[].walks`, `branch_atlas[].prefixes_t_units` and `t_root_t_units`, bare JSON integers; scoped 2026-10-22, CX-35V-J) is a **decimal string** carrying up to a 192-bit
 value. They are parsed with `int()` and only with `int()`; a JSON float
 literal anywhere in the atlas is refused with a diagnostic rather than
 rounded, and the `mass` columns are written from the exact integer. The
@@ -1307,7 +1307,7 @@ and by nothing in the battery. Since 2026-09-26 `TR12_RATIO_COLUMNS` runs the sa
   `--xa-nodes-per-sec` and a ceiling (`--xa-budget-hours`, or
   `--xa-usd-per-hour` with `--xa-budget-usd`) the
   exhaustibility section of `xa_verdict.md` reads PENDING and the token is
-  `TR12_XA_CD=PENDING:xa-throughput-anchors`. The exact t-unit column
+  `TR12_XA_CD=PENDING:xa-throughput-anchors` once a node-mapping certificate is accepted (without one it is `PENDING:W0-D-node-mapping`, which comes first; corrected 2026-10-22, CX-35V-J). The exact t-unit column
   stands on its own.
 - **It will not re-derive the t-unit accounting convention.** A t-unit is
   one valid oriented prefix (the empty prefix counts; dead ends count);
@@ -1368,7 +1368,7 @@ stayed byte-identical (measured at `76e5d680`).
 What is checked **now**, by the five gates added 2026-09-05: every derived
 cell in `v1_field.tsv`, `v2_river.tsv`, `v2_branches.tsv`,
 `v5_grammar.tsv`, `q6_layer_mass.tsv`, `q6_layer_extremes.tsv`,
-`xa_branches.tsv` and the Q3 profile is re-rendered **from the recounted
+`xa_branches.tsv` (not the Q3 profile: its ratios are checked against the trace's own integers and their telescoping product, not the enumeration; scoped 2026-10-22, CX-35V-J) is re-rendered **from the recounted
 integers** (numerator and denominator both taken from the enumeration, so
 the wiring at each emit site is gated, not just the formatter) by integer
 long division at 17 significant digits and compared as a digit string; the
@@ -1541,7 +1541,7 @@ parser whose metavar names a path (32 options) was run with a nonexistent path; 
 remain on that surface**. Not covered: a missing third-party module (`pyarrow`, `matplotlib`,
 `sklearn`) is still an `ImportError` traceback in the P2 modes that import them, and an unwritable
 output path is guarded only where it was measured to crash (`--atlas-queries`, `--bivariate`,
-`--sat-encode`, `--tr8-dof-sampler`).**
+`--sat-encode`, `--tr8-dof-sampler`).** *(Three input opens were still unguarded until 2026-10-22 — `--qoy-verify`, `--c8-print` and `--v3-spectrum`'s grid read; CX-35V-C.)*
 
 ## EXAMPLES
 

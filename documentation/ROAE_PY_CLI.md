@@ -453,7 +453,7 @@ so U2 artifacts are never clobbered.
 ```
 --wrap             Include the 64→1 wrap-around transition in the wave
 --order N          Compute Nth-order difference of the wave (default: 1)
---trials N         Number of Monte Carlo trials (default: 100,000). Consumed by
+--trials N         Number of Monte Carlo trials (default: 100,000; an integer >= 1, else exit 2 since 2026-10-22, CX-35V-G). Consumed by
                    --stats and --bootstrap ONLY. --constraints does NOT read it:
                    that mode hard-codes 10,000 unconstrained permutation trials
                    and 100,000 pair-constrained trials, so passing --trials

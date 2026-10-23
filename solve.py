@@ -1000,7 +1000,7 @@ def tr8_dof_merge(out_dir, quiet=False, replicate=None):
             raise SystemExit("%s carries a different run header — refusing to merge" % name)
         if d_shard in seen:
             raise SystemExit("shard %d appears twice — refusing to merge" % d_shard)
-        seen.add(d_shard)
+        seen.add(d_shard); _tr8_shard_shape_check(spath, header, d_hits, d_draws, d_hb)   # G5b
         for k, row in d_hits.items():
             tgt = hits[int(k)]
             for j in range(len(row)):
@@ -1023,7 +1023,7 @@ def tr8_dof_merge(out_dir, quiet=False, replicate=None):
         raise SystemExit("shard(s) %s are outside this run's declared range 0..%d — refusing to "
                          "merge a pool holding shards the header does not declare (%s)"
                          % (extra, header["n_shards"] - 1, out_dir))
-    bpath = os.path.join(out_dir, "bank.json")
+    bpath = os.path.join(out_dir, "bank.json"); _tr8_pool_total_check(out_dir, header, drawn)   # G5b
     try:
         with open(bpath, encoding="utf-8") as f:
             bj = json.load(f)
@@ -1159,7 +1159,7 @@ def _tr8_results_md(res, bank, admitted, marg):
         d = s["by_k"][k]
         floor = 1.0 / s["n_pool"]
         cell = lambda v: ("< %.3e" % floor) if not v else "%.4e" % v
-        med = ("< %.3e (CENSORED)" % floor) if d["median_censored"] else cell(d["median"])
+        med = (("< %.3e (CENSORED)" % floor) if d["median"] < floor else "%.4e (CENSORED: half the predicates had zero hits)" % d["median"]) if d["median_censored"] else cell(d["median"])   # G5b, F11-015#3
         ci = "n/a" if d["median_ci"][0] is None else \
             ("[%s, %s]" % (cell(d["median_ci"][0]), cell(d["median_ci"][1])))
         L.append("| %d | %.4f | [%.4f, %.4f] | %s | %s | %.1f%% |"
@@ -3541,7 +3541,7 @@ def print_fingerprint(max_nodes=30_000_000, time_limit=120):
     # How many rare+unique adjacencies needed to eliminate all non-KW solutions?
     if others:
         print()
-        print("--- Minimum constraint set ---")
+        print("--- Greedy constraint set (an upper bound on the minimum) ---")   # G5b F04-010#4
         print("Greedy search: what's the smallest set of King Wen adjacencies")
         print("that eliminates all non-King-Wen solutions?")
         print()
@@ -3574,7 +3574,7 @@ def print_fingerprint(max_nodes=30_000_000, time_limit=120):
                   f"({len(remaining):>4} remaining)")
 
         print()
-        print(f"Minimum adjacency constraints needed: {len(selected)}")
+        print(f"Greedy adjacency constraint cover: {len(selected)} (an upper bound on the minimum; not proven minimal)")   # G5b F04-010#4
         print(f"Constraint positions: {[pos + 1 for pos, _ in selected]}")
         print()
         if len(selected) <= 10:
@@ -3713,12 +3713,12 @@ def print_reconstruct():
                     curr_pair_can = tuple(sorted([first, second]))
                     # pair 27 must be c6_pair_a (so boundary 27 can be satisfied)
                     # But we also need pair 28 available
-                    partner_needed = c6_pair_b if curr_pair_can == c6_pair_a else None
-                    if curr_pair_can == c6_pair_a:
-                        # Check c6_pair_b is still available
-                        c6b_idx = next((k for k in range(n) if k not in used and k != j
-                                       and tuple(sorted(kw_pairs[k])) == c6_pair_b), None)
-                        if c6b_idx is None:
+                    # G5b (Codex F11-021#1, F04-010#5): a candidate that is NOT c6_pair_a was counted
+                    # here although it cannot satisfy the step-27 pin; it is now refused.
+                    if curr_pair_can != c6_pair_a or next(
+                            (k for k in range(n) if k not in used and k != j
+                             and tuple(sorted(kw_pairs[k])) == c6_pair_b), None) is None:
+                        # pair 27 is c6_pair_a AND c6_pair_b is still available, or neither
                             continue
 
                 # C7: adjacency at boundary 25 (between pairs at positions 24 and 25)
@@ -3730,10 +3730,10 @@ def print_reconstruct():
 
                 if step == 24:  # placing pair 25 — must be c7_pair_a
                     curr_pair_can = tuple(sorted([first, second]))
-                    if curr_pair_can == c7_pair_a:
-                        c7b_idx = next((k for k in range(n) if k not in used and k != j
-                                       and tuple(sorted(kw_pairs[k])) == c7_pair_b), None)
-                        if c7b_idx is None:
+                    if curr_pair_can != c7_pair_a or next(   # G5b F11-021#1: identity first
+                            (k for k in range(n) if k not in used and k != j
+                             and tuple(sorted(kw_pairs[k])) == c7_pair_b), None) is None:
+                        # (pair 25 must be c7_pair_a, with c7_pair_b still available)
                             continue
 
                 # C3: complement distance feasibility (only check at completion)
@@ -4069,7 +4069,7 @@ def _p2_read_header(f):
     if header[:4] != _P2_FORMAT_V1_MAGIC:
         raise ValueError(f"Not v1 solutions.bin (magic={header[:4]!r})")
     version = struct.unpack("<I", header[4:8])[0]
-    record_count = struct.unpack("<Q", header[8:16])[0]
+    record_count = struct.unpack("<Q", header[8:16])[0]; _p2_header_strict(f, header, version, record_count)   # G5b
     return record_count, version
 
 
@@ -4498,7 +4498,7 @@ def v3_spectrum(grid_tsv, out_tsv, order="REL"):
     if order not in ("REL", "O3"):
         return _v3_fail(f"unknown order {order!r}; must be REL or O3", flush=True)
 
-    # ---- read the grid -----------------------------------------------------
+    if not os.path.isfile(grid_tsv) or not os.access(grid_tsv, os.R_OK): return _v3_fail(f"{grid_tsv}: cannot read the rank grid", flush=True)  # G5b F12-005#4; read the grid
     rows = []
     with open(grid_tsv, encoding="utf-8") as fh:
         header = None
@@ -4811,7 +4811,7 @@ def p2_marginals(chunks_dir, out_md):
         mean = int_sums[name] / total_rows
         var = int_sum_sq[name] / total_rows - mean ** 2
         std = var ** 0.5 if var > 0 else 0.0
-        L.append(f"| `{name}` | int | {lo} | {hi} | {mean:.3f} | {std:.3f} "
+        L.append(f"| `{name}` | int | {_p2_obs_lohi(h['counts'], values, lo, hi)} | {mean:.3f} | {std:.3f} "
                  f"| **{kw_val}** | **{pct:.4f}%** | {n_less:,} | {n_eq:,} |\n")
     for name, lo, hi, kw_val in _P2_FLOAT_COLS:
         h = hists[name]
@@ -5016,7 +5016,7 @@ def t5_uniform_marginals(chunks_dir, out_md):
         h = fhist[n]
         span = (hi[n] - lo[n]) or 1.0
         kb = int(np.clip((kw[n] - lo[n]) / span * (NF - 1), 0, NF - 1))
-        n_less, n_at = int(h[:kb].sum()), int(h[kb])
+        n_less, n_at = (total, 0) if kw[n] > hi[n] else (0, 0) if kw[n] < lo[n] else (int(h[:kb].sum()), int(h[kb]))   # G5b F04-010#9: outside the support is 100% / 0%, not an endpoint bin
         pct = (n_less + n_at / 2.0) / total * 100
         dlo, dhi = declared[n]
         L.append(f"| `{n}` | {lo[n]:.4f} … {hi[n]:.4f} | {dlo:g} … {dhi:g} | "
@@ -5240,8 +5240,8 @@ def _p2_v2_native_kde_count(solve_binary, fit_data_std, bandwidth, kw_score,
         "--bandwidth", f"{bandwidth:g}",
         "--threshold", f"{kw_score:.10g}",
     ]
-    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE, bufsize=0)
+    proc = _g5b_popen_or_unlink(cmd, fit_path, stdin=subprocess.PIPE, stdout=subprocess.PIPE,   # G5b F04-010#12
+                                stderr=subprocess.PIPE, bufsize=0)
     try:
         files = sorted(glob.glob(f"{chunks_dir}/chunk_*.parquet"))
         for i, f in enumerate(files):
@@ -5254,7 +5254,7 @@ def _p2_v2_native_kde_count(solve_binary, fit_data_std, bandwidth, kw_score,
                     continue
             arr_std = (arr - mu) / sigma
             arr_std = np.ascontiguousarray(arr_std, dtype=np.float64)
-            proc.stdin.write(arr_std.tobytes())
+            _g5b_write_all(proc.stdin, arr_std.tobytes())   # G5b F04-010#11: a short write is retried, never dropped
             if (i + 1) % 200 == 0:
                 print(f"  [native-kde] streamed {i+1}/{len(files)} chunks", flush=True)
         proc.stdin.close()
@@ -5305,8 +5305,8 @@ def _p2_strat_native_count(solve_binary, fit_data_std, bandwidth, kw_score,
         "--bandwidth", f"{bandwidth:g}",
         "--threshold", f"{kw_score:.10g}",
     ]
-    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE, bufsize=0)
+    proc = _g5b_popen_or_unlink(cmd, fit_path, stdin=subprocess.PIPE, stdout=subprocess.PIPE,   # G5b F04-010#12
+                                stderr=subprocess.PIPE, bufsize=0)
     try:
         files = sorted(glob.glob(f"{chunks_dir}/chunk_*.parquet"))
         for f in files:
@@ -5317,7 +5317,7 @@ def _p2_strat_native_count(solve_binary, fit_data_std, bandwidth, kw_score,
             if len(sub) == 0:
                 continue
             sub_std = (sub - mu) / sigma
-            proc.stdin.write(np.ascontiguousarray(sub_std).tobytes())
+            _g5b_write_all(proc.stdin, np.ascontiguousarray(sub_std).tobytes())   # G5b F04-010#11
         proc.stdin.close()
         proc.wait(timeout=43200)
         out = proc.stdout.read()
@@ -6504,7 +6504,7 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
             row["pct_change"] = ((count - base_count) / base_count * 100.0
                                  if base_count else float('inf') if count else 0.0)
         if manifest_data:
-            row["budget"] = _budget_for_key(key, depth)
+            row["budget"] = _budget_for_key(key, depth); row["mixed"] = _by_mixed(key, depth, budget_overrides)   # G5b F04-010#13
             if budget_default is not None and row["budget"] is not None:
                 row["extended"] = row["budget"] > budget_default
             else:
@@ -6595,11 +6595,11 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
         non_ext_total = sum(1 for r in rows if not r.get('extended'))
         # 0/0 is not a PASS: a manifest whose overrides match no bucket (or a
         # report with no default-budget bucket at all) has checked nothing.
-        ext_ok = ext_total > 0 and ext_changed == ext_total
+        ext_ok = ext_total > 0 and ext_changed == ext_total and not any(r.get("mixed") for r in rows)
         non_ext_ok = non_ext_total > 0 and non_ext_changed == 0
         sanity_rc = 0 if (ext_ok and non_ext_ok) else 1
         print()
-        print(f"Sanity check vs manifest:")
+        print(f"Sanity check vs manifest:" + _by_mixed_note(rows, depth))
         print(f"  extended-budget buckets with non-zero delta: {ext_changed}/{ext_total} {'PASS' if ext_ok else ('FAIL — no extended-budget bucket matched the manifest (nothing checked)' if ext_total == 0 else 'FAIL — expected all extended buckets to differ')}")
         print(f"  default-budget buckets with zero delta:      {non_ext_total - non_ext_changed}/{non_ext_total} {'PASS' if non_ext_ok else ('FAIL — no default-budget bucket in the report (nothing checked)' if non_ext_total == 0 else 'FAIL — expected all default-budget buckets identical to baseline')}")
         print(f"BRANCH_YIELD_SANITY={'PASS' if sanity_rc == 0 else 'FAIL'}")
@@ -6961,7 +6961,7 @@ def extended_selftest(solve_binary):
     solve_binary = os.path.abspath(solve_binary)
 
     def _run(env_extra, dir_, args_=("0", "4")):
-        env = os.environ.copy()
+        env = {k: v for k, v in os.environ.items() if not k.startswith("SOLVE_")}   # G5b F04-011#3: no inherited SOLVE_*
         # Every --extended-selftest subtest runs BELOW the 1T canonical-stability threshold
         # (100M-2G nodes), so solve.c's sub-canonical gate (solve.c:43658) refuses to start
         # without this override and the whole selftest dies at subtest 1. The gate exists
@@ -7141,10 +7141,10 @@ def extended_selftest(solve_binary):
                            if f.startswith("sub_1_0_") and f.endswith(".bin"))
         except OSError:
             pass
-        if n_shards == 0:
+        if (_f4 := _ext4_fault(rc_th128, log_th128, d_th128, n_shards)):   # G5b F04-011#4: rc, ENUM_RUN, a nonempty shard
             failures.append(
-                f"subtest 4: --branch+d3 with SOLVE_THREADS=128 produced 0 "
-                f"shards — likely buffer-overflow / stack-array sizing "
+                f"subtest 4: --branch+d3 with SOLVE_THREADS=128: {_f4} "
+                f"-- likely buffer-overflow / stack-array sizing "
                 f"regression in the --branch+depth-3 init code path. "
                 f"See {log_th128}"
             )
@@ -7203,35 +7203,35 @@ def extended_selftest(solve_binary):
             )
 
         # --- Subtest 6: combined partition + resume invariance ---
-        # The exact pattern Tier 2c stresses, but at small scale.
-        # Catches MAX_COMPLETED_SUBS cap regressions and any other
-        # bugs specific to multi-branch resume + merge.
-        print("[extended-selftest] Subtest 6/9: full-enum partition + "
-              "resume combined invariance", flush=True)
-        # Reference: single-shot full-enum at 200M
-        # (Already produced as sha_v2_full from subtest 2.)
-        # Now: full-enum 50M then 200M, merge, compare to ref.
+        # G5b (Codex F12-011#26): until 2026-10-22 this repeated subtest 2's full-enumeration
+        # 50M -> 200M resume and partitioned nothing. It now RESUMES A PARTITION: --branch 1 0 and
+        # --branch 2 0 at 50M, extended to 100M in one shared dir and merged, against the same two
+        # branches run single-shot at 100M and merged. Catches MAX_COMPLETED_SUBS cap regressions.
+        print("[extended-selftest] Subtest 6/9: partitioned (--branch) resume "
+              "50M -> 100M + merge invariance", flush=True)
         d_combined = os.path.join(workroot, "sub6_combined")
-        os.makedirs(d_combined, exist_ok=True)
-        c_env_pa = {**base_env_d2_50m,
-                    "SOLVE_DFS_ITERATIVE": "1",
-                    "SOLVE_DFS_CHECKPOINT": "1"}
-        c_env_pb = {**base_env_d2_200m,
-                    "SOLVE_DFS_ITERATIVE": "1",
-                    "SOLVE_DFS_CHECKPOINT": "1"}
-        rc_c_pa, _ = _run(c_env_pa, d_combined)
-        rc_c_pb, _ = _run(c_env_pb, d_combined)
-        sha_combined = _read_sha(d_combined)
-        print(f"  combined (50M -> 200M):            {sha_combined}", flush=True)
-        if rc_c_pa != 0 or rc_c_pb != 0:
+        d_c_ref = os.path.join(workroot, "sub6_ref")
+        for d in (d_combined, d_c_ref):
+            os.makedirs(d, exist_ok=True)
+        c_env_pa = {"SOLVE_DEPTH": "2", "SOLVE_NODE_LIMIT": "50000000",
+                    "SOLVE_DFS_ITERATIVE": "1", "SOLVE_DFS_CHECKPOINT": "1"}
+        c_env_pb = {**c_env_pa, "SOLVE_NODE_LIMIT": "100000000"}
+        rc6 = [_run(e, dd, args_=("--branch", b, "0", "0", "4"))[0]
+               for e, dd in ((c_env_pb, d_c_ref), (c_env_pa, d_combined), (c_env_pb, d_combined))
+               for b in ("1", "2")]
+        rc6 += [_run({}, dd, args_=("--merge",))[0] for dd in (d_c_ref, d_combined)]
+        sha_c_ref, sha_combined = _read_sha(d_c_ref), _read_sha(d_combined)
+        print(f"  combined ref (single-shot 100M, merged): {sha_c_ref}", flush=True)
+        print(f"  combined     (50M -> 100M, merged):      {sha_combined}", flush=True)
+        if any(rc6):
             failures.append(
-                f"subtest 6: solve exit codes pa={rc_c_pa} pb={rc_c_pb}"
+                f"subtest 6: solve exit codes {rc6}"
             )
-        elif sha_combined != sha_v2_full:
+        elif not sha_combined or not sha_c_ref or sha_combined != sha_c_ref:
             failures.append(
                 f"subtest 6: combined partition+resume MISMATCH — "
-                f"ref single-shot 200M sha={sha_v2_full}, "
-                f"50M->200M sha={sha_combined}. "
+                f"single-shot partitioned 100M sha={sha_c_ref}, "
+                f"50M->100M sha={sha_combined}. "
                 f"Could be MAX_COMPLETED_SUBS cap regression or other "
                 f"resume-loop bug."
             )
@@ -7287,7 +7287,7 @@ def extended_selftest(solve_binary):
                 f"r1={rc_r1} r2={rc_r2} rm={rc_rm} "
                 f"a={rc_a} b={rc_b} cm={rc_cm}"
             )
-        elif sha_t7_ref and sha_t7_distributed and sha_t7_ref != sha_t7_distributed:
+        elif not sha_t7_ref or not sha_t7_distributed or sha_t7_ref != sha_t7_distributed:   # G5b F04-011#2: a missing sha FAILS
             failures.append(
                 f"subtest 7: distributed-merge MISMATCH — "
                 f"single-dir ref={sha_t7_ref}, "
@@ -7318,7 +7318,7 @@ def extended_selftest(solve_binary):
         # SIGTERM-then-resume run.
         d_t8_int = os.path.join(workroot, "sub8_interrupted")
         os.makedirs(d_t8_int, exist_ok=True)
-        env = os.environ.copy()
+        env = {k: v for k, v in os.environ.items() if not k.startswith("SOLVE_")}; env["SOLVE_ALLOW_SUB_CANONICAL"] = "1"   # G5b F04-011#1: _run's override
         env.update(env_t8)
         log = os.path.join(d_t8_int, "run_phase1.log")
         with open(log, "w") as lf:
@@ -7327,7 +7327,7 @@ def extended_selftest(solve_binary):
                 cwd=d_t8_int, env=env,
                 stdout=lf, stderr=subprocess.STDOUT,
             )
-            time.sleep(8)  # let solve do real work + checkpoint
+            _t8_wait_checkpoint(proc, d_t8_int, 8)  # G5b: real work + a checkpoint (at most 8 s), then SIGTERM mid-walk
             proc.terminate()
             try:
                 proc.wait(timeout=30)
@@ -7342,9 +7342,9 @@ def extended_selftest(solve_binary):
         print(f"  sub8 resumed  (SIGTERM mid-walk):   {sha_t8_int}", flush=True)
         if rc_t8_ref != 0:
             failures.append(f"subtest 8: clean run exit={rc_t8_ref}")
-        elif rc_t8_resume != 0:
+        elif rc_t8_resume != 0 or "ENUM_RUN=STOPPED" not in _g5b_read(log):   # G5b F04-011#1: phase 1 must be STOPPED mid-walk
             failures.append(
-                f"subtest 8: resume run exit={rc_t8_resume} — "
+                f"subtest 8: resume run exit={rc_t8_resume}, phase 1 {'STOPPED by SIGTERM' if 'ENUM_RUN=STOPPED' in _g5b_read(log) else 'NOT interrupted mid-walk (no ENUM_RUN=STOPPED in its log)'} — "
                 f"single-branch eviction-resume path broken")
         elif _branch_sha_fault(sha_t8_ref, sha_t8_int):
             failures.append(
@@ -7376,7 +7376,7 @@ def extended_selftest(solve_binary):
             fps = []
             for f in sorted(os.listdir(d)):
                 if f.startswith("sub_") and f.endswith(".bin"):
-                    fps.append((f, os.path.getsize(os.path.join(d, f))))
+                    fps.append((f, os.path.getsize(os.path.join(d, f)), _g5b_sha256(os.path.join(d, f))))   # G5b F04-011#5: content too
             return fps
         fp_first = _shard_fp(d_t9)
         # Re-run same command in same dir.
@@ -7400,7 +7400,7 @@ def extended_selftest(solve_binary):
         elif fp_first != fp_again:
             failures.append(
                 f"subtest 9: shard fingerprints changed across re-launch "
-                f"(filenames or sizes differ). "
+                f"(filenames, sizes or content differ). "
                 f"first={fp_first[:3]}..., again={fp_again[:3]}...")
 
     finally:
@@ -7459,13 +7459,13 @@ def compare_depth_profile(log_a, log_b, threshold=0.005):
             print(f"ERROR: cannot read {label}={path} ({detail})", flush=True)
             return 2
     a, b = parsed
-    if not a or not b:
+    if not a or not b or not sum(a.values()) or not sum(b.values()):   # G5b F12-001#16: zero nodes is no evidence
         missing = []
-        if not a:
+        if not a or not sum(a.values()):
             missing.append("A=" + log_a)
-        if not b:
+        if not b or not sum(b.values()):
             missing.append("B=" + log_b)
-        print("ERROR: no DEPTH_PROFILE lines in " + ", ".join(missing) +
+        print("ERROR: no DEPTH_PROFILE lines (or zero nodes in total) in " + ", ".join(missing) +
               " (re-run solve with SOLVE_DEPTH_PROFILE=1)", flush=True)
         return 2
     total_a = sum(a.values())
@@ -8495,9 +8495,9 @@ def perm_verify(seq_arg=None):
     indicators comma-separated (identical ordering to solve.c
     SOLVE_PERM_TESTVEC), for cross-language / corpus-control gating."""
     if seq_arg is not None:
-        seq = [int(x) for x in seq_arg.replace(",", " ").split()]
+        seq = _g5b_perm_arg(seq_arg)   # G5b F04-011#6: a permutation of 0..63, or [] (refused below)
         if len(seq) != 64:
-            print(f"perm-verify testvec: need 64 ints, got {len(seq)}")
+            print(f"perm-verify testvec: need 64 distinct ints 0..63 (a permutation); refused")
             return 1
         vals, tmatch = perm_compute(seq)
         row = [vals[n] for n in PERM_NAMES] + [tmatch[0], tmatch[1]]
@@ -8542,9 +8542,9 @@ def rc1c_verify(seq_arg=None):
     SEQ argument: print `slot2,slot32,adjacent` (same ordering as solve.c
     --rc1c-verify SEQ) for witness / corpus-control cross-language gating."""
     if seq_arg is not None:
-        seq = [int(x) for x in seq_arg.replace(",", " ").split()]
+        seq = _g5b_perm_arg(seq_arg)   # G5b F04-011#6: a permutation of 0..63, or [] (refused below)
         if len(seq) != 64:
-            print(f"rc1c-verify: need 64 ints, got {len(seq)}")
+            print(f"rc1c-verify: need 64 distinct ints 0..63 (a permutation); refused")
             return 1
         s2, s32, adj = rc1c_indicator(seq)
         print(f"{s2},{s32},{adj}")
@@ -8617,9 +8617,9 @@ def rc4b_verify(seq_arg=None):
     `viol,vp0,vp1,rc4a,rc4b,rc4c,rc3,rc3w` (same ordering as solve.c
     --rc4b-verify SEQ) for cross-language gating."""
     if seq_arg is not None:
-        seq = [int(x) for x in seq_arg.replace(",", " ").split()]
+        seq = _g5b_perm_arg(seq_arg)   # G5b F04-011#6: a permutation of 0..63, or [] (refused below)
         if len(seq) != 64:
-            print(f"rc4b-verify: need 64 ints, got {len(seq)}")
+            print(f"rc4b-verify: need 64 distinct ints 0..63 (a permutation); refused")
             return 1
     else:
         seq = list(binary_hexagrams)
@@ -8787,9 +8787,9 @@ def r11_verify(seq_arg=None):
     SEQ) for cross-language gating. This is the KW-reproduction gate the
     SOLVE_KNUTH_R11_HIST population instrument must pass before it is trusted."""
     if seq_arg is not None:
-        seq = [int(x) for x in seq_arg.replace(",", " ").split()]
+        seq = _g5b_perm_arg(seq_arg)   # G5b F04-011#6: a permutation of 0..63, or [] (refused below)
         if len(seq) != 64:
-            print(f"r11-verify: need 64 ints, got {len(seq)}")
+            print(f"r11-verify: need 64 distinct ints 0..63 (a permutation); refused")
             return 1
         print(",".join(str(x) for x in r11_axes(seq)))
         return 0
@@ -8943,7 +8943,7 @@ def r11_builder_numerator(seq, beta, weights=(1, 1, 1, 1, 1)):
     ValueError if `seq` is not a builder-reachable C1..C5 path."""
     import math
     budget = _r11_kw_budget()
-    first0, second0 = seq[0], seq[1]
+    first0, second0 = seq[0], seq[1]; _r11_first_pair_check(seq)   # G5b F04-011#8
     budget[bit_diff(first0, second0)] -= 1
     used_mask = 0
     pr = _r11_pairs()
@@ -9058,12 +9058,12 @@ def r11_builder_synthetic(beta, weights=(1, 1, 1, 1, 1), seed=0, max_tries=1000)
 
 
 def r11_builder_verify():
-    """Structural smoke-test of the M_G builder machinery (NOT the KW verdict —
-    the four-class Bayes integration is the post-freeze Spot deliverable).
+    """Structural smoke-test of the M_G builder machinery (NOT the KW verdict — the four-class
+    Bayes integration was VETOED when its calibration failed: TR-2 v1.14; G5b, F04-011#9).
     Checks: (1) the exact KW-path numerator is a well-defined product in (0,1]
     for a couple of beta values; (2) a small P_complete simulation returns a
-    fraction in [0,1]; (3) a synthetic draw is a valid C1..C5 sequence (its
-    r11_axes are computable and its transition multiset matches KW's).
+    fraction in [0,1]; (3) a synthetic draw is a C1 permutation whose transition multiset matches
+    KW's (C5) and whose r11_axes are computable -- the builder does NOT apply C3 (F04-011#7).
     Returns 0 on pass, 1 on any failure."""
     fails = 0
     kw = list(binary_hexagrams)
@@ -9094,7 +9094,7 @@ def r11_builder_verify():
         kwb = _r11_kw_budget()
         match = (b == kwb)
         g = r11_axes(synth)
-        print(f"builder synthetic draw: valid C1..C5={match} axes={g} "
+        print(f"builder synthetic draw: C5 multiset == KW's: {match} (C3 not applied by the builder: c3={h2_comp_dist_x64(synth)}) axes={g} "
               f"{'OK' if match else 'FAIL'}")
         if not match:
             fails += 1
@@ -9142,7 +9142,7 @@ def r11_builder_verify():
 H2_N_POP = 1097051278789181790036112071176579186688
 # Canonical |C1–C5| (with C3<=776) — estimate ±0.02% (95%), SEARCH_SPACE_SIZE.md.
 H2_N_CAN = 1.3287e38
-# |GS| — direct 4-seed pooled measurement, ±6.1% conservative 95% CI (TR-2 v1.12).
+# |GS| — direct 4-seed pooled measurement, relative SE 6.1%; the 95% interval is [3.96, 5.05]e25, about -12%/+12% (TR-2 v1.12).
 H2_N_GS, H2_N_GS_LO, H2_N_GS_HI = 4.50e25, 3.96e25, 5.05e25
 H2_BALL = 132712  # 1 + 31 + C(31,2)*5 + C(31,3)*29
 
@@ -9354,7 +9354,7 @@ def h2_parse_dump(path):
                     if k == "seq":
                         d[k] = [int(x) for x in v.split(",")]
                     elif k in ("w", "fp", "fc"):
-                        d[k] = float(v)
+                        d[k] = _g5b_finite(float(v), k)   # G5b F04-011#12: nan / inf are malformed
                     else:
                         d[k] = int(v)
             except ValueError as e:
@@ -9396,8 +9396,8 @@ def h2_verify(dump_path, n_check=2, seed=20260726):
     # exit 0. Measured before this guard: `--h2-verify /dev/null` -> "0 leaves; checking 2 ...
     # H2 VERIFY: PASS". A verifier must be FALSE when its target is absent. The sibling --h2-mass
     # already aborts on an empty dump; this is that guard, ported.
-    if len(leaves) < n_check:
-        print(f"h2-verify: {dump_path}: {len(leaves)} leaf/leaves, need at least {n_check} — "
+    if n_check < 1 or len(leaves) < n_check:   # G5b F04-011#11: n_check = 0 checked nothing and printed PASS
+        print(f"h2-verify: {dump_path}: {len(leaves)} leaf/leaves, need at least {max(n_check, 1)} — "
               f"REFUSING. An empty or short dump cannot verify anything; this is not a pass.")
         print("H2 VERIFY: FAIL (insufficient leaves)")
         return 1
@@ -12548,7 +12548,7 @@ def atlas_load(path, allow_t_not_run=False):
     n = A["n"]
     if not isinstance(n, int) or n < 1:
         raise AtlasError("%s: bad n %r" % (path, n))
-    if len(A["layers"]) != n:
+    if _atlas_shape_check(A, path) or len(A["layers"]) != n:   # G5b: malformed structure -> AtlasError
         raise AtlasError("%s: %d layers for n=%d" % (path, len(A["layers"]), n))
     # 🔴 THE PRODUCER'S OWN VERDICT WAS NEVER READ (Codex KCQ01 #1, executed 2026-09-02,
     # still holding at the 2026-09-08 mutant battery).  `--kc-scan-merge` recomputes every
@@ -12589,7 +12589,7 @@ def atlas_load(path, allow_t_not_run=False):
     # left this one loading beside "fails": 0, pending exactly this ruling. Refused now unless the
     # caller opts in by name, and an opt-in is announced, never silent. Every production path
     # already passes --kc-tdir, so the opt-in exists for diagnostic n=9 work on a t-less scan.
-    not_run = sorted(k for k, v in gates.items() if v == "not-run (requires --kc-tdir)")
+    not_run = sorted(k for k, v in gates.items() if v == "not-run (requires --kc-tdir)") + _atlas_t_gate_absent(gates, n, A)   # G5b
     if not_run and not allow_t_not_run:
         raise AtlasTNotRunError(
             "%s: gate(s) %s did NOT RUN (\"not-run (requires --kc-tdir)\"): the scan had no t "
@@ -13844,8 +13844,8 @@ def atlas_emit_xa(A, outdir, cost=None, atlas_path=None):
                  "at n=9 by `solve --kc-t-cert` (TR-12 XA(iii) / `xa_node_convention.json`,\n"
                  "written into this same artifact root by that command).\n"
                  "This consumer does NOT re-derive it and does not claim it.\n\n")
-        # Q-772: the certificate is LOADED, and what it says is what prices the rows below. A
-        # refusal (None, why) keeps the historical PENDING path; there is no uncertified mode.
+        _xa_ceiling_conflict_check(cost)   # G5b F12-004#7: two ceilings are refused BEFORE the certificate is read
+        # Q-772: the certificate is LOADED and prices the rows below; a refusal (None, why) keeps the PENDING path.
         xa_map, xa_refusal = ((None, "no certificate was supplied") if cost is None
                               else _xa_node_mapping_load(cost.get("node_mapping_cert")))
         # SCOPE (Opus SS, 2026-09-25): the one producer in the tree, --xa-w0d-lb-cert, proves a
@@ -14794,9 +14794,9 @@ def compare(table, counts, n, total, draws, alpha, exact):
                 "--exact given but the input has %d walks and the atlas "
                 "declares N_total=%d; --exact requires the complete "
                 "enumeration" % (draws, total))
-        bad = [(k, d, counts[k].get(d, 0), table[k].get(d, 0))
+        bad = sorted([(k, d, counts[k].get(d, 0), table[k].get(d, 0))   # G5b F12-005#8: worst first
                for (k, d) in cell_keys
-               if counts[k].get(d, 0) != table[k].get(d, 0)]
+               if counts[k].get(d, 0) != table[k].get(d, 0)], key=lambda r: (-abs(r[2] - r[3]), r[0], r[1]))
         return {"mode": "exact", "cells": cells, "eps": 0.0,
                 "stat": float(len(bad)), "bad": bad,
                 "worst": (bad[0][0], bad[0][1]) if bad else None,
@@ -14899,6 +14899,27 @@ def kc_class_swap_detect_cli(argv=None):
         return 2
 
     verdict = "SUSPECT" if res["suspect"] else "CLEAN"
+    if args.json:   # G5b F12-005#7: written BEFORE the verdict prints, so a failed write prints ERROR alone
+        try:
+            with open(args.json, "w") as fh:
+                json.dump({"token": TOKEN, "verdict": verdict, "n": n,
+                           "mode": res["mode"], "draws": draws,
+                           "N_total": total, "cells": res["cells"],
+                           "statistic": res["stat"], "eps": res["eps"],
+                           "alpha": args.alpha,
+                           "atlas": os.path.abspath(args.atlas),
+                           "samples": [os.path.abspath(s)
+                                       for s in args.sample],
+                           "offenders": res["bad"][:200],
+                           "limits": LIMITS % (args.alpha, PROD_DRAWS,
+                                               PROD_CELLS),
+                           "power": POWER},
+                          fh, indent=1, sort_keys=True)
+        except OSError as exc:
+            print("%s=ERROR" % TOKEN)
+            print("kc-class-swap-detect: cannot write --json %s: %s"
+                  % (args.json, exc))
+            return 2
     print("%s=%s" % (TOKEN, verdict))
     if res["mode"] == "exact":
         print("kc-class-swap-detect: mode=exact n=%d walks=%d "
@@ -14932,27 +14953,6 @@ def kc_class_swap_detect_cli(argv=None):
           % (args.alpha, PROD_DRAWS, PROD_CELLS))
     print("kc-class-swap-detect: " + POWER)
 
-    if args.json:
-        try:
-            with open(args.json, "w") as fh:
-                json.dump({"token": TOKEN, "verdict": verdict, "n": n,
-                           "mode": res["mode"], "draws": draws,
-                           "N_total": total, "cells": res["cells"],
-                           "statistic": res["stat"], "eps": res["eps"],
-                           "alpha": args.alpha,
-                           "atlas": os.path.abspath(args.atlas),
-                           "samples": [os.path.abspath(s)
-                                       for s in args.sample],
-                           "offenders": res["bad"][:200],
-                           "limits": LIMITS % (args.alpha, PROD_DRAWS,
-                                               PROD_CELLS),
-                           "power": POWER},
-                          fh, indent=1, sort_keys=True)
-        except OSError as exc:
-            print("%s=ERROR" % TOKEN)
-            print("kc-class-swap-detect: cannot write --json %s: %s"
-                  % (args.json, exc))
-            return 2
 
     return 1 if res["suspect"] else 0
 
@@ -15001,7 +15001,7 @@ def atlas_queries(atlas_path, outdir, select=None, q3_trace=None, verdicts_path=
                 % (q3_trace, len(trace), n))
     if "q3" in sel:
         if trace is None:
-            verdicts["TR12_Q3"] = "SKIP:no-trace(--atlas-q3-trace)"
+            verdicts["TR12_Q3"] = "SKIP:no-trace(--atlas-q3-trace)"; _atlas_q3_stale_clean(outdir)   # G5b F04-012#4"
             verdicts["TR12_Q3_KW"] = "SKIP:no-trace(--atlas-q3-trace)"
             verdicts["TR12_Q3_READER"] = "SKIP:no-trace(--atlas-q3-trace)"
         else:
@@ -15729,7 +15729,7 @@ def _atlas_brute_recount(walks_path, n):
             line = line.strip()
             if not line or line.startswith("["):
                 continue
-            w = [int(x) for x in line.split(",")]
+            w = _atlas_walk_ints(line, walks_path)   # G5b F12-005#5: a malformed row is a refusal
             if len(w) != 2 * n:
                 raise AtlasError("%s: walk of %d hexagrams, expected %d"
                                  % (walks_path, len(w), 2 * n))
@@ -16490,7 +16490,7 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None, allow_
     out = keep or tempfile.mkdtemp(prefix="atlas_selftest_")
     try:
         try:
-            R = atlas_queries(atlas_path, out, q3_trace=q3_trace, quiet=True)
+            R = atlas_queries(atlas_path, out, q3_trace=q3_trace, quiet=True, allow_t_not_run=allow_t_not_run)   # G5b F12-005#3
         except AtlasError as e:
             # The consumer's own refusal (an unreadable or mis-sized --atlas-q3-trace, an
             # unknown selector) used to escape this function as a traceback because the
@@ -16656,7 +16656,7 @@ def atlas_selftest(atlas_path, walks_path=None, q3_trace=None, keep=None, allow_
             else:
                 gate(e[2], e[3], e[4])
 
-        fails = [nm for nm, ok, _ in results if not ok]
+        fails = [nm for nm, ok, _ in results if not ok] + _atlas_selftest_query_fails(R)   # G5b F04-012#1
         print("[atlas-consumer] %d gate(s) run, %d failure(s)" % (len(results), len(fails)))
         if fails:
             verdict = "FAIL"                     # a failure outranks a missing leg
@@ -17187,13 +17187,13 @@ def symmetry_completeness():
         for b in H:
             if a < b and d(a, b) != 5:
                 s = build_w2(a, b)
-                if (s is None or sorted(s) != H
+                if (s is None or s[:2] != [a, b] or sorted(s) != H   # G5b F01-008#2: the requested pair, adjacent
                         or any(d(s[i], s[i + 1]) == 5 for i in range(63))):
                     ok = False
                 else:
                     n_w2 += 1
-    s = [63, 0] + [h for h in H if h not in (63, 0)]
-    ok = ok and s[0] == 63 and s[1] == 0 and sorted(s) == H
+    s = list(binary_hexagrams)   # G5b F01-008#4: a C1-valid witness; [63, 0, 1, 2, ...] broke C1 at (1, 2)
+    ok = ok and s[0] == 63 and s[1] == 0 and sorted(s) == H and has_pair_structure_c1(s)
     gate(f"SC-8 witness families: W2 x {n_w2} (expect 1824) + C1/C4", ok and n_w2 == 1824)
 
     print()
@@ -18268,10 +18268,10 @@ def qoy_verify(src):
         seqs = [list(binary_hexagrams)]
     else:
         seqs = []
-        with open(src) as fh:
+        with _sp_open_or_refuse(src, "--qoy-verify", "QOY_VERIFY_INPUT") as fh:   # G5b F12-005#4
             for ln in fh:
                 if ln.strip():
-                    s = [int(t) for t in ln.split()]
+                    s = _sp_ints_or_refuse(ln, "--qoy-verify", "QOY_VERIFY_INPUT", len(seqs) + 1)
                     if sorted(s) != list(range(64)):
                         print("ERROR: --qoy-verify ordering %d is not a permutation of 0..63"
                               % (len(seqs) + 1), file=sys.stderr)
@@ -18305,7 +18305,7 @@ def qoy_gate(binary, n=100000, include_kw=True, timeout=1800):
         c = r.stdout
     finally:
         os.unlink(path)
-    ok = (prc == 0 and r.returncode == 0 and py == c)
+    ok = (prc == 0 and r.returncode == 0 and py == c and len(seqs) >= 1)   # G5b F04-012#3: zero orderings verify nothing
     print("QOY_GATE_ORDERINGS=%d" % len(seqs))
     print("QOY_GATE_INCLUDES_KW=%s" % ("YES" if include_kw else "NO"))
     print("QOY_GATE_PY_SHA256=%s" % hashlib.sha256(py).hexdigest())
@@ -18534,10 +18534,10 @@ def c8_print(src, out=None):
     each a C1 permutation of 0..63), then C8_VERIFY_N=<count>. No KW source exists here."""
     out = out or sys.stdout
     seqs = []
-    with open(src) as fh:
+    with _sp_open_or_refuse(src, "--c8-print", "C8_VERIFY_INPUT") as fh:   # G5b F12-005#4
         for ln in fh:
             if ln.strip():
-                s = [int(t) for t in ln.split()]
+                s = _sp_ints_or_refuse(ln, "--c8-print", "C8_VERIFY_INPUT", len(seqs) + 1)
                 if len(s) != 64 or not c8_is_c1(s):
                     print("ERROR: --c8-print ordering %d is not a C1 permutation of 0..63"
                           % (len(seqs) + 1), file=sys.stderr)
@@ -18757,7 +18757,7 @@ def main():
                              "viz/report_figures.py fig_tr12_kc_spectrum consumes: one row per "
                              "grid point, exact decimal `rank`, `x` = rank/N, the mandatory "
                              "`order` column, the walk, one column per battery observable and a "
-                             "constant kw_<observable> reference column for each. Re-derives "
+                             "constant kw_<observable> reference column for each observable but the four KW-tautological ones (edit_dist_kw, first_position_deviation, shift_conformant_count, c6_c7_count). Re-derives "
                              "C1/C2/C4/C5 membership from every emitted record and refuses the "
                              "run rather than emitting an unverified spectrum. Emits "
                              "V3_SPECTRUM=PASS/FAIL as a bare line (grep -qx), detail on "
@@ -19824,8 +19824,8 @@ def _atlas_validate_strict(A, path):
                              "this is" % (path, i, k, i))
         for key in (L.get("marginal_raw") or {}):
             _atlas_key_int(key, "pair", "%s: layers[%d].marginal_raw" % (path, i), _ATLAS_PAIRS)
-        for key in (L.get("kernel") or {}):
-            _atlas_kernel_key(key, "%s: layers[%d].kernel" % (path, i))
+        for key, _kv in (L.get("kernel") or {}).items():   # G5b (F04-011#14): kernel masses too, AT LOAD
+            _atlas_kernel_key(key, "%s: layers[%d].kernel" % (path, i)); _atlas_int(_kv, "%s: layers[%d].kernel.%s" % (path, i, key))
     try:
         _atlas_probe_counts(A)
     except AtlasError as e:
@@ -20367,11 +20367,11 @@ def _tr8_bank_gate_override(gates, header, verdict, why):
     """§3.5 override list, the bank half: B_admitted < 120 or B_raw != 319 forces D1 to
     INCONCLUSIVE (the sampler refuses to draw a pool below the floor, so these can be false
     only for a merge of shards produced some other way)."""
+    if not gates["b_raw_eq_319"]:   # G5b (F12-004#6): b_raw is the LAST overwrite, so its reason wins
+        return "INCONCLUSIVE", "B_raw = %d != 319" % header["b_raw"]
     if not gates["b_admitted_ge_floor"]:
         return "INCONCLUSIVE", ("B_admitted = %d is below the pre-registration's floor %d"
                                 % (header["b_admitted"], TR8_B_ADMIT_FLOOR))
-    if not gates["b_raw_eq_319"]:
-        return "INCONCLUSIVE", "B_raw = %d != 319" % header["b_raw"]
     return verdict, why
 
 
@@ -20423,10 +20423,10 @@ def tr8_replication_gate(a_dir, b_dir, quiet=False, k_head=16):
         except (OSError, ValueError) as e:
             raise SystemExit("cannot read %s (%s) — merge pool %s first; refusing to apply the "
                              "replication gate" % (p, getattr(e, "strerror", None) or e, name))
-    hA, hB = res["A"]["header"], res["B"]["header"]
+    hA, hB = res["A"]["header"], res["B"]["header"]; _tr8_replication_draws_check(res)   # G5b
     for key in ("seed_root", "n_pool", "n_shards", "n_pred", "k_ladder", "calibration_draws",
                 "admission_band", "b_raw", "b_admitted", "admitted_bank_sha256",
-                "solve_py_sha256"):
+                "solve_py_sha256", "r_kw"):   # r_kw: G5b, Codex F12-005#9
         if hA.get(key) != hB.get(key):
             raise SystemExit("replication gate: the two pools disagree on header field %r (%r vs "
                              "%r) — they are not the same measurement; refusing"
@@ -20547,6 +20547,328 @@ def _tr8_results_md_context(res):
 # ===========================================================================
 class AtlasTNotRunError(AtlasError):
     """atlas_load: a gate reads "not-run (requires --kc-tdir)" and --atlas-allow-t-not-run was not given."""
+
+
+
+# ===========================================================================
+# Push group G5b (2026-10-22; Codex gpt-6-astra final review, fast-track FT3b-1). Appended at the END
+# of the file, like the blocks above, so that no line cited elsewhere moves. Each helper is called
+# from one line of an existing function and names its finding.
+# ===========================================================================
+def _tr8_shard_shape_check(spath, header, d_hits, d_draws, d_hb):
+    """--tr8-dof-merge: a shard must carry EVERY declared K row, each exactly n_pred long, its own
+    declared draw count (n_pool / n_shards) and hit counts in 0..draws. Until G5b the merge summed
+    each row by its OWN length, so a shard missing a K row, or carrying a shortened one, added zero
+    hits while its draws entered the denominator; Codex moved the K = 16 median from 3.6e-6 to
+    3.2e-6 that way with every gate passing (F02-009#5, F11-015#4, F12-004#1)."""
+    try:
+        want_k = sorted(int(k) for k in header["k_ladder"])
+        n_pred, per = int(header["n_pred"]), int(header["n_pool"]) // int(header["n_shards"])
+        got_k = sorted(int(k) for k in d_hits)
+    except (KeyError, TypeError, ValueError) as e:
+        raise SystemExit("%s: unreadable header or hit-row keys (%s) — refusing to merge" % (spath, e))
+    if got_k != want_k:
+        raise SystemExit("%s carries K rows %s but the header declares %s — refusing to merge a "
+                         "shard with a missing or extra predicate row" % (spath, got_k, want_k))
+    if type(d_draws) is not int or d_draws != per:
+        raise SystemExit("%s declares %r draws, the header implies %d per shard (n_pool / n_shards) "
+                         "— refusing to merge" % (spath, d_draws, per))
+    if type(d_hb) is not int or not 0 <= d_hb <= d_draws:
+        raise SystemExit("%s: hb_hits %r is not a count in 0..%d — refusing to merge" % (spath, d_hb, d_draws))
+    for k, row in d_hits.items():
+        if (not isinstance(row, list) or len(row) != n_pred
+                or any(type(v) is not int or not 0 <= v <= d_draws for v in row)):
+            raise SystemExit("%s: K=%s hit row is not %d counts in 0..%d — refusing to merge a "
+                             "partial or malformed shard" % (spath, k, n_pred, d_draws))
+
+
+def _tr8_pool_total_check(out_dir, header, drawn):
+    """--tr8-dof-merge: the shards' draws must sum to the header's n_pool (Codex F11-015#5: a pool whose
+    shards were halved kept every header and merged with the smaller total as its denominator)."""
+    if drawn != header.get("n_pool"):
+        raise SystemExit("%s: the shards hold %d draws, the header declares n_pool = %r — refusing to "
+                         "merge a partial pool" % (out_dir, drawn, header.get("n_pool")))
+
+
+def _tr8_replication_draws_check(res):
+    """tr8_replication_gate: each merged pool must have used exactly its declared n_pool draws; the gate
+    compared the declared headers only (Codex F11-015#5)."""
+    for name in ("A", "B"):
+        r = res[name]
+        if r.get("draws_used") != r.get("header", {}).get("n_pool"):
+            raise SystemExit("replication gate: pool %s used %r draws but declares n_pool = %r — "
+                             "refusing" % (name, r.get("draws_used"), r.get("header", {}).get("n_pool")))
+
+
+def _atlas_shape_check(A, path):
+    """atlas_load: the STRUCTURE the consumer indexes, checked before anything reads it (Codex F12-005#5:
+    a layer without `flow` was a KeyError traceback, `layers: null` a TypeError, not the documented
+    AtlasError / exit 2). Returns None; raises AtlasError."""
+    if not isinstance(A.get("layers"), list):
+        raise AtlasError("%s: layers is %s, not a JSON array" % (path, type(A.get("layers")).__name__))
+    for i, L in enumerate(A["layers"]):
+        if not isinstance(L, dict):
+            raise AtlasError("%s: layers[%d] is not a JSON object" % (path, i))
+        for req in ("k", "flow", "by_class"):
+            if req not in L:
+                raise AtlasError("%s: layers[%d] is missing required field %r" % (path, i, req))
+    if not isinstance(A.get("branch_atlas"), list) or not all(
+            isinstance(b, dict) and "solutions" in b for b in A["branch_atlas"]):
+        raise AtlasError("%s: branch_atlas is not an array of objects carrying `solutions`" % path)
+    return None
+
+
+def _atlas_t_gate_absent(gates, n, A=None):
+    """atlas_load: a PRODUCER atlas (one carrying the scan's top-level `engine_source_sha`) at n >= 15
+    must carry the t-identity gate (Codex F04-011#13, F04-015#1). The refusal keyed on an explicit
+    "not-run" string, so deleting the key, or replacing gates with {"fails": 0}, loaded the published
+    n = 31 atlas without --atlas-allow-t-not-run. Hand-built fixtures without producer provenance keep
+    their minimal gates (the DENYLIST note in atlas_load); that residual is stated, not closed. An
+    absent gate is treated exactly as one that did not run."""
+    if n >= 15 and "engine_source_sha" in (A or {}) and "t_root_eq_f_layer_sum" not in gates:
+        return ["t_root_eq_f_layer_sum (ABSENT)"]
+    return []
+
+
+def _atlas_q3_stale_clean(outdir):
+    """atlas_queries with Q3 selected and no trace: remove a previous run's Q3 profile and sidecar
+    from OUTDIR, so the figure selector cannot draw a stale universe beside this run's
+    TR12_Q3=SKIP (Codex F04-012#4; the Q-766 cleanup ran only inside atlas_emit_q3)."""
+    for nm in ("q3_profile_kw.tsv", "q3_profile.tsv"):
+        for stale in (os.path.join(outdir, nm), os.path.join(outdir, nm) + ".provenance.txt"):
+            try:
+                os.unlink(stale)
+            except FileNotFoundError:
+                pass
+
+
+def _atlas_selftest_query_fails(R):
+    """atlas_selftest: a query verdict this run WROTE as FAIL or ERROR is a selftest failure (Codex
+    F04-012#1, F12-005#2, F05-012#12): ATLAS_CONSUMER=PASS was printed beside
+    TR12_RATIO_COLUMNS=FAIL and TR12_XA_B=FAIL:t_source=ABSENT in the same VERDICTS.txt. SKIP and
+    PENDING are not failures. Prints one line per failing verdict; the healthy transcript is
+    unchanged."""
+    bad = []
+    for k in sorted(R.get("verdicts", {})):
+        v = str(R["verdicts"][k])
+        if v.startswith("FAIL") or v.startswith("ERROR"):
+            print("[atlas-consumer] query verdict %s=%s written by this run counts as a failure" % (k, v))   # not a gate line (q422 counts those)
+            bad.append(k)
+    return bad
+
+
+def _atlas_walk_ints(line, walks_path):
+    """--atlas-walks row -> hexagrams, or AtlasError (Codex F12-005#5: `not-a-walk` was a ValueError
+    traceback with no ATLAS_CONSUMER token)."""
+    try:
+        w = [int(x) for x in line.split(",")]
+    except ValueError:
+        raise AtlasError("%s: not a walk row (comma-separated hexagrams): %r" % (walks_path, line[:80]))
+    if any(not 0 <= h < 64 for h in w):
+        raise AtlasError("%s: walk row holds a value outside 0..63: %r" % (walks_path, line[:80]))
+    return w
+
+
+def _sp_open_or_refuse(src, flag, token):
+    """Open an input file, or refuse in the mode's own vocabulary: ERROR line and TOKEN=REFUSED on
+    stderr, exit 2 (Codex F12-005#4: --qoy-verify and --c8-print printed a FileNotFoundError
+    traceback for a missing file)."""
+    try:
+        return open(src)
+    except OSError as e:
+        print("ERROR: %s cannot read %s (%s)" % (flag, src, e.strerror or e), file=sys.stderr)
+        print("%s=REFUSED" % token, file=sys.stderr)
+        raise SystemExit(2)
+
+
+def _sp_ints_or_refuse(ln, flag, token, idx):
+    """One whitespace-separated ordering line -> ints, or the mode's refusal (exit 2)."""
+    try:
+        return [int(t) for t in ln.split()]
+    except ValueError:
+        print("ERROR: %s ordering %d is not whitespace-separated integers" % (flag, idx), file=sys.stderr)
+        print("%s=REFUSED" % token, file=sys.stderr)
+        raise SystemExit(2)
+
+
+def _xa_ceiling_conflict_check(cost):
+    """XA: a wall-clock ceiling together with either $ anchor is an argument error whatever else is
+    supplied (SOLVE_PY_CLI.md). Until G5b it was checked only after a usable node-mapping certificate
+    had been accepted, so without one the same conflicting flags took the PENDING path (Codex
+    F12-004#7)."""
+    if cost is not None and cost.get("budget_hours") is not None and (
+            cost.get("usd_per_hour") is not None or cost.get("budget_usd") is not None):
+        raise AtlasError("XA: give EITHER a wall-clock ceiling (--xa-budget-hours) OR the "
+                         "$ pair (--xa-usd-per-hour, --xa-budget-usd), not both")
+
+
+def _ext4_fault(rc, log, d, n_shards):
+    """extended_selftest subtest 4: "" when the --branch + depth-3 + 128-thread run completed its
+    enumeration, else the reason. Until G5b one matching shard filename passed whatever the exit
+    status, and any crash was labelled the known post-enumeration merge SIGSEGV (Codex F04-011#4,
+    F12-001#19, F12-011#25). Now: at least one NONEMPTY shard, the whole line ENUM_RUN=FINISHED in
+    the log (the merge runs after it), and exit 0 or -11 (the documented SIGSEGV) only."""
+    if n_shards == 0:
+        return "produced 0 shards"
+    try:
+        sizes = [os.path.getsize(os.path.join(d, f)) for f in os.listdir(d)
+                 if f.startswith("sub_1_0_") and f.endswith(".bin")]
+    except OSError as e:
+        return "shard directory unreadable (%s)" % e
+    if not any(sizes):
+        return "every shard is empty"
+    if "ENUM_RUN=FINISHED" not in _g5b_read(log).splitlines():
+        return "the log has no ENUM_RUN=FINISHED line (enumeration did not complete; exit=%s)" % rc
+    if rc not in (0, -11):
+        return "exit=%s, which is not the documented post-enumeration merge SIGSEGV (-11)" % rc
+    return ""
+
+
+def _t8_wait_checkpoint(proc, d, limit):
+    """extended_selftest subtest 8: wait until the walk has written a nonempty per-thread checkpoint
+    (or LIMIT seconds pass, or the child exits), so the SIGTERM that follows lands MID-walk."""
+    import glob as _glob
+    t_end = time.time() + limit
+    while time.time() < t_end and proc.poll() is None:
+        if any(os.path.getsize(p) > 0 for p in _glob.glob(os.path.join(d, "checkpoint_t*.txt"))
+               if os.path.isfile(p)):
+            return
+        time.sleep(0.2)
+
+
+def _g5b_read(path):
+    try:
+        with open(path, errors="replace") as fh:
+            return fh.read()
+    except OSError:
+        return ""
+
+
+def _g5b_sha256(path):
+    import hashlib
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _p2_header_strict(f, header, version, record_count):
+    """_p2_read_header: what SOLUTIONS_FORMAT.md requires of a v1 file and the reader did not check
+    (Codex F04-010#6/#7, F12-004#2). A version other than 1 is refused ("a reader that does not
+    understand a newer version MUST refuse"); the 16 reserved bytes must be zero; and the body must
+    be EXACTLY record_count * 32 bytes -- the readers stopped at the declared count, so surplus
+    records or a trailing partial record were silently ignored, and a processing cap hid a short
+    body. A stream that cannot seek is left to the readers' own short-read checks."""
+    if version != 1:
+        raise ValueError(f"format version {version}: this reader understands only version 1 "
+                         f"(SOLUTIONS_FORMAT.md: refuse rather than guess)")
+    if header[16:_P2_HEADER_SIZE] != bytes(_P2_HEADER_SIZE - 16):
+        raise ValueError("reserved header bytes 16..31 are not zero")
+    try:
+        pos = f.tell()
+        end = f.seek(0, 2)
+        f.seek(pos)
+    except (AttributeError, OSError, ValueError):
+        return
+    want = _P2_HEADER_SIZE + record_count * _P2_RECORD_SIZE
+    if end != want:
+        raise ValueError(f"the body is {end - _P2_HEADER_SIZE} bytes but the header declares "
+                         f"{record_count} records ({want - _P2_HEADER_SIZE} bytes): surplus, partial "
+                         f"or missing records (a torn or truncated artifact) -- the header is the contract")
+
+
+def _p2_obs_lohi(counts, values, lo, hi):
+    """--marginals integer rows: the OBSERVED Min | Max from the histogram, not the configured bin
+    edges (Codex F04-010#8: a one-record King Wen population printed Min = 424 for c3_total = 776).
+    A histogram clamps out-of-range values into its end bins, so an observed endpoint equal to a
+    configured edge is marked `(edge)`."""
+    nz = [int(v) for v, c in zip(values, counts) if c]
+    if not nz:
+        return "- | -"
+    a, b = nz[0], nz[-1]
+    return "%s%s | %s%s" % (a, " (edge)" if a == lo else "", b, " (edge)" if b == hi else "")
+
+
+def _g5b_popen_or_unlink(cmd, path, **kw):
+    """subprocess.Popen, removing the caller's delete=False temporary if the launch fails (Codex
+    F04-010#12: the fit file leaked when the scorer could not start)."""
+    import subprocess
+    try:
+        return subprocess.Popen(cmd, **kw)
+    except BaseException:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+        raise
+
+
+def _g5b_write_all(stream, data):
+    """Write EVERY byte to an unbuffered pipe: a raw write() may return short (a handled signal),
+    and the KDE wrappers dropped the remainder while the scorer reported the smaller total as
+    exhaustive (Codex F04-010#11)."""
+    mv = memoryview(data)
+    while len(mv):
+        n = stream.write(mv)
+        if n is None:
+            time.sleep(0.01)
+            continue
+        if n <= 0:
+            raise OSError("short write to the scorer pipe: 0 bytes accepted, %d left" % len(mv))
+        mv = mv[n:]
+
+
+def _by_mixed(key, depth, overrides):
+    """--branch-yield-report: True when an override names a sub-branch DEEPER than the report depth
+    inside this bucket, so the bucket mixes extended and default budgets and cannot be classified.
+    Until G5b the depth-1 match ignored an override's p2/o2 and called the whole (p1, o1) bucket
+    extended, so a changed default-budget sub-branch inside it read as the expected change and
+    BRANCH_YIELD_SANITY printed PASS (Codex F04-010#13)."""
+    for ov in overrides or []:
+        if ov.get("p1") != key[0] or ov.get("o1") != key[1]:
+            continue
+        if depth < 2 and ("p2" in ov or "o2" in ov):
+            return True
+        if depth < 3 and ("p3" in ov or "o3" in ov) and (depth < 2 or (ov.get("p2"), ov.get("o2")) == (key[2], key[3])):
+            return True
+    return False
+
+
+def _by_mixed_note(rows, depth):
+    mixed = [r["key"] for r in rows if r.get("mixed")]
+    if not mixed:
+        return ""
+    return ("\n  FAIL -- %d bucket(s) mix extended and default sub-branches at depth %d (an override names a "
+            "deeper sub-branch: %s); re-run with a --depth that reaches the override"
+            % (len(mixed), depth, ", ".join(str(k) for k in mixed[:4])))
+
+
+def _g5b_perm_arg(seq_arg):
+    """A 64-int SEQ argument (comma/space separated) -> the list, or [] when it is not a permutation of
+    0..63 (Codex F04-011#6: a negative value aliased a Python index and scored, all-zero and
+    duplicate vectors scored, and a non-integer token was a ValueError traceback)."""
+    try:
+        seq = [int(x) for x in seq_arg.replace(",", " ").split()]
+    except ValueError:
+        return []
+    return seq if sorted(seq) == list(range(64)) else []
+
+
+def _r11_first_pair_check(seq):
+    """r11_builder_numerator: the builder's slot 0 is the forced pure pair (63, 0); a sequence opening
+    otherwise is not builder-reachable and must raise, as the docstring says (Codex F04-011#8: reversed
+    King Wen, first pair (42, 21), got a positive likelihood)."""
+    if list(seq[:2]) != [63, 0]:
+        raise ValueError("seq opens with %r, not the builder's forced pure pair [63, 0]: not a "
+                         "builder-reachable path" % (list(seq[:2]),))
+
+
+def _g5b_finite(x, what="value"):
+    import math
+    if not math.isfinite(x):
+        raise ValueError("%s=%r is not a finite number" % (what, x))
+    return x
 
 
 if __name__ == "__main__":
