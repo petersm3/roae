@@ -514,7 +514,9 @@ commands (`--estimate-knuth 0`, the orbit-quotient DP, `--verify`) are determini
    PruneGInvariance on 2026-08-07, then TrigramTheorems + SymmetryCompleteness later the same day — and the
    Lean corpus carries **zero** `native_decide`; a module-wide axiom scan over every non-internal constant of
    all twelve compiled modules observed zero compiler-trust axioms ([lean/README.md](../lean/README.md)
-   §Trust base, "RE-EXECUTED" note). "Kernel-checked Lean theorems" on this rung now means all of them.)*
+   §Trust base, "RE-EXECUTED" note); since 2026-10-23 that scan ships as `lean/AxiomCensus.lean.in` and runs as
+   `reports/certificates/verify_all.sh` leg (D) over all fifteen modules, 1,500 constants (Codex gpt-6-astra
+   F01-001#5). "Kernel-checked Lean theorems" on this rung now means all of them.)*
 2. **Only the encoder** (validated by KW-value gates + two-way SAT tests): the conflict theorem's rule
    faithfulness.
    *(Added 2026-08-01: the conflict theorem is the **same object** as one of rung 1's DRAT certificates, and

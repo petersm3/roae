@@ -556,14 +556,22 @@ theorem g48_couples_to_couples :
      E[C3] = 16 + 8·128 = 1040 (`null_c3_mean_1040`); the DP-free linearity
      closed form 12·E|i−j| = 12·(9920/930) = 128 is pinned in
      `sum_absdiff_31` / `null_mean_linearity` as an independent cross-check;
-   · `null_p_le_95` — P(G ≤ 95) · 7919632354008375 = 641983711307479 · (total),
+   · `null_p_le_95` — (mass at G ≤ 95) · 7919632354008375 = 641983711307479 · (total mass),
      i.e. P(G ≤ 95) = 641983711307479/7919632354008375 (≈ 8.106231%) exactly, in
+     (the theorem is the cleared-denominator identity over the histogram masses;
+     this line wrote "P(G ≤ 95) · 7919632354008375 = … · (total)", which is off by
+     the total mass 31! — comment corrected 2026-10-23, Codex gpt-6-astra F01-006#7)
      lowest terms (`null_p_le_95_lowest_terms`), with the ≤95 mass as an exact
      integer (`null_mass_le_95`). KW's own slot-distance sum is 95
      (`kw_slot_sum_95` above), so this is the null mass at-or-below King Wen.
 
-   Modeling note (the one non-kernel step): reading the C1∩C4 null as "uniform
-   over the 31! free pair-orders" is a modeling choice, made independently by
+   Modeling note (the first of the TWO non-kernel steps — the second, that bin g
+   of `NullHist` counts exactly the pair-orders whose slot-distance sum is g at
+   12 couples / 31 slots, is kernel-proved only at the brute-force sizes and is
+   stated in lean/README.md's C3Decomposition scope note; this line said "the
+   one non-kernel step" until 2026-10-23, Codex gpt-6-astra F01-006#2): reading
+   the C1∩C4 null as "uniform over the 31! free pair-orders" is a modeling
+   choice, made independently by
    verify.py (whose DP also uses a differently-phrased G accumulator, so
    agreement is evidence); the brute-force theorems remove the recurrence
    itself from the trust base at small size, and the 12/7/31 instance runs the
@@ -781,7 +789,12 @@ theorem null_terminal_closed :
 
 theorem fact_31 : fact 31 = 8222838654177922817725562880000000 := by decide +kernel
 
-/-- TOTAL MASS = 31!: the DP counts every pair-ordering exactly once. -/
+/-- TOTAL MASS = 31!: the histogram SUMS to 31!, the number of pair-orderings.
+    This is the sum identity only — that each pair-ordering lands in exactly one
+    bin, and in the right one, is the semantic step (ii) of lean/README.md's
+    scope note, kernel-proved at the brute-force sizes and not here (this line
+    read "the DP counts every pair-ordering exactly once" until 2026-10-23,
+    Codex gpt-6-astra F01-006#2). -/
 theorem null_total : NullHist.sum = fact 31 := by rw [null_law]; decide +kernel
 
 /-- SUPPORT, lower end: no mass below G = 12 (each of the 12 couples has slot

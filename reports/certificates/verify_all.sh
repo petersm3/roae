@@ -802,6 +802,90 @@ lean_module_check() {   # $1 = <Module>.lean relative to lean/; runs from INSIDE
   [ "$rc" -ne 0 ] && return "$rc"
   return 1
 }
+#   (D) MODULE-WIDE AXIOM CENSUS (2026-10-23, Codex gpt-6-astra F01-001#5 and six siblings, push
+#       group G8L). lean/README.md and CLAIM_TO_ARTIFACT.md row 13 cite "1,500 non-internal
+#       constants, 0 outside [propext, Classical.choice, Quot.sound]" -- a `Lean.collectAxioms`
+#       walk over EVERY constant of every module, not only the directive sites leg (B) reads --
+#       and until today the driver that produced it lived only in the private evidence record.
+#       It now ships as lean/AxiomCensus.lean.in (byte-identical to the template the attested
+#       2026-09-10 and 2026-09-21 runs executed) and this leg runs it per module, in the shape
+#       those runs used: compile the module to an .olean in a scratch directory, copy
+#       lean/lean-toolchain into that directory (elan's proxy resolves the toolchain from the
+#       working directory; without the copy the scan would run under `elan default`), substitute
+#       the module name into the template, elaborate the scan file from that directory with
+#       LEAN_PATH at it. Judged on rc 0 AND one `AXSCAN_COMPLETE <Module> constants=<n> hits=0`
+#       line with n >= 1 AND exactly n well-formed `AXSCAN_OK` lines AND no other stdout line --
+#       any line that is not one of those two forms (a warning, an error, an `AXSCAN_HIT`, a
+#       COMPLETE line for another module, a malformed OK line) fails the module, the leg-(B)
+#       allowlist discipline. Tokens, one per module
+#       and one total, written to $LOG and repeated on stdout:
+#         LEAN_AXIOM_CENSUS_<Module>=PASS constants=<n>  |  =FAIL rc=<n> constants=<n> hits=<h> ...
+#         LEAN_AXIOM_CENSUS_CONSTANTS=<sum>   with floor LEAN_CENSUS_CONSTANTS_MIN (1500, the
+#       published count on the pinned 4.31.0; a floor, like LEAN_FILES_MIN, so a module that
+#       quietly lost declarations fails while one that grew passes). The second compile is the
+#       price of leaving leg (A)'s command untouched (it adds `-o`; stdout is unchanged by it).
+#       Positive control, executed on both attested runs: a module with one `sorry` theorem and
+#       one `native_decide` theorem gives `hits=2` (`sorryAx`, `_native.native_decide.ax_*`).
+#       tests.py `TestBatchG8L` runs this function against an elan-like stub `lean` (it refuses
+#       when no lean-toolchain is in its cwd) with canned outputs (clean / a hit / no COMPLETE
+#       line / an extra line / constants=0 / another module's COMPLETE line / a malformed OK
+#       line / no pin to copy) -- the judge is tested on every harness run; the Lean side is
+#       tested wherever this script runs with Lean.
+LEAN_CENSUS_LAST=""; LEAN_CENSUS_LAST_N=0
+lean_axiom_census_check() {   # $1 = <Module>.lean  $2 = scratch dir  $3 = template; runs from the repo root
+  local m=$1 dir=$2 tpl=$3 name rc n ok hit complete other pin
+  name=${m%.lean}
+  pin=${LEAN_PIN_FILE:-lean/lean-toolchain}
+  LEAN_CENSUS_LAST_N=0
+  if [ ! -f "$tpl" ]; then
+    LEAN_CENSUS_LAST="LEAN_AXIOM_CENSUS_$name=FAIL rc=? template_missing=$tpl"; echo "$LEAN_CENSUS_LAST"; return 1
+  fi
+  (cd lean && "$LEAN" "$m" -o "$dir/$name.olean") > "$dir/$name.o.out" 2>&1; rc=$?
+  if [ "$rc" -ne 0 ] || [ ! -s "$dir/$name.olean" ]; then
+    cat "$dir/$name.o.out"
+    LEAN_CENSUS_LAST="LEAN_AXIOM_CENSUS_$name=FAIL rc=$rc olean=$([ -s "$dir/$name.olean" ] && echo present || echo missing)"
+    echo "$LEAN_CENSUS_LAST"
+    [ "$rc" -ne 0 ] && return "$rc"
+    return 1
+  fi
+  sed "s/MODNAME/$name/g" "$tpl" > "$dir/AxiomCensus_$name.lean"
+  # The scan is elaborated from the scratch directory, and elan's `lean` proxy picks the toolchain
+  # by walking UP from the WORKING DIRECTORY to the nearest lean-toolchain (the B11a note above):
+  # without the pin there the scan would run under `elan default` -- an unidentified kernel, or
+  # none -- while LEAN_PIN_MATCH was measured from inside lean/. Both attested runs seeded the
+  # scratch directory with a copy of the pin before the scan; so does this leg, and it refuses to
+  # scan without it (2026-10-27, Codex gpt-6-astra rev_g8l #3 on push group G8L: the first draft
+  # omitted the copy; an elan-like stub `lean` then failed the clean census from the scratch cwd).
+  cp "$pin" "$dir/lean-toolchain" 2>/dev/null
+  if ! cmp -s "$pin" "$dir/lean-toolchain"; then
+    LEAN_CENSUS_LAST="LEAN_AXIOM_CENSUS_$name=FAIL rc=? pin_not_in_scratch=$dir"; echo "$LEAN_CENSUS_LAST"
+    echo "the scan must elaborate under the pinned toolchain: $pin could not be copied into $dir"
+    return 1
+  fi
+  (cd "$dir" && LEAN_PATH=$dir "$LEAN" "AxiomCensus_$name.lean") > "$dir/$name.census.out" 2>&1; rc=$?
+  cat "$dir/$name.census.out"
+  ok=$(grep -c -E '^AXSCAN_OK [^ ]+ :: \[' "$dir/$name.census.out")
+  hit=$(grep -c 'AXSCAN_HIT' "$dir/$name.census.out")
+  complete=$(grep -c -E "^AXSCAN_COMPLETE $name constants=[0-9]+ hits=[0-9]+\$" "$dir/$name.census.out")
+  # `other` = every line that is not one of the two VALIDATED forms (an OK line with a name and a
+  # bracketed list; THIS module's COMPLETE line). Until 2026-10-27 (Codex gpt-6-astra rev_g8l #6)
+  # the exemption was by prefix, so `AXSCAN_COMPLETE Bar constants=1 hits=1` or `AXSCAN_OK malformed
+  # garbage` beside a clean census was "nothing else on stdout" and the module passed (measured).
+  other=$(grep -v -E "^AXSCAN_OK [^ ]+ :: \[|^AXSCAN_COMPLETE $name constants=[0-9]+ hits=[0-9]+\$" "$dir/$name.census.out" | grep -c '')
+  n=$(sed -n -E "s/^AXSCAN_COMPLETE $name constants=([0-9]+) hits=[0-9]+\$/\1/p" "$dir/$name.census.out" | head -n 1)
+  [ -n "$n" ] || n=0
+  LEAN_CENSUS_LAST_N=$n
+  if [ "$rc" -eq 0 ] && [ "$complete" -eq 1 ] && [ "$hit" -eq 0 ] && [ "$other" -eq 0 ] \
+     && [ "$n" -ge 1 ] && [ "$ok" -eq "$n" ] \
+     && grep -q -E "^AXSCAN_COMPLETE $name constants=$n hits=0\$" "$dir/$name.census.out"; then
+    LEAN_CENSUS_LAST="LEAN_AXIOM_CENSUS_$name=PASS constants=$n"; echo "$LEAN_CENSUS_LAST"; return 0
+  fi
+  LEAN_CENSUS_LAST="LEAN_AXIOM_CENSUS_$name=FAIL rc=$rc constants=$n ok_lines=$ok hits=$hit complete_lines=$complete other_lines=$other"
+  echo "$LEAN_CENSUS_LAST"
+  echo "a census passes only on rc 0, one AXSCAN_COMPLETE line for $name with hits=0, constants >= 1 and as many AXSCAN_OK lines, and nothing else on stdout"
+  [ "$rc" -ne 0 ] && return "$rc"
+  return 1
+}
 LEAN_PIN_FILE=lean/lean-toolchain
 # 14 -> 15 on 2026-09-04: `CompilerCorrectness.lean` arrived on `main` with the v4-query-program
 # merge (a19682b2). Raised rather than left at 14 for the same reason the compile gate's warning
@@ -844,6 +928,28 @@ else
   done
   echo "LEAN_FILES=$_n" | tee -a "$LOG"
   check "lean module count >= $LEAN_FILES_MIN (found $_n)" "[ $_n -ge $LEAN_FILES_MIN ]"
+  # leg (D): the module-wide collectAxioms census (comment above lean_axiom_census_check)
+  LEAN_CENSUS_TEMPLATE=lean/AxiomCensus.lean.in
+  LEAN_CENSUS_CONSTANTS_MIN=${LEAN_CENSUS_CONSTANTS_MIN:-1500}
+  if [ "$LEAN_PIN_MATCH" != PASS ]; then
+    echo "LEAN_AXIOM_CENSUS_CONSTANTS=NOT_RUN (kernel identity did not match $LEAN_PIN_FILE; see LEAN_PIN_MATCH)" | tee -a "$LOG"
+  else
+    LEAN_CENSUS_DIR=$(mktemp -d "${TMPDIR:-/tmp}/roae_lean_census.XXXXXX") || LEAN_CENSUS_DIR=""
+    _tot=0
+    for f in lean/*.lean; do
+      LEAN_CENSUS_LAST=""; LEAN_CENSUS_LAST_N=0
+      if [ -z "$LEAN_CENSUS_DIR" ]; then
+        check "lean axiom census $f" "echo 'mktemp -d failed: no scratch directory for the .olean'; false"
+      else
+        check "lean axiom census $f (collectAxioms over every non-internal constant)" "lean_axiom_census_check \"${f#lean/}\" \"$LEAN_CENSUS_DIR\" \"$LEAN_CENSUS_TEMPLATE\""
+      fi
+      [ -n "$LEAN_CENSUS_LAST" ] && echo "$LEAN_CENSUS_LAST"
+      [ "$LAST_RC" -eq 0 ] && _tot=$((_tot + LEAN_CENSUS_LAST_N))
+    done
+    [ -n "$LEAN_CENSUS_DIR" ] && rm -rf "$LEAN_CENSUS_DIR"
+    echo "LEAN_AXIOM_CENSUS_CONSTANTS=$_tot" | tee -a "$LOG"
+    check "lean axiom census constants >= $LEAN_CENSUS_CONSTANTS_MIN over the passing modules (found $_tot)" "[ $_tot -ge $LEAN_CENSUS_CONSTANTS_MIN ]"
+  fi
 fi
 #   (C) SOURCE CENSUS (2026-09-29, Codex LSD R8). Leg (B) reads `#print axioms` reports, so it
 #       screens exactly the theorems that carry a directive: a module with NO directive passes on
@@ -873,35 +979,149 @@ else
   check "lean source census (no native_decide/axiom/sorry/skipKernelTC/implemented_by/extern/unsafe/opaque/partial def outside comments)" "python3 - <<'PYEOF'
 import re, glob, sys
 PAT = re.compile(r'\b(native_decide|skipKernelTC|implemented_by|extern|unsafe|sorry|ofReduceBool|trustCompiler)\b|decide\s*\+\s*native\b|native\s*:=\s*true|^\s*(?:(?:private|protected|noncomputable|@\[[^\]]*\])\s+)*(axiom|opaque|partial\s+def)\b')
-def strip_comments(src):
-    out, i, depth, n = [], 0, 0, len(src)
+# String-aware since 2026-10-23 (Codex gpt-6-astra F01-001#1 and five siblings, push group G8L):
+# until then this had no string-literal state, so a definition whose string body is the two
+# characters /- opened a block comment that never closed, and everything after it -- an axiom,
+# a native_decide -- was stripped as comment text and the census printed PASS n=0 (measured; a
+# bare axiom printed FAIL n=1). Lean's lexer gives a string literal priority over a comment
+# opener inside it, so the census must too: ordinary string bodies (with backslash escapes),
+# raw r#...# string bodies and the char literal holding a double quote are skipped at comment
+# depth 0; inside an interpolated s!/m!/f! string body the braces open an expression that is
+# CODE (scanned, with its own literals and comments). The stripped text keeps every newline, so hit line numbers are source line
+# numbers. A structural check per file follows: an unterminated block comment or string at end
+# of file, or a file with no non-blank line left after stripping, is a census hit in its own
+# right (a runaway opener is exactly the fail-open shape above). NB: this heredoc is the body of
+# a double-quoted check() argument, so it must contain no double-quote character (Q-742): Q is it.
+# Rewritten 2026-10-27 (Codex gpt-6-astra rev_g8l #2, #4, #5 on the first draft of this leg): one
+# recursive scanner in Lean's lexical order. The draft dropped an interpolation EXPRESSION with its
+# string body (a sorry inside s!...{...} printed PASS n=0 -- the pre-2026-10-23 census caught it),
+# let a double quote inside an escaped identifier open a string (the next declaration's by sorry
+# vanished), and counted a brace inside a char literal or a comment within an interpolation as an
+# expression brace (valid Lean printed FAIL n=1); all three measured. Code is emitted; comment text and string BODIES are dropped (newlines kept).
+# An interpolation expression {...} inside an s!/m!/f! body is CODE and is emitted (it can hold
+# sorry/native_decide); its nested strings, comments and char literals follow the same rules.
+# An escaped identifier «...» is one token: a double quote inside it opens nothing. A char literal
+# (any of 'Q', 'BS Q', '{', 'BS {', 'BS u{41}', ...) is one token: its brace or quote opens nothing.
+# NB: no double-quote character anywhere in this heredoc (Q-742): Q is it.
+Q = chr(34); BS = chr(92); NL = chr(10); SQ = chr(39)
+CHAR_LIT = re.compile(SQ + '(?:' + BS + BS + 'u' + BS + '{[0-9a-fA-F]+' + BS + '}|' + BS + BS + '.|[^' + BS + BS + SQ + NL + '])' + SQ)
+RAW_OPEN = re.compile('r#*' + Q)
+class _State:
+    def __init__(self, src):
+        self.src, self.n, self.out, self.ok = src, len(src), [], True
+def _skip_block_comment(st, i):
+    # st.src[i:] starts with /- ; returns the index just past the matching -/ (nested), keeping newlines
+    src, n, depth = st.src, st.n, 0
     while i < n:
-        if depth == 0 and src.startswith('--', i):
-            while i < n and src[i] != chr(10):
+        if src.startswith('/-', i):
+            depth += 1; i += 2; continue
+        if src.startswith('-/', i):
+            depth -= 1; i += 2
+            if depth == 0:
+                return i
+            continue
+        if src[i] == NL:
+            st.out.append(NL)
+        i += 1
+    st.ok = False
+    return n
+def _skip_string(st, i, interp):
+    # st.src[i] == Q ; returns the index just past the closing quote; the body is dropped,
+    # except an interpolation expression, which is scanned as code
+    src, n = st.src, st.n
+    i += 1
+    while i < n:
+        c = src[i]
+        if c == BS:
+            if i + 1 < n and src[i + 1] == NL:
+                st.out.append(NL)
+            i += 2; continue
+        if c == Q:
+            return i + 1
+        if c == NL:
+            st.out.append(NL)
+        if interp and c == '{':
+            i = _scan(st, i + 1, True)
+            if i >= n:
+                return n
+            continue
+        i += 1
+    st.ok = False
+    return n
+def _skip_raw_string(st, i):
+    src, n = st.src, st.n
+    j = i + 1
+    while j < n and src[j] == '#':
+        j += 1
+    close = Q + '#' * (j - (i + 1))
+    k = src.find(close, j + 1)
+    if k < 0:
+        st.out.append(NL * src.count(NL, i)); st.ok = False
+        return n
+    st.out.append(NL * src.count(NL, i, k))
+    return k + len(close)
+def _scan(st, i, in_expr):
+    # scan CODE from i; emits it. in_expr: stop at the } that closes the interpolation
+    # expression (returns the index just past it). Otherwise runs to end of file.
+    src, n, out = st.src, st.n, st.out
+    depth = 0
+    while i < n:
+        c = src[i]
+        if src.startswith('--', i):
+            while i < n and src[i] != NL:
                 i += 1
             continue
         if src.startswith('/-', i):
-            depth += 1; i += 2; continue
-        if depth > 0 and src.startswith('-/', i):
-            depth -= 1; i += 2; continue
-        if depth == 0:
-            out.append(src[i])
-        elif src[i] == chr(10):
-            out.append(src[i])
-        i += 1
-    return ''.join(out)
+            i = _skip_block_comment(st, i); continue
+        if c == chr(171):                                   # « escaped identifier »
+            k = src.find(chr(187), i + 1)
+            if k < 0:
+                st.ok = False; out.append(src[i:]); return n
+            out.append(src[i:k + 1]); i = k + 1; continue
+        if c == SQ and (i == 0 or not (src[i - 1].isalnum() or src[i - 1] in '_.' + SQ)):
+            m = CHAR_LIT.match(src, i)
+            if m:
+                out.append(m.group(0)); i = m.end(); continue
+        raw = RAW_OPEN.match(src, i) and (i == 0 or not (src[i - 1].isalnum() or src[i - 1] in '_.'))
+        if c == Q or raw:
+            if raw:
+                i = _skip_raw_string(st, i)
+            else:
+                interp = i >= 2 and src[i - 1] == '!' and src[i - 2] in 'smf'
+                i = _skip_string(st, i, interp)
+            continue
+        if in_expr:
+            if c == '{':
+                depth += 1
+            elif c == '}':
+                if depth == 0:
+                    return i + 1
+                depth -= 1
+        out.append(c); i += 1
+    if in_expr:
+        st.ok = False
+    return n
+def strip_comments(src):
+    st = _State(src)
+    _scan(st, 0, False)
+    return ''.join(st.out), st.ok
 files = sorted(glob.glob('lean/*.lean'))
 if len(files) < 15:
     print('LEAN_SOURCE_CENSUS=FAIL n=NO_SOURCES')
     raise SystemExit('FAIL: the census saw %d lean/*.lean files (needs >= 15); an empty census is not a pass' % len(files))
 hits = []
 for f in files:
-    for ln, text in enumerate(strip_comments(open(f, encoding='utf-8').read()).split(chr(10)), 1):
+    text, ok = strip_comments(open(f, encoding='utf-8').read())
+    if not ok:
+        hits.append((f, 0, 'unterminated block comment, string literal, interpolation or escaped identifier at end of file (a runaway opener hides everything after it)'))
+    if not any(t.strip() for t in text.split(chr(10))):
+        hits.append((f, 0, 'no non-blank line left after stripping (the file is all comment or string, or an opener swallowed it)'))
+    for ln, text in enumerate(text.split(chr(10)), 1):
         if PAT.search(text):
             hits.append((f, ln, text.strip()[:120]))
 for f, ln, text in hits:
     print('  census hit %s:%d: %s' % (f, ln, text))
-print('LEAN_SOURCE_CENSUS=%s n=%d' % ('FAIL' if hits else 'PASS', len(hits)))
+print('LEAN_SOURCE_CENSUS=%s n=%d' % ('PASS' if not hits else 'FAIL', len(hits)))
 if hits:
     raise SystemExit('FAIL: %d trust-base escape hatch(es) outside comments' % len(hits))
 PYEOF"

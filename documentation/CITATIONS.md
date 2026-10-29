@@ -2238,8 +2238,14 @@ as the unique Hamming-weight-preserving optimum (stable for the energy α|Δw|+�
 knowledge, the first *variational* (optimality-principle) first-principles derivation of any layer of the
 constraint system (derivation programs in the Cook tradition derive the sequence within richer frameworks —
 see the [uniqueness-conjecture note](#uniqueness-conjecture); corrections welcome), and it is Radisic's, not
-ours. His weight-conservation principle is the exact-preservation strengthening of the parity-preservation
-lemma underlying [PARITY_ALTERNATION.md](PARITY_ALTERNATION.md); his K₄ matching analysis and our B₃
+ours. His weight-conservation principle is not an exact invariant of the C1 matching, and not a strengthening of
+the parity-preservation lemma underlying [PARITY_ALTERNATION.md](PARITY_ALTERNATION.md): reversal preserves
+Hamming weight on the 28 reversal pairs, the 4 palindromic complement pairs (eight hexagrams: Qian/Kun 6 ↔ 0, and the six of weight 2 or 4) change it by 6 − 2w,
+and in his framework weight preservation is the prioritized term of the weighted objective above (α|Δw| + βd_H,
+α > β) that the C1 rule minimizes — whereas the parity lemma holds exactly on all 32 pairs, both operations
+preserving weight parity *(scoped 2026-10-23, Codex gpt-6-astra F03-002#1, after a Fable read of
+`lean/HammingOptimalMatching.lean` scope note 4: this read "the exact-preservation strengthening of the
+parity-preservation lemma")*; his K₄ matching analysis and our B₃
 constraint-system symmetry group are complementary results about different objects.
 
 ## The 1979 reordering proposal — measured, and its premise re-scoped (with credit)

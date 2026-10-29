@@ -124,10 +124,10 @@ documentation/CITATIONS.md	1903	marker	CORRECTED	1	-	reviewed:entry-already-drop
 documentation/CITATIONS.md	2050	marker	Corrected	1	-	reviewed:list-already-omits-the-nonexistent-file	bc2854ad3918
 documentation/CITATIONS.md	2058	marker	CORRECTED	1	-	reviewed:item-already-states-toolchain-scope-and-budget-condition	5aac052a61f0
 documentation/CITATIONS.md	2161	marker	CORRECTED	1	-	reviewed:entry-already-drops-the-edition-label	a53ab4f07e27
-documentation/CITATIONS.md	2558	marker	CORRECTED	1	-	reviewed:entry-already-drops-the-edition-claim	cdcd6af5e472
-documentation/CITATIONS.md	2594	marker	CORRECTED	1	-	reviewed:caveat-already-says-budgeted-enumeration	081a7f35084a
-documentation/CITATIONS.md	2763	marker	CORRECTED	1	-	reviewed:entry-already-dates-the-read-and-warns	534aabe4016a
-documentation/CITATIONS.md	2787	marker	Corrected	1	-	reviewed:sentence-already-says-an-exception-is-forced	70008db57739
+documentation/CITATIONS.md	2564	marker	CORRECTED	1	-	reviewed:entry-already-drops-the-edition-claim	cdcd6af5e472
+documentation/CITATIONS.md	2600	marker	CORRECTED	1	-	reviewed:caveat-already-says-budgeted-enumeration	081a7f35084a
+documentation/CITATIONS.md	2769	marker	CORRECTED	1	-	reviewed:entry-already-dates-the-read-and-warns	534aabe4016a
+documentation/CITATIONS.md	2793	marker	Corrected	1	-	reviewed:sentence-already-says-an-exception-is-forced	70008db57739
 documentation/CLAIMS_DECIDED.md	46	marker	Corrected	1	-	reviewed:row-already-gives-the-one-5-line-transition	5675b59012d1
 documentation/CLAIMS_DECIDED.md	54	ledger-link	CORRECTION	n/a	-	not-a-marker	ff081f2a9227
 documentation/CLAIMS_DECIDED.md	80	marker	CORRECTED	1	-	reviewed:clause-already-says-orientation-is-definitional	1d8b91106749
@@ -576,7 +576,7 @@ lean/README.md	78	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	90
 lean/README.md	249	marker	CORRECTED	1	-	reviewed:sentence-already-names-stdout-as-load-bearing	d4ca86898847
 lean/README.md	343	marker	CORRECTED	1	-	reviewed:sentence-already-reads-fifteen	7e04babdaffb
 lean/README.md	395	marker	CORRECTED	1	-	reviewed:table-already-carries-the-re-measured-figures	826d33dcd3dd
-lean/README.md	730	marker	CORRECTED	1	-	reviewed:sentence-above-already-says-definitional	5b5a41a13f81
+lean/README.md	733	marker	CORRECTED	1	-	reviewed:sentence-above-already-says-definitional	5b5a41a13f81
 reports/CAPSTONE_GUIDE.md	5	ledger-link	CORRECTION	n/a	-	not-a-marker	e9a5687d5cf6
 reports/CAPSTONE_GUIDE.md	584	ledger-link	CORRECTION	n/a	-	not-a-marker	5222ba03bd32
 reports/FULL31_EXACT_AGGREGATES.md	9	marker	CORRECTED	1	-	reviewed:sentence-before-already-states-exact-counts-and-what-the-gates-check	95394accbcda
@@ -597,9 +597,9 @@ reports/METHODS.md	114	marker	Corrected	1	-	reviewed:row-already-says-pin-to-a-c
 reports/METHODS.md	142	marker	Corrected	3	GATE 4b	reanchored:GATE-4b=allowlist-row	bc73b6ca1f60
 reports/METHODS.md	146	ledger-link	CORRECTION	n/a	-	not-a-marker	fd3fff6ea530
 reports/METHODS.md	149	ledger-link	CORRECTION	n/a	-	not-a-marker	79d98acdfc0b
-reports/METHODS.md	576	ledger-link	CORRECTION	n/a	-	not-a-marker	2ae7abd23d87
-reports/METHODS.md	577	ledger-link	RETRACTED	n/a	-	not-a-marker	629963a97751
-reports/METHODS.md	612	ledger-link	CORRECTION	n/a	-	not-a-marker	a9e1def5639d
+reports/METHODS.md	578	ledger-link	CORRECTION	n/a	-	not-a-marker	2ae7abd23d87
+reports/METHODS.md	579	ledger-link	RETRACTED	n/a	-	not-a-marker	629963a97751
+reports/METHODS.md	614	ledger-link	CORRECTION	n/a	-	not-a-marker	a9e1def5639d
 reports/README.md	17	ledger-link	CORRECTION	n/a	-	not-a-marker	8912ba34280b
 reports/README.md	36	ledger-link	CORRECTION	n/a	-	not-a-marker	64c279eb92c8
 reports/README.md	43	ledger-link	CORRECTION	n/a	-	not-a-marker	9fb867b3160f

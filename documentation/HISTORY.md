@@ -11737,3 +11737,27 @@ Q-686=DONE
   The Lean census and the two SAT-semantics rows of the batch are Fable's.
 - No canonical sha, count, certificate or verdict changed; `solve --selftest` still prints 403f7202…, and the TR-8 pools
   reproduce byte for byte. `TestBatchG5b` holds each cure and fails on the uncured tree.
+
+## 2026-10-23 — push group G8L: the SAT and Lean rows of Codex's final review
+
+- **Lean census (CX-35Z-A, CX-35Z-B).** Codex (gpt-6-astra) showed `verify_all.sh`'s source census could be blinded by a
+  string literal holding a comment opener; the stripper is string-aware and an unterminated opener or an emptied module
+  is a hit. The 1,500-constant `collectAxioms` census, until now attested from the private record, ships as
+  `lean/AxiomCensus.lean.in` and runs as leg (D) wherever Lean is present (`LEAN_AXIOM_CENSUS_*` tokens, floor 1500);
+  the README's hardware table gains the `CompilerCorrectness.lean` figures.
+- **SAT layer (CX-35Z-C).** The King Wen over-constraint control decides the remainder (`KW_CONTROL_REST_SAT`, a bounded
+  DPLL on what propagation leaves open) instead of accepting undecided clauses; the reduced-subset verifier requires
+  canonical partner pairs; `--witness` re-scores every target's rules, the KW-pinned validation targets included.
+- **Lean comments (CX-35Z-D) and CITATIONS (CX-35Z-E).** Six module comments now say what the theorem beside them proves
+  (record-level DIV-24; two non-kernel steps; the cd-style §5 hazard; KB7's kernel-checked identity; the n = 19 ladder;
+  the equivariance ceiling's hypothesis), and Radisic's weight-conservation principle is no longer called the
+  exact-preservation strengthening of the parity lemma.
+- **Codex's review of the staged batch, folded before publication (2026-10-27).** Codex (gpt-6-astra, rev_g8l,
+  2026-10-25) raised eight findings on the batch as first staged; Fable's triage found all eight real. Folded: the source
+  census is one recursive scanner (an interpolation expression is scanned as code, `«…»` and char literals are single
+  tokens); leg (D) copies the toolchain pin into the scan directory and counts every non-validated stdout line; `--witness`
+  refuses a witness on a KW-pinned target documented UNSAT; the subset-verifier test discriminates the membership line;
+  the Radisic sentence counts 28 reversal pairs and 4 palindromic complement pairs. Found alongside: the King Wen control
+  now names `ccn4-kwfail`'s permuted-faces family. Rebuilt on the published parent (G5b) after FV1 and G5b went out.
+- No theorem statement, certificate, CNF, measured value, sha or verdict changed; every certified `--kw-control` still
+  passes. `TestBatchG8L` holds each cure. Leg (D) is executed by the worker chain's Lean run, not here.

@@ -241,7 +241,7 @@ returning 0):
 **So the directives are a live witness, not a dead one.** Independently, a module-wide census
 (`Lean.collectAxioms` over every non-internal constant of all 15 modules, **1,500 constants** — not
 only the directive sites) found **0** outside `[propext, Classical.choice, Quot.sound]`: `sorryAx`
-**0**, `Lean.ofReduceBool` **0**, `_native.native_decide` **0**.
+**0**, `Lean.ofReduceBool` **0**, `_native.native_decide` **0**. **Reproducible from the tree since 2026-10-23:** the driver ships as `lean/AxiomCensus.lean.in` (byte-identical to the template the 2026-09-10 and 2026-09-21 runs executed; `import MODNAME`, walk the module's constants, print one `AXSCAN_OK`/`AXSCAN_HIT` line each and `AXSCAN_COMPLETE <Module> constants=<n> hits=<h>`), and `reports/certificates/verify_all.sh` leg (D) runs it per module wherever Lean is present — tokens `LEAN_AXIOM_CENSUS_<Module>=PASS constants=<n>` and `LEAN_AXIOM_CENSUS_CONSTANTS=1500` against the floor `LEAN_CENSUS_CONSTANTS_MIN` (1,500 is the sum of the fifteen per-module counts on the pinned 4.31.0: 126 + 128 + 105 + 69 + 134 + 37 + 70 + 80 + 151 + 27 + 99 + 111 + 7 + 198 + 158). Until then the driver lived only in the private evidence record, so the figure was attested, not reproducible (Codex gpt-6-astra F01-001#5 and six siblings, push group G8L).
 
 ⚠ **The detector was shown able to fire before its silence was trusted:** an appended false `rfl`
 gives rc 1; an appended `sorry` gives **rc 0 with only a warning** — exit code alone is fail-open,
@@ -329,7 +329,7 @@ as one whole line — `LEAN_MODULE_<Module>=PASS` or `LEAN_MODULE_<Module>=FAIL 
 non_allowlisted_lines=<k>`. Until then the phase judged the exit status alone, which a `sorry` (rc 0,
 warning on stdout) and a `native_decide` (rc 0, an auxiliary axiom in the `#print axioms` line) both
 satisfy — measured that day: a shipped module with an appended `sorry` printed `PASS`. The exit-status
-leg catches `sorry`; the allowlist leg catches `native_decide` in a theorem that has a `#print axioms` directive; since 2026-09-29 a source-census leg (python3 only, so it runs on a host without Lean too) reads every module's source with comments stripped, directed or not, and fails on any `native_decide` (in either spelling, `decide +native` included), `ofReduceBool`, `trustCompiler`, `sorry`, `skipKernelTC`, `implemented_by`, `extern` or `unsafe`, or a declaration-head (modifiers allowed) `axiom`, `opaque` or `partial def`, printing the whole-line token `LEAN_SOURCE_CENSUS=PASS n=0` (or `=FAIL n=<hits>`, each hit named). The token and the hits are written to the run log, not the console: the console shows the leg only as its `PASS`/`FAIL` line, and the log's path is printed at the end of the run as `full command output: <log>` (`ROAE_VERIFY_LOG` sets it). It is a text screen, not a kernel check: an axiom reached through a term it does not name is caught only where a `#print axioms` directive reaches it:
+leg catches `sorry`; the allowlist leg catches `native_decide` in a theorem that has a `#print axioms` directive; since 2026-09-29 a source-census leg (python3 only, so it runs on a host without Lean too) reads every module's source with comments stripped, directed or not, and fails on any `native_decide` (in either spelling, `decide +native` included), `ofReduceBool`, `trustCompiler`, `sorry`, `skipKernelTC`, `implemented_by`, `extern` or `unsafe`, or a declaration-head (modifiers allowed) `axiom`, `opaque` or `partial def`, printing the whole-line token `LEAN_SOURCE_CENSUS=PASS n=0` (or `=FAIL n=<hits>`, each hit named). The token and the hits are written to the run log, not the console: the console shows the leg only as its `PASS`/`FAIL` line, and the log's path is printed at the end of the run as `full command output: <log>` (`ROAE_VERIFY_LOG` sets it). It is a text screen, not a kernel check: an axiom reached through a term it does not name is caught only where a `#print axioms` directive reaches it. Since 2026-10-23 (push group G8L) the source census is **string-aware** — a string literal can neither open nor close a comment, and an unterminated opener at end of file or a module stripped to nothing is a hit in its own right; until then a definition whose string body was the two characters of a block-comment opener hid everything after it (measured: an appended axiom printed `PASS n=0`; Codex gpt-6-astra F01-001#1) — and a fourth leg (D) runs the module-wide `Lean.collectAxioms` census of §Trust base from the shipped driver `lean/AxiomCensus.lean.in`: one `LEAN_AXIOM_CENSUS_<Module>=PASS constants=<n>` token per module and `LEAN_AXIOM_CENSUS_CONSTANTS=<sum>` against the floor `LEAN_CENSUS_CONSTANTS_MIN` (1500). Leg (D) needs Lean (it compiles each module to an `.olean` in a scratch directory and elaborates the scan file against it) and reports `NOT_RUN` when the kernel identity does not match the pin:
 
 ```bash
 bash reports/certificates/verify_all.sh
@@ -389,7 +389,7 @@ reproduced their D16 figures to within 0.03 GB):
 | `SatEncodingFidelity.lean` | **0.85 s** (was "~7 s"; measured 0.85 / 0.70 / 0.80 s on three fresh hosts, 2026-09-10) | 0.55 GB |
 | `SymmetryCompleteness.lean` | ~22 s | 2.8 GB |
 | `C1RuleConstants.lean` | ~1 s | 0.7 GB |
-| the other five (`PartitionInvariance`, `HammingOptimalMatching`, `PruneExactness`, `PruneSafety`, `RecordConvention`) | <1 s each | <0.6 GB each |
+| the other six: `PartitionInvariance`, `HammingOptimalMatching`, `PruneExactness`, `PruneSafety`, `RecordConvention` (<1 s, <0.6 GB each) and `CompilerCorrectness.lean` (~2.4 s, 0.76 GB = 757,468 kB, measured 2026-09-10 on a D16-class host; 4.97 s / 0.67 GB re-measured 2026-09-21 on the 2-core D2as_v6 orchestrator — entered 2026-10-23: the table listed fourteen modules after the fifteenth joined the suite, Codex gpt-6-astra F09-H05#4) | <2.5 s each | <0.8 GB each |
 | `PruneReprFC.lean` | ~1.5 s | 0.49 GB |
 
 ⚠ **[CORRECTED 2026-09-24 (Q-753) — four peak-RSS cells above still carried the figures that the
@@ -703,8 +703,11 @@ construction, which is precisely the point — unique-KW output requires smuggle
 KW-specific data.
 
 **Novelty status.** The mathematical content is the standard invariance/orbit argument — an
-invariant score induces an output distribution constant on each orbit, so no such generator can
-concentrate on a single orbit element (P ≤ 1/|orbit|). This is Curie's principle (1894), worked
+output law that is a function of a G-invariant score is constant on each orbit (the theorems'
+hypothesis `mass (score r)`; an invariant score alone, with a tie-break by enumeration order, is
+not covered — scoped 2026-10-23, Codex gpt-6-astra FV-G4-C4#4, the sibling CX-35T-G scoped above;
+this read "an invariant score induces an output distribution constant on each orbit"), so no such
+generator can concentrate on a single orbit element (P ≤ 1/|orbit|). This is Curie's principle (1894), worked
 out explicitly in the equivariant-model symmetry-breaking literature — e.g. Smidt et al.,
 *Phys. Rev. Research* 3, L012002 (2021); "Symmetry Breaking and Equivariant Neural Networks"
 (arXiv:2312.09016); "Improving Equivariant Networks with Probabilistic Symmetry Breaking"

@@ -740,8 +740,12 @@ theorem circular_ratio_3_to_1 (l : List Nat) (hb : ∀ x ∈ l, x < 64)
      already-verified free-action finite component.
 
    Novelty status (per the project's attribution rules): the mathematical
-   content is the standard invariance/orbit argument — an invariant score
-   induces an output distribution constant on each orbit, so no such generator
+   content is the standard invariance/orbit argument — an output law that is a
+   function of a G-invariant score is constant on each orbit (the theorems'
+   hypothesis `mass (score r)`; an invariant score alone, with a tie-break by
+   enumeration order, is not covered — scoped 2026-10-23, Codex gpt-6-astra
+   FV-G4-C4#4, after CX-35T-G scoped lean/README.md and CITATIONS.md the same
+   way), so no such generator
    can concentrate on a single orbit element (P ≤ 1/|orbit|). This is Curie's
    principle (1894), worked out explicitly in the equivariant-model
    symmetry-breaking literature: Smidt et al., Phys. Rev. Research 3, L012002

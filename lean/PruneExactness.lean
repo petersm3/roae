@@ -697,7 +697,10 @@ example : Fcount [[1, 1], [1, 0]] [3, 1] = 0 ∧ Fcount [[1, 1], [1, 0]] [2, 2] 
     (layer files, sparse absent-=-zero storage, canonical-mask table
     lookup, 192-bit arithmetic) — prose + the runtime gates + the
     empirical agreement ladder: plain DP against the quotient up to
-    n = 18 (the U1–U3 subset gate and verify.py --recount-rung 18), and
+    n = 19 (the U1–U3 subset gate and verify.py --recount-rung 18 and 19,
+    both `[MATCH]` in REPRODUCE.md; this read "up to n = 18 … --recount-rung
+    18" until 2026-10-23 — Codex gpt-6-astra FV-G23-C3#1, the sibling of
+    CX-392's TR-11 correction), and
     in-RAM against out-of-core QUOTIENT runs up to n = 28, which share
     the f1c5_gather_entries kernel and so test storage and streaming, not
     the gather arithmetic; and TR-11 §10(vi)'s independent-engine

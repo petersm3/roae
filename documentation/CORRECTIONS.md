@@ -35062,3 +35062,198 @@ on the uncured files.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5b; the defects were found by Codex
 (gpt-6-astra), final review, F04-007, F04-009, F12-004, F12-005, F12-006 and F12-014.
+
+## CX-35Z-A — the Lean source census could be blinded by a string literal (reports/certificates/verify_all.sh; lean/README.md; tests.py)
+
+**2026-10-23.** **Source.** Codex (gpt-6-astra), final review, F01-001#1 with F01-003#1, F01-004#1, F01-005#1, F01-008#1
+and F01-009#1 (six lenses, one finding); confirmed by Fable's fast-track triage; Fable lane (claude-fable-5-1), push group G8L.
+
+**What the gate did, and what it does now.** `verify_all.sh` leg (C), the python-only source census that fails on
+`native_decide`, `axiom`, `sorry` and the other trust-base escape hatches outside comments, stripped comments with no
+string-literal state. A definition whose string body was the two characters of a block-comment opener therefore opened
+a comment that never closed, and every line after it — an `axiom x : False`, a `native_decide` — was stripped as
+comment text: measured on the shipped file, that two-line suffix printed `LEAN_SOURCE_CENSUS=PASS n=0` where the bare
+axiom printed `FAIL n=1`. No shipped module carries such a literal (no double-quote character survives comment
+stripping in any of the fifteen), so no published verdict moves. The stripper is now string-aware, in the order Lean's
+lexer uses: at comment depth 0 an ordinary string body (backslash escapes honoured), a raw `r#…#` body and the char
+literal holding a double quote are skipped, the expression inside the braces of an interpolated `s!`/`m!`/`f!` body is
+code and is scanned (its own literals and comments nest), an escaped identifier `«…»` is one token, a char literal is
+one token, and inside a comment a quote is text. Codex's review of this batch as first staged (rev_g8l #2, #4, #5,
+2026-10-25; Fable triage 2026-10-27) found that draft dropped the interpolation expression with the string body (a
+`sorry` inside it printed `PASS n=0`, which the pre-2026-10-23 census had caught), let a double quote inside `«…»`
+open a string that swallowed the next declaration, and counted a brace inside a char literal or a comment within an
+interpolation as an expression brace (valid Lean printed `FAIL n=1`); the stripper is one recursive scanner in Lean's
+lexical order, rewritten before publication. Two structural checks follow per module, each a census hit in its own
+right: a block comment, string, interpolation or escaped identifier still open at end of file, and a module with no
+non-blank line left after stripping — the two shapes a runaway opener produces. Line numbers are preserved (newlines
+inside skipped literals are kept).
+
+**Tests.** `TestBatchG8L.test_lean_source_census_is_string_aware` runs the heredoc extracted from `verify_all.sh` on a
+copy of `lean/`: the shipped sources pass; Codex's two-line suffix (axiom, and native_decide), a line-comment opener
+in a string, the interpolated and raw forms, both char-literal spellings, an escaped quote, an unterminated block
+comment, an unterminated string and an all-comment extra module each fail with the hit named; escape-hatch tokens
+inside a string literal and inside comments are not hits; Codex's five inputs on the first draft (`sorry` and
+`native_decide` inside an interpolation expression, a quote inside an escaped identifier, a brace inside a char
+literal and inside a comment within an interpolation), a doubly nested interpolation, primed identifiers and a
+`'\u{41}'` literal each give the stated verdict with the hit on the right line. Red on the uncured tree: the two-line
+suffix passed; red on the first draft: the three Codex shapes.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, push group G8L.
+
+## CX-35Z-B — the 1,500-constant axiom census had no public driver (lean/AxiomCensus.lean.in; reports/certificates/verify_all.sh; lean/README.md; documentation/CLAIM_TO_ARTIFACT.md; reports/METHODS.md; tests.py)
+
+**2026-10-23.** **Source.** Codex (gpt-6-astra), final review, F01-001#5 with F01-002#4, F01-003#6, F01-004#3, F01-006#5,
+F01-007#3, F01-009#3 (the same finding from seven lenses; F08-009#18 and F09-H05#5 duplicate it) and F09-H05#4 (the
+hardware table); backlog Q-1024; Fable lane (claude-fable-5-1), push group G8L.
+
+**What was published, and what it says now.** `lean/README.md` §Trust base, CLAIM_TO_ARTIFACT.md row 13 and METHODS
+cite a module-wide `Lean.collectAxioms` census — 1,500 non-internal constants across the fifteen modules, none outside
+`[propext, Classical.choice, Quot.sound]` — as the complement of the `#print axioms` directives. The figure was
+produced twice (2026-09-10 on a fresh host, 2026-09-21 on the orchestrator) by a scan template that lived only in the
+private evidence record: true, attested, and not reproducible from the tree. The template now ships verbatim as
+`lean/AxiomCensus.lean.in` (`import MODNAME`, walk the module's constants, print one `AXSCAN_OK`/`AXSCAN_HIT` line per
+constant and `AXSCAN_COMPLETE <Module> constants=<n> hits=<h>`), and `verify_all.sh` gained leg (D): for each module,
+compile to an `.olean` in a scratch directory, copy `lean/lean-toolchain` into that directory (elan's `lean` proxy
+resolves the toolchain from the working directory, so without the copy the scan would run under `elan default` — an
+unidentified kernel, or none), substitute the module name into the template, elaborate the scan file from that
+directory with `LEAN_PATH` at it — the shape both attested runs used — and judge on rc 0, exactly one
+`AXSCAN_COMPLETE` line for that module with `hits=0`, `constants ≥ 1`, as many well-formed `AXSCAN_OK` lines, and
+nothing else on stdout (any line that is not one of those two forms fails the module). Codex's review of this batch as
+first staged (rev_g8l #3 and #6, 2026-10-25; Fable triage 2026-10-27) found that draft omitted the pin copy and
+exempted stdout lines by prefix (`AXSCAN_COMPLETE Bar …` or `AXSCAN_OK malformed garbage` beside a clean census
+passed); both corrected before publication. Tokens `LEAN_AXIOM_CENSUS_<Module>=PASS constants=<n>` per module and
+`LEAN_AXIOM_CENSUS_CONSTANTS=<sum>` against the floor `LEAN_CENSUS_CONSTANTS_MIN` (1500 = 126 + 128 + 105 + 69 + 134 +
+37 + 70 + 80 + 151 + 27 + 99 + 111 + 7 + 198 + 158, the per-module counts of the attested runs); `NOT_RUN` when the
+kernel identity does not match the pin. The second compile is the price of leaving leg (A)'s command untouched. The
+README's hardware table listed fourteen modules; the `CompilerCorrectness.lean` figures now sit in the table's group
+row from the 2026-09-10 measurement (2.42 s wall, 757,468 kB peak on a D16-class host; 4.97 s / 0.67 GB on the 2-core
+orchestrator 2026-09-21) — folded into an existing row rather than added as one because
+`scripts/doc_gates.d/70_publication_surfaces.sh` cites the README's mathlib-revision line by number inside its
+append-only allowlist (tests.py Q-1003), so the lines above it may not move.
+
+**What this lane could not execute.** The orchestrator has no Lean and cannot hold the heaviest modules; leg (D) was
+not run end-to-end here. The judge was exercised against a stub `lean` (below); the Lean side rests on the two attested
+runs of the identical template and command shape, and the worker chain's `verify_all.sh` run with Lean is where it is
+executed before any push. If that run fails on leg (D) alone, the leg is wrong and the census claim is unchanged.
+
+**Tests.** `TestBatchG8L.test_lean_axiom_census_driver_and_leg`: the template is present with its executable content;
+the leg function extracted from `verify_all.sh`, run with an elan-like stub `lean` (it refuses when no
+`lean-toolchain` is in its working directory and records the pin it saw), passes a clean census under the copied pin
+and fails a hit, a missing `AXSCAN_COMPLETE` line, an extra stdout line, `constants=0`, an `AXSCAN_OK` count that
+disagrees with `constants`, a non-zero exit, a failed `.olean` compile, a census of the wrong module, a `COMPLETE`
+line for another module, a malformed `OK` line, and a missing pin (refused before the scan). Red on the uncured tree:
+no template, no leg; red on the first draft: the clean census failed from the scratch cwd, and the two stdout shapes
+passed.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, push group G8L.
+
+## CX-35Z-C — sat.py: the King Wen control accepted an unsatisfiable remainder, the subset verifier accepted non-pairs, and the witness loop skipped the rule re-score on the targets built to validate the encoding (sat.py; documentation/SAT_CLI.md; reports/certificates/README.md; tests.py)
+
+**2026-10-23.** **Source.** Codex (gpt-6-astra), final review, F01-001#3, F01-002#1 and F12-012#5; confirmed by Fable's
+fast-track triage; backlog Q-1024; Fable lane (claude-fable-5-1), push group G8L.
+
+**What the code did, and what it does now.**
+- `kw_control_check` leg 2 asked that King Wen falsify nothing on the formula minus the expected families. `model_check`
+  is unit propagation: it reports `CONSISTENT` on the clauses the closure leaves undecided, so a family unsatisfiable by
+  search rather than by propagation — Codex's four clauses over two fresh variables, outside every excluded family —
+  passed with `ok=True` (measured). The strong form now decides the remainder: the clauses propagation leaves open,
+  reduced under the closure, go to a bounded DPLL (`remainder_satisfiable`), and `KW_CONTROL_REST_SAT=SAT` is a fourth
+  condition of `KW_CONTROL=PASS`; `UNSAT` and `UNDECIDED` (budget exhausted) both fail. On the 23 certified targets the
+  closure decides every remainder clause of 18 outright and leaves 59/88/117 clauses of the `-near-k` slot-agreement
+  counters open, settled in four or fewer decisions; every certified control still passes, so no certificate or
+  verdict moves. The stated limitation — an over-constraint inside a family King Wen already violates — is unchanged.
+- `verify_subset`, the independent re-verification of a decoded reduced-subset model, checked distinctness and the
+  boundary distances but never that each slot is a canonical partner pair: `[16, 8, 2, 4, …]` returned `(True, …)`
+  (measured), so two exchanged entries in the decoder's orientation map would have passed. Each slot must now satisfy
+  `solve.partner(a) == b` and the slots' pairs must be exactly the subset's pair list, each once.
+- `--witness` re-scored every enforced rule on the decoded witness — except on any target whose name contains `kw`,
+  where `skip_rules` switched the re-score off by name. `moore-kwtest` with its `rule parity` family removed and King
+  Wen handed back by a solver stub printed `parity=2 violated={}` and `WITNESS_RESULT=WITNESS`, exit 0 (measured): the
+  leg that would notice a dropped rule family was off on the targets built to validate the encoding. The exemption is
+  removed; a KW-pinned target either has no witness or has King Wen as its witness, which the re-score accepts
+  (`rc4-kwexempt`'s exemption is in `rule_scores`), so nothing the skip protected needed protecting.
+- Codex's review of this batch as first staged (rev_g8l #1, 2026-10-25; Fable triage 2026-10-27): the re-score runs
+`solve.py`'s ordinary scorers and cannot see the ALTERED requirement of `ccn4-kwfail` (permuted faces) or
+`ccn8-kwfail` (locus 24,25), so with that family dropped King Wen scored `ccn4=0` / `ccn8=0`, `violated={}` and
+printed `WITNESS_RESULT=WITNESS` (measured). `--witness` now refuses any witness on a KW-pinned target whose
+documented expectation is UNSAT (`KW_PIN_EXPECT_UNSAT`: `rc4-kwtest`, `ccn4-kwfail`, `ccn8-kwfail`,
+`ccn8-kwchain-not`, `moore-kwtest`, `rhythm-kwtest`) as `ENCODING_DIVERGENCE`, exit 3 — such a target has no witness
+by construction, so a witness means the refuting family is missing or weakened. The table is pinned to the King Wen
+control: it is exactly the pinned targets `kw_control` expects King Wen to falsify. A per-target re-score of the
+altered rule is not added: it would re-derive the rule inside `sat.py`, against this entry's own rule that the scorer
+is `solve.py`'s. Found alongside, pre-existing: `KW_CONTROL_THEOREM_FAMILIES` named `ccn8-kwfail`'s family but not
+`ccn4-kwfail`'s, so `kw_control("ccn4-kwfail")` returned `ok=False, expected=[]` (latent: no replayed certificate
+names it); the family is added and every KW-pinned target's control passes.
+
+**Tests.** `TestBatchG8L`: `test_kw_control_strong_form_refutes_an_unsat_family` (Codex's mutant fails with
+`rest_sat=UNSAT`, residual 4; three certified targets pass with their residuals; the subcommand prints the two new
+tokens), `test_verify_subset_requires_canonical_pairs` (Codex's fixture refused, its pair-corrected form accepted, and
+— Codex rev_g8l #8: the first draft's second fixture was refused by C5, not by the membership line — a partner pair
+outside the subset's pair list with the boundary distances of the accepted form, refused by the membership line
+alone), `test_witness_rescores_a_kw_pinned_target` (the dropped-parity `moore-kwtest` mutant with a stub solver
+returning King Wen's full propagated model is `ENCODING_DIVERGENCE`, exit 3),
+`test_witness_refuses_a_kw_pinned_target_whose_expectation_is_unsat` (the same driver on `ccn4-kwfail` and
+`ccn8-kwfail` with their altered family dropped: `ENCODING_DIVERGENCE`, exit 3, where the first draft printed
+`WITNESS`), `test_kw_control_names_ccn4_kwfail_family` (the control passes on all eleven KW-pinned targets and
+`KW_PIN_EXPECT_UNSAT` equals the ones it expects King Wen to falsify). Each red on the uncured tree as stated.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, push group G8L.
+
+## CX-35Z-D — comments in six Lean modules claimed more, or something other, than the theorem beside them (lean/Automorphism.lean; lean/C3Decomposition.lean; lean/PruneReprFC.lean; lean/CompilerCorrectness.lean; lean/PruneExactness.lean; lean/KingWen.lean; lean/README.md; tests.py)
+
+**2026-10-23.** **Source.** Codex (gpt-6-astra), final review, F01-003#5 (= fix-verify FV-G4-C2:OOS:12030), F01-006#2
+(duplicated by F08-020#12, F09-H01#18, F09-H02#19, F09-H05#9), F01-006#3 and F01-007#1 (duplicated by F08-020#13,
+F09-H05#11), F01-006#4, F01-006#7, and fix-verify FV-G23-C3#1 and FV-G4-C4#4; Fable lane (claude-fable-5-1), push group
+G8L. Comment text only: no definition, theorem statement or proof changed, and the worker chain re-checks every module.
+
+**What the comments said, and what they say now.**
+- `Automorphism.lean`, `twenty_four_dvd_solution_count`: "the theorem behind the DIV-24 integrity gate on exact counts"
+  → the record-level DIV-24 identity; the gate on the published sequence counts rests on the paper-proved sequence
+  layer (48 ∣ N), as the file's own scope note two theorems down and `lean/README.md` already said.
+- `C3Decomposition.lean`: the header's "`null_p_le_95` — P(G ≤ 95) · 7919632354008375 = 641983711307479 · (total)" was
+  off by the total mass; the theorem is (mass at G ≤ 95) · 7919632354008375 = 641983711307479 · (total mass). "The one
+  non-kernel step" → the first of two, the second (bin g counts exactly the pair-orders with slot-distance sum g, proved
+  only at the brute-force sizes) being `lean/README.md`'s scope note (ii). `null_total`'s docstring "the DP counts every
+  pair-ordering exactly once" → the histogram sums to 31!; the per-bin correspondence is that same step (ii).
+- `PruneReprFC.lean` §5: "a C3-lower-bound prune — sound ALONE — is UNSOUND inside the memoized DFS" → a prune on a
+  cd-style, orientation-dependent predicate; C3 is key-only and not an instance (the file's header and the README's §5
+  row said so; the section contradicted them).
+- `CompilerCorrectness.lean` KB7: "T = 387 … derived-but-unverified until that gate lands" → the units identity
+  c3x64 = 2·(walkCd + 1) is kernel-checked (`walk_threshold_387`); what KB7 still carries at runtime is that solve.c's
+  accumulator implements that functional.
+- `PruneExactness.lean`: "plain DP against the quotient up to n = 18 (… `--recount-rung 18`)" → up to n = 19, both
+  rungs `[MATCH]` in REPRODUCE.md (CX-392 corrected TR-11; this sibling was left).
+- `KingWen.lean` novelty note and `lean/README.md` §Novelty status: "an invariant score induces an output distribution
+  constant on each orbit" → an output law that is a function of a G-invariant score (the theorems' hypothesis; a
+  tie-break by enumeration order is not covered), the scope CX-35T-G gave the README's theorem paragraph and CITATIONS.
+
+**Tests.** `TestBatchG8L.test_lean_comment_scopes_and_hardware_row` pins each new sentence and the absence of each old
+one in the six modules and the README (including the `CompilerCorrectness.lean` hardware figures of CX-35Z-B), and runs the
+source census on the edited modules. Red on the uncured tree: every old sentence present.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, push group G8L.
+
+## CX-35Z-E — CITATIONS called Radisic's weight-conservation principle the exact-preservation strengthening of the parity lemma; the C1 matching does not preserve weight (documentation/CITATIONS.md; tests.py)
+
+**2026-10-23.** **Source.** Codex (gpt-6-astra), final review, F03-002#1 (deferred to a Fable read of
+`lean/HammingOptimalMatching.lean` against the cited statement); Fable lane (claude-fable-5-1), push group G8L.
+
+**What was published, and what it says now.** The Radisic entry said "His weight-conservation principle is the
+exact-preservation strengthening of the parity-preservation lemma underlying PARITY_ALTERNATION.md". Codex measured
+eight hexagrams whose partner has a different Hamming weight (Qian/Kun: 6 and 0). The read: those eight are the
+palindromes, whose partner is the complement (weight 6 − w) — four complement pairs; the other 28 of the 32 pairs are
+reversal pairs and preserve weight exactly; and `HammingOptimalMatching.lean`'s scope note 4 describes Radisic's
+principle as a prioritized term of a weighted objective (the entry's own α|Δw| + βd_H, α > β), not an invariant. So
+the principle is neither exact preservation nor a strengthening of Lemma 1 of PARITY_ALTERNATION.md, which holds on
+all 32 pairs because both operations preserve weight parity. The sentence now says that, with the old wording quoted
+inline. Radisic's result and credit are unchanged. Codex's review of this batch as first staged (rev_g8l #7,
+2026-10-25; Fable triage 2026-10-27) found the draft sentence counted the eight palindromes as eight pairs
+(twenty-four reversal pairs and eight palindromic complement pairs, it said); corrected to 28 + 4 before publication.
+
+**Tests.** `TestBatchG8L.test_citations_weight_conservation_is_scoped` pins the new sentence, the absence of the old
+one, and the arithmetic it rests on (exactly the eight palindromes change weight under `solve.partner`; the 32
+unordered partner pairs are 28 reversal pairs and 4 complement pairs; parity is preserved for all 64), and that the
+miscounts appear in neither CITATIONS nor this file. Red on the uncured tree: the old sentence present; red on the
+first draft: the miscounts.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, push group G8L.

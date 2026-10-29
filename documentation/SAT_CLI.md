@@ -356,6 +356,21 @@ the formula — it adds a blocking clause and iterates (up to 200
 attempts). **Requires `kissat` on `PATH`** (see the requirements table
 above); if it is missing, `sat.py` exits with a clear install message.
 
+> **Every target's enforced rules are re-scored on the decoded witness, the KW-pinned
+> encoding-validation targets included (2026-10-23, Codex gpt-6-astra F12-012#5).** Until then
+> `sat.py` skipped the re-score for any target whose name contains `kw`, so `moore-kwtest` with its
+> `rule parity` family removed and King Wen handed back by a solver stub printed
+> `WITNESS_RESULT=WITNESS` (measured); it now prints `ENCODING_DIVERGENCE`, exit 3. A KW-pinned
+> target either has no witness (King Wen violates the rule, so the formula is UNSAT) or has King Wen
+> as its witness, which the re-score accepts (`rc4-kwexempt`'s exemption is in `rule_scores`).
+> Since 2026-10-27 (Codex rev_g8l #1) a witness on a KW-pinned target whose documented expectation is
+> UNSAT (`KW_PIN_EXPECT_UNSAT`: `rc4-kwtest`, `ccn4-kwfail`, `ccn8-kwfail`, `ccn8-kwchain-not`,
+> `moore-kwtest`, `rhythm-kwtest`) is `ENCODING_DIVERGENCE`, exit 3, whatever the re-score says: the
+> re-score runs `solve.py`'s ordinary scorers and cannot see an altered requirement (`ccn4-kwfail`'s
+> permuted faces, `ccn8-kwfail`'s locus), so with that family dropped King Wen scored `ccn4=0`,
+> `violated={}` (measured). Such a target has no witness by construction; a witness means the
+> family that refutes King Wen is missing or weakened.
+
 > ⚠ **Pinned witnesses (2026-09-25, CX-93).** The `moore-strict` and `grand-strict` witnesses
 > that TR-12 §Q7 names are **pinned** in `reports/evidence/q7_witnesses/` (produced once with
 > kissat 4.0.4; the README there gives the commands, the CNF and model sha256s). The battery
@@ -493,9 +508,10 @@ each a whole-line token:
 
 | Token | Passing value means |
 |---|---|
-| `KW_CONTROL_EXPECTED=<f1>;<f2>…` | the families KW may falsify: the target's theorem family (`alternation bound (alt-le-14)`, `C3 >= N bound`, the shifted locus of `ccn8-kwfail`, the chain negation of `ccn8-kwchain-not`) plus `rule <r>` for each enforced rule the scorers say KW violates. `none` for a target KW satisfies |
+| `KW_CONTROL_EXPECTED=<f1>;<f2>…` | the families KW may falsify: the target's theorem family (`alternation bound (alt-le-14)`, `C3 >= N bound`, the permuted faces of `ccn4-kwfail` (since 2026-10-27), the shifted locus of `ccn8-kwfail`, the chain negation of `ccn8-kwchain-not`) plus `rule <r>` for each enforced rule the scorers say KW violates. `none` for a target KW satisfies |
 | `KW_CONTROL_REFUTED=FALSIFIED` | leg 1: KW's 31 literals refute the full formula (for `EXPECTED=none`, `SATISFIED`: KW is a model) |
 | `KW_CONTROL_REST_FALSIFIED=0`, `KW_CONTROL_REST_FOREIGN=0` | leg 2: on the formula **minus** the expected families, nothing is falsified — the exclusion form, which is propagation-order independent (`model_check` docstring) where "which clause ended up falsified" is not |
+| `KW_CONTROL_REST_SAT=SAT`, `KW_CONTROL_REST_RESIDUAL=<n>` | leg 2, strong form (2026-10-23, Codex gpt-6-astra F01-001#3): the formula **minus** the expected families is *satisfiable with King Wen asserted* — KW extends to a model of everything the target is not about. `model_check` is unit propagation and reports `CONSISTENT` on clauses it leaves undecided, so a family unsatisfiable by search rather than by propagation (Codex's four clauses over two fresh variables, outside every excluded family) passed the control until this date; now the clauses propagation leaves open (`RESIDUAL`: 0 for 18 of the 23 certified targets, 59–117 for the `-near-k` slot-agreement counters) go to a bounded DPLL, and `UNSAT` or `UNDECIDED` (budget exhausted) is a `FAIL` |
 | `KW_CONTROL_EACH_FAMILY_NECESSARY=k/n` | leg 3: each expected family, with the other expected families removed, still refutes KW on its own (`k = n`) — an emitter that silently emitted nothing is caught here |
 | `KW_CONTROL_FORM=direct` / `closure(<base>)` | a `-noY` subset's clauses name no ordering variable, so KW's literals propagate nothing there; the control then evaluates KW's unit-propagation closure on the full base formula minus the expected families (conflict-free, hence unique) against the subset |
 | `KW_CONTROL=PASS` | all legs; exit 0 iff `PASS` |

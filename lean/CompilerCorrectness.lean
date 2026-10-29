@@ -79,9 +79,15 @@
     documentation/F1C5_LAYER_FORMAT.md § "The codec is zlib") that
     decompresses to the v1 logical stream (compression is storage, never
     identity — standing policy). Witness: decompressed-stream sha gates.
-  · KB7 (full-31 C3 constant). T = 387 per the proofs doc §2.6, gated vs
-    solve.py before use. Witness: the specified two-language gate
-    (derived-but-unverified until that gate lands).
+  · KB7 (full-31 C3 constant). T = 387: the units identity
+    c3x64 l = 2 · (walkCd l + 1), hence c3 ≤ 776 ⟺ walkCd ≤ 387, is
+    KERNEL-CHECKED in C3Decomposition.lean (`walk_threshold_387`, section
+    "THE WALK-UNITS IDENTITY", 2026-07-27). What KB7 still carries at
+    runtime is that solve.c's cd* accumulator implements that walk
+    functional: the specified two-language gate vs solve.py, not built
+    (C3Decomposition.lean's scope note). Until 2026-10-23 this item read
+    "derived-but-unverified until that gate lands" of the constant itself
+    (Codex gpt-6-astra F01-006#4).
 
   ─────────────────────────────────────────────────────────────────────────
   Contents of THIS file (design §6, sections A/B/D/E in that order, then

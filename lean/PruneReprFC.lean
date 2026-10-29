@@ -1312,12 +1312,18 @@ theorem liftSpend_proj {C D Tail Path : Type} (ds : List D)
 
 /-! ### §5 The composition hazard, machine-checked as a counterexample
 
-    The C comment CAUTIONs that a C3-lower-bound prune — sound ALONE —
-    is UNSOUND inside the memoized DFS: it cuts subtrees that contain
-    (invalid) leaves, so a zero leaf count no longer certifies
-    leaf-freeness, and the poisoned entry is consulted by OTHER prefixes
-    whose validity context differs. We machine-check that this hazard is
-    real on a 3-level binary toy tree: cdPrune cuts exactly the two
+    The C comment CAUTIONs that a prune on a cd-style, orientation-dependent
+    predicate — sound ALONE — is UNSOUND inside the memoized DFS: it cuts
+    subtrees that contain (invalid) leaves, so a zero leaf count no longer
+    certifies leaf-freeness, and the poisoned entry is consulted by OTHER
+    prefixes whose validity context differs. C3 itself is key-only
+    (`c3_slot_decomposition`, C3Decomposition.lean) and is NOT an instance of
+    this hazard; the evaluated C3-lower-bound prune was rejected
+    conservatively, not shown to be a trap (this file's header; lean/README.md
+    §5 row). Until 2026-10-23 this paragraph named "a C3-lower-bound prune" as
+    the unsound thing (Codex gpt-6-astra F01-006#3, F01-007#1). We machine-check
+    that the hazard is real on a 3-level binary toy tree with the
+    orientation-dependent `cP := s == [true, false, false]`: cdPrune cuts exactly the two
     subtrees below the [false] branch (all of whose leaves are invalid),
     the memo keys on path LENGTH (a maximal-collision projection under
     which the tree structure genuinely factors — hproj HOLDS, isolating

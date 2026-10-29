@@ -640,7 +640,7 @@ class TestSatInputGuards(unittest.TestCase):
     raised: `certify_count` can also exit with the missing-tools message
     (_CERTIFY_TOOLS_MSG), so a bare assertRaises would pass on a host without d4
     while proving nothing about the guard. Verified 2026-09-19 that the --keep
-    guard fires BEFORE any tool use (sat.py:2241 precedes the d4 call at :2269),
+    guard fires BEFORE any tool use (sat.py:2363 precedes the d4 call at :2391),
     so these are green on a host with no SAT toolchain installed."""
 
     def test_keep_dir_uncreatable_is_refused_before_the_work(self):
@@ -51500,6 +51500,455 @@ print("RESULT=" + json.dumps({"resumed": H(res), "fresh": H(fresh)}, sort_keys=T
         lsc = self._doc(os.path.join("documentation", "LARGE_SCALE_CAMPAIGNS.md"))
         self.assertNotIn("selftest subtest 4 explicitly accepts this exit code.)", lsc)
         self.assertIn("6. Combined partition + resume invariance *(since 2026-10-22", lsc)
+
+
+class TestBatchG8L(unittest.TestCase):
+    """Push group G8L (2026-10-23): the SAT and Lean rows of Codex's final review (gpt-6-astra), built in
+    the Fable lane (claude-fable-5-1). CX-35Z-A..CX-35Z-E. Every test asserts its precondition and is RED
+    on the uncured tree for the reason its docstring names. Rebuilt 2026-10-27 on the published parent with
+    Codex's eight findings on the staged batch (gpt-6-astra, rev_g8l #1-#8; Fable triage) folded, each with
+    a test red on the first draft."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="g8l_")
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _read(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    # ---- CX-35Z-A: the source census is string-aware ---------------------------------------
+    def _census(self, suffix, extra_module=None):
+        """Run verify_all.sh's LEAN_SOURCE_CENSUS heredoc on a copy of lean/ with `suffix` appended
+        to KingWen.lean (and an optional extra module). Returns (rc, token line, hit lines)."""
+        body = _lsf_heredoc_body("LEAN_SOURCE_CENSUS")
+        # the heredoc is the body of a double-quoted check() argument: a double quote ends it (Q-742)
+        # and a backtick or `$` is a substitution bash performs before python sees the text (Q-806
+        # class; the 2026-10-27 rebuild's first draft carried three backticks in comment lines, which
+        # printed `sorry: command not found` on the real path). Checked here, on the extracted body.
+        for ch in ('"', chr(96), "$"):
+            self.assertNotIn(ch, body, "the LEAN_SOURCE_CENSUS heredoc must not contain %r" % ch)
+        d = tempfile.mkdtemp(dir=self.tmp)
+        shutil.copytree(os.path.join(self.ROOT, "lean"), os.path.join(d, "lean"))
+        with open(os.path.join(d, "lean", "KingWen.lean"), "a", encoding="utf-8") as fh:
+            fh.write(suffix)
+        if extra_module is not None:
+            with open(os.path.join(d, "lean", "Zz.lean"), "w", encoding="utf-8") as fh:
+                fh.write(extra_module)
+        r = subprocess.run([sys.executable, "-"], input=body, capture_output=True, text=True, cwd=d)
+        lines = r.stdout.splitlines()
+        tok = [ln for ln in lines if ln.startswith("LEAN_SOURCE_CENSUS=")]
+        hits = [ln for ln in lines if ln.startswith("  census hit ")]
+        return r.returncode, (tok[0] if tok else ""), hits
+
+    def test_lean_source_census_is_string_aware(self):  # F01-001#1 x6
+        q = '"'
+        rc, tok, _ = self._census("")
+        self.assertEqual((rc, tok), (0, "LEAN_SOURCE_CENSUS=PASS n=0"), "precondition: the shipped sources pass")
+        # the fixture Codex built: a string body that is a block-comment opener, then an axiom.
+        # RED on the uncured tree: the opener in the string hid the axiom and this printed PASS n=0.
+        two = "\ndef _m : String := %s/-%s\naxiom _x : False\n" % (q, q)
+        rc, tok, hits = self._census(two)
+        self.assertEqual(tok, "LEAN_SOURCE_CENSUS=FAIL n=1", "a string literal blinded the census")
+        self.assertNotEqual(rc, 0)
+        want_line = self._read("lean/KingWen.lean").count("\n") + 3    # file ends in a newline; suffix = blank, def, axiom
+        self.assertTrue(any("KingWen.lean:%d: axiom _x : False" % want_line in h for h in hits), (want_line, hits))
+        cases = {
+            "native_decide after the opener": "\ndef _m : String := %s/-%s\ntheorem _t : (1:Nat) = 1 := by native_decide\n" % (q, q),
+            "line-comment opener in a string": "\ndef _m : String := %s--%s\naxiom _x : False\n" % (q, q),
+            "interpolated string nesting a literal": "\ndef _m : String := s!%s{%s/-%s}%s\naxiom _x : False\n" % (q, q, q, q),
+            "raw string": "\ndef _m : String := r#%s/-%s#\naxiom _x : False\n" % (q, q),
+            "char literal holding a quote": "\ndef _c : Char := '%s'\naxiom _x : False\n" % q,
+            "escaped char literal": "\ndef _c : Char := '\\%s'\naxiom _x : False\n" % q,
+            "escaped quote inside a string": "\ndef _m : String := %sa\\%s/-%s\naxiom _x : False\n" % (q, q, q),
+            "unterminated block comment": "\n/- open\n",
+            "unterminated string": "\ndef _m : String := %sopen\n" % q,
+        }
+        for label, suffix in cases.items():
+            with self.subTest(case=label):
+                rc, tok, hits = self._census(suffix)
+                self.assertEqual(tok, "LEAN_SOURCE_CENSUS=FAIL n=1", (label, hits))
+                self.assertNotEqual(rc, 0)
+                self.assertTrue(hits and "KingWen.lean" in hits[0], hits)
+        rc, tok, hits = self._census("", extra_module="/- nothing but a comment -/\n")
+        self.assertEqual(tok, "LEAN_SOURCE_CENSUS=FAIL n=1", "an all-comment module is a hit in its own right")
+        self.assertIn("no non-blank line left after stripping", hits[0])
+        # Codex rev_g8l #2/#4/#5 (2026-10-27, folded into the rebuilt batch; Fable triage REAL x3). An
+        # interpolation expression {...} inside an s!/m!/f! body is CODE and is scanned -- RED on the first
+        # G8L tree: it was dropped with the string body, so a `sorry`/`native_decide` inside it printed
+        # PASS n=0 (the base census caught both). A double quote inside an escaped identifier «..» opens
+        # nothing -- RED: it opened a string that swallowed the next declaration's `by sorry` (PASS n=0).
+        # A brace inside a char literal or a comment within an interpolation is not an expression brace
+        # -- RED: valid Lean printed FAIL n=1 "unterminated". Hit line = the suffix's first code line.
+        ln1 = self._read("lean/KingWen.lean").count("\n") + 2          # suffix = blank line, then the line
+        codex = {
+            "sorry inside an interpolation expression": ("\ndef _m : String := s!%s{(by sorry : Nat)}%s\n" % (q, q), "FAIL n=1", "by sorry"),
+            "native_decide inside an interpolation expression": ("\ndef _m : Nat := s!%s{(by native_decide : 1 = 1).elim 0}%s.length\n" % (q, q), "FAIL n=1", "native_decide"),
+            "escaped identifier holding a quote": ("\ndef «%sa» : Nat := by sorry\ndef «%sb» : Nat := 1\n" % (q, q), "FAIL n=1", "by sorry"),
+            "doubly nested interpolation": ("\ndef _m : String := s!%s{s!%s{(sorry : Nat)}%s}%s\n" % (q, q, q, q), "FAIL n=1", "sorry"),
+            "brace in a char literal inside an interpolation": ("\ndef _m : String := s!%s{'{'}%s\n" % (q, q), "PASS n=0", None),
+            "brace in a comment inside an interpolation": ("\ndef _m : String := s!%s{1 /- { -/}%s\n" % (q, q), "PASS n=0", None),
+            "primed identifiers are not char literals": ("\ndef x' : Nat := 1\ndef y'' : Nat := x'\n", "PASS n=0", None),
+            "unicode char literal": ("\ndef _c : Char := '\\u{41}'\n", "PASS n=0", None),
+        }
+        for label, (suffix, want, hit) in codex.items():
+            with self.subTest(case=label):
+                rc, tok, hits = self._census(suffix)
+                self.assertEqual(tok, "LEAN_SOURCE_CENSUS=" + want, (label, hits))
+                if hit is None:
+                    self.assertEqual((rc, hits), (0, []), (label, hits))
+                else:
+                    self.assertNotEqual(rc, 0)
+                    self.assertEqual(len(hits), 1, (label, hits))
+                    self.assertIn("KingWen.lean:%d: " % ln1, hits[0], (label, hits))
+                    self.assertIn(hit, hits[0], (label, hits))
+        # not hits: the escape-hatch tokens inside a string body, and inside comments
+        for label, suffix in (("tokens inside a string", "\ndef _m : String := %ssorry axiom native_decide%s\n" % (q, q)),
+                              ("tokens inside comments", "\n-- native_decide sorry axiom\n/- axiom\n  native_decide -/\n")):
+            with self.subTest(case=label):
+                rc, tok, hits = self._census(suffix)
+                self.assertEqual((rc, tok, hits), (0, "LEAN_SOURCE_CENSUS=PASS n=0", []))
+
+    # ---- CX-35Z-B: the axiom-census driver and leg (D) ---------------------------------------
+    def _census_fn(self):
+        """The lean_axiom_census_check() function text, extracted from verify_all.sh."""
+        src = self._read("reports/certificates/verify_all.sh")
+        m = re.search(r'^LEAN_CENSUS_LAST=""; LEAN_CENSUS_LAST_N=0\n(lean_axiom_census_check\(\) \{.*?^\}\n)', src, re.S | re.M)
+        self.assertIsNotNone(m, "verify_all.sh defines no lean_axiom_census_check() (leg (D) absent)")
+        return 'LEAN_CENSUS_LAST=""; LEAN_CENSUS_LAST_N=0\n' + m.group(1)
+
+    def test_lean_axiom_census_driver_and_leg(self):  # F01-001#5 x7, F09-H05#4
+        tpl = os.path.join(self.ROOT, "lean", "AxiomCensus.lean.in")
+        self.assertTrue(os.path.isfile(tpl), "lean/AxiomCensus.lean.in is not shipped: the census has no public driver")
+        t = self._read("lean/AxiomCensus.lean.in")
+        for want in ("import MODNAME", "collectAxioms name", "AXSCAN_HIT", "AXSCAN_OK",
+                     'logInfo m!"AXSCAN_COMPLETE MODNAME constants={n} hits={hits}"',
+                     "[``propext, ``Classical.choice, ``Quot.sound]"):
+            self.assertIn(want, t, want)
+        self.assertNotIn(".lean.in", " ".join(sorted(f for f in os.listdir(os.path.join(self.ROOT, "lean")) if f.endswith(".lean"))),
+                         "the template must not be a lean/*.lean module (it would enter the module loop and the count)")
+        src = self._read("reports/certificates/verify_all.sh")
+        for want in ("LEAN_CENSUS_TEMPLATE=lean/AxiomCensus.lean.in", "LEAN_CENSUS_CONSTANTS_MIN=${LEAN_CENSUS_CONSTANTS_MIN:-1500}",
+                     'echo "LEAN_AXIOM_CENSUS_CONSTANTS=$_tot" | tee -a "$LOG"', "LEAN_AXIOM_CENSUS_CONSTANTS=NOT_RUN"):
+            self.assertIn(want, src, want)
+        fn = self._census_fn()
+        d = os.path.join(self.tmp, "census_leg"); shutil.rmtree(d, ignore_errors=True)
+        os.makedirs(os.path.join(d, "bin")); os.makedirs(os.path.join(d, "lean")); os.makedirs(os.path.join(d, "scratch"))
+        shutil.copy2(tpl, os.path.join(d, "lean", "AxiomCensus.lean.in"))
+        with open(os.path.join(d, "lean", "Foo.lean"), "w") as fh:
+            fh.write("theorem t : True := trivial\n")
+        pin = self._read("lean/lean-toolchain")
+        self.assertTrue(pin.strip(), "precondition: lean/lean-toolchain names a toolchain")
+        with open(os.path.join(d, "lean", "lean-toolchain"), "w") as fh:
+            fh.write(pin)
+        # The stub is cwd-aware, the way elan's `lean` proxy is (Codex rev_g8l #3, 2026-10-27): it
+        # chooses the toolchain by walking up from the WORKING DIRECTORY to the nearest lean-toolchain
+        # and refuses when none is found, as on a host with no `elan default`. The `-o` compile runs
+        # from lean/ (the pin is there); the scan runs from the scratch directory, which the attested
+        # runs seeded with a copy of the pin. RED on the first G8L tree: no copy, the scan refused,
+        # LEAN_AXIOM_CENSUS_Foo=FAIL rc=1 on a clean census. The pin the scan saw is written aside.
+        stub = os.path.join(d, "bin", "lean")
+        with open(stub, "w") as fh:
+            fh.write('#!/bin/bash\n'
+                     'if [ "$2" = -o ]; then echo stub > "$3"; exit "${OLEAN_RC:-0}"; fi\n'
+                     'if [ ! -f "$PWD/lean-toolchain" ]; then echo "error: no default toolchain configured (cwd $PWD)" >&2; exit 1; fi\n'
+                     'cat "$PWD/lean-toolchain" > "$PIN_SEEN"\n'
+                     'printf "%b" "$CENSUS_OUT"; exit "${CENSUS_RC:-0}"\n')
+        os.chmod(stub, 0o755)
+        with open(os.path.join(d, "fn.sh"), "w") as fh:
+            fh.write(fn)
+        pin_seen = os.path.join(d, "pin_seen.txt")
+        def run(out, rc="0", olean_rc="0"):
+            if os.path.exists(pin_seen):
+                os.remove(pin_seen)
+            env = dict(os.environ, CENSUS_OUT=out, CENSUS_RC=rc, OLEAN_RC=olean_rc, LEAN=stub, PIN_SEEN=pin_seen)
+            r = subprocess.run(["bash", "-c", "source fn.sh; lean_axiom_census_check Foo.lean %s/scratch lean/AxiomCensus.lean.in; echo RC=$?" % d],
+                               cwd=d, env=env, capture_output=True, text=True)
+            lines = r.stdout.splitlines()
+            tok = [ln for ln in lines if ln.startswith("LEAN_AXIOM_CENSUS_Foo=")]
+            return (tok[-1] if tok else ""), lines[-1]
+        clean = "AXSCAN_OK Foo.t :: [propext]\\nAXSCAN_OK Foo.u :: []\\nAXSCAN_COMPLETE Foo constants=2 hits=0\\n"
+        self.assertEqual(run(clean), ("LEAN_AXIOM_CENSUS_Foo=PASS constants=2", "RC=0"))
+        with open(pin_seen) as fh:
+            self.assertEqual(fh.read(), pin, "the scan must elaborate under the pinned toolchain: lean/lean-toolchain copied into the scratch directory")
+        bad = {
+            "a hit": "AXSCAN_OK Foo.t :: [propext]\\nAXSCAN_HIT Foo.u :: [sorryAx]\\nAXSCAN_COMPLETE Foo constants=2 hits=1\\n",
+            "no COMPLETE line": "AXSCAN_OK Foo.t :: [propext]\\n",
+            "an extra stdout line": "AXSCAN_OK Foo.t :: [propext]\\nwarning: declaration uses sorry\\nAXSCAN_COMPLETE Foo constants=1 hits=0\\n",
+            "constants=0": "AXSCAN_COMPLETE Foo constants=0 hits=0\\n",
+            "OK lines disagree with constants": "AXSCAN_OK Foo.t :: [propext]\\nAXSCAN_COMPLETE Foo constants=2 hits=0\\n",
+            "the wrong module": "AXSCAN_OK Bar.t :: [propext]\\nAXSCAN_COMPLETE Bar constants=1 hits=0\\n",
+            # Codex rev_g8l #6 (2026-10-27): `other` exempted any line by PREFIX, so a COMPLETE line for
+            # another module or a malformed OK line was "nothing else on stdout". RED on the first G8L
+            # tree: both PASS constants=2. Now only the two validated line forms are not `other`.
+            "a COMPLETE line for another module": clean + "AXSCAN_COMPLETE Bar constants=1 hits=1\\n",
+            "a malformed OK line": clean + "AXSCAN_OK malformed garbage\\n",
+        }
+        for label, out in bad.items():
+            with self.subTest(case=label):
+                tok, rc = run(out)
+                self.assertTrue(tok.startswith("LEAN_AXIOM_CENSUS_Foo=FAIL"), (label, tok))
+                self.assertNotEqual(rc, "RC=0")
+        tok, rc = run(clean, rc="1")
+        self.assertTrue(tok.startswith("LEAN_AXIOM_CENSUS_Foo=FAIL rc=1"), tok); self.assertEqual(rc, "RC=1")
+        tok, rc = run("", olean_rc="1")
+        self.assertTrue(tok.startswith("LEAN_AXIOM_CENSUS_Foo=FAIL rc=1 olean="), tok); self.assertEqual(rc, "RC=1")
+        # no pin to copy: the leg refuses before the scan (an unidentified kernel is not evidence)
+        os.remove(os.path.join(d, "lean", "lean-toolchain"))
+        tok, rc = run(clean)
+        self.assertIn("pin_not_in_scratch=", tok, tok); self.assertTrue(tok.startswith("LEAN_AXIOM_CENSUS_Foo=FAIL")); self.assertEqual(rc, "RC=1")
+        self.assertFalse(os.path.exists(pin_seen), "the scan must not run without the pin")
+        with open(os.path.join(d, "lean", "lean-toolchain"), "w") as fh:
+            fh.write(pin)
+
+    # ---- CX-35Z-C: sat.py -------------------------------------------------------------------
+    def test_kw_control_strong_form_refutes_an_unsat_family(self):  # F01-001#3
+        lits = sat.kw_lits()
+        exp = sat.kw_control_expected("grand-ccn4")
+        cnf, Y = sat.build("grand-ccn4")
+        base = sat.kw_control_check(cnf, lits, exp)
+        self.assertTrue(base["ok"], base)
+        a, b = cnf.var(), cnf.var()
+        cnf.mark("unexpected unsatisfiable family")
+        cnf.add(a, b); cnf.add(a, -b); cnf.add(-a, b); cnf.add(-a, -b)
+        rest = sat.model_check(cnf, lits, exclude_stages=exp)
+        self.assertEqual((rest["verdict"], rest["falsified"], rest["undetermined"]), ("CONSISTENT", 0, 4),
+                         "precondition: propagation alone leaves Codex's four clauses undetermined and falsifies none")
+        r = sat.kw_control_check(cnf, lits, exp)
+        # RED on the uncured tree: ok was True (KeyError on rest_sat before that)
+        self.assertEqual((r.get("rest_sat"), r.get("rest_residual")), ("UNSAT", 4), r)
+        self.assertFalse(r["ok"], "an unsatisfiable family outside the excluded set passed the control")
+        self.assertEqual(r["necessary"], (3, 3), r)
+        for target, kw, residual in (("grander-strict-near-2", {}, 59), ("alt-le-14-noY", {}, 0), ("plain", {}, 0)):
+            with self.subTest(target=target):
+                o = sat.kw_control(target, **kw)
+                self.assertTrue(o["ok"], (target, o))
+                self.assertEqual((o["rest_sat"], o["rest_residual"]), ("SAT", residual), (target, o))
+        r = subprocess.run([sys.executable, _py_src("sat"), "--kw-control", "grander-strict-near-2"],
+                           capture_output=True, text=True, cwd=self.ROOT)
+        lines = r.stdout.splitlines()
+        self.assertEqual(r.returncode, 0, r.stdout[-400:] + r.stderr[-400:])
+        for want in ("KW_CONTROL_REST_SAT=SAT", "KW_CONTROL_REST_RESIDUAL=59", "KW_CONTROL=PASS"):
+            self.assertIn(want, lines, want)
+        # the DPLL itself: a tiny UNSAT core, a SAT residual, and the budget verdict
+        self.assertEqual(sat._dpll([[1, 2], [1, -2], [-1, 2], [-1, -2]], 100)[0], "UNSAT")
+        self.assertEqual(sat._dpll([[1, 2], [-1, 3], [-3, -2, 4]], 100)[0], "SAT")
+        self.assertEqual(sat._dpll([[v, v + 1] for v in range(1, 40, 2)] + [[-v, -(v + 1)] for v in range(1, 40, 2)], 0)[0], "UNDECIDED")
+
+    def test_verify_subset_requires_canonical_pairs(self):  # F01-002#1
+        _, ctx = sat.build_subset(9)
+        bad = [16, 8, 2, 4, 1, 32, 59, 55, 47, 61, 62, 31, 30, 33, 45, 18, 12, 51]
+        good = [16, 2, 8, 4, 1, 32, 59, 55, 47, 61, 62, 31, 30, 33, 45, 18, 12, 51]
+        self.assertNotEqual(solve.partner(16), 8, "precondition: (16, 8) is not a partner pair")
+        self.assertEqual((solve.partner(16), solve.partner(8)), (2, 4))
+        self.assertTrue(sat.verify_subset(good, ctx)[0], "the pair-corrected fixture is a valid subset sequence")
+        # RED on the uncured tree: distinctness plus the boundary distances accepted the non-pairs
+        ok, bnd = sat.verify_subset(bad, ctx)
+        self.assertFalse(ok, "slots (16, 8) and (2, 4) are not canonical partner pairs")
+        self.assertEqual(bnd, sat.verify_subset(good, ctx)[1], "the two fixtures have identical boundary distances")
+        # a sequence of partner pairs that are not the subset's own pairs is refused too. Codex rev_g8l #8
+        # (2026-10-27): `other` (slot 0 = (63, 0)) is refused by C5 -- its first boundary has distance 6 and
+        # b0[6] == 0 -- with or without the membership line, so it is kept here as a C5 case only. `alt`
+        # discriminates the membership line: a partner pair that is NOT one of the subset's nine, with
+        # boundary distances identical to `good`'s. RED with the membership line removed: alt -> True.
+        other = good[:]; other[0], other[1] = 63, 0
+        self.assertFalse(sat.verify_subset(other, ctx)[0])
+        alt = good[:-2] + [5, 40]
+        self.assertEqual(solve.partner(5), 40, "precondition: (5, 40) is a partner pair")
+        self.assertNotIn((5, 40), [tuple(sorted(sat.KW_PAIRS[p])) for p in ctx["pl"]], "precondition: not one of the subset's pairs")
+        self.assertEqual(sat.verify_subset(alt, ctx)[1], sat.verify_subset(good, ctx)[1], "precondition: identical boundary distances")
+        self.assertFalse(sat.verify_subset(alt, ctx)[0], "a partner pair outside the subset's pair list passed the membership check")
+
+    def _witness_on_dropped_family(self, target, family, label):
+        """Run sat.py's unchanged `--witness` dispatch on `target` with the clause family `family`
+        removed from build()'s formula and a stub kissat handing back King Wen's propagated model.
+        Returns (stdout lines, exit status)."""
+        q = '"'
+        cnf, Y = sat.build(target)
+        self.assertIn(family, set(n for _, n in cnf.marks), "precondition: %s carries the family %r" % (target, family))
+        keep = [ci for ci in range(len(cnf.cl)) if cnf.stage_of(ci) != family]
+        sub = sat.CNF(); sub.n = cnf.n; sub.cl = [cnf.cl[ci] for ci in keep]
+        sub.marks = [(k, cnf.stage_of(ci)) for k, ci in enumerate(keep) if k == 0 or cnf.stage_of(ci) != cnf.stage_of(keep[k - 1])]
+        mc = sat.model_check(sub, sat.kw_lits())
+        self.assertEqual((mc["verdict"], mc["falsified"]), ("SATISFIED", 0), "precondition: King Wen's closure satisfies the mutant formula")
+        # the variables the closure leaves free are the dropped family's own auxiliaries (no remaining
+        # clause mentions them: ccn8-kwfail's locus family owns 206); a solver would assign them freely
+        free = set(range(1, sub.n + 1)) - set(abs(l) for l in mc["model"])
+        self.assertFalse(any(abs(l) in free for cl in sub.cl for l in cl), "precondition: the free variables occur in no remaining clause")
+        model = list(mc["model"]) + [-v for v in sorted(free)]
+        mc = sat.model_check(sub, model)
+        self.assertEqual((mc["verdict"], mc["assigned"]), ("SATISFIED", sub.n), "precondition: the completed assignment is a full model of the mutant formula")
+        d = os.path.join(self.tmp, "witness_" + label); shutil.rmtree(d, ignore_errors=True); os.makedirs(os.path.join(d, "bin"))
+        with open(os.path.join(d, "model.txt"), "w") as fh:
+            fh.write("s SATISFIABLE\nv " + " ".join(str(l) for l in model) + " 0\n")
+        with open(os.path.join(d, "bin", "kissat"), "w") as fh:
+            fh.write("#!/bin/sh\ncat %s\nexit 10\n" % os.path.join(d, "model.txt"))
+        os.chmod(os.path.join(d, "bin", "kissat"), 0o755)
+        # the unchanged witness dispatch, run against the mutant formula: sat.py's main block is
+        # executed in the imported module's namespace with build() replaced by the family-dropper
+        drv = os.path.join(d, "drv.py")
+        with open(drv, "w") as fh:
+            fh.write("import sys, os\nsys.path.insert(0, %r)\nimport sat\n" % self.ROOT
+                     + "real = sat.build\n"
+                     + "def build(target, **kw):\n    cnf, Y = real(target, **kw)\n"
+                     + "    keep = [ci for ci in range(len(cnf.cl)) if cnf.stage_of(ci) != %r]\n" % family
+                     + "    sub = sat.CNF(); sub.n = cnf.n; sub.cl = [cnf.cl[ci] for ci in keep]\n"
+                     + "    sub.marks = [(k, cnf.stage_of(ci)) for k, ci in enumerate(keep) if k == 0 or cnf.stage_of(ci) != cnf.stage_of(keep[k - 1])]\n"
+                     + "    return sub, Y\n"
+                     + "sat.build = build\n"
+                     + "src = open(os.path.join(%r, 'sat.py'), encoding='utf-8').read()\n" % self.ROOT
+                     + "main = src[src.index('if __name__ == ' + %r + '__main__' + %r + ':'):]\n" % (q, q)
+                     + "sys.argv = ['sat.py', '--witness', %r]\n" % target
+                     + "exec(compile(main.replace('if __name__ == ' + %r + '__main__' + %r + ':', 'if True:', 1), 'sat.py', 'exec'), sat.__dict__)\n" % (q, q))
+        env = dict(os.environ, PATH=os.path.join(d, "bin") + os.pathsep + os.environ.get("PATH", ""))
+        self.assertEqual(shutil.which("kissat", path=env["PATH"]), os.path.join(d, "bin", "kissat"))
+        r = subprocess.run([sys.executable, drv], cwd=self.ROOT, env=env, capture_output=True, text=True)
+        lines = r.stdout.splitlines()
+        self.assertTrue(any(ln.startswith("attempt 0: verify=True") for ln in lines),
+                        "precondition: the decoded witness is King Wen, re-scored\n" + r.stdout[-600:] + r.stderr[-600:])
+        return lines, r.returncode
+
+    def test_witness_rescores_a_kw_pinned_target(self):  # F12-012#5
+        lines, rc = self._witness_on_dropped_family("moore-kwtest", "rule parity", "moore")
+        self.assertTrue(any("parity=2" in ln for ln in lines if ln.startswith("attempt 0:")), lines[-6:])
+        # RED on the uncured tree: skip_rules=("kw" in target) printed WITNESS_RESULT=WITNESS, exit 0
+        self.assertIn("WITNESS_RESULT=ENCODING_DIVERGENCE", lines, lines[-6:])
+        self.assertEqual(rc, 3)
+        self.assertNotIn("WITNESS_RESULT=WITNESS", lines)
+        # The divergence must come from the RE-SCORE (rule violations={'parity': 2}), not from the
+        # KW_PIN_EXPECT_UNSAT guard (2026-10-27, Codex rev_g8l #1), which refuses any witness on
+        # moore-kwtest whatever the re-score says: with the name-based skip restored and the guard in
+        # place this test stayed green (mutant, Fable fix-check 2026-10-29). The guard's own line must
+        # be absent here, and the source pin reads the def line (the old split kept only the text
+        # BEFORE `def target_verdict`, which never held `skip_rules=`).
+        self.assertTrue(any("rule violations={'parity': 2}" in ln for ln in lines), lines[-6:])
+        self.assertFalse(any("KW-pinned target whose formula King Wen must violate" in ln for ln in lines), lines[-6:])
+        src = self._read("sat.py")
+        self.assertIn("def target_verdict(seq, target, with_c3=False, c3_max=None, c3_min=None):", src)
+        self.assertNotIn("skip_rules=False", src, "the name-based exemption is gone")
+
+    def test_witness_refuses_a_kw_pinned_target_whose_expectation_is_unsat(self):  # Codex rev_g8l #1 (2026-10-27)
+        """`ccn4-kwfail` / `ccn8-kwfail` encode an ALTERED requirement (permuted faces; locus (24,25)) that
+        the re-score, which runs solve.py's ordinary scorers, cannot see: with the altered family dropped
+        King Wen scores ccn4=0 / ccn8=0, violated={}, and the first G8L tree printed WITNESS_RESULT=WITNESS,
+        exit 0 (RED, measured in the Fable triage). A KW-pinned target whose documented expectation is
+        UNSAT has no witness by construction, so any witness is ENCODING_DIVERGENCE: the family that
+        refutes King Wen is missing or weakened. The table is tied to the control below."""
+        self.assertTrue(set(sat.KW_PIN_EXPECT_UNSAT) <= set(sat.KW_PINNED_TARGETS), sat.KW_PIN_EXPECT_UNSAT)
+        for target, family in (("ccn4-kwfail", "rule ccn4 (faces permuted)"), ("ccn8-kwfail", "rule ccn8 (locus 24,25)")):
+            with self.subTest(target=target):
+                self.assertIn(target, sat.KW_PIN_EXPECT_UNSAT)
+                lines, rc = self._witness_on_dropped_family(target, family, target)
+                self.assertTrue(any("violated={}" in ln for ln in lines if ln.startswith("attempt 0:")),
+                                "precondition: the ordinary scorer sees no violation on King Wen\n" + "\n".join(lines[-6:]))
+                self.assertIn("WITNESS_RESULT=ENCODING_DIVERGENCE", lines, lines[-6:])
+                self.assertTrue(any("KW-pinned target whose formula King Wen must violate" in ln for ln in lines), lines[-6:])
+                self.assertEqual(rc, 3)
+                self.assertNotIn("WITNESS_RESULT=WITNESS", lines)
+
+    def test_kw_control_names_ccn4_kwfail_family(self):  # pre-existing gap noted in the Fable triage of rev_g8l #1 (2026-10-27)
+        """KW_CONTROL_THEOREM_FAMILIES named `ccn8-kwfail`'s shifted-locus family but not `ccn4-kwfail`'s
+        permuted-faces family, so `kw_control("ccn4-kwfail")` expected King Wen to be a MODEL and returned
+        ok=False, expected=[], refuted=FALSIFIED (RED, measured). Latent: ccn4-kwfail has no replayed
+        certificate, so no `KW_CONTROL_<cert>` line is affected. Every KW-pinned target's control passes,
+        and KW_PIN_EXPECT_UNSAT is exactly the pinned targets the control expects King Wen to FALSIFY, so
+        a renamed or added pinned target fails here, not in a gate."""
+        o = sat.kw_control("ccn4-kwfail")
+        self.assertEqual(list(o["expected"]), ["rule ccn4 (faces permuted)"], o)
+        self.assertEqual((o["ok"], o["refuted"], o["rest_sat"], o["necessary"]), (True, "FALSIFIED", "SAT", (1, 1)), o)
+        falsified = []
+        for t in sat.KW_PINNED_TARGETS:
+            with self.subTest(target=t):
+                c = sat.kw_control(t)
+                self.assertTrue(c["ok"], (t, c))
+                if c["refuted"] == "FALSIFIED":
+                    falsified.append(t)
+        self.assertEqual(tuple(falsified), sat.KW_PIN_EXPECT_UNSAT)
+
+    # ---- CX-35Z-D / CX-35Z-E: the comments and the sentence ------------------------------------
+    def test_lean_comment_scopes_and_hardware_row(self):  # F01-003#5, F01-006#2/#3/#4/#7, F01-007#1, FV-G23-C3#1, FV-G4-C4#4, F09-H05#4
+        pins = [
+            ("lean/Automorphism.lean", "This is the theorem behind the record-level DIV-24 identity.",
+             "This is the theorem behind the DIV-24 integrity gate on exact counts."),
+            ("lean/C3Decomposition.lean", "(mass at G ≤ 95) · 7919632354008375 = 641983711307479 · (total mass)",
+             "`null_p_le_95` — P(G ≤ 95) · 7919632354008375 = 641983711307479 · (total),"),
+            ("lean/C3Decomposition.lean", "Modeling note (the first of the TWO non-kernel steps",
+             "Modeling note (the one non-kernel step)"),
+            ("lean/C3Decomposition.lean", "TOTAL MASS = 31!: the histogram SUMS to 31!",
+             "TOTAL MASS = 31!: the DP counts every pair-ordering exactly once. -/"),
+            ("lean/PruneReprFC.lean", "The C comment CAUTIONs that a prune on a cd-style, orientation-dependent\n    predicate — sound ALONE — is UNSOUND inside the memoized DFS",
+             "The C comment CAUTIONs that a C3-lower-bound prune — sound ALONE —\n    is UNSOUND inside the memoized DFS"),
+            ("lean/CompilerCorrectness.lean", "KERNEL-CHECKED in C3Decomposition.lean (`walk_threshold_387`",
+             "(derived-but-unverified until that gate lands)."),
+            ("lean/PruneExactness.lean", "n = 19 (the U1–U3 subset gate and verify.py --recount-rung 18 and 19,",
+             "n = 18 (the U1–U3 subset gate and verify.py --recount-rung 18), and"),
+            ("lean/KingWen.lean", "content is the standard invariance/orbit argument — an output law that is a\n   function of a G-invariant score is constant on each orbit",
+             "an invariant score\n   induces an output distribution constant on each orbit"),
+            ("lean/README.md", "output law that is a function of a G-invariant score is constant on each orbit (the theorems'",
+             "an\ninvariant score induces an output distribution constant on each orbit, so no such generator can"),
+            ("lean/README.md", "and `CompilerCorrectness.lean` (~2.4 s, 0.76 GB = 757,468 kB, measured 2026-09-10 on a D16-class host;",
+             "| the other five (`PartitionInvariance`, `HammingOptimalMatching`, `PruneExactness`, `PruneSafety`, `RecordConvention`) | <1 s each | <0.6 GB each |"),
+        ]
+        for rel, new, old in pins:
+            with self.subTest(site=rel + ": " + new[:40]):
+                src = self._read(rel)
+                self.assertIn(new, src, "the scoped wording is absent")
+                if old is not None:
+                    self.assertNotIn(old, src, "the old wording is still present")
+        table = re.findall(r"^\|.*\| *<?~?[0-9.]+ .*\|$", self._read("lean/README.md"), re.M)
+        self.assertTrue(any("`CompilerCorrectness.lean`" in row and "757,468 kB" in row for row in table),
+                        "the hardware table carries no CompilerCorrectness measurement")
+        # the edited modules still pass the census (comment-only edits, balanced delimiters)
+        body = _lsf_heredoc_body("LEAN_SOURCE_CENSUS")
+        r = subprocess.run([sys.executable, "-"], input=body, capture_output=True, text=True, cwd=self.ROOT)
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertIn("LEAN_SOURCE_CENSUS=PASS n=0", r.stdout.splitlines())
+        for rel in ("Automorphism", "C3Decomposition", "PruneReprFC", "CompilerCorrectness", "PruneExactness", "KingWen"):
+            t = self._read("lean/%s.lean" % rel)
+            self.assertEqual(t.count("/-"), t.count("-/"), rel)
+
+    def test_citations_weight_conservation_is_scoped(self):  # F03-002#1
+        changed = sorted(h for h in range(64) if bin(h).count("1") != bin(solve.partner(h)).count("1"))
+        pal = sorted(h for h in range(64) if solve.rev(h) == h)
+        self.assertEqual(changed, pal, "precondition: exactly the eight palindromes change weight under partner")
+        self.assertEqual(len(changed), 8)
+        self.assertTrue(all((bin(h).count("1") - bin(solve.partner(h)).count("1")) % 2 == 0 for h in range(64)),
+                        "precondition: weight parity is preserved on every pair (PARITY_ALTERNATION Lemma 1)")
+        # Codex rev_g8l #7 (2026-10-27): the first G8L tree said "24 reversal pairs" and "8 palindromic
+        # complement pairs" -- the eight palindromes counted as eight PAIRS. Unordered partner pairs: 32 =
+        # 28 reversal pairs + 4 complement pairs (each holding two palindromes). RED: the old counts pinned.
+        pairs = {frozenset((h, solve.partner(h))) for h in range(64)}
+        self.assertEqual(len(pairs), 32)
+        self.assertTrue(all(len(p) == 2 for p in pairs), "no hexagram is its own partner")
+        with_pal = [p for p in pairs if any(h in pal for h in p)]
+        self.assertEqual(len(with_pal), 4)
+        self.assertTrue(all(all(h in pal for h in p) for p in with_pal), "a palindrome's partner is a palindrome (its complement)")
+        self.assertEqual(len(pairs) - len(with_pal), 28)
+        self.assertEqual(sorted(bin(h).count("1") for h in pal), [0, 2, 2, 2, 4, 4, 4, 6])
+        src = self._read("documentation/CITATIONS.md")
+        # RED on the uncured tree: the old sentence present
+        self.assertNotIn("His weight-conservation principle is the exact-preservation strengthening", src)
+        self.assertIn("His weight-conservation principle is not an exact invariant of the C1 matching", src)
+        self.assertIn("Hamming weight on the 28 reversal pairs, the 4 palindromic complement pairs (eight hexagrams: Qian/Kun 6 ↔ 0, and the six of weight 2 or 4) change it by 6 − 2w", src)
+        self.assertIn("scoped 2026-10-23, Codex gpt-6-astra F03-002#1", src)
+        for bad in ("24 reversal pairs", "8 palindromic complement pairs"):
+            self.assertNotIn(bad, src, bad)
+            self.assertNotIn(bad, self._read("documentation/CORRECTIONS.md"), bad)
+        for rel, want in (("documentation/SAT_CLI.md", "`KW_CONTROL_REST_SAT=SAT`, `KW_CONTROL_REST_RESIDUAL=<n>` | leg 2, strong form"),
+                          ("documentation/SAT_CLI.md", "Every target's enforced rules are re-scored on the decoded witness"),
+                          ("reports/certificates/README.md", "`KW_CONTROL_REST_SAT=SAT`, a bounded DPLL"),
+                          ("documentation/CLAIM_TO_ARTIFACT.md", "driver `lean/AxiomCensus.lean.in`"),
+                          ("reports/METHODS.md", "runs as\n   `reports/certificates/verify_all.sh` leg (D) over all fifteen modules"),
+                          ("lean/README.md", "the driver ships as `lean/AxiomCensus.lean.in`")):
+            with self.subTest(site=rel):
+                self.assertIn(want, self._read(rel))
+# end class TestBatchG8L (push group G8L)
 
 
 if __name__ == "__main__":

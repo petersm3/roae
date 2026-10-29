@@ -978,7 +978,14 @@ theorem twenty_four_dvd_count {Q : List Nat → Bool}
     of canonical C1–C5 solution records. Stated over any duplicate-free listing R
     that is sound (every member is the canonical record of a valid C1–C5 ordering)
     and complete (every such record is listed) — i.e., |R| = the solution count.
-    This is the theorem behind the DIV-24 integrity gate on exact counts. -/
+    This is the theorem behind the record-level DIV-24 identity. The DIV-24 gate on
+    the PUBLISHED exact counts (TR-11's 42- and 39-digit integers, which count
+    orientation-explicit sequences, where 48 ∣ N) rests on the paper-proved
+    sequence layer (SYMMETRY_SEARCH.md; the scope note on
+    `twenty_four_dvd_c1c2c4_count` below; lean/README.md's "layers the old
+    wording ran together" note), not on this theorem — scoped 2026-10-23 (Codex
+    gpt-6-astra F01-003#5; this line read "the DIV-24 integrity gate on exact
+    counts"). -/
 theorem twenty_four_dvd_solution_count (R : List (List Nat)) (hnd : R.Nodup)
     (hsound : ∀ r ∈ R, SolRec validC15 r)
     (hcomplete : ∀ r, SolRec validC15 r → r ∈ R) :

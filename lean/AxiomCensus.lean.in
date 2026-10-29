@@ -1,0 +1,23 @@
+import Lean
+import MODNAME
+
+open Lean Elab Command in
+run_cmd liftTermElabM do
+  let env ← getEnv
+  let some modIdx := env.header.moduleNames.findIdx? (· == `MODNAME)
+    | throwError "AXSCAN_ERROR module MODNAME not found"
+  let data := env.header.moduleData[modIdx]!
+  let mut n : Nat := 0
+  let mut hits : Nat := 0
+  let allowed : List Name := [``propext, ``Classical.choice, ``Quot.sound]
+  for name in data.constNames do
+    unless name.isInternal do
+      let axs ← collectAxioms name
+      n := n + 1
+      let bad := axs.filter (fun a => !(allowed.contains a))
+      if bad.size > 0 then
+        hits := hits + 1
+        logInfo m!"AXSCAN_HIT {name} :: {axs.toList}"
+      else
+        logInfo m!"AXSCAN_OK {name} :: {axs.toList}"
+  logInfo m!"AXSCAN_COMPLETE MODNAME constants={n} hits={hits}"

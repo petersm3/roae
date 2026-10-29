@@ -772,6 +772,18 @@ KW_PIN_PLAIN_TARGETS = ("kw-pin", "moore-kwtest", "rhythm-kwtest")
 # the formula's own pinned model (measured: ok=False, rule_viol={'gender': 2}).
 RC4_KWEXEMPT_POS = frozenset({25, 26})
 KW_PINNED_TARGETS = KW_PIN_VALIDATION_TARGETS + KW_PIN_PLAIN_TARGETS
+# The KW-pinned targets whose DOCUMENTED expectation is UNSAT (SAT_CLI.md target table: King Wen
+# violates the rule the target enforces, or the target encodes a requirement built to fail at King
+# Wen -- the permuted faces of ccn4-kwfail, the shifted locus of ccn8-kwfail, the negated chain of
+# ccn8-kwchain-not). Such a target has no witness by construction, so the --witness loop refuses
+# any witness on it as ENCODING_DIVERGENCE (2026-10-27, Codex gpt-6-astra rev_g8l #1 on push group
+# G8L): the re-score runs solve.py's ORDINARY scorers, which cannot see an altered requirement --
+# with the `rule ccn4 (faces permuted)` family dropped, King Wen decoded from a solver stub scored
+# ccn4=0, violated={} and printed WITNESS_RESULT=WITNESS (measured). tests.py pins this tuple to
+# the King Wen control: it is exactly the pinned targets kw_control() expects KW to FALSIFY.
+KW_PIN_EXPECT_UNSAT = ("rc4-kwtest", "ccn4-kwfail", "ccn8-kwfail", "ccn8-kwchain-not",
+                       "moore-kwtest", "rhythm-kwtest")
+if not set(KW_PIN_EXPECT_UNSAT) <= set(KW_PINNED_TARGETS): raise SystemExit("KW_PIN_EXPECT_UNSAT names a target that is not KW-pinned")  # explicit raise, not assert (Q-373)
 
 # ---- cardinality-only subset targets (2026-09-02; TR-6 abstract, Codex V2-F08 #3) ----
 # `<target>-noY` emits exactly the clauses of <target> in which no Y variable occurs. The
@@ -1744,11 +1756,22 @@ def decode_subset(model_lits, ctx):
 
 def verify_subset(seq, ctx):
     """Re-verify a decoded subset sequence against solve.py ground truth:
-    distinct hexagrams (C1), no dist-5 boundary (C2), and boundary class
-    multiset == B0 (C5, over the N boundaries incl. start_exit -> seq[0]).
-    Returns (ok, boundary_distances)."""
+    C1 -- distinct hexagrams, every slot a canonical partner pair (solve.partner), and the
+    slots' pairs exactly the subset's own pair list, each once -- no dist-5 boundary (C2), and
+    boundary class multiset == B0 (C5, over the N boundaries incl. start_exit -> seq[0]).
+    Returns (ok, boundary_distances).
+    Until 2026-10-23 (Codex gpt-6-astra F01-002#1, push group G8L) the C1 leg was distinctness
+    alone: [16, 8, 2, 4, ...] -- slots (16, 8) and (2, 4), neither a partner pair, both boundary
+    distances unchanged -- returned (True, ...), so a decoder orientation map with two entries
+    exchanged would have passed this independent leg (measured on the shipped file). The pair
+    predicate is solve.py's (`solve.partner`, SPECIFICATION C1), not re-derived here."""
     n = ctx["n"]
     ok = len(seq) == 2 * n and len(set(seq)) == 2 * n
+    if ok:
+        slots = [(seq[2 * i], seq[2 * i + 1]) for i in range(n)]
+        ok = all(solve.partner(a) == b for a, b in slots)
+        want = sorted(tuple(sorted(KW_PAIRS[p])) for p in ctx["pl"])
+        ok = ok and sorted(tuple(sorted(ab)) for ab in slots) == want
     # 2026-09-21 (Q-435 sibling, found by EXECUTING SAT_CLI.md's `--decode MODEL --f1-pairs N`
     # form on a full-31 model): a model of a different formula decodes to the slots its literals
     # happen to hit -- neither empty nor 2N long -- and the N-boundary walk below then indexed past
@@ -1835,7 +1858,7 @@ def verify_seq(seq):
         scores = (rs["parity"], rs["rhythm"], rs["gender"])
     return ok, c3, scores
 
-def target_verdict(seq, target, with_c3=False, c3_max=None, c3_min=None, skip_rules=False):
+def target_verdict(seq, target, with_c3=False, c3_max=None, c3_min=None):
     """ONE verdict for a decoded 64-hexagram sequence against `target` and the C3 flags, shared
     by --decode and --witness so the two cannot disagree (2026-09-03, Codex V2 A09 rows 14/19:
     --decode never consulted the target, both paths re-scored 3 of 5 rules, and both carried a
@@ -1843,7 +1866,8 @@ def target_verdict(seq, target, with_c3=False, c3_max=None, c3_min=None, skip_ru
       base       verify_seq() ok: C1, C2, C5 via solve.py
       c3         complement-distance total, or None if not a permutation
       scores     rule_scores() dict, or None when base fails
-      rules      the rules `target` enforces strictly (target_rules), or set() if skip_rules
+      rules      the rules `target` enforces strictly (target_rules); no target is exempt
+                 (the `skip_rules` name-based exemption of the kw* targets was removed 2026-10-23)
       rule_viol  {rule: violations} over `rules` with a non-zero score (None when base fails)
       c3_encoded True iff C3 is natively in the formula (--with-c3 / --c3-max / --c3-min)
       c3_ok      C3 inside the requested window; with no C3 flag the window is the default
@@ -1851,7 +1875,7 @@ def target_verdict(seq, target, with_c3=False, c3_max=None, c3_min=None, skip_ru
       c3_label   the human-readable C3 verdict
       ok         base and no rule violation and c3_ok"""
     base, c3, _ = verify_seq(seq)
-    rules = set() if skip_rules else target_rules(target)
+    rules = target_rules(target)
     scores = rule_scores(seq, target) if base else None
     rule_viol = ({r: scores[r] for r in sorted(rules) if scores[r] != 0}
                  if scores is not None else None)
@@ -2043,9 +2067,13 @@ def _print_model_check(mc, cnf):
 # SCOPE: a sequence formula. --rigidity-cnf is a G5-automorphism instance with no ordering, and its
 # own positive control is rigidity_validate() (the identity satisfies everything but the
 # not-identity clause); verify_all.sh reports it as INAPPLICABLE rather than silently skipping it.
+# `ccn4-kwfail` joined on 2026-10-27 (found in the Fable triage of Codex rev_g8l #1): until then the
+# control treated it as a target King Wen satisfies and kw_control("ccn4-kwfail") returned ok=False,
+# expected=[] (measured) -- latent, since no replayed certificate names it.
 KW_CONTROL_THEOREM_FAMILIES = {
     "alt-le-14": "alternation bound (alt-le-14)",
     "alt-ge-16": "alternation bound (alt-ge-16)",
+    "ccn4-kwfail": "rule ccn4 (faces permuted)",              # the permuted faces are the theorem
     "ccn8-kwfail": "rule ccn8 (locus 24,25)",                 # the shifted locus is the theorem
     "ccn8-kwchain-not": "ccn8 chain machinery (ccn8-kwchain-not)",
 }
@@ -2082,14 +2110,100 @@ def kw_control_expected(target, c3_min=None):
             expect.add(KW_CONTROL_RULE_FAMILIES[r])
     return expect
 
+def _dpll(clauses, budget):
+    """Plain DPLL (unit propagation + most-occurring-variable branching) on a small residual
+    formula: a list of clauses over the variables the unit-propagation closure left open.
+    Returns ("SAT"|"UNSAT"|"UNDECIDED", decisions). UNDECIDED after `budget` decisions is
+    reported, never rounded to a verdict -- the caller treats it as a FAIL."""
+    steps = [0]
+    def simplify(cls, lit):
+        out = []
+        for c in cls:
+            if lit in c:
+                continue
+            if -lit in c:
+                r = [l for l in c if l != -lit]
+                if not r:
+                    return None
+                out.append(r)
+            else:
+                out.append(c)
+        return out
+    def solve(cls):
+        while True:
+            unit = next((c[0] for c in cls if len(c) == 1), None)
+            if unit is None:
+                break
+            cls = simplify(cls, unit)
+            if cls is None:
+                return "UNSAT"
+        if not cls:
+            return "SAT"
+        steps[0] += 1
+        if steps[0] > budget:
+            return "UNDECIDED"
+        cnt = {}
+        for c in cls:
+            for l in c:
+                cnt[abs(l)] = cnt.get(abs(l), 0) + 1
+        v = max(sorted(cnt), key=cnt.get)
+        for lit in (v, -v):
+            nxt = simplify(cls, lit)
+            if nxt is None:
+                continue
+            r = solve(nxt)
+            if r != "UNSAT":
+                return r
+        return "UNSAT"
+    return solve([list(c) for c in clauses]), steps[0]
+
+def remainder_satisfiable(cnf, lits, exclude_stages=(), budget=200000):
+    """THE STRONG FORM of the control's leg 2 (2026-10-23, Codex gpt-6-astra F01-001#3, push
+    group G8L): is the formula minus `exclude_stages` SATISFIABLE with `lits` asserted -- does
+    King Wen EXTEND to a model of everything the target is not about? model_check() alone is
+    unit propagation: it reports CONSISTENT when no clause is falsified, which leaves every
+    clause the closure did not decide unexamined, so a family that is unsatisfiable by search
+    rather than by propagation -- Codex's (a v b)(a v -b)(-a v b)(-a v -b) over two fresh
+    variables, outside every excluded family -- passed the control (measured: ok=True,
+    rest CONSISTENT, 4 undetermined). Here the closure's undetermined clauses, reduced under
+    the closure, go to a bounded DPLL. Returns (verdict, residual_clauses, decisions) with
+    verdict SAT | UNSAT | UNDECIDED. On the 23 certified targets the closure decides every
+    clause of 18 remainders outright (SAT with 0 residual) and leaves 59/88/117 clauses of the
+    `-near-k` slot-agreement counters open, which DPLL settles in a handful of decisions
+    (measured 2026-10-23)."""
+    mc = model_check(cnf, lits, exclude_stages=exclude_stages)
+    if mc["verdict"] == "FALSIFIED":
+        return "UNSAT", 0, 0
+    if mc["undetermined"] == 0:
+        return "SAT", 0, 0
+    val = {abs(l): l > 0 for l in mc["model"]}
+    excl = set(exclude_stages)
+    keep = [ci for ci in range(len(cnf.cl)) if cnf.stage_of(ci) not in excl]
+    residual = []
+    for ci in keep:
+        c = cnf.cl[ci]
+        if any(val.get(abs(l)) == (l > 0) for l in c):
+            continue
+        r = [l for l in c if abs(l) not in val]
+        if not r:
+            return "UNSAT", len(residual), 0
+        residual.append(r)
+    verdict, decisions = _dpll(residual, budget)
+    return verdict, len(residual), decisions
+
 def kw_control_check(cnf, lits, expected):
     """The control on a built formula: `lits` (King Wen's literals, or a closure of them) against
     `cnf` with `expected` the families KW may falsify. Returns a dict with verdict lines' values
     and "ok". Legs: (1) refuted -- the un-excluded verdict is FALSIFIED (or SATISFIED when nothing
     is expected); (2) rest -- on the formula minus the expected families, 0 falsified and 0
-    foreign literals; (3) necessary -- for each expected family f, the formula minus the OTHER
-    expected families is still FALSIFIED (f alone refutes KW). A family named in `expected` that
-    the formula does not contain raises (model_check's own guard), never passes."""
+    foreign literals, AND (since 2026-10-23, the strong form) that remainder is SATISFIABLE with
+    KW asserted, decided by remainder_satisfiable(): KW extends to a model of everything the
+    target is not about, so no family outside the excluded set is unsatisfiable on its own, by
+    propagation or by search; (3) necessary -- for each expected family f, the formula minus the
+    OTHER expected families is still FALSIFIED (f alone refutes KW). A family named in `expected`
+    that the formula does not contain raises (model_check's own guard), never passes. What stays
+    outside the control: an over-constraint INSIDE an expected family (excluded wholesale) --
+    the stated limitation, unchanged."""
     expected = set(expected)
     families = set(name for _, name in cnf.marks)
     missing = sorted(expected - families)
@@ -2100,11 +2214,16 @@ def kw_control_check(cnf, lits, expected):
     out = {"expected": sorted(expected), "refuted": full["verdict"],
            "falsified_by_stage": full["falsified_by_stage"], "foreign": full["foreign"]}
     if not expected:
+        # nothing excluded: the remainder is the whole formula, and KW must be a model of it
+        rest_sat, residual, decisions = remainder_satisfiable(cnf, lits)
         out.update({"rest_falsified": 0, "rest_foreign": full["foreign"], "necessary": (0, 0),
-                    "ok": full["verdict"] == "SATISFIED"})
+                    "rest_sat": rest_sat, "rest_residual": residual, "rest_decisions": decisions,
+                    "ok": full["verdict"] == "SATISFIED" and rest_sat == "SAT"})
         return out
     rest = model_check(cnf, lits, exclude_stages=expected)
     out["rest_falsified"], out["rest_foreign"] = rest["falsified"], rest["foreign"]
+    out["rest_sat"], out["rest_residual"], out["rest_decisions"] = remainder_satisfiable(
+        cnf, lits, exclude_stages=expected)
     hits = 0
     for f in sorted(expected):
         others = expected - {f}
@@ -2113,7 +2232,8 @@ def kw_control_check(cnf, lits, expected):
             hits += 1
     out["necessary"] = (hits, len(expected))
     out["ok"] = (full["verdict"] == "FALSIFIED" and rest["falsified"] == 0
-                 and rest["foreign"] == 0 and hits == len(expected))
+                 and rest["foreign"] == 0 and out["rest_sat"] == "SAT"
+                 and hits == len(expected))
     return out
 
 def kw_control(target, c3_min=None):
@@ -2153,6 +2273,8 @@ def _print_kw_control(out):
         ";".join("%s:%d" % kv for kv in sorted(out["falsified_by_stage"].items())) or "none"))
     print("KW_CONTROL_REST_FALSIFIED=%d" % out["rest_falsified"])
     print("KW_CONTROL_REST_FOREIGN=%d" % out["rest_foreign"])
+    print("KW_CONTROL_REST_SAT=%s" % out["rest_sat"])
+    print("KW_CONTROL_REST_RESIDUAL=%d" % out["rest_residual"])
     print("KW_CONTROL_EACH_FAMILY_NECESSARY=%d/%d" % out["necessary"])
     print("KW_CONTROL=%s" % ("PASS" if out["ok"] else "FAIL"))
     return 0 if out["ok"] else 1
@@ -2672,15 +2794,33 @@ if __name__ == "__main__":
             # F-1: re-score EVERY rule the target enforces on the decoded witness via solve.py
             # scorers (five since 2026-09-03; three before -- A09 row 14). A witness violating an
             # encoded rule means encoder/engine divergence, never accepted and, since today,
-            # never silently retried either. (Skipped for the kw* encoding-validation targets,
-            # which pin KW deliberately and are UNSAT-expected or KW-only by construction.)
-            v = target_verdict(seq, target, with_c3=with_c3, c3_max=c3_max, c3_min=c3_min,
-                               skip_rules=("kw" in target))
+            # never silently retried either. EVERY target, the KW-pinned encoding-validation
+            # targets included (2026-10-23, Codex gpt-6-astra F12-012#5, push group G8L): until
+            # then `skip_rules=("kw" in target)` switched the re-score off by NAME, so
+            # `moore-kwtest` with its `rule parity` family removed and the King Wen model handed
+            # back by a solver stub printed parity=2, violated={} and WITNESS_RESULT=WITNESS
+            # (measured) -- the one leg that would notice a dropped rule family was the leg
+            # switched off on exactly the targets built to validate the encoding. A KW-pinned
+            # target either has no witness (KW violates the rule: UNSAT) or has King Wen as its
+            # witness, which the re-score accepts (rc4-kwexempt's exemption is in rule_scores),
+            # so nothing the skip protected needed protecting.
+            v = target_verdict(seq, target, with_c3=with_c3, c3_max=c3_max, c3_min=c3_min)
             print("attempt %d: verify=%s rules=%s violated=%s c3=%s %s"
                   % (attempt, v["base"],
                      v["scores"] and " ".join("%s=%d" % (r, v["scores"][r]) for r in FIVE_RULES),
                      v["rule_viol"], v["c3"],
                      v["c3_label"] if v["c3_ok"] else v["c3_label"] + ", blocking"))
+            if v["ok"] and split_noy(target)[0].split("-near-")[0] in KW_PIN_EXPECT_UNSAT:
+                # 2026-10-27 (Codex gpt-6-astra rev_g8l #1): the re-score above runs solve.py's
+                # ordinary scorers and cannot see an ALTERED requirement (ccn4-kwfail's permuted
+                # faces, ccn8-kwfail's locus (24,25)), so with that family dropped King Wen scored
+                # ccn4=0 / ccn8=0, violated={} and this printed WITNESS (measured). A KW-pinned
+                # target documented UNSAT has no witness by construction: any witness means the
+                # family that refutes King Wen is missing or weakened -- divergence, not a result.
+                print("ENCODING_DIVERGENCE at attempt %d: %s is a KW-pinned target whose formula King "
+                      "Wen must violate (SAT_CLI.md: expect UNSAT); a witness means the family that "
+                      "refutes King Wen is missing or weakened" % (attempt, target))
+                print("WITNESS_RESULT=ENCODING_DIVERGENCE"); result = 3; break
             if v["ok"]:
                 print("WITNESS:", seq)
                 print("WITNESS_RESULT=WITNESS"); result = 0; break
