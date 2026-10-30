@@ -183,6 +183,13 @@ gate_branch_registry() {
       echo "         Add it as 'authoritative' or 'snapshot'. An undeclared public branch is"
       echo "         exactly how CX-30 stayed visible on five refs after main had retracted it."
       rc=1
+    elif awk -F'\t' -v b="$b" '$1 == b && $2 == "retired" {f = 1} END {exit !f}' "$REG"; then
+      # F06-010#1: `retired` DISCLOSES that the ref is deleted from the remote. A name that is
+      # published (or about to be) under a retired row contradicts its own disclosure; matching
+      # the name alone let the republication through with the row still saying "deleted".
+      echo "  [FAIL] branch '$b' is published (or pending) but $REG declares it 'retired' -- i.e."
+      echo "         deleted from the remote. Republishing it needs its row changed first."
+      rc=1
     else
       n=$((n+1))
     fi

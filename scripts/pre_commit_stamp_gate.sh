@@ -137,7 +137,25 @@ classify(){
   fi
   # Exact WHOLE-LINE intersection (-x). Substring matching would sweep in solve.c.orig and any
   # path that merely contains a member's name.
-  hits=$(grep -Fxf "$closure" "$staged")
+  # F05-019#13: grep's own status decides -- 0 hits, 1 none, anything else is an intersection that
+  # did not happen, never "no closure input staged".
+  hits=$(grep -Fxf "$closure" "$staged"); local hrc=$?
+  if [ "$hrc" -gt 1 ]; then
+    echo "  [ERROR] the closure intersection (grep -Fxf) exited $hrc -- nothing was compared"
+    echo "PRECOMMIT_STAMP_COUNT=-1"; echo "PRECOMMIT_STAMP_ERROR=intersection-failed"
+    echo "PRECOMMIT_STAMP=ERROR"; return 2
+  fi
+  # F05-019#9: every file under scripts/tr12_expected/ (the goldens, their manifest, the skip pins)
+  # is hashed by the reproduction fingerprint's EXPECTED half, so it is a closure input too; only
+  # the stamp itself is not.
+  local gold
+  gold=$(grep -E '^scripts/tr12_expected/' "$staged" | grep -vxF "$STAMP_PATH"); local grc=$?
+  if [ "$grc" -gt 1 ]; then
+    echo "  [ERROR] the expected-output scan (grep) exited $grc -- nothing was compared"
+    echo "PRECOMMIT_STAMP_COUNT=-1"; echo "PRECOMMIT_STAMP_ERROR=intersection-failed"
+    echo "PRECOMMIT_STAMP=ERROR"; return 2
+  fi
+  hits=$(printf '%s\n%s\n' "$hits" "$gold" | grep -v '^$' | sort -u)
   if [ -z "$hits" ]; then
     echo "PRECOMMIT_STAMP_COUNT=0"
     echo "PRECOMMIT_STAMP=NOT-APPLICABLE"; return 0
@@ -268,11 +286,39 @@ trap 'rm -f "$STAGED" "$CLOSURE" "$FNS"' EXIT
 # deleting a closure input moves the fingerprint exactly as editing one does. --no-renames turns a rename into D old + A new
 # (with rename detection only the NEW path was listed, so renaming a closure input away read as unrelated). An index that cannot be read is ERROR — a `git diff --cached` that fails and an empty
 # index are indistinguishable by output alone, which is how a gate comes to certify nothing.
-if ! git diff --cached --no-renames --name-only --diff-filter=ACMRD > "$STAGED" 2>/dev/null; then  # --no-renames: a rename lists BOTH paths (Q-750 residual)
+# F05-019#11: T (a type change, e.g. solve.c turned into a symlink) is a change to a closure input too.
+# F05-019#12: the status is kept, so a STAMP that is staged as a DELETION is not "the stamp moves with
+# them" -- the committed tree will carry no stamp at all. Its line is dropped from the list classify
+# reads, so a closure input staged with it is MISSING-STAMP.
+# Codex CX-35W-I, Fable triage G5c #12: read with -z. Without it git QUOTES a path holding a non-ASCII byte
+# or a tab ("scripts/tr12_expected/_notes-\303\251.txt"), which matches no closure pattern, so such a closure
+# input staged alone read NOT-APPLICABLE. -z --name-status emits STATUS NUL PATH NUL per record
+# (--no-renames rules out the two-path R/C records).
+if ! git diff --cached --no-renames --name-status -z --diff-filter=ACMRDT > "$STAGED.st" 2>/dev/null; then  # --no-renames: a rename lists BOTH paths (Q-750 residual)
+  rm -f "$STAGED.st"
   echo "  [ERROR] could not read the index (git diff --cached failed)"
   echo "PRECOMMIT_STAMP_COUNT=-1"; echo "PRECOMMIT_STAMP_ERROR=staged-list-failed"
   echo "PRECOMMIT_STAMP=ERROR"; exit 2
 fi
+if ! python3 - "$STAGED.st" "$STAMP_PATH" > "$STAGED" <<'PY'
+import sys
+recs = open(sys.argv[1], 'rb').read().split(b'\0')
+st = sys.argv[2].encode()
+if len(recs) % 2 != 1 or recs[-1] != b'':
+    sys.exit(3)                           # not STATUS NUL PATH NUL records: unreadable, not empty
+for i in range(0, len(recs) - 1, 2):
+    status, path = recs[i], recs[i + 1]
+    if status[:1] == b'D' and path == st:
+        continue
+    sys.stdout.buffer.write(path + b'\n')
+PY
+then
+  rm -f "$STAGED.st"
+  echo "  [ERROR] could not read the staged status list"
+  echo "PRECOMMIT_STAMP_COUNT=-1"; echo "PRECOMMIT_STAMP_ERROR=staged-list-failed"
+  echo "PRECOMMIT_STAMP=ERROR"; exit 2
+fi
+rm -f "$STAGED.st"
 if [ ! -s "$STAGED" ]; then
   echo "PRECOMMIT_STAMP_COUNT=0"
   echo "PRECOMMIT_STAMP=NOT-APPLICABLE"; exit 0
@@ -294,6 +340,22 @@ fi
 # shellcheck source=/dev/null
 if ! . "$FNS"; then
   echo "  [ERROR] the extracted closure functions do not parse"
+  echo "PRECOMMIT_STAMP_COUNT=-1"; echo "PRECOMMIT_STAMP_ERROR=extraction-unparseable"
+  echo "PRECOMMIT_STAMP=ERROR"; exit 2
+fi
+# F05-019#10: derived_inputs() keeps a referenced path only if it EXISTS in the work tree, so deleting
+# a derived member removed it from the very list used to recognise the deletion. The closure here also
+# keeps a referenced path that exists in HEAD. The substitution is checked: if the extracted text no
+# longer has that shape, the closure is UNMEASURED (ERROR), not narrower.
+if [ "$(grep -cF '[ -f "$f" ] && printf' "$FNS")" != 1 ]; then
+  echo "  [ERROR] derived_inputs() no longer has the existence filter this gate widens to HEAD;"
+  echo "          a deleted closure input could not be recognised."
+  echo "PRECOMMIT_STAMP_COUNT=-1"; echo "PRECOMMIT_STAMP_ERROR=extraction-failed"
+  echo "PRECOMMIT_STAMP=ERROR"; exit 2
+fi
+sed -i 's|\[ -f "\$f" \] && printf|{ [ -f "$f" ] \|\| git cat-file -e "HEAD:$f" 2>/dev/null; } \&\& printf|' "$FNS"
+if ! . "$FNS"; then
+  echo "  [ERROR] the widened closure functions do not parse"
   echo "PRECOMMIT_STAMP_COUNT=-1"; echo "PRECOMMIT_STAMP_ERROR=extraction-unparseable"
   echo "PRECOMMIT_STAMP=ERROR"; exit 2
 fi

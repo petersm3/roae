@@ -109,7 +109,9 @@ if real:
         print(f"   [FAIL] atlas {real} not found"); fails += 1
     else:
         okr, dr = sv.atlas_orbit_membership(json.load(open(real, encoding="utf-8")))
-        if okr is False:
+        # A SUPPLIED atlas must be measured (Codex, gpt-6-astra, F05-019#1): `None` (no raw
+        # marginals, nothing checked) used to fall through to [ok] and a green verdict.
+        if okr is not True:
             print(f"   [FAIL] {real}: {dr}"); fails += 1
         else:
             print(f"   [ok]   {real}: {dr}")

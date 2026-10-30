@@ -109,6 +109,10 @@ def candidates(line):
     out |= set(re.findall(r'(?<![\w-])(--[a-z0-9][a-z0-9-]{2,})', line))
     return {w for w in out if w != "solve" and not w.endswith("_")}
 
+def has(text, c):
+    """c occurs in text as a whole identifier / flag, not inside a longer name (F05-011#4)."""
+    return re.search(r'(?<![A-Za-z0-9_-])' + re.escape(c) + r'(?![A-Za-z0-9_-])', text) is not None
+
 total = checked = 0
 stale = []
 heading = ""
@@ -121,12 +125,13 @@ for li, line in enumerate(doc, 1):
         lo, hi = min(a, b), max(a, b)
         # The citing sentence first; its section heading only when the sentence names nothing.
         cs = candidates(line) or candidates(heading)
-        cs = {c for c in cs if any(c in l for l in src)}
+        cs = {c for c in cs if any(has(l, c) for l in src)}
         if not cs:
             continue
         checked += 1
-        span = "\n".join(src[lo - 1:hi])
-        if not any(c in span for c in cs):
+        # G5c (Codex, gpt-6-astra, F05-011#4/#9): the identifier WHOLE (good_anchor is not inside
+        # good_anchor_backup), and a span that runs past the end of the file is stale, not a landing.
+        if lo < 1 or hi > len(src) or not any(has(l, c) for l in src[lo - 1:hi] for c in cs):
             stale.append((li, m.group(0), sorted(cs)[0], sorted(cs)))
 
 # A gate that measured nothing must ERROR, never PASS.
@@ -299,7 +304,6 @@ documentation/QUERY_INVENTORY.md	solve.py	extrema	57492d7cc487	LANDS: the Q6 'pe
 documentation/QUERY_INVENTORY.md	solve.py	extrema	7bef2b9d6798	LANDS: the Q6 'per-distance-class mass, not per-(state,choice)' comment in solve.py (re-pinned 2026-09-25, Q-791); the anchors mined are the row's other words
 documentation/QUERY_INVENTORY.md	viz/viz_kc_grammar.md	(d, w)	fa49f1697728	LANDS: viz_kc_grammar.md line 140-141 is where the new-pair category is stated to be undefined in TR-12 section 2 (re-pinned from line 44, Q-791)
 documentation/QUERY_INVENTORY.md	scripts/tr12_repro.sh	TR12_Q7	8cc56d7454e8	LANDS: tr12_repro.sh line 3696 is `agg(){`, the helper definition the sentence names; the row's anchors are the two agg call sites (line 3710/line 3715, which land; re-pinned by content 2026-09-25, Q-430)
-documentation/SOLUTIONS_FORMAT.md	runs/20260419_100T_d3_d128westus3/README.md	_10T_d3_d128westus3	5883f38a672d	LANDS: the run README's line 10 is 'Solver commit at enumeration launch'; the only mined anchor is a directory-name fragment
 documentation/SOLVE_C_CLI.md	solve.py	--books-verify	b91ac445daea	LANDS: solve.py line 10496-10499 is the Goldenberg attribution block (re-pinned from line 9682-9685, Q-791)
 documentation/SOLVE_C_CLI.md	documentation/CITATIONS.md	--books-verify	2b094b79c0be	LANDS: CITATIONS.md line 2646 is the goldenberg1975 ledger anchor (re-pinned from line 1855, Q-791)
 documentation/SOLVE_PY_CLI.md	solve.py	--tr8-dof-pool-draws	0ced75f2076d	LANDS: solve.py line 1093-1096 writes results.json / RESULTS.md, the results writer the sentence means (re-pinned from line 1023, Q-791)
@@ -316,7 +320,7 @@ scripts/doc_gates.d/80_repro_reach_claim_shapes.sh	documentation/CORRECTIONS.md	
 scripts/doc_gates.d/80_repro_reach_claim_shapes.sh	reports/TR6_PARITY_SKELETON.md	at the time of the SAT work (×11,364),	818de1e7b4fb	LANDS: TR6:132-133 carry the qualifier, hard-wrapped across the two lines, so the verbatim fragment is on neither [citing file re-keyed from scripts/doc_gates.sh to its Q-797 module, 2026-09-25; hash unchanged]
 scripts/doc_gates.d/80_repro_reach_claim_shapes.sh	reports/TR4_SIZE_OF_THE_SPACE.md	sharpens further when S(6..8) land	047717c1306d	LANDS: TR4:361 is the P34 wording ('sharpened by the 2026-07-05 S(6)-S(8) measurement'); the anchor is the retired wording the red test restores [citing file re-keyed from scripts/doc_gates.sh to its Q-797 module, 2026-09-25; hash unchanged]
 scripts/doc_gates.d/90_claim_artifacts.sh	documentation/CLAIM_TO_ARTIFACT.md	canonical	f37fef14dbf6	LANDS: CLAIM_TO_ARTIFACT.md line 45 is the n=9 26,112 row (row 14; re-pinned from line 41, Q-791); 'canonical' is the word the defect removed [citing file re-keyed from scripts/doc_gates.sh to its Q-797 module, 2026-09-25; hash unchanged]
-scripts/doc_gates.d/95_derived_figures_scope.sh	documentation/PROJECT_OVERVIEW.md	_10T_d3_fresh	19b739cabf35	LANDS: PROJECT_OVERVIEW.md line 102 attributes 21,794,755 / 152,468,987 to d3 10T; the anchor is the log path, named elsewhere [citing file re-keyed from scripts/doc_gates.sh to its Q-797 module, 2026-09-25; hash unchanged]
+scripts/doc_gates.d/95_derived_figures_scope.sh	documentation/PROJECT_OVERVIEW.md	analyze_output	19b739cabf35	LANDS: PROJECT_OVERVIEW.md line 102 attributes 21,794,755 / 152,468,987 to d3 10T; the anchor is the log path, named elsewhere [citing file re-keyed from scripts/doc_gates.sh to its Q-797 module, 2026-09-25; hash unchanged] (re-keyed from `_10T_d3_fresh` when a leading-underscore name became a whole token, CX-35W-F / Fable triage G5c #5)
 scripts/doc_gates.d/95_derived_figures_scope.sh	documentation/LARGE_SCALE_CAMPAIGNS.md	sort + dedup	07cecd264fdd	LANDS: LARGE_SCALE_CAMPAIGNS.md line 1026 is 'There is no S at which you need code that does not exist' (re-pinned from line 995, Q-791) [citing file re-keyed from scripts/doc_gates.sh to its Q-797 module, 2026-09-25; hash unchanged]
 scripts/exec_lane.sh	documentation/SOLVE_C_CLI.md	./solve	f7fa3e543185	LANDS: SOLVE_C_CLI.md line 3588 quotes the pre-correction build line (re-pinned from line 2061, Q-791)
 scripts/exec_lane.sh	documentation/CORRECTIONS.md	--follow	025e532dcecf	LANDS: CORRECTIONS.md line 3189 carries the bare `git log -S` fragment (re-pinned from line 3164, Q-791)
@@ -355,13 +359,14 @@ scripts/exec_lane.sh	documentation/SOLUTIONS_FORMAT.md	-	1a3f74ef552c	ATTESTED: 
 scripts/q7ranks_parse_gate.sh	scripts/tr12_repro.sh	-	a3c7ef14609e	ATTESTED: line 2658 is the n>=31 rank3 awk of a2_q7_ranks (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 101)
 scripts/q7ranks_parse_gate.sh	scripts/tr12_repro.sh	-	a3c7ef14609e	ATTESTED: line 2658 is the n>=31 rank3 awk of a2_q7_ranks (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 109)
 scripts/q7ranks_parse_gate.sh	scripts/tr12_repro.sh	-	941b26ee7499	ATTESTED: line 653 is the q1c rank3 awk, the first sibling (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 109)
-scripts/q7ranks_parse_gate.sh	scripts/tr12_repro.sh	-	1dbdb132ab0c	ATTESTED: line 2729 is the a2_q3 `--kc-o3-rank ... | awk` rank3 parse, the second sibling (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 109)
+scripts/q7ranks_parse_gate.sh	scripts/tr12_repro.sh	-	f78f141c1c02	ATTESTED: lines 2900-2901 are the Q1(c) `--kc-o3-rank` call and its `awk` rank3 parse, the second sibling (re-pointed from line 2846 and re-hashed 2026-10-22, G5c: F04-020#3 split the pipeline so the rank call's status is read; cited from line 109)
 scripts/tr12_repro_gate.sh	scripts/tr12_repro.sh	-	37b8c4bff44f	ATTESTED: line 1202 is `row_begin a0_q4b` (review S1 re-pin) (content-checked 2026-09-25, Opus AF; cited from line 148)
 solve.c	solve.py	-	a2eec7945003	ATTESTED: solve.py line 7111 is `"SOLVE_HASH_LOG2": "16",  # keep RAM use modest on tiny VMs`, quoted (content-checked 2026-09-25, Opus AF; cited from line 40388) (re-pointed +1 by content for batch 16, 2026-09-26, Opus EU)
 solve.c	documentation/SOLVE_C_CLI.md	-	13caa29fe0ed	ATTESTED: SOLVE_C_CLI.md line 518 is `set -a; eval "$(./solve --canonical-config 100T)"; set +a` (content-checked 2026-09-25, Opus AF; cited from line 42616) (re-pointed +1 by content for batch 16, 2026-09-26, Opus EU)
 solve.c	verify.py	-	e7a7c32b284b	ATTESTED: verify.py line 7127-7128 print KW_PRESENT then KW_REQUIRED, the pair mirrored (content-checked 2026-09-25, Opus AF; cited from line 44079) (re-pointed +1 by content for batch 16, 2026-09-26, Opus EU)
 solve.c	documentation/SOLVE_C_CLI.md	-	fc6e90f7a78a	ATTESTED: SOLVE_C_CLI.md line 791 is 'King Wen presence is reported, not enforced' (content-checked 2026-09-25, Opus AF; cited from line 44313) (re-pointed +1 by content for batch 16, 2026-09-26, Opus EU)
 solve.c	verify.py	-	e7a7c32b284b	ATTESTED: verify.py line 7127-7128 print KW_PRESENT then KW_REQUIRED, the pair mirrored (content-checked 2026-09-25, Opus AF; cited from line 44514) (re-pointed +1 by content for batch 16, 2026-09-26, Opus EU)
+scripts/doc_gates.d/95_derived_figures_scope.sh	documentation/RETRACTED_PHRASES.tsv	), which is why	7ab898c67148	LANDS: RETRACTED_PHRASES.tsv line 201 is the registered TR-5 summary phrase the comment points at without quoting it (GATE 47 reads that file); the miner's anchors are the neighbouring comment lines' words, and `relabel` no longer matches inside `relabeling` (F05-011#4) (reviewed 2026-10-22, G5c)
 PINS
 )
 TARGET_PINS="${CITGATE_TARGET_PINS-$TARGET_PINS_DEFAULT}"
@@ -381,10 +386,8 @@ documentation/QUERY_INVENTORY.md	solve.c	26292c76c925	CORRECT: solve.c line 3775
 documentation/QUERY_INVENTORY.md	solve.c	29da842d5d58	CORRECT: solve.c line 28003 opens the `"kernel"` object inside `if (want_raw) {` (line 28002), the block that writes each nonzero `m<a>_<b>` cell; `want_raw` is one line above the cited line (reviewed 2026-10-02, batch 32)
 documentation/SOLVE_C_CLI.md	solve.c	a345c87a8e52	CORRECT: solve.c line 44522 is the --validate printf of `kw_found_v`; the sentence claims the value is PRINTED, so a print line is the right target (reviewed 2026-10-02, batch 32)
 documentation/SOLVE_C_CLI.md	solve.c	686f314dda25	CORRECT: solve.c line 44074 is the --verify printf of `kw_found_v`; the sentence claims the value is PRINTED (reviewed 2026-10-02, batch 32)
-documentation/SOLVE_C_CLI.md	documentation/DISTRIBUTIONAL_ANALYSIS.md	3e04e5915ee8	CORRECT: DISTRIBUTIONAL_ANALYSIS.md lines 329-331 are the 'withdrawn as evidence' sentence the entry cites; the flag `--joint-density` is on line 328, the start of the same bullet (reviewed 2026-10-02, batch 32)
 documentation/SOLVE_C_CLI.md	solve.c	9a2c5780a876	CORRECT: solve.c line 42828 is the `snprintf(count_cmd, ..., "wc -l < %s", manifest_path)` the sentence names; `manifest_path` is a print-call argument because the claim is about that formatted command (reviewed 2026-10-02, batch 32)
 documentation/SOLVE_PY_CLI.md	solve.c	66e816717890	CORRECT: solve.c line 39002 is `kc_print_walk(kc, repr, stdout)`, the record-line emission of repr(k) the sentence describes (reviewed 2026-10-02, batch 32)
-documentation/SOLVE_PY_CLI.md	documentation/DISTRIBUTIONAL_ANALYSIS.md	3e04e5915ee8	CORRECT: the cell quotes DISTRIBUTIONAL_ANALYSIS.md lines 329-331 verbatim; the flag is on line 328 (reviewed 2026-10-02, batch 32)
 lean/README.md	solve.c	8220e36db292	CORRECT: solve.c lines 43795-43798 are the inline partner check (`expected = (h_rev != h) ? h_rev : (h ^ 63)`); the word `partner` is in the error message on the next lines (reviewed 2026-10-02, batch 32)
 reports/TR12_QUERY_PROGRAM.md	solve.c	29da842d5d58	CORRECT: the same solve.c line 28003 `"kernel"` block under `if (want_raw) {` as QUERY_INVENTORY.md row V5 (reviewed 2026-10-02, batch 32)
 reports/TR5_SYMMETRY.md	verify.py	17d5490d8e25	CORRECT: verify.py line 4786 is `def sigma_isomorphism_all48(limit=None):`; the flag is in its docstring on the next line (reviewed 2026-10-02, batch 32)
@@ -396,6 +399,8 @@ scripts/doc_gates.d/80_repro_reach_claim_shapes.sh	documentation/HISTORY.md	f8b9
 scripts/tr12_repro.sh	solve.c	26292c76c925	CORRECT: solve.c line 37756 is `if (fkc->ooc != NULL) {`, the refusal the comment cites (reviewed 2026-10-02, batch 32)
 tests.py	sat.py	db7bca64f2aa	CORRECT: sat.py line 696 is `if k < 0:`, the guard in at_most_k the comment cites; the function name is two lines above (reviewed 2026-10-02, batch 32)
 viz/report_figures.py	solve.py	c02ff75fceb5	CORRECT: solve.py line 32 is 'Bit 0 = bottom line, bit 5 = top', the bit convention the comment cites; `binary_hexagrams` is on line 33 (reviewed 2026-10-02, batch 32; re-hashed 2026-10-08, literature batch: line 32 lengthened in place, still the bit convention)
+documentation/QUERY_INVENTORY.md	solve.c	103d8d916555	CORRECT: solve.c line 32476 is `if (argc < 5) {`, the guard that opens the --kc-profile usage block the row cites; the flag itself is printed in the usage string two lines below (reviewed 2026-10-22, G5c: surfaced when `--kc-profile` stopped matching inside `--kc-profile-selftest`, F05-011#4)
+documentation/SOLVE_C_CLI.md	solve.c	68d79f053232	CORRECT: solve.c lines 40166-40167 are the snprintf that assembles `layer_root`/`layer_names[li]` into the layer path, which is what 'the target is assembled at' cites; flagged because the assembled names are arguments of a print call wrapped over two lines (reviewed 2026-10-22, G5c, F05-011#14)
 PINS
 )
 CONTENT_PINS="${CITGATE_CONTENT_PINS-$CONTENT_PINS_DEFAULT}"
@@ -433,7 +438,28 @@ except OSError as e:
 # resolves to nothing (a private-repo file, a host:port, `e.g:`) is counted as `unresolved`; one
 # that resolves to several is counted as `ambiguous`. Both counts are printed, never silent.
 rc, lsf = git(["ls-files", "-z"])
+if rc != 0:     # G5c (Codex, gpt-6-astra, F05-011#18): a failed enumeration is not a smaller target set
+    print("ERROR git ls-files failed (rc=%d) -- the tracked-file set is unknown" % rc); sys.exit(0)
 tracked = [x for x in lsf.split("\0") if x]
+# (F05-011#19) every byte this run READS is recorded as a git blob id, so the tree id printed beside
+# the verdict is checked against what was measured, not only against the tree before measuring.
+_read_blobs = {}
+def note_read(path, b):
+    _read_blobs[path] = hashlib.sha1(b"blob %d\0" % len(b) + b).hexdigest()
+def read_text(path):
+    b = open(path, "rb").read()
+    note_read(path, b)
+    return b.decode("utf-8", "replace")
+# (F05-011#8) a tracked file with no extension (SHA256SUMS, lean-toolchain) is a target too.
+# The names come from the index AND from BASE (Codex CX-35W-F, Fable triage G5c #7): a file deleted from
+# the index (`git rm LICENSE`) is still a citation, and one that now dangles -- counted, not dropped.
+_ext_names = set(tracked)
+if git(["rev-parse", "--verify", "-q", base + "^{tree}"])[0] == 0:
+    _rcb, _lsb = git(["ls-tree", "-r", "--name-only", "-z", base])
+    if _rcb != 0:
+        print("ERROR git ls-tree %s failed (rc=%d) -- the BASE file set is unknown" % (base, _rcb)); sys.exit(0)
+    _ext_names |= set(x for x in _lsb.split("\0") if x)
+EXTLESS = sorted({os.path.basename(x) for x in _ext_names if "." not in os.path.basename(x)}, key=len, reverse=True)
 tracked_set = set(tracked)
 by_base = defaultdict(list)
 for x in tracked:
@@ -444,27 +470,27 @@ for x in tracked:
 bases = set(by_base)
 stems = {os.path.splitext(b)[0] for b in by_base if len(os.path.splitext(b)[0]) >= 5}
 _res = {}
+def resolve_in(name, citer, tset, bbase):
+    n = name[2:] if name.startswith("./") else name
+    if n in tset:
+        return n
+    rel = os.path.normpath(os.path.join(os.path.dirname(citer), n))
+    if rel in tset:
+        return rel
+    c = [x for x in bbase.get(os.path.basename(n), []) if x.endswith("/" + n)]
+    if len(c) == 1:
+        return c[0]
+    if len(c) > 1:
+        same = [x for x in c if os.path.dirname(x) == os.path.dirname(citer)]
+        return same[0] if len(same) == 1 else "?ambiguous"
+    return None
 def resolve(name, citer):
     k = (name, os.path.dirname(citer))
-    if k in _res:
-        return _res[k]
-    n = name[2:] if name.startswith("./") else name
-    r = None
-    if n in tracked_set:
-        r = n
-    else:
-        rel = os.path.normpath(os.path.join(os.path.dirname(citer), n))
-        if rel in tracked_set:
-            r = rel
-        else:
-            c = [x for x in by_base.get(os.path.basename(n), []) if x.endswith("/" + n)]
-            if len(c) == 1:
-                r = c[0]
-            elif len(c) > 1:
-                same = [x for x in c if os.path.dirname(x) == os.path.dirname(citer)]
-                r = same[0] if len(same) == 1 else "?ambiguous"
-    _res[k] = r
-    return r
+    if k not in _res:
+        _res[k] = resolve_in(name, citer, tracked_set, by_base)
+    return _res[k]
+base_tracked, base_by_base = None, defaultdict(list)
+dangling, unreadable = [], []
 
 _tsrc = {}
 def tsrc(t):
@@ -472,25 +498,31 @@ def tsrc(t):
     if t not in _tsrc:
         try:
             b = open(t, "rb").read()
+            note_read(t, b)
             _tsrc[t] = None if b"\0" in b[:65536] else (b.decode("utf-8", "replace").split("\n"),
                                                        b.decode("utf-8", "replace"))
         except OSError:
-            _tsrc[t] = None
-    return _tsrc[t]
+            _tsrc[t] = "UNREADABLE"    # (F05-011#1) a tracked target that cannot be read is a FAILURE
+    return None if _tsrc[t] == "UNREADABLE" else _tsrc[t]
+def is_unreadable(t):
+    tsrc(t)
+    return _tsrc.get(t) == "UNREADABLE"
 
 # ---- the citation grammar -------------------------------------------------------------------
 # `solve.c:N`, `solve.c:N-M` (en dash too, and the abbreviated `:18875-18893`), and a bare `:N`
 # continuation, which belongs to the most recent `<name>.<ext>:N` citation on the same line and
 # counts only when that one is solve.c ("(solve.c:38960, :42132)", "solve.c:23871/:24502").
+# (F05-011#9) any run of spaces around the range dash; (F05-011#8, --all-targets) an extensionless
+# tracked name (SHA256SUMS, lean-toolchain) is a file name too.
+_XL = ("|(?:[\\w\\-./]*/)?(?:%s)" % "|".join(re.escape(x) for x in EXTLESS)) if (EXTLESS and os.environ["ALLT"] == "1") else ""
 TOK = re.compile(
-    r'(?P<file>(?<![\w.\-])[\w\-./]*[\w\-]\.[A-Za-z]{1,5}):(?P<a>\d+)(?:\s?[-–]\s?(?P<b>\d+))?(?!\d|\.\d)'
-    r'|(?:(?<=[\s(`,/;])|^):(?P<ca>\d+)(?:\s?[-–]\s?(?P<cb>\d+))?(?!\d|\.\d|:)')
+    r'(?P<file>(?<![\w.\-])(?:[\w\-./]*[\w\-]\.[A-Za-z]{1,5}' + _XL + r')):(?P<a>\d+)(?:\s*[-–]\s*(?P<b>\d+))?(?!\d|\.\d)'
+    r'|(?:(?<=[\s(`,/;])|^):(?P<ca>\d+)(?:\s*[-–]\s*(?P<cb>\d+))?(?!\d|\.\d|:)')
 SHA = r'(?=[0-9a-f]*[a-f])(?=[0-9a-f]*[0-9])[0-9a-f]{7,40}'
 TGT = r'[\w./-]+\.[A-Za-z]{1,5}' if allt else r'solve\.c'
 LINE_EXCL = [
     ("codex-id",  re.compile(r'Codex v\d+\S*\s+`?' + TGT + ':')),
     ("rev-pin",   re.compile(r'(?:\bat|@)\s*`?(?:HEAD\s+)?' + SHA + r'\b')),
-    ("git-show",  re.compile(r'git show\s+\S*:' + TGT + r'|\b' + SHA + ':' + TGT)),
     ("dated-row", re.compile(r'^\s*\|\s*\**\s*(?:v\d+(?:\.\d+)+|\d{4}-\d{2}-\d{2})\b'
                              r'|\t[^\t]*\b(?:Retracted|Added|Corrected|Withdrawn)\s+\d{4}-\d{2}-\d{2}')),
 ]
@@ -541,9 +573,21 @@ MDLINK = re.compile(r'\[[^\]\n]*\]\(`?([^)\s#`]+\.[A-Za-z]{1,5})`?\):(?=\d)')
 def cites(line, citer, prev=(), quiet=False):
     """(target, lo, hi, text) for every live citation on the line; exclusions counted."""
     if allt:     # a markdown link glued to its line number, `[CITATIONS.md](CITATIONS.md):2031`, is the
-        line = MDLINK.sub(lambda m: " " + m.group(1) + ":", line)   # same citation: read it as one;
+        # same citation: read it as one -- and a link destination is RELATIVE TO THE CITING DOCUMENT
+        # (F05-011#16), so it is rewritten to that tracked path when there is one, never left bare for
+        # a root-level homonym to win.
+        def _mdl(m):
+            rel = os.path.normpath(os.path.join(os.path.dirname(citer), m.group(1)))
+            return " " + (rel if rel in tracked_set else m.group(1)) + ":"
+        line = MDLINK.sub(_mdl, line)
         line = BTFILE.sub(lambda m: " " + m.group(1) + ":", line)   # so is a backticked name, `x.out`:14
     out, cur, seen, pinned = [], None, False, False
+    # (F05-011#7) `git show <rev>:<path>` on a line pins THAT path's citations on the line to <rev>,
+    # and no other target's: a live citation into another file on the same line is still judged.
+    _shown = set()
+    for gm in re.finditer(r'(?:git show\s+\S*?|\b' + SHA + r'):([\w./-]+\.[A-Za-z]{1,5})', line):
+        _shown.add(resolve(gm.group(1), citer) if allt else
+                   ("solve.c" if gm.group(1).endswith("solve.c") else gm.group(1)))
     for m in TOK.finditer(line):
         if m.group("file") is not None:
             seen = True          # a file-qualified number, resolvable or not, owns what follows it
@@ -559,6 +603,12 @@ def cites(line, citer, prev=(), quiet=False):
             f = m.group("file")
             if allt:
                 cur = resolve(f, citer)
+                if cur is None and base_tracked is not None and \
+                        resolve_in(f, citer, base_tracked, base_by_base) not in (None, "?ambiguous"):
+                    # (F05-011#2) the name was tracked at BASE and is not now: its citation dangles
+                    if not quiet:
+                        dangling.append("%s %s" % (citer, m.group(0).strip()))
+                    continue
                 if cur is None:
                     excluded["unresolved"] += 1
                 elif cur == "?ambiguous":
@@ -567,7 +617,7 @@ def cites(line, citer, prev=(), quiet=False):
                 cur = "solve.c" if (f == "solve.c" or f.endswith("/solve.c")) else f
             if not is_target(cur):
                 continue
-            if re.search(SHA + r':$', line[:m.start()]):
+            if re.search(SHA + r':$|git show\s+\S*:$', line[:m.start()]) or cur in _shown:
                 excluded["git-show"] += 1; pinned = True; continue
             # A compiler diagnostic quoted verbatim (`solve.c:13150:1: warning: ...`) names the line in
             # the tree THAT build compiled, not HEAD: a record like CORRECTIONS.md, never re-pinned.
@@ -583,9 +633,21 @@ def cites(line, citer, prev=(), quiet=False):
             excluded["codex-batch"] += 1; continue
         if line[m.end():m.end() + 1] == "@" or line[max(0, m.start() - 1):m.start()] == "@":
             excluded["at-N"] += 1; pinned = m.group("file") is not None; continue
+        if allt and is_unreadable(cur):
+            if not quiet:
+                unreadable.append("%s %s [%s]" % (citer, m.group(0).strip(), cur))
+            continue
         if allt and tsrc(cur) is None:
             excluded["binary-target"] += 1; continue
-        if REVPIN.search(line[max(0, m.start() - 40):m.end() + 40]):
+        # (F05-011#7) a pin GLUED to another citation (`helper.py:1@<sha>`) is that citation's own
+        # revision, not a neighbour's: it is removed from the window before the pin is looked for.
+        # Stripped on BOTH sides (Codex CX-35W-F, Fable triage G5c #4): a FOLLOWING citation's glued pin
+        # (`solve.c:10; helper.py:1@<sha>`) is that citation's revision too, not this one's. This
+        # citation's own glued pin was already excluded as at-N above, so the right side cannot touch it.
+        _glued = r'\d@`?' + SHA
+        _win = (re.sub(_glued, '', line[max(0, m.start() - 40):m.start()]) + line[m.start():m.end()]
+                + re.sub(_glued, '', line[m.end():m.end() + 40]))
+        if REVPIN.search(_win):
             excluded["rev-pin"] += 1; pinned = m.group("file") is not None; continue
         out.append((cur, lo, hi, m.group(0).strip()))
         if m.group("file") is None and not re.search(r'[\w\-]\.[A-Za-z]{1,5}:\d', line[:m.start()]):
@@ -601,11 +663,15 @@ def cites(line, citer, prev=(), quiet=False):
     return out
 
 # ---- the population: tracked text files that carry a solve.c:N ------------------------------
-rc, out = git(["grep", "-I", "-l", "-E", r"\.[A-Za-z]{1,5}`?\)?:[0-9]|[(`]:[0-9]" if allt else r"solve\.c:[0-9]"])
+# (F05-011#6) -z: a path git would quote (`"b\303\244d.md"`) is read as the path it is.
+_pat = r"\.[A-Za-z]{1,5}`?\)?:[0-9]|[(`]:[0-9]" if allt else r"solve\.c:[0-9]"
+if allt and EXTLESS:
+    _pat += "|(" + "|".join(re.escape(x) for x in EXTLESS) + "):[0-9]"
+rc, out = git(["grep", "-I", "-l", "-z", "-E", _pat])
 if rc not in (0, 1):
     print("ERROR git grep failed (rc=%d)" % rc); sys.exit(0)
 files = []
-for p in out.split("\n"):
+for p in out.split("\0"):
     if not p:
         continue
     if EXCL_PATH.search(p):
@@ -625,12 +691,20 @@ if rc != 0:
         print("ERROR base ref %r does not resolve to a commit or a tree" % base); sys.exit(0)
     legA_note = "base %s unresolvable -- leg A measured nothing" % base
 else:
-    rc, names = git(["diff", "--name-only", "--no-renames", base])
+    rc, names = git(["diff", "--name-only", "-z", "--no-renames", base])
     if rc != 0:
         print("ERROR git diff --name-only %s failed" % base); sys.exit(0)
-    changed = set(x for x in names.split("\n") if x)
+    changed = set(x for x in names.split("\0") if x)
+    rc, bl = git(["ls-tree", "-r", "-z", "--name-only", base])
+    if rc != 0:
+        print("ERROR git ls-tree %s failed" % base); sys.exit(0)
+    base_tracked = set(x for x in bl.split("\0") if x)
+    for x in base_tracked:
+        base_by_base[os.path.basename(x)].append(x)
     for t in sorted(changed if allt else {"solve.c"} & changed):
-        rc, d = git(["diff", "-U0", "--no-color", "--no-ext-diff", "--no-renames", base, "--", t])
+        # --text (F05-011#10): a `-diff` attribute must not turn a changed text target into
+        # "Binary files differ" with no hunks, which read as "nothing moved"
+        rc, d = git(["diff", "--text", "-U0", "--no-color", "--no-ext-diff", "--no-renames", base, "--", t])
         if rc != 0:
             print("ERROR git diff %s -- %s failed" % (base, t)); sys.exit(0)
         h = [tuple(int(x) if x != '' else 1 for x in hh) for hh in
@@ -677,8 +751,14 @@ def candidates(line, tname="solve.c"):
     # A trailing `_` marks a wildcard stem (`SOLVE_` for SOLVE_*), never a symbol -- unless the name
     # also STARTS with one, which is the `_merged_` directory-name shape.
     stem = os.path.splitext(os.path.basename(tname))[0]
+    # (F05-011#15) a basename is a pointer, never an anchor; a bare STEM is dropped only where the
+    # text uses it AS a file name (with an extension or a path separator after it), so adding an
+    # unrelated `widget_total.py` cannot erase the identifier `widget_total`.
+    def _as_file(w):
+        return re.search(r'(?<![\w.-])' + re.escape(w) + r'(?:\.[A-Za-z]{1,5}\b|/)', line) is not None
+    _code = re.search(r'\.(?:c|h|py|sh|lean)$', tname) is not None
     return {w for w in out if w != stem and w != "solve" and "solve.c:" not in w
-            and not (allt and (w in stems or w in bases))     # a FILE NAME is a pointer, not an anchor
+            and not (allt and (w in bases or (w in stems and (_as_file(w) or not _code))))
             and not re.search(re.escape(os.path.basename(tname)) + r':\d', w)
             and (not w.endswith("_") or w.startswith("_"))}
 
@@ -720,10 +800,30 @@ LEGB = re.compile(r'\.(?:md|py|sh|tsv)$')
 SH_TIGHT = os.environ.get("CITGATE_SH_TIGHT", "1")
 RARE = 3
 PROBE = int(os.environ.get("CITGATE_PROBE_SHIFT", "0") or 0)
+_hasrx = {}
+def has(text, c):
+    """(F05-011#4) c occurs in text as a whole token: an identifier-like edge of c must not run on
+    into a longer name (good_anchor is not inside good_anchor_backup); a punctuation edge (`n=`) may."""
+    if c not in text:
+        return False
+    rx = _hasrx.get(c)
+    if rx is None:
+        # Whole-token matching is for NAMES -- an identifier or a --flag. A verbatim code fragment, a
+        # quoted literal, a sha prefix (`403f7202`) and an underscore-framed stem (`_merged_`) are
+        # matched as written, as before. A name that STARTS with `_` (`_good_anchor`) is a name too
+        # (Codex CX-35W-F, Fable triage G5c #5); only a stem that ENDS in `_` keeps substring matching.
+        if re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*[A-Za-z0-9]', c) and not re.fullmatch(r'[0-9a-f]{7,64}', c):
+            rx = re.compile(r'(?<![A-Za-z0-9_])' + re.escape(c) + r'(?![A-Za-z0-9_])')
+        elif re.fullmatch(r'--[a-z0-9][a-z0-9-]*', c):
+            rx = re.compile(r'(?<![\w-])' + re.escape(c) + r'(?![\w-])')
+        else:
+            rx = re.compile(re.escape(c))
+        _hasrx[c] = rx
+    return rx.search(text) is not None
 _occ = {}
 def occ(t, c):
     if (t, c) not in _occ:
-        _occ[(t, c)] = sum(1 for l in tsrc(t)[0] if c in l)
+        _occ[(t, c)] = sum(1 for l in tsrc(t)[0] if has(l, c))
     return _occ[(t, c)]
 
 def tsv_cell(line, t):
@@ -762,26 +862,57 @@ def chash(src, lo, hi):
 JUDGE_B_WEAK = [False]
 _PRINT_CALL = re.compile(r'\b(?:f?printf|snprintf|fputs|puts|print)\s*\(')
 _STRLIT = re.compile(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'')
-def print_arg_only(tg, c, line):
-    if not re.search(r'\.(?:c|h|py)$', tg) or not _PRINT_CALL.search(line):
+def print_arg_only(tg, c, line, before=()):
+    # (F05-011#14) a print call wrapped over several lines is ONE call: with `printf("records=%lld\n",`
+    # on one line and `n_records);` on the next, the next line is a print argument too. `before` is
+    # the up-to-3 preceding target lines, nearest first.
+    if not re.search(r'\.(?:c|h|py)$', tg):
         return False
-    return c in _STRLIT.sub("", line)
-def judge_b(tg, lo, hi, ctx, heading, ismd):
+    if _PRINT_CALL.search(line):
+        return has(_STRLIT.sub("", line), c)
+    seq = list(before)
+    for k in range(len(seq)):
+        chunk = list(reversed(seq[:k + 1]))            # farthest first
+        m = None
+        for m in _PRINT_CALL.finditer(chunk[0]):
+            pass
+        if m is None:
+            continue
+        body = _STRLIT.sub("", chunk[0][m.end():] + "\n".join(chunk[1:]))
+        return body.count("(") + 1 > body.count(")") and has(_STRLIT.sub("", line), c)
+    return False
+def borne(tg, c, src, lo, hi):
+    """c is on the cited span itself and not only as a print-call argument (the up-to-3 lines above each
+    cited line are passed so a wrapped call is seen, F05-011#14)."""
+    return any(has(l, c) and not print_arg_only(tg, c, l, src[max(0, k - 4):k - 1][::-1])
+               for k, l in enumerate(src[max(0, lo - 1):max(0, hi)], max(1, lo)))
+def judge_b(tg, lo, hi, ctx, heading, ismd, local=None):
     """Leg B on one citation -> (state, key, anchors); state is lands | stale | unchk."""
     src, srctext = tsrc(tg)
-    cands = candidates(ctx, tg) | (candidates(heading, tg) if ismd else set())
-    cands = {c for c in cands if c in srctext}
+    if lo + PROBE < 1 or hi + PROBE > len(src):
+        # (F05-011#8/#9) a line the target does not have is stale whatever the sentence names
+        return "stale", "<out-of-range>", ["<out-of-range>"]
+    raw = (candidates(local, tg) if local is not None
+           else candidates(ctx, tg) | (candidates(heading, tg) if ismd else set()))
+    cands = {c for c in raw if has(srctext, c)}
     if not cands:
+        # (F05-011#3) an anchor the cited BASE span carried and the target no longer contains at all
+        # is a citation whose subject was deleted -- stale, not uncheckable.
+        bs = base_src(tg) if (based and tg in changed) else None
+        gone = sorted(c for c in raw if bs is not None and 1 <= lo and hi <= len(bs)
+                      and any(has(l, c) for l in bs[lo - 1:hi]))
+        if gone:
+            return "stale", gone[0], gone
         return "unchk", None, []
     lo, hi = lo + PROBE, hi + PROBE
     win, core = src[max(0, lo - 3):max(0, hi + 2)], src[max(0, lo - 1):max(0, hi)]
     hit = strict = False
     for c in cands:
-        if any(c in l for l in win):
-            if occ(tg, c) <= RARE or any(c in l and not print_arg_only(tg, c, l) for l in core):
+        if any(has(l, c) for l in win):
+            if occ(tg, c) <= RARE or borne(tg, c, src, lo, hi):
                 strict = True            # Q-572 content rule: rare, or BORNE by the cited span itself
             if (SH_TIGHT != "0" and tg.endswith(".sh") and occ(tg, c) > RARE
-                    and not any(c in l for l in core)):
+                    and not any(has(l, c) for l in core)):
                 continue                 # a common word two lines off is chance, not a landing
             hit = True
     JUDGE_B_WEAK[0] = hit and not strict
@@ -808,6 +939,9 @@ _bsrc = {}
 def base_src(t):
     if t not in _bsrc:
         rc, bt = git(["show", "%s:%s" % (base, t)])
+        if rc != 0 and base_tracked is not None and t in base_tracked:
+            # (F05-011#11) a path that EXISTS at BASE and cannot be read there is not a new file
+            print("ERROR cannot read %s at base %s (rc=%d) -- legs A2/B cannot be judged" % (t, base, rc)); sys.exit(0)
         _bsrc[t] = bt.split("\n") if rc == 0 else None
     return _bsrc[t]
 
@@ -816,7 +950,7 @@ def hunks_of(p):
     if p in thunks:
         return thunks[p]
     if p not in _chunks:
-        rc, d = git(["diff", "-U0", "--no-color", "--no-ext-diff", "--no-renames", base, "--", p])
+        rc, d = git(["diff", "--text", "-U0", "--no-color", "--no-ext-diff", "--no-renames", base, "--", p])
         _chunks[p] = [tuple(int(x) if x != '' else 1 for x in hh) for hh in
                       re.findall(r'^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@', d, re.M)] if rc == 0 else []
     return _chunks[p]
@@ -852,16 +986,23 @@ def moved_with(bs, a, b, hs, lo, hi):
 shift, inhunk, stale, cited = [], [], [], set()
 weak = []   # Q-572: leg-B landings that fail the content rule (blocking unless in CONTENT_PINS)
 pend, a2 = [], Counter()
+# (Codex CX-35W-F, Fable triage G5c #6) the one-to-one pairing holds ACROSS the new lines of a hunk:
+# one consumption list per hunk (loose path) and per old line (similarity path), kept for the run,
+# so a second new line cannot re-use an old citation the first one already took.
+_a2_avail = {}
 bstate, sh_ck, sh_st, att_seen = {}, Counter(), Counter(), Counter()
 totA = totB = checked = 0
 for p in files:
     try:
-        lines = open(p, encoding="utf-8", errors="replace").read().split("\n")
-    except OSError:
-        continue
+        lines = read_text(p).split("\n")
+    except OSError as e:     # (F05-011#1) a citing file git lists and this run cannot read: measured nothing
+        print("ERROR cannot read citing file %s: %s" % (p, e)); sys.exit(0)
     base_lines = None
     if based and p in changed:
         rc, bt = git(["show", "%s:%s" % (base, p)])
+        if rc != 0 and p in base_tracked:
+            # (F05-011#11) an existing BASE document that cannot be read is not a new document
+            print("ERROR cannot read %s at base %s (rc=%d) -- leg A2 cannot be judged" % (p, base, rc)); sys.exit(0)
         base_lines = Counter(bt.split("\n")) if rc == 0 else Counter()
     heading, isb, ismd, istsv = "", bool(LEGB.search(p)), p.endswith(".md"), p.endswith(".tsv")
     for li, line in enumerate(lines, 1):
@@ -887,27 +1028,83 @@ for p in files:
         # LEG A2 (a citing line this change edited)
         else:
             oli = counterpart(p, li, line)
-            olds = []
-            if oli is not None:
-                bl = base_src(p)
-                oprev, j = [], oli - 2
+            olds, loose = [], False
+            bl = base_src(p)
+            def _olds_at(k):
+                oprev, j = [], k - 2
                 while j >= 0 and len(oprev) < 15 and bl[j].strip():
                     oprev.append(bl[j]); j -= 1
                 ex0, im0 = excluded.copy(), implied_n.copy()
-                olds = cites(bl[oli - 1], p, oprev, quiet=True)
+                r = cites(bl[k - 1], p, oprev, quiet=True)
                 excluded.clear(); excluded.update(ex0); implied_n.clear(); implied_n.update(im0)
+                return r
+            avail = []
+            if oli is not None:
+                _key = ("old", p, oli)
+                if _key not in _a2_avail:
+                    _a2_avail[_key] = list(_olds_at(oli))
+                avail = _a2_avail[_key]
+            elif bl is not None:
+                # (F05-011#13) a rewording below the similarity bar is still an EDIT when the hunk's old
+                # side cited the same target at the same number: that number did not move with its code.
+                for os_, ol, ns, nl in hunks_of(p):
+                    if nl and ns <= li < ns + nl:
+                        _key = ("hunk", p, os_, ol, ns, nl)
+                        if _key not in _a2_avail:
+                            olds = []
+                            for k in range(os_, os_ + ol):
+                                if 1 <= k <= len(bl) and CITEISH.search(bl[k - 1]):
+                                    olds += _olds_at(k)
+                            _a2_avail[_key] = olds
+                        avail = _a2_avail[_key]
+                loose = True
+            # (F05-011#12) the pairing is ONE-TO-ONE: an old citation explains at most one new one --
+            # within a line and, through _a2_avail, across the lines that share its hunk or old line
             for tg, lo, hi, t in cs_line:
-                prior = [(a, b) for tg0, a, b, _ in olds if tg0 == tg]
+                prior = [(a, b) for tg0, a, b, _ in avail if tg0 == tg]
+                if loose:
+                    prior = [(a, b) for a, b in prior if (a, b) == (lo, hi)]
                 if not prior:
                     a2["fresh"] += 1; continue
                 a2["edited"] += 1
-                if any(lmap(a, tg) == lo and lmap(b, tg) == hi for a, b in prior):
-                    a2["followed"] += 1; continue
+                def _take(ab):
+                    for i, o in enumerate(avail):
+                        if o[0] == tg and (o[1], o[2]) == ab:
+                            del avail[i]; return
+                fol = [(a, b) for a, b in prior if lmap(a, tg) == lo and lmap(b, tg) == hi]
+                if fol:
+                    _take(fol[0]); a2["followed"] += 1; continue
                 bs = base_src(tg)
-                if bs is not None and any(moved_with(bs, a, b, tsrc(tg)[0], lo, hi) for a, b in prior):
-                    a2["moved-with"] += 1; continue
+                mw = [(a, b) for a, b in prior if bs is not None and moved_with(bs, a, b, tsrc(tg)[0], lo, hi)]
+                if mw:
+                    _take(mw[0]); a2["moved-with"] += 1; continue
                 pend.append((p, li, t, tg, lo, hi, prior))
         # LEG B
+        # (F05-011#5) when a line cites the same target from more than one CLAUSE (split at `;` and at
+        # a sentence-ending `. `) and every such clause names its own anchor, each citation is judged on
+        # its own clause's anchors, so two references cannot trade destinations and pass on each
+        # other's identifiers. Citations that share a clause share its anchors.
+        _local = {}
+        if isb and not (istsv and not line.lstrip().startswith("#")):
+            _mask = re.sub(r'`[^`]*`', lambda m2: " " * len(m2.group(0)), line)   # a `;` inside code does not cut
+            _cuts = [0] + [m2.end() for m2 in re.finditer(r';|\.\s', _mask)] + [len(line) + 1]
+            _pos, _where = 0, []
+            for tg, lo, hi, t in cs_line:
+                k = line.find(t, _pos)
+                if k < 0:
+                    _where = None; break
+                ci = max(i for i, c0 in enumerate(_cuts) if c0 <= k)
+                _where.append((tg, lo, hi, t, ci)); _pos = k + len(t)
+            if _where:
+                for tg in {x[0] for x in _where}:
+                    mine = [x for x in _where if x[0] == tg]
+                    cls = sorted({x[4] for x in mine})
+                    if len(cls) < 2:
+                        continue
+                    seg = {ci: line[_cuts[ci]:_cuts[ci + 1]] for ci in cls}
+                    if all({c for c in candidates(seg[ci], tg) if has(tsrc(tg)[1], c)} for ci in cls):
+                        for x in mine:
+                            _local[x[:4]] = seg[x[4]]
         for tg, lo, hi, t in cs_line:
             h = chash(tsrc(tg)[0], lo, hi)
             att_seen[(p, tg, h)] += 1    # every citation, so an attested pin means the same in both modes
@@ -920,7 +1117,8 @@ for p in files:
                 ctx = tsv_cell(line, t)
             else:
                 ctx = context(lines, li, ismd)
-            st, key, cands = judge_b(tg, lo, hi, ctx, heading, ismd)
+            _lk = _local.get((tg, lo, hi, t))
+            st, key, cands = judge_b(tg, lo, hi, ctx, heading, ismd, _lk)
             bstate[(p, li, tg, lo, hi)] = (st, key, h)
             if st == "lands" and JUDGE_B_WEAK[0]:
                 weak.append((p, li, t, tg, cands, key, h))
@@ -1031,7 +1229,22 @@ for p, tg, li, t, k, cs, h in stale:
                                         "" if tg == "solve.c" else " [%s]" % tg, ",".join(cs[:4]), moved))
     if os.environ.get("CITGATE_PINROWS") == "1":      # a pin-table row, key verbatim (keys may hold commas)
         sys.stderr.write("PINROW\t%s\t%s\t%s\t%s\t%s:%d %s\n" % (p, tg, k, h, p, li, t))
+# (F05-011#19) the bytes measured, held to HEAD's blobs: the shell names a tree only when they agree
+_rcl, _lt = git(["ls-tree", "-r", "-z", "HEAD"])
+_head_blob = {}
+for _row in _lt.split("\0"):
+    if "\t" in _row:
+        _meta, _path = _row.split("\t", 1)
+        _head_blob[_path] = _meta.split()[2]
+_mism = sorted(x for x, h in _read_blobs.items() if _head_blob.get(x) != h)
+print("MEASURED_BYTES_EQUAL_HEAD %s %d" % ("NO" if (_rcl != 0 or _mism) else "YES", len(_read_blobs)))
 bad = []
+if dangling:
+    bad.append("%d citation(s) name a file tracked at BASE and removed since (F05-011#2): %s"
+               % (len(dangling), "; ".join(dangling[:6])))
+if unreadable:
+    bad.append("%d citation(s) name a tracked target this run could not read (F05-011#1): %s"
+               % (len(unreadable), "; ".join(unreadable[:6])))
 if shift:
     bad.append("leg A: %d citation(s) left behind by a %s shift" % (len(shift), "target-file" if allt else "solve.c"))
 if repin:
@@ -1071,23 +1284,37 @@ PYEOF
 # to a file first, then match the file.
 OUT=$(mktemp); trap 'rm -f "$OUT"' EXIT
 
+# The producer's exit status is part of the verdict (Codex, gpt-6-astra, F05-011#17): a run that
+# printed `VERDICT PASS` and then failed, timed out or was killed is ERROR, never PASS.
 verdict_of() { # $1..$4 -> echoes PASS|FAIL|ERROR
-  _run "$1" "$2" "$3" "$4" >"$OUT" 2>&1
-  if grep -q '^ERROR ' "$OUT"; then echo ERROR
-  elif grep -q '^VERDICT PASS ' "$OUT"; then echo PASS
+  _run "$1" "$2" "$3" "$4" >"$OUT" 2>&1; local _prc=$?
+  if [ "$_prc" -ne 0 ]; then echo "ERROR the checker exited $_prc after its output" >>"$OUT"; echo ERROR
+  elif grep -q '^ERROR ' "$OUT"; then echo ERROR
+  elif [ "$(grep -c '^VERDICT ' "$OUT")" -eq 1 ] && grep -q '^VERDICT PASS ' "$OUT"; then echo PASS
   else echo FAIL; fi
 }
 
 verdict_all() { # $1 root $2 base $3 base-explicit $4 pins [$5 all-targets $6 target pins $7 content pins] -> PASS|FAIL|ERROR
-  _run_all "$1" "$2" "$3" "$4" "${5:-}" "${6:-}" "${7:-}" >"$OUT" 2>&1
-  if grep -q '^ERROR ' "$OUT"; then echo ERROR
-  elif grep -q '^VERDICT PASS ' "$OUT"; then echo PASS
+  _run_all "$1" "$2" "$3" "$4" "${5:-}" "${6:-}" "${7:-}" >"$OUT" 2>&1; local _prc=$?
+  if [ "$_prc" -ne 0 ]; then echo "ERROR the checker exited $_prc after its output" >>"$OUT"; echo ERROR
+  elif grep -q '^ERROR ' "$OUT"; then echo ERROR
+  elif grep -q '^VERDICT PASS ' "$OUT" && ! grep -q '^VERDICT FAIL ' "$OUT"; then echo PASS
   else echo FAIL; fi
 }
 print_all() { # the --all-files report; a run that printed no verdict at all (a crash) shows its tail
   sed -n 's/^COUNT /  [cite] /p;s/^WEAK /  [weak-reviewed] /p;s/^NEWWEAK /  [NEW-weak] /p;s/^WEAKGONE /  [weak-pin-unmatched] /p;s/^SHIFT /  [SHIFT] /p;s/^INHUNK /  [inhunk] /p;s/^REPIN /  [REPIN] /p;s/^NEW /  [NEW] /p;s/^OPEN /  [open] /p;s/^VERDICT FAIL /  [FAIL] /p;s/^VERDICT PASS /  [ok] /p;s/^ERROR /  [ERROR] /p;/^PINROW\t/p;/^CPINROW\t/p' "$OUT"
   grep -q '^VERDICT \|^ERROR ' "$OUT" || tail -5 "$OUT" | sed 's/^/  [crash] /'
 }
+
+# Only the documented invocations run (Codex, gpt-6-astra, F05-011#20): an unknown or misspelt first
+# argument (`--all-targets` alone, `--all-file`, a lone `--base`) used to fall through to the default
+# one-document check and print its PASS for a narrower population than the caller asked for.
+case "${1:-}" in
+  ""|--selftest|--all-files) ;;
+  *) echo "  [ERROR] usage: $0 [--selftest | --all-files [--all-targets] [--base REF]] (got '$1')"
+     echo "CITATION_LINE_GATE=ERROR"; exit 41 ;;
+esac
+[ "${1:-}" = "--selftest" ] && [ $# -gt 1 ] && { echo "  [ERROR] --selftest takes no arguments"; echo "CITATION_LINE_GATE=ERROR"; exit 41; }
 
 if [ "${1:-}" = "--selftest" ]; then
   # RED-TEST IN BOTH DIRECTIONS. The isolating case is ONE DIGIT of ONE citation: legs A and B
@@ -1340,6 +1567,10 @@ if [ "${1:-}" = "--all-files" ]; then
   [ "$_ct" = NONE ] || { git -C "${CITGATE_ROOT:-$PWD}" diff --quiet HEAD -- 2>/dev/null \
     && git -C "${CITGATE_ROOT:-$PWD}" diff --cached --quiet HEAD -- 2>/dev/null; } || _ct=DIRTY
   V=$(verdict_all "${CITGATE_ROOT:-$PWD}" "$BASEREF" "$BASE_EXPLICIT" "$ALL_PINS" "$ALLT" "$TARGET_PINS" "$CONTENT_PINS")
+  # (F05-011#19) the clean-tree check above runs BEFORE measuring; the bytes the checker actually read
+  # are held to HEAD's blobs as it read them, so a file changed during the run and restored before the
+  # record is written cannot lend the committed tree a PASS it did not earn.
+  if [ "$_ct" != NONE ] && [ "$_ct" != DIRTY ] && ! grep -q '^MEASURED_BYTES_EQUAL_HEAD YES ' "$OUT"; then _ct=DIRTY; fi
   print_all
   echo "CITATION_LINE_GATE_TREE=$_ct"
   # Q-572 CONTENT RULE -- BLOCKING since batch 32: an unreviewed content-weak landing, or a reviewed

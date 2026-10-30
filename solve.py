@@ -1044,9 +1044,9 @@ def tr8_dof_merge(out_dir, quiet=False, replicate=None):
         "\n".join("%s%d|%s|%s|%.6f" % (bank[i][0], bank[i][1], bank[i][2], bank[i][3], marg[i])
                    for i in admitted).encode("utf-8")).hexdigest()
     _declared = header.get("admitted_bank_sha256")
-    if _declared and _recomputed != _declared:
+    if not isinstance(_declared, str) or _recomputed != _declared:   # G5c, Codex gpt-6-astra F05-017#15: "", null, false refused too
         raise SystemExit("bank.json does not match the run header: admitted_bank_sha256 declared "
-                         "%s, recomputed %s — refusing to merge against a bank that has changed "
+                         "%r, recomputed %s — refusing to merge against a bank that has changed "
                          "since the shards were drawn (%s)" % (_declared, _recomputed, out_dir))
     return _tr8_merge_tail(_tr8_finish(out_dir, header, hits, hb, drawn, header["k_ladder"],
                                        header["n_pred"], marg, admitted, bank, quiet), out_dir, replicate, quiet)
@@ -12573,7 +12573,7 @@ def atlas_load(path, allow_t_not_run=False):
     # but VERIFY.md:1268 states as POLICY that it "is not a failed run". Reversing a documented
     # decision is an operator call, not a bug fix, so it is filed separately rather than folded in.
     # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:6940,
-    # :6658; a2_slot_verdict_gate.sh:121, :269) must still load; an absent key is a different defect.
+    # :6658; a2_slot_verdict_gate.sh:121, :272) must still load; an absent key is a different defect.
     failed = sorted(k for k, v in gates.items() if v in ("see fails", "not-emitted")); _atlas_gate_vocab_check(gates, path)  # Q-320 (3): a closed status vocabulary
     if fails != 0 or failed:
         raise AtlasError(

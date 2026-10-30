@@ -59,6 +59,7 @@
 #   M1  the missing-file branch no longer fails the row      (leg 7 would go green)
 #   M2  the property check's failure no longer fails the row  (legs 4/5/6 would go green)
 #   M3  the pre-fix aggregation line (witnesses not a leg)     (leg 1 would go green)
+#   M3b the witness token moved into the agg line's comment    (leg 1 would go green; F05-014#1)
 #   M4  both locus checks disabled                            (leg 12 goes green: rc=0, the isolation proof)
 #   M5  the Python C3 equality disabled                        (leg 13b loses its named line)
 #   M6  the rule-set pin disabled                              (leg 14 goes green)
@@ -100,7 +101,18 @@ fi
 "$SOLVE" --check-arrangement KW --cert-out "$WORK/q7_kw.json" >/dev/null 2>&1 || err "the binary cannot certify KW"
 
 # ---- leg 1: source text -------------------------------------------------------------------------
-grep -E '^agg TR12_Q7 ' "$SRC" | grep -c 'TR12_Q7_WITNESSES' >/dev/null || fail "leg 1: the agg TR12_Q7 line does not name TR12_Q7_WITNESSES"
+# agg_args <src> -> the ARGUMENTS of the `agg TR12_Q7 ...` statement as the shell reads them, one
+# per line, its trailing comment dropped (Codex, gpt-6-astra, F05-014#1: the line-wide grep accepted
+# `agg TR12_Q7 TR12_Q7_KW TR12_Q7_HIST TR12_Q7_RANKS # TR12_Q7_WITNESSES`, a parent that never reads
+# the witness leg).
+agg_args(){ python3 - "$1" <<'PY'
+import re, shlex, sys
+for l in open(sys.argv[1], encoding='utf-8'):
+    if re.match(r'^agg TR12_Q7 ', l):
+        print('\n'.join(shlex.split(l, comments=True)[2:]))
+PY
+}
+grep -qx 'TR12_Q7_WITNESSES' <<<"$(agg_args "$SRC")" || fail "leg 1: the agg TR12_Q7 statement does not take TR12_Q7_WITNESSES as an argument"
 [ "$(grep -cE '^agg TR12_Q7 ' "$SRC")" -eq 1 ] || fail "leg 1: expected exactly one agg TR12_Q7 line"
 grep -qE '^\s*row_end TR12_Q7_WITNESSES ' "$SRC" || fail "leg 1: no row_end TR12_Q7_WITNESSES -- the witness row is not a real row"
 if grep -vE '^\s*#' "$SRC" | grep -E 'TR12_Q7_WITNESSES' | grep -cE '"PENDING:kissat"|"PENDING:q7-witness-row"|"PASS"' >/dev/null; then
@@ -460,10 +472,17 @@ mutant_row(){ # mutant_row <id> <file> <sed-expr> <fixture-dir> <fixture-name> <
 mutant_row M1_missing_file_not_fatal wit.sh 's/is MISSING \(.*\)"; wrc=1; continue; fi/is MISSING \1"; continue; fi/' "$WORK/fix7" "a missing file" 'pinned witness file is MISSING'
 mutant_row M2_property_check_not_fatal wit.sh 's/|| { wrc=1; continue; }/|| true/' "$WORK/fix6" "King Wen" 'the sequence IS King Wen'
 # M3 is a source-text mutant of leg 1: the pre-fix aggregation line must be caught by leg 1's grep
-if sed 's/^agg TR12_Q7 .*/agg TR12_Q7 TR12_Q7_KW TR12_Q7_HIST TR12_Q7_RANKS/' "$SRC" | grep -E '^agg TR12_Q7 ' | grep -c 'TR12_Q7_WITNESSES' >/dev/null; then
-  fail "mutant M3 SURVIVED: leg 1's grep would accept an aggregation line without the witness leg"
+sed 's/^agg TR12_Q7 .*/agg TR12_Q7 TR12_Q7_KW TR12_Q7_HIST TR12_Q7_RANKS/' "$SRC" > "$WORK/m3.src"
+if grep -qx 'TR12_Q7_WITNESSES' <<<"$(agg_args "$WORK/m3.src")"; then
+  fail "mutant M3 SURVIVED: leg 1 would accept an aggregation line without the witness leg"
 fi
 echo "  [gate] mutant M3_prefix_agg_line killed"
+# M3b: the witness token moved into the line's trailing COMMENT (F05-014#1)
+sed 's/^agg TR12_Q7 .*/agg TR12_Q7 TR12_Q7_KW TR12_Q7_HIST TR12_Q7_RANKS # TR12_Q7_WITNESSES/' "$SRC" > "$WORK/m3b.src"
+if grep -qx 'TR12_Q7_WITNESSES' <<<"$(agg_args "$WORK/m3b.src")"; then
+  fail "mutant M3b SURVIVED: leg 1 would accept the witness token in a comment"
+fi
+echo "  [gate] mutant M3b_witness_in_comment killed"
 # CX-321 helper mutants: the same kill criterion, applied to the shared helpers rather than the row.
 # RUN_ROOT / RUN_SOLVE (env) reach run_row so that M6 and M7 are measured in the world of their legs.
 mutant_helpers(){ # mutant_helpers <id> <sed-expr> <fixture-dir> <fixture-name> <named-line-the-leg-greps>
@@ -485,5 +504,5 @@ mutant_helpers M5_c3_equality_not_asserted 's/^    if pinned and v\["c3"\] != CL
 RUN_ROOT="$SHIM" mutant_helpers M6_rule_set_not_pinned 's/^elif set(rules) != CLAIM_RULES\[t\]:$/elif False:/' "$EVID" "the shimmed sat.py (leg 14)" 'the rule set moved under the claim'
 RUN_SOLVE="$WRAP/solve" mutant_helpers M7_r11_disagreement_not_fatal 's/^    elif \[ "\$r11c" != "\$r11py" \]; then/    elif false; then/' "$EVID" "the wrapped binary (leg 15a)" 'disagree on the R11 rule vector'
 
-echo "  [gate] 17 legs measured (leg 11 $([ "${Q7WIT_LIVE:-0}" = 1 ] && echo run || echo opt-in, not run)); 7/7 mutants killed"
+echo "  [gate] 17 legs measured (leg 11 $([ "${Q7WIT_LIVE:-0}" = 1 ] && echo run || echo opt-in, not run)); 8/8 mutants killed"
 echo "D5_04_Q7_WITNESSES_GATE=PASS"

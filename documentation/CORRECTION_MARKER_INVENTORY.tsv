@@ -21,8 +21,8 @@ documentation/BRANCHES_EXPLAINED.md	62	marker	CORRECTED	1	-	reviewed:clause-alre
 documentation/BRANCHES_EXPLAINED.md	326	marker	CORRECTED	1	-	reviewed:paragraph-above-already-gives-63145664-and-the-893-gap	401c7ab46c8e
 documentation/BRANCHES_EXPLAINED.md	338	ledger-link	CORRECTION	n/a	-	not-a-marker	bb92074977c4
 documentation/BRANCHES_EXPLAINED.md	496	marker	WITHDRAWN	1	-	reviewed:row-text-itself-says-withdrawn	ab2c4d1a8942
-documentation/BRANCHES_EXPLAINED.md	504	marker	WITHDRAWN	3	GATE 27	reanchored:GATE-27=ledger-anchor	2afbe505f5b6
-documentation/BRANCHES_EXPLAINED.md	506	marker	WITHDRAWN	3	GATE 27	reanchored:GATE-27=ledger-anchor	cbb0a611296b
+documentation/BRANCHES_EXPLAINED.md	504	marker	WITHDRAWN	3	CITATION LINE GATE,GATE 27,GATE 2c	gate-anchored	2afbe505f5b6
+documentation/BRANCHES_EXPLAINED.md	506	marker	WITHDRAWN	3	CITATION LINE GATE,GATE 27,GATE 2c	gate-anchored	cbb0a611296b
 documentation/BRANCHES_EXPLAINED.md	636	marker	WITHDRAWN	3	GATE 27	reanchored:GATE-27=ledger-anchor	f738a76477fa
 documentation/BRANCHES_EXPLAINED.md	724	marker	WITHDRAWN	3	GATE 26,GATE 27	reanchored:GATE-26=ledger-anchor+GATE-27=ledger-anchor	a87d0e2cfadc
 documentation/BRANCHES_EXPLAINED.md	882	ledger-link	CORRECTION	n/a	-	not-a-marker	6f48762c2fb1
@@ -104,7 +104,7 @@ documentation/CITATIONS.md	127	marker	CORRECTED	1	-	reviewed:line-already-says-o
 documentation/CITATIONS.md	161	marker	WITHDRAWN	2	-	reviewed:the-withdrawn-3.3e37-figure-is-still-printed-in-the-sentence	92a4e556aa0f
 documentation/CITATIONS.md	168	ledger-link	CORRECTION	n/a	-	not-a-marker	b806e5941d97
 documentation/CITATIONS.md	303	ledger-link	CORRECTION	n/a	-	not-a-marker	5007156e1b11
-documentation/CITATIONS.md	403	marker	CORRECTED	1	-	reviewed:line-already-gives-the-2-4-6-multiset	c3aa04002a63
+documentation/CITATIONS.md	403	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	c3aa04002a63
 documentation/CITATIONS.md	521	marker	CORRECTED	1	-	reviewed:framing-already-names-the-self-reverse-subgroup	5914e3df6f6a
 documentation/CITATIONS.md	539	marker	Corrected	3	GATE 71(solo)	gate-anchored;solo:blank-line-left-by-the-span-splits-the-chain-paragraph	a5662de10714
 documentation/CITATIONS.md	540	ledger-link	CORRECTION	n/a	-	not-a-marker	772ee3a9ff79
@@ -180,7 +180,7 @@ documentation/DESCRIPTION_LENGTH.md	89	marker	CORRECTED	1	-	reviewed:bare-regist
 documentation/DESCRIPTION_LENGTH.md	105	ledger-link	CORRECTION	n/a	-	not-a-marker	c61cc43645a2
 documentation/DESCRIPTION_LENGTH.md	264	ledger-link	CORRECTION	n/a	-	not-a-marker	f272fca47fba
 documentation/DEVELOPMENT.md	62	narration	now reads	1	-	reviewed:narration-inside-a-retired-warning-note;text-reads-correctly	1b52abae68a7
-documentation/DEVELOPMENT.md	735	narration	now reads	1	-	reviewed:ordinary-present-tense-prose;not-a-correction-note	101ff3a81dd7
+documentation/DEVELOPMENT.md	735	narration	now reads	1	-	reviewed:ordinary-present-tense-prose;not-a-correction-note	b08605ff1e95
 documentation/DEVELOPMENT.md	755	narration	now reads	2	-	reviewed:the-dated-note-is-what-says-the-rest-of-the-row-predates-the-Q-317-change	bb11bb8bf16c
 documentation/DEVELOPMENT.md	1043	marker	CORRECTED	1	-	reviewed:text-already-says-size-equals-stored-size	8c79421519c1
 documentation/DEVELOPMENT.md	1195	marker	Corrected	1	-	reviewed:text-already-separates-count-matching-and-set-matching-K	d4dcb7a62cd6
@@ -642,7 +642,7 @@ reports/TR12_QUERY_PROGRAM.md	459	marker	Corrected	1	-	reviewed:output-line-alre
 reports/TR12_QUERY_PROGRAM.md	464	marker	Corrected	1	-	reviewed:column-list-already-matches-the-table	8670f78aa107
 reports/TR12_QUERY_PROGRAM.md	614	marker	CORRECTED	2	-	reviewed:the-anchors-it-withdraws-are-still-described-above-it	9c5d6f746f87
 reports/TR12_QUERY_PROGRAM.md	833	marker	Corrected	1	-	reviewed:output-line-already-names-the-two-galleries	7eb16a45e8f6
-reports/TR12_QUERY_PROGRAM.md	892	marker	Corrected	1	-	reviewed:text-already-gives-the-TV-distance-and-cell-range	2c1d251a6490
+reports/TR12_QUERY_PROGRAM.md	892	marker	Corrected	3	claim ledger self-test	gate-anchored	2c1d251a6490
 reports/TR12_QUERY_PROGRAM.md	937	narration	now reads	3	CITATION LINE GATE,GATE 2c	gate-anchored	c9e146cbc23c
 reports/TR12_QUERY_PROGRAM.md	1049	marker	Corrected	1	-	reviewed:text-already-says-the-certificate-is-loaded-and-used	006b75696937
 reports/TR12_QUERY_PROGRAM.md	1096	marker	Corrected	1	-	reviewed:text-already-says-t-price-is-a-floor	7f2aabe6394d
@@ -859,9 +859,7 @@ viz/viz_tr1_rules_tradeoff.md	74	ledger-link	CORRECTION	n/a	-	not-a-marker	3070f
 viz/viz_tr3_campaign_timeline.md	65	ledger-link	CORRECTION	n/a	-	not-a-marker	19700485ed8b
 viz/viz_tr4_boundary_information.md	77	ledger-link	CORRECTION	n/a	-	not-a-marker	5ae76a22f09d
 -	-	population	-	n/a	CITATION LINE GATE	reviewed:summary-counts-only;legB-all-targets-and-excluded-counts-fall-with-citations-written-inside-deleted-spans;legA-A2-summary-moves-on-any-edit;verdict-tokens-follow-FAILs-already-tied-by-line	-
-documentation/DISTRIBUTIONAL_ANALYSIS.md	-	population	-	n/a	CITATION LINE GATE	reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;one-file-runs-of-SOLVE_C_CLI.md-and-SOLVE_PY_CLI.md-print-it;their-citing-markers-are-class-3-by-line	-
 documentation/SOLVE.md	-	population	-	n/a	CITATION LINE GATE	reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE.md-one-file-run-prints-it;SOLVE.md-markers-are-class-3-by-line	-
-documentation/SOLVE_C_CLI.md	-	population	-	n/a	CITATION LINE GATE	reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE_C_CLI.md-one-file-run-prints-it;its-citing-markers-are-class-3-by-line	-
 documentation/SOLVE_PY_CLI.md	-	population	-	n/a	CITATION LINE GATE	reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE_PY_CLI.md-one-file-run-prints-it;its-citing-markers-are-class-3-by-line	-
 -	-	population	-	n/a	GATE 18	reviewed:RULING-LINE-FIX-and-stale-exemption-text-of-GATE-18-FAILs;SOLVE_SUMMARY.md-and-SOLVE_PY_CLI.md-one-file-runs-print-them;both-files-markers-are-class-3-GATE-18	-
 documentation/CITATIONS.md	-	population	-	n/a	GATE 18	reviewed:LIVES-AT-line-of-the-SOLVE_SUMMARY.md-GATE-18-FAIL-names-the-ruling-home;CITATIONS.md-one-file-run-leaves-GATE-18-unchanged	-
@@ -877,9 +875,7 @@ documentation/SOLVE_C_CLI.md	-	population	-	n/a	GATE 2	reviewed:documented-flag-
 documentation/SOLVE_PY_CLI.md	-	population	-	n/a	GATE 2	reviewed:documented-flag-count-170-to-169-because-a-deleted-span-names-a-flag;verdict-stays-ok;SOLVE_PY_CLI.md-one-file-run	-
 documentation/VERIFY.md	-	population	-	n/a	GATE 2	reviewed:documented-flag-count-167-to-165-because-deleted-spans-name-flags;verdict-stays-ok;VERIFY.md-one-file-run	-
 -	-	population	-	n/a	GATE 2c	reviewed:summary-counts-of-the-embedded-citation-run-only;counts-fall-with-citations-inside-deleted-spans;legA2-moves-on-any-edit;FAILs-already-tied-by-line	-
-documentation/DISTRIBUTIONAL_ANALYSIS.md	-	population	-	n/a	GATE 2c	reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;one-file-runs-of-SOLVE_C_CLI.md-and-SOLVE_PY_CLI.md-print-it;their-citing-markers-are-class-3-by-line	-
 documentation/SOLVE.md	-	population	-	n/a	GATE 2c	reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE.md-one-file-run-prints-it;SOLVE.md-markers-are-class-3-by-line	-
-documentation/SOLVE_C_CLI.md	-	population	-	n/a	GATE 2c	reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE_C_CLI.md-one-file-run-prints-it;its-citing-markers-are-class-3-by-line	-
 documentation/SOLVE_PY_CLI.md	-	population	-	n/a	GATE 2c	reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE_PY_CLI.md-one-file-run-prints-it;its-citing-markers-are-class-3-by-line	-
 -	-	population	-	n/a	GATE 33	reviewed:superlative-count-7-to-6-falls-with-a-superlative-inside-a-deleted-span;no-finding;LITERATURE_RULES_POPULATION_TESTS-one-file-run	-
 -	-	population	-	n/a	GATE 38	reviewed:claim-count-126-to-121-and-quoted-retired-copy-1-to-0-fall-with-text-inside-deleted-spans;no-finding;lean-README-and-TR12-runs	-

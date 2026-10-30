@@ -177,14 +177,22 @@ documentation/CORRECTIONS.md"
 #      `--no-renames` splits a move into its D and A halves, so the watched source path is seen.
 #   #3 the command's status was never read: an invalid index (git rc 128) gave an empty list and
 #      the same NOT-APPLICABLE, rc 0. "Could not list" is COULD-NOT-RUN, not "nothing staged".
-STAGED=$(git diff --cached --name-only --no-renames --diff-filter=ACMRDT 2>/dev/null); _src=$?
+# F05-019#8: -z, so a path git would QUOTE (non-ASCII under core.quotepath, a tab, a quote) is
+# listed as its bytes -- `"documentation/\347...md"` matched no anchored pattern below.
+# Codex CX-35W-I, Fable triage G5c #15: BOTH halves of the pipeline are checked -- a `tr` that fails after
+# reading gave an empty list with git's status 0, the same "nothing staged" this block exists to refuse.
+STAGED=$(git diff --cached --name-only -z --no-renames --diff-filter=ACMRDT 2>/dev/null | tr '\0' '\n'; s=("${PIPESTATUS[@]}"); exit $(( s[0] != 0 ? s[0] : s[1] ))); _src=$?
 if [ "$_src" -ne 0 ]; then
-  cantrun "git diff --cached exited $_src, so the staged list could not be read" \
+  cantrun "the staged-list pipeline (git diff --cached | tr) exited $_src, so the staged list could not be read" \
     "Nothing about this commit's registry, ledger or doc corpus was checked."
 fi
 [ -n "$STAGED" ] || { echo "PRECOMMIT_REGISTRY=NOT-APPLICABLE"; exit 0; }
 
-HITS=$(printf '%s\n' "$WATCHED" | grep -Fxf <(printf '%s\n' "$STAGED") 2>/dev/null || true)
+# F05-019#7: grep's status is read -- 0 hits, 1 none, anything else is a comparison that did not
+# happen, which `|| true` used to turn into "no watched path staged" (NOT-APPLICABLE, rc 0).
+HITS=$(printf '%s\n' "$WATCHED" | grep -Fxf <(printf '%s\n' "$STAGED") 2>/dev/null); _hrc=$?
+[ "$_hrc" -le 1 ] || cantrun "the watched-path intersection (grep -Fxf) exited $_hrc" \
+  "Nothing about this commit's registry, ledger or doc corpus was checked."
 
 # ---------------------------------------------------------------------------
 # DOC-CORPUS TRIGGER (task #150) — WARN-ONLY, the two cheap scans.
@@ -208,7 +216,9 @@ HITS=$(printf '%s\n' "$WATCHED" | grep -Fxf <(printf '%s\n' "$STAGED") 2>/dev/nu
 #   relate registry rows to ledger entries and cannot newly fail on a commit
 #   that touches neither.
 if [ -z "$HITS" ]; then
-  DOC_HITS=$(printf '%s\n' "$STAGED" | grep -E '^(reports/[^/]+\.md|documentation/[^/]+\.md|README\.md)$' || true)
+  DOC_HITS=$(printf '%s\n' "$STAGED" | grep -E '^(reports/[^/]+\.md|documentation/[^/]+\.md|README\.md)$'); _drc=$?
+  [ "$_drc" -le 1 ] || cantrun "the doc-corpus trigger (grep -E) exited $_drc" \
+    "The two cheap retraction scans (retract, retract-figures) were NOT run."
   [ -n "$DOC_HITS" ] || { echo "PRECOMMIT_REGISTRY=NOT-APPLICABLE"; exit 0; }
   echo "pre-commit: doc-corpus file(s) staged — running the two cheap retraction scans (WARN-only):"
   printf '  %s\n' $DOC_HITS

@@ -68,9 +68,19 @@ cd "$REPO_ROOT" || exit 1
 # rename away from example/ was the same hole with R. The watched population is now the union of
 # HEAD's and the index's paths (a path the commit removes is still a path it touches), and the
 # staged list is every status, renames split into their D and A halves.
-WATCHED=$( { printf 'roae.py\n'
-             git ls-files -- example/ 2>/dev/null
-             git ls-tree -r --name-only HEAD -- example/ 2>/dev/null; } | sort -u)
+# F05-016#7: each enumeration's status is read. A failed `git ls-tree HEAD` used to drop HEAD's
+# contribution silently -- the size floor below sees only total collapse -- so an artifact staged
+# for removal left the watch list and the hook exited 0 before checking it.
+_W_IDX=$(git ls-files -- example/ 2>/dev/null); _wi=$?
+_W_HEAD=""; _wh=0
+if git rev-parse -q --verify HEAD >/dev/null 2>&1; then
+  _W_HEAD=$(git ls-tree -r --name-only HEAD -- example/ 2>/dev/null); _wh=$?
+fi
+if [ "$_wi" -ne 0 ] || [ "$_wh" -ne 0 ]; then
+  echo "pre-commit: GENERATED_GATE=ERROR could not enumerate example/ (git ls-files rc=$_wi, git ls-tree HEAD rc=$_wh) — refusing to certify" >&2
+  exit 1
+fi
+WATCHED=$( { printf 'roae.py\n'; printf '%s\n' "$_W_IDX" "$_W_HEAD"; } | grep -v '^$' | sort -u)
 # A population that collapses is an error, not an empty watch list. If git ls-files
 # returns nothing the gate would silently watch only roae.py and pass everything else.
 if [ "$(printf '%s\n' "$WATCHED" | grep -c .)" -lt 2 ]; then
@@ -125,7 +135,13 @@ for f in $WATCHED; do
   if [ -e "$f" ] || [ -L "$f" ]; then _wt=1; else _wt=0; fi
   if [ "$_ix" != "$_wt" ]; then DIRTY="$DIRTY $f"; continue; fi
   [ "$_ix" = 1 ] || continue            # in neither: deleted and gone -- GATE 8 judges the absence
-  if ! git diff --quiet -- ":(literal)$f" 2>/dev/null; then DIRTY="$DIRTY $f"; fi
+  if ! git diff --quiet -- ":(literal)$f" 2>/dev/null; then DIRTY="$DIRTY $f"; continue; fi
+  # F05-016#6: `git diff --quiet` honours assume-unchanged (and skip-worktree), so it does not prove
+  # the index and the work tree hold the same bytes. The blobs are compared directly.
+  _ib=$(git ls-files -s -- ":(literal)$f" 2>/dev/null | awk 'NR==1 {print $2}')
+  if [ -L "$f" ]; then _wb=$(printf '%s' "$(readlink -- "$f")" | git hash-object --stdin 2>/dev/null)
+  else _wb=$(git hash-object -- "$f" 2>/dev/null); fi
+  if [ -z "$_ib" ] || [ -z "$_wb" ] || [ "$_ib" != "$_wb" ]; then DIRTY="$DIRTY $f"; fi
 done
 if [ -n "$DIRTY" ]; then
   echo "pre-commit: REFUSING — these paths differ between the index and the working tree:"

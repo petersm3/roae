@@ -48,8 +48,25 @@ fi
 # `sha256sum <outname> > solutions.sha256` verbatim. A gate that cannot tell code from prose about
 # code punishes writing the explanation down, which is the one habit this repo most depends on.
 # Same class as the ledger proof satisfied by a sentence quoting its own token (Q-278).
-hits=$(grep -vE '^[[:space:]]*(\*|/\*|//)' solve.c | grep -nE '"%s %s > %s|sha256sum[^"]*>[^"]*sha256' \
-       | grep -viE 'sha256_of_logical' || true)
+# 2026-10-22 (Codex, gpt-6-astra, F05-014#9): the filter used to drop a WHOLE line that began with a
+# comment opener, and a whole line that mentioned sha256_of_logical, so executable C after a closed
+# `/* ... */` -- or followed by `/* sha256_of_logical */` -- escaped. The comments are now removed
+# as the compiler removes them (string literals kept), and the code that is left is what is searched.
+code=$(python3 - solve.c <<'PY'
+import re, sys
+src = open(sys.argv[1], encoding='utf-8', errors='replace').read()
+tok = re.compile(r'"(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\'|/\*.*?\*/|//[^\n]*', re.S)
+def keep(m):
+    t = m.group(0)
+    if t.startswith('/*'):
+        return '\n' * t.count('\n') or ' '
+    if t.startswith('//'):
+        return ''
+    return t
+sys.stdout.write(tok.sub(keep, src))
+PY
+) || { echo "  [FAIL] could not strip comments from solve.c -- NOTHING was checked."; echo "SIDECAR_SHA_GATE=FAIL"; exit 1; }
+hits=$(printf '%s\n' "$code" | grep -nE '"%s %s > %s|sha256sum[^"]*>[^"]*sha256' || true)
 if [ -n "$hits" ]; then
   printf '%s\n' "$hits" | sed 's/^/  [FAIL] /'
   echo "         A sidecar written from the on-disk file records the gz CONTAINER sha."
@@ -59,6 +76,15 @@ else
   n=$(grep -c 'sha256_of_logical(' solve.c)
   echo "  [ok] no shell-invoked sha redirection into a sidecar; $n call(s) to sha256_of_logical()"
 fi
+# LEG 1b: the helper itself still DECOMPRESSES a gz file before hashing (F05-014#9: `if (0)` in
+# place of the gz test made every writer record the container sha while LEG 1 stayed green).
+helper=$(printf '%s\n' "$code" | awk '/^static int sha256_of_logical\(/ {s = 1} s {print} s && /^}/ {exit}')
+if grep -qF 'if (file_is_gzip(path))' <<<"$helper" && grep -qF 'gzip -dc' <<<"$helper"; then
+  echo "  [ok] sha256_of_logical() decompresses a gz-framed file (if (file_is_gzip(path)) ... gzip -dc) before hashing"
+else
+  echo "  [FAIL] sha256_of_logical() no longer branches on file_is_gzip(path) into gzip -dc -- it would hash the container"
+  rc=1
+fi
 
 echo "== LEG 2: where an artifact exists, its sidecar equals the INDEPENDENT logical sha =="
 checked=0
@@ -66,9 +92,18 @@ for bin in solutions.bin ${SIDECAR_EXTRA_BINS:-}; do
   side="${bin%.bin}.sha256"
   [ -f "$bin" ] && [ -f "$side" ] || continue
   checked=$((checked+1))
-  want=$(if [ "$(head -c2 "$bin" | xxd -p)" = "1f8b" ]; then gzip -dc "$bin" | sha256sum; else sha256sum "$bin"; fi | cut -d' ' -f1)
+  # Both digests must EXIST, and the hashing pipeline must succeed end to end (Codex, gpt-6-astra,
+  # F09-A01#15 / F05-014#10): with no sha256sum, an empty sidecar compared "" = "" and read OK, and a
+  # failed `gzip -dc` hashed the partial bytes.
+  want=$(set -o pipefail; if [ "$(head -c2 "$bin" | od -An -tx1 | tr -d ' \n')" = "1f8b" ]; then gzip -dc "$bin" | sha256sum; else sha256sum "$bin"; fi | cut -d' ' -f1); wrc=$?
   got=$(head -1 "$side" | awk '{print $1}')
-  if [ "$want" = "$got" ]; then
+  if [ "$wrc" -ne 0 ] || ! [[ "$want" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "  [FAIL] the independent logical sha of $bin could not be computed (rc $wrc) -- $side was NOT checked"
+    rc=1
+  elif ! [[ "$got" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "  [FAIL] $side does not begin with a 64-hex digest -- an empty or malformed sidecar records nothing"
+    rc=1
+  elif [ "$want" = "$got" ]; then
     echo "  [ok] $side matches the independent logical sha (${got:0:12}…)"
   else
     echo "  [FAIL] $side records ${got:0:12}… but the logical sha is ${want:0:12}…"

@@ -180,7 +180,7 @@ else
     err "leg B: extracted an EMPTY unbounded_branch"
   else
     B_OUT="$TMP/legb.out"
-    { echo 'import re, sys'; cat "$TMP/ub.py"; cat <<'PYCASES'
+    { echo 'import re, shlex, sys'; cat "$TMP/ub.py"; cat <<'PYCASES'
 # (expected, command, note). True = must be flagged FAIL-UNBOUNDED (never executed).
 CASES = [
   # --- must be FLAGGED: every one of these runs to completion and never returns ---
@@ -198,11 +198,20 @@ CASES = [
   (True,  'solve 0 64',                                'bare (BRANCHES_EXPLAINED.md:382)'),
   (True,  './solve --branch 24 0 0',                   'REGRESSION: --branch still caught'),
   (True,  './solve --sub-branch 1 0 2 0 3 0 0 64',     'REGRESSION: --sub-branch still caught'),
+  (True,  'SOLVE_NODE_LIMIT=0 ./solve 0',              'F05-016#3: a ZERO budget is the default no-limit'),
+  (True,  'SOLVE_NODE_LIMIT=0 ./solve 0 4',            'F04-021#7: ditto, with threads'),
+  (True,  "SOLVE_PER_SUB_BRANCH_LIMIT='0' ./solve 0",  'a quoted zero budget bounds nothing'),
+  (True,  'SOLVE_DEAD_LIMIT=5 ./solve 0',              'a LIMIT name solve.c never reads bounds nothing'),
+  (True,  './solve --sub-branch 22 0 30 1 20 0',       'F04-021#7: OMITTED --sub-branch time_limit defaults to 0'),
+  (True,  './solve --branch 24 0',                     'omitted --branch time_limit defaults to 0'),
   # --- must NOT be flagged ---
   (False, './solve 3600',                              'a real budget is bounded'),
   (False, './solve 3600 128',                          'real budget + threads'),
   (False, 'SOLVE_NODE_LIMIT=1000 ./solve 0',           'explicit node budget bounds it'),
-  (False, 'SOLVE_PER_SUB_BRANCH_LIMIT=63146557 ./solve 0', 'any SOLVE_*LIMIT bounds it'),
+  (False, 'SOLVE_PER_SUB_BRANCH_LIMIT=63146557 ./solve 0', 'a positive per-sub-branch budget bounds it'),
+  (False, 'SOLVE_PER_TASK_NODE_LIMIT=40000000000 ./solve 0', 'a positive per-task budget bounds it'),
+  (False, './solve --sub-branch 22 0 30 1 20 0 3600',  'a positive --sub-branch time_limit bounds it'),
+  (False, 'SOLVE_NODE_LIMIT=100 ./solve --sub-branch 22 0 30 1 20 0', 'a positive node budget bounds an omitted time_limit'),
   (False, './solve --branch 24 0 3600',                'REGRESSION: bounded --branch'),
   (False, 'solve --selftest',                          'subcommand, not the bare form'),
   (False, 'solve --merge out.bin',                     'subcommand with an operand'),
@@ -283,12 +292,25 @@ else
         # row) — matching anywhere in the row would hit `pgrep -x solve` and `numactl ... ./solve`,
         # neither of which is the bare form this fix governs.
         # `|| true`: grep exits 1 on no-match, which is the PASSING state here.
-        leaked="$(awk '$1=="RUN"||$1=="BUILD" {
-                         c=""; for (i=5; i<=NF; i++) c = c (i>5 ? " " : "") $i
-                         if (c ~ /^([A-Za-z_][A-Za-z0-9_]*=("[^"]*"|[^ ]*) +)*(\.\/)?solve( +0( +[0-9]+)?)? *$/)
-                           print
-                       }' "$C_OUT" \
-                  | grep -vE 'SOLVE_[A-Z0-9_]*LIMIT[[:space:]]*=' || true)"
+        # F05-016#2: the scanner's own status is read -- an awk that dies without output would
+        # otherwise read as "nothing leaked". F05-016#3 / F04-021#7: a row is exempt only for a
+        # POSITIVE budget solve.c actually reads (SOLVE_NODE_LIMIT=0 is the default no-limit), and
+        # the omitted-time_limit --branch/--sub-branch forms are the same unbounded run.
+        awk '$1=="RUN"||$1=="BUILD" {
+               c=""; for (i=5; i<=NF; i++) c = c (i>5 ? " " : "") $i
+               a = c; sub(/^([A-Za-z_][A-Za-z0-9_]*=("[^"]*"|\047[^\047]*\047|[^ ]*) +)*/, "", a)
+               if (a ~ /^(\.\/)?solve( +0( +[0-9]+)?)? *$/ ||
+                   a ~ /^(\.\/)?solve[A-Za-z0-9_]* +--branch +[0-9]+ +[0-9]+( +0( +[0-9]+)?)? *$/ ||
+                   a ~ /^(\.\/)?solve[A-Za-z0-9_]* +--sub-branch( +[0-9]+){6}( +0( +[0-9]+)?)? *$/)
+                 print
+             }' "$C_OUT" > "$TMP/c1.rows"; c1_rc=$?
+        leaked=""
+        if [ "$c1_rc" -ne 0 ]; then
+          err "leg C: the C1 scanner (awk) failed rc=$c1_rc -- an empty result would read as nothing leaked"
+        else
+          leaked="$(grep -vE '(^|[[:space:]])SOLVE_(NODE|PER_TASK_NODE|PER_SUB_BRANCH)_LIMIT=["'"'"']?\+?0*[1-9]' "$TMP/c1.rows")"; c1g_rc=$?
+          [ "$c1g_rc" -gt 1 ] && err "leg C: the C1 budget filter (grep) failed rc=$c1g_rc"
+        fi
         if [ -n "$leaked" ]; then
           bad D2-C1 "$(printf '%s\n' "$leaked" | wc -l) unbounded command(s) still in a runnable class:"
           printf '%s\n' "$leaked" | sed 's/^/            /'
@@ -298,7 +320,7 @@ else
         # C2: the other direction — whatever IS flagged must really be unbounded. A budgeted
         # command wrongly parked in FAIL-UNBOUNDED would be a manufactured red.
         NCASE=$((NCASE+1))
-        mis="$(grep '^FAIL-UNBOUNDED' "$C_OUT" | grep -E 'SOLVE_[A-Z0-9_]*LIMIT[[:space:]]*=' || true)"
+        mis="$(grep '^FAIL-UNBOUNDED' "$C_OUT" | grep -E '(^|[[:space:]])SOLVE_(NODE|PER_TASK_NODE|PER_SUB_BRANCH)_LIMIT=["'"'"']?\+?0*[1-9]' || true)"
         if [ -n "$mis" ]; then
           bad D2-C2 "budgeted command wrongly flagged unbounded:"
           printf '%s\n' "$mis" | sed 's/^/            /'
@@ -372,8 +394,17 @@ if [ "$d_state" = "PASS" ]; then
   # Equal counts are not the same as the same inventory: a row could appear on one side and a
   # different row on the other. `grep` exiting 1 on no-match IS the passing state here, and its
   # status is never read -- only its output is.
-  d_rows="$(diff "$D_A" "$D_B" | grep -E '^[<>]' | head -20)"
-  if [ -n "$d_rows" ]; then
+  # F05-016#2: diff's own status is the verdict: 0 identical, 1 different, >1 could not compare
+  # (an empty diff from a failed diff is NOT "identical").
+  diff "$D_A" "$D_B" > "$TMP/d_diff.out"; d_diff_rc=$?
+  d_rows="$(grep -E '^[<>]' "$TMP/d_diff.out" | head -20)"
+  if [ "$d_diff_rc" -gt 1 ]; then
+    err "leg D: diff of the two inventories failed rc=$d_diff_rc -- nothing was compared"
+    d_state=ERROR
+  elif [ "$d_diff_rc" -eq 1 ] && [ -z "$d_rows" ]; then
+    err "leg D: diff says the inventories differ but printed no row -- refusing to call that identical"
+    d_state=ERROR
+  elif [ -n "$d_rows" ]; then
     bad D3-D2 "the two inventories differ ROW BY ROW between working directories:"
     printf '%s\n' "$d_rows" | sed 's/^/            /'
     d_state=FAIL

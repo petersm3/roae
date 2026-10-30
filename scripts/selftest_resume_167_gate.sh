@@ -449,7 +449,12 @@ if [ "$BATTERY" -eq 0 ]; then
   # therefore narrowed to run_gate()'s own artifacts in that case, which is what the
   # battery path at the bottom of this file already does.
   wd="$WORKDIR"; _wd_ours=0
-  [ -n "$wd" ] || { wd=$(mktemp -d /tmp/resume167_gate_XXXXXX); _wd_ours=1; }
+  [ -n "$wd" ] || { wd=$(mktemp -d /tmp/resume167_gate_XXXXXX) || wd=""; _wd_ours=1; }
+  # F04-002#17: no errexit here, so an unchecked mktemp left wd empty and the run used /tdir_A.
+  if [ -z "$wd" ]; then
+    echo "[gate] ERROR: could not create a work directory (mktemp failed); nothing was run" >&2
+    echo "SELFTEST_RESUME_167=ERROR"; exit 43
+  fi
   mkdir -p "$wd"
   echo "[gate] mutant=$MUTANT  solve=$SOLVE_A  phase_b=${SOLVE_B:-<same>}  workdir=$wd"
   echo "[gate] shape: threads=$THREADS nodes_A=$NODES_A nodes_B=$NODES_B"
@@ -479,7 +484,11 @@ fi
 # "killed" only if the gate reached the expected verdict for the expected reason.
 [ -n "$SOLVE_B" ] || { echo "ERROR: --battery needs --solve-phase-b (the pre-fix baseline) for M1" >&2; exit 2; }
 BROOT="$WORKDIR"
-[ -n "$BROOT" ] || BROOT=$(mktemp -d /tmp/resume167_battery_XXXXXX)
+[ -n "$BROOT" ] || BROOT=$(mktemp -d /tmp/resume167_battery_XXXXXX) || BROOT=""
+if [ -z "$BROOT" ]; then   # F04-002#17: the battery's twin (an empty root made /M0../M8)
+  echo "[battery] ERROR: could not create a battery root (mktemp failed); nothing was run" >&2
+  echo 'SELFTEST_RESUME_167_BATTERY=ERROR'; exit 43
+fi
 mkdir -p "$BROOT"
 echo "[battery] root=$BROOT  fixed=$SOLVE_A  baseline=$SOLVE_B"
 # Q-851: the battery KEEPS M1..M8's trees by design, so a second battery into the same --workdir

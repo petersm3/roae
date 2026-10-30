@@ -30,7 +30,7 @@ BANK = [("fam", 0, "le", "tmpl")]
 MARG = [0.25]
 ADMIT = [0]
 
-def build(dirpath, extra_shard=False, mutate_bank=False):
+def build(dirpath, extra_shard=False, mutate_bank=False, declared=None):
     # n_pool is required by _tr8_results_md (h["n_pool"] // h["n_shards"]). Omitting it made
     # the CONTROL crash with KeyError -- and the control only looked for refusal strings, so a
     # traceback read as "passed". A control that cannot fail is the defect this gate exists to
@@ -43,7 +43,7 @@ def build(dirpath, extra_shard=False, mutate_bank=False):
     hdr = {"n_shards": 1, "n_pool": 10, "k_ladder": [1], "n_pred": 1, "pool": "p",
            "seed_root": "r", "calibration_draws": 10, "admission_band": [0.0, 1.0],
            "b_raw": 1, "b_admitted": 1, "r_kw": 0.25, "seeds": {},
-           "admitted_bank_sha256": digest(BANK, MARG, ADMIT)}
+           "admitted_bank_sha256": digest(BANK, MARG, ADMIT) if declared is None else declared[0]}
     def shard(i):
         return {"header": hdr, "shard": i, "hits": {"1": [0]}, "hb_hits": 0, "draws": 10}
     json.dump(shard(0), open(os.path.join(dirpath, "shard_000.json"), "w"))
@@ -74,19 +74,31 @@ elif "outside this run's declared range" in out or "does not match the run heade
 else:
     print("   [ok]   control: a consistent pool merges cleanly (rc=0), neither check fires")
 
+# A refusal is the consumer's SystemExit(message): exit status 1 AND the message (Codex, gpt-6-astra,
+# F05-017#14). The message alone was accepted from a warning that let the merge go on (rc 0), and
+# from an interrupted run (124, -15) that printed it.
 rc, out = run(extra_shard=True)
-if "outside this run's declared range" in out:
-    print("   [ok]   extra undeclared shard refused, and the id is named")
+if rc == 1 and "outside this run's declared range" in out:
+    print("   [ok]   extra undeclared shard refused (rc=1), and the id is named")
 else:
-    print(f"   [FAIL] extra shard id 5 NOT refused (rc={rc}): {out.strip()[:110]}")
+    print(f"   [FAIL] extra shard id 5 NOT refused with rc 1 (rc={rc}): {out.strip()[:110]}")
     fails += 1
 
 rc, out = run(mutate_bank=True)
-if "does not match the run header" in out:
-    print("   [ok]   mutated bank.json refused, declared vs recomputed quoted")
+if rc == 1 and "does not match the run header" in out:
+    print("   [ok]   mutated bank.json refused (rc=1), declared vs recomputed quoted")
 else:
-    print(f"   [FAIL] mutated bank.json NOT refused (rc={rc}): {out.strip()[:110]}")
+    print(f"   [FAIL] mutated bank.json NOT refused with rc 1 (rc={rc}): {out.strip()[:110]}")
     fails += 1
+
+# F05-017#15: a header whose digest is empty, null or false must not switch the comparison off.
+for bad in ("", None, False):
+    rc, out = run(mutate_bank=True, declared=(bad,))
+    if rc == 1 and "does not match the run header" in out:
+        print(f"   [ok]   mutated bank.json with declared digest {bad!r} refused (rc=1)")
+    else:
+        print(f"   [FAIL] mutated bank.json with declared digest {bad!r} NOT refused with rc 1 (rc={rc}): {out.strip()[:110]}")
+        fails += 1
 
 print("TR8_MERGE_POOL_INTEGRITY=" + ("FAIL" if fails else "PASS"))
 sys.exit(1 if fails else 0)

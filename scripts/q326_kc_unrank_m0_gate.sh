@@ -61,8 +61,10 @@ fi
 mkdir -p "$WORK/f"
 "$SOLVE" --kc-build "$WORK/f" --f1-pairs 9 >"$WORK/bf.log" 2>&1 || fail "--kc-build failed"
 BASE_SHA=$(sha256sum solve.c | cut -d' ' -f1)
-BASE_GOT=$("$SOLVE" --kc-unrank "$WORK/f" 0 --kc-record 2>/dev/null \
-           | sed -n 's/.*source_sha=\([0-9a-f]*\).*/\1/p' | head -1)
+# the producer's own status first (Codex, gpt-6-astra, F05-014#5): a record followed by a nonzero
+# exit is not a provenance answer.
+"$SOLVE" --kc-unrank "$WORK/f" 0 --kc-record >"$WORK/base_rec.out" 2>/dev/null || fail "baseline --kc-unrank --kc-record exited nonzero"
+BASE_GOT=$(sed -n 's/.*source_sha=\([0-9a-f]*\).*/\1/p' "$WORK/base_rec.out" | awk 'NR==1')
 [ "$BASE_GOT" = "$BASE_SHA" ] || fail "baseline binary reports source_sha=${BASE_GOT:-<none>}, solve.c hashes to $BASE_SHA"
 
 # --- the four legs, run against any binary -----------------------------------------------
@@ -79,9 +81,14 @@ legs(){ # legs <solve>  -> prints L1=.. L2=.. L3=.. L4=..
   [ "$a" = "record	m=0	(class has no valid orientation completion)" ] \
                                                                  && echo "L2=OK" || echo "L2=BAD"
   [ -n "$a" ] && [ "$a" = "$b" ]                                 && echo "L3=OK" || echo "L3=BAD"
-  local n; n=$("$S" --kc-unrank "$WORK/f" 0 --kc-record 2>/dev/null \
-               | sed -n 's/^record\tm=\([0-9]*\)\t.*/\1/p')
-  [ -n "$n" ] && [ "$n" -gt 0 ] 2>/dev/null                       && echo "L4=OK" || echo "L4=BAD"
+  # L4 reads the producer's STATUS and the WHOLE record (Codex, gpt-6-astra, F05-014#5): a positive
+  # `record m=` followed by exit 2/124/137/143, or `record<TAB>m=1<TAB>garbage`, was L4=OK.
+  local n r4 nrec
+  "$S" --kc-unrank "$WORK/f" 0 --kc-record >"$WORK/l4.out" 2>/dev/null; r4=$?
+  nrec=$(grep -c '^record' "$WORK/l4.out")
+  n=$(sed -nE 's/^record\tm=([1-9][0-9]*)\t[0-9]+(,[0-9]+){17}$/\1/p' "$WORK/l4.out")
+  [ "$r4" = 0 ] && [ "$nrec" = 1 ] && [ -n "$n" ] && [ "$n" -gt 0 ] 2>/dev/null \
+                                                                 && echo "L4=OK" || echo "L4=BAD(rc=$r4)"
 }
 
 # \U0001f534 NEVER `legs ... | grep -q`. Under `pipefail`, grep -q exits at the first match and

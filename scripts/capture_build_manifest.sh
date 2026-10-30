@@ -36,9 +36,24 @@ echo
 
 echo "=== host ==="
 uname -srvmpio
-echo "CPU model:         $(grep 'model name' /proc/cpuinfo | head -1 | sed 's/^.*: //')"
-echo "CPU cores:         $(grep -c ^processor /proc/cpuinfo)"
-echo "CPU flags subset:  $(grep '^flags' /proc/cpuinfo | head -1 | tr ' ' '\n' | grep -E '^(avx|avx2|avx512|sse4_2|fma|bmi1|bmi2|popcnt)$' | tr '\n' ' ')"
+# F09-A04#7: x86 /proc/cpuinfo names the CPU in `model name` and lists `flags`; AArch64 names it by
+# `CPU implementer` / `CPU architecture` / `CPU part` and lists `Features`. Report whichever is there,
+# and "n/a" rather than an empty field.
+CPU_MODEL="$(grep -m1 '^model name' /proc/cpuinfo | sed 's/^.*: //' || true)"
+if [ -z "$CPU_MODEL" ]; then
+    _impl="$(grep -m1 '^CPU implementer' /proc/cpuinfo | sed 's/^.*: //' || true)"
+    _arch="$(grep -m1 '^CPU architecture' /proc/cpuinfo | sed 's/^.*: //' || true)"
+    _part="$(grep -m1 '^CPU part' /proc/cpuinfo | sed 's/^.*: //' || true)"
+    if [ -n "$_impl$_part" ]; then CPU_MODEL="implementer=${_impl:-n/a} architecture=${_arch:-n/a} part=${_part:-n/a}"; fi
+fi
+echo "CPU model:         ${CPU_MODEL:-n/a}"
+echo "CPU cores:         $(grep -c ^processor /proc/cpuinfo || true)"
+if grep -q '^flags' /proc/cpuinfo; then
+    CPU_FLAGS="$(grep -m1 '^flags' /proc/cpuinfo | tr ' ' '\n' | grep -E '^(avx|avx2|avx512|sse4_2|fma|bmi1|bmi2|popcnt)$' | tr '\n' ' ' || true)"
+elif grep -q '^Features' /proc/cpuinfo; then
+    CPU_FLAGS="$(grep -m1 '^Features' /proc/cpuinfo | sed 's/^.*: //' | tr ' ' '\n' | grep -E '^(asimd|sve|sve2|aes|pmull|sha2|crc32|atomics|popcnt)$' | tr '\n' ' ' || true)"
+fi
+echo "CPU flags subset:  ${CPU_FLAGS:-n/a}"
 echo "RAM:               $(grep MemTotal /proc/meminfo | awk '{print $2/1024/1024 " GiB"}')"
 echo
 
@@ -53,7 +68,9 @@ if [ -r /etc/cloud/build.info ]; then
     sed 's/^/                   /' /etc/cloud/build.info
 elif command -v curl > /dev/null 2>&1; then
     # Best-effort fetch from IMDS (Azure Instance Metadata Service) if reachable
-    IMDS=$(curl -s -m 2 -H "Metadata: true" "http://169.254.169.254/metadata/instance?api-version=2021-02-01" 2>/dev/null)
+    # F09-A02#14 / F09-A04#8: best-effort means best-effort -- under `set -e` an unreachable endpoint
+    # (curl rc 28 on a non-Azure host) used to abort the whole manifest.
+    IMDS=$(curl -s -m 2 -H "Metadata: true" "http://169.254.169.254/metadata/instance?api-version=2021-02-01" 2>/dev/null) || IMDS=""
     if [ -n "$IMDS" ]; then
         SKU=$(echo "$IMDS" | grep -oP '"vmSize":"[^"]+' | head -1 | cut -d'"' -f4)
         IMG=$(echo "$IMDS" | grep -oP '"sku":"[^"]+' | head -1 | cut -d'"' -f4)

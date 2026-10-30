@@ -302,7 +302,7 @@ if [ -r "$_A2" ] && [ -r "$_L2" ]; then
   _bad=$(awk '
     FILENAME==ARGV[1] && /^\[2\]/ {inb=1; next}
     FILENAME==ARGV[1] && inb && /^\[/ {inb=0}
-    FILENAME==ARGV[1] && inb && $1 ~ /^[0-9]+$/ {h[$1]=$2; n[$1]=$3; next}
+    FILENAME==ARGV[1] && inb && $1 ~ /^[0-9]+$/ {h[$1]=$2; n[$1]=$3; if (!($1 in hh)) nh++; hh[$1]=1; next}
     # anchor to the entropy table: other tables in this file also start rows with "| N |"
     # (the edit-distance table did, and the first version compared against those). Same trap as G5.
     FILENAME==ARGV[2] && /Pairs observed/ {t=1}
@@ -312,10 +312,13 @@ if [ -r "$_A2" ] && [ -r "$_L2" ]; then
       # being compared with empty columns, because the "Pairs observed" anchor stays set to EOF.
       if (nf < 7) next;
       p=c[2]+0; gsub(/ /,"",c[5]); gsub(/ /,"",c[6]);
-      if (p in h) cmp++; else miss++; if (p in h && (c[5]!=n[p] || (c[6]+0) - h[p] > 0.0005 || h[p] - (c[6]+0) > 0.0005)) bad++
+      if (p in h) { cmp++; if (!(p in seen)) nd++; seen[p]=1 } else miss++; if (p in h && (c[5]!=n[p] || (c[6]+0) - h[p] > 0.0005 || h[p] - (c[6]+0) > 0.0005)) bad++
     }
-    END{print bad+0, cmp+0, miss+0}' "$_A2" "$_L2"); _g7rc=$?; read -r _bad _g7c _g7m <<<"$_bad"
-  if [ "$_g7rc" -ne 0 ] || ! [[ "${_g7c:-}" =~ ^[1-9][0-9]*$ ]] || [ "${_g7m:-1}" != 0 ]; then echo "  [FAIL] G7: compared ${_g7c:-?} row(s); ${_g7m:-?} table row(s) had no section-[2] counterpart (awk rc $_g7rc) -- a row not compared is not a match (F05-005#4)"; G7=1; elif [ "${_bad:-0}" -gt 0 ]; then
+    END{print bad+0, cmp+0, miss+0, nh+0, nd+0}' "$_A2" "$_L2"); _g7rc=$?; read -r _bad _g7c _g7m _g7h _g7d <<<"$_bad"
+  if [ "$_g7rc" -ne 0 ] || ! [[ "${_g7c:-}" =~ ^[1-9][0-9]*$ ]] || [ "${_g7m:-1}" != 0 ]; then echo "  [FAIL] G7: compared ${_g7c:-?} row(s); ${_g7m:-?} table row(s) had no section-[2] counterpart (awk rc $_g7rc) -- a row not compared is not a match (F05-005#4)"; G7=1
+  # F07-009#3: every section-[2] position must be compared exactly once -- a table that drops (or
+  # repeats) rows compared what it kept, and a partial comparison is not the table matching.
+  elif [ "${_g7h:-0}" -lt 1 ] || [ "${_g7c:-0}" != "${_g7h:-x}" ] || [ "${_g7d:-0}" != "${_g7h:-x}" ]; then echo "  [FAIL] G7: section [2] has ${_g7h:-?} position(s); the table compared ${_g7c:-?} row(s) covering ${_g7d:-?} distinct position(s) -- every position must appear exactly once (F07-009#3)"; G7=1; elif [ "${_bad:-0}" -gt 0 ]; then
     echo "  [FAIL] G7: $_bad LEADERBOARD row(s) disagree with section [2] of $_A2"
     G7=$_bad
   else

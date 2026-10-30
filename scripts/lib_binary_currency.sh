@@ -66,7 +66,7 @@
 #
 # A THIRD, STRONGER SIGNAL EXISTS where the binary can be cheaply run: solve.c emits SOURCE_SHA at
 # runtime (`source_sha=` in the --kc-record provenance trailer, solve.c:23906/:24537; also
-# "build_source_sha" in solve_results.json, solve.c:11926). scripts/q326_kc_unrank_m0_gate.sh:63-66
+# "build_source_sha" in solve_results.json, solve.c:11926). scripts/q326_kc_unrank_m0_gate.sh:63-68
 # already compares that against `sha256sum solve.c`. Asking the binary is better than reading its
 # image, but it costs a run and needs a subcommand the gate is not otherwise using; the image grep
 # is universal and free, so that is what this library does.
@@ -173,5 +173,24 @@ solve_binary_currency() {   # solve_binary_currency <binary> [solve.c]
   BINCUR_MSG="$bin is not older than $src, but carries no SOURCE_SHA — currency is assumed from
            timestamps, NOT established. Rebuild with documentation/VERIFY.md's published line
            (it passes -DSOURCE_SHA) to make this exact."
+  return 0
+}
+
+# solve_binary_currency_strict <binary> [solve.c] — the same ladder, but the mtime-weak arm REFUSES.
+# For a binary a gate is HANDED (SOLVE=, Q422_SOLVE=, …) rather than one it compiled itself seconds
+# earlier. Codex (gpt-6-astra), final review, F05-013#6 / F05-012#13 / F05-017#13 / F05-018#2: the
+# callers read only the rc, so an untagged stale binary that was copied or touched after solve.c
+# (mtime-weak, "NOT established") certified the current tree. Only the source-sha signal establishes
+# a handed-in binary; a caller that really wants the weak reading sets its own *_ALLOW_STALE=1.
+# tr12_repro_gate.sh hands its gates a binary built with the published line, which embeds
+# -DSOURCE_SHA, so the normal path reads source-sha and is unaffected.
+solve_binary_currency_strict() {
+  solve_binary_currency "$@" || return 1
+  if [ "$BINCUR_SIGNAL" != "source-sha" ]; then
+    BINCUR_MSG="$1 carries no SOURCE_SHA, so nothing establishes that it was built from ${2-solve.c}
+           (signal $BINCUR_SIGNAL; a timestamp is not an identity). Hand in a binary built with
+           documentation/VERIFY.md's published line, which passes -DSOURCE_SHA."
+    return 1
+  fi
   return 0
 }

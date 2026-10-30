@@ -113,6 +113,9 @@ index($0, "C5 BUDGET OVERRIDE ACTIVE (R6): " BUDGET[m] " ") { budget = 1 }
         rec = substr(line, RSTART, RLENGTH); line = substr(line, RSTART + RLENGTH)
         n = split(rec, t, / +/)       # [score] LABEL dN : frac=.. se=.. | abs est=.. se=..
         d = substr(t[3], 2) + 0
+        # F11-014#1: a bin printed twice kept only its LAST value, so a nonzero wrong-parity entry
+        # followed by a zero one vanished before the parity check. Each bin is printed once per chunk.
+        if (d in bins) fail(cur ": wrap bin d" d " printed more than once")
         bins[d] = 1
         ab[d] = substr(t[9], 5); abse[d] = substr(t[10], 4)
     }

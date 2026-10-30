@@ -170,9 +170,13 @@ leg("L19", _l19)
 PY
 
 NLEGS=20
-legs(){ python3 "$WORK/legs.py" "$1" 2>/dev/null; }
+# The runner's own exit status is printed as legs_rc and required to be 0 (Codex, gpt-6-astra,
+# F05-014#8): verdict-shaped lines followed by an abnormal exit (2, 124, 137, 143) were a
+# baseline PASS, and a mutant whose runner died after printing its BAD text counted as killed.
+legs(){ python3 "$WORK/legs.py" "$1" 2>/dev/null; echo "legs_rc=$?"; }
 
 BASE=$(legs solve.py)
+grep -qx 'legs_rc=0' <<<"$BASE" || fail "the baseline leg runner exited $(sed -n 's/^legs_rc=//p' <<<"$BASE") -- its verdict lines are not a completed measurement"
 # 20 since G5a (L19); 19 since 2026-09-24 (Q-772): L1, L1b, L2-L18. A count that lags its population is a check that
 # has stopped counting, so the pin moves in the same change as the legs.
 [ "$(printf '%s\n' "$BASE" | grep -c '^L[0-9a-z]*=')" = "$NLEGS" ] \
@@ -246,6 +250,8 @@ if s.count(old) != 1:
 open(os.environ["MUT"], "w", encoding="utf-8").write(s.replace(old, new))
 PY
   out=$(legs "$MUT")
+  grep -qx 'legs_rc=0' <<<"$out" \
+    || { echo "  [ERROR] mutant $name: the leg runner exited $(sed -n 's/^legs_rc=//p' <<<"$out") -- nothing was measured"; return 2; }
   [ "$(printf '%s\n' "$out" | grep -c '^L[0-9a-z]*=')" = "$NLEGS" ] \
     || { echo "  [ERROR] mutant $name produced no leg verdicts -- nothing was measured"; return 2; }
   case "$out" in *=BAD*) : ;; *)

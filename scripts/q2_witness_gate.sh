@@ -197,7 +197,11 @@ fi
 # first. Measured by the reviewer: original -> rc 1 on an empty enumeration, override -> rc 0,
 # and this gate still said PASS. The battery is correct today (one definition), so this is the
 # gate catching up to its own subject, not a live defect.
-ndef=$(grep -cE '^[[:space:]]*kc_first_last_witness[[:space:]]*\(\)' "$BATTERY")
+# Every definition form bash accepts (Codex, gpt-6-astra, F05-018#5): `name()`, `function name`,
+# `function name()`. A later `function kc_first_last_witness { return 0; }` used to be invisible here.
+# Whitespace inside the parentheses too (Codex CX-35W-B, Fable triage G5c #2): bash accepts
+# `kc_first_last_witness ( ) { ...; }`, which the adjacent-`()` pattern did not count.
+ndef=$(grep -cE '^[[:space:]]*(kc_first_last_witness[[:space:]]*\([[:space:]]*\)|function[[:space:]]+kc_first_last_witness([[:space:]]*\([[:space:]]*\))?([[:space:]]|\{|$))' "$BATTERY")
 if [ "${ndef:-0}" -eq 1 ]; then
   r ok "leg 8: exactly one kc_first_last_witness definition in the battery"
 else

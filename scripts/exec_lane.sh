@@ -165,6 +165,10 @@ CHAINS="$(mktemp "${TMPDIR:-/tmp}/exec_lane_chains.XXXXXX")"   # Q-435: ordered 
 # Shared normalisation helpers, loaded by BOTH python blocks below (the extractor and the
 # MEASURED-figure leg) so the two can never disagree about what a command's key is.
 HELP="$(mktemp "${TMPDIR:-/tmp}/exec_lane_help.XXXXXX")"
+if [ -z "$INV" ] || [ -z "$CHAINS" ] || [ -z "$HELP" ]; then   # F04-021#1 sibling: mktemp checked
+  echo "EXEC_LANE_ERROR=scratch-mktemp-failed"; echo "EXEC_LANE=ERROR"
+  rm -f "$INV" "$CHAINS" "$HELP"; exit 2
+fi
 cat > "$HELP" <<'PYHELP'
 import re, shlex
 def qsplit(s):
@@ -239,7 +243,10 @@ CHAINS_OUT = sys.argv[3]
 exec(open(sys.argv[2], encoding='utf-8').read())
 files = [f for f in subprocess.run(['git','-C',ROOT,'ls-files','*.md'],
          capture_output=True, text=True).stdout.split('\n') if f]
-KNOWN = {'solve','verify','drat-trim','lean','kissat','elan','ulimit'}   # project/toolchain names
+KNOWN = {'solve','verify','drat-trim','lean','kissat','elan','ulimit',   # project/toolchain names
+         'lake','cake_lpr','cadical'}   # F04-021#15: the published toolchain commands (`lake build`, `cake_lpr`,
+                                      # `cadical`) are inventoried even where they are absent, so a host
+                                      # without them prints SKIP-MISSING-TOOL instead of dropping the row
                                                                 # not necessarily on PATH
 def tok0(c):
     m = re.match(r'^(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)*([A-Za-z0-9_./+-]+)', c)
@@ -298,6 +305,21 @@ def fence_reject(c):
         if len(w) >= 3 and not any(re.search(r'[-/.|>=$]', x) for x in w[1:]):
             return True                               # bare-word prose ("sleep 30 minutes")
     return False
+def unsq(c):
+    """c with every SINGLE-quoted span removed (outside double quotes, honouring backslash escapes
+    outside quotes): what remains is the text the shell would parameter-expand."""
+    out, i, n, dq = [], 0, len(c), False
+    while i < n:
+        ch = c[i]
+        if ch == '\\' and i + 1 < n:
+            out.append(c[i:i+2]); i += 2; continue
+        if ch == '"': dq = not dq; out.append(ch); i += 1; continue
+        if ch == "'" and not dq:
+            j = c.find("'", i + 1)
+            if j < 0: out.append(c[i:]); break        # unbalanced: keep it, fail closed
+            out.append(' '); i = j + 1; continue
+        out.append(ch); i += 1
+    return ''.join(out)
 def placeholder(c):
     unq0 = re.sub(QSPAN, ' Q ', c)                    # prose-shape tests judged OUTSIDE quotes too
     if re.search(r' == | = | % | — |[×→≠≥≤]', unq0): return True
@@ -309,7 +331,8 @@ def placeholder(c):
     # 2026-09-02: SAT_CLI.md:22 `python3 sat.py --decode MODEL.txt [TARGET] ... | [--f1-pairs N]`
     # strips to `python3 sat.py --decode MODEL.txt |` and ran as a bash syntax error, FAIL(rc=2).
     if re.search(r'(\|\|?|&&)\s*$', c): return True
-    for v in re.findall(r'\$\{?([A-Za-z_][A-Za-z0-9_]*)', c):
+    # F04-021#9: `$p` inside SINGLE quotes (sed -n '4,$p') is a literal the shell never expands.
+    for v in re.findall(r'\$\{?([A-Za-z_][A-Za-z0-9_]*)', unsq(c)):
         if v not in os.environ: return True           # unset $METAVAR -- lowercase too: measured
                                                       # 2026-09-02, `./solve --branch $p $o 0 2` is
                                                       # a loop body (LARGE_SCALE_CAMPAIGNS.md:737)
@@ -396,21 +419,60 @@ def unbounded_branch(c):
     Anchored at the start of the assignment-stripped command, and the tail may hold only the
     two optional NUMERIC positionals -- that is what keeps subcommand forms (`solve --selftest`,
     `solve --merge out.bin`) out, and it is why `solve 3600` (a real budget) is not flagged."""
-    m = re.search(r'--sub-branch\s+(\S+\s+){5}(\S+)\s+(\S+)', c)
-    if m:
-        tl = m.group(3)
-    else:
-        m = re.search(r'--branch\s+\S+\s+\S+\s+(\S+)', c)
-        if m:
-            tl = m.group(1)
-        else:
-            pre = re.match(r'(?:[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|\'[^\']*\'|\S*)\s+)*', c)
-            m = re.match(r'(?:\./|/)?solve(?:\s+(\d+))?(?:\s+\d+)?\s*$', c[pre.end():])
-            if not m:
+    # F04-021#7: the time_limit is OPTIONAL in both forms (solve.c reads it only when present,
+    # default 0 = unbounded), so `--sub-branch p1 o1 p2 o2 p3 o3` with no seventh number is the
+    # same unbounded run as an explicit 0. A non-numeric seventh token (`|`, `2>&1`) is not a
+    # time_limit either.
+    # An omitted time_limit is judged only when the positionals before it are numeric: `solve
+    # --branch p1 o1` is prose/pseudocode, not a command.
+    # Codex CX-35W-G, Fable triage G5c #11 and #14: classified on SHELL WORDS, not the raw string. On the raw
+    # string the first `SOLVE_*_LIMIT=` assignment won where bash exports the last one
+    # (`SOLVE_NODE_LIMIT=10 SOLVE_NODE_LIMIT=0 ./solve 0` read bounded), a quoted positional was not a number
+    # (`./solve "0" 128` read bounded; `--branch 24 0 "3600"` read unbounded), and an assignment-shaped
+    # ARGUMENT after the command counted as a budget (`./solve 0 SOLVE_NODE_LIMIT=10`).
+    try:
+        words = shlex.split(c)
+    except ValueError:
+        return False                      # unparseable: not a command the lane can run
+    isasg = lambda w: re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*=.*', w, re.S) is not None
+    # the command word: the first `--branch`/`--sub-branch` flag's owner, else the first word named solve
+    k = next((i for i, w in enumerate(words) if w in ('--branch', '--sub-branch') or re.fullmatch(r'(?:.*/)?solve', w)), len(words))
+    env = {}
+    for w in words[:k]:                   # assignments BEFORE the command (also after `env`); the last one wins
+        if isasg(w):
+            nm_, v_ = w.split('=', 1); env[nm_] = v_
+    fi = next((i for i, w in enumerate(words) if w in ('--sub-branch', '--branch')), None)
+    if fi is not None:
+        npos = 6 if words[fi] == '--sub-branch' else 2
+        pos = words[fi + 1:fi + 1 + npos]
+        if len(pos) < npos:
+            return False
+        tl = words[fi + 1 + npos] if fi + 1 + npos < len(words) else None
+        if tl is None or not tl.isdigit():
+            if not all(a.isdigit() for a in pos):
                 return False
-            tl = m.group(1) or '0'      # a MISSING time_limit defaults to 0 = unbounded
-    if re.search(r'\bSOLVE_[A-Z0-9_]*LIMIT\s*=', c):
-        return False          # an explicit budget (SOLVE_NODE_LIMIT=...) bounds it
+            tl = '0'
+    else:
+        lead = 0
+        while lead < len(words) and isasg(words[lead]):
+            lead += 1
+        rest = words[lead:]
+        if not rest or not re.fullmatch(r'(?:\./|/)?solve', rest[0]) or len(rest) > 3:
+            return False
+        if len(rest) >= 2 and not rest[1].isdigit():
+            return False
+        # threads: numeric, or an assignment-shaped word that bash passes to solve as an ARGUMENT
+        if len(rest) == 3 and not (rest[2].isdigit() or isasg(rest[2])):
+            return False
+        tl = rest[1] if len(rest) >= 2 else '0'      # a MISSING time_limit defaults to 0 = unbounded
+    # F04-021#7 / F05-016#3: a budget bounds the run only if solve.c reads it AND it is positive.
+    # solve.c parses SOLVE_NODE_LIMIT, SOLVE_PER_TASK_NODE_LIMIT and SOLVE_PER_SUB_BRANCH_LIMIT with
+    # atoll and enables each only when > 0, so `SOLVE_NODE_LIMIT=0` is the default "no limit", and
+    # any other SOLVE_*LIMIT name (SOLVE_DEAD_LIMIT is read by nothing) bounds nothing.
+    for nmv in ('SOLVE_NODE_LIMIT', 'SOLVE_PER_TASK_NODE_LIMIT', 'SOLVE_PER_SUB_BRANCH_LIMIT'):
+        nm = re.match(r'\s*\+?(\d+)', env.get(nmv, ''))
+        if nm and int(nm.group(1)) > 0:
+            return False      # a positive explicit budget bounds it
     return tl == '0'
 def gating(f):
     if f == 'CLAUDE.md': return 0
@@ -649,6 +711,10 @@ fi
 # 2 lines above to 15 below the marker line, which covers "figure, then its Reproduce:
 # paragraph or fenced block" in every TR layout measured on 2026-09-02.
 MEAS_OUT="$(mktemp "${TMPDIR:-/tmp}/exec_lane_meas.XXXXXX")"
+if [ -z "$MEAS_OUT" ]; then
+  echo "EXEC_LANE_ERROR=scratch-mktemp-failed"; echo "EXEC_LANE=ERROR"
+  rm -f "$INV" "$HELP" "$CHAINS"; exit 2
+fi
 python3 - "$ROOT" "$INV" "$HELP" > "$MEAS_OUT" <<'PYEOF'
 import re, shlex, subprocess, sys
 ROOT, INV = sys.argv[1], sys.argv[2]
@@ -766,8 +832,26 @@ lane_kill_and_cleanup() {
 lane_on_signal() { LANE_SIG=$1; trap '' INT TERM HUP; exit "$2"; }
 trap lane_kill_and_cleanup EXIT
 trap 'lane_on_signal INT 130' INT; trap 'lane_on_signal TERM 143' TERM; trap 'lane_on_signal HUP 129' HUP
-WS="$(mktemp -d "${TMPDIR:-/tmp}/exec_lane_ws.XXXXXX")"
-LOGDIR="$(mktemp -d "${TMPDIR:-/tmp}/exec_lane_logs.XXXXXX")"
+# F04-021#13: the workspace and log paths are spliced into each command's shell text (`cd '...'`,
+# the /tmp rewrite), so a TMPDIR holding a quote or another shell or sed metacharacter would turn
+# every command into a syntax error charged to the document. Such a TMPDIR is not used.
+LANE_TMPBASE="${TMPDIR:-/tmp}"
+case "$LANE_TMPBASE" in *[!A-Za-z0-9_./+-]*)
+  echo "note: TMPDIR holds characters this lane cannot splice into shell text; the workspace goes under /tmp"
+  LANE_TMPBASE=/tmp ;;
+esac
+WS="$(mktemp -d "$LANE_TMPBASE/exec_lane_ws.XXXXXX")" || WS=""
+LOGDIR="$(mktemp -d "$LANE_TMPBASE/exec_lane_logs.XXXXXX")" || LOGDIR=""
+# F04-021#1: a failed mktemp leaves WS empty, and `git -C ""` / `cd ''` then act on the CALLER'S
+# checkout (staging, `checkout -- .`, `clean -fdqx`, every command). Refuse before any of that.
+if [ -z "$WS" ] || [ ! -d "$WS" ] || [ -z "$LOGDIR" ] || [ ! -d "$LOGDIR" ]; then
+  echo "  could not create the scratch workspace or log directory (mktemp failed);"
+  echo "  refusing to run anything, since an empty workspace path names the caller's checkout."
+  echo "EXEC_LANE_ERROR=workspace-mktemp-failed"
+  echo "EXEC_LANE=ERROR"
+  [ -n "$LOGDIR" ] && [ -d "$LOGDIR" ] && rm -rf "$LOGDIR"
+  LOGDIR=""; exit 2
+fi
 ( cd "$ROOT" && git ls-files -z | tar --null -T - -cf - ) | tar -xf - -C "$WS"
 # Q-649: a LINKED WORKTREE's .git is a FILE (`gitdir: /…/.git/worktrees/<name>`), not a
 # directory, so the `[ -d ]` test above was false and the copy never happened -- the `git add -A`
@@ -868,7 +952,8 @@ doc_context() {   # $1 = "file:line;file:line" -> the +-3 lines around each sour
   done
 }
 doc_states_prereq() {   # $1 = sources, $2 = name; true iff SOME source doc names it (whole word)
-  # OUTSIDE any command: backtick spans and fenced blocks are stripped first. Measured on the
+  # OUTSIDE any command: multi-word backtick spans and fenced blocks are stripped first; a backtick
+  # span that is ONE bare name (`numpy`) is prose naming it and is kept (F04-021#8). Measured on the
   # first red test of this function: `python3 -c "import nosuchmod_zz"` was judged "documented"
   # because the module's name appears in the doc — inside the very command that failed. A
   # prerequisite is stated in prose or it is not stated.
@@ -877,7 +962,7 @@ doc_states_prereq() {   # $1 = sources, $2 = name; true iff SOME source doc name
     f="${s%%:*}"
     [ -f "$ROOT/$f" ] || continue
     awk '/^[[:space:]]*```/ { inf = !inf; next } !inf { print }' "$ROOT/$f" \
-      | sed -E 's/`[^`]*`//g' | grep -ciw -- "$2" >/dev/null && return 0
+      | sed -E 's/`([A-Za-z0-9_.+-]+)`/ \1 /g; s/`[^`]*`//g' | grep -ciw -- "$2" >/dev/null && return 0
   done
   return 1
 }
@@ -1220,9 +1305,14 @@ if [ -s "$CHAINS" ] && [ -z "$ONLY" ]; then
         _j="${_d%%:*}"; _tok="${_d#*:}"; _o="${COUT[$_j]:-NOT-RUN}"
         case "$_o" in PASS*) ;; *) _brk=$_j; _why="step $_j did not PASS ($_o); $_tok is its output"; break ;; esac
         case "$_tok" in /tmp/*) _p="$WS/.lane_tmp/${_tok#/tmp/}" ;; /*) _p="$_tok" ;; *) _p="$WS/$ccwd/$_tok" ;; esac
+        # F04-021#4 residual: a reset after the producer discards its output whether or not the path
+        # still EXISTS -- a tracked output is restored to the tree's bytes, not the producer's, so a
+        # consumer must not run on it (a skip, as for a removed path).
+        if [ "$_reset_after" -gt "$_j" ]; then
+          _brk=$_reset_after; _why="$_tok was removed or restored to the tree's bytes by the reset after step $_reset_after"; break
+        fi
         if [ ! -e "$_p" ]; then
-          if [ "$_reset_after" -gt "$_j" ]; then _brk=$_reset_after; _why="$_tok was removed by the reset after step $_reset_after"
-          else _brk=$_j; _brkg=1; _why="step $_j PASSED but never produced $_tok"; fi
+          _brk=$_j; _brkg=1; _why="step $_j PASSED but never produced $_tok"
           break
         fi
       done

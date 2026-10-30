@@ -45,7 +45,7 @@
 #                 "11<TAB>T-CENSUS-MISMATCH", Q10A_SIDECARS_MISSING 1, the other 31 rows filled, exit 1
 #          leg 9  as leg 7, t sidecar k=5's census entries column sums to n_entries+1 (masks column untouched, Q-904) -> "5<TAB>T-CENSUS-MISMATCH", exit 1
 #          leg 10 as leg 7, t sidecar k=20 tagged v1 -> "20<TAB>T-CENSUS-MISMATCH", exit 1
-# plus mutants per row (4 for c_q6, 11 for c_q10a), each of which must turn a leg red.
+# plus mutants per row (5 for c_q6, 12 for c_q10a), each of which must turn a leg red.
 #
 # KNOWN LIMITATION, stated rather than papered over. (i) Extraction anchors on the literal lines
 # `ratio9(){`, `row_begin c_q6` ... `row_end TR12_Q6 $rc`, `row_begin c_q10a` ... `row_end TR12_Q10A
@@ -219,6 +219,9 @@ verdict_q6(){ # verdict_q6 <harness>
   [ "$rc" = 1 ] && grep -q '^Q6_FAIL' "$WORK/last.out" || { echo "    c_q6 leg 3 (class 5) rc=$rc: accepted a class outside {1,2,3,4,6}"; return 1; }
   rc=$(run "$h" "$WORK/q6L4/atlas.json" /nonexistent "$WORK/q6L4/art" 1 "$N")
   [ "$rc" = 0 ] && grep -qE '^0	[0-9]+	.*	NA	NA	NA	NA$' "$WORK/last.out" || { echo "    c_q6 leg 4 (no profile) rc=$rc or anchor columns not NA"; return 1; }
+  # leg 5 (Codex, gpt-6-astra, F05-017#4): an ABSENT atlas must fail the row, not print an empty table
+  rc=$(run "$h" "$WORK/no_such_atlas.json" /nonexistent "$WORK/q6L2/art" 9 26112)
+  [ "$rc" = 1 ] && grep -q '^Q6_FAIL	0 atlas layer' "$WORK/last.out" || { echo "    c_q6 leg 5 (absent atlas) rc=$rc: zero layers read as a clean table"; return 1; }
   return 0
 }
 verdict_q10(){ # verdict_q10 <harness>
@@ -256,11 +259,15 @@ verdict_q10(){ # verdict_q10 <harness>
   rc=$(run "$h" "$WORK/q10L10/atlas.json" "$WORK/q10L10/f" "$WORK/q10L10/art" 31 "$N" "$WORK/q10L10/t")
   [ "$rc" = 1 ] && grep -q $'^20\tT-CENSUS-MISMATCH\t' "$WORK/last.out" \
     || { echo "    c_q10a leg 10 (t sidecar k=20 tagged v1) rc=$rc: a t sidecar of the wrong schema was accepted"; return 1; }
+  # leg 11 (F05-017#4): the committed-shape sidecars with an ABSENT atlas must fail the row
+  rc=$(run "$h" "$WORK/no_such_atlas.json" "$WORK/q10L1/f" "$WORK/q10L1/art" 31 "$N")
+  [ "$rc" = 1 ] && grep -q '^Q10A_FAIL	0 atlas layer' "$WORK/last.out" \
+    || { echo "    c_q10a leg 11 (absent atlas) rc=$rc: zero layer flows read as zero mod-24 failures"; return 1; }
   return 0
 }
 
-mk "$WORK/q6.sh" "$WORK/q6.row";   verdict_q6 "$WORK/q6.sh"   || fail "baseline c_q6: the committed row does not behave on one of its four legs (see above)"
-mk "$WORK/q10.sh" "$WORK/q10a.row"; verdict_q10 "$WORK/q10.sh" || fail "baseline c_q10a: the committed row does not behave on one of its ten legs (see above)"
+mk "$WORK/q6.sh" "$WORK/q6.row";   verdict_q6 "$WORK/q6.sh"   || fail "baseline c_q6: the committed row does not behave on one of its five legs (see above)"
+mk "$WORK/q10.sh" "$WORK/q10a.row"; verdict_q10 "$WORK/q10.sh" || fail "baseline c_q10a: the committed row does not behave on one of its eleven legs (see above)"
 
 mutant(){ # mutant <q6|q10> <id> <sed-expr>
   local which="$1" id="$2" expr="$3" src m
@@ -291,5 +298,7 @@ mutant q10 M8_t_mass_leaks_into_mass_column   's#oc="\$toc"; nt=#oc="$toc"; mt=$
 mutant q10 M9_census_sums_not_checked         's/ \&\& \[ "\$csm" = "\$nm \$ne" \]//'
 mutant q10 M10_t_fallback_never_taken         's/\[ -n "\$TDIR" \] \&\& tc=/false \&\& tc=/'
 mutant q10 M11_t_schema_not_checked           's/\[ "\$tsv" = 2 \] \&\& //'
-echo "  [gate] baseline PASS on 4+10 legs; 15/15 mutants killed"
+mutant q6  M5_layer_count_unchecked           's/\[ "\$i" -eq "\$N_PAIRS" \] || { echo "Q6_FAIL/[ -n x ] || { echo "Q6_FAIL/'
+mutant q10 M12_layer_count_unchecked          's/\[ "\$i" -eq "\$N_PAIRS" \] || { echo "Q10A_FAIL/[ -n x ] || { echo "Q10A_FAIL/'
+echo "  [gate] baseline PASS on 5+11 legs; 17/17 mutants killed"
 echo "D5_08_Q6_Q10A_SHELL_GATE=PASS"

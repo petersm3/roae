@@ -49,6 +49,14 @@ if [ -z "$SOLVE" ]; then
       || { sed 's/^/        /' "$WORK/build.err" >&2; die "solve.c did not compile"; }
 fi
 [ -x "$SOLVE" ] || die "no engine at $SOLVE"
+# A HANDED-IN engine must carry this solve.c's SOURCE_SHA (Codex, gpt-6-astra, F05-018#2): with only
+# the +x check, a previously good binary certified a writer regression in the source under review.
+# tr12_repro_gate.sh hands in a binary built with the published line, which embeds it.
+if [ "$SOLVE" != "$WORK/solve" ] && [ "${KC_WRITER_DEVFULL_ALLOW_STALE-}" != "1" ]; then
+  . "$ROOT/scripts/lib_binary_currency.sh"
+  solve_binary_currency_strict "$SOLVE" "$ROOT/solve.c" \
+    || die "$BINCUR_MSG (set KC_WRITER_DEVFULL_ALLOW_STALE=1 to override, deliberately.)"
+fi
 
 # ---- the n=9 universe ------------------------------------------------------------------------
 F=$WORK/f; G=$WORK/g; T=$WORK/t; mkdir -p "$F" "$G" "$T"

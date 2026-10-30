@@ -73,31 +73,35 @@ if [ "${1-}" = --selftest ]; then
     printf '# History\n\n## 2001-01-02 — an anchor heading\n\n%s\n\ntext\n' "$2" > "$r/documentation/HISTORY.md"
     git -C "$r" init -q && git -C "$r" add -A \
       && git -C "$r" -c user.email=selftest@local -c user.name=selftest commit -q -m selftest || return 1
-    HISTORY_REF=HEAD HISTORY_KNOWN_GAPS= bash "$r/scripts/history_currency_gate.sh" 2>&1 \
-      | sed -n 's/^HISTORY_CURRENCY=//p'
+    # F05-017#9: the child's exit status is returned with its token, so a child that prints the
+    # expected verdict and then fails (rc 137) is not a case "as expected".
+    local o rc; o=$(HISTORY_REF=HEAD HISTORY_KNOWN_GAPS= bash "$r/scripts/history_currency_gate.sh" 2>&1); rc=$?
+    printf '%s\n' "$o" | sed -n 's/^HISTORY_CURRENCY=//p'
+    return "$rc"
   }
   table() {  # table GATE_SCRIPT QUIET -> number of cases that disagree with their expectation
-    local c id want head got bad=0
+    local c id want head got grc wrc bad=0
     for c in "${CASES[@]}"; do
       id=${c%%|*}; want=${c#*|}; want=${want%%|*}; head=${c#*|*|}
-      got=$(verdict "$1" "$head")
-      if [ "$got" = "$want" ]; then [ "$2" = quiet ] || echo "  [ok]   $id -> $want: $head"
-      else bad=$((bad+1)); [ "$2" = quiet ] || echo "  [FAIL] $id: expected $want, got '${got:-no verdict}': $head"; fi
+      got=$(verdict "$1" "$head"); grc=$?
+      case "$want" in PASS) wrc=0 ;; FAIL) wrc=1 ;; *) wrc=2 ;; esac
+      if [ "$got" = "$want" ] && [ "$grc" -eq "$wrc" ]; then [ "$2" = quiet ] || echo "  [ok]   $id -> $want: $head"
+      else bad=$((bad+1)); [ "$2" = quiet ] || echo "  [FAIL] $id: expected $want rc $wrc, got '${got:-no verdict}' rc $grc: $head"; fi
     done
     return $bad
   }
   SELF="$(pwd)/scripts/history_currency_gate.sh"
   table "$SELF" loud || fails=$((fails+1))
-  CLAUSE='(?:[^\w\s]+\s+)?'
+  CLAUSE='(?:[^\w\s]+[ \t]+)?'
   for mu in "MU1|" 'MU2|.*?' 'MU3|(?:\S+\s+)?'; do
     id=${mu%%|*}; rep=${mu#*|}
     python3 - "$SELF" "$T/$id.sh" "$CLAUSE" "$rep" <<'MUT' || { echo "  [FAIL] $id: could not build the mutant"; fails=$((fails+1)); continue; }
 import sys
 s = open(sys.argv[1], encoding="utf-8").read()
-pat = "re.finditer(r'^##\\s+" + sys.argv[3]
+pat = "re.finditer(r'^##[ \\t]+" + sys.argv[3]
 if s.count(pat) != 1:
     sys.exit(1)
-open(sys.argv[2], "w", encoding="utf-8").write(s.replace(pat, "re.finditer(r'^##\\s+" + sys.argv[4]))
+open(sys.argv[2], "w", encoding="utf-8").write(s.replace(pat, "re.finditer(r'^##[ \\t]+" + sys.argv[4]))
 MUT
     if table "$T/$id.sh" quiet; then echo "  [FAIL] $id: the mutant grammar agrees with every case -- the table cannot see it"; fails=$((fails+1))
     else echo "  [ok]   $id: the mutant grammar is caught"; fi
@@ -114,13 +118,49 @@ def sh(*a):
     r = subprocess.run(a, capture_output=True, text=True)
     return r.stdout if r.returncode == 0 else None
 
+# F05-017#10: the ref is resolved ONCE, to a commit, and the document and the log both read that
+# commit -- two reads of a symbolic ref could straddle an update and mix an old document with a new
+# commit population.
+sym = ref
+ref = (sh('git', 'rev-parse', '--verify', '-q', '%s^{commit}' % sym) or '').strip()
+if not re.fullmatch(r'[0-9a-f]{40,64}', ref):
+    print("  [ERROR] cannot resolve %s to a commit — nothing was checked" % sym)
+    print("HISTORY_CURRENCY=ERROR"); sys.exit(2)
+print("  [info] measured %s at %s" % (sym, ref))
 doc = sh('git', 'show', '%s:documentation/HISTORY.md' % ref)
 if doc is None:
     print("  [ERROR] cannot read %s:documentation/HISTORY.md — nothing was checked" % ref)
     print("HISTORY_CURRENCY=ERROR"); sys.exit(2)
+# F05-017#8: a heading inside a fenced block or an HTML comment is an example, not a narrated
+# section, and `\s+` crossed a newline (a bare `##` then a date on the next line). Fenced and
+# commented lines are blanked (line count kept) and the separator is spaces or tabs only.
+_out, _fence, _cmt = [], None, False
+for _l in doc.split('\n'):
+    _keep = _l
+    if _fence is None and not _cmt:
+        _fm = re.match(r'^\s{0,3}(`{3,}|~{3,})', _l)
+        if _fm:
+            _fence = _fm.group(1); _keep = ''
+        elif '<!--' in _l:
+            _pre, _rest = _l.split('<!--', 1)
+            _keep = _pre
+            if '-->' not in _rest:
+                _cmt = True
+    elif _fence is not None:
+        # CommonMark: the closer is the opener's character, at least as long, then only spaces or tabs
+        # (Codex CX-35W-J, Fable triage G5c #9: a ``` line used to close a ```` fence early).
+        if re.match(r'^\s{0,3}' + re.escape(_fence[0]) + '{%d,}[ \t]*$' % len(_fence), _l):
+            _fence = None
+        _keep = ''
+    else:
+        _keep = ''
+        if '-->' in _l:
+            _cmt = False; _keep = _l.split('-->', 1)[1]
+    _out.append(_keep)
+doc = '\n'.join(_out)
 
 covered, headings = set(), 0
-for m in re.finditer(r'^##\s+(?:[^\w\s]+\s+)?(\d{4})-(\d{2})-(\d{2})(?:/(?:(\d{2})-)?(\d{2}))?\b', doc, re.M):
+for m in re.finditer(r'^##[ \t]+(?:[^\w\s]+[ \t]+)?(\d{4})-(\d{2})-(\d{2})(?:/(?:(\d{2})-)?(\d{2}))?\b', doc, re.M):
     headings += 1
     y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
     start = datetime.date(y, mo, d)
@@ -152,7 +192,7 @@ if headings == 0:
     print("HISTORY_CURRENCY=ERROR"); sys.exit(2)
 if not commit_days:
     print("  [ERROR] %s has no commits in the last %d days — wrong ref or window; nothing checked"
-          % (ref, days))
+          % (sym, days))
     print("HISTORY_CURRENCY=ERROR"); sys.exit(2)
 
 gaps = []
@@ -168,7 +208,7 @@ for d, n in still:
     print("  [known-open] %s has %d commit(s) and no entry — recorded debt, not a new gap" % (d, n))
 if new:
     for d, n in new:
-        print("  [FAIL] %s has %d commit(s) on %s and NO HISTORY.md entry" % (d, n, ref))
+        print("  [FAIL] %s has %d commit(s) on %s and NO HISTORY.md entry" % (d, n, sym))
     print("  %d unnarrated day(s) beyond the recorded debt" % len(new))
     print("HISTORY_CURRENCY=FAIL"); sys.exit(1)
 print("  [ok] every commit-day in the window is narrated, or recorded as known-open debt")

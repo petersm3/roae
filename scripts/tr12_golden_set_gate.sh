@@ -50,10 +50,14 @@ for f in "$BATTERY" "$EXP/_MANIFEST.txt" "$EXP/_EXPECTED_SKIPS.txt"; do
 done
 
 # id<TAB>token pairs; a token of "-" means the id was seen with no token yet.
+# A quoted literal is the same shell argument as the bare word (Codex, gpt-6-astra, F05-012#15:
+# `row_begin "zz_missing"` was dropped and its row went unreconciled), so one layer of matching
+# single or double quotes is removed from each word before it is judged; "$id" stays non-literal.
 pairs=$(awk '
   { line=$0; sub(/^[[:space:]]+/, "", line) }
   line ~ /^#/ { next }
-  { n=split(line, w, /[[:space:]]+/) }
+  { n=split(line, w, /[[:space:]]+/)
+    for (i = 1; i <= n; i++) if (w[i] ~ /^"[^"]*"$/ || w[i] ~ /^\047[^\047]*\047$/) w[i] = substr(w[i], 2, length(w[i]) - 2) }
   w[1]=="row_begin" && w[2] ~ /^[a-z0-9_]+$/ { cur=w[2]; print cur "\t-"; next }
   w[1]=="row_begin" { cur=""; next }
   w[1] ~ /^row_end/ && cur!="" && w[2] ~ /^TR12_[A-Z0-9_]+$/ { print cur "\t" w[2]; cur=""; next }
@@ -62,9 +66,14 @@ pairs=$(awk '
   w[1]=="indep_ladder_row" && w[2] ~ /^[a-z0-9_]+$/ { print w[2] "\t" w[3]; next }
 ' "$BATTERY") || { echo "  [FAIL] could not parse $BATTERY"; echo "TR12_GOLDEN_SET=FAIL"; exit 1; }
 rows=$(printf '%s\n' "$pairs" | cut -f1 | grep . | sort -u)
-goldens=$(find "$EXP" -maxdepth 1 -type f -name '*.txt' ! -name '_*' -printf '%f\n' | sed 's/\.txt$//' | sort -u)
-manifest=$(awk 'NF==2 && $1 ~ /^[0-9a-f]+$/ && $2 ~ /\.txt$/ {sub(/\.txt$/, "", $2); print $2}' "$EXP/_MANIFEST.txt" | sort -u)
-skips=$(grep -oE '^TR12_[A-Z0-9_]+=' "$EXP/_EXPECTED_SKIPS.txt" | tr -d '=' | sort -u)
+infra(){ echo "  [FAIL] $* -- nothing was reconciled"; echo "TR12_GOLDEN_SET=FAIL"; exit 1; }
+goldens=$(find "$EXP" -maxdepth 1 -type f -name '*.txt' ! -name '_*' -printf '%f\n' | sed 's/\.txt$//' | sort -u) \
+  || infra "could not list the goldens under $EXP"
+manifest=$(awk 'NF==2 && $1 ~ /^[0-9a-f]+$/ && $2 ~ /\.txt$/ {sub(/\.txt$/, "", $2); print $2}' "$EXP/_MANIFEST.txt" | sort -u) \
+  || infra "could not read $EXP/_MANIFEST.txt"
+# Pinned NOT RUN means the pin's VALUE says so -- SKIP or PENDING (Codex, gpt-6-astra, F05-012#16):
+# a token pinned `=PASS`, `=FAIL` or empty is a row that runs, and a missing golden for it is a FAIL.
+skips=$(grep -oE '^TR12_[A-Z0-9_]+=(SKIP|PENDING)(:.*)?$' "$EXP/_EXPECTED_SKIPS.txt" | sed 's/=.*//' | sort -u)
 nrows=$(printf '%s\n' "$rows" | grep -c .)
 ngold=$(printf '%s\n' "$goldens" | grep -c .)
 echo "TR12_GOLDEN_ROWS=$nrows"
@@ -72,17 +81,25 @@ echo "TR12_GOLDENS=$ngold"
 [ "$nrows" -ge "$ROWS_FLOOR" ] || bad "floor: only $nrows row id(s) parsed from tr12_repro.sh, below $ROWS_FLOOR -- a broken parse, not a clean battery"
 [ "$ngold" -ge "$GOLDENS_FLOOR" ] || bad "floor: only $ngold golden(s) under $EXP, below $GOLDENS_FLOOR -- a moved or emptied golden set"
 
-for g in $(comm -13 <(printf '%s\n' "$rows") <(printf '%s\n' "$goldens")); do
+# Each set difference is computed and its status read BEFORE its loop (Codex, gpt-6-astra,
+# F05-012#14): inside an unchecked `for g in $(comm ...)` a comm that failed without output ran
+# every loop zero times and the gate passed on the size floors alone.
+setdiff(){ comm "$1" <(printf '%s\n' "$2") <(printf '%s\n' "$3"); }
+orphans=$(setdiff -13 "$rows" "$goldens")       || infra "comm failed computing orphans"
+unmanif=$(setdiff -23 "$goldens" "$manifest")   || infra "comm failed computing unmanifested goldens"
+mmissing=$(setdiff -13 "$goldens" "$manifest")  || infra "comm failed computing manifest-missing entries"
+nogold=$(setdiff -23 "$rows" "$goldens")        || infra "comm failed computing rows with no golden"
+for g in $orphans; do
   bad "orphan: golden $g.txt names no row of tr12_repro.sh (a deleted or renamed row leaves it unread)"
 done
-for g in $(comm -23 <(printf '%s\n' "$goldens") <(printf '%s\n' "$manifest")); do
+for g in $unmanif; do
   bad "unmanifested: golden $g.txt is not listed in _MANIFEST.txt"
 done
-for g in $(comm -13 <(printf '%s\n' "$goldens") <(printf '%s\n' "$manifest")); do
+for g in $mmissing; do
   bad "manifest-missing: _MANIFEST.txt lists $g.txt, which is not on disk"
 done
 exempt=0
-for r in $(comm -23 <(printf '%s\n' "$rows") <(printf '%s\n' "$goldens")); do
+for r in $nogold; do
   toks=$(printf '%s\n' "$pairs" | awk -F'\t' -v r="$r" '$1==r && $2!="-" {print $2}' | sort -u)
   pinned=""
   for t in $toks; do grep -qx -- "$t" <<<"$skips" && pinned="$t"; done

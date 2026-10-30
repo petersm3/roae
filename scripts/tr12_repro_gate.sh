@@ -135,7 +135,7 @@ derived_inputs(){   # repo-relative files the battery and this gate reference, t
 # VERIFY.md is CORE because this gate EXECUTES the build command published in it: if that command
 # changes, this gate builds something else, and the stamp must not survive that.
 # 🔴 lib_binary_currency.sh is CORE because the battery SOURCES it:
-# `. "$SCRIPT_DIR/lib_binary_currency.sh"` (tr12_repro.sh:254). The derivation recovers only
+# `. "$SCRIPT_DIR/lib_binary_currency.sh"` (tr12_repro.sh:261). The derivation recovers only
 # "/lib_binary_currency.sh" from that -- a path that exists nowhere as written -- so the existence
 # filter dropped it and the fingerprint was blind to a file the battery EXECUTES. Measured by the
 # F-5 re-review 2026-09-09: mutate it and the fingerprint is byte-identical.
@@ -145,7 +145,7 @@ derived_inputs(){   # repo-relative files the battery and this gate reference, t
 # to bypass. The general case (the NEXT library sourced through a variable) is a real gap and is
 # queued, not silently closed by over-widening this.
 # reports/certificates/c3_positional_witnesses.txt is CORE for the same reason the sourced library
-# is: row a0_q4b READS it and GRADES ON ITS CONTENT (tr12_repro.sh:1311), and the derivation cannot
+# is: row a0_q4b READS it and GRADES ON ITS CONTENT (tr12_repro.sh:1332), and the derivation cannot
 # see it -- the regex covers .c/.py/.sh/.md, and widening it to .txt was MEASURED to sweep in
 # _GATE_STAMP.txt itself plus two enumeration artefacts. Naming the one file that matters is the
 # narrow fix; widening the grammar was the broad one that makes the stamp churn.

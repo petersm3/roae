@@ -141,7 +141,15 @@ case "$ALLOW" in
 esac
 if git cat-file -e ":$ALLOW" 2>/dev/null; then
   if ! _allow_txt=$(git show ":$ALLOW" 2>/dev/null) \
-     || ! approved=$(printf '%s\n' "$_allow_txt" | awk -F'\t' '!/^#/ && NF>=1 && $1!="" {print $1}'); then
+     || ! approved=$(printf '%s\n' "$_allow_txt" | awk -F'\t' '
+          # F05-014#4: a row approves only with all four fields -- path, approver, ISO date and the
+          # operator'"'"'s words. A bare path (one field) was an approval with no approval in it; any
+          # malformed row makes the whole allowlist unparseable (ERROR), never a silent approval.
+          !/^#/ && NF>=1 && $1!="" {
+            if (NF < 4 || $2 == "" || $3 !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/ || $4 == "") { bad++; next }
+            print $1
+          }
+          END { exit (bad > 0) }'); then
     echo "  [ERROR] $ALLOW is staged but could not be parsed — an unreadable allowlist is not an empty one"
     echo "SIZE_GATE_UNAPPROVED=-1"; echo "SIZE_GATE_LIMIT=$LIMIT"
     echo "SIZE_GATE_ERROR=allowlist-unparseable"; echo "SIZE_GATE=ERROR"; exit 2

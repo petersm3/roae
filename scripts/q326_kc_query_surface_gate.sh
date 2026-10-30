@@ -59,7 +59,7 @@ if [ -n "${Q326_QS_SOLVE:-}" ]; then
   # deliberately mutated solve.c, so a differing SOURCE_SHA is the point of them.
   . "$(cd "$(dirname "$0")" && pwd)/lib_binary_currency.sh"
   # cwd is the repo root (cd at the top of this file), so bare `solve.c` is unambiguous.
-  if [ "${Q326_QS_ALLOW_STALE-}" != "1" ] && ! solve_binary_currency "$SOLVE" solve.c; then
+  if [ "${Q326_QS_ALLOW_STALE-}" != "1" ] && ! solve_binary_currency_strict "$SOLVE" solve.c; then
     echo "  [ERROR] $BINCUR_MSG" >&2
     echo "          (set Q326_QS_ALLOW_STALE=1 to override, deliberately.)" >&2
     echo "Q326_QUERY_SURFACE=ERROR"; exit 2
@@ -76,7 +76,7 @@ fi
 "$SOLVE" --kc-g-build "$WORK/g" --f1-pairs 9 >"$WORK/bg.log" 2>&1 || fail "--kc-g-build failed"
 
 # 🔴 STAGE 2 OF 2 -- ASK THE BINARY, do not merely read its image. The near-twin
-# scripts/q326_kc_unrank_m0_gate.sh:62-66 compares solve.c's sha against the `source_sha=` the
+# scripts/q326_kc_unrank_m0_gate.sh:62-68 compares solve.c's sha against the `source_sha=` the
 # binary PRINTS in its --kc-record provenance trailer (solve.c emits it from -DSOURCE_SHA). That is
 # a stronger signal than lib_binary_currency.sh's image grep, because it is what the engine
 # BELIEVES about itself rather than a byte sequence that happens to be present somewhere in the
@@ -100,6 +100,14 @@ if [ "${Q326_QS_ALLOW_STALE-}" != "1" ]; then
   _QS_WANT=$(sha256sum solve.c 2>/dev/null | cut -d' ' -f1)
   _QS_GOT=$("$SOLVE" --kc-unrank "$WORK/f" 0 --kc-record 2>/dev/null \
             | sed -n 's/.*source_sha=\([0-9a-f]*\).*/\1/p' | awk 'NR==1{print}')
+  # A HANDED-IN binary must NAME this source (Codex, gpt-6-astra, F05-017#13): "unknown" or no
+  # report is absence, and absence establishes nothing about a binary this gate did not build.
+  if [ -n "${Q326_QS_SOLVE:-}" ] && [ "$_QS_GOT" != "$_QS_WANT" ]; then
+    echo "  [ERROR] the handed-in binary reports source_sha="$_QS_GOT" (empty if none; solve.c hashes to ${_QS_WANT:0:12}…)" >&2
+    echo "          -- only a binary that names this source can attest anything about it." >&2
+    echo "          (set Q326_QS_ALLOW_STALE=1 to override, deliberately.)" >&2
+    echo "Q326_QUERY_SURFACE=ERROR"; exit 2
+  fi
   if [ -n "$_QS_GOT" ] && [ "$_QS_GOT" != "unknown" ] && [ "$_QS_GOT" != "$_QS_WANT" ]; then
     echo "  [ERROR] the binary REPORTS source_sha=${_QS_GOT:0:12}… but solve.c hashes to ${_QS_WANT:0:12}…" >&2
     echo "          -- it was built from a different source and cannot attest anything about this one." >&2
@@ -139,8 +147,12 @@ legs(){ # legs <solve> -> L1..L13
   # item (4): T = 2^32 truncated to int 0 and enumerated NOTHING. T = 2^31 does NOT discriminate
   # at n=9 -- it truncates to INT_MIN, which reads as "no filter", and no filter and an enormous
   # T are the same answer here. Measured, not assumed.
-  n=$("$S" --kc-enum "$WORK/f" --kc-c3-max 4294967296 2>&1 | grep -oE 'enumerated [0-9]+' | grep -oE '[0-9]+')
-  { [ -n "$n" ] && [ "$n" = 26112 ]; } && echo "L8=OK" || echo "L8=BAD(walks=${n:-none})"
+  # The producer's own status is part of the verdict (Codex, gpt-6-astra, F05-017#11): a run that
+  # prints its summary and then exits nonzero (2, 124, 137, 143) is not a count.
+  local l8rc
+  "$S" --kc-enum "$WORK/f" --kc-c3-max 4294967296 >"$WORK/l8.out" 2>&1; l8rc=$?
+  n=$(grep -oE 'enumerated [0-9]+' "$WORK/l8.out" | grep -oE '[0-9]+')
+  { [ "$l8rc" = 0 ] && [ -n "$n" ] && [ "$n" = 26112 ]; } && echo "L8=OK" || echo "L8=BAD(walks=${n:-none},rc=$l8rc)"
   # item (5): every malformed vector refused, with the message naming the repeat
   local bad5=0 seen5=0
   while read -r B; do

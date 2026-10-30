@@ -268,8 +268,10 @@ REVIEWED = {
         ('1', 'reviewed:list-already-omits-the-nonexistent-file'),
     ('documentation/CITATIONS.md', 'c179c688913d'):
         ('1', 'reviewed:sentence-already-says-KW-sits-at-the-C3-ceiling'),
-    ('documentation/CITATIONS.md', 'c3aa04002a63'):
-        ('1', 'reviewed:line-already-gives-the-2-4-6-multiset'),
+    # G5c: CITATIONS.md c3aa04002a63 (line 403) and TR12_QUERY_PROGRAM.md 2c1d251a6490 (line 892) are now class 3
+    # (the stricter citation gate and the claim ledger's percentage check see their removal), so their class-1
+    # keys are removed rather than left to warn; so are the four DISTRIBUTIONAL_ANALYSIS.md / SOLVE_C_CLI.md
+    # content-rule population rows, whose weak-pin list no longer names those files.
     ('documentation/CITATIONS.md', 'cdcd6af5e472'):
         ('1', 'reviewed:entry-already-drops-the-edition-claim'),
     ('documentation/CITATIONS.md', 'd37205177895'):
@@ -338,7 +340,9 @@ REVIEWED = {
     ('documentation/DEVELOPMENT.md', 'd4dcb7a62cd6'):
         ('1', 'reviewed:text-already-separates-count-matching-and-set-matching-K'),
     # re-keyed CX-321 (was 3692591963d4): only line-number cites on the line moved; re-read, same verdict.
-    ('documentation/DEVELOPMENT.md', '101ff3a81dd7'):
+    # re-keyed G5c (was 101ff3a81dd7): only line-number cites on the line moved (the re-pinned tr12_repro.sh
+    # citations); re-read, same verdict.
+    ('documentation/DEVELOPMENT.md', 'b08605ff1e95'):
         ('1', 'reviewed:ordinary-present-tense-prose;not-a-correction-note'),
     ('documentation/DISTRIBUTIONAL_ANALYSIS.md', '0a25a691f691'):
         ('1', 'reviewed:bullet-already-credits-C5'),
@@ -867,8 +871,6 @@ REVIEWED = {
     # re-keyed batch 35 (was 2b2404425aa0): Q-944 added the replay check to the cell; re-read, still class 1.
     ('reports/TR12_QUERY_PROGRAM.md', '15f88f5e990f'):
         ('1', 'reviewed:cell-already-says-the-2026-07-21-run-is-attested-and-names-its-replay-check'),
-    ('reports/TR12_QUERY_PROGRAM.md', '2c1d251a6490'):
-        ('1', 'reviewed:text-already-gives-the-TV-distance-and-cell-range'),
     ('reports/TR12_QUERY_PROGRAM.md', '2e4dad3aee80'):
         ('1', 'reviewed:text-already-describes-what-the-row-delivers'),
     ('reports/TR12_QUERY_PROGRAM.md', '3615257e9c26'):
@@ -1202,22 +1204,14 @@ REVIEWED = {
     # file(s) named. The two findings no line could name are tied by SOLO_ANCHORED below.
     ('-', 'pop:CITATION LINE GATE'):
         ('n/a', 'reviewed:summary-counts-only;legB-all-targets-and-excluded-counts-fall-with-citations-written-inside-deleted-spans;legA-A2-summary-moves-on-any-edit;verdict-tokens-follow-FAILs-already-tied-by-line'),
-    ('documentation/DISTRIBUTIONAL_ANALYSIS.md', 'pop:CITATION LINE GATE'):
-        ('n/a', 'reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;one-file-runs-of-SOLVE_C_CLI.md-and-SOLVE_PY_CLI.md-print-it;their-citing-markers-are-class-3-by-line'),
     ('documentation/SOLVE.md', 'pop:CITATION LINE GATE'):
         ('n/a', 'reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE.md-one-file-run-prints-it;SOLVE.md-markers-are-class-3-by-line'),
-    ('documentation/SOLVE_C_CLI.md', 'pop:CITATION LINE GATE'):
-        ('n/a', 'reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE_C_CLI.md-one-file-run-prints-it;its-citing-markers-are-class-3-by-line'),
     ('documentation/SOLVE_PY_CLI.md', 'pop:CITATION LINE GATE'):
         ('n/a', 'reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE_PY_CLI.md-one-file-run-prints-it;its-citing-markers-are-class-3-by-line'),
     ('-', 'pop:GATE 2c'):
         ('n/a', 'reviewed:summary-counts-of-the-embedded-citation-run-only;counts-fall-with-citations-inside-deleted-spans;legA2-moves-on-any-edit;FAILs-already-tied-by-line'),
-    ('documentation/DISTRIBUTIONAL_ANALYSIS.md', 'pop:GATE 2c'):
-        ('n/a', 'reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;one-file-runs-of-SOLVE_C_CLI.md-and-SOLVE_PY_CLI.md-print-it;their-citing-markers-are-class-3-by-line'),
     ('documentation/SOLVE.md', 'pop:GATE 2c'):
         ('n/a', 'reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE.md-one-file-run-prints-it;SOLVE.md-markers-are-class-3-by-line'),
-    ('documentation/SOLVE_C_CLI.md', 'pop:GATE 2c'):
-        ('n/a', 'reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE_C_CLI.md-one-file-run-prints-it;its-citing-markers-are-class-3-by-line'),
     ('documentation/SOLVE_PY_CLI.md', 'pop:GATE 2c'):
         ('n/a', 'reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE_PY_CLI.md-one-file-run-prints-it;its-citing-markers-are-class-3-by-line'),
     ('documentation/SOLVE_C_CLI.md', 'pop:GATE 2'):
@@ -1441,12 +1435,20 @@ def ablate(root):
         open(p, 'w', encoding='utf-8').write(new); n += len(cut)
     return n
 
+VERDICT_SEC = '(doc-gates verdict)'
 def sections(path):
     """[(section header, line)] for a gate log; header = the last `== … ==` line above."""
     res = []; cur = '(preamble)'
     for l in open(path, encoding='utf-8', errors='replace').read().split('\n'):
         if re.match(r'^== .* ==$', l):
             cur = l.strip()
+        elif l.startswith('DOC GATES: '):
+            # the run's verdict and its fixed footer prose (which quotes `[FAIL]`/`[WARN]`/`[note]`) belong
+            # to no gate; it used to be read as part of the LAST section, so an ablation that turned the
+            # verdict from PASS to FINDINGS made the vanished footer lines file-less "findings" of that
+            # gate (G5c rebuild on 0df730cb: three UNATTRIBUTED lines under GATE 89). The verdict itself
+            # is read separately (the status and `DOC GATES: (PASS|FINDINGS)` checks below).
+            cur = VERDICT_SEC
         res.append((cur, l))
     return res
 
@@ -1511,28 +1513,61 @@ def attribute(base, abl):
     def load(f):
         if f not in src:
             src[f] = open(f, encoding='utf-8').read().split('\n'); blk[f] = blocks(src[f])
-    linehit = set(); deferred = []
+    linehit = set(); deferred = []; untied = []; section_only = []
     def tag(r, leg, sec, line=''):
         r.setdefault('legs', set()).add(leg); attributed[sec] = 1
         if '[FAIL]' in line: r.setdefault('red', set()).add(leg)
         if not leg.endswith('(file)'): linehit.add((sec, r['file']))
+    # F06-002#3: the changes are BOTH directions. A base line that vanished after the ablation (a
+    # diagnostic the markers' removal silenced) is a gate dependency exactly as a new line is; it used
+    # to be left in the baseline Counter and never examined. Each vanished line is accounted the same way.
+    al = Counter(l for (_, l) in sections(abl))
+    gone = []
+    for (sec, l) in sections(base):
+        if al[l] > 0: al[l] -= 1; continue
+        gone.append((sec, l))
+    goneset = set(gone)
+    newl = []
     for (sec, l) in sections(abl):
         if bl[l] > 0: bl[l] -= 1; continue
+        newl.append((sec, l))
+    for (sec, l) in newl + gone:
+        if sec == VERDICT_SEC: continue
         leg = sec.strip('= ').split(':')[0]
         if leg in ANY_EDIT: anyedit.add(sec); continue
+        finding = bool(re.search(r'\[(FAIL|note|WARN|NEW|REPIN|inhunk)\]', l))
+        # a vanished COUNT line is the other half of a count that moved, which its new line already
+        # reports as a population change; a vanished FINDING is accounted like a new one
+        if (sec, l) in goneset and not finding: continue
         changed[sec] = changed.get(sec, 0) + 1
         cites = [(f, n) for (f, n) in CITE.findall(l)] + [(f, n) for (n, f) in CITE2.findall(l)]
-        hit = False
+        hit = False; ntag = 0
         for (f, n) in cites:
             f = resolve(f)
             if f is None: continue
+            # a file with no marker line cannot explain a diagnostic by line (CORRECTIONS.md's own
+            # lines quoted by GATE 94, say): such a cite is judged like a line naming no file
+            if not any(r['kind'] in ('marker', 'narration') for r in by[f]): continue
             n = int(n); load(f); hit = True
             lo, hi = blk[f].get(n, (n, n))
             for r in by[f]:
                 if r['kind'] not in ('marker', 'narration'): continue
                 if r['line'] <= n <= r['end'] or (lo <= r['line'] <= hi) or (r['line'] <= hi and r['end'] >= lo):
-                    tag(r, leg, sec, l)
-        if hit: continue
+                    tag(r, leg, sec, l); ntag += 1
+        if ntag: continue
+        if (sec, l) in goneset:
+            # a vanished finding is tied by its cited LINE only, never spread over a file: untied with a
+            # citation of a marker-bearing file, else explained only by its section's own ties (below)
+            (untied if hit else section_only).append((sec, l)); continue
+        # F06-002#4: a resolved citation that no marker covers explained NOTHING. It used to set hit and
+        # stop, so the diagnostic vanished whenever another line of its section tagged a marker. A
+        # finding of that shape is UNATTRIBUTED, line by line; a count line is a population change.
+        if hit:
+            if finding: untied.append((sec, l))
+            else:
+                for f in (set(MDPATH.findall(l)) or {'-'}):
+                    pop.add((sec, resolve(f) or '-'))
+            continue
         # the citation gate's pin form `CITING.md->TARGET[key]`: the CITING line's text changed, so
         # the marker in CITING whose block holds `key` is the one the pin rests on.
         for (f, key) in ARROW.findall(l):
@@ -1541,11 +1576,13 @@ def attribute(base, abl):
             load(f); hit = True
             ms = [r for r in by[f] if r['kind'] in ('marker', 'narration')]
             near = [r for r in ms if key in '\n'.join(src[f][blk[f].get(r['line'], (r['line'], r['end']))[0]-1:max(blk[f].get(r['line'], (0, r['end']))[1], r['end'])])]
-            for r in (near or ms): tag(r, leg if near else leg + '(file)', sec, l)
-        if hit: continue
+            for r in (near or ms): tag(r, leg if near else leg + '(file)', sec, l); ntag += 1
+        if hit:
+            if not ntag and finding: untied.append((sec, l))
+            continue
         # a COUNT line ([ok]/[info]/[cite]/[measured]/scanned …) naming no finding: the gate's
         # population moved. Recorded per section (and file, when one is named), not per marker.
-        if not re.search(r'\[(FAIL|note|WARN|NEW|REPIN|inhunk)\]', l):
+        if not finding:
             for f in (set(MDPATH.findall(l)) or {'-'}):
                 pop.add((sec, resolve(f) or '-'))
             continue
@@ -1556,6 +1593,7 @@ def attribute(base, abl):
     # that names a file the same section already tied to a marker by line (the citation gate's
     # `[inhunk]`/`[REPIN]` lines, then its `leg A2` summary naming the same pair) is explained by
     # them, and is not spread over every other marker in that file.
+    deferred_untied = []
     for (sec, leg, l) in deferred:
         # GATE 4b's stale-row form `SRC.md -> TGT.md §"key"` (Q-937): the row exempted a reference
         # written in SRC, so the marker it rests on is the one in SRC whose block names TGT's file
@@ -1575,9 +1613,12 @@ def attribute(base, abl):
         if near:
             for r in near: tag(r, leg, sec, l)
             continue
+        explained = False; resolvable = False
         for f in set(MDPATH.findall(l)):
             f = resolve(f)
-            if f is None or (sec, f) in linehit: continue
+            if f is None or not any(r['kind'] in ('marker', 'narration') for r in by[f]): continue
+            resolvable = True
+            if (sec, f) in linehit: explained = True; continue
             load(f)
             ms = [r for r in by[f] if r['kind'] in ('marker', 'narration')]
             qs = QUOTE.findall(l)
@@ -1586,10 +1627,14 @@ def attribute(base, abl):
                 lo, hi = blk[f].get(r['line'], (r['line'], r['end']))
                 t = '\n'.join(src[f][lo-1:max(hi, r['end'])])
                 if any(q in t for q in qs): near.append(r)
-            for r in (near or ms): tag(r, leg if near else leg + '(file)', sec, l)
+            for r in (near or ms): tag(r, leg if near else leg + '(file)', sec, l); explained = True
+        # a finding that names no inventoried file (a section summary, or a ledger line) is explained by
+        # its section's own ties when the section has any; with none it stays UNATTRIBUTED (F06-002#5)
+        if not explained and not resolvable: section_only.append((sec, l)); continue
+        if not explained: deferred_untied.append((sec, l))
     # third pass (Q-936 (a)): a finding no line or file could tie, named by the one-file ablation.
     legs_changed = {sec.strip('= ').split(':')[0]: sec for sec in changed}
-    seen_solo = set()
+    seen_solo = set(); solo_secs = set()
     for r in rows:
         k = (r['file'], r['sha'])
         if k not in SOLO_ANCHORED or r['kind'] not in ('marker', 'narration'): continue
@@ -1598,11 +1643,21 @@ def attribute(base, abl):
         if leg not in legs_changed:
             print('SOLO_ANCHORED key: %s %s — %s did not change in this run (re-measure it)' % (k + (leg,)), file=sys.stderr); continue
         r.setdefault('legs', set()).add(leg + '(solo)'); r['solo'] = why; attributed[legs_changed[leg]] = 1
+        solo_secs.add(legs_changed[leg])
     for k in sorted(set(SOLO_ANCHORED) - seen_solo):
         print('SOLO_ANCHORED key matches no marker line (re-read it): %s %s' % k, file=sys.stderr)
+    # F06-002#4/#5: a FINDING no marker explains stays UNATTRIBUTED by itself, and is never handed to
+    # the population table, whose reviewed (file, gate) verdicts describe count changes only. Before,
+    # a section with one tagged line hid its other findings, and an untagged section became a
+    # population pair that a historical "count moved; no-finding" review could clear.
+    untied += [x for x in deferred_untied if x[0] not in solo_secs]
+    # a finding that names no marker-bearing file is explained by its section's ties when the section
+    # has any (judged after every pass, so line order does not matter); with none it stays UNATTRIBUTED
+    untied += [x for x in section_only if x[0] not in attributed]
     unattr = sorted(s for s in changed if s not in attributed)
-    pop |= {(s, '-') for s in unattr if not any(p[0] == s for p in pop)}
-    return rows, unattr, sorted(anyedit), sorted(pop)
+    untied_secs = {s for (s, _) in untied}
+    pop |= {(s, '-') for s in unattr if s not in untied_secs and not any(p[0] == s for p in pop)}
+    return rows, unattr, sorted(anyedit), sorted(pop), sorted(set(untied))
 
 def pop_rows(pop):
     """(table lines, unattributed pairs, stale pop keys) for the population pairs of a run. A pair
@@ -1646,7 +1701,7 @@ if mode == 'list':
 elif mode == 'ablate':
     os.chdir(sys.argv[2]); print(ablate('.'))
 elif mode == 'attribute':
-    rows, unattr, anyedit, pop = attribute(sys.argv[2], sys.argv[3])
+    rows, unattr, anyedit, pop, untied = attribute(sys.argv[2], sys.argv[3])
     g27 = sum(1 for r in rows if any(x.startswith('GATE 27') for x in r.get('legs', ())))
     emit(rows, True)
     # a changed gate section no marker line could be tied to: the gate's POPULATION moved (a count
@@ -1659,7 +1714,8 @@ elif mode == 'attribute':
         print('\t'.join(['-', '-', 'any-edit', '-', 'n/a', s.strip('= ').split(':')[0], 'fires-on-any-edit', '-']))
     for k in stale: print('REVIEWED population key matches no population row (re-measure it): %s %s' % k, file=sys.stderr)
     for (s, f) in unattr_pop: print('UNATTRIBUTED\t%s\t%s' % (s, f), file=sys.stderr)
-    print('G27=%d UNATTR=%d POP=%d MARKERS=%d' % (g27, len(unattr_pop), len(pop), sum(1 for r in rows if r['kind'] in ('marker', 'narration'))), file=sys.stderr)
+    for (s, l) in untied: print('UNATTRIBUTED\t%s\tfinding: %s' % (s, l.strip()[:160]), file=sys.stderr)
+    print('G27=%d UNATTR=%d POP=%d MARKERS=%d' % (g27, len(unattr_pop) + len(untied), len(pop), sum(1 for r in rows if r['kind'] in ('marker', 'narration'))), file=sys.stderr)
 elif mode == 'selftest':
     ok = True
     def chk(name, got, want):
@@ -1707,6 +1763,7 @@ elif mode == 'selftest':
     chk('ablation keeps every newline and deletes span + phrase', open('A.md').read(), 'one \n two\nthe text  y\nthree  four\n')
     chk('HISTORY.md is never ablated', open('HISTORY.md').read(), t)
     print('CORRECTION_MARKER_INVENTORY_SELFTEST=' + ('PASS' if ok else 'FAIL'))
+    sys.exit(0 if ok else 1)   # F06-002#9: a failed known answer is a failed process, not just a word
 PY
 }
 
@@ -1760,12 +1817,31 @@ snapshot "$W/base" || { echo "CORRECTION_MARKER_INVENTORY=ERROR copy-failed base
 cp -a "$W/base" "$W/abl" || { echo "CORRECTION_MARKER_INVENTORY=ERROR copy-failed abl" >&2; exit 2; }
 N=$(core ablate "$W/abl") || { echo "CORRECTION_MARKER_INVENTORY=ERROR ablate-failed" >&2; exit 2; }
 [ "${N:-0}" -gt 0 ] || { echo "CORRECTION_MARKER_INVENTORY=ERROR no-markers-ablated" >&2; exit 2; }
+# F06-002#2 / F05-011#21: each child's exit status is collected (a bare `wait` returns 0 whatever the
+# children did), each gate must exit with a verdict status (findings or none -- never a crash, a timeout
+# or a kill), and each log must END in its gate's own verdict: a run cut short after its early
+# sections satisfied every completion predicate before.
+pids=()
 for c in base abl; do
-  ( cd "$W/$c" && { bash scripts/doc_gates.sh; echo '== CITATION LINE GATE =='; bash scripts/citation_line_gate.sh --all-files --all-targets; } > "$W/$c.log" 2>&1 ) &
+  ( cd "$W/$c" && { bash scripts/doc_gates.sh; echo $? > "$W/$c.rc_doc"; echo '== CITATION LINE GATE =='
+                    bash scripts/citation_line_gate.sh --all-files --all-targets; echo $? > "$W/$c.rc_cite"; } > "$W/$c.log" 2>&1 ) &
+  pids+=($!)
 done
-wait
+for i in 0 1; do
+  wait "${pids[$i]}"; wrc=$?
+  [ "$wrc" -eq 0 ] || { echo "CORRECTION_MARKER_INVENTORY=ERROR gate-run-failed child rc=$wrc" >&2; exit 2; }
+done
 for c in base abl; do
   grep -q '^== GATE 1:' "$W/$c.log" || { echo "CORRECTION_MARKER_INVENTORY=ERROR gate-run-empty $c" >&2; exit 2; }
+  # A verdict, clean or not: doc_gates.sh exits 0 or 1; the citation gate 0 (PASS) or 40 (FAIL), 41 is its ERROR.
+  r=$(cat "$W/$c.rc_doc" 2>/dev/null)
+  case "$r" in 0|1) ;; *) echo "CORRECTION_MARKER_INVENTORY=ERROR gate-run-failed $c doc_gates rc=${r:-none}" >&2; exit 2 ;; esac
+  r=$(cat "$W/$c.rc_cite" 2>/dev/null)
+  case "$r" in 0|40) ;; *) echo "CORRECTION_MARKER_INVENTORY=ERROR gate-run-failed $c citation_line_gate rc=${r:-none}" >&2; exit 2 ;; esac
+  grep -qE '^DOC GATES: (PASS|FINDINGS)' "$W/$c.log" \
+    || { echo "CORRECTION_MARKER_INVENTORY=ERROR gate-run-unfinished $c doc_gates printed no final verdict" >&2; exit 2; }
+  [ "$(sed -n '/^== CITATION LINE GATE ==$/,$p' "$W/$c.log" | grep -cE '^CITATION_LINE_GATE=(PASS|FAIL)$')" = 1 ] \
+    || { echo "CORRECTION_MARKER_INVENTORY=ERROR gate-run-unfinished $c the citation gate printed no single final verdict" >&2; exit 2; }
 done
 core attribute "$W/base.log" "$W/abl.log" > "$W/out.tsv" 2> "$W/err" || { cat "$W/err" >&2; echo "CORRECTION_MARKER_INVENTORY=ERROR attribute-failed" >&2; exit 2; }
 cat "$W/err" >&2
@@ -1774,7 +1850,15 @@ G27=$(sed -n 's/^G27=\([0-9]*\) .*/\1/p' "$W/err")
 if [ "${G27:-0}" -eq 0 ]; then
   echo "CORRECTION_MARKER_INVENTORY=ERROR positive-control: no GATE 27 attribution, the ablation saw nothing" >&2; exit 2
 fi
-if [ "$MODE" = --stdout ]; then cat "$W/out.tsv"; else cp "$W/out.tsv" "$OUT"; echo "-> $OUT ($(($(wc -l < "$OUT") - 1)) rows)" >&2; fi
+if [ "$MODE" = --stdout ]; then
+  cat "$W/out.tsv" || { echo "CORRECTION_MARKER_INVENTORY=ERROR write-failed" >&2; exit 2; }
+else
+  # F06-002#8: the publication copy is checked; a failed cp used to print the old file's row count
+  # and COMPLETE over stale bytes.
+  cp "$W/out.tsv" "$OUT" && cmp -s "$W/out.tsv" "$OUT" \
+    || { echo "CORRECTION_MARKER_INVENTORY=ERROR write-failed $OUT" >&2; exit 2; }
+  echo "-> $OUT ($(($(wc -l < "$OUT") - 1)) rows)" >&2
+fi
 if grep -q '^UNATTRIBUTED' "$W/err"; then
   echo "CORRECTION_MARKER_INVENTORY=INCOMPLETE" >&2
 else

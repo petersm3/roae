@@ -86,6 +86,7 @@ elif mode=='near':  # G5a (Codex F05-019#2): chi2 = 38.56, just above the 37.70 
 elif mode=='one':   ranks=[7]*1000
 elif mode=='overN': ranks=[(i*N)//1000 for i in range(999)]+[N]
 elif mode=='empty': ranks=[]
+elif mode=='neg':   ranks=[(i*N)//1000 for i in range(999)]+[-1]
 with open(out,'w') as f:
     f.write('[f1] header line the row must ignore\n')
     for r in ranks:
@@ -105,7 +106,7 @@ k=len(ranks); S=sum(c*c for c in h)
 print("%d/%d" % (16*S-k*k, k))
 PY
 }
-for m in grid edge t4 near one overN empty; do d="$WORK/g_$m"; mkdir -p "$d"; mkgal "$d/q8_super.tsv" "$m"; done
+for m in grid edge t4 near one overN empty neg; do d="$WORK/g_$m"; mkdir -p "$d"; mkgal "$d/q8_super.tsv" "$m"; done
 mkdir -p "$WORK/g_n9"; cp "$GOLD_GALLERY" "$WORK/g_n9/q8_super.tsv"
 
 run(){ # run <harness> <galdir> <N> <k> -> rc; stdout in $WORK/last.out
@@ -135,6 +136,10 @@ verdict(){ # verdict <harness>; 0 iff every leg behaves
     || { echo "    leg 5 (rank == N) rc=$rc: accepted a rank outside [0,N)"; return 1; }
   rc=$(run "$h" "$WORK/g_empty" "$N" 1000)
   [ "$rc" = 1 ] || { echo "    leg 6 (empty gallery) rc=$rc"; return 1; }
+  # leg 9 (Codex, gpt-6-astra, F05-019#3): 999 valid ranks and one `-1` must not be graded on the 999
+  rc=$(run "$h" "$WORK/g_neg" "$N" 1000)
+  [ "$rc" = 1 ] && grep -q '^Q8_CHI2_FAIL' "$WORK/last.out" \
+    || { echo "    leg 9 (a negative draw among 999 valid ones) rc=$rc: the malformed draw was dropped, not refused"; return 1; }
   rc=$(run "$h" "$WORK/g_n9" 26112 200)
   [ "$rc" = 0 ] && cmp -s "$WORK/last.out" "$GOLD_CHI2" \
     || { echo "    leg 7 (n=9 golden) rc=$rc or transcript drifted from $GOLD_CHI2"; return 1; }
@@ -142,7 +147,7 @@ verdict(){ # verdict <harness>; 0 iff every leg behaves
 }
 
 mk "$WORK/base.sh" "$WORK/row.sh"
-verdict "$WORK/base.sh" || fail "baseline: the committed row does not behave on one of the eight legs (see above)"
+verdict "$WORK/base.sh" || fail "baseline: the committed row does not behave on one of the nine legs (see above)"
 
 # Mutants. Each is a sed rewrite of the extracted row and MUST turn a leg red. A sed that does not
 # change the row is itself a failure: it would be a mutant identical to the baseline.
@@ -178,5 +183,7 @@ mutant M6_bar_tenfold 's/3770\*\$k/37700*$k/'
 mutant M4_no_range_check 's/b<0 || b>15/b<0/; s/\[ "\$CSUM" = "\$k" \]/true/'
 # M5: 15 buckets in the numerator
 mutant M5_wrong_numerator 's/16\*\$S - \$k\*\$k/15*$S - $k*$k/'
-echo "  [gate] baseline PASS on 8 legs; 6/6 mutants killed"
+# M6n: the malformed-draw and requested-count guards both dropped (F05-019#3)
+mutant M6n_malformed_draws_dropped 's/\[ "\$nmal" -eq 0 \]/true/; s/\[ "\$k" = "\$Q8K" \]/true/'
+echo "  [gate] baseline PASS on 9 legs; 7/7 mutants killed"
 echo "D5_02_Q8_CHI2_GALLERY_GATE=PASS"

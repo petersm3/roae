@@ -68,6 +68,8 @@ set -uo pipefail
 
 PAIRS=${CLIDECL_PAIRS:-"solve.py=documentation/SOLVE_PY_CLI.md roae.py=documentation/ROAE_PY_CLI.md verify.py=documentation/VERIFY.md"}
 
+# The interpreter's own exit status is read (Codex, gpt-6-astra, F05-012#1): a child that printed
+# RESULT PASS and was then killed (137) or failed used to become CLI_DECL_METADATA=PASS.
 out=$(python3 - $PAIRS <<'CLIDECL_PY'
 import ast, re, sys
 from decimal import Decimal, InvalidOperation
@@ -106,13 +108,23 @@ def resolve(node, consts):
         pass
     if isinstance(node, ast.Name) and node.id in consts:
         return consts[node.id]
-    # A numeric wrapper type called on one literal (solve.py's _ExactAnchor("2.0")): the value
-    # the user sees is the literal.
+    # A KNOWN conversion called on one literal is evaluated as that conversion (Codex, gpt-6-astra,
+    # F05-012#3: every one-argument call used to be read as its literal, so `int(0.001)` -- which is
+    # 0 -- was graded as 0.001). The numeric wrappers (solve.py's _ExactAnchor("2.0"), Decimal) show
+    # the user the literal; int/float/str are applied; any other call is unresolved, never guessed.
     if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and len(node.args) == 1
             and not node.keywords):
         try:
             v = ast.literal_eval(node.args[0])
-            return Decimal(str(v))
+            fn = node.func.id
+            if fn in ("_ExactAnchor", "Decimal"):
+                return Decimal(str(v))
+            if fn == "int":
+                return int(v)
+            if fn == "float":
+                return float(v)
+            if fn == "str":
+                return str(v)
         except (ValueError, TypeError, SyntaxError, InvalidOperation):
             pass
     return Unresolved(ast.unparse(node))
@@ -151,6 +163,16 @@ def extract_decls(path):
             pk = parser_key(n)
             hi0, dvs = positionals.get(pk, (0, []))
             positionals[pk] = (hi0 + hi, dvs + ([dv] if dv is not None else []))
+    # parser.set_defaults(dest=value) OVERRIDES the add_argument default (Codex, gpt-6-astra,
+    # F05-012#4); a doc must state the value the parser really ends up with.
+    overrides = {}
+    for n in ast.walk(tree):
+        if (isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+                and n.func.attr == "set_defaults"):
+            pk = parser_key(n)
+            for k in n.keywords:
+                if k.arg:
+                    overrides.setdefault(pk, {}).setdefault(k.arg, []).append((n.lineno, resolve(k.value, consts)))
     for n in ast.walk(tree):
         if not (isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
                 and n.func.attr == "add_argument" and n.args):
@@ -180,6 +202,16 @@ def extract_decls(path):
             default = resolve(kw["default"], consts)
         else:
             default = False if action == "store_true" else (True if action == "store_false" else None)
+        dest = resolve(kw["dest"], consts) if "dest" in kw else longs[0][2:].replace("-", "_")
+        # ORDER matters (Codex CX-35W-D, Fable triage G5c #13): argparse copies a set_defaults value into an
+        # add_argument that has NO explicit default, and a later set_defaults updates the action -- but an
+        # explicit `default=` given AFTER set_defaults wins. So a set_defaults applies when the call has no
+        # explicit default or when it comes later (by source line); the last applicable one is the value.
+        ov = overrides.get(parser_key(n), {})
+        if isinstance(dest, str) and dest in ov:
+            app = [(ln, v) for ln, v in ov[dest] if "default" not in kw or ln > n.lineno]
+            if app:
+                default = max(app, key=lambda t: t[0])[1]
         choices = resolve(kw["choices"], consts) if "choices" in kw else None
         if choices is not None and not isinstance(choices, Unresolved):
             choices = [str(x) for x in choices]
@@ -219,6 +251,17 @@ def parse_grammar(seg):
         if core.startswith("--") and FLAG_RE.fullmatch(core.split("=")[0]):
             cur = [core.split("=")[0], 0, 0, [], []]
             res.append(cur)
+            # An ATTACHED operand (`--flag=VALUE`, `--flag=a|b`) is the flag's argument, not noise
+            # (Codex, gpt-6-astra, F05-012#2): it counts toward the arity, and a choice list or a
+            # concrete value attached this way is graded like a separate one.
+            if "=" in core:
+                att = core.split("=", 1)[1].strip("<>`")
+                if att:
+                    cur[1] += 1; cur[2] += 1
+                    if "|" in att:
+                        cur[3].append([x.strip("<>[]`") for x in att.split("|") if x.strip("<>[]`")])
+                    else:
+                        cur[4].append(att)
             continue
         if cur is None:
             continue
@@ -623,12 +666,17 @@ for f in findings:
     out("BAD", f)
 out("RESULT", "FAIL" if findings else "PASS")
 CLIDECL_PY
-)
+); pyrc=$?
 
 printf '%s\n' "$out" | sed -n 's/^INFO /  [info] /p'
 [ -n "${CLIDECL_DEBUG:-}" ] && printf '%s\n' "$out" | grep '^DEBUG'
 
-if grep -q '^ERROR' <<<"$out" || ! grep -qE '^RESULT (PASS|FAIL)$' <<<"$out"; then
+if [ "$pyrc" -ne 0 ]; then
+  echo "  [FAIL] the declaration-metadata checker exited $pyrc -- whatever it printed is not a completed measurement"
+  echo "CLI_DECL_METADATA=ERROR"
+  exit 2
+fi
+if grep -q '^ERROR' <<<"$out" || [ "$(grep -cE '^RESULT (PASS|FAIL)$' <<<"$out")" -ne 1 ]; then
   printf '%s\n' "$out" | sed -n 's/^ERROR /  [FAIL] /p'
   echo "  [FAIL] declaration-metadata leg measured NOTHING trustworthy (see above) — this is not agreement"
   echo "CLI_DECL_METADATA=ERROR"

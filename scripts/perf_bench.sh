@@ -23,9 +23,13 @@
 #     runs, and the flush is VERIFIED, not assumed: each run reports
 #     CONFIRMED / FAILED / UNVERIFIED and the script refuses to certify a
 #     bench whose flush was not CONFIRMED for both builds.
-#   - Enum-only wall time captured around the `--branch` command, BEFORE
-#     `--merge`. Merge wall is captured separately as a correctness-gate cost,
-#     not a perf metric.
+#   - Wall time captured around the `--branch` command, BEFORE `--merge`
+#     (`enum_wall_ns`). It is NOT enumeration-only (F04-022#2): `--branch`
+#     returns only after it has reloaded its shards, sorted, deduplicated,
+#     written, gzip-checked and hashed its branch output -- SOLVE_SKIP_AUTOMERGE
+#     is read on the normal-enumeration path, not this one. The JSON says so in
+#     `enum_wall_scope`. Merge wall is captured separately as a correctness-gate
+#     cost, not a perf metric.
 #   - `sha` and `records` are LOGICAL (added 2026-09-02): solutions.bin is
 #     gz-framed by default (SOLUTIONS_FORMAT.md "On-disk framing"), so the
 #     gzip magic is sniffed and the hash and byte count are taken over the
@@ -334,6 +338,9 @@ $SSH "$ADMIN@$VM_IP" "
             PROBE_DETAIL=min_\${1}_avg_\${2}_max_\${3}_mhz_over_\${4}_samples_\${NC}_cores_burn_${BURN_SECS}s_threshold_${THROTTLE_MIN_MHZ}
             if [ $BURN_SECS -lt $BURN_FLOOR ]; then
                 PROBE=UNVERIFIED; PROBE_DETAIL=burn-too-short-\${PROBE_DETAIL}
+            elif [ \"\${4:-0}\" -lt \"\$NC\" ]; then
+                # F12-016#3: one readable core must not certify the other NC-1. Every core is sampled or none is.
+                PROBE=UNVERIFIED; PROBE_DETAIL=partial-samples-\${PROBE_DETAIL}
             elif [ \"\$1\" -ge $THROTTLE_MIN_MHZ ]; then PROBE=HEALTHY
             else PROBE=THROTTLED; fi
         fi
@@ -364,9 +371,9 @@ if [ "$THROTTLE_PROBE" != HEALTHY ]; then
 fi
 
 # ---------- paired run ----------
-emit "STEP 3: Paired enum-only runs"
+emit "STEP 3: Paired enum-only runs"   # progress label only; enum_wall_scope in the JSON states what is timed
 
-# Single function: page-cache-flushed run, captures enum_wall (not merge)
+# Single function: page-cache-flushed run, captures enum_wall (the whole --branch run; not the later --merge)
 # Args: $1 = build label (N or U), $2 = node limit
 run_enum_only() {
     local BUILD=$1
@@ -443,8 +450,10 @@ run_enum_only() {
                 CSHA=\$(sha256sum solutions.bin | awk '{print \$1}')
                 if [ \"\$(head -c 2 solutions.bin | od -An -tx1 | tr -d ' \\n')\" = 1f8b ]; then
                     FRAMING=gzip
-                    LSHA=\$(gzip -dc solutions.bin | sha256sum | awk '{print \$1}'); R1=\${PIPESTATUS[0]}
-                    LBYTES=\$(gzip -dc solutions.bin | wc -c); R2=\${PIPESTATUS[0]}
+                    # F04-016#3 / F04-022#3: PIPESTATUS after an assignment describes the assignment, not
+                    # the pipeline inside the substitution; the status is taken inside it, under pipefail.
+                    LSHA=\$(set -o pipefail; gzip -dc solutions.bin | sha256sum | awk '{print \$1}'); R1=\$?
+                    LBYTES=\$(set -o pipefail; gzip -dc solutions.bin | wc -c); R2=\$?
                     if [ \"\$R1\" -ne 0 ] || [ \"\$R2\" -ne 0 ]; then LSHA=DECOMPRESS-FAILED; LBYTES=; fi
                 else
                     FRAMING=raw
@@ -620,6 +629,7 @@ cat <<EOF
   "throttle_probe": "$THROTTLE_PROBE",
   "throttle_probe_detail": "$THROTTLE_DETAIL",
   "methodology_valid": $([ "$METHODOLOGY_OK" -eq 1 ] && echo true || echo false),
+  "enum_wall_scope": "the --branch run end to end: enumeration plus its own shard reload, sort, dedupe, output write, gzip check and hash; not enumeration-only",
   "sha_scope": "logical (decompressed stream; gzip -dc solutions.bin | sha256sum when gz-framed) — the CANONICAL_HASHES.md convention; container_sha is the on-disk file and is NOT comparable to any anchor",
   "control": {
     "enum_wall_ns": ${ENUM_N_NS:-null},

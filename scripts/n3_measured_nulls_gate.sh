@@ -54,6 +54,7 @@ a = s.index('# >>> N3-PRODUCERS-BEGIN'); a = s.index('\n', a) + 1
 b = s.index('# <<< N3-PRODUCERS-END')
 open(sys.argv[2], 'w', encoding='utf-8').write(s[a:b])
 PY
+bash -n "$WORK/producers.sh" 2>/dev/null || fail "the extracted N3 producer region does not parse as bash (F05-019#4)"
 grep -q 'q1c_interval_measure()'  "$WORK/producers.sh" || fail "q1c_interval_measure not inside the anchors"
 grep -q 'q10a_kwrank_measure()'   "$WORK/producers.sh" || fail "q10a_kwrank_measure not inside the anchors"
 
@@ -130,6 +131,9 @@ sed 's#"class_rank_note": "[^"]*"#"class_rank_note": "class-rank = distinct reco
                                                                   "$WORK/fx/w0.json" > "$WORK/fx/w0_note.json"
 sed 's#"m": 64,#"m": 64,\n  "class_rank": "0",#'                  "$WORK/fx/w0.json" > "$WORK/fx/w0_computable.json"
 grep -q '"class_rank": "0"' "$WORK/fx/w0_computable.json" || fail "fixture w0_computable.json did not grow the field it exists to carry"
+# the same field with JSON-legal whitespace before the colon (Codex, gpt-6-astra, F05-019#6)
+sed 's#"m": 64,#"m": 64,\n  "class_rank" : "0",#'                "$WORK/fx/w0.json" > "$WORK/fx/w0_computable_sp.json"
+grep -q '"class_rank" : "0"' "$WORK/fx/w0_computable_sp.json" || fail "fixture w0_computable_sp.json did not grow the spaced field"
 grep -q '"orient_idx": 5,'  "$WORK/fx/w0_decomp.json"     || fail "fixture w0_decomp.json was not edited"
 
 # ================================================================================================
@@ -137,7 +141,9 @@ grep -q '"orient_idx": 5,'  "$WORK/fx/w0_decomp.json"     || fail "fixture w0_de
 # ================================================================================================
 run_case(){ # run_case NAME PRODUCER ARGS... -> echoes the verdict line, or NOVERDICT
   local name="$1" prod="$2"; shift 2
-  ( set +u; . "$WORK/producers.sh" >/dev/null 2>&1
+  # The SOURCING status counts (Codex, gpt-6-astra, F05-019#4): bash keeps the functions parsed before
+  # a later syntax error, so a producer region that cannot execute still answered every case.
+  ( set +u; . "$WORK/producers.sh" >/dev/null 2>&1 || { echo "NOVERDICT:producers-did-not-source"; exit 0; }
     "$prod" "$@" "$WORK/v.txt" >/dev/null 2>&1
     head -1 "$WORK/v.txt" 2>/dev/null ) | head -1
 }
@@ -171,6 +177,8 @@ check_all(){ # -> 0 iff every case returns its pinned token
   # (9) the day the certificate supplies a class rank, the null ENDS. It must not age into a lie.
   got=$(run_case q10a-computable q10a_kwrank_measure "$WORK/fx/w0_computable.json")
   [ "$got" = "TR12_Q10A_KWRANK=COMPUTABLE:cert-supplies-class_rank" ] || { $VERBOSE && echo "  [case] q10a-computable -> ${got:-<none>}"; ok=1; }
+  got=$(run_case q10a-computable-sp q10a_kwrank_measure "$WORK/fx/w0_computable_sp.json")
+  [ "$got" = "TR12_Q10A_KWRANK=COMPUTABLE:cert-supplies-class_rank" ] || { $VERBOSE && echo "  [case] q10a-computable (spaced colon) -> ${got:-<none>}"; ok=1; }
   # (10) the certificate stops saying "NOT computed" -> ERROR, not a silent EMPTY.
   got=$(run_case q10a-note q10a_kwrank_measure "$WORK/fx/w0_note.json")
   [ "$got" = "TR12_Q10A_KWRANK=ERROR:class-rank-note-changed" ] || { $VERBOSE && echo "  [case] q10a-note -> ${got:-<none>}"; ok=1; }

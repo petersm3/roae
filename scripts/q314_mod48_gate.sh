@@ -40,7 +40,7 @@ if [ -n "${Q314_SOLVE:-}" ]; then
   # subject and a requirement in the control.
   . "$(cd "$(dirname "$0")" && pwd)/lib_binary_currency.sh"
   # cwd is the repo root (the cd at the top of this file), so `solve.c` is unambiguous here.
-  if [ "${Q314_ALLOW_STALE-}" != "1" ] && ! solve_binary_currency "$SOLVE" solve.c; then
+  if [ "${Q314_ALLOW_STALE-}" != "1" ] && ! solve_binary_currency_strict "$SOLVE" solve.c; then
     echo "  [ERROR] $BINCUR_MSG" >&2
     echo "          (set Q314_ALLOW_STALE=1 to override, deliberately.)" >&2
     echo "Q314_MOD48=ERROR"; exit 2
@@ -59,10 +59,15 @@ mkdir -p "$WORK/f" "$WORK/g" "$WORK/t"
 "$SOLVE" --kc-t-build "$WORK/f" "$WORK/t"    >"$WORK/bt.log" 2>&1 || fail "--kc-t-build failed"
 "$SOLVE" --kc-scan "$WORK/f" "$WORK/g" "$WORK/atlas.json" --kc-tdir "$WORK/t" --kc-raw \
     >"$WORK/scan.log" 2>&1 || fail "--kc-scan failed"
-"$SOLVE" --kc-enum "$WORK/f" 2>/dev/null | grep -v '^\[' > "$WORK/walks.txt"
+# Each producer's own exit status is part of its answer (Codex, gpt-6-astra, F05-013#7): output
+# followed by a nonzero exit is a failed run, not a universe.
+"$SOLVE" --kc-enum "$WORK/f" 2>/dev/null > "$WORK/enum.raw" || fail "--kc-enum exited nonzero"
+grep -v '^\[' "$WORK/enum.raw" > "$WORK/walks.txt"
 NW=$(grep -c . "$WORK/walks.txt"); [ "$NW" = 26112 ] || fail "n=9 gave $NW walks, expected 26112"
-NT=$("$SOLVE" --kc-count "$WORK/f" 2>/dev/null | sed -n 's/^KC COUNT n=9 = \([0-9]*\)$/\1/p')
-ANCHOR=$("$SOLVE" --kc-o3-unrank "$WORK/f" "$WORK/g" $((NT / 2)) 2>/dev/null | grep -E '^[0-9]+(,[0-9]+)+$' | head -1)
+NT=$("$SOLVE" --kc-count "$WORK/f" 2>/dev/null) || fail "--kc-count exited nonzero"
+NT=$(printf '%s\n' "$NT" | sed -n 's/^KC COUNT n=9 = \([0-9]*\)$/\1/p')
+ANCHOR=$("$SOLVE" --kc-o3-unrank "$WORK/f" "$WORK/g" $((NT / 2)) 2>/dev/null) || fail "--kc-o3-unrank exited nonzero"
+ANCHOR=$(printf '%s\n' "$ANCHOR" | grep -E '^[0-9]+(,[0-9]+)+$' | awk 'NR==1')
 [ -n "$ANCHOR" ] || fail "could not materialise the O3-midpoint anchor walk"
 "$SOLVE" --kc-o3-rank "$WORK/f" "$WORK/g" "$ANCHOR" --kc-trace --kc-bracket \
     > "$WORK/q3_profile.txt" 2>&1 || fail "--kc-o3-rank failed"
@@ -75,6 +80,25 @@ run(){ # run [extra args...] -> rc; transcript in $WORK/last.out
   echo $?
 }
 line48(){ grep -m1 'XA-48' "$WORK/last.out"; }
+# gstat <transcript> <exact gate name> -> PASS | FAIL | NONE | MULTI | OTHER. The STATUS FIELD, read
+# where solve.py's gate() prints it ("[atlas-consumer] %-62s %s%s": the name, spaces, PASS, or FAIL
+# and then "  detail"), never a PASS/FAIL substring anywhere on the line (Codex, gpt-6-astra,
+# F05-013#8: "NOT_PASS", "NOT_FAIL" and a status followed by explanatory text naming the other one
+# all satisfied the substring tests).
+gstat(){
+  awk -v n="[atlas-consumer] $2" '
+    index($0, n " ") == 1 || $0 == n { c++; r = substr($0, length(n) + 1); sub(/^ +/, "", r)
+      if (r == "PASS") s = "PASS"; else if (r == "FAIL" || index(r, "FAIL  ") == 1) s = "FAIL"; else s = "OTHER" }
+    END { if (c == 0) print "NONE"; else if (c > 1) print "MULTI"; else print s }' "$1"
+}
+XA24="Q10a/XA-24: N_total and every layer flow divisible by 24"
+XA48="XA-48: N_total and every layer flow divisible by 48 (re-derived, not a column)"
+V248="V2-48: every distance-class cell divisible by 48"
+V116="V1-16: every RAW per-pair cell divisible by 16"
+B0A="V2-B0: every distance class's column sums to a whole multiple of N_total"
+B0B="V2-B0: the C5 boundary budget sums to n (one boundary per layer, per walk)"
+# a fault run must END as the consumer's documented failure: rc 1 and the whole-line token.
+faulted(){ [ "$1" = 1 ] && grep -qx 'ATLAS_CONSUMER=FAIL' "$2"; }
 
 bad=0
 # ---- leg 1: clean -- the gate must be PRESENT and PASS -------------------------------------
@@ -83,7 +107,7 @@ cp "$WORK/last.out" "$WORK/clean.out"      # reused by legs 3 and 4 instead of r
 if [ "$rc" != 0 ] || ! grep -qx 'ATLAS_CONSUMER=PASS' "$WORK/last.out"; then
   echo "  [FAIL] leg 1: clean run did not pass (rc=$rc)"; bad=1
 fi
-if ! line48 | grep -c 'PASS' >/dev/null; then
+if [ "$(gstat "$WORK/last.out" "$XA48")" != PASS ]; then
   echo "  [FAIL] leg 1: the XA-48 gate is absent or not passing on a clean atlas"
   echo "         $(line48)"; bad=1
 else
@@ -92,17 +116,17 @@ fi
 
 # ---- leg 2: the fault the OLD gate cannot see ---------------------------------------------
 rc=$(run --atlas-fault q10-mod48)
-if [ "$rc" = 0 ] || ! grep -q '^ATLAS_CONSUMER=FAIL' "$WORK/last.out"; then
+if ! faulted "$rc" "$WORK/last.out"; then
   echo "  [FAIL] leg 2: +24 on the layer-0 flow did NOT fail the consumer (rc=$rc)"; bad=1
 fi
-if ! line48 | grep -c 'FAIL' >/dev/null; then
+if [ "$(gstat "$WORK/last.out" "$XA48")" != FAIL ]; then
   echo "  [FAIL] leg 2: XA-48 did not fire on a flow that is 24-divisible but not 48-divisible"
   echo "         $(line48)"; bad=1
 else
   echo "  [ok]   leg 2: XA-48 fired on the mod-48-only fault"
 fi
 # and the ASYMMETRY: the mod-24 gate must NOT have fired, or the fault proves nothing new
-if grep -q 'XA-24.*FAIL' "$WORK/last.out"; then
+if [ "$(gstat "$WORK/last.out" "$XA24")" != PASS ]; then
   echo "  [FAIL] leg 2: the mod-24 gate ALSO fired -- this fault does not isolate XA-48,"
   echo "         so it cannot show the new gate adds coverage"; bad=1
 elif ! grep -q 'XA-24.*PASS' "$WORK/last.out"; then
@@ -123,23 +147,25 @@ line1(){ grep -m1 'V1-16' "$WORK/last.out"; }
 # The clean transcript was already produced by leg 1 and saved; do NOT pay for a second one.
 # This gate runs inside tr12_repro_gate.sh on every push, so each redundant consumer invocation
 # is charged to every push for the life of the gate.
-grep -q 'V2-48.*PASS' "$WORK/clean.out" && echo "  [ok]   leg 3: V2-48 present and passing on the clean atlas" \
+[ "$(gstat "$WORK/clean.out" "$V248")" = PASS ] && echo "  [ok]   leg 3: V2-48 present and passing on the clean atlas" \
   || { echo "  [FAIL] leg 3: V2-48 absent or failing on a clean atlas: $(grep -m1 'V2-48' "$WORK/clean.out")"; bad=1; }
-grep -q 'V1-16.*PASS' "$WORK/clean.out" && echo "  [ok]   leg 4: V1-16 present and passing on the clean atlas" \
+[ "$(gstat "$WORK/clean.out" "$V116")" = PASS ] && echo "  [ok]   leg 4: V1-16 present and passing on the clean atlas" \
   || { echo "  [FAIL] leg 4: V1-16 absent or failing on a clean atlas: $(grep -m1 'V1-16' "$WORK/clean.out")"; bad=1; }
 
 rc=$(run --atlas-fault v2-mod48)
-if line2 | grep -c 'FAIL' >/dev/null; then echo "  [ok]   leg 3: V2-48 fired on the mod-48-only class fault"
+faulted "$rc" "$WORK/last.out" || { echo "  [FAIL] leg 3: the v2-mod48 run did not end as ATLAS_CONSUMER=FAIL, rc 1 (rc=$rc)"; bad=1; }
+if [ "$(gstat "$WORK/last.out" "$V248")" = FAIL ]; then echo "  [ok]   leg 3: V2-48 fired on the mod-48-only class fault"
 else echo "  [FAIL] leg 3: V2-48 did not fire on +24 to a class cell: $(line2)"; bad=1; fi
-if line1 | grep -c 'FAIL' >/dev/null; then
+if [ "$(gstat "$WORK/last.out" "$V116")" != PASS ]; then
   echo "  [FAIL] leg 3: V1-16 ALSO fired -- the fault does not isolate V2-48"; bad=1
 elif ! line1 | grep -c 'PASS' >/dev/null; then echo "  [FAIL] leg 3: V1-16 printed no PASS line on the fault run -- isolation is not shown (G5a)"; bad=1
 else echo "  [ok]   leg 3: V1-16 did NOT fire -- the fault isolates V2-48"; fi
 
 rc=$(run --atlas-fault v1-mod16)
-if line1 | grep -c 'FAIL' >/dev/null; then echo "  [ok]   leg 4: V1-16 fired on the mod-16-only raw fault"
+faulted "$rc" "$WORK/last.out" || { echo "  [FAIL] leg 4: the v1-mod16 run did not end as ATLAS_CONSUMER=FAIL, rc 1 (rc=$rc)"; bad=1; }
+if [ "$(gstat "$WORK/last.out" "$V116")" = FAIL ]; then echo "  [ok]   leg 4: V1-16 fired on the mod-16-only raw fault"
 else echo "  [FAIL] leg 4: V1-16 did not fire on +8 to a raw cell: $(line1)"; bad=1; fi
-if line2 | grep -c 'FAIL' >/dev/null; then
+if [ "$(gstat "$WORK/last.out" "$V248")" != PASS ]; then
   echo "  [FAIL] leg 4: V2-48 ALSO fired -- the fault does not isolate V1-16"; bad=1
 elif ! line2 | grep -c 'PASS' >/dev/null; then echo "  [FAIL] leg 4: V2-48 printed no PASS line on the fault run -- isolation is not shown (G5a)"; bad=1
 else echo "  [ok]   leg 4: V2-48 did NOT fire -- the fault isolates V1-16"; fi
@@ -158,17 +184,23 @@ lineb0(){ grep 'V2-B0' "$WORK/nw.out"; }
 
 rc=$(nowalks)
 NB0=$(lineb0 | grep -c .)
-if [ "$NB0" != 2 ]; then
+# The clean no-walks run's documented end is rc 1 with ATLAS_CONSUMER=SKIP:no-brute-force-walks
+# (measured 2026-10-22); two PASS lines followed by a kill (137) is not that end.
+if [ "$rc" != 1 ] || ! grep -qx 'ATLAS_CONSUMER=SKIP:no-brute-force-walks' "$WORK/nw.out"; then
+  echo "  [FAIL] leg 5: the clean no-walks run did not end as ATLAS_CONSUMER=SKIP:no-brute-force-walks, rc 1 (rc=$rc)"; bad=1
+elif [ "$NB0" != 2 ]; then
   echo "  [FAIL] leg 5: expected 2 V2-B0 gate lines with no walks, found $NB0 -- the vertical"
   echo "         conservation gates are absent, so nothing below measured anything"; bad=1
-elif [ "$(lineb0 | grep -c 'PASS')" != 2 ]; then
+elif [ "$(gstat "$WORK/nw.out" "$B0A")" != PASS ] || [ "$(gstat "$WORK/nw.out" "$B0B")" != PASS ]; then
   echo "  [FAIL] leg 5: a V2-B0 gate does not pass on the clean n=9 atlas"; lineb0 | sed 's/^/         /'; bad=1
 else
   echo "  [ok]   leg 5: both V2-B0 gates present and passing with NO walks"
 fi
 
 rc=$(nowalks --atlas-fault v2-class-swap)
-if [ "$(lineb0 | grep -c 'FAIL')" -lt 1 ]; then
+if ! faulted "$rc" "$WORK/nw.out"; then
+  echo "  [FAIL] leg 6: the v2-class-swap run did not end as ATLAS_CONSUMER=FAIL, rc 1 (rc=$rc)"; bad=1
+elif [ "$(gstat "$WORK/nw.out" "$B0A")" != FAIL ] && [ "$(gstat "$WORK/nw.out" "$B0B")" != FAIL ]; then
   echo "  [FAIL] leg 6: v2-class-swap did NOT fire V2-B0 without walks -- the fault that moves"
   echo "         mass between distance classes is still invisible at full-31 scale"; bad=1
 else

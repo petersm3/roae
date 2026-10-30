@@ -11761,3 +11761,33 @@ Q-686=DONE
   now names `ccn4-kwfail`'s permuted-faces family. Rebuilt on the published parent (G5b) after FV1 and G5b went out.
 - No theorem statement, certificate, CNF, measured value, sha or verdict changed; every certified `--kw-control` still
   passes. `TestBatchG8L` holds each cure. Leg (D) is executed by the worker chain's Lean run, not here.
+
+## 2026-10-22 — push group G5c: the shell harness from Codex's final review — gates that read a failed producer, a substring or a stale binary as a pass
+
+- **Fast-track batch FT3b-2 (CX-35W-A to CX-35W-M).** Codex (gpt-6-astra) ran the final review and Fable triaged rounds
+  3a and 3b. Gates handed a binary refuse one that carries no SOURCE_SHA (a copied or touched old build "established"
+  five gates' subject; CX-35W-A). Gate legs read their producers' exit statuses and read verdict tokens as whole fields:
+  the q422, q314, q326, q433, cli-declaration, N3, A2, XA, d5_03, d5_04, Q2-witness, golden-set and knuth gates
+  (CX-35W-B). The n=31 golden gate refuses twelve shapes it used to certify, none of which backs a published result
+  because no public n=31 golden exists (CX-35W-C). Six more legs, the TR-8 merge's falsey bank digest in `solve.py`
+  among them (CX-35W-D), and ten rows of the TR-12 battery (CX-35W-E) close the same class. The citation line gate
+  fails closed on every exclusion path, matches names whole and names a tree only when it measured that tree's bytes
+  (CX-35W-F). The execution lane, perf_bench, build_pgo, the adopt and resume-167 gates, q908, the build manifest, five
+  pre-commit gates, the reviewer self-check, the correction-marker inventory, the history gates, GATE 19, G7, the
+  circular-census pooler and the claim ledger follow (CX-35W-G to CX-35W-K). Two notes record that CX-351's
+  "append-only gate compares every published version" holds for CORRECTIONS.md and not for HISTORY.md (CX-35W-L), and
+  that this file's fail-first section equated a 100B per-cell budget with the canonical one at about twice its value
+  (CX-35W-M; the sentence stays, as this file is append-only).
+- Line citations moved by these edits were re-pinned (DEVELOPMENT.md, PERFORMANCE_HISTORY.md, QUERY_INVENTORY.md,
+  VERIFY.md, SOLUTIONS_FORMAT.md and script comments); the citation gate's pin tables gained three reviewed rows,
+  dropped three that now land strictly (one after its citing sentence was given a quotable anchor), re-hashed one
+  whose cited line was split and re-keyed one whose mined anchor changed.
+- Codex reviewed the batch before it was published and Fable triaged sixteen findings (fourteen real, two partly); all
+  are folded into the entries they concern (CX-35W-B, D, F, G, I, J, K) except one design change, deferred: per-finding
+  attribution of a file-less `[FAIL]` line in the correction-marker inventory needs one run's population of such lines
+  first, or every run would read INCOMPLETE. The manifest gate now asserts the source order that makes its marker
+  post-validation rather than relying on a two-second window.
+- No measured value, sha, certificate or verdict changed. `TestBatchG5c` holds each cure; each gate test plants Codex's
+  fixture and fails on the uncured script. Held for a ruling: F06-001#2, F06-007#4, F06-008#5 (which storage
+  redactions the append-only alignment may accept), F06-007#20 (interior insertions and committed reorders in
+  CORRECTIONS.md) and F06-006#10 (semantic binding of the claim ledger's population and unit columns).

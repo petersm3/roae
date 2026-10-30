@@ -94,20 +94,26 @@ mkpins() {
   for p in "$@"; do printf '%s\n%s\n' "$flag" "$s:$p"; s=$((s + 1)); done
 }
 
-# ie count for S P...; echoes the decimal or nothing
+# ie count for S P...; echoes the decimal or nothing, and returns VERIFY's exit status.
+# F04-017#3 / F04-021#3: verify prints its CRT count BEFORE the wrap cross-check and can then exit
+# 1, and these helpers used to return awk's status -- a count from a failed instrument was taken.
 ie_count() {
   local s="$1"; shift
   local -a a; mapfile -t a < <(mkpins --ie-pin "$s" "$@")
   "$VERIFY" --ie-count --ie-spec "$SPEC" --ie-b0 "$B0" --ie-no-quotient "${a[@]}" \
     > "$WORK/ie.out" 2>&1
-  awk '$1=="CRT" && $3=="N" && $4=="=" {print $5}' "$WORK/ie.out"
+  local rc=$?
+  awk '$1=="CRT" && $3=="N" && $4=="=" {print $5}' "$WORK/ie.out" || return 98
+  return "$rc"
 }
 ie_brute() {
   local s="$1"; shift
   local -a a; mapfile -t a < <(mkpins --ie-pin "$s" "$@")
   "$VERIFY" --ie-count --ie-spec "$SPEC" --ie-b0 "$B0" --ie-no-quotient --ie-brute "${a[@]}" \
     > "$WORK/brute.out" 2>&1
-  awk '$1=="BRUTE" && $3=="N" && $4=="=" {print $5}' "$WORK/brute.out"
+  local rc=$?
+  awk '$1=="BRUTE" && $3=="N" && $4=="=" {print $5}' "$WORK/brute.out" || return 98
+  return "$rc"
 }
 # join on ladders FD GD for S P...; extra args after "--"; sets JRC, JOUT, JCOUNT
 join_run() {
@@ -127,9 +133,13 @@ join_run() {
 check_window() {
   local name="$1" s="$2"; shift 2
   WCOUNT=""
-  local ie br
-  ie=$(ie_count "$s" "$@")
-  br=$(ie_brute "$s" "$@")
+  local ie br ie_rc br_rc
+  ie=$(ie_count "$s" "$@"); ie_rc=$?
+  br=$(ie_brute "$s" "$@"); br_rc=$?
+  if [ "$ie_rc" -ne 0 ] || [ "$br_rc" -ne 0 ]; then
+    bad "n=$N $name slots $s.. pins [$*]: ie rc=$ie_rc, brute rc=$br_rc -- a count from a failed instrument is not taken (see $WORK/ie.out, $WORK/brute.out)"
+    return
+  fi
   if [ -z "$ie" ] || [ -z "$br" ]; then
     bad "n=$N $name slots $s.. pins [$*]: ie/brute produced no count (see $WORK/ie.out, $WORK/brute.out)"
     return

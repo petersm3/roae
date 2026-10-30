@@ -53,6 +53,21 @@ command -v python3 >/dev/null 2>&1 || fail "no python3"
 BUILD=$(grep -m1 -E '^gcc .*solve\.c' documentation/VERIFY.md 2>/dev/null)
 [ -n "$BUILD" ] || fail "no published 'gcc ... solve.c' build line in documentation/VERIFY.md"
 
+# Source order, asserted rather than assumed (Codex CX-35W-D; Fable triage G5c #1). The snapshotting
+# marker is post-validation BY CONSTRUCTION: every exit-22 site is reached from
+# auto_verify_shard_manifest_if_exists(), which main() calls BEFORE auto_emit_shard_manifest_default().
+# That order -- not the settle window in await() -- is what lets a MARKED relaunch read as past the
+# refusal. A source whose refusal moved after the marker is refused here, before anything is built.
+source_order_ok(){ # source_order_ok <src> -> 0 iff the verify/refuse call precedes the emitter in main()
+  local src="$1" v e
+  v=$(grep -n -F 'if (auto_verify_shard_manifest_if_exists() != 0) { return 22; }' "$src" | head -1 | cut -d: -f1)
+  e=$(grep -n -E '^    auto_emit_shard_manifest_default\(\);' "$src" | head -1 | cut -d: -f1)
+  if [ -n "$v" ] && [ -n "$e" ] && [ "$v" -lt "$e" ]; then return 0; fi
+  echo "MANIFEST_ZERO_ENTRY=ERROR source-order (verify at ${v:-?}, emit at ${e:-?}): the marker is not post-validation"
+  return 2
+}
+source_order_ok solve.c || exit 2
+
 # --- build -------------------------------------------------------------------------------
 # Compile the source AS solve.c in its OWN directory. Do NOT rewrite the filename inside the
 # published build line: that line reads
@@ -108,14 +123,31 @@ EMIT_SETTLED='auto-emit-manifest: wrote|no manifest emitted|auto-emit-manifest f
 # job belongs to THIS shell, and `wait` from a subshell is not the job's parent -- it returns 127,
 # which would be read as "not 22" and silently invert every REFUSED verdict.
 WINDOW_S=${MANIFEST_ZERO_ENTRY_WINDOW_S:-240}
+# An exit status of 22 is the refusal, and it outranks the marker (Codex, gpt-6-astra, F05-018#3):
+# a relaunch that printed the snapshotting marker and THEN exited 22 is bricked, not clean. So once a
+# marker is seen the child gets a short settle window; dying with 22 inside it reads REFUSED, and a
+# child already reaped is judged on its status first. The window is belt-and-braces only (Codex
+# CX-35W-D, Fable triage G5c #1): a child that exits 22 more than ~2 s after the marker still reads
+# MARKED. What makes MARKED sound is source_order_ok() above -- in the shipped solve.c every exit-22
+# path precedes the marker, so "marker, then 22" is not a path the binary under test has.
+SETTLE_POLLS=${MANIFEST_ZERO_ENTRY_SETTLE_POLLS:-8}
 await(){ # await <pid> <log> <marker-ere> -> PROBE_V = REFUSED | MARKED | NOMEASURE(...)
-  local pid="$1" log="$2" marker="$3" n=$(( WINDOW_S * 4 )) i=0 rc
+  local pid="$1" log="$2" marker="$3" n=$(( WINDOW_S * 4 )) i=0 rc j
   while [ "$i" -lt "$n" ]; do
-    if [ -f "$log" ] && grep -a -E -q -e "$marker" "$log"; then PROBE_V=MARKED; return 0; fi
+    if [ -f "$log" ] && grep -a -E -q -e "$marker" "$log"; then
+      j=0
+      while [ "$j" -lt "$SETTLE_POLLS" ] && kill -0 "$pid" 2>/dev/null; do sleep 0.25; j=$(( j + 1 )); done
+      if ! kill -0 "$pid" 2>/dev/null; then
+        wait "$pid"; rc=$?
+        [ "$rc" = 22 ] && { PROBE_V=REFUSED; return 0; }
+      fi
+      PROBE_V=MARKED; return 0
+    fi
     if ! kill -0 "$pid" 2>/dev/null; then
       wait "$pid"; rc=$?
+      if [ "$rc" = 22 ]; then PROBE_V=REFUSED; return 0; fi
       if [ -f "$log" ] && grep -a -E -q -e "$marker" "$log"; then PROBE_V=MARKED; return 0; fi
-      if [ "$rc" = 22 ]; then PROBE_V=REFUSED; else PROBE_V="NOMEASURE(rc=$rc)"; fi
+      PROBE_V="NOMEASURE(rc=$rc)"
       return 0
     fi
     sleep 0.25   # a real sleep: `until cmd; do :; done` forks ~370/s and pegs a 2-core box
@@ -213,7 +245,7 @@ if [ -n "${MANIFEST_ZERO_ENTRY_SOLVE:-}" ]; then
   # correct and must not be changed: a mutant's sha is supposed to differ from solve.c's.
   . "$(cd "$(dirname "$0")" && pwd)/lib_binary_currency.sh"
   # cwd is the repo root (cd at the top of this file), so bare `solve.c` is unambiguous.
-  if [ "${MANIFEST_ZERO_ENTRY_ALLOW_STALE-}" != "1" ] && ! solve_binary_currency "$SOLVE" solve.c; then
+  if [ "${MANIFEST_ZERO_ENTRY_ALLOW_STALE-}" != "1" ] && ! solve_binary_currency_strict "$SOLVE" solve.c; then
     echo "  [ERROR] $BINCUR_MSG" >&2
     echo "          (set MANIFEST_ZERO_ENTRY_ALLOW_STALE=1 to override, deliberately.)" >&2
     echo "MANIFEST_ZERO_ENTRY=ERROR"; exit 2

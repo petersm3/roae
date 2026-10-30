@@ -188,8 +188,11 @@ def cli(A):
                            cwd=REPO, capture_output=True, text=True)
         vp = os.path.join(d, "VERDICTS.txt")
         verd = open(vp).read() if os.path.exists(vp) else ""
-    m = re.search(r"^TR12_A2_SLOT=(.+)$", verd, re.M)
-    return p.returncode, (m.group(1) if m else None), p.stdout + p.stderr
+    # Every occurrence, not the first (Codex, gpt-6-astra, F05-017#2): a second, contradicting
+    # TR12_A2_SLOT line is a defect of its own, reported as such rather than resolved by position.
+    ms = re.findall(r"^TR12_A2_SLOT=(.+)$", verd, re.M)
+    tok = ms[0] if len(ms) == 1 else ("DUPLICATE:" + "|".join(ms) if ms else None)
+    return p.returncode, tok, p.stdout + p.stderr
 
 
 for label, A, want_tok, want_rc in (
@@ -289,8 +292,22 @@ def cli_sel(A, sel, fault=None):
         pr = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True)
         vp = os.path.join(d, "VERDICTS.txt")
         verd = open(vp).read() if os.path.exists(vp) else ""
-    return pr.returncode, dict(l.split("=", 1) for l in verd.splitlines() if "=" in l), \
-        pr.stdout + pr.stderr
+    # A key written twice is a contradiction, never "the last one wins" (F05-017#2).
+    toks = {}
+    for l in verd.splitlines():
+        if "=" in l:
+            k, v = l.split("=", 1)
+            toks[k] = v if k not in toks else "DUPLICATE:%s|%s" % (toks[k], v)
+    return pr.returncode, toks, pr.stdout + pr.stderr
+
+
+def tok_is(v, pre):
+    """The documented grammar, not a string prefix (Codex, gpt-6-astra, F05-017#3): a bare status
+    matches itself or itself + ':' + qualification (PASS_BUT_UNCHECKED is not PASS); a qualified
+    expectation matches itself or itself followed by a non-word character."""
+    if ":" not in pre:
+        return v == pre or v.startswith(pre + ":")
+    return v == pre or (v.startswith(pre) and not re.match(r"[A-Za-z0-9_]", v[len(pre)]))
 
 
 SEL6 = "q10a,xa"
@@ -333,7 +350,7 @@ for label, A, fault, want, want_rc in CASES:
         for l in out.splitlines():
             print("          %s" % l)
         print("A2_SLOT_VERDICT=ERROR"); sys.exit(2)
-    bad = [(k, toks[k]) for k, pre in want.items() if not toks[k].startswith(pre)]
+    bad = [(k, toks[k]) for k, pre in want.items() if not tok_is(toks[k], pre)]
     if bad or got_rc != want_rc:
         for k, v in bad:
             print("  [FAIL] leg 6 (%s): %s=%s, expected %s*" % (label, k, v, want[k]))

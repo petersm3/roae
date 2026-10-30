@@ -90,17 +90,34 @@ if not blocks:
     print('no-fenced-block-with-SOLVE_KNUTH_C67=1'); sys.exit(0)
 cmd_re = re.compile(r'^SOLVE_KNUTH_C67=1 (?:SOLVE_KNUTH_PIN_SLOTS="([0-9,]+)" )?'
                     r'\./solve --estimate-knuth 0 \$PREFIX\s*$')
+# 2026-10-22 (Codex, gpt-6-astra, F05-013#3): the block is read with SHELL meaning, not as words.
+# The PREFIX line must be one double-quoted assignment (unquoted, `PREFIX=1 0 2 ...` runs the
+# command `0` with PREFIX in its environment and leaves PREFIX unset), it must come before the
+# first invocation, and every other line must be blank, a comment, `ulimit -s unlimited` or an
+# invocation -- so an `unset PREFIX` (or any other command) between them is a difference.
+pre_re = re.compile(r'^PREFIX="([0-9 ]*)"$')
 best = None
 for b in blocks:
     diffs = []
     lines = b.split('\n')
-    pl = [l for l in lines if l.startswith('PREFIX=')]
+    pl = [i for i, l in enumerate(lines) if l.strip().startswith('PREFIX=')]
+    inv = [i for i, l in enumerate(lines) if '--estimate-knuth' in l]
     if len(pl) != 1:
         diffs.append('prefix-line-count=%d' % len(pl))
     else:
-        got = pl[0][len('PREFIX='):].strip().strip('"').split()
-        if got != want_prefix:
+        pm = pre_re.match(lines[pl[0]].strip())
+        if not pm:
+            diffs.append('prefix-not-one-quoted-assignment')
+        elif pm.group(1).split() != want_prefix:
+            got = pm.group(1).split()
             diffs.append('prefix-differs(documented %d tokens, executed %d)' % (len(got), len(want_prefix)))
+        if inv and pl[0] > inv[0]:
+            diffs.append('prefix-after-first-invocation')
+    for i, l in enumerate(lines):
+        t = l.strip()
+        if i in pl or i in inv or not t or t.startswith('#') or t == 'ulimit -s unlimited':
+            continue
+        diffs.append('unexpected-line:' + t.replace(' ', '_'))
     if not any(l.strip() == 'ulimit -s unlimited' for l in lines):
         diffs.append('no-ulimit-s-unlimited')
     cases = []
@@ -132,7 +149,9 @@ PY
     echo "         certify a recipe it never parsed."
     echo "KNUTH_C67_REPRO_ERROR=extractor-failed"; echo "KNUTH_C67_REPRO=ERROR"; exit 1
   fi
-  miss=$(printf '%s' "$miss" | tr -s ' ')
+  # The extractor's own text is the verdict. A cosmetic `| tr -s ' '` here used to sit in an unchecked
+  # substitution, so a tr that failed without output emptied a nonempty diagnostic into [ok]
+  # (Codex, gpt-6-astra, F05-013#4).
   if [ -n "$miss" ]; then
     echo "  [FAIL] $d publishes 1169/233 but its recipe is not the one this gate executes: $miss"
     echo "         A reader cannot check this figure, and guessing the prefix turns an exact"
@@ -192,7 +211,7 @@ fi
 if [ -n "${SOLVE_BIN:-}" ] && [ "${KNUTH_C67_ALLOW_STALE-}" != "1" ]; then
   . "$(cd "$(dirname "$0")" && pwd)/lib_binary_currency.sh"
   # cwd is the repo root (the cd at the top of this file), so bare `solve.c` is unambiguous.
-  if ! solve_binary_currency "$BIN" solve.c; then
+  if ! solve_binary_currency_strict "$BIN" solve.c; then
     echo "  [ERROR] $BINCUR_MSG" >&2
     echo "          (set KNUTH_C67_ALLOW_STALE=1 to override, deliberately.)" >&2
     echo "KNUTH_C67_REPRO_ERROR=stale-subject:$BIN"; echo "KNUTH_C67_REPRO=ERROR"; exit 1
@@ -216,7 +235,16 @@ run_case(){
   # shellcheck disable=SC2086  # PREFIX is deliberately word-split, exactly as the documented $PREFIX
   out=$( ulimit -s unlimited 2>/dev/null; env "${UNSET[@]}" "${envset[@]}" "$BIN" --estimate-knuth 0 $PREFIX 2>&1 )
   runrc=$?
-  got=$(printf '%s\n' "$out" | awk '/tree_nodes/{print $NF; exit}')
+  # The RESULT line, labelled as solve.c prints it ("  tree_nodes            : 1169"), exactly once
+  # (Codex, gpt-6-astra, F05-013#5): the first line merely CONTAINING tree_nodes let an earlier
+  # diagnostic ("cached_tree_nodes 1169") stand in for a different live count.
+  local nres
+  nres=$(printf '%s\n' "$out" | grep -cE '^[[:space:]]*tree_nodes[[:space:]]*:')
+  got=$(printf '%s\n' "$out" | sed -nE 's/^[[:space:]]*tree_nodes[[:space:]]*:[[:space:]]*([0-9]+)[[:space:]]*$/\1/p')
+  if [ "$nres" -ne 1 ] || [ "$(printf '%s\n' "$got" | grep -c .)" -ne 1 ]; then
+    echo "  [FAIL] $label -> $nres 'tree_nodes :' result line(s) (want exactly one, numeric); the transcript does not state one count"
+    rc=1; return
+  fi
   if [ "$runrc" -ne 0 ]; then
     echo "  [FAIL] $label -> solver exited rc=$runrc (tree_nodes '${got:-<none>}'); a figure from a failed run certifies nothing"
     printf '%s\n' "$out" | tail -5 | sed 's/^/         | /'

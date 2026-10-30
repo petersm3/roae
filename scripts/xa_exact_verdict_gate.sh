@@ -52,7 +52,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
 PYTHONPATH="$PWD" python3 - <<'PY'
-import json, os, sys, tempfile
+import json, os, re, sys, tempfile
 from fractions import Fraction
 import solve
 
@@ -125,9 +125,13 @@ def price(nodes, nps, uph, budget, hedge="1", wf="1", cost_override=None):
 
 
 def grade(label, want, row, call, hint):
+    # The VERDICT CELL and the Call's bolded word, compared whole (Codex, gpt-6-astra, F05-018#13):
+    # `want in row` accepted NOT_INFEASIBLE / NOT_EXHAUSTIBLE anywhere on the line.
     global rc
     other = "EXHAUSTIBLE" if want == "INFEASIBLE" else "INFEASIBLE"
-    if want in row and "**%s**" % want in call:
+    cells = [c.strip() for c in row.strip().strip("|").split("|")]
+    called = re.findall(r"\*\*([^*]+)\*\*", call)
+    if len(cells) == 9 and cells[7] == want and called == [want]:
         print("  [ok]   %s -> %s (row and Call agree)" % (label, want))
         return
     print("  [FAIL] %s -> the emitter said %s, exact arithmetic says %s." % (label, other, want))

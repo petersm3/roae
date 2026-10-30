@@ -66,10 +66,43 @@ PY
 # leg 2: the pinned literal, from TR-8 v1.6 (2026-07-21), not from the code
 grep -qx $'pair_null_gender_le2_exact\t47/445740' "$GOLD" \
   || fail "leg 2: $GOLD does not carry pair_null_gender_le2_exact<TAB>47/445740 (TR-8 v1.6's two-way-verified value)"
-# leg 3: one owner for the token; the MC row is labelled and records its own token
-n=$(grep -c 'row_end TR12_LS_W0 \$rc' "$SRC"); [ "$n" = 1 ] || fail "leg 3: TR12_LS_W0 is recorded by $n rows, expected exactly 1"
+# leg 3: one owner for the token; the MC row is labelled and records its own token.
+# Ownership is read as the SHELL reads it (Codex, gpt-6-astra, F05-013#2): each executable
+# `row_end` statement, its arguments unquoted and its trailing comment dropped. A literal-spelling
+# grep missed `row_end "TR12_LS_W0" "$rc"` (a second owner) and counted a commented-out
+# `# row_end TR12_LS_W0_COND_MC $rc` as the MC row's own token.
+owners(){ # owners <src> -> "<TR12_LS_W0 owners> <TR12_LS_W0_COND_MC owners> <token the MC row records>"
+  python3 - "$1" <<'PY'
+import re, shlex, sys
+lines = open(sys.argv[1], encoding='utf-8').read().split('\n')
+# Statements, not lines (Codex CX-35W-B, Fable triage G5c #3): `row_end A $rc; row_end B $rc` holds two
+# owners and `x && row_end B $rc` one; reading only a line's first word missed both.
+def tokens(l):
+    s = shlex.shlex(l, posix=True, punctuation_chars=True)
+    s.whitespace_split = True
+    s.commenters = '#'
+    out, cur = [], []
+    try:
+        for t in s:
+            if t in (';', '&&', '||', '|', '&', ';;', '(', ')'):
+                out.append(cur); cur = []
+            else:
+                cur.append(t)
+    except ValueError:
+        return []
+    out.append(cur)
+    return [c[1] for c in out if len(c) > 1 and c[0] == 'row_end']
+per_line = [tokens(l) for l in lines]
+toks = [t for ts in per_line for t in ts]
+mc = next((i for i, l in enumerate(lines) if l.strip() == 'row_begin a0_ls_w0_mc'), None)
+mctok = next((ts[0] for ts in per_line[mc + 1:] if ts), '-') if mc is not None else '-'
+print(toks.count('TR12_LS_W0'), toks.count('TR12_LS_W0_COND_MC'), mctok)
+PY
+}
+read -r n nmc mctok < <(owners "$SRC")
+[ "$n" = 1 ] || fail "leg 3: TR12_LS_W0 is recorded by ${n:-?} executable row_end statement(s), expected exactly 1"
 grep -q 'NOT the TR-8 pair-only null' "$WORK/mc.sh" || fail "leg 3: the MC row is not labelled 'NOT the TR-8 pair-only null'"
-grep -q 'row_end TR12_LS_W0_COND_MC' "$SRC" || fail "leg 3: the MC row does not record TR12_LS_W0_COND_MC"
+{ [ "$nmc" = 1 ] && [ "$mctok" = TR12_LS_W0_COND_MC ]; } || fail "leg 3: the MC row's executable row_end records '${mctok:-?}' (TR12_LS_W0_COND_MC owners: ${nmc:-?}), not its own token"
 
 mk(){ # mk <outfile> <row.sh> <repo_root>
   { echo '#!/usr/bin/env bash'; echo 'set -u'
@@ -113,13 +146,18 @@ echo "  [gate] mutant M1_prefix_mc_row killed"
 # M2: the MC row re-labelled to the parent token -> two owners of TR12_LS_W0
 sed 's/row_end TR12_LS_W0_COND_MC \$rc/row_end TR12_LS_W0 $rc/' "$SRC" > "$WORK/m2.src"
 cmp -s "$WORK/m2.src" "$SRC" && fail "mutant M2 did not apply"
-n=$(grep -c 'row_end TR12_LS_W0 \$rc' "$WORK/m2.src"); [ "$n" = 1 ] && fail "mutant M2 (MC row records TR12_LS_W0) SURVIVED"
+read -r n nmc mctok < <(owners "$WORK/m2.src"); { [ "$n" = 1 ] && [ "$mctok" = TR12_LS_W0_COND_MC ]; } && fail "mutant M2 (MC row records TR12_LS_W0) SURVIVED"
 echo "  [gate] mutant M2_mc_relabelled_to_parent killed"
+# M4: the same relabelling QUOTED, with the old spelling kept in a trailing comment (F05-013#2)
+sed 's/row_end TR12_LS_W0_COND_MC \$rc/row_end "TR12_LS_W0" "$rc" # row_end TR12_LS_W0_COND_MC $rc/' "$SRC" > "$WORK/m4.src"
+cmp -s "$WORK/m4.src" "$SRC" && fail "mutant M4 did not apply"
+read -r n nmc mctok < <(owners "$WORK/m4.src"); { [ "$n" = 1 ] && [ "$mctok" = TR12_LS_W0_COND_MC ]; } && fail "mutant M4 (quoted relabel, old spelling in a comment) SURVIVED"
+echo "  [gate] mutant M4_quoted_relabel_in_comment killed"
 # M3: the golden block with the value edited by one unit
 sed 's#47/445740#47/445741#' "$GOLD" > "$WORK/m3.gold"
 cmp -s "$WORK/m3.gold" "$GOLD" && fail "mutant M3 did not apply"
 if grep -qx $'pair_null_gender_le2_exact\t47/445740' "$WORK/m3.gold"; then fail "mutant M3 (edited block) SURVIVED the literal pin"; fi
 cmp -s "$WORK/base.out" "$WORK/m3.gold" && fail "mutant M3 (edited block) SURVIVED the diff"
 echo "  [gate] mutant M3_block_value_edited killed"
-echo "  [gate] baseline PASS on 4 legs; 3/3 mutants killed"
+echo "  [gate] baseline PASS on 4 legs; 4/4 mutants killed"
 echo "D5_03_LS_W0_EXACT_GATE=PASS"

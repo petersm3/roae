@@ -200,6 +200,15 @@ want_grep(){
   else bad "$row: $lbl -- no line matching /$re/ in the golden"; fi
 }
 
+# want_line ROW FILE EXACT LABEL -- the status line exactly as the row prints it (Codex, gpt-6-astra,
+# F05-013#17: `^XA_A_GATE.*OK` accepted "XA_A_GATE<TAB>FAIL (expected OK)", and `YES` accepted
+# "YES_NOT"; a status is a whole field, never a prefix or a trailing mention).
+want_line(){
+  local row="$1" f="$2" line="$3" lbl="$4"
+  if grep -qxF -- "$line" "$f"; then ok "$row: $lbl"
+  else bad "$row: $lbl -- no line reading exactly '$line' in the golden"; fi
+}
+
 # deny_grep ROW FILE REGEX LABEL   (a golden that RECORDS its own failure is not a golden)
 deny_grep(){
   local row="$1" f="$2" re="$3" lbl="$4"
@@ -223,6 +232,15 @@ if [ ! -d "$DIR" ]; then
   verdict ABSENT 1
 fi
 
+# The set is FLAT and every entry is a regular file (Codex, gpt-6-astra, F05-013#10): discovery
+# skipped symlinks that the readers below follow (consumed bytes nobody hashed), and coverage keyed
+# on the basename, so gold/sub/c_v1.txt borrowed gold/c_v1.txt's manifest row. Refuse both shapes.
+odd=$(find "$DIR" -mindepth 1 \( -type l -o ! -type f \) -print 2>/dev/null | sort)
+if [ -n "$odd" ]; then
+  echo "  [FAIL] $DIR must hold only regular files at its top level; found:"
+  printf '%s\n' "$odd" | sed 's/^/         /'
+  verdict PLACEHOLDER 1
+fi
 files=$(find "$DIR" -type f ! -name '_*' 2>/dev/null | sort)
 if [ -z "$files" ]; then
   echo "  [BLOCK] $DIR exists but holds no golden files"
@@ -358,7 +376,12 @@ for st in F:a1_fsha G:a2_gsha T:b_tsha; do
     continue
   fi
   gfile "$row" || continue; f=$GF
-  nreg=0; nhit=0; nmiss=0
+  # The golden's own RECORDS, parsed: `sha256(decompressed) <64-hex>  <dir>/<basename>  (...)`, one
+  # per basename (Codex, gpt-6-astra, F05-013#12: a registry digest and a basename anywhere on one
+  # line -- a comment included -- satisfied the old test while the observed digest was zeroes).
+  grec=$(awk '$1 == "sha256(decompressed)" && $2 ~ /^[0-9a-f]+$/ && length($2) == 64 && NF >= 3 {
+                n = split($3, p, "/"); print p[n], $2 }' "$f")
+  nreg=0; nhit=0; nmiss=0; layers=""
   while read -r rsha rname; do
     [ -n "${rsha:-}" ] || continue
     case "$rsha" in \#*|'') continue ;; esac
@@ -366,12 +389,18 @@ for st in F:a1_fsha G:a2_gsha T:b_tsha; do
     [ ${#rsha} -eq 64 ] || continue
     nreg=$((nreg+1))
     base=$(basename "${rname:-}")
-    # both on the SAME line: a golden listing 32 digests and 32 basenames in unrelated places
-    # would otherwise satisfy a pair of independent greps while binding neither to the other.
-    if grep -F -- "$rsha" "$f" | grep -cF -- "$base" >/dev/null; then nhit=$((nhit+1)); else nmiss=$((nmiss+1)); fi
+    layers="$layers $(printf '%s\n' "$base" | sed -n 's/.*_layer_\([0-9][0-9]\)\.bin$/\1/p')"
+    gsha=$(printf '%s\n' "$grec" | awk -v b="$base" '$1 == b {c++; v = $2} END {print (c == 1 ? v : "")}')
+    if [ "$gsha" = "$rsha" ]; then nhit=$((nhit+1)); else nmiss=$((nmiss+1)); fi
   done <<< "$(grep -vE '^[[:space:]]*#' "$reg" | awk 'NF>=2{print $1, $2}')"
+  # ...and the registry must BE the 32-layer registry, 00..31 each once (Codex, gpt-6-astra,
+  # F05-013#11: one parseable row read as "all 1 stage-F layer digests match").
+  nlay=$(printf '%s\n' $layers | grep -cE '^[0-9][0-9]$'); nuniq=$(printf '%s\n' $layers | grep -E '^[0-9][0-9]$' | sort -u | grep -c .)
   if [ "$nreg" -eq 0 ]; then
     err "Tier 2 $row: $reg parsed to ZERO digest rows -- the registry format changed under this gate"
+  elif [ "$nreg" -ne 32 ] || [ "$nlay" -ne 32 ] || [ "$nuniq" -ne 32 ] \
+       || [ "$(printf '%s\n' $layers | sort -u | head -1)" != 00 ] || [ "$(printf '%s\n' $layers | sort -u | tail -1)" != 31 ]; then
+    err "Tier 2 $row: $reg holds $nreg row(s) over $nuniq distinct layer(s), not the 32 layers 00..31 -- the measurement would be smaller than it says"
   elif [ "$nmiss" -gt 0 ]; then
     bad "Tier 2 $row: $nmiss of $nreg stage-$stage layer digests are NOT in the golden row"
   else
@@ -424,8 +453,28 @@ else
     gfile "$prow" || continue; f=$GF
     case "$prule" in
       contains)
-        if grep -qF -- "$pval" "$f"; then ok "Tier 2 pin $prow/$pid: the banked value is in the golden"
-        else bad "Tier 2 pin $prow/$pid: the banked value is NOT in $prow.txt"; fi ;;
+        # A WHOLE value, never a substring (Codex, gpt-6-astra, F05-013#13: the banked rank with one
+        # more digit appended still "contained" it), and each REL walk bound to the section that
+        # names its rank, so swapping the r=0 and r=N-1 walks is a mismatch, not three hits.
+        sec=""
+        case "$prow/$pid" in
+          a1_q2b/walk_r0)   sec=0 ;;
+          a1_q2b/walk_half) sec=$(echo "$N31 / 2" | BC_LINE_LENGTH=0 bc) ;;
+          a1_q2b/walk_last) sec=$(echo "$N31 - 1" | BC_LINE_LENGTH=0 bc) ;;
+        esac
+        if [ -n "$sec" ]; then
+          sw=$(awk -v h="### REL unrank r=$sec" '$0 == h {s = 1; next} /^### / {s = 0}
+                 s && /^[0-9]+(,[0-9]+)+$/ {print; exit}' "$f")
+          if [ "$sw" = "$pval" ]; then ok "Tier 2 pin $prow/$pid: the banked walk is the one printed under r=$sec"
+          else bad "Tier 2 pin $prow/$pid: the walk printed under r=$sec is '${sw:-none}', not the banked one"; fi
+        elif awk -v v="$pval" 'BEGIN {r = 1}
+               { s = $0; o = 0
+                 while ((i = index(s, v)) > 0) {
+                   pre = (o + i > 1) ? substr($0, o + i - 1, 1) : ""; post = substr($0, o + i + length(v), 1)
+                   if (pre !~ /[0-9A-Za-z_.,]/ && post !~ /[0-9A-Za-z_.,]/) { r = 0; exit }
+                   o += i; s = substr(s, i + 1) } }
+               END {exit r}' "$f"; then ok "Tier 2 pin $prow/$pid: the banked value is in the golden as a whole field"
+        else bad "Tier 2 pin $prow/$pid: the banked value is NOT in $prow.txt as a whole field"; fi ;;
       datasha)
         dsha=$(awk -F'\t' 'NF>=3 && $1 ~ /^[0-9]+$/' "$f" | sha256sum | cut -d' ' -f1)
         nd=$(awk -F'\t' 'NF>=3 && $1 ~ /^[0-9]+$/' "$f" | wc -l)
@@ -461,7 +510,7 @@ fi
 
 # G3.2 -- the one external anchor of the O3 machinery
 if gfile a2_q2; then f=$GF
-  want_grep a2_q2 "$f" '^Q2_R0_IS_ANCHOR[[:space:]]+YES' "unrank_O3(0) is byte-identical to the anchor"
+  want_line a2_q2 "$f" "$(printf 'Q2_R0_IS_ANCHOR\tYES')" "unrank_O3(0) is byte-identical to the anchor"
 fi
 
 # G3.3 -- the n=31-ONLY row. No n=9 golden can ever cover it; its first execution IS the full-31
@@ -482,9 +531,9 @@ fi
 if gfile a2_q3_reader; then f=$GF
   want_field a2_q3_reader "$f" reader_steps  31 "the reader walked all 31 steps"
   want_field a2_q3_reader "$f" READER_FAILS  0  "the reader found no broken link"
-  want_grep  a2_q3_reader "$f" '^reader_telescoping[[:space:]]+OK \(30 links\)' "30 telescoping links"
-  want_grep  a2_q3_reader "$f" '^reader_p_num_n_eq_1[[:space:]]+OK'             "p_num[n] == 1"
-  want_grep  a2_q3_reader "$f" "^reader_p_den_1_eq_N[[:space:]]+OK \\($N31\\)"  "p_den[1] == N"
+  want_line  a2_q3_reader "$f" "$(printf 'reader_telescoping\tOK (30 links)')"   "30 telescoping links"
+  want_line  a2_q3_reader "$f" "$(printf 'reader_p_num_n_eq_1\tOK')"             "p_num[n] == 1"
+  want_line  a2_q3_reader "$f" "$(printf 'reader_p_den_1_eq_N\tOK (%s)' "$N31")" "p_den[1] == N"
 fi
 
 # G3.6 -- XA-a / XA-b
@@ -492,8 +541,9 @@ if gfile c_xa_ab; then f=$GF
   want_field c_xa_ab "$f" sum_solutions       "$N31" "sum_b solutions(b) == N"
   want_field c_xa_ab "$f" N_total             "$N31" "the row's own N agrees with the pinned N"
   want_field c_xa_ab "$f" shared_trunk_t_units 1     "t(root) - sum_b prefixes(b) == 1"
-  want_grep  c_xa_ab "$f" '^XA_A_GATE.*OK'  "XA-a gate OK"
-  want_grep  c_xa_ab "$f" '^XA_B_GATE.*OK'  "XA-b gate OK"
+  want_line  c_xa_ab "$f" "$(printf 'XA_A_GATE\tSum_b solutions(b) == N  OK')" "XA-a gate OK"
+  want_line  c_xa_ab "$f" "$(printf 'XA_B_GATE\tSum_b prefixes(b) + trunk == t(root), trunk == 1 (the root)  OK')" "XA-b gate OK"
+  deny_grep  c_xa_ab "$f" '^XA_[AB]_(FAIL|GATE[[:space:]].*FAIL)' "no XA failure recorded in the golden"
 fi
 
 # G3.7 -- the atlas header
@@ -525,8 +575,17 @@ if gfile c_v1; then f=$GF
   # compare EQUAL. The row this check models (c_v1 in tr12_repro.sh) sums in bc for the same reason.
   exprs=$(awk '$1 ~ /^[0-9]+$/ && NF==3 {s[$1]=(s[$1]==""? $3 : s[$1]"+"$3)} END{for(i in s) print s[i]}' "$f")
   nk=$(printf '%s\n' "$exprs" | grep -c .)
-  nbadsum=$(printf '%s\n' "$exprs" | bc 2>/dev/null | grep -vcx -- "$N31")
-  if [ "${nk:-0}" -eq 31 ] && [ "${nbadsum:-1}" -eq 0 ]; then
+  # Every expression must yield its own sum (Codex, gpt-6-astra, F05-013#14): an expression bc
+  # cannot evaluate (a `1/0` cell) printed nothing, so it was never counted as a bad sum.
+  sums=$(printf '%s\n' "$exprs" | BC_LINE_LENGTH=0 bc 2>/dev/null); bcrc=$?
+  nsum=$(printf '%s\n' "$sums" | grep -c .)
+  nbadsum=$(printf '%s\n' "$sums" | grep -vcx -- "$N31")
+  keys=$(awk '$1 ~ /^[0-9]+$/ && NF==3 {print $1}' "$f" | sort -un | tr '\n' ' ')
+  if [ "$bcrc" -ne 0 ] || [ "$nsum" -ne "${nk:-0}" ]; then
+    bad "c_v1: bc produced $nsum sum(s) for ${nk:-0} layer expression(s) (rc $bcrc) -- an expression did not evaluate"
+  elif [ "$keys" != "$(seq 0 30 | tr '\n' ' ')" ]; then
+    bad "c_v1: the layer keys are not exactly 0..30 (got: ${keys:-none})"
+  elif [ "${nk:-0}" -eq 31 ] && [ "${nbadsum:-1}" -eq 0 ]; then
     ok "c_v1: all 31 layers' raw marginals sum to N (re-derived here, in bc, from the printed cells)"
   else
     bad "c_v1: re-derived ${nk:-0} layers, ${nbadsum:-?} of which do NOT sum to N (want 31 layers, 0 bad)"
@@ -535,8 +594,15 @@ fi
 if gfile c_v2; then f=$GF
   exprs=$(awk '$1 ~ /^[0-9]+$/ && NF==6 {print $2"+"$3"+"$4"+"$5"+"$6}' "$f")
   nk=$(printf '%s\n' "$exprs" | grep -c .)
-  nbadsum=$(printf '%s\n' "$exprs" | bc 2>/dev/null | grep -vcx -- "$N31")
-  if [ "${nk:-0}" -eq 31 ] && [ "${nbadsum:-1}" -eq 0 ]; then
+  sums=$(printf '%s\n' "$exprs" | BC_LINE_LENGTH=0 bc 2>/dev/null); bcrc=$?
+  nsum=$(printf '%s\n' "$sums" | grep -c .)
+  nbadsum=$(printf '%s\n' "$sums" | grep -vcx -- "$N31")
+  keys=$(awk '$1 ~ /^[0-9]+$/ && NF==6 {print $1}' "$f" | sort -n | tr '\n' ' ')
+  if [ "$bcrc" -ne 0 ] || [ "$nsum" -ne "${nk:-0}" ]; then
+    bad "c_v2: bc produced $nsum sum(s) for ${nk:-0} layer expression(s) (rc $bcrc) -- an expression did not evaluate"
+  elif [ "$keys" != "$(seq 0 30 | tr '\n' ' ')" ]; then
+    bad "c_v2: the layer keys are not exactly 0..30, each once (got: ${keys:-none})"
+  elif [ "${nk:-0}" -eq 31 ] && [ "${nbadsum:-1}" -eq 0 ]; then
     ok "c_v2: all 31 layers' five class masses sum to N (re-derived here, in bc) -- the row itself asserts nothing"
   else
     bad "c_v2: re-derived ${nk:-0} layers, ${nbadsum:-?} of which do NOT sum to N (want 31 layers, 0 bad)"
@@ -544,8 +610,13 @@ if gfile c_v2; then f=$GF
 fi
 if gfile c_v5; then f=$GF
   # the p column is O(1), so the probability sum is the one place a double is the right instrument
-  r=$(awk '$1 ~ /^[0-9]+$/ && NF==4 {p[$1]+=$4; c[$1]++}
-        END{nk=0; b=0; for(i in p){nk++; d=p[i]-1; if(d<0)d=-d; if(d>0.000001 || c[i]!=5) b++} print nk, b}' "$f")
+  # KEY SETS, not counts (Codex, gpt-6-astra, F05-013#15): layers exactly 0..30, and in each layer
+  # the five classes d1 d2 d3 d4 d6 each exactly once -- five copies of d1 are five records, not five classes.
+  r=$(awk '$1 ~ /^[0-9]+$/ && NF==4 {p[$1]+=$4; c[$1]++; if (($1 SUBSEP $2) in seen) dup++; seen[$1, $2]=1
+                                      if ($2 !~ /^d[12346]$/) badcls++}
+        END{nk=0; b=0; for(i in p){nk++; d=p[i]-1; if(d<0)d=-d; if(d>0.000001 || c[i]!=5) b++; if (i+0 > 30) b++}
+            for (k = 0; k <= 30; k++) if (!(k in p)) b++
+            print nk, b + dup + badcls}' "$f")
   set -- $r
   if [ "${1:-0}" -eq 31 ] && [ "${2:-1}" -eq 0 ]; then
     ok "c_v5: every one of 31 layers has 5 classes whose p sum to 1 (re-derived here)"
@@ -572,8 +643,9 @@ if [ ! -s "$prov" ]; then
   miss "Tier 4: no MINTING_PROVENANCE.txt -- the set does not say which commit, binary or ladder minted it"
 else
   for k in minting_commit source_sha atlas_sha256 operator_signoff; do
-    if grep -qE "^$k[[:space:]]" "$prov"; then ok "Tier 4 provenance: $k present"
-    else bad "Tier 4 provenance: MINTING_PROVENANCE.txt has no $k line"; fi
+    # a key with no VALUE identifies nothing (Codex, gpt-6-astra, F05-013#18)
+    if grep -qE "^$k[[:space:]]+[^[:space:]]" "$prov"; then ok "Tier 4 provenance: $k present"
+    else bad "Tier 4 provenance: MINTING_PROVENANCE.txt has no $k line with a value"; fi
   done
   for s in STAGE_F_LAYERSHA.txt STAGE_G_LAYERSHA.txt STAGE_T_LAYERSHA.txt; do
     grep -qF -- "$s" "$prov" || bad "Tier 4 provenance: MINTING_PROVENANCE.txt does not name $s"

@@ -156,15 +156,54 @@ def d_atlas_space():
                                                    if not re.search(c + r"(?!\d)", head)))
 
 
-def d_a_anchors():
-    """Deviation/tolerance multiples of the two external-anchor checks, from --atlas-queries."""
+def _atlas_queries():
+    """Run `solve.py --atlas-queries` on the n=31 atlas in a scratch directory and return its output.
+    F06-004#2 / F06-005#1 (Codex gpt-6-astra): the producer's status was discarded (A2/A3: a trailing
+    `rm`; a-anchors: returncode never read), so a run that printed its lines and then crashed or was
+    killed still substantiated the rows. Its exit status CARRIES THE VERDICT: 0 all verdicts pass;
+    1 some verdict FAILED, which this harness accepts only with solve.py's own summary line naming
+    exactly the FAIL lines printed and no traceback; anything else exits non-zero here (ERROR)."""
     import tempfile
     with tempfile.TemporaryDirectory() as d:
         r = subprocess.run([sys.executable, "solve.py", "--atlas-queries", ATLAS, "--atlas-out", d],
                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
                            text=True)
-    pairs = re.findall(r"max deviation ([0-9.]+) \(tol ([0-9.]+)\)", r.stdout)
-    print("A_CHECKS_WITH_TOLERANCE=%d" % len(pairs))
+    out, rc = r.stdout, r.returncode
+    if rc == 1:
+        summ = re.findall(r"^ERROR: \[atlas\] (\d+) verdict\(s\) FAILED: (.*)$", out, re.M)
+        fails = sorted(set(re.findall(r"^(TR12_\w+=FAIL\S*)$", out, re.M)))
+        toks = sorted(set(summ[0][1].split())) if len(summ) == 1 else None
+        if (toks is None or int(summ[0][0]) != len(summ[0][1].split()) or toks != fails
+                or re.search(r"^Traceback \(most recent call last\):", out, re.M)):
+            print("A_QUERIES_ERROR=solve.py --atlas-queries exited 1 without its verdict-FAILED summary matching the FAIL lines")
+            sys.exit(4)
+    elif rc != 0:
+        print("A_QUERIES_ERROR=solve.py --atlas-queries exited %d" % rc)
+        sys.exit(rc if 0 < rc < 256 else 1)
+    return out
+
+
+def d_a_queries():
+    """The verdict lines of --atlas-queries (TR12_A2_SLOT, TR12_A3_EXTERNAL, ...), status-checked."""
+    for l in _atlas_queries().split("\n"):
+        if re.fullmatch(r"TR12_\w+=\S+", l):
+            print(l)
+
+
+def d_a_anchors():
+    """Deviation/tolerance multiples of the two external-anchor checks, from --atlas-queries."""
+    out = _atlas_queries()
+    # F06-005#2: the rows say "both checks", and a set of ratios cannot see a missing comparison, so
+    # exactly the two anchor comparisons must be present -- and they must be the two IDENTIFIED ones,
+    # one A2 (`A2 slot32=...`) and one A3 (`wrap masses ...`), not any two comparisons (Codex CX-35W-K,
+    # Fable triage G5c #10: two A2 lines and no A3 line satisfied a bare count).
+    a2 = re.findall(r"A2 slot32=.*?max deviation ([0-9.]+) \(tol ([0-9.]+)\)", out)
+    a3 = re.findall(r"wrap masses .*?max deviation ([0-9.]+) \(tol ([0-9.]+)\)", out)
+    print("A_CHECKS_WITH_TOLERANCE=%d" % (len(a2) + len(a3)))
+    if len(a2) != 1 or len(a3) != 1:
+        print("A_ANCHORS_ERROR=expected one A2 and one A3 anchor comparison, found A2=%d A3=%d" % (len(a2), len(a3)))
+        sys.exit(3)
+    pairs = a2 + a3
     mult = sorted({int((Decimal(a) / Decimal(b)).quantize(Decimal(1), ROUND_HALF_UP)) for a, b in pairs})
     print("TOL_MULTIPLE_ROUNDED=%s" % ",".join(map(str, mult)))
 
@@ -230,7 +269,7 @@ def d_v5_grammar():
     print("V5_NONZERO_CELLS=%d" % sum(1 for r in g if int(r["mass"]) != 0))
 
 
-DERIVE = {"catalog": d_catalog, "atlas-space": d_atlas_space, "a-anchors": d_a_anchors,
+DERIVE = {"catalog": d_catalog, "atlas-space": d_atlas_space, "a-anchors": d_a_anchors, "a-queries": d_a_queries,
           "v2-branches": d_v2_branches, "v3-spectrum": d_v3_spectrum, "v4-profile": d_v4_profile,
           "v5-grammar": d_v5_grammar}
 
@@ -279,8 +318,11 @@ def norm(s):
     return s.replace("−", "-")
 
 
-def value_re(v):
-    return re.compile(r"(?<![\w.,−-])" + re.escape(v) + r"(?![\w]|[.,]\d)")
+def value_re(v, rend=""):
+    # F06-004#3 / F06-005#8: a pct-rendered value is a PERCENTAGE in the text -- followed by `%` or
+    # "percentage point(s)". The bare digit used to match anything (the 3 of "slots 3–31").
+    tail = r"(?=\s*(?:%|percentage points?\b))" if rend.startswith("pct") else ""
+    return re.compile(r"(?<![\w.,−-])" + re.escape(v) + r"(?![\w]|[.,]\d)" + tail)
 
 
 # ------------------------------------------------------------------ checking
@@ -329,6 +371,14 @@ def parse(text):
             raise SchemaError(where + ": a conditional-on row needs a premise")
         if not cond and r["premise"] != "-":
             raise SchemaError(where + ": premise must be '-' unless scope is conditional-on:")
+        # F06-005#3: a premise is the CONDITION, not a word that names one ("inference"); one or two
+        # words can stay in the sentence after the condition itself is deleted.
+        if cond and len(r["premise"].split()) < 3:
+            raise SchemaError(where + ": premise %r is under three words -- name the condition itself" % r["premise"])
+        # F06-004#2 / F06-005#1: an evidence command that ends in a cleanup after `;` exits with the
+        # cleanup's status, not the producer's.
+        if re.search(r";\s*rm\b[^;&|]*$", r["evidence"]):
+            raise SchemaError(where + ": evidence ends in a cleanup (`; rm ...`) that hides the producer's exit status")
         for c in ("set", "unit", "value", "evidence", "key", "artifact"):
             if not r[c].strip() or r[c] == "-":
                 raise SchemaError(where + ": empty %s" % c)
@@ -539,7 +589,7 @@ def check_row(r, files, cache):
     lines = text.split("\n")
     if not 1 <= lno <= len(lines):
         return False, "S: %s has %d lines, cited line %d" % (path, len(lines), lno)
-    vre = value_re(r["value"])
+    vre = value_re(r["value"], r["render"])
     m = vre.search(lines[lno - 1])
     if not m:
         elsewhere = [str(i + 1) for i, l in enumerate(lines) if vre.search(l)][:5]

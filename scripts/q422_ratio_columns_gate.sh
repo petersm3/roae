@@ -96,7 +96,7 @@ if [ -n "${Q422_SOLVE:-}" ]; then
   # The M1..M6 mutants below are solve.py copies, not binaries, and are unaffected by this.
   . "$(cd "$(dirname "$0")" && pwd)/lib_binary_currency.sh"
   # cwd is the repo root (cd at the top of this file), so bare `solve.c` is unambiguous.
-  if [ "${Q422_ALLOW_STALE-}" != "1" ] && ! solve_binary_currency "$SOLVE" solve.c; then
+  if [ "${Q422_ALLOW_STALE-}" != "1" ] && ! solve_binary_currency_strict "$SOLVE" solve.c; then
     echo "  [ERROR] $BINCUR_MSG" >&2
     echo "          (set Q422_ALLOW_STALE=1 to override, deliberately.)" >&2
     echo "Q422_RATIO_COLUMNS_GATE=ERROR"; exit 2
@@ -115,10 +115,15 @@ mkdir -p "$WORK/f" "$WORK/g" "$WORK/t"
 "$SOLVE" --kc-g-build "$WORK/g" --f1-pairs 9 >"$WORK/bg.log" 2>&1 || fail "--kc-g-build failed"
 "$SOLVE" --kc-t-build "$WORK/f" "$WORK/t"    >"$WORK/bt.log" 2>&1 || fail "--kc-t-build failed"
 "$SOLVE" --kc-scan "$WORK/f" "$WORK/g" "$WORK/atlas.json" --kc-tdir "$WORK/t" --kc-raw >"$WORK/scan.log" 2>&1 || fail "--kc-scan failed"
-"$SOLVE" --kc-enum "$WORK/f" 2>/dev/null | grep -v '^\[' > "$WORK/walks.txt"
+# Each producer's own exit status is part of its answer (Codex, gpt-6-astra, F05-012#10): a run that
+# prints the expected data and then exits nonzero is a failed run, not a universe.
+"$SOLVE" --kc-enum "$WORK/f" 2>/dev/null > "$WORK/enum.raw" || fail "--kc-enum exited nonzero"
+grep -v '^\[' "$WORK/enum.raw" > "$WORK/walks.txt"
 NW=$(grep -c . "$WORK/walks.txt"); [ "$NW" = 26112 ] || fail "n=9 enumeration gave $NW walks, expected 26112"
-NT=$("$SOLVE" --kc-count "$WORK/f" 2>/dev/null | sed -n 's/^KC COUNT n=9 = \([0-9]*\)$/\1/p'); [ "$NT" = 26112 ] || fail "--kc-count gave '$NT', expected 26112"
-ANCHOR=$("$SOLVE" --kc-o3-unrank "$WORK/f" "$WORK/g" $((NT / 2)) 2>/dev/null | grep -E '^[0-9]+(,[0-9]+)+$' | head -1)
+NT=$("$SOLVE" --kc-count "$WORK/f" 2>/dev/null) || fail "--kc-count exited nonzero"
+NT=$(printf '%s\n' "$NT" | sed -n 's/^KC COUNT n=9 = \([0-9]*\)$/\1/p'); [ "$NT" = 26112 ] || fail "--kc-count gave '$NT', expected 26112"
+ANCHOR=$("$SOLVE" --kc-o3-unrank "$WORK/f" "$WORK/g" $((NT / 2)) 2>/dev/null) || fail "--kc-o3-unrank exited nonzero"
+ANCHOR=$(printf '%s\n' "$ANCHOR" | grep -E '^[0-9]+(,[0-9]+)+$' | awk 'NR==1')
 [ -n "$ANCHOR" ] || fail "could not materialise the O3-midpoint anchor walk"
 "$SOLVE" --kc-o3-rank "$WORK/f" "$WORK/g" "$ANCHOR" --kc-trace --kc-bracket > "$WORK/q3_profile.txt" 2>&1 || fail "--kc-o3-rank failed"
 
@@ -156,9 +161,21 @@ verdict(){ # verdict <dir> ; 0 iff every leg behaves; explains on stderr-of-gate
   # gate was added (move the pin IN THE SAME COMMIT) or one vanished (do not move it).
   [ "$nf" = 5 ] && [ "$np" = 31 ] || { echo "    leg 2 (ratio-zero): $nf FAIL / $np PASS gate lines, expected exactly 5 / 31"; return 1; }
   grep -E '^\[atlas-consumer\] .* FAIL' "$WORK/last.out" | grep -cE 'V1 p == marginal/N' >/dev/null || { echo "    leg 2 (ratio-zero): the V1 p gate (the plotted column) did not fire"; return 1; }
+  # WHICH five, not only how many (Codex, gpt-6-astra, F05-012#11): an integer gate failing in place
+  # of a ratio gate keeps the 5 / 31 counts. The five ratio-derived gates are named here.
+  grep -E '^\[atlas-consumer\] .* FAIL( |$)' "$WORK/last.out" \
+    | sed -E 's/^\[atlas-consumer\] (.*[^ ]) +FAIL( .*)?$/\1/' | LC_ALL=C sort > "$WORK/fail_ids.txt"
+  cmp -s "$WORK/fail_ids.txt" "$WORK/want_fail_ids.txt" || { echo "    leg 2 (ratio-zero): the failing gates are not the five ratio-derived ones:"; diff "$WORK/want_fail_ids.txt" "$WORK/fail_ids.txt" | sed 's/^/      /'; return 1; }
   return 0
 }
 
+LC_ALL=C sort > "$WORK/want_fail_ids.txt" <<'Q422_FAIL_IDS'
+Q3: p column == p_num/p_den to 17 correct digits (Q-422)
+brute force: Q6 extremes (argmax/argmin/ratio/kw_p/kw_class_pct) from the recount
+brute force: V1 p == marginal/N to 17 correct digits (the column V1 plots)
+brute force: V2 p, V5 p_cond, Q6 p re-rendered from the recount
+brute force: XA and V2-branch share == solutions/N re-rendered from the recount
+Q422_FAIL_IDS
 verdict "$WORK/base" || fail "baseline: the consumer under test does not behave on one of the three legs (see above)"
 
 # ---- mutants: each is a sed rewrite of a COPY and MUST turn a leg red ---------------------------

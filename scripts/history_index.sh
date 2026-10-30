@@ -130,7 +130,7 @@ def err(msg):
 try:
     doc = open(hist, encoding="utf-8").read()
     gate = open(cur, encoding="utf-8").read()
-except OSError as e:
+except (OSError, UnicodeDecodeError) as e:   # F06-011#5: undecodable input is ERROR, not a traceback
     err("cannot read an input: %s" % e)
 
 # The ISO grammar is the currency gate's own pattern, not a copy of it.
@@ -271,7 +271,7 @@ if mode == "write":
     sys.exit(0)
 try:
     have = open(idx, encoding="utf-8", newline="").read()  # newline="": no CRLF->LF folding, so CURRENT means byte-identical (Codex gpt-6-astra F06-011#4; push group G4, CX-35T-L)
-except OSError as e:
+except (OSError, UnicodeDecodeError) as e:   # F06-011#5: undecodable input is ERROR, not a traceback
     err("cannot read the committed index %s: %s" % (idx, e))
 print("  [info] %s: %d dated H2 section(s) (%d iso, the currency gate's grammar), %d undated; %d place(s)"
       " where file order and date order disagree" % (hist, len(rows), iso_n, len(undated), len(inv_all)))

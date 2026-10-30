@@ -155,13 +155,16 @@ def leg(ok, msg):
     if not ok:
         bad.append(msg)
 
-def section_rows(n_sec, width):
+def section_rows(n_sec, width, allowed=None):
+    # F05-020#4: a DATA row (numeric first cell) of an unexpected width was dropped silently, so an
+    # extra contradictory row with one more cell was invisible to every check below. It is a failure.
+    allowed = set(allowed or (width,))
     rows, sec = [], False
     try:
         fh = open(doc, encoding="utf-8")
     except OSError as e:
         leg(False, "cannot read %s: %s" % (doc, e)); return rows
-    for l in fh:
+    for ln, l in enumerate(fh, 1):
         if l.startswith("## "):
             sec = l.startswith("## %d." % n_sec)
             continue
@@ -169,6 +172,9 @@ def section_rows(n_sec, width):
             c = [x.strip().replace(",", "") for x in l.strip().strip("|").split("|")]
             if len(c) == width or (len(c) not in {1: (8,), 2: (5, 8)}.get(n_sec, (width,)) and any(re.fullmatch(r"[0-9]+", x) for x in c) and leg(False, "section %d: a data row has %d cells, a width this page does not use (G5b, F11-019#1): %s" % (n_sec, len(c), l.strip()[:60]))):
                 rows.append(c)
+            elif len(c) not in allowed and re.fullmatch(r"[0-9]+", c[0]):
+                leg(False, "section %d line %d is a data row with %d cells (expected %s): %s"
+                    % (n_sec, ln, len(c), "/".join(map(str, sorted(allowed))), l.strip()[:80]))
     return rows
 
 # (1) the 31-row table of section 1
@@ -260,7 +266,7 @@ leg(len(t) == 31 and bool(re.fullmatch(r"[0-9]+", t[-1][7])) and int(t[-1][7]) %
 if run13:
     P13 = "[3,7,11,5,8,26,31,10,15,20,23,27,29]"
     col, colbad = {}, []
-    for c in section_rows(2, 8) + section_rows(2, 5):
+    for c in section_rows(2, 8, (8, 5)) + section_rows(2, 5, (8, 5)):
         if len(c) > 4 and re.fullmatch(r"[0-9]+", c[3]):
             k = int(c[3])
             if not 1 <= k <= 13 or not re.fullmatch(r"[0-9]+", c[4]) or k in col:
@@ -348,10 +354,14 @@ def fail(msg):
     print("  [FAIL]  " + msg); bad.append(msg)
 mp = os.path.join(d, "reviewer", "MANIFEST.sha256")
 try:
-    lines = open(mp, encoding="utf-8").read().split("\n")
-except OSError as e:
+    _raw = open(mp, "rb").read()
+    lines = _raw.decode("utf-8").split("\n")
+    # F05-020#5: the digest of the manifest bytes THIS check read, so the run can bind its scratch
+    # copies to the manifest that was validated, not to whatever the file holds later.
+    print("PACKAGE_MANIFEST_SHA256=" + hashlib.sha256(_raw).hexdigest())
+except (OSError, UnicodeDecodeError) as e:
     lines = None
-    fail("the package has no readable reviewer/MANIFEST.sha256 (%s)" % e.strerror)
+    fail("the package has no readable reviewer/MANIFEST.sha256 (%s)" % getattr(e, "strerror", e))
 if lines is not None:
     if lines and lines[-1] == "":
         lines.pop()
@@ -383,6 +393,7 @@ print("PACKAGE_MANIFEST=" + ("FAIL" if bad else "OK"))
 sys.exit(1 if bad else 0)
 PY
 ); rc=$?
+  MANIFEST_SHA=$(sed -n 's/^PACKAGE_MANIFEST_SHA256=\([0-9a-f]\{64\}\)$/\1/p' <<<"$out" | tail -1)
   verdict_gate PACKAGE_MANIFEST "$rc" "$out" OK FAIL "the manifest check"
 }
 
@@ -502,7 +513,7 @@ def _crash(t, v, tb):                  # a crash is exit 3, never read as "no co
 sys.excepthook = _crash
 lines = open(sys.argv[1], encoding="utf-8", errors="replace").read().split("\n")
 exps = [e for e in open(sys.argv[2], encoding="utf-8").read().split("\n") if e]
-NUM = re.compile(r"[0-9a-f]{16,}|\d+(?:,\d+)*")
+NUM = re.compile(r"[0-9a-f]{16,}|-?\d+(?:,\d+)*")   # F05-020#3: the sign is part of the number
 def form(s): return NUM.sub("#", s), NUM.findall(s)
 def matches(e, l):
     if e.endswith(" …"):
@@ -568,6 +579,24 @@ run_steps(){
   SCRATCH=$W
   populate "$W" "$src" "$@" || return 2
   mkdir -p "$W/.selfcheck"
+  # F05-020#5: the manifest was validated against $src, and the copies are read from $src again
+  # afterwards; a file changed in between would run unvalidated. Each COPY is held to the manifest
+  # the check read (bound by its digest), before step 1.
+  if [ -n "${MANIFEST_SHA:-}" ]; then
+    local mf="$W/.selfcheck/MANIFEST.sha256" f want got
+    cp -p "$src/reviewer/MANIFEST.sha256" "$mf" 2>/dev/null \
+      || { echo "  [ERROR] cannot copy the manifest into the scratch directory"; return 2; }
+    got=$(sha256sum "$mf" | cut -d' ' -f1)
+    [ "$got" = "$MANIFEST_SHA" ] \
+      || { echo "  [ERROR] reviewer/MANIFEST.sha256 changed after it was checked; the copies cannot be bound to it"; return 2; }
+    for f in "$@"; do
+      want=$(awk -v p="$f" '$2 == p {print $1}' "$mf")
+      got=$(sha256sum "$W/$f" | cut -d' ' -f1)
+      if [ -z "$want" ] || [ "$want" != "$got" ]; then
+        echo "  [ERROR] the scratch copy of $f does not match the manifest that was checked"; return 2
+      fi
+    done
+  fi
   # The page's commands set every engine setting they need; inherited SOLVE_* values are cleared.
   local UNSET=() v
   for v in $(compgen -e | grep '^SOLVE_'); do UNSET+=(-u "$v"); done
@@ -576,6 +605,18 @@ run_steps(){
   [ -n "$TIMES" ] && printf 'step\twall_s\tpeak_rss_kib\tresult\n' > "$TIMES"
   NSTEP=0; NFAIL=0; NUNFIN=0
   local tmo=${SELFCHECK_STEP_TIMEOUT:-1800}
+  # F05-020#1: the STEP records are read into a variable with grep's status checked, counted, and the
+  # count is required to equal the steps run and the page's stated count -- a producer that emitted
+  # one record and died used to leave a one-step run that read PASS.
+  local steps nwant stated
+  steps=$(grep '^STEP' <<<"$STEPS_TSV"); local grc=$?
+  if [ "$grc" -ne 0 ] || [ -z "$steps" ]; then echo "  [ERROR] could not read the step records (grep rc $grc)"; return 2; fi
+  nwant=$(printf '%s\n' "$steps" | grep -c .)
+  stated=$(awk -F'\t' '$1=="STATED"{print $2}' <<<"$STEPS_TSV")
+  case "$stated" in ''|*[!0-9]*) stated="" ;; esac
+  if [ -n "$stated" ] && [ "$nwant" != "$stated" ]; then
+    echo "  [ERROR] the page states $stated steps but $nwant step records were read"; return 2
+  fi
   while IFS=$'\t' read -r _ n cmd; do
     NSTEP=$((NSTEP+1))
     log="$W/.selfcheck/step_$n.log"
@@ -602,10 +643,22 @@ run_steps(){
     elif [ "$rc" -ne 0 ]; then
       echo "          [FAIL] exit status $rc"; ok=0
     fi
-    while IFS=$'\t' read -r _ _ exp; do
-      match_expect "$log.trim" "$exp" || ok=0
-    done < <(awk -F'\t' -v n="$n" '$1=="EXPECT" && $2==n' <<<"$STEPS_TSV")
-    awk -F'\t' -v n="$n" '$1=="EXPECT" && $2==n{print $3}' <<<"$STEPS_TSV" > "$log.exp"
+    # F05-020#2: the expectation records are extracted ONCE with awk's status checked, and their
+    # number is held to an awk-free count of this step's EXPECT records; an extraction that dies
+    # without output used to run zero comparisons and hand the contradiction check an empty list.
+    local nexp=0 _a _b _c erc
+    while IFS=$'\t' read -r _a _b _c; do [ "$_a" = EXPECT ] && [ "$_b" = "$n" ] && nexp=$((nexp+1)); done <<<"$STEPS_TSV"
+    awk -F'\t' -v n="$n" '$1=="EXPECT" && $2==n' <<<"$STEPS_TSV" > "$log.rec"; erc=$?
+    : > "$log.exp"
+    if [ "$erc" -ne 0 ] || [ "$(grep -c . "$log.rec")" -ne "$nexp" ]; then
+      echo "          [ERROR] the step's expect: lines could not be extracted (awk rc $erc): this step is unchecked"
+      ok=0; unfin=1
+    else
+      while IFS=$'\t' read -r _ _ exp; do
+        match_expect "$log.trim" "$exp" || ok=0
+        printf '%s\n' "$exp" >> "$log.exp"
+      done < "$log.rec"
+    fi
     conflict_check "$log.trim" "$log.exp"; crc=$?
     case "$crc" in
       0) ;;
@@ -622,7 +675,10 @@ run_steps(){
     [ "$rc" -eq 124 ] && state=TIMEOUT
     [ "$rc" -gt 128 ] && [ "$rc" -le 192 ] && state=CRASH
     [ -n "$TIMES" ] && printf '%s\t%s\t%s\t%s\n' "$n" "$wall" "$rss" "$state" >> "$TIMES"
-  done < <(grep '^STEP' <<<"$STEPS_TSV")
+  done <<<"$steps"
+  if [ "$NSTEP" -ne "$nwant" ]; then
+    echo "  [ERROR] $nwant step records were read but $NSTEP ran"; NUNFIN=$((NUNFIN+1))
+  fi
   return 0
 }
 

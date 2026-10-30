@@ -35257,3 +35257,459 @@ miscounts appear in neither CITATIONS nor this file. Red on the uncured tree: th
 first draft: the miscounts.
 
 Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, push group G8L.
+
+## CX-35W-A — a binary handed to a gate was accepted on timestamps alone: an untagged build newer than solve.c "established" the subject of five gates (scripts/lib_binary_currency.sh; scripts/knuth_c67_repro_gate.sh; scripts/q314_mod48_gate.sh; scripts/q422_ratio_columns_gate.sh; scripts/q326_kc_query_surface_gate.sh; scripts/kc_writer_devfull_gate.sh; scripts/manifest_zero_entry_gate.sh; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, round 3b, F05-013#6, F05-012#13, F05-017#13 and
+F05-018#2; confirmed by Fable's fast-track triage (FT3b-2). Push group G5c.
+
+**What the gates did, and what they do now.**
+- `lib_binary_currency.sh` returns success with `BINCUR_SIGNAL=mtime-weak` for a binary that carries no SOURCE_SHA and is
+  not older than solve.c, and says in its own message that currency is then "assumed from timestamps, NOT established".
+  The knuth_c67, q314, q422 and q326 query-surface gates read only the return code, so a copied or touched old binary
+  certified the current source. The library gains `solve_binary_currency_strict`, which refuses everything but the
+  source-sha signal; those four gates and the sibling `manifest_zero_entry_gate.sh` use it for a handed-in binary.
+  Each gate's `*_ALLOW_STALE=1` override is unchanged.
+- `kc_writer_devfull_gate.sh` checked only the +x bit of a binary given in `SOLVE`; it now applies the same strict check
+  (`KC_WRITER_DEVFULL_ALLOW_STALE=1` to override).
+- The q326 query-surface gate's second stage now requires a handed-in binary to report this solve.c's sha; an `unknown`
+  report no longer passes.
+
+`tr12_repro_gate.sh` hands these gates a binary built with the published line, which embeds SOURCE_SHA, so the normal
+path is unchanged. The other callers of the library (disk_precheck, atlas_path_portability, the resume-167 gate, q908,
+the eviction-resume test and kc_midn_validate) are handed bare builds by their in-repository callers and keep the
+timestamp rule; that is recorded here, not changed.
+
+**Tests.** `TestBatchG5c.test_handed_in_stale_binary_is_refused_by_every_caller` hands each of the six gates an untagged
+executable newer than solve.c (the library is first shown to read it as mtime-weak) and requires the refusal. On the
+uncured scripts every gate accepted it and ran it.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5c; the defects were found by Codex
+(gpt-6-astra), final review, F05-013#6, F05-012#13, F05-017#13, F05-018#2.
+
+## CX-35W-B — gate legs took a producer's printed output without its exit status, and read verdict tokens as substrings, prefixes, comments or the first of several (scripts/q422_ratio_columns_gate.sh; scripts/q314_mod48_gate.sh; scripts/q326_kc_query_surface_gate.sh; scripts/q326_kc_unrank_m0_gate.sh; scripts/q433_xa_cert_gate.sh; scripts/cli_decl_metadata_gate.sh; scripts/n3_measured_nulls_gate.sh; scripts/a2_slot_verdict_gate.sh; scripts/xa_exact_verdict_gate.sh; scripts/d5_03_ls_w0_exact_gate.sh; scripts/d5_04_q7_witnesses_gate.sh; scripts/q2_witness_gate.sh; scripts/tr12_golden_set_gate.sh; scripts/knuth_c67_repro_gate.sh; scripts/tr12_repro.sh; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, round 3b, F05-012#1/#10/#14/#15/#16, F05-013#2/#3/#4/#5/#7/#8,
+F05-014#1/#5/#8, F05-017#2/#3/#11, F05-018#5/#13 and F05-019#4/#6; confirmed by Fable's fast-track triage (FT3b-2).
+Push group G5c.
+
+**Exit statuses.** The q422 and q314 gates now require `--kc-enum`, `--kc-count` and `--kc-o3-unrank` to exit 0 (a run
+that printed 26,112 walks and then exited 137 was a universe). q314's fault legs require the documented end of each
+consumer run (rc 1 with `ATLAS_CONSUMER=FAIL`, and for the clean no-walks run rc 1 with
+`ATLAS_CONSUMER=SKIP:no-brute-force-walks`). q326's L8 and the unrank gate's L4 read their producer's status, and L4
+reads the whole `record` line; q433 reads its leg runner's status for the baseline and for every mutant;
+`cli_decl_metadata_gate.sh` reads the checker's status and requires exactly one RESULT line; the N3 gate refuses a
+producer region that does not parse as bash (the functions parsed before a syntax error used to answer every case).
+
+**Tokens.** q314 reads each gate's STATUS FIELD by exact gate name (NOT_PASS, NOT_FAIL and "FAIL … expected PASS" were
+accepted). The A2 gate refuses a verdict key written twice and holds sibling verdicts to the PASS / PASS:… grammar
+(PASS_BUT_UNCHECKED started with PASS). The XA gate compares the row's verdict CELL and the Call's bolded word
+(NOT_INFEASIBLE contained INFEASIBLE). d5_03 counts `row_end` owners as the shell reads them (a quoted second owner
+with the old spelling in a trailing comment kept the count at one), d5_04 reads the arguments of the `agg TR12_Q7`
+statement (the witness token in a comment satisfied leg 1; mutant M3b now pins that), and the Q2 witness census counts
+`function name {` and `function name()` definitions. The golden-set gate reads a quoted `row_begin "id"`, takes a skip
+pin as NOT RUN only when its value is SKIP or PENDING, and checks every `comm` status before its loop. The knuth gate
+reads the documented recipe with shell meaning (one double-quoted PREFIX before the first invocation, no other
+commands), uses the extractor's diagnostic without an unchecked `tr`, and reads the labelled `tree_nodes :` result
+exactly once. `q10a_kwrank_measure` and the two N3 JSON readers allow whitespace before a JSON colon (a supplied
+`"class_rank" : "0"` read EMPTY).
+
+**After Codex's review of this entry (Fable triage G5c #2, #3).** The Q2 witness census also counts a definition
+spelled with whitespace inside the parentheses (`kc_first_last_witness ( ) { ...; }`, which bash accepts and the
+adjacent-`()` pattern missed), and d5_03 reads `row_end` owners per shell STATEMENT, not per line: a second owner after
+`;` or `&&` on the same line (`row_end TR12_LS_W0_COND_MC $rc; row_end TR12_LS_W0 $rc`) is counted. Tested by new
+subtests of `test_q2_witness_census_counts_every_definition_form` and `test_d5_03_ownership_is_read_as_the_shell_reads_it`.
+
+**Tests.** `TestBatchG5c` methods `test_q422_universe_producers_must_exit_zero`, `test_q314_universe_producers_must_exit_zero`,
+`test_q314_legs_read_the_status_field_and_the_fault_rc`, `test_q326_l8_reads_the_enumeration_status`,
+`test_q326_unrank_l4_reads_status_and_record`, `test_q433_leg_runner_status_is_read`,
+`test_cli_decl_reads_the_checker_status`, `test_n3_gate_refuses_an_unparseable_producer_region`,
+`test_q10a_kwrank_reads_a_spaced_json_key`, `test_a2_sibling_verdicts_refuse_duplicates_and_extended_tokens`,
+`test_xa_gate_reads_the_verdict_cell`, `test_d5_03_ownership_is_read_as_the_shell_reads_it`,
+`test_d5_04_leg1_reads_the_agg_arguments`, `test_q2_witness_census_counts_every_definition_form`,
+`test_golden_set_reads_quoted_ids_skip_values_and_comm_status`, `test_knuth_recipe_and_result_are_read_as_written`;
+each plants Codex's fixture and fails on the uncured script.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5c; the defects were found by Codex
+(gpt-6-astra), final review, F05-012#1/#10/#14/#15/#16, F05-013#2/#3/#4/#5/#7/#8, F05-014#1/#5/#8, F05-017#2/#3/#11,
+F05-018#5/#13, F05-019#4/#6.
+
+## CX-35W-C — the n=31 golden gate certified sets it could not have measured: symlinked and nested goldens, a one-layer registry, digests in comments, a rank with an extra digit, swapped walks, an expression bc could not evaluate, shifted layer keys, duplicated classes, a FAIL that mentions OK, and empty provenance (scripts/tr12_n31_golden_gate.sh; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, round 3b, F05-013#10/#11/#12/#13/#14/#15/#17/#18 (#14 rated
+High by Codex); confirmed by Fable's fast-track triage (FT3b-2). Push group G5c.
+
+**What the gate does now.** The set must be flat and hold only regular files. Each `STAGE_*_LAYERSHA.txt` registry must
+be the 32 layers 00..31, each once, and each golden digest is read from its `sha256(decompressed)` record, one per
+basename. A `contains` pin matches a whole value, and the three REL walks are bound to the sections that name their
+ranks (r = 0, N−1, N/2). The bc legs require one sum per layer expression and bc status 0, and the c_v1/c_v2 layer keys
+must be exactly 0..30; c_v5 must carry d1 d2 d3 d4 d6 once per layer. XA-a/XA-b, Q2 and the reader lines are matched
+as whole lines. Each Tier-4 provenance key needs a value. No public n=31 golden exists (scripts/tr12_expected/n31 is
+absent and the gate reports ABSENT), so no published result rested on these legs.
+
+**Tests.** `TestBatchG5c.test_n31_golden_gate_plants` builds a complete synthetic set that the gate passes, then plants
+each of Codex's twelve fixtures; each turns the verdict away from OK on the cured gate and none did on the uncured one.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5c; the defects were found by Codex
+(gpt-6-astra), final review, F05-013#10–#18.
+
+## CX-35W-D — six more gate legs passed over a failure they existed to see (scripts/q422_ratio_columns_gate.sh; scripts/sidecar_sha_gate.sh; scripts/a5_orbit_membership_gate.sh; scripts/manifest_zero_entry_gate.sh; scripts/tr8_merge_pool_integrity_gate.sh; solve.py; scripts/cli_decl_metadata_gate.sh; scripts/d5_02_q8_chi2_gallery_gate.sh; scripts/d5_08_q6_q10a_shell_gate.sh; scripts/tr12_repro.sh; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, round 3b, F05-012#2/#3/#4/#11, F05-014#9, F09-A01#15 (and its
+F05-014#10 twin), F05-017#4/#14/#15, F05-018#3 and F05-019#1/#3; confirmed by Fable's fast-track triage (FT3b-2). Push
+group G5c.
+
+- q422 leg 2 names the five ratio-derived gates that must fail under `--atlas-fault ratio-zero`; the 5 / 31 counts alone
+  let an integer gate fail in place of a ratio gate.
+- `sidecar_sha_gate.sh` strips C comments as the compiler does before it searches (executable C after a closed
+  comment, or tagged `/* sha256_of_logical */`, escaped), pins that `sha256_of_logical()` still decompresses a gz file
+  (`if (file_is_gzip(path))` … `gzip -dc`), and in leg 2 requires both digests to be 64 hex and the hashing pipeline to
+  succeed (an empty sidecar compared equal to a failed hash).
+- `a5_orbit_membership_gate.sh` refuses a supplied atlas that was not measured (no raw marginals read `[ok]`).
+- `manifest_zero_entry_gate.sh`'s `await` lets exit status 22 outrank the marker when the child exits within its
+  two-second settle window; a later exit 22 still reads MARKED, so the window is not what makes the verdict sound.
+  What does is source order, now asserted before anything is built: every exit-22 site in `solve.c` is reached from
+  `auto_verify_shard_manifest_if_exists()`, which `main()` calls before `auto_emit_shard_manifest_default()` prints
+  the marker, so "the marker, then exit 22" is not a path the shipped binary has; a source with the two calls in the
+  other order is `MANIFEST_ZERO_ENTRY=ERROR source-order` (Fable triage G5c #1 of Codex's review of this entry).
+- `tr8_merge_pool_integrity_gate.sh` requires each refusal to be exit status 1 with its message, and adds three
+  falsey-digest cases; `solve.py --tr8-dof-merge` refuses a header whose `admitted_bank_sha256` is not the recomputed
+  digest, so `""`, `null` and `false` no longer switch the comparison off (one changed line; the published merges
+  carry the 64-hex digest and are unaffected).
+- `cli_decl_metadata_gate.sh` grades an attached operand (`--flag=VALUE`, `--flag=a|b`), evaluates `int()`, `float()`
+  and `str()` defaults rather than reading their literal, and applies `parser.set_defaults(...)` overrides.
+- The battery's Q8 χ² row refuses a draw line whose rank is not a non-negative integer and a gallery whose size is not
+  the requested k (`-1` among 999 valid ranks was dropped and the statistic graded the rest); d5_02 gains leg 9 and
+  mutant M6n. The Q6 and Q10(a) rows fail when they read fewer atlas layers than the universe has (a missing atlas read
+  as an empty, clean table); d5_08 gains legs 5 and 11 and mutants M5 and M12.
+
+**After Codex's review of this entry (Fable triage G5c #13).** `cli_decl_metadata_gate.sh` applies a
+`parser.set_defaults(...)` value in argparse's order: it replaces an `add_argument` default only when that call has no
+explicit `default=` or the `set_defaults` comes later; an explicit default given after it wins, as argparse does (the
+gate read the override the wrong way round, a false FAIL on a correct document). Tested by the new subtest
+`set-defaults-before-explicit-default` of `test_cli_decl_grades_attached_operands_conversions_and_set_defaults`.
+
+**Tests.** `TestBatchG5c` methods `test_q422_leg2_names_the_five_failures`,
+`test_sidecar_gate_reads_code_not_lines_and_needs_both_digests`, `test_a5_supplied_atlas_must_be_measured`,
+`test_manifest_await_lets_rc22_outrank_the_marker`, `test_manifest_marker_is_post_validation_by_source_order`,
+`test_tr8_merge_refuses_a_falsey_bank_digest`,
+`test_tr8_pool_gate_requires_rc1_refusals`, `test_cli_decl_grades_attached_operands_conversions_and_set_defaults`,
+`test_q8_chi2_row_refuses_a_malformed_draw`, `test_q6_and_q10a_rows_fail_on_an_absent_atlas`.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5c; the defects were found by Codex
+(gpt-6-astra), final review, F05-012#2/#3/#4/#11, F05-014#9, F09-A01#15, F05-017#4/#14/#15, F05-018#3, F05-019#1/#3.
+
+## CX-35W-E — the TR-12 battery: a witness checker's failed certificate write, unranked pinned witnesses, a V3 producer status hidden behind `head`, dropped Q1(c) draws, assert-only atlas checks, `--atlas` overriding explicit flags, a 32-bit awk census sum, path normalisation inside digests, a space in a ladder path, and the Q8 member status (scripts/tr12_repro.sh; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, round 3a, F04-020#1/#2/#3/#5/#6/#7/#8/#9 and F04-016#2;
+F04-020#4 was already cured by CX-400 (FT2b-3: the manifest pipeline runs under pipefail). Confirmed by Fable's
+fast-track triage (FT3b-2). Push group G5c.
+
+- `q7wit_check` fails a witness whose checker exited nonzero or wrote no certificate (it prints its verdicts before the
+  write). `a2_q7_ranks` requires a serial number for each pinned witness, moore-strict and grand-strict
+  (`Q7_PINNED_WITNESSES`, set by the battery); KW plus one historical certificate satisfied its floors without either.
+- V3, the q2b inverse check, the anchor membership row and the battery's `--kc-count` read their producer's own status
+  (`| head -1` / `| tail -1` answered for it with pipefail off). The Q8 member row requires MEMBER and exit 0.
+- Q1(c) ranks every sampled walk or fails, and requires the requested M (a failed rank call dropped its draw and the
+  estimate ran on the survivors).
+- The supplied-atlas row uses explicit raises, and the battery unsets PYTHONOPTIMIZE.
+- An explicit `--with-laddersha` or `--with-tcheck` is honoured under `--atlas`; the identity skip says what it does not
+  re-examine.
+- The Q10(a) census sum prints with `%.0f` (a 32-bit-%d awk turned the k=16 entry sum 83,585,570,784 into a
+  T-CENSUS-MISMATCH on correct sidecars).
+- A relative `--fdir`/`--gdir`/`--tdir` is made absolute, and `norm()` replaces a ladder dir only as a whole path token
+  (`--fdir f` rewrote digest digits and f1c5 basenames).
+- The sidecar cross-check reads the full path printed before `  (kind=...)` (a space in the ladder path read MISSING).
+
+The n=9 goldens are unchanged: every new line prints only on failure, and the stamp re-measured the battery. The
+line citations into the battery that these edits moved were re-pinned; the Q1(c) rank parse that DEVELOPMENT.md and
+q7ranks_parse_gate.sh cite now spans two lines (the rank call, then its `awk`), so that citation names both and its
+attested pin in the citation gate was re-hashed.
+
+**Tests.** `TestBatchG5c` methods `test_q7_witness_check_reads_the_checker_status`,
+`test_q7_ranks_row_requires_the_pinned_witness_serials`, `test_v3_row_reads_the_unrank_status`,
+`test_q1c_estimate_ranks_every_draw`, `test_supplied_atlas_checks_survive_python_optimisation`,
+`test_atlas_runs_honour_explicit_verification_flags`, `test_q10a_census_sum_is_not_clamped_by_a_32bit_awk`,
+`test_norm_replaces_whole_path_tokens_only`, `test_sidecar_cross_check_reads_a_path_with_spaces`,
+`test_q8_member_row_reads_the_member_status`.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5c; the defects were found by Codex
+(gpt-6-astra), final review, F04-020#1/#2/#3/#5/#6/#7/#8/#9, F04-016#2.
+
+## CX-35W-F — the citation line gate excluded what it could not read, matched names inside longer names, and named a tree it had not measured (scripts/citation_line_gate.sh; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, round 3b, F05-011#1–#20 (twenty executed fixtures);
+confirmed by Fable's fast-track triage (FT3b-2). Push group G5c.
+
+**What the gate does now.** An unreadable tracked target, a target tracked at BASE and removed since, a BASE document
+that exists and cannot be read, and a failed `git ls-files` are failures, not exclusions. Population discovery and the
+changed-file list are NUL-separated (a git-quoted citing path was skipped). An extensionless tracked file is a target,
+a range may be written with any spacing around its dash, and a cited span past the end of its target is stale in both
+modes. Diffs are taken with `--text` (a `-diff` attribute made leg A vacuous). Names and flags match as whole tokens
+(`good_anchor` no longer lands inside `good_anchor_backup`); fragments, quoted literals and sha prefixes still match as
+written. A citation whose cited symbol was deleted from the target is stale, not uncheckable. Citations of one target
+from different clauses of a line are judged on their own clause's anchors (two exchanged destinations passed). A
+revision pin glued to one citation, and `git show <rev>:<path>`, exempt only that citation or that path's citations.
+Leg A2 pairs old and new citations one-to-one and, when a rewording falls below the similarity bar, still pairs a number
+the hunk's old side cited. The print-argument rule follows a print call over wrapped lines. A tracked file's stem is
+dropped from the anchors only where the text uses it as a file name or the target is a document. A markdown link is
+resolved relative to the citing document. The checker's own exit status is read, unknown arguments are refused, and the
+tree id is printed only when the bytes the checker read equal HEAD's blobs.
+
+**Consequences on this tree.** Measured on 82211dee before any other change: the cured gate passes with three pin-table
+edits, each reviewed against its cited lines: two content pins for DISTRIBUTIONAL_ANALYSIS.md:329-331 are dropped
+(`--joint-density` no longer matches inside `--joint-density-v2`, so those landings are now strict), two content pins
+are added (QUERY_INVENTORY.md:857 → solve.c:32476, the usage block's guard; SOLVE_C_CLI.md:2782 → solve.c:40166-40167,
+the wrapped snprintf that assembles the layer path), and one target pin is added
+(95_derived_figures_scope.sh:1627 → RETRACTED_PHRASES.tsv:201, which points at a retracted phrase without quoting it).
+The `--all-files` run is slower (whole-token matching), about 75 s against 11 s here.
+
+**After Codex's review of this entry (Fable triage G5c #4–#7).** Four more holes, each reproduced on the whole gate
+and closed: a FOLLOWING citation's glued pin (`solve.c:10; helper.py:1@<sha>`) exempted the current citation, because
+the glued pin was stripped from the left of the window only; a name that starts with `_` (`_good_anchor`) still matched
+inside a longer name (only a stem that ENDS in `_` is matched as written now); leg A2 rebuilt its list of old citations
+for every new line, so two new lines of one hunk could both be explained by the same old citation (the one-to-one pairing
+now holds across a hunk's lines and across new lines that map to the same old line); and an extensionless file deleted
+from the index (a LICENSE file removed with git rm) dropped out of the citation grammar, so its dangling citation was never counted (the
+extensionless names are now taken from the index and BASE). Tested by `test_citation_gate_triage_g5c_4_to_7`. On
+the tree (`--all-files --all-targets`), the leading-underscore change moves two content pins, both reviewed. The pin
+for SOLUTIONS_FORMAT.md:403's citation of the 100T d3 run README (`runs/20260419_100T_d3_d128westus3/README.md:10`)
+is dropped: its only mined candidate was the directory-name fragment `_10T_d3_d128westus3`, which occurs in that
+README only inside a longer name, so as a whole token it was no longer a candidate and the citation had become
+UNCHECKABLE (leg B checked 481 → 480); the citing sentence now quotes the line it cites (`Solver commit at
+enumeration launch`) and lands strictly, so leg B checks 481 again with no pin. The pin for
+95_derived_figures_scope.sh's citation of PROJECT_OVERVIEW.md is re-keyed from `_10T_d3_fresh` to `analyze_output`
+at the same content hash; no other citation changed verdict.
+
+**Tests.** `TestBatchG5c` methods `test_citation_gate_fails_closed_on_every_exclusion_path`,
+`test_citation_gate_matches_whole_names_and_binds_each_citation`,
+`test_citation_gate_leg_a_and_a2_see_moved_and_reworded_citations`,
+`test_citation_gate_content_rule_sees_a_wrapped_print_argument`,
+`test_citation_gate_reads_its_own_status_tree_and_arguments` run the gate on fixture repositories; every plant passed
+on the uncured gate.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5c; the defects were found by Codex
+(gpt-6-astra), final review, F05-011#1–#20.
+
+## CX-35W-G — the execution lane ran in the caller's checkout when its workspace could not be made, approved a zero or omitted budget as bounded, and misread four other command shapes; its verdict gate read failed `awk` and `diff` as clean (scripts/exec_lane.sh; scripts/exec_lane_verdict_gate.sh; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, round 3a, F04-021#1 (rated High by Codex), F04-021#4 (its
+residual), F04-021#7/#8/#9/#13/#15, and round 3b, F05-016#2/#3; F04-021#2 was already cured by CX-401 (FT2b-3).
+Confirmed by Fable's fast-track triage (FT3b-2). Push group G5c.
+
+- A failed `mktemp -d` left the workspace path empty, and `git -C ""`, `cd ''` and `clean -fdqx` then acted on the
+  caller's checkout. The lane now stops with `EXEC_LANE_ERROR=workspace-mktemp-failed`, rc 2, before anything runs; its
+  other scratch files are checked the same way.
+- `SOLVE_NODE_LIMIT=0`, which solve.c reads as "no limit", exempted a command from FAIL-UNBOUNDED, as did any
+  `SOLVE_*LIMIT` name, and an omitted `--sub-branch`/`--branch` time limit (default 0) was not read as unbounded. Only a
+  positive SOLVE_NODE_LIMIT, SOLVE_PER_TASK_NODE_LIMIT or SOLVE_PER_SUB_BRANCH_LIMIT now exempts, in the lane and in the
+  verdict gate's independent legs C1/C2; leg B gains ten cases.
+- A reset after a chain's producer restored a tracked output to the tree's bytes, and the consumer then ran on them;
+  that is now a chain break.
+- A backtick span that is one bare name (prose naming a module) is kept by the prerequisite reader; `$p` inside single
+  quotes is no longer read as an unset placeholder (the comparison at TR-7:427 runs again); a TMPDIR with characters
+  outside `[A-Za-z0-9_./+-]` is not spliced into shell text; `lake`, `cake_lpr` and `cadical` are known commands, so an
+  absent one is a SKIP-MISSING-TOOL rather than a vanished row.
+- The verdict gate reads its leg-C1 `awk` status and its leg-D `diff` status (an awk that died without output read as
+  "nothing leaked", a failed diff as "inventories identical").
+
+**Consequence.** Run by hand (no gate consumes it), the lane now classes three more documented commands FAIL-UNBOUNDED
+and never executes them: CANONICAL_HASHES.md:394 (`./solve --sub-branch 25 1 1 0 3 1`, no time limit),
+BRANCHES_EXPLAINED.md:402 and :430 (`solve --branch 22 0`), and CORRECTIONS.md:18148 (`./solve_inst --branch 25 1`), plus
+HISTORY.md:525, non-gating. Seven such rows were already classed so. The pages are not edited here.
+
+**After Codex's review of this entry (Fable triage G5c #11, #14).** The unbounded-run classifier reads shell
+words, not the raw line: of two assignments of the same node-limit variable the LAST one counts, as bash exports it
+(a positive limit followed by a zero one read bounded); a quoted positional is a number (a quoted zero time limit read
+bounded, a quoted 3600 on a branch run read unbounded); and an assignment-shaped word after the command is an
+argument, not a budget. The lane's classification of the published commands is unchanged by this (measured with `--list`).
+Tested by new subtests of `test_exec_lane_zero_budget_and_omitted_time_limit_are_unbounded`.
+
+**Tests.** `TestBatchG5c` methods `test_exec_lane_refuses_when_the_workspace_cannot_be_made`,
+`test_exec_lane_zero_budget_and_omitted_time_limit_are_unbounded`, `test_exec_lane_verdict_gate_c1_refuses_a_zero_budget_row`,
+`test_exec_lane_verdict_gate_reads_awk_and_diff_status`, `test_exec_lane_reset_restored_output_breaks_the_chain`,
+`test_exec_lane_prereq_reader_keeps_a_named_module`, `test_exec_lane_runs_a_single_quoted_dollar`,
+`test_exec_lane_runs_under_a_tmpdir_with_an_apostrophe`, `test_exec_lane_inventories_an_absent_toolchain_command`.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5c; the defects were found by Codex
+(gpt-6-astra), final review, F04-021#1/#4/#7/#8/#9/#13/#15, F05-016#2/#3.
+
+## CX-35W-H — perf_bench, build_pgo, the adopt gate, the resume-167 gate, the q908 acceptance and the build manifest each had an unchecked status or an unchecked input (scripts/perf_bench.sh; scripts/build_pgo.sh; scripts/f1c5_adopt_digest_gate.sh; scripts/selftest_resume_167_gate.sh; scripts/q908_join_accept.sh; scripts/capture_build_manifest.sh; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, round 3a, F04-016#3, F04-022#2/#3, F04-021#3/#5/#6,
+F04-005#12/#13, F04-002#17, F04-017#3, and round 3b, F12-016#3, F09-A02#14, F09-A04#7/#8; confirmed by Fable's
+fast-track triage (FT3b-2). Push group G5c.
+
+- perf_bench: the throttle probe now needs one MHz sample per core (one readable core certified a 128-core host); the
+  logical sha and byte count take their status inside the substitution under pipefail, so a failed `gzip -dc` reports
+  `DECOMPRESS-FAILED` as DEVELOPMENT.md says it does; the header no longer calls the `--branch` wall time
+  "enum-only" (the branch reloads, sorts, writes, checks and hashes its output before it returns), and the JSON carries
+  `enum_wall_scope`. The timing itself is unchanged.
+- build_pgo: Pass 2 fails on a nonzero gcc status (an older binary at the output path passed), Pass 1 and its rename are
+  checked, and an OUTPUT that names a directory or other non-regular file is refused before any `rm -rf`.
+- The adopt-digest gate uses a real `mktemp` file and stops on failure (an empty name pointed `.strings` at the
+  repository root), and its printed rebuild line passes `-DSOURCE_SHA` as a C string.
+- The resume-167 gate and its battery stop with ERROR, rc 43, when `mktemp -d` fails (an empty path made `/tdir_A`).
+- q908: each oracle returns verify's own exit status and `check_window` refuses a window on any nonzero one (verify
+  prints its count before its wrap cross-check and can then exit 1).
+- capture_build_manifest: the best-effort metadata request can no longer abort the manifest under `set -e`, and an
+  AArch64 host reports its implementer/architecture/part and its Features subset instead of empty fields.
+
+**Tests.** `TestBatchG5c` methods `test_perf_bench_probe_needs_a_sample_per_core`,
+`test_perf_bench_failed_decompression_is_reported`, `test_perf_bench_labels_the_branch_wall_time`,
+`test_build_pgo_pass2_reads_the_compiler_status`, `test_build_pgo_refuses_a_directory_as_output`,
+`test_adopt_gate_refuses_when_mktemp_fails`, `test_adopt_gate_prints_a_compilable_source_sha_define`,
+`test_resume167_gate_refuses_when_mktemp_fails`, `test_q908_window_needs_the_oracles_exit_status`,
+`test_build_manifest_survives_an_unreachable_metadata_endpoint`, `test_build_manifest_names_an_aarch64_cpu`.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5c; the defects were found by Codex
+(gpt-6-astra), final review, F04-016#3, F04-022#2/#3, F04-021#3/#5/#6, F04-005#12/#13, F04-002#17, F04-017#3,
+F12-016#3, F09-A02#14, F09-A04#7/#8.
+
+## CX-35W-I — five pre-commit gates read a failed comparison as "nothing staged", and the stamp gate's closure missed goldens, deletions, type changes and a deleted stamp (scripts/pre_commit_size_gate.sh; scripts/pre_commit_registry_gate.sh; scripts/pre_commit_stamp_gate.sh; scripts/pre_commit_generated_gate.sh; scripts/pre_commit_repro_current_gate.sh; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, round 3b, F05-014#4, F05-019#7/#8/#9/#10/#11/#12/#13 and
+F05-016#6/#7/#8/#9 (each executed against a real index); confirmed by Fable's fast-track triage (FT3b-2). Push group G5c.
+
+- Size gate: an approval row needs four fields (path, approver, date, the operator's words); a one-field row approved a
+  new 1.4 MB file.
+- Registry gate: a failed intersection grep is COULD-NOT-RUN (rc 2), not NOT-APPLICABLE, and the staged list is read
+  with `-z`, so a git-quoted non-ASCII Markdown path triggers the retraction scans.
+- Stamp gate: staged paths under `scripts/tr12_expected/` count as closure inputs, a deleted closure member still counts,
+  type changes (T) are staged inputs, a stamp staged as a deletion is not "staged with them", and a failed intersection
+  grep is ERROR.
+- Generated gate: each watched path's index blob is compared with the work-tree bytes (assume-unchanged hid a mismatch),
+  and a failed `git ls-tree HEAD` is ERROR (a removed artifact disappeared from the watched set).
+- Repro-current gate: the staged check's exit status is read and its CURRENT token must be unique (YES followed by
+  rc 137, or NO then YES, read CURRENT), and a failed `tr` or trigger grep is ERROR.
+
+**After Codex's review of this entry (Fable triage G5c #12, #15).** The stamp gate now reads the staged list with
+`-z`, as the registry gate already did: a closure input whose name git would quote (a non-ASCII byte, a tab), staged
+alone, read NOT-APPLICABLE instead of MISSING-STAMP. The registry gate checks both halves of its git-diff-into-tr
+pipeline: a `tr` that read its input and failed gave an empty list and NOT-APPLICABLE. Tested by
+`test_stamp_gate_reads_a_non_ascii_path` and `test_registry_gate_staged_list_tr_failure_is_could_not_run`.
+
+**Tests.** `TestBatchG5c` methods `test_size_gate_bare_path_is_not_an_approval`,
+`test_registry_gate_intersection_failure_is_could_not_run`, `test_registry_gate_sees_a_quoted_markdown_path`,
+`test_stamp_gate_golden_only_change_needs_the_stamp`, `test_stamp_gate_deleted_derived_member_needs_the_stamp`,
+`test_stamp_gate_type_change_needs_the_stamp`, `test_stamp_gate_deleted_stamp_is_not_staged_with_them`,
+`test_stamp_gate_intersection_failure_is_error`, `test_stamp_gate_control_solve_c_needs_the_stamp` (a positive control,
+green on both trees), `test_generated_gate_sees_through_assume_unchanged`,
+`test_generated_gate_head_enumeration_failure_is_error`, `test_repro_current_gate_reads_the_check_status_and_uniqueness`,
+`test_repro_current_gate_transformation_failures_are_errors`.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5c; the defects were found by Codex
+(gpt-6-astra), final review, F05-014#4, F05-019#7–#13, F05-016#6–#9.
+
+## CX-35W-J — the reviewer self-check, the correction-marker inventory, the history-currency and history-index gates, GATE 19, G7 and the circular-census pooler could each report a clean result over input they had not fully read (reviewer/selfcheck.sh; scripts/correction_marker_inventory.sh; scripts/history_currency_gate.sh; scripts/history_index.sh; scripts/doc_gates.d/70_publication_surfaces.sh; scripts/gate_published_consistency.sh; reports/evidence/circular_census/pool.sh; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, round 3b, F05-020#1–#5 (#1 and #2 rated High by Codex),
+F05-011#21, F06-002#2/#3/#4/#5/#8/#9, F05-017#8/#9/#10, F06-011#5, F06-010#1, F07-009#3 and F11-014#1; confirmed by
+Fable's fast-track triage (FT3b-2). Push group G5c.
+
+- Reviewer self-check: the STEP records must equal the page's stated count and every one must run; each step's
+  `expect:` records are extracted once with their status checked and counted; a negative count beside the expected line
+  is a contradiction; a data row with an unexpected cell count fails rather than being dropped; the scratch copies are
+  held to the manifest digest that was checked.
+- Correction-marker inventory: each gate run's exit status is collected: the runner child must exit 0,
+  `doc_gates.sh` may exit 0 (PASS) or 1 (FINDINGS) and the citation gate 0 (PASS) or 40 (FAIL) — a verdict either
+  way — and any other status is ERROR; a diagnostic that vanishes after the ablation is accounted like a new one; an
+  unmatched finding that names a marker-bearing file is UNATTRIBUTED even beside an attributed one, while a finding
+  that names no inventoried file is explained by its section's ties when the section has any (F06-002#5). (These
+  two sentences restated after Codex's review of this entry, Fable triage G5c #8 and #16.) A population review
+  clears count changes only, never a new FAIL; the publication copy is checked; `--selftest` exits 1 on a failed
+  known answer.
+- History currency: fenced blocks and HTML comments are blanked before the heading scan and a heading does not cross a
+  newline; the self-test reads its child's status; the ref is resolved once and both reads use that commit.
+  `history_index.sh` reports undecodable input as ERROR rc 2.
+- GATE 19 fails a published or pending branch whose registry row says retired.
+- G7: Codex's two mutants (an empty table, position 99) were already refused by CX-400 (F05-005#4); every section-[2]
+  position must now be compared exactly once.
+- `pool.sh` (TR-7's circular census) refuses a wrap bin printed twice in one chunk (the last value used to win); the 60
+  archived chunks print each bin once, and `pool.out` is reproduced byte for byte.
+
+**After Codex's review of this entry (Fable triage G5c #9).** The history-currency gate closes a fenced block only
+with a fence of the opener's character that is at least as long, followed by nothing but spaces (CommonMark): a
+three-backtick line inside a four-backtick block used to close it early, so an example heading inside covered a day.
+Tested by two new cases of `test_history_currency_ignores_non_narrative_headings`. The correction-marker inventory
+reads doc_gates' closing verdict and its fixed footer prose as belonging to no gate: the footer quotes `[FAIL]`,
+`[WARN]` and `[note]` and was read as part of the last gate's section, so once vanished lines counted (above), an
+ablation that turned the verdict from PASS to FINDINGS made those prose lines file-less findings of that gate and the
+run INCOMPLETE. Tested by `test_cmi_doc_gates_verdict_footer_is_no_gates_finding`.
+
+**Tests.** `TestBatchG5c` methods `test_selfcheck_runs_every_step_record`,
+`test_selfcheck_expectation_extraction_failure_is_unchecked`, `test_selfcheck_negative_count_contradicts`,
+`test_selfcheck_aggregates_refuses_an_odd_width_data_row`, `test_selfcheck_holds_the_copies_to_the_checked_manifest`,
+`test_cmi_reads_the_gate_runs_exit_status`, `test_cmi_accounts_a_vanished_diagnostic`,
+`test_cmi_unmatched_diagnostic_beside_an_attributed_one`, `test_cmi_population_review_cannot_clear_a_new_failure`,
+`test_cmi_failed_publication_is_an_error`, `test_cmi_selftest_failure_is_a_failed_exit`,
+`test_cmi_control_attributes_the_gate27_marker` (a positive control, green on both trees),
+`test_history_currency_ignores_non_narrative_headings`, `test_history_currency_selftest_reads_the_child_status`,
+`test_history_currency_reads_one_commit`, `test_history_index_undecodable_input_is_error`,
+`test_gate19_refuses_a_retired_branch_that_is_published`, `test_g7_needs_every_position_compared`,
+`test_circular_census_pool_refuses_a_duplicate_bin`.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5c; the defects were found by Codex
+(gpt-6-astra), final review, F05-020#1–#5, F05-011#21, F06-002#2/#3/#4/#5/#8/#9, F05-017#8/#9/#10, F06-011#5,
+F06-010#1, F07-009#3, F11-014#1.
+
+## CX-35W-K — the claim ledger certified rows whose producer had failed, a "both checks" claim from one comparison, a percentage from a slot index, and a premise from one word (scripts/claim_ledger.sh; documentation/CLAIMS.tsv; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, round 3b, F06-004#2/#3 and F06-005#1/#2/#3/#8; confirmed by
+Fable's fast-track triage (FT3b-2). Push group G5c.
+
+**What was published.** TR12_SUM_A2 and TR12_SUM_A3's evidence command ended in `; rm -rf "$d"`, and `--derive
+a-anchors` never read solve.py's status, so a producer killed after printing still made four rows TRUE; the two "both
+checks" rows accepted one comparison; TR12_V1_POSITIONAL_PCT bound its "3" percent to the slot index in "interior slots
+3–31" (the caption's "about 3 %" was corrected away on 2026-09-26); the C3-attribution row's premise was the word
+"inference" and the two KW-null rows' the word "tie".
+
+**What it does now.** A status-checked `--derive a-queries` replaces the cleanup-terminated command (exit 0, or 1 only
+with solve.py's own verdict-FAILED summary matching its printed FAIL lines); `a-anchors` requires both comparisons; a
+pct-rendered value must be followed by `%` or "percentage point(s)" on its source line, and the stale
+TR12_V1_POSITIONAL_PCT row is removed (TR12_V1_POSITIONAL_TV binds what the caption prints, and TR12_SUM_POSITIONAL_PCT
+keeps the summary's "3 %"); the premises name their condition, and the schema refuses a premise under three words or
+evidence that ends in `; rm ...`. The ledger has 71 rows (72 before) and CLAIM_LEDGER=PASS. No published figure changes.
+F06-006#10 (binding population, unit, equivalence and status to the producer's meaning) is held: the derivations do not
+print that metadata.
+
+**After Codex's review of this entry (Fable triage G5c #10).** "Both checks" now means the two identified
+comparisons: `d_a_anchors` requires exactly one A2 comparison (`A2 slot32=…`) and one A3 comparison (`wrap masses …`);
+two A2 lines and no A3 line satisfied the bare count of two. Tested in `test_claim_ledger_both_checks_needs_two_comparisons`.
+
+**Tests.** `TestBatchG5c` methods `test_claim_ledger_evidence_reads_the_producer_status`,
+`test_claim_ledger_both_checks_needs_two_comparisons`, `test_claim_ledger_percentage_must_be_a_percentage`,
+`test_claim_ledger_premise_is_the_condition`, `test_claim_ledger_refuses_a_one_word_premise`.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5c; the defects were found by Codex
+(gpt-6-astra), final review, F06-004#2/#3, F06-005#1/#2/#3/#8.
+
+## CX-35W-L — CX-351 said HISTORY.md's append-only gate compares every published version; no gate reads HISTORY.md that way (note on CX-351; no file changes)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, round 3b, F06-001#1 and F06-007#3; confirmed by Fable's
+fast-track triage (FT3b-2). Push group G5c.
+
+CX-351 (2026-10-11) gives as its reason for not moving HISTORY.md's sections that "HISTORY.md is append-only, and its gate
+compares every published version". Both append-only legs of GATE 10 (`gate_appendonly_head`, `gate_appendonly_history`
+in scripts/doc_gates.d/40_generated_appendonly_ledger_regdupes.sh) read documentation/CORRECTIONS.md only. Measured on
+2026-10-22: 172 of the 209 versions of HISTORY.md reachable from the tree's HEAD hold lines the current file no longer
+has, after the CX-230/CX-242 redaction alignment, so the legs cannot be extended to HISTORY.md without failing the tree.
+The machine-enforced append-only guarantee is CORRECTIONS.md's; HISTORY.md is append-only by practice. CX-351's decision
+not to move the sections stands.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5c; found by Codex (gpt-6-astra), final
+review, F06-001#1, F06-007#3.
+
+## CX-35W-M — HISTORY.md's fail-first comparison called the 100B run's per-cell budget equal to the canonical 70.7M; it is about half (note; HISTORY.md is not edited)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, round 3b, F06-007#19; confirmed by Fable's fast-track triage
+(FT3b-2). Push group G5c.
+
+HISTORY.md's fail-first section (the table row "100B (~canonical)" and "At canonical-relevant scale (100B per-cell budget
+≈ canonical's 70.7M)") equates the two budgets. The branch has 2,824 cells, so 100B allocates 100,000,000,000 / 2,824 =
+35,410,764 nodes per cell, about half the canonical 70,723,196 — the factor of two CORRECTIONS already records for the
+source performance entry. The measured yield ratio (0.770) and the disjoint-set finding are unaffected; only the stated
+equivalence was wrong. HISTORY.md is append-only, so the sentence stays as written and this entry is the correction.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5c; found by Codex (gpt-6-astra), final
+review, F06-007#19.

@@ -81,7 +81,7 @@ on a single fresh D128als_v7 Spot in westus3, page-cache flushes between paired 
 script at this commit, that overstates it on three counts, and the JSON it emits is not self-certifying:
 
 - **The SKU is per scale, not fixed.** 1B runs on `Standard_D8als_v7`; 1T and 11.2T run on
-  `Standard_D128als_v7` (`scripts/perf_bench.sh:116-118`). Per-scale SKU selection is fine — but it means a bench
+  `Standard_D128als_v7` (`scripts/perf_bench.sh:120-122`). Per-scale SKU selection is fine — but it means a bench
   is comparable only to another bench at the same scale, and no entry below should be read as pairing numbers
   across scales.
 - **The page-cache flush is now verified, and was not before 2026-09-02.** *(Fixed 2026-09-02, code lane.)*

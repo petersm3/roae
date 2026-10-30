@@ -81,12 +81,15 @@ T="$W/tree"; mkdir "$T" || err mktemp-failed "could not create $T"
 # The staged set. A failing `git diff --cached` and an empty index look the same by output alone.
 git diff --cached --name-only --no-renames --diff-filter=ACMDT -z > "$W/staged.z" 2>/dev/null \
   || err staged-list-failed "could not read the index (git diff --cached failed)"
-tr '\0' '\n' < "$W/staged.z" > "$W/staged"
+# F05-016#9: every transformation's status is read -- an empty file a failed `tr` left behind is not
+# "nothing staged".
+tr '\0' '\n' < "$W/staged.z" > "$W/staged" || err staged-list-failed "could not transform the staged list (tr failed)"
+if [ -s "$W/staged.z" ] && [ ! -s "$W/staged" ]; then err staged-list-failed "the staged list was non-empty but its transformation is empty"; fi
 if [ ! -s "$W/staged" ]; then echo "PRECOMMIT_REPRO=NOT-APPLICABLE"; exit 0; fi
 git diff --cached --name-only --no-renames --diff-filter=D -z > "$W/deleted.z" 2>/dev/null \
   || err staged-list-failed "could not read the index deletions"
 git ls-files -z > "$W/index.z" 2>/dev/null || err index-list-failed "git ls-files failed"
-tr '\0' '\n' < "$W/index.z" > "$W/index"
+tr '\0' '\n' < "$W/index.z" > "$W/index" || err index-list-failed "could not transform the index list (tr failed)"
 
 # A tree with neither the gate nor its stamp has no fingerprint to keep current (a pinned campaign
 # worktree of old history, say). Anything short of that, with the gate missing, is ERROR.
@@ -133,17 +136,32 @@ fi
 
 # Trigger: staged members (the unfiltered list keeps a deleted CORE file), anything under the
 # expected-block directory, and every deletion.
-{ cat "$W/members"; grep "^$EXP_DIR/" "$W/staged"; tr '\0' '\n' < "$W/deleted.z"; } | grep -v '^$' > "$W/watch"
-grep -Fxf "$W/watch" "$W/staged" > "$W/hits"
+{ cat "$W/members" || exit 2; grep "^$EXP_DIR/" "$W/staged"; [ $? -le 1 ] || exit 2
+  tr '\0' '\n' < "$W/deleted.z" || exit 2; } | grep -v '^$' > "$W/watch"
+_wrc=("${PIPESTATUS[@]}")
+[ "${_wrc[0]}" -eq 0 ] && [ "${_wrc[1]}" -le 1 ] || err trigger-failed "could not build the trigger list (rc ${_wrc[*]})"
+grep -Fxf "$W/watch" "$W/staged" > "$W/hits"; _hrc=$?
+[ "$_hrc" -le 1 ] || err trigger-failed "the trigger intersection (grep -Fxf) exited $_hrc -- nothing was compared"
 if [ ! -s "$W/hits" ]; then echo "PRECOMMIT_REPRO=NOT-APPLICABLE"; exit 0; fi
 
-OUT=$(bash "$T"/scripts/tr12_repro_gate.sh --check 2>&1)
+OUT=$(bash "$T"/scripts/tr12_repro_gate.sh --check 2>&1); CHK_RC=$?
 printf '%s\n' "$OUT" > "$W/out"
+# F05-016#8: the check's own exit status is read, and its verdict must be ONE token -- the last of
+# several (NO then YES), or a YES from a check that then failed (rc 124/137), is not CURRENT.
+ntok=$(grep -c '^TR12_REPRO_GATE_CURRENT=' "$W/out")
 word=$(sed -n 's/^TR12_REPRO_GATE_CURRENT=\(YES\|NO\|UNKNOWN\)$/\1/p' "$W/out" | tail -1)
 sed 's/^/PRECOMMIT_REPRO_INPUT=/' "$W/hits"
 if [ -z "$word" ]; then
   sed 's/^/        /' "$W/out"
   err check-no-token "the staged gate's --check printed no TR12_REPRO_GATE_CURRENT line"
+fi
+if [ "$ntok" -ne 1 ]; then
+  sed 's/^/        /' "$W/out"
+  err check-token-not-unique "the staged gate's --check printed $ntok TR12_REPRO_GATE_CURRENT lines"
+fi
+if [ "$word" = YES ] && [ "$CHK_RC" -ne 0 ]; then
+  sed 's/^/        /' "$W/out"
+  err check-failed "the staged gate's --check printed YES but exited $CHK_RC"
 fi
 echo "PRECOMMIT_REPRO_CHECK=$word"
 if [ "$word" = YES ]; then

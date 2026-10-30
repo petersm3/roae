@@ -985,7 +985,7 @@ gcc -O2 -pthread -fopenmp -DGIT_HASH="\"$(git rev-parse --short HEAD 2>/dev/null
 bash scripts/pre_push_compile_gate.sh
 ```
 
-⚠ **The three `-D` flags are not decoration and this file is the reason they are here.** (`-DGIT_BRANCH` added 2026-09-12: `tr12_repro_gate.sh:13-14` records that the build line published here defined no branch, so a reproducer's binary emitted `branch=unknown` against expected blocks that diffed the field verbatim — this is the fix that comment asks for. The TR-12 goldens are unaffected: `tr12_repro.sh:388` normalises the trailer to `branch=<BRANCH>`.) The
+⚠ **The three `-D` flags are not decoration and this file is the reason they are here.** (`-DGIT_BRANCH` added 2026-09-12: `tr12_repro_gate.sh:13-14` records that the build line published here defined no branch, so a reproducer's binary emitted `branch=unknown` against expected blocks that diffed the field verbatim — this is the fix that comment asks for. The TR-12 goldens are unaffected: `tr12_repro.sh:400` normalises the trailer to `branch=<BRANCH>`.) The
 "Reporting a number" rule below requires every published figure to carry "its command line, the
 build identity, and the tokens" — and until 2026-09-06 the build line published *in this file*
 omitted the identity, so a run built from it recorded `git_hash "unknown"` and `source_sha

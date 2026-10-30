@@ -54,7 +54,6 @@ SOLVE="$(cd "$(dirname "$SOLVE")" && pwd)/$(basename "$SOLVE")"
 # So: compare the binary's embedded SOURCE_SHA against sha256(solve.c) and ERROR -- never FAIL --
 # when they differ. "I was given the wrong binary" is not "the code is wrong", and this project
 # treats an unmeasured check as ERROR precisely so the two cannot be confused.
-W_PRE="$(mktemp -u "${TMPDIR:-/tmp}/f1c5_pre_XXXXXX")"
 _src_sha=$(sha256sum solve.c 2>/dev/null | cut -d' ' -f1)
 # Q-963 (batch 48; Codex Q835 A01#6): an unhashable solve.c skipped this identity check whole (the
 # `if` had no else), so the stale-binary guard turned itself off exactly when it could not run.
@@ -67,14 +66,25 @@ if [ -n "${_src_sha:-}" ]; then
   # when the sha IS present. Written that way first, and it made a correctly-built binary ERROR --
   # the guard against a misleading verdict producing a misleading verdict.
   # [[feedback_pipefail_which_side_ends_first]] names this trap precisely.
-  _bs="$W_PRE.strings"; strings -a "$SOLVE" > "$_bs" 2>/dev/null || true
+  # F04-005#12: was `mktemp -u` (unchecked, no errexit): a failed mktemp made this `.strings` in the
+  # repository root, which was then overwritten and removed. Create the file, and refuse on failure.
+  _bs="$(mktemp "${TMPDIR:-/tmp}/f1c5_pre_XXXXXX")" || _bs=""
+  if [ -z "$_bs" ] || [ ! -f "$_bs" ]; then
+    echo "  [ERROR] could not create a scratch file (mktemp failed); nothing was measured"
+    echo "F1C5_ADOPT_DIGEST_GATE=ERROR"; exit 40
+  fi
+  strings -a "$SOLVE" > "$_bs" 2>/dev/null || true
   if ! grep -qF -- "$_src_sha" "$_bs"; then
     rm -f "$_bs"
     echo "  [ERROR] $SOLVE does not embed sha256(solve.c)=${_src_sha:0:12}… — it was built from"
     echo "          DIFFERENT SOURCE. Every verdict below would describe that other source, and a"
     echo "          stale binary reproduces this gate's own failure signature exactly."
     echo "          Build first, then pass the path:"
-    echo "            gcc -O2 -pthread -fopenmp -DSOURCE_SHA=\"\$(sha256sum solve.c | cut -d' ' -f1)\" \\"
+    # F04-005#13: the define must reach gcc as a C STRING literal, so its quotes are escaped for the
+    # shell that runs the pasted line (the earlier spelling handed gcc a bare hex token).
+    cat <<'EOM'
+            gcc -O2 -pthread -fopenmp -DSOURCE_SHA="\"$(sha256sum solve.c | cut -d' ' -f1)\"" \
+EOM
     echo "                -o /tmp/solve solve.c -lm -lz && $0 /tmp/solve"
     echo "F1C5_ADOPT_DIGEST_GATE=ERROR"; exit 40
   fi

@@ -86,6 +86,18 @@ PGO_WORKLOAD="${4:-$DEFAULT_WORKLOAD}"
 BUILD_DIR=$(cd "$BUILD_DIR" 2>/dev/null && pwd) || {
     echo "ERROR: build_dir ${2:-} is not a directory" >&2; exit 1; }
 
+# F04-021#6: OUTPUT names a binary FILE in BUILD_DIR. It, and its .instr twin, are removed below
+# with `rm -rf`, so an OUTPUT that is empty, carries a path, or names an existing directory is
+# refused before anything is deleted.
+case "$OUTPUT" in
+    ''|*/*|.|..) echo "ERROR: output '$OUTPUT' must be a plain file name in the build directory" >&2; exit 1 ;;
+esac
+for _p in "$BUILD_DIR/$OUTPUT" "$BUILD_DIR/${OUTPUT}.instr"; do
+    if [ -d "$_p" ] || { [ -e "$_p" ] && [ ! -f "$_p" ]; }; then
+        echo "ERROR: $_p exists and is not a regular file; refusing to remove it" >&2; exit 1
+    fi
+done
+
 PROFILE_DIR="$BUILD_DIR/pgo_profile_$$"
 INSTR_BIN="$BUILD_DIR/${OUTPUT}.instr"
 FINAL_BIN="$BUILD_DIR/${OUTPUT}"
@@ -115,9 +127,16 @@ LOG_DIR=$(mktemp -d "$BUILD_DIR/pgo_logs.XXXXXX") || {
 # between passes (the LTO-recompile step embeds the output binary's
 # basename in the .gcda file path).
 echo "[$(date -u +%FT%TZ)] PGO Pass 1: instrumented build"
-gcc $CFLAGS_BASE -fprofile-generate="$PROFILE_DIR" \
-    -o "${OUTPUT}" "$SOURCE_FILE" -lm -lz
-mv "${OUTPUT}" "$INSTR_BIN"
+# F04-021#5 sibling: the compiler's own status decides, not whether a file is at the path.
+if ! gcc $CFLAGS_BASE -fprofile-generate="$PROFILE_DIR" \
+    -o "${OUTPUT}" "$SOURCE_FILE" -lm -lz; then
+    echo "ERROR: Pass 1 compile failed" >&2
+    exit 1
+fi
+if ! mv "${OUTPUT}" "$INSTR_BIN"; then
+    echo "ERROR: could not rename the Pass 1 binary to $INSTR_BIN" >&2
+    exit 1
+fi
 
 if [ ! -x "$INSTR_BIN" ]; then
     echo "ERROR: Pass 1 build did not produce $INSTR_BIN" >&2
@@ -220,9 +239,16 @@ echo "  PGO Pass 1: $GCDA_COUNT .gcda files in $PROFILE_DIR"
 # If a future change breaks PGO path resolution, this script
 # exits non-zero instead of producing a quietly-non-PGO binary.
 echo "[$(date -u +%FT%TZ)] PGO Pass 2: optimized build (with -Werror=missing-profile)"
-gcc $CFLAGS_BASE -fprofile-use="$PROFILE_DIR" -fprofile-correction \
+# F04-021#5: gcc's status was ignored and only `-x` on the shared output path was tested, so a
+# failed compile beside an executable another build left there passed. The stale path is removed
+# first and a nonzero gcc status is a failed build.
+rm -f "$FINAL_BIN"
+if ! gcc $CFLAGS_BASE -fprofile-use="$PROFILE_DIR" -fprofile-correction \
     -Werror=missing-profile \
-    -o "${OUTPUT}" "$SOURCE_FILE" -lm -lz
+    -o "${OUTPUT}" "$SOURCE_FILE" -lm -lz; then
+    echo "ERROR: Pass 2 compile failed" >&2
+    exit 1
+fi
 
 if [ ! -x "$BUILD_DIR/${OUTPUT}" ]; then
     echo "ERROR: Pass 2 build did not produce $FINAL_BIN" >&2

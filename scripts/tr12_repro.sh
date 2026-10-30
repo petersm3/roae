@@ -120,6 +120,9 @@
 # ---------------------------------------------------------------------------------------------
 
 set -u
+# Every embedded Python check here is meant to run as written: an inherited PYTHONOPTIMIZE would strip
+# any `assert` among them (Codex, gpt-6-astra, F04-020#5), so the battery runs without it.
+unset PYTHONOPTIMIZE
 # NOTE: pipefail is deliberately NOT set. Several rows legitimately end a pipeline in
 # `head -1` or `grep -q`, which SIGPIPEs the producer; under pipefail that reads as a failure.
 # Every row captures the rc of its primary command directly instead.
@@ -185,6 +188,10 @@ _tr12_kill_tree(){ local c; for c in $(pgrep -P "$1" 2>/dev/null); do _tr12_kill
 [ -n "$OUTDIR" ] || OUTDIR="$WORK/out"
 mkdir -p "$OUTDIR" && OUTDIR="$(cd -- "$OUTDIR" && pwd)" || { echo "FATAL: cannot create/resolve --out '$OUTDIR'" >&2; exit 2; }  # absolute, like REPO_ROOT (2026-09-27): c_viz and c_consumer use $OUTDIR paths after a cd, so a relative --out broke them
 
+# The ladder dirs too (Codex, gpt-6-astra, F04-020#8): norm() rewrites each dir's spelling to <FDIR>/...,
+# and a RELATIVE spelling such as `--fdir f` matched every lowercase f, digest digits and f1c5 basenames
+# included. An absolute spelling begins with "/", which a digest or a basename never contains.
+for _v in FDIR GDIR TDIR; do case "${!_v}" in ''|/*) ;; *) printf -v "$_v" '%s/%s' "$PWD" "${!_v}" ;; esac; done
 RAWDIR="$OUTDIR/raw";  GOTDIR="$OUTDIR/got";  DIFFDIR="$OUTDIR/diff"; ARTDIR="$OUTDIR/artifacts"
 mkdir -p "$RAWDIR" "$GOTDIR" "$DIFFDIR" "$ARTDIR"
 VERD="$OUTDIR/VERDICTS.txt"; : > "$VERD"
@@ -272,8 +279,9 @@ fi
 [ -n "$GDIR" ] && [ -d "$GDIR" ] || die "GDIR '$GDIR' is not a directory (f+g rows need it)"
 HAVE_T=0; [ -n "$TDIR" ] && [ -d "$TDIR" ] && HAVE_T=1
 
-COUNTLINE="$("$SOLVE" --kc-count "$FDIR" 2>/dev/null | grep '^KC COUNT' | tail -1)" \
-    || die "--kc-count failed on FDIR"
+# the producer's own status (sibling of F04-020#2): `| tail -1` used to answer for --kc-count.
+"$SOLVE" --kc-count "$FDIR" > "$WORK/kc_count.out" 2>/dev/null || die "--kc-count failed on FDIR"
+COUNTLINE="$(grep '^KC COUNT' "$WORK/kc_count.out" | tail -1)"
 N_PAIRS="$(printf '%s' "$COUNTLINE" | sed -n 's/^KC COUNT n=\([0-9]*\) = .*/\1/p')"
 N_TOTAL="$(printf '%s' "$COUNTLINE" | sed -n 's/^KC COUNT n=[0-9]* = \([0-9]*\)$/\1/p')"
 [ -n "$N_PAIRS" ] && [ -n "$N_TOTAL" ] || die "could not parse the universe from: $COUNTLINE"
@@ -369,9 +377,13 @@ norm(){
         echo "       the output normaliser cannot escape one, and would emit an empty block." >&2
         exit 2 ;;
     esac
-    [ -n "$FDIR" ]      && s+=( -e "s#$(_rq "$FDIR")#<FDIR>#g" )
-    [ -n "$GDIR" ] && s+=( -e "s#$(_rq "$GDIR")#<GDIR>#g" )
-    [ -n "$TDIR" ] && s+=( -e "s#$(_rq "$TDIR")#<TDIR>#g" )
+    # ...and a dir is replaced only as a WHOLE path token (F04-020#8): not inside a longer name or a
+    # digest. Each rule is applied twice because a boundary character consumed by one match cannot
+    # open the next (`D D`).
+    _rb(){ printf '\\(^\\|[^A-Za-z0-9._/-]\\)%s\\([^A-Za-z0-9._-]\\|$\\)' "$(_rq "$1")"; }
+    [ -n "$FDIR" ] && s+=( -e "s#$(_rb "$FDIR")#\1<FDIR>\2#g" -e "s#$(_rb "$FDIR")#\1<FDIR>\2#g" )
+    [ -n "$GDIR" ] && s+=( -e "s#$(_rb "$GDIR")#\1<GDIR>\2#g" -e "s#$(_rb "$GDIR")#\1<GDIR>\2#g" )
+    [ -n "$TDIR" ] && s+=( -e "s#$(_rb "$TDIR")#\1<TDIR>\2#g" -e "s#$(_rb "$TDIR")#\1<TDIR>\2#g" )
     [ -n "$ARTDIR" ] && s+=( -e "s#$(_rq "$ARTDIR")#<ART>#g" )
     [ -n "$OUTDIR" ] && s+=( -e "s#$(_rq "$OUTDIR")#<OUT>#g" )
     [ -n "$SOLVE" ] && s+=( -e "s#$(_rq "$SOLVE")#<SOLVE>#g" )
@@ -616,9 +628,10 @@ ratio9(){  # ratio9 NUM DEN
 #     anchor lines verbatim and sources it; do not reformat the anchors.)
 
 # _n3_json_str FILE KEY -> the value of a JSON string field, or empty. Top-level scalars only.
-_n3_json_str(){ sed -n 's/^[[:space:]]*"'"$2"'": "\([^"]*\)".*/\1/p' "$1" | head -1; }
+# JSON allows whitespace around the colon (Codex, gpt-6-astra, F05-019#6); the readers do too.
+_n3_json_str(){ sed -n 's/^[[:space:]]*"'"$2"'"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$1" | head -1; }
 # _n3_json_num FILE KEY -> the value of a JSON bare-number field, or empty.
-_n3_json_num(){ sed -n 's/^[[:space:]]*"'"$2"'": \([0-9][0-9]*\),*[[:space:]]*$/\1/p' "$1" | head -1; }
+_n3_json_num(){ sed -n 's/^[[:space:]]*"'"$2"'"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\),*[[:space:]]*$/\1/p' "$1" | head -1; }
 # _n3_is_dec S -> true iff S is a non-empty run of decimal digits (192-bit safe: never arithmetic).
 _n3_is_dec(){ case "${1:-}" in ''|*[!0-9]*) return 1 ;; *) return 0 ;; esac; }
 
@@ -718,7 +731,7 @@ q10a_kwrank_measure(){    # CERT_JSON  VERDICT_FILE
 
     # ---- leg 1: the instrument does not supply a class/orbit rank ------------------------------
     note=$(_n3_json_str "$cert" class_rank_note)
-    keys=$(grep -o '^[[:space:]]*"[A-Za-z0-9_]*":' "$cert" | sed 's/[^"]*"//; s/"://' | sort -u)
+    keys=$(grep -o '^[[:space:]]*"[A-Za-z0-9_]*"[[:space:]]*:' "$cert" | sed 's/^[[:space:]]*"//; s/".*//' | sort -u)
     hit=""
     for k in $forbidden; do grep -qx "$k" <<<"$keys" && hit="$hit $k"; done
     printf 'q10a_class_rank_note\t%s\n' "$(case "$note" in *"NOT computed"*) echo "present, says NOT computed" ;; "") echo "ABSENT" ;; *) echo "present, does NOT say NOT computed" ;; esac)"
@@ -1097,11 +1110,15 @@ PY
     )
 }
 q7wit_check(){ # q7wit_check TARGET SEQ CERT_JSON [MODE]  -> the solver-free property check shared by both Q7 witness rows; rc 0 iff all hold
-    local t="$1" seq="$2" cert="$3" mode="${4:-pinned}" frc=0 nv kwarr c3v r11c r11py ctl f1 f2 f3 got need
+    local t="$1" seq="$2" cert="$3" mode="${4:-pinned}" frc=0 nv kwarr c3v r11c r11py ctl f1 f2 f3 got need crc
     nv=$(printf '%s\n' "$seq" | tr ',' '\n' | grep -c .)
     if [ "$nv" -ne 64 ]; then echo "Q7WIT_FAIL	$t: the sequence has $nv values, not 64"; return 1; fi
-    "$SOLVE" --check-arrangement "$seq" --cert-out "$cert" --label "$t" > "$WORK/q7wit_$t.out" 2>&1 < /dev/null   # Q-795: label = target; a2_q7_ranks keys on it
-    echo "### $t checker_rc=$?"
+    "$SOLVE" --check-arrangement "$seq" --cert-out "$cert" --label "$t" > "$WORK/q7wit_$t.out" 2>&1 < /dev/null; crc=$?   # Q-795: label = target; a2_q7_ranks keys on it
+    echo "### $t checker_rc=$crc"
+    # The checker prints its verdicts BEFORE it writes the certificate, so a failed write (exit 2) left
+    # every verdict line in place; its status and the certificate now count (Codex, gpt-6-astra, F04-020#1).
+    [ "$crc" -eq 0 ] || { echo "Q7WIT_FAIL	$t: --check-arrangement exited $crc -- its verdict lines are not a completed check"; frc=1; }
+    [ -s "$cert" ] || { echo "Q7WIT_FAIL	$t: no certificate was written at $cert"; frc=1; }
     cat "$WORK/q7wit_$t.out"
     grep -q 'verdict SUPER (C1&C2&C4&C5):     IN' "$WORK/q7wit_$t.out" || { echo "Q7WIT_FAIL	$t: --check-arrangement does not say IN SUPER"; frc=1; }
     grep -q 'verdict C15  (C1-C5, C3<=776):   IN' "$WORK/q7wit_$t.out" || { echo "Q7WIT_FAIL	$t: --check-arrangement does not say IN C15 (C3 <= 776)"; frc=1; }
@@ -1145,6 +1162,10 @@ q7wit_check(){ # q7wit_check TARGET SEQ CERT_JSON [MODE]  -> the solver-free pro
     q7wit_props "$t" "$seq" "$mode" || frc=1
     return $frc
 }
+# The PINNED SAT witnesses (the same two the rows below loop over by name): a2_q7_ranks must publish a
+# serial number for each (Codex, gpt-6-astra, F04-020#1). Set here, outside the rows, so a harness
+# that extracts a row alone does not inherit it.
+Q7_PINNED_WITNESSES="moore-strict grand-strict"
 if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \
    && [ "$(py_import_state solve sat verify)" = PRESENT ]; then
     row_begin a0_q7_witnesses
@@ -1445,9 +1466,11 @@ row_begin a0_anchor
   # that printed nothing) still ended in TR12_ANCHOR=PASS at n=31, where no golden diffs the line.
   # --kc-member prints exactly MEMBER or NON-MEMBER and exits 1 on the latter (solve.c --kc-member
   # arm); the printed word is now the row's exit test. Success output is byte-identical to before.
-  m=$("$SOLVE" --kc-member "$FDIR" "$ANCHOR" 2>&1 < /dev/null | tail -1)
+  "$SOLVE" --kc-member "$FDIR" "$ANCHOR" > "$WORK/anchor_member.out" 2>&1 < /dev/null; mrc=$?
+  m=$(tail -1 "$WORK/anchor_member.out")
   echo "anchor_is_member=$m"
-  [ "$m" = MEMBER ] || { echo "ANCHOR_FAIL	the anchor walk is not a member of this f-ladder universe (--kc-member said '${m:-<nothing>}')"; exit 1; }
+  # MEMBER and exit 0 together (sibling of F04-016#2: a MEMBER line followed by a crash is not an answer)
+  { [ "$m" = MEMBER ] && [ "$mrc" -eq 0 ]; } || { echo "ANCHOR_FAIL	the anchor walk is not a member of this f-ladder universe (--kc-member said '${m:-<nothing>}')"; exit 1; }
 ) >>"$RAW" 2>&1; rc=$?
 row_end TR12_ANCHOR $rc
 
@@ -1493,8 +1516,13 @@ ladder_sha_row(){ # ladder_sha_row ROWID TOKEN DIR LAYER_PREFIX
       cat "$WORK/lsha.$id"
       echo "### sidecar cross-check: tool digest vs the own_sha256_decompressed the builder recorded"
       layers=0; ok=0; bad=0; matched=""
-      while read -r tag hex path _rest; do
-          [ "$tag" = "sha256(decompressed)" ] || continue
+      # The PATH is everything between the digest and the trailing "  (kind=...)" the producer prints
+      # (solve.c --f1c5-layer-sha), not one whitespace field (Codex, gpt-6-astra, F04-020#9): a ladder
+      # dir with a space in it was cut at the space and read MISSING/NOT-MATCHED.
+      while IFS= read -r _line; do
+          case "$_line" in "sha256(decompressed) "*) ;; *) continue ;; esac
+          _rest=${_line#"sha256(decompressed) "}; hex=${_rest%% *}; _rest=${_rest#"$hex"}
+          _rest=${_rest#"${_rest%%[! ]*}"}; path=${_rest%"  (kind="*}
           layers=$((layers+1))
           base=${path##*/}; stem=${base%.bin}                      # <pfx>_layer_NN
           sc="${path%/*}/${stem%_layer_*}_layer_stats_${stem##*_layer_}.json"
@@ -1625,14 +1653,16 @@ ladder_identity_row(){ # ladder_identity_row ROWID TOKEN DIR LAYER_PREFIX STAGE_
 # failed every layer. At n<31 the full pass is cheap and runs, and the identity row stands down.
 ladder_row(){
     local id="$1" tok="$2" iid="$3" itok="$4" dir="$5" pfx="$6" stage="$7"
-    if [ -n "$ATLAS_IN" ]; then
+    # An EXPLICIT --with-laddersha is honoured under --atlas too (Codex, gpt-6-astra, F04-020#6): the
+    # supplied atlas used to stand both rows down even when the reader asked for the full pass.
+    if [ -n "$ATLAS_IN" ] && [ "$WITH_LADDERSHA" -eq 0 ]; then
         # 🔴 REASON STRING CORRECTED 2026-09-22 (KCR1-1b). It said the pre-scan run "already took
         # this ladder's digests". It did not: the pre-scan receipts carry
         # TR12_FSHA/GSHA/TSHA=SKIP:cost-gated, so the layer digests were NEVER computed, by any
         # run. What the pre-scan genuinely banked is the IDENTITY rows (FIDENT/GIDENT/TIDENT=PASS).
         # A skip reason that asserts work the record shows was not done is worse than no reason.
         row_skip "$id" "$tok" "SKIP:banked-pre-scan" "NOT TAKEN, here or in the pre-scan: the pre-scan (--no-scan) run stood this same row down with SKIP:cost-gated, so these layer digests have never been computed by any run. What the pre-scan DID bank is this ladder's IDENTITY ($iid=PASS against the published registry), which is the row below. Re-running the multi-day full-digest pass in the post-scan --atlas run remains declined on cost (PD-4); the cost gate is the real reason and is documented at the cost-gated branch below."
-        row_skip "$iid" "$itok" "SKIP:banked-pre-scan" "ladder identity was pinned in the pre-scan run"
+        row_skip "$iid" "$itok" "SKIP:banked-pre-scan" "ladder identity was pinned in the pre-scan run (its receipt records $itok=PASS against the published registry); this --atlas run does not re-examine that receipt. Pass --with-laddersha to take the full pass and the identity row here"
     elif [ "$N_PAIRS" -ge 31 ] && [ "$WITH_LADDERSHA" -eq 0 ]; then
         row_skip "$id" "$tok" "SKIP:cost-gated" "--f1c5-layer-sha over this ladder at n=31 is a multi-hour single-threaded decompress-and-hash pass, not a point query (MEASURED 2026-09-14: f 38 h, g 94 h, t 40 h, run serially by this script; the limit is per PROCESS, not global -- 40 concurrent processes did all 96 layers in 7 h 11 m, MEASURED 2026-09-17). Identity is pinned by $iid against the published registry instead. Pass --with-laddersha to run the full pass."
         ladder_identity_row "$iid" "$itok" "$dir" "$pfx" "$stage"
@@ -1675,7 +1705,7 @@ if [ "$N_PAIRS" -le 9 ] && command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROO
       # verify.py's alone -- so an --kc-enum-desc that emitted a PREFIX of the universe (or nothing
       # at all) would hand the oracle a short list, and the oracle, which only ever sees the list it
       # is given, would certify extremes over it and the row would pass. The universe size is known
-      # INDEPENDENTLY of this enumeration: N_TOTAL comes from `--kc-count` on the f ladder (:275-278),
+      # INDEPENDENTLY of this enumeration: N_TOTAL comes from `--kc-count` on the f ladder (:283-286),
       # which counts by DP and never walks. Compared as strings -- both are canonical decimals and
       # N is 192-bit at full-31, where shell arithmetic would silently wrap. Also: an enumeration
       # that repeats a walk has the right length and the wrong content, so distinctness is checked
@@ -1719,8 +1749,11 @@ row_begin a1_q8_member
   while IFS=$'\t' read -r _rank _cd walk; do
       case "$_rank" in ''|*[!0-9]*) continue ;; esac
       n=$((n+1))
-      if ! grep -qx 'MEMBER' <<<"$("$SOLVE" --kc-member "$FDIR" "$walk" 2>/dev/null)"; then
-          echo "NON-MEMBER draw rank=$_rank walk=$walk"; bad=$((bad+1))
+      # MEMBER and exit 0, both (Codex, gpt-6-astra, F04-016#2): the substitution used to discard the
+      # producer's status, so MEMBER followed by a crash counted as a re-checked member.
+      _m=$("$SOLVE" --kc-member "$FDIR" "$walk" 2>/dev/null); _mrc=$?
+      if [ "$_mrc" -ne 0 ] || ! grep -qx 'MEMBER' <<<"$_m"; then
+          echo "NON-MEMBER draw rank=$_rank walk=$walk (rc=$_mrc)"; bad=$((bad+1))
       fi
   done < "$ARTDIR/q8_super.tsv"
   echo "q8_member_rechecked=$n"
@@ -1757,6 +1790,11 @@ row_begin a1_q8_chi2
   echo "gallery_draws	$k"
   echo "requested_k	$Q8K"
   [ "$k" -gt 0 ] || { echo "Q8_CHI2_FAIL	no draw lines in q8_super.tsv"; exit 1; }
+  # Every draw-shaped line is a draw (Codex, gpt-6-astra, F05-019#3): a `-1` or otherwise malformed rank
+  # used to be dropped by the extraction above, and the statistic ran over the surviving subset.
+  nmal=$(awk -F'\t' '$2 ~ /^cd=/ && $1 !~ /^[0-9]+$/' "$ARTDIR/q8_super.tsv" | grep -c .)
+  [ "$nmal" -eq 0 ] || { echo "Q8_CHI2_FAIL	$nmal draw line(s) whose rank is not a non-negative integer"; exit 1; }
+  [ "$k" = "$Q8K" ] || { echo "Q8_CHI2_FAIL	$k draws parsed, $Q8K requested -- the statistic would be over a different gallery"; exit 1; }
   # one bc process for every bucket index; bc's / at scale=0 is integer division, i.e. floor for r >= 0
   awk -v N="$N_TOTAL" '{print "(16*" $1 ")/" N}' "$WORK/q8.ranks" | BC_LINE_LENGTH=0 bc > "$WORK/q8.buckets"
   # 🔴 THE SUM OF SQUARES IS NOT AN awk INTEGER (RCQ01 F5, CONFIRMED 2026-09-09). This used to
@@ -1975,7 +2013,8 @@ row_begin a1_q2b
       if [ -z "$w" ] || [ "${nf:-0}" -ne "$((2 * N_PAIRS))" ]; then
           echo "Q2B_FAIL	r=$R published no walk of 2n=$((2 * N_PAIRS)) hexagrams (got ${nf:-0})"; erc=1
       else
-          rr=$("$SOLVE" --kc-rank "$FDIR" "$w" 2>/dev/null | grep -E '^[0-9]+$' | tail -1)
+          "$SOLVE" --kc-rank "$FDIR" "$w" > "$WORK/q2b_rank.out" 2>/dev/null || erc=1
+          rr=$(grep -E '^[0-9]+$' "$WORK/q2b_rank.out" | tail -1)
           [ "$rr" = "$R" ] \
             || { echo "Q2B_FAIL	rank(unrank($R)) = ${rr:-<none>} -- the REL pair is not an inverse at this rank"; erc=1; }
       fi
@@ -2155,7 +2194,10 @@ row_begin a1_v3
   erc=0; i=0
   while [ "$i" -lt "$V3K" ]; do
       R=$(echo "$i * $step" | bc)
-      W=$("$SOLVE" --kc-unrank "$FDIR" "$R" 2>/dev/null | grep -E '^[0-9]+(,[0-9]+)+$' | head -1) || erc=1
+      # the PRODUCER's status, not the pipeline's last stage (Codex, gpt-6-astra, F04-020#2): with pipefail
+      # off, `| head -1` answered for --kc-unrank, so 32 failing calls that printed their walks matched the golden.
+      "$SOLVE" --kc-unrank "$FDIR" "$R" > "$WORK/v3u.out" 2>/dev/null || erc=1
+      W=$(grep -E '^[0-9]+(,[0-9]+)+$' "$WORK/v3u.out" | head -1)
       [ -n "$W" ] || { echo "MISSING r=$R"; erc=1; }
       printf '%d\t%s\t%s\n' "$i" "$R" "$W"
       i=$((i+1))
@@ -2614,7 +2656,7 @@ if [ -s "$ARTDIR/q3_profile_exact.tsv" ]; then
       #  (1) the emitted table must carry one data row per source data row, and n of them, in
       #      step order 1..n -- that is what kills the header-only table;
       #  (2) THE TIE TO a2_q3_reader: that row asserts g == p_num and g_parent == p_den on the
-      #      source columns (:2408) after proving them canonical decimals and telescoping. This
+      #      source columns (:2450) after proving them canonical decimals and telescoping. This
       #      row therefore checks its OWN published cells against those same source columns, so a
       #      projection that read the wrong column cannot publish a plausible table. String
       #      comparison of canonical decimals is exact integer equality, which is why both sides
@@ -2718,7 +2760,7 @@ row_end TR12_Q2 $rc
 if [ "$N_PAIRS" -ge 31 ]; then
     row_begin a2_q7_ranks
     (
-      erc=0; processed=0; ranked=0   # LSD R18c (2026-09-29): count the certificates actually read; Q-957: and the ones actually ranked
+      erc=0; processed=0; ranked=0; serials=""   # LSD R18c (2026-09-29): count the certificates actually read; Q-957: and the ones actually ranked
       echo "# inputs: every q7_*.json written by the Q7 legs above: KW (IN; rank_O3(KW) = 0 is a labeling theorem),"
       echo "# the three historical arrangements (OUT; no rank), and -- since CX-93, 2026-09-25 -- the two PINNED"
       echo "# SAT witnesses q7_moore-strict.json / q7_grand-strict.json (IN; each gets its rank_O3, the witness"
@@ -2777,6 +2819,7 @@ if [ "$N_PAIRS" -ge 31 ]; then
                   echo "Q7RANKS_FAIL	$(basename "$j"): rank3=0 for a non-KW input -- the walk ranked is the anchor walk, so this is not a witness"; erc=1
               elif [ "$lab" != "KW" ]; then
                   echo "witness_serial	$id	rank3=$r3	(rank_O3 in the KW-derived coordinate; D5-14)"
+                  serials="$serials $id"
               fi
               if [ "$lab" = "KW" ] && [ "$w" != "$ANCHOR" ]; then
                   echo "Q7RANKS_FAIL	$(basename "$j"): the walk ranked here is not \$ANCHOR -- two derivations of King Wen's walk disagree"; erc=1
@@ -2792,6 +2835,13 @@ if [ "$N_PAIRS" -ge 31 ]; then
       done
       [ "$processed" -ge 2 ] || { echo "Q7RANKS_FAIL	witnesses_processed=$processed<2 -- the row read fewer than two q7_*.json certificates, so it ranked nothing (LSD R18c)"; erc=1; }
       [ "$ranked" -ge 1 ] || { echo "Q7RANKS_FAIL	ranked=$ranked<1 -- no IN certificate was ranked, so King Wen's rank_O3 = 0 was never measured (Q-957)"; erc=1; }
+      # The PINNED witnesses' serial numbers are what TR-12 section Q7 promised; KW plus any one other
+      # certificate used to satisfy the floors above without either (Codex, gpt-6-astra, F04-020#1).
+      # Q7_PINNED_WITNESSES is set by the battery; a harness that runs this block alone with only the
+      # certificates it is testing leaves it unset and measures the floors above.
+      for pw in ${Q7_PINNED_WITNESSES-}; do
+          case " $serials " in *" $pw "*) : ;; *) echo "Q7RANKS_FAIL	the pinned witness $pw was not ranked -- its promised serial number is missing"; erc=1 ;; esac
+      done
       echo "q7_ranks_counts	processed=$processed	ranked=$ranked"; exit $erc
     ) >>"$RAW" 2>&1; rc=$?
     row_end TR12_Q7_RANKS $rc
@@ -2840,12 +2890,22 @@ case "${Q1C_VAL:-}" in
       echo "requested_M	$Q1CM"
       "$SOLVE" --kc-sample "$FDIR" "$Q1CM" "$SEED" 2>/dev/null > "$WORK/q1c.raw" || exit 1
       : > "$WORK/q1c.ranks"
+      # EVERY sampled walk is ranked, or the row fails (Codex, gpt-6-astra, F04-020#3): a draw whose rank
+      # command failed used to be dropped, and the estimate and its CI ran over the survivors.
+      nsamp=0; nfail=0
       while IFS=$'\t' read -r _r _cd walk; do
           case "$_r" in ''|*[!0-9]*) continue ;; esac
+          nsamp=$((nsamp+1))
           cd_v=${_cd#cd=}
-          o3=$("$SOLVE" --kc-o3-rank "$FDIR" "$GDIR" "$walk" 2>/dev/null | awk -F'\t' '$1=="rank3"{print $2}')
-          [ -n "$o3" ] && printf '%s\t%s\n' "$o3" "$cd_v" >> "$WORK/q1c.ranks"
+          "$SOLVE" --kc-o3-rank "$FDIR" "$GDIR" "$walk" > "$WORK/q1c_rank.out" 2>/dev/null; orc=$?
+          o3=$(awk -F'\t' '$1=="rank3"{print $2}' "$WORK/q1c_rank.out")
+          if [ "$orc" -ne 0 ] || [ -z "$o3" ] || [ -n "${o3//[0-9]/}" ]; then nfail=$((nfail+1)); continue; fi
+          printf '%s\t%s\n' "$o3" "$cd_v" >> "$WORK/q1c.ranks"
       done < "$WORK/q1c.raw"
+      if [ "$nfail" -gt 0 ] || [ "$nsamp" != "$Q1CM" ]; then
+          echo "Q1C_FAIL	$nsamp draw(s) sampled for $Q1CM requested, $nfail of them not ranked -- the estimate would be over a different population"
+          exit 1
+      fi
       awk -F'\t' -v R="$RANCH" -v T="$C3MAX" '
         { drawn++
           # decimal-string compare: shorter is smaller; equal length falls back to lexicographic
@@ -2972,7 +3032,8 @@ if [ "$HAVE_T" -eq 1 ]; then
     # the cost-gated arm below correctly cites. Keep the two arms' justifications distinct.
     if [ "$N_PAIRS" -ge 31 ] && [ "$WITH_TCHECK" -eq 0 ]; then
         row_skip b_tcheck TR12_TCHECK "SKIP:cost-gated" "--kc-t-check streams f+t (~6.8 TB at n=31) and is MEASURED at ~20.5 h, uncheckpointed (STAGET_TRUE_COST_2026_08_24.md). Operator decision 2026-09-14: skipped to bring the run inside its deadline. WHAT THIS SKIP DOES AND DOES NOT COST: a KC-T CHECK n=31 PASS verdict HAS been recorded -- 0 failing layers, all k=0..31, produced 2026-09-14 19:31:13 UTC to 2026-09-15 21:17:51 UTC (25 h 47 m, single core) under binary sha256 a253828bfe9e065a82c57f1eec7f00e66f0416822deb1c7521cb7204eb576e59, published in this tree at runs/20260906_kc_ladders_n31/KC_T_CHECK_n31.txt. So this skip does NOT leave the t ladder unverified by the sound instrument; it avoids repeating a 20.5 h pass that buys no new information in THIS run. Scope, per documentation/GT_LADDER_FORMAT.md:297: that PASS constrains the FILES, not the shared transition relation, and the k=0 and k=n endpoints degenerate. Pass --with-tcheck to run it here."
-    elif [ -n "$ATLAS_IN" ]; then
+    elif [ -n "$ATLAS_IN" ] && [ "$WITH_TCHECK" -eq 0 ]; then
+        # (F04-020#6) an explicit --with-tcheck is honoured under --atlas, as its skip message says
         row_skip b_tcheck TR12_TCHECK "SKIP:banked-pre-scan" "--kc-t-check streams f+t (~6.8 TB at n=31), so this post-scan --atlas run stands it down. CORRECTED 2026-09-22 (Q-680, CX-67): this reason used to assert that the pre-scan run had already run it under the same binary and universe. IT DID NOT. Every n=31 receipt in the tree records TR12_TCHECK=SKIP:cost-gated -- run1_prescan, battery_pre_20260921, banked/battery_pre, battery_final_20260922, n31_results_20260918 -- and the only TR12_TCHECK=PASS anywhere is the n=9 rehearsal. WHAT IS ACTUALLY BANKED, and it is not from a pre-scan battery: a standalone KC-T CHECK n=31 PASS, 0 failing layers over all k=0..31, produced 2026-09-14 19:31:13 UTC to 2026-09-15 21:17:51 UTC under binary sha256 a253828bfe9e065a82c57f1eec7f00e66f0416822deb1c7521cb7204eb576e59, published at runs/20260906_kc_ladders_n31/KC_T_CHECK_n31.txt. Scope per documentation/GT_LADDER_FORMAT.md:297: that PASS constrains the FILES, not the shared transition relation, and the k=0 and k=n endpoints degenerate. Pass --with-tcheck to run it here."
     else
         row_begin b_tcheck
@@ -3000,12 +3061,17 @@ if [ -n "$ATLAS_IN" ]; then
     (
       [ -s "$ATLAS_IN" ] || { echo "SUPPLIED_ATLAS_FAIL	$ATLAS_IN is missing or empty"; exit 1; }
       cp -f "$ATLAS_IN" "$ATLAS" || exit 1
+      # explicit raises, never `assert` (Codex, gpt-6-astra, F04-020#5): an inherited PYTHONOPTIMIZE=1
+      # strips asserts, and the three checks then accepted any JSON as this universe's atlas.
       python3 -c '
 import json, sys
 d = json.load(open(sys.argv[1]))
-assert d.get("type") == "roae-kc-scan-atlas", "wrong type tag"
-assert d.get("layers") and d.get("branch_atlas"), "layers/branch_atlas missing"
-assert str(d.get("N_total")) == sys.argv[2], "atlas N_total %s != ladder N %s" % (d.get("N_total"), sys.argv[2])
+if d.get("type") != "roae-kc-scan-atlas":
+    raise SystemExit("wrong type tag")
+if not (d.get("layers") and d.get("branch_atlas")):
+    raise SystemExit("layers/branch_atlas missing")
+if str(d.get("N_total")) != sys.argv[2]:
+    raise SystemExit("atlas N_total %s != ladder N %s" % (d.get("N_total"), sys.argv[2]))
 ' "$ATLAS" "$N_TOTAL" || { echo "SUPPLIED_ATLAS_FAIL	$ATLAS_IN is not a scan atlas of this universe"; exit 1; }
       echo "### atlas"; cat "$ATLAS"
     ) >>"$RAW" 2>&1; rc=$?
@@ -3205,6 +3271,9 @@ else
           [ "$m" = "0" ] || fails=1
           i=$((i+1))
       done < <(grep -o '"flow": "[0-9]*"' "$ATLAS" | sed 's/.*"\([0-9]*\)"$/\1/')
+      # the loop must have READ the layers (Codex, gpt-6-astra, F05-017#4): a missing atlas fails the
+      # process substitution, which nothing propagates, and zero layers read as zero mod-24 failures.
+      [ "$i" -eq "$N_PAIRS" ] || { echo "Q10A_FAIL	$i atlas layer flow(s) read from '$ATLAS', want $N_PAIRS"; fails=1; }
       echo "Q10A_LAYER_MOD24_FAILS	$fails"
       echo "## per-layer state census, transcribed from f1c5_layer_stats_XX.json (frame: canonical quotient, orbit-unweighted; mass_total = f-prefix mass)"
       echo -e "k\tn_masks\tn_entries\tmass_total\torbit_size_census[size,n_masks,n_entries]\tbranching_hist[children,n_states]"
@@ -3242,7 +3311,9 @@ else
                       tne=$(sed -n 's/^  "n_entries": \([0-9]*\),*$/\1/p' "$tc" | head -1)
                       toc=$(sed -n 's/^  "orbit_size_census": \(\[.*\]\),*$/\1/p' "$tc" | head -1)
                       tsv=$(sed -n 's/^  "sidecar": "f1c5_layer_stats_v\([0-9]*\)",*$/\1/p' "$tc" | head -1)
-                      csm=$(printf '%s' "$toc" | tr -d '[]' | tr ',' '\n' | awk 'NR%3==2{a+=$1} NR%3==0{b+=$1} END{printf "%d %d", a, b}')
+                      # %.0f, not %d (Codex, gpt-6-astra, F04-020#7): a 32-bit-%d awk (mawk) printed the k=16
+                      # entry sum 83,585,570,784 as 2147483647 and the row read T-CENSUS-MISMATCH on correct sidecars.
+                      csm=$(printf '%s' "$toc" | tr -d '[]' | tr ',' '\n' | awk 'NR%3==2{a+=$1} NR%3==0{b+=$1} END{printf "%.0f %.0f", a, b}')
                       # Q-904 (CX-246; Codex LSD R18d). The checks above cannot see the orbit-size column:
                       # a census with one row's size key changed (8 -> 12) still matches every count. K28
                       # (CX-241) makes verify.c require, on every layer, mask count == the Burnside count of
@@ -3371,6 +3442,8 @@ else
           printf '%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$i" "$fl" "$d1" "$d2" "$d3" "$d4" "$d6" "$ad" "$am" "$ap" "$pc"
           i=$((i+1))
       done < <(grep '"marginal_quotient"' "$ATLAS")
+      # (Codex, gpt-6-astra, F05-017#4) zero layers read from a missing atlas is not a clean table
+      [ "$i" -eq "$N_PAIRS" ] || { echo "Q6_FAIL	$i atlas layer(s) read from '$ATLAS', want $N_PAIRS"; fails=1; }
       exit $fails
     ) >>"$RAW" 2>&1; rc=$?
     cp "$RAW" "$ARTDIR/q6_layer_mass.tsv"
@@ -3417,7 +3490,7 @@ else
       # 🔴 F-5 ROUND 4 B2 (2026-09-11). This row had NO assertion of any kind. An atlas with every
       # `by_class` object stripped drives the loop zero times, prints a header-only table, and exits
       # 0 -- and an atlas with ONE CELL DELETED prints a short row and exits 0. Both measured by the
-      # reviewer. This is round 1's D11 class, which was fixed for `c_v1` next door (:3391) and never
+      # reviewer. This is round 1's D11 class, which was fixed for `c_v1` next door (:3464) and never
       # swept to its siblings -- fix the class, not the instance. Checked against the atlas the table
       # came from, in bc, because the masses are 192-bit at full-31. Success output is UNCHANGED;
       # only a failure prints, so no golden moves.
