@@ -79,3 +79,12 @@ production 256-GiB D128 setting. TR-11 v1.26 (2026-09-03) and `documentation/SOL
 Every completed layer file in `DIR` is a checkpoint; after any interruption re-run with `--resume-from-layers`. Cross-mode equivalence: run any `--f1-pairs N` subset with and without `--f1-out-of-core` — totals must match, and with `SOLVE_F1_OOC_FORMAT=v1` the layer files must be byte-identical (under the v2 out-of-core default the files are content-identical but byte-different; compare with `--f1c5-verify-layer` — TR-11 §10(vi) precision note). See TR-11 Verification Guide.
 
 *Direction and the orbit-quotient idea are the operator's; the recursion reconstruction, out-of-core streaming design, and implementation are by Claude (Fable 5); the count-landing record here is by Claude (Opus 4.8). The underlying symmetry theorem is TR-5's. Technique-level prior art (Burnside / orbit counting, canonical-representative generation, external-memory layered DP) is classical — no novelty claimed.*
+
+## Dated notes (2026-10-22)
+
+Added from Codex's final review (gpt-6-astra); the record above is kept as written. [CORRECTIONS.md](../../documentation/CORRECTIONS.md) CX-35X-K.
+
+- **"Orbit count | N / 24".** N counts orientation-explicit sequences, on which the order-48 group acts freely, so N/24 is **twice** the sequence-orbit count; it is not a record-level orbit count either (it exceeds 31!/24). TR-11 §9 and its validation-stack bullet say so (CX-232); this table row kept the old label. `count_result.json` is kept as written (Codex F12-020#1, F06-008#12; the same label in [HISTORY.md](../../documentation/HISTORY.md)'s landing entry is corrected by CX-35X-J).
+- **Threads.** The run started at 64 threads and computed layers k1–k11 under that configuration (`run.out` lines 4–6); every later segment ran at 128 (F12-020#13).
+- **Evictions.** `run.out` records twelve `RESUME intra-layer checkpoint` lines: the evictions were recovered from intra-layer checkpoints, which kept the completed part of the interrupted layer, not from "the last complete-layer checkpoint". No work was lost either way (F06-008#15 and its run-README twin).
+- **Palindrome pairs.** `run.out` carries every layer k1–k31, so all fifteen mirror pairs k1/k30 … k15/k16 can be checked directly, not six; all hold ([layer_curve.md](layer_curve.md), note of this date).

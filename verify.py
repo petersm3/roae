@@ -1105,15 +1105,15 @@ def check_kw_pair_adjacency():
     agrees within each King Wen adjacent pair is EQUALLY well explained by
       H1  the symbol respects reversal, and
       H2  the symbol is merely constant on contiguous blocks of King Wen (the reading published by 姜廣輝 Jiang Guanghui 2004, CITATIONS.md #jiangguanghui2004).
-    H1 and H2 make identical predictions on every observation available, because
-    the blocks and the orbits coincide by construction of the sequence itself.
+    H1 and H2 make identical predictions on every WITHIN-PAIR observation available, because
+    the blocks and the orbits coincide by construction of the sequence itself (Jiang's blocks are unions of pairs; cross-pair equalities are untested; G6 FV-G4-C7#9).
 
     Discriminating would require the symbols mapped onto an ordering in which
     partners are NOT adjacent. The only candidate is the bamboo manuscript's own
     order -- and its editor states plainly (p. 135) that he arranged the slips
     by the received sequence because the manuscript is incomplete. So the
     discriminating experiment does not exist. This is an impossibility argument,
-    not a failed search.
+    not a failed search -- for within-pair observations; a cross-pair one could discriminate.
 
     Reads no files. Uses only this file's KW array and bit conventions."""
     n_zong = n_cuo = n_bad = 0
@@ -1209,7 +1209,7 @@ def check_kw_pair_adjacency():
              "VACUOUS" if not testable else "FAIL"))
     print("SHANGBO_DISCRIMINATING_PAIRS=%d" % len(discriminating))
     print("KW_PAIR_ADJACENCY=DONE")
-    print("SCOPE=this_shows_the_shangbo_symbol_data_CANNOT_distinguish_"
+    print("SCOPE=this_shows_the_shangbo_within_pair_symbol_data_CANNOT_distinguish_"
           "reversal_invariance_from_king_wen_block_constancy;"
           "_it_is_NOT_a_claim_that_the_editors_invariance_is_false")
     return 0 if adjacency else 2
@@ -7182,7 +7182,7 @@ def main():
                              'from 9/9, which counted number-pairs, not observed symbols; '
                              'RF-8dc08bb8) — from "the symbol is merely constant on '
                              'contiguous King Wen blocks", because blocks and orbits coincide by '
-                             'construction of the sequence. An impossibility argument, not a '
+                             'construction of the sequence (on within-pair observations: the blocks are unions of pairs, cross-pair equalities untested). An impossibility argument, not a '
                              'criticism of his reading, and not a failed search. Reads no files.')
     parser.add_argument('--check-artifact-offset', type=int, default=0, metavar='R',
                         help='start --check-artifact at record R (default 0). NOTE: the '
@@ -7652,6 +7652,8 @@ def _mj_read_layer(path, kind):
     if off[0] != 0 or off[nm] != ne or any(off[i] > off[i + 1] for i in range(nm)):
         raise RuntimeError(f"{path}: offsets are not a monotone partition of {ne} entries")
     if version == 1:
+        if pad != 0:   # G6 FV-S5-C#3: a v1 header's pad field is 0 (F1C5_LAYER_FORMAT.md)
+            raise RuntimeError(f"{path}: v1 header pad is {pad}, not 0")
         if len(raw) != base + 28 * ne:
             raise RuntimeError(f"{path}: {len(raw)} bytes, v1 layout needs {base + 28 * ne}")
         keys = list(struct.unpack_from("<%dI" % ne, raw, base))
@@ -7715,7 +7717,7 @@ def _mj_tri(items, ref):
     return {"state": s, "orbit": o, "mass": m}
 
 
-def check_midjoin(fdir, gdir, outdir, walk=None, tdir=None):
+def _check_midjoin_impl(fdir, gdir, outdir, walk=None, tdir=None):
     import json, time
     t0 = time.time()
     verdict, nchecked, brute = "ERROR", 0, "SKIP"
@@ -7740,6 +7742,9 @@ def check_midjoin(fdir, gdir, outdir, walk=None, tdir=None):
         b0 = tuple(int(x) for x in man["b0"].split(","))
     except Exception as e:
         return finish(f"cannot read the f manifest: {e}")
+    if sum(b0) != n:   # G6 FV-S5-K2#2: recurrence and brute force would agree on the wrong problem
+        verdict = "FAIL"
+        return finish(f"manifest b0 {b0} sums to {sum(b0)}, not n = {n}: not this instance's boundary budget")
     if n > 13:
         return finish(f"n={n}: this leg's plain recurrence and per-layer JSON diff are sized for "
                       f"n <= 13 (the gate rungs 9 and 13); larger instances are out of scope")
@@ -7771,7 +7776,8 @@ def check_midjoin(fdir, gdir, outdir, walk=None, tdir=None):
     N = sum(sum(s.values()) for s in raw[n].values())
     mass = {k: sum(sum(s.values()) for s in raw[k].values()) for k in range(n + 1)}
     # the walk: 2n hexagrams, entry then exit per pair, validated here from the rules
-    files = sorted(x for x in os.listdir(outdir) if x.startswith("midjoin_layer_") and x.endswith(".json"))
+    import re as _g6re   # G6 FV-S5-K2#7: the exact name; a midjoin_layer_00x.json alias replaced the canonical file
+    files = sorted(x for x in os.listdir(outdir) if _g6re.fullmatch(r"midjoin_layer_\d\d\.json", x))
     if not files:
         return finish(f"no midjoin_layer_*.json in {outdir}: nothing to check is a failure, not a pass")
     try:
@@ -7779,6 +7785,10 @@ def check_midjoin(fdir, gdir, outdir, walk=None, tdir=None):
     except Exception as e:
         return finish(f"a layer JSON does not parse: {e}")
     wstr = walk if walk is not None else next(iter(docs.values()))["walk"]["walk"]
+    for _k, _d in sorted(docs.items()):   # G6 FV-S5-K1#5: every layer's recorded walk, not the first one only
+        if _d.get("walk", {}).get("walk") != wstr:
+            verdict = "FAIL"
+            return finish(f"layer {_k}: the JSON records walk {_d.get('walk', {}).get('walk')!r}, not {wstr!r}")
     try:
         hx = [int(x) for x in wstr.split(",")]
     except ValueError:
@@ -7851,8 +7861,15 @@ def check_midjoin(fdir, gdir, outdir, walk=None, tdir=None):
     def dec(x):
         return str(x)
 
+    if tdir is None and any(d.get("t") is not None for d in docs.values()):   # G6 FV-S5-C#4
+        return finish("the layer JSONs carry a t block, which this run cannot check without --midjoin-tdir (the t ladder the run was given); "
+                      "no PASS is issued for a partly checked result\nMIDJOIN_CHECK_T=UNCHECKED")
     for k in sorted(docs):
         J = docs[k]
+        if J.get("MIDJOIN_LAYER") != "OK" or J.get("walk", {}).get("f_pin") not in ("OK", "SKIP"):   # G6 FV-S5-K1#4
+            verdict = "FAIL"
+            return finish(f"layer {k}: the JSON's MIDJOIN_LAYER is {J.get('MIDJOIN_LAYER')!r} and walk.f_pin {J.get('walk', {}).get('f_pin')!r}; "
+                          f"only OK / (OK or SKIP) is a finished, pinned layer")
         path_ = None
         try:
             F = _mj_read_layer(os.path.join(fdir, f"f1c5_layer_{k:02d}.bin"), "f")
@@ -7870,6 +7887,10 @@ def check_midjoin(fdir, gdir, outdir, walk=None, tdir=None):
             verdict = "FAIL"
             return finish(f"layer {k}: a stored mask is not canonical under the group derived here")
         canon_masks = sorted(cm for cm in raw[k] if raw[k][cm] and canon(cm) == cm)
+        all_canon = sorted(cm for cm in range(1 << n) if bin(cm).count("1") == k and canon(cm) == cm)
+        if sorted(F["masks"]) != all_canon:   # G6 FV-S5-K1#1: EVERY canonical mask of popcount k, empty spans included, and nothing else
+            verdict = "FAIL"
+            return finish(f"layer {k}: the stored mask list ({len(F['masks'])}) is not the {len(all_canon)} canonical masks of popcount {k}")
         if [cm for cm in F["masks"] if raw[k].get(cm)] != canon_masks:
             verdict = "FAIL"
             return finish(f"layer {k}: the stored masks are not the recurrence's canonical masks")
@@ -7903,6 +7924,11 @@ def check_midjoin(fdir, gdir, outdir, walk=None, tdir=None):
                     tK = tsp.get((lastc << 16) | wr, 0)
             s = sft = 0
             go += sum(1 for key in gsp if key not in fsp)
+            _el = {h for i_ in range(n) if (cm >> i_) & 1 for h in pairs[i_]} if k else {start}
+            for key in gsp:   # G6 FV-S5-K2#4: g-only keys get the same last/rid domain check as f's
+                if key not in fsp and ((key >> 16) not in _el or (key & 0xffff) >= rad[4] * (b0[4] + 1)):
+                    verdict = "FAIL"
+                    return finish(f"layer {k} mask {cm:#x}: g key {key:#x} is outside the stored domain (last not in the mask's pairs, or rid out of range)")
             for key, fv in fsp.items():
                 gv = gsp.get(key, 0)
                 if key in gsp:
@@ -7967,6 +7993,9 @@ def check_midjoin(fdir, gdir, outdir, walk=None, tdir=None):
             K = int(J["resume_key"].split(";top=")[1].split(";")[0])
         except Exception:
             return finish(f"layer {k}: no top=K in the resume_key")
+        if K < 1:   # G6 FV-S5-K2#9: top=0 with an empty list passed
+            verdict = "FAIL"
+            return finish(f"layer {k}: resume_key top={K}; the run records at least the top mask")
         cuts = [1, 10, 100, 1000, -(-nm // 100), -(-nm // 10), -(-nm // 2)]
         lor = {}
         for name, c in zip(("top1", "top10", "top100", "top1000", "top_1pct", "top_10pct", "top_50pct"), cuts):
@@ -8031,9 +8060,13 @@ def check_midjoin(fdir, gdir, outdir, walk=None, tdir=None):
                 return finish(f"layer {k} field {key}: JSON {got.get(key)!r} != recomputed {exp[key]!r}")
         import math
         H = -sum((w / N) * math.log2(w / N) for w in W if w)
-        if abs(H - J["masks"]["entropy_bits"]) > 1e-5:
+        if not isinstance(J["masks"]["entropy_bits"], (int, float)) or not math.isfinite(J["masks"]["entropy_bits"]) or abs(H - J["masks"]["entropy_bits"]) > 1e-5:   # G6 FV-S5-C#5: NaN passed abs(H - NaN) > 1e-5
             verdict = "FAIL"
             return finish(f"layer {k}: entropy {J['masks']['entropy_bits']} != {H:.6f}")
+        _g6_sr = _g6_mj_summary_row_bad(J, k, nm, len(states), fK, tri, lor, exp["masks.kw"], N, outdir)   # G6 FV-S5-G#9
+        if _g6_sr:
+            verdict = "FAIL"
+            return finish(f"layer {k}: summary row: {_g6_sr}")
         nchecked += 1
         print(f"  layer {k:2d}: {nm} masks, {len(states)} states, SUM W = N, walk f={fK} g={gK} -- every gated field agrees")
     if set(docs) != set(range(min(docs), max(docs) + 1)):
@@ -8115,6 +8148,52 @@ def _f31_width(cells, widths, where):
         raise RuntimeError(f"{_AGG_DOC} {where}: a data row has {len(cells)} cells, not "
                            f"{' or '.join(map(str, widths))}: | {' | '.join(cells)[:80]} |")
     return True
+
+
+def _g6_mj_summary_row_bad(J, k, nm, n_f, fK, tri, lor, kw, N, outdir):
+    """G6 FV-S5-G#9: the layer's summary_row (and its line in midjoin_summary.tsv) recomputed: the integer
+    columns exactly, the six-decimal fractions to 1e-6. wall_s and MB_s describe the run and are not checked."""
+    row = J.get("summary_row")
+    if not isinstance(row, str):
+        return "absent"
+    c = row.split("\t")
+    if len(c) != 15:
+        return f"{len(c)} columns, not 15"
+    pm = lambda t: (t[0] + t[1] / 2) / sum(t) if sum(t) else 0.0
+    want_i = [str(k), str(nm), str(n_f), str(fK), None, None, None, None, None, None, None, str(kw["rank"])]
+    want_f = {4: pm(tri["f"]["state"]), 5: pm(tri["f"]["orbit"]), 6: (tri["f"]["mass"][0] + tri["f"]["mass"][1] / 2) / N,
+              7: (tri["g"]["mass"][0] + tri["g"]["mass"][1] / 2) / N, 8: (tri["w"]["mass"][0] + tri["w"]["mass"][1] / 2) / N,
+              9: int(lor["top1"][1]) / N, 10: int(lor["top10"][1]) / N, 12: (int(kw["mass_lt"]) + int(kw["mass_eq"]) / 2) / N}
+    for i, w in enumerate(want_i):
+        if w is not None and c[i] != w:
+            return f"column {i} is {c[i]!r}, recomputed {w!r}"
+    for i, w in want_f.items():
+        try:
+            if abs(float(c[i]) - w) > 1e-6:
+                return f"column {i} is {c[i]}, recomputed {w:.6f}"
+        except ValueError:
+            return f"column {i} is {c[i]!r}, not a number"
+    p = os.path.join(outdir, "midjoin_summary.tsv")
+    if os.path.exists(p):
+        with open(p, encoding="utf-8") as fh:
+            lines = [l.rstrip("\n") for l in fh if l.split("\t", 1)[0] == str(k)]
+        if lines != [row]:
+            return "midjoin_summary.tsv's row for this layer is not the JSON's summary_row"
+    return None
+
+
+def check_midjoin(fdir, gdir, outdir, walk=None, tdir=None):   # G6 FV-S5-K2#11: the checked entry point; the checker body is _check_midjoin_impl
+    """A missing OUTDIR, a bad manifest index or a JSON missing a required key raised an uncaught
+    exception: no MIDJOIN_CHECK token and not exit 2. Every such case is now the documented ERROR/2."""
+    try:
+        return _check_midjoin_impl(fdir, gdir, outdir, walk=walk, tdir=tdir)
+    except Exception as e:   # the checker's own FAIL/PASS paths return; only an unhandled input defect lands here
+        print(f"*ERROR* {type(e).__name__}: {e}")
+        print("MIDJOIN_CHECK_LAYERS=0")
+        print("MIDJOIN_CHECK_BRUTE=SKIP")
+        print("MIDJOIN_CHECK=ERROR")
+        return 2
+
 
 if __name__ == "__main__":
     main()

@@ -20,3 +20,9 @@ and [`documentation/HISTORY.md`](../../documentation/HISTORY.md).
 Do **not** cite the sha or the count above as a current canonical. The logs and checkpoints
 here are retained for the historical record and for eviction/resume forensics; they remain
 accurate accounts of what that run did.
+
+## Dated notes (2026-10-22)
+
+Added from Codex's final review (gpt-6-astra); the record above is kept as written. [CORRECTIONS.md](../../documentation/CORRECTIONS.md) CX-35X-K.
+
+- **4,607.** "incomplete by 4,607 records lost through imperfect mid-walk resume" states the cause as settled. The undercount is measured; the cause is the better-fitting hypothesis in [HISTORY.md](../../documentation/HISTORY.md) (the f42f2ae re-assessment) and "likely" in CANONICAL_HASHES.md §Deprecated (Codex F12-020#14).

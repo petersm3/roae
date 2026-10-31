@@ -26,7 +26,7 @@
 #	                  deletion follows a tag-before-delete POLICY, checked by hand (scripts/pre_push_gate.sh runs no gate on a deletion push; Q-763).
 #	  retired       — the ref is DELETED from the remote. The row stays because this file is how a
 #	                  reader learns where the work went: column 4 names the tag that still pins the
-#	                  exact commit, so `git branch <name> <tag>` restores it byte-for-byte. A row
+#	                  exact commit, so `git branch <name> <tag>` restores it byte-for-byte (except a merged-then-retired row whose tag is labelled Pre-merge, e.g. stageg-telemetry: the tag restores the pre-merge state and the merged head is on main; note 2026-10-22, CX-35X-L). A row
 #	                  removed instead of retired would leave a reader who has a citation to that
 #	                  branch with nothing at all.
 #

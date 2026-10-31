@@ -1632,11 +1632,11 @@ instrument test rather than a measurement. A recorded run uses the frozen
 pre-registration's seed root and its frozen `N_pool` / `N_pred`, and does not
 happen before that registration is frozen.
 
-**TR-8 sampler — sharded across cores, then merged:**
+**TR-8 sampler — sharded across cores, then merged (an instrument example, so it carries the throwaway seed root too; note 2026-10-22, Codex F11-015#7, CX-35X-N: without `--tr8-dof-seed` this example drew from the frozen pre-registration root):**
 
 ```
 for i in 0 1 2 3 4 5 6 7; do
-  python3 solve.py --tr8-dof-sampler out/ --tr8-dof-shard $i &
+  python3 solve.py --tr8-dof-sampler out/ --tr8-dof-seed SMOKE-THROWAWAY-DO-NOT-CITE --tr8-dof-shard $i &
 done; wait
 python3 solve.py --tr8-dof-merge out/
 ```

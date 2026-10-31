@@ -149,3 +149,16 @@ Option 2 — mount `solver-data-westus3` disk on any westus3 VM and read directl
 ## 4-corners validation context
 
 This run was generated on D128als_v7 (Zen 5 Turin) westus3 using external-merge mode. The 10T d3 companion run (see `../20260419_10T_d3_d128westus3/`) empirically validated that this hardware + merge-mode combo produces byte-identical output to F64 westus2 via both external and in-memory paths. The 100T sha here is expected to be reproducible via the same 4 corners (Zen 4 F64 + external merge, Zen 4 F64 + heap-sort, Zen 5 D128 + external, Zen 5 D128 + heap-sort — though only the D128-external path has been run at 100T scale so far).
+
+## Dated notes (2026-10-22)
+
+Added from Codex's final review (gpt-6-astra); the record above is kept as written. [CORRECTIONS.md](../../documentation/CORRECTIONS.md) CX-35X-K.
+
+- **Merge chunks.** "Merge chunks produced: 60,533" is the number of input shard files (the merge log's `Input files: 60533`). The external merge wrote **104** sorted chunks of 134,217,728 records each (4 GiB), the `Chunk N: … sorted + written` lines in `enum_output.log.gz` (Codex F07-010#9, F12-020#10).
+- **Pre-dedup ratio.** The 100T pre-dedup input (13,832,832,979 records) is about **5×** the 10T companion run's (2,772,506,921 in `../20260419_10T_d3_d128westus3/external_merge.log.gz`), not the tenfold the Timings paragraph says; the budget, not the input, grew tenfold (F07-010#10, F12-020#11).
+- **Units.** 109,836,777,536 bytes is 109.84 GB, or 102.29 GiB; "102.3 GB" on this page is the GiB figure (F07-010#13).
+- **Skew.** Both distributions called "right-skewed" under the analysis notes have their long tail toward *smaller* values: the edit-distance histogram (§[28], mode 30, range 0–31) has standardized skewness ≈ −1.84, and the C3 distribution piles up at the 776 ceiling with its tail toward the 424 minimum. Read "left-skewed" (F07-010#11, F12-020#12).
+- **SKU.** The header says Spot; [HISTORY.md](../../documentation/HISTORY.md)'s retrospective on this run records that the VM was provisioned on-demand by mistake (F07-010#12).
+- **Re-enumeration recipe.** As printed, Option 1 merges twice: the first command merges automatically at the end of enumeration (default merge settings, scratch in the working directory) unless `SOLVE_SKIP_AUTOMERGE=1` is set, and the second command merges again. For one enumeration and one scratch merge, put `SOLVE_SKIP_AUTOMERGE=1` on the first command (F12-020#6).
+- **4,607.** The deprecation note's "4,607 records lost via imperfect resume" states a cause the cited sources hold as the better-fitting hypothesis ([HISTORY.md](../../documentation/HISTORY.md), the f42f2ae re-assessment; CANONICAL_HASHES.md says "likely"); the undercount itself is measured (F12-020#14).
+- **`analyze_output.log.gz`.** Two sections of the archived log are known defective and the log is kept as written: §[25] read 4,096 of the 158,364 cells and keyed depth-3 cells by their depth-2 prefix, so its "Total solutions … 5281823723" exceeds the file's 3,432,399,297 records (the producer was fixed in CX-151); and §[7]'s line "4-boundary minimum proven for this dataset" follows only a disproof of all triples, which gives a lower bound of four — §[8] then finds zero working 4-subsets, and the minimum at 100T is five, as the analysis notes above say (F07-010#6, F07-010#19).

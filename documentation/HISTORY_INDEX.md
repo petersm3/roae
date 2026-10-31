@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 6 place(s) over all 213 dated sections, 5 of them among the 137 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 7 place(s) over all 214 dated sections, 6 of them among the 138 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -16,6 +16,7 @@
 - line 11196: 2026-10-09 ([section](HISTORY.md#2026-10-09--two-pre-registered-literature-tests-q-oy1-and-q-992-came-back-uninformative-and-the-null-result-is-published-with-its-registration-instrument-and-run-record)), below line 11156: 2026-10-10
 - line 11223: 2026-10-08 ([section](HISTORY.md#2026-10-08--batch-44-the-document-gates-strip-comments-the-way-the-compiler-and-the-shell-do-read-each-exemption-from-the-claims-own-sentence-row-or-file-read-more-number-shapes-and-check-three-more-exit-statuses)), below line 11196: 2026-10-09
 - line 11765: 2026-10-22 ([section](HISTORY.md#2026-10-22--push-group-g5c-the-shell-harness-from-codexs-final-review--gates-that-read-a-failed-producer-a-substring-or-a-stale-binary-as-a-pass)), below line 11741: 2026-10-23
+- line 11816: 2026-10-23 ([section](HISTORY.md#2026-10-23--push-group-g6-engine-and-verifier-hardening-and-ledger-and-run-record-hygiene-from-codexs-final-review)), below line 11795: 2026-10-27
 
 ## Dated sections, in date order
 
@@ -233,7 +234,8 @@
 | 210 | 2026-10-22 | iso | 11720 | [open](HISTORY.md#2026-10-22--push-group-g5b-the-python-and-c-verification-gates-from-codexs-final-review-that-could-pass-over-a-defect) 2026-10-22 — push group G5b: the python and C verification gates from Codex's final review that could pass over a defect |
 | 211 | 2026-10-22 | iso | 11765 | [open](HISTORY.md#2026-10-22--push-group-g5c-the-shell-harness-from-codexs-final-review--gates-that-read-a-failed-producer-a-substring-or-a-stale-binary-as-a-pass) 2026-10-22 — push group G5c: the shell harness from Codex's final review — gates that read a failed producer, a substring or a stale binary as a pass |
 | 212 | 2026-10-23 | iso | 11741 | [open](HISTORY.md#2026-10-23--push-group-g8l-the-sat-and-lean-rows-of-codexs-final-review) 2026-10-23 — push group G8L: the SAT and Lean rows of Codex's final review |
-| 213 | 2026-10-27 | iso | 11795 | [open](HISTORY.md#2026-10-27--push-group-d1-the-n31-golden-set-current-again-the-127-queries-re-run-and-two-exact-counts-beside-published-rows) 2026-10-27 — push group D1: the n=31 golden set current again, the §12.7 queries re-run, and two exact counts beside published rows |
+| 213 | 2026-10-23 | iso | 11816 | [open](HISTORY.md#2026-10-23--push-group-g6-engine-and-verifier-hardening-and-ledger-and-run-record-hygiene-from-codexs-final-review) 2026-10-23 — push group G6: engine and verifier hardening, and ledger and run-record hygiene, from Codex's final review |
+| 214 | 2026-10-27 | iso | 11795 | [open](HISTORY.md#2026-10-27--push-group-d1-the-n31-golden-set-current-again-the-127-queries-re-run-and-two-exact-counts-beside-published-rows) 2026-10-27 — push group D1: the n=31 golden set current again, the §12.7 queries re-run, and two exact counts beside published rows |
 
 ## Sections with no date in the heading, in file order
 

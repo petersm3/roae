@@ -127,3 +127,9 @@ above, and the driver records `V3ROWS_DRIFT=ALLOWED` when it is set. With a ladd
 is `run_v3_rows.sh SRC FDIR SOLVE OUT`, and FDIR must be on a read-only mount. `TEST_N=9` builds a
 throwaway n=9 ladder, diffs the grid against `scripts/tr12_expected/n9/a1_v3.txt`, and gives
 `TR12_V3_FIG=SKIP:reduced-universe`, the battery's own n<31 skip.
+
+## Dated notes (2026-10-22)
+
+Added from Codex's final review (gpt-6-astra); the record above is kept as written. [CORRECTIONS.md](../../../../documentation/CORRECTIONS.md) CX-35X-K.
+
+- **Exit status of the driver.** `run_v3_rows.sh` routes every fatal path through `die`, which calls `finish ERROR`, and `finish` ends with `exit 0`. A failed run therefore writes `V3ROWS_STATE=ERROR` into `VERDICTS.txt` but exits 0: a caller must read `V3ROWS_STATE`, not the exit status. The driver is frozen and is not edited; the archived run's `VERDICTS.txt` records its own state (Codex F07-011#11).

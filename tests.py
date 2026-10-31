@@ -8,7 +8,7 @@ One command: python3 tests.py
 Covers the invariants that protect the two-language ground truth against future
 edits — complementing solve.c's --selftest (which anchors the enumerator) and the
 per-tool gates (--registry-verify, --f4p-verify) by running them all plus
-helper-level checks in a single pass. Stdlib only."""
+helper-level checks in a single pass. Stdlib only: the few tests that need numpy or pyarrow skip, naming it, when it is absent."""
 
 import subprocess, sys, unittest, importlib.util, itertools
 import gzip  # gz-framing equivalence fixture (V2-F48 #4)
@@ -9955,7 +9955,7 @@ class TestQ698FftPeakAmplitudeIsNotBoundedBy500(unittest.TestCase):
         return [sum(((h >> i) & 1) << P[i] for i in range(6)) for h in map(int, line[4:].split())]
 
     def _record(self, S, seq):
-        import numpy as np
+        np = _g6_import("numpy")  # G6 F04-015#10: skip with the reason when numpy is absent (the harness is advertised stdlib-only)
         table = S._v3_pair_table()
         rec = np.zeros((1, 32), dtype=np.uint8)
         for k in range(32):
@@ -9979,7 +9979,7 @@ class TestQ698FftPeakAmplitudeIsNotBoundedBy500(unittest.TestCase):
         self.assertTrue(lo <= v <= hi)
 
     def test_the_parseval_envelope_holds_on_random_permutations(self):
-        import numpy as np
+        np = _g6_import("numpy")  # G6 F04-015#10: skip with the reason when numpy is absent (the harness is advertised stdlib-only)
         rng = np.random.default_rng(698)
         x = np.array([rng.permutation(64) for _ in range(20000)], dtype=np.float32)
         x -= x.mean(axis=1, keepdims=True)
@@ -9997,7 +9997,7 @@ class TestQ807FftRunsInFloat64OnEveryNumpy(unittest.TestCase):
     RED before: the recorded input dtype is float32."""
 
     def test_the_battery_transforms_float64(self):
-        import numpy as np
+        np = _g6_import("numpy")  # G6 F04-015#10: skip with the reason when numpy is absent (the harness is advertised stdlib-only)
         from unittest import mock
         S = _load("solve")
         rng = np.random.default_rng(807)
@@ -12384,7 +12384,7 @@ class TestSolvePyStdoutSweepAndTr8BankSchemaQ625Q450Q451(unittest.TestCase):
         # #7: mu/sigma were fit on the variance-FILTERED columns while both exhaustive scoring
         # arms read the unfiltered ones -> a broadcast error after the fit. One constant column
         # (c6_c7_count) makes the filter drop a dim; the sklearn arm must now complete.
-        import numpy as np, pyarrow as pa, pyarrow.parquet as pq
+        np, pa, pq = _g6_import("numpy"), _g6_import("pyarrow"), _g6_import("pyarrow.parquet")  # G6 F04-015#10
         rng = np.random.default_rng(7)
         n = 400
         cols = {"position_2_pair": np.full(n, 1, dtype=np.int64)}
@@ -14447,10 +14447,10 @@ class TestProvenanceExtensionTotalsLongSidecarCloseEP(unittest.TestCase):
     (2) read_prior_final_budget read only the first 8,192 bytes of a sidecar, and
     final_per_sub_branch_limit sits after writes[], so a long sidecar lost extension detection
     (extends_prior_budget silently null). It now reads the whole file.
-    (3) append_shard_provenance and write_solutions_provenance_json skipped fclose when
-    fflush/fsync failed (a FILE leak per failed write), as did the sibling write_budget_sidecar.
-    An LD_PRELOAD shim fails fsync on the matching temp files and reports every such FILE still
-    open at exit; pre-fix, a long run died with "Too many open files".
+    (3) append_shard_provenance and write_solutions_provenance_json skipped fclose when fflush/fsync
+    failed (a FILE leak per failed write), as did the sibling write_budget_sidecar. An LD_PRELOAD shim
+    fails fsync on the matching temp files and reports every FILE still open at exit; pre-fix, a long run
+    died with "Too many open files". Since G6 (CX-35X-C) a failed rollup write exits 2, REPORT_WRITE=FAILED.
 
     Fixture: one depth-2 run at SOLVE_NODE_LIMIT=3030000, one sidecar padded to 21 writes (past
     8,192 bytes), then an extension to 6060000 in the same directory and a merge.
@@ -14637,7 +14637,7 @@ __attribute__((destructor)) static void fin(void) {
         self.assertEqual(c["writes"][-1]["extends_prior_budget"], self.prior_final)
 
     # ---- (3) no FILE leak when fsync fails ------------------------------------------------------
-    def _shimmed(self, name, argv, limit, match="provenance.json.tmp"):
+    def _shimmed(self, name, argv, limit, match="provenance.json.tmp", rc=0, token=None):
         so = os.path.join(self.tmp, "ep_shim.so")
         if not os.path.exists(so):
             c = os.path.join(self.tmp, "ep_shim.c")
@@ -14649,9 +14649,9 @@ __attribute__((destructor)) static void fin(void) {
         d = self._copy(name)
         out = os.path.join(self.tmp, name + ".shim")
         r = self._run(argv(d), d, limit, {"LD_PRELOAD": so, "EP_SHIM_OUT": out, "EP_SHIM_MATCH": match})
-        # Pre-fix, every failed sidecar write leaked one FILE, so a long run hit the fd limit and
-        # died with "Too many open files" (measured: rc 1 after about 1,018 leaked handles).
-        self.assertEqual(r.returncode, 0, r.stderr[-1500:])
+        # Pre-fix, every failed sidecar write leaked one FILE, so a long run hit the fd limit and died with
+        # "Too many open files" (rc 1 after ~1,018 handles). rc/token: the exit a failed write must report.
+        self.assertEqual((r.returncode, token is None or token in r.stderr.splitlines()), (rc, True), r.stderr[-1500:])
         with open(out) as fh:   # one line per process that loaded the shim (children too): sum them
             lines = [l for l in fh.read().splitlines() if l.startswith("OPENED=")]
         self.assertGreaterEqual(len(lines), 1, "the shim reported nothing, so nothing was measured")
@@ -14663,19 +14663,19 @@ __attribute__((destructor)) static void fin(void) {
         return tot
 
     def test_no_file_leak_when_sidecar_fsync_fails(self):
-        v = self._shimmed("leak_enum", lambda d: [self.sbin, "0"], "6060000")
-        self.assertGreater(v["OPENED"], 100, "precondition: the extension opened sidecar temp files")
-        self.assertEqual(v["FSYNC_FAILED"], v["OPENED"], "precondition: every sidecar fsync failed")
+        """The rollup's fsync fails too, so the run exits 2 with REPORT_WRITE=FAILED (G6, CX-35X-C), and leaks nothing."""
+        v = self._shimmed("leak_enum", lambda d: [self.sbin, "0"], "6060000", rc=2, token="REPORT_WRITE=FAILED")
+        self.assertGreater(v["OPENED"], 100, "precondition: the extension opened sidecar temp files"); self.assertEqual(v["FSYNC_FAILED"], v["OPENED"], "precondition: every sidecar fsync failed")
         self.assertEqual(v["LEAKED"], 0)
 
     def test_no_file_leak_when_rollup_fsync_fails(self):
-        v = self._shimmed("leak_merge", lambda d: [self.sbin, "--merge"], "3030000")
-        self.assertEqual((v["OPENED"], v["FSYNC_FAILED"]), (1, 1),
-                         "precondition: the merge opened, and failed to fsync, the rollup temp file")
+        """A durability failure on the rollup is not a success: exit 2 with REPORT_WRITE=FAILED (G6, CX-35X-C), and no leak."""
+        v = self._shimmed("leak_merge", lambda d: [self.sbin, "--merge"], "3030000", rc=2, token="REPORT_WRITE=FAILED")
+        self.assertEqual((v["OPENED"], v["FSYNC_FAILED"]), (1, 1), "precondition: the merge opened, and failed to fsync, the rollup temp file")
         self.assertEqual(v["LEAKED"], 0)
 
     def test_no_file_leak_when_budget_sidecar_fsync_fails(self):
-        # Sibling of the same class: write_budget_sidecar had the identical skip-fclose chain.
+        # Sibling: write_budget_sidecar had the same skip-fclose chain. A per-shard sidecar is WARN-tolerated: exit 0 stays.
         v = self._shimmed("leak_budget", lambda d: [self.sbin, "0"], "6060000", match=".budget.tmp")
         self.assertGreater(v["OPENED"], 100, "precondition: the extension opened budget temp files")
         self.assertEqual(v["FSYNC_FAILED"], v["OPENED"], "precondition: every budget fsync failed")
@@ -15705,7 +15705,7 @@ class TestQ846SolvePyPairIndexBounds(unittest.TestCase):
             self.assertNotIn("roae_gz_py_", r.stdout)
 
     def test_direct_decoders_raise_the_named_error_not_index_error(self):
-        import numpy as np
+        np = _g6_import("numpy")  # G6 F04-015#10: skip with the reason when numpy is absent (the harness is advertised stdlib-only)
         S = _load("solve")
         good = np.frombuffer(self.kw * 2, dtype=np.uint8).reshape(2, 32)
         self.assertEqual(int(S._p2_compute_all_stats(good)["edit_dist_kw"][0]), 0)   # control
@@ -16496,7 +16496,7 @@ class TestQ850SolvePyGzNamesChunkCleanupReservedBit(unittest.TestCase):
         self.assertIn("PAIR_INDEX_OUT_OF_RANGE: %s record 0 byte 9 = 0xFC" % p2, r.stdout)
 
     def test_c_direct_decoders_raise_reserved_bit_set(self):
-        import numpy as np
+        np = _g6_import("numpy")  # G6 F04-015#10: skip with the reason when numpy is absent (the harness is advertised stdlib-only)
         S = _load("solve")
         good = np.frombuffer(self.kw * 2, dtype=np.uint8).reshape(2, 32)
         self.assertEqual(S._keystone_decode_pair_positions(good)[1].tolist(), list(range(32)))
@@ -25213,7 +25213,7 @@ print(json.dumps(rec))
     # ================================================================== Q-898 growth curve
     @unittest.skipUnless(HAVE_MPL, "matplotlib/numpy absent (viz/ is an optional external surface)")
     def test_q898_growth_curve_reads_the_table_and_derives_its_labels(self):
-        import numpy as np
+        np = _g6_import("numpy")  # G6 F04-015#10: skip with the reason when numpy is absent (the harness is advertised stdlib-only)
         sys.path.insert(0, self.VIZ)
         try:
             spec = importlib.util.spec_from_file_location("growth_vr4", os.path.join(self.VIZ, "growth_curve.py"))
@@ -45856,7 +45856,7 @@ class TestBatch52(unittest.TestCase):
         import contextlib, io
         with open("solve.py", encoding="utf-8") as fh:
             src = fh.read()
-        old = "        atlas_load(atlas_path, allow_t_not_run=allow_t_not_run)\n"
+        old = "        a = atlas_load(atlas_path, allow_t_not_run=allow_t_not_run)   # G6 FV-B52-C#2: rank from the object the loader vouched for, not a second json.load\n"   # G6: the call now binds the object it ranks
         self.assertEqual(src.count(old), 1, "precondition: the loader call exists once")
         p = self._not_run_atlas()
         for name, text, want in (("fixed", src, ("ERROR:t-identity-not-run", 2)), ("mutant", src.replace(old, ""), ("PASS", 0))):
@@ -50566,7 +50566,7 @@ exit 0
     def test_t5_float_percentile_outside_the_support(self):
         # F04-010#9: an out-of-support King Wen value was clamped into an end bin and half that bin
         # counted as tied: 75% / 25% where the ranks are 100% / 0%.
-        import numpy as np
+        np = _g6_import("numpy")  # G6 F04-015#10 (sibling in TestBatchG5b): skip with the reason when numpy is absent
         with open("solve.py", encoding="utf-8") as fh:
             src = fh.read()
         i = src.index("        kb = int(np.clip((kw[n] - lo[n]) / span * (NF - 1), 0, NF - 1))")
@@ -50587,7 +50587,7 @@ exit 0
     def test_native_kde_wrappers_write_all_and_clean_up(self):
         # F04-010#11: a short raw write() dropped the rest of the chunk; F04-010#12: the fit file leaked
         # when the scorer failed to launch.
-        import numpy as np
+        np = _g6_import("numpy")  # G6 F04-015#10 (sibling in TestBatchG5b): skip with the reason when numpy is absent
         S = self._solve()
         self.assertTrue(hasattr(S, "_g5b_write_all"), "no write-all helper")
         class Short:
@@ -54622,6 +54622,747 @@ class TestBatchD1(unittest.TestCase):
         self.assertIn("## CX-36A-A — follow-up to CX-263", corr)
         for bad in ("not in this repository", "outside the repository"):
             self.assertNotIn(bad, corr[corr.index("## CX-36A-A"):])
+
+
+def _g6_import(name):
+    """G6 (Codex F04-015#10): the harness is advertised stdlib-only, so a test that needs a
+    third-party module skips, naming it, instead of erroring with ModuleNotFoundError."""
+    try:
+        return importlib.import_module(name)
+    except ImportError:
+        raise unittest.SkipTest("%s is not installed; this test needs it" % name)
+
+
+class TestBatchG6(unittest.TestCase):
+    """Push group G6: fast-track FT3c (C/Python engine and verifier hardening, sha-neutral; CX-35X-A..G)
+    and FT3h (ledger and run-record hygiene; CX-35X-H, J..N). Every FT3c test drives the binary (or the
+    Python verifier) built from THIS tree's sources and names the defect it reproduces on 0df730cb;
+    a test that can only read source text says so in its docstring ("structural"). Developed with AI
+    assistance (Claude, Anthropic): claude-opus-5-5, from Codex (gpt-6-astra) final-review findings
+    triaged by Fable."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    W9 = "1,32,8,4,2,16,31,62,55,59,61,47,45,18,33,30,12,51"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="g6_")
+        cls.sbin = os.path.join(cls.tmp, "solve_g6")
+        cls.vbin = os.path.join(cls.tmp, "verify_g6")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", os.path.join(cls.ROOT, "solve.c"))
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src, "-lm", "-lz"],
+                           capture_output=True, text=True, timeout=1800)
+        cls.build_ok = r.returncode == 0
+        cls.build_err = r.stderr[-2000:]
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.vbin,
+                            os.environ.get("ROAE_TESTS_VERIFY_SRC", os.path.join(cls.ROOT, "verify.c")), "-lm", "-lz"],
+                           capture_output=True, text=True, timeout=900)
+        cls.vbuild_ok = r.returncode == 0
+        cls.vbuild_err = r.stderr[-2000:]
+
+    @classmethod
+    def tearDownClass(cls):
+        t = getattr(cls, "tmp", None)
+        if t and os.path.basename(t).startswith("g6_"):
+            shutil.rmtree(t, ignore_errors=True)
+
+    # ---- helpers ------------------------------------------------------------------------------------
+    def _d(self):
+        return tempfile.mkdtemp(dir=self.tmp)
+
+    @staticmethod
+    def _unlimited_stack():
+        import resource
+        try:
+            resource.setrlimit(resource.RLIMIT_STACK, (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
+        except (ValueError, OSError):
+            pass
+
+    def _s(self, *args, cwd=None, env=None, timeout=600, stdout=None):
+        self.assertTrue(self.build_ok, "solve.c did not build: " + self.build_err)
+        e = dict(os.environ)
+        if env:
+            e.update(env)
+        if stdout is not None:
+            r = subprocess.run([self.sbin] + list(args), cwd=cwd, env=e, timeout=timeout, stdout=stdout,
+                               stderr=subprocess.PIPE, text=True, preexec_fn=self._unlimited_stack)
+            return r.returncode, "", r.stderr
+        r = subprocess.run([self.sbin] + list(args), cwd=cwd, env=e, timeout=timeout, capture_output=True,
+                           text=True, preexec_fn=self._unlimited_stack)
+        return r.returncode, r.stdout, r.stderr
+
+    def _v(self, *args, cwd=None, timeout=600, exe=None):
+        self.assertTrue(self.vbuild_ok, "verify.c did not build: " + self.vbuild_err)
+        r = subprocess.run([exe or self.vbin] + list(args), cwd=cwd, capture_output=True, text=True, timeout=timeout)
+        return r.returncode, r.stdout, r.stderr
+
+    @staticmethod
+    def _kw():
+        return bytes(i << 2 for i in range(32))
+
+    def _src(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    # ==== CX-35X-A: shell words, path buffers, portability ===========================================
+    def test_g6_manifest_paths_are_one_shell_word(self):
+        """F04-002#13 / F04-001#1: the emitter spliced the manifest name into `sort > %s` unquoted, so
+        'a b.tsv' redirected into a file named `a` and the run failed; an apostrophe broke the verifier."""
+        d = self._d()
+        with open(os.path.join(d, "sub_1_0_2_0.bin"), "wb") as fh:
+            fh.write(self._kw())
+        rc, out, err = self._s("--emit-shard-manifest", "a b.tsv", cwd=d)
+        self.assertTrue(os.path.exists(os.path.join(d, "sub_1_0_2_0.bin")), "precondition: the shard is there")
+        self.assertEqual(rc, 0, out + err)
+        self.assertTrue(os.path.isfile(os.path.join(d, "a b.tsv")))
+        self.assertFalse(os.path.exists(os.path.join(d, "a")), "the redirect split the name")
+        rc, out, err = self._s("--emit-shard-manifest", "m'x.tsv", cwd=d)
+        self.assertEqual(rc, 0, out + err)
+        rc, out, err = self._s("--verify-shard-manifest", "m'x.tsv", cwd=d)
+        self.assertEqual(rc, 0, "an apostrophe in the manifest path broke the verifier's quoting: " + (out + err)[-600:])
+
+    def test_g6_verify_c_scan_selftest_from_a_path_with_a_space(self):
+        """F04-009#9 / FV-G23-K#3: --scan-selftest spliced /proc/self/exe into its child commands
+        unquoted, so a verify binary under a directory with a space ran `/tmp/.../dir` and failed."""
+        d = os.path.join(self._d(), "dir with space")
+        os.makedirs(d)
+        exe = os.path.join(d, "verify")
+        shutil.copy2(self.vbin, exe)
+        rc, out, err = self._v("--scan-selftest", exe=exe, timeout=900)
+        self.assertIn("verify.c --scan-selftest", out, "precondition: the selftest started")
+        self.assertEqual(rc, 0, (out + err)[-1500:])
+        self.assertIn("SCAN-SELFTEST: PASS", out)
+
+    def test_g6_verify_c_selftests_use_private_directories(self):
+        """Structural. F04-009#8 / FV-G23-K#2: the three selftests rm -rf'd fixed /tmp names, so two
+        concurrent runs deleted each other's fixtures; they now use mkdtemp directories."""
+        src = self._src("verify.c")
+        for fixed in ('"/tmp/lc_selftest_dir"', '"/tmp/lc_selftest_dir2"', '"/tmp/lcs_scan_selftest"', '"/tmp/gt_selftest_f"'):
+            self.assertNotIn(fixed, src)
+        self.assertIn("mkdtemp(buf)", src)
+
+    def test_g6_portability_wrappers(self):
+        """Structural (no non-glibc / non-x86 toolchain here). F09-A01#2/#4, F09-A03#2, F09-A04#1/#2,
+        F09-A06#3: the glibc header, the Linux affinity calls, _SC_AVPHYS_PAGES and the x86 CPU builtins
+        were used unconditionally; they are reached only through wrappers under #if guards."""
+        src = self._src("solve.c")
+        lines = src.split("\n")
+        self.assertNotIn("#include <gnu/libc-version.h>", lines[:400], "the glibc-only include is unconditional")
+        i = src.index("int g6_cpu_has(const char *f) {")
+        self.assertNotIn("__builtin_cpu_supports(\"", src[:i].replace('printf("[--cpu-features] CPU feature detection via __builtin_cpu_supports', ""))
+        self.assertIn("#if defined(__x86_64__) || defined(__i386__)", src[i:i + 200])
+        self.assertIn("#if defined(__GLIBC__)\n#include <gnu/libc-version.h>\n#endif", src)
+        self.assertEqual(src.count("sched_getaffinity("), 1)
+        self.assertIn("#if defined(__linux__) && defined(CPU_COUNT)", src)
+
+    # ==== CX-35X-B: checkpoints, resume, tier-2 ======================================================
+    def test_g6_sub_branch_snapshot_without_task_list_is_refused(self):
+        """F04-002#6, F04-017#2: a worker snapshot short by a byte, beside a GLOBAL bitmap marking the
+        task done, was loaded as 0 records with the task skipped, and the run reported FINISHED."""
+        d = self._d()
+        with open(os.path.join(d, "sub_ckpt_meta.txt"), "w") as fh:
+            fh.write("shared_nodes 100\nckpt_time 1\nworker_records_in_0 1\n")
+        with open(os.path.join(d, "sub_ckpt_wrk0.bin"), "wb") as fh:
+            fh.write(self._kw()[:31])
+        with open(os.path.join(d, "sub_ckpt_task_done.txt"), "w") as fh:
+            fh.write("1\n")
+        env = {"SOLVE_ALLOW_SUB_CANONICAL": "1", "SOLVE_SUB_BRANCH_PARALLELISM": "force-parallel",
+               "SOLVE_PER_TASK_NODE_LIMIT": "100000"}
+        rc, out, err = self._s("--sub-branch", "1", "0", "2", "0", "3", "0", "0", "2", cwd=d, env=env)
+        self.assertNotEqual(rc, 0, "the inconsistent checkpoint was resumed: " + out[-800:])
+        self.assertIn("SUB_CKPT_RESUME=REFUSED", (out + err).splitlines())
+
+    def test_g6_sub_branch_interrupted_run_resumes_from_worker_task_lists(self):
+        """Green control for the per-worker task lists: a run stopped mid-way leaves one
+        sub_ckpt_task_done<tid>.txt per worker, and the relaunch resumes from them, not refusing."""
+        d = self._d()
+        env = dict(os.environ, SOLVE_ALLOW_SUB_CANONICAL="1", SOLVE_SUB_BRANCH_PARALLELISM="force-parallel",
+                   SOLVE_CKPT_INTERVAL="1", SOLVE_PER_SUB_BRANCH_LIMIT="3000000000")
+        argv = [self.sbin, "--sub-branch", "1", "0", "2", "0", "3", "0", "0", "2"]
+        self.assertTrue(self.build_ok, self.build_err)
+        subprocess.run(["timeout", "-s", "TERM", "6"] + argv, cwd=d, env=env, capture_output=True, timeout=120)
+        lists = sorted(f for f in os.listdir(d) if re.fullmatch(r"sub_ckpt_task_done\d+\.txt", f))
+        self.assertTrue(lists, "no per-worker task list after the stop: " + " ".join(sorted(os.listdir(d))))
+        with open(os.path.join(d, lists[0])) as fh:
+            self.assertTrue(fh.readline().startswith("G6CKPT1 records "))
+        r = subprocess.run(argv, cwd=d, env=env, capture_output=True, text=True, timeout=600)
+        self.assertEqual(r.returncode, 0, (r.stdout + r.stderr)[-1500:])
+        self.assertNotIn("SUB_CKPT_RESUME=REFUSED", r.stdout + r.stderr)
+        self.assertIn("worker task list(s)", r.stdout)
+        self.assertIn("ENUM_RUN=FINISHED", r.stdout.splitlines())
+
+    def test_g6_relaunch_with_every_cell_done_names_the_missing_merge(self):
+        """Structural plus token. F04-001#9: a relaunch that found every cell checkpointed returned 0
+        before the merge and said nothing about an absent solutions.bin; it now prints
+        ENUM_FINALIZE=PENDING (exit status unchanged, as the Q-881 tests require)."""
+        src = self._src("solve.c")
+        self.assertIn('printf("ENUM_FINALIZE=PENDING\\n");', src)
+        i = src.index('printf("All %d sub-branches already completed.\\n", total_branches);')
+        self.assertIn("g6_finalize_note();", src[i:i + 300])
+
+    # ==== CX-35X-C: shard readers, merge, reports, provenance ========================================
+    def test_g6_external_merge_refuses_a_multimember_shard(self):
+        """F04-003#1 (with F04-022#1, F04-001#7): the readers sized a gz shard by its LAST member's
+        ISIZE, so a two-member shard merged as one record, exit 0."""
+        import gzip as _gz
+        d = self._d()
+        k2 = bytearray(self._kw()); k2[4], k2[5] = k2[5], k2[4]
+        with open(os.path.join(d, "sub_1_0_2_0.bin"), "wb") as fh:
+            fh.write(_gz.compress(self._kw(), mtime=0) + _gz.compress(bytes(k2), mtime=0))
+        rc, out, err = self._s("--merge", cwd=d, env={"SOLVE_MERGE_MODE": "external", "SOLVE_MERGE_CHUNK_GB": "1"})
+        self.assertIn("Total records before dedup: 1", out, "precondition: the scan sizes it by ISIZE (one record)")
+        self.assertNotEqual(rc, 0, "the second member was dropped silently: " + out[-600:])
+        self.assertIn("MERGE_SHARD=UNREADABLE", (out + err).splitlines())
+
+    def test_g6_framing_mismatch_refused_by_analyze_and_audit_readers(self):
+        """F04-001#19: a header declaring 1 record over a 2-record stream was analyzed as 2 records by
+        --analyze and tabulated as 1 by --verify-rule2, both exit 0."""
+        import struct as _st
+        d = self._d()
+        k2 = bytearray(self._kw()); k2[4], k2[5] = k2[5], k2[4]
+        with open(os.path.join(d, "fr.bin"), "wb") as fh:
+            fh.write(b"ROAE" + _st.pack("<IQ", 1, 1) + bytes(16) + self._kw() + bytes(k2))
+        rc, out, err = self._s("--verify-rule2", "fr.bin", cwd=d)
+        self.assertIn("records=1", out, "precondition: the reader takes the header's count")
+        self.assertEqual(rc, 20, out + err)
+        self.assertIn("VERIFY=ERROR", out.splitlines())
+        rc, out, err = self._s("--analyze", "fr.bin", cwd=d, timeout=300)
+        self.assertNotEqual(rc, 0, out[-600:])
+        self.assertIn("The framing disagrees", out)
+
+    def test_g6_report_write_failure_is_loud(self):
+        """F04-003#15: a failed solutions.meta.json write was ignored and the merge exited 0."""
+        d = self._d()
+        with open(os.path.join(d, "sub_1_0_2_0.bin"), "wb") as fh:
+            fh.write(self._kw())
+        os.mkdir(os.path.join(d, "solutions.meta.json"))
+        rc, out, err = self._s("--merge", cwd=d)
+        self.assertTrue(os.path.isdir(os.path.join(d, "solutions.meta.json")), "precondition: the name is a directory")
+        self.assertEqual(rc, 2, (out + err)[-800:])
+        self.assertIn("REPORT_WRITE=FAILED", err.splitlines())
+
+    def test_g6_truncated_provenance_sidecar_is_not_aggregated(self):
+        """F04-003#19: a sidecar truncated inside its writes array aggregated its prefix and counted
+        as usable; the merge exited 0."""
+        d = self._d()
+        with open(os.path.join(d, "sub_1_0_2_0.bin"), "wb") as fh:
+            fh.write(self._kw())
+        with open(os.path.join(d, "sub_1_0_2_0.bin.provenance.json"), "w") as fh:
+            fh.write('{\n  "schema_version": 1,\n  "shard_filename": "sub_1_0_2_0.bin",\n  "writes": [\n'
+                     '{"binary_sha256": "x", "status": "EXHAUSTED", "records_emitted": 1},\n{"binary_sha256": "y", "sta')
+        rc, out, err = self._s("--merge", cwd=d)
+        self.assertNotEqual(rc, 0, (out + err)[-800:])
+        self.assertIn("MERGE_PROVENANCE_SIDECAR=INCOMPLETE", err.splitlines())
+
+    # ==== CX-35X-D: estimator, preflight, analyze, KDE, retrofit ======================================
+    def test_g6_knuth_list_parsers_are_strict(self):
+        """F04-001#16, F04-004#10/#11: a C5 vector summing to 64, PIN_SLOTS=-1 and a FIBER_PERM with
+        -1 were read leniently (minus skipped; 64 accepted) and the estimator ran."""
+        env1 = {"SOLVE_THREADS": "1", "SOLVE_KNUTH_C5_BUDGET": "1:2,2:20,3:13,4:19,6:9"}
+        rc, out, err = self._s("--estimate-knuth", "50", env=env1)
+        self.assertEqual(rc, 0, "control: KW's own 63-transition multiset is accepted: " + err[-500:])
+        self.assertIn("C5 BUDGET OVERRIDE ACTIVE", err)
+        for name, val in (("SOLVE_KNUTH_C5_BUDGET", "1:2,2:20,3:13,4:19,6:10"), ("SOLVE_KNUTH_C5_BUDGET", "6:-2147483648"),
+                          ("SOLVE_KNUTH_PIN_SLOTS", "-1"), ("SOLVE_KNUTH_PIN_SLOTS", "garbage")):
+            rc, out, err = self._s("--estimate-knuth", "50", env={"SOLVE_THREADS": "1", name: val})
+            self.assertNotEqual(rc, 0, "%s=%s ran: %s" % (name, val, out[-300:]))
+            self.assertIn("SOLVE_ENV=REFUSED name=%s" % name, err.splitlines())
+        perm = "0,-1," + ",".join(str(i) for i in range(2, 32))
+        rc, out, err = self._s("--estimate-knuth", "1", env={"SOLVE_THREADS": "1", "SOLVE_KNUTH_FIBER_PERM": perm})
+        self.assertIn("SOLVE_ENV=REFUSED name=SOLVE_KNUTH_FIBER_PERM", err.splitlines())
+
+    def test_g6_knuth_subtree_and_pinned_prefix_refusals(self):
+        """F04-004#2: the subtree sampler ran under a STRICT-MOORE banner without applying it.
+        F04-004#1: a prefix placing pair 8 in pinned slot 1 was counted."""
+        env = {"SOLVE_THREADS": "1", "SOLVE_KNUTH_MOORE_STRICT": "1", "SOLVE_KNUTH_SUBTREE_DEPTH": "30",
+               "SOLVE_KNUTH_SUBTREE_ROOTS": "1", "SOLVE_KNUTH_SUBTREE_PROBES": "8"}
+        rc, out, err = self._s("--estimate-knuth", "1", "1", "0", env=env)
+        self.assertNotIn("KNUTH_SUBTREE root=", out)
+        self.assertIn("SOLVE_KNUTH_SUBTREE_DEPTH with SOLVE_KNUTH_MOORE_STRICT is REFUSED", err)
+        rc, out, err = self._s("--estimate-knuth", "0", "8", "0", env={"SOLVE_THREADS": "1", "SOLVE_KNUTH_PIN_SLOTS": "1"})
+        self.assertNotEqual(rc, 0, out[-400:])
+        self.assertIn("SOLVE_KNUTH_PIN_SLOTS pins to pair 1", err)
+
+    def test_g6_preflight_counts_overrides_as_skipped(self):
+        """F12-001#2, F04-001#12: with every SOLVE_SKIP_* override set, --preflight 1T reported
+        RAN=3, SKIPPED=0 and all-PASS, exit 0, having checked nothing."""
+        env = {"SOLVE_SKIP_AUTO_SELFTEST": "1", "SOLVE_SKIP_DISK_CHECK": "1", "SOLVE_SKIP_IOPS_CHECK": "1"}
+        rc, out, err = self._s("--preflight", "1000000000000", env=env)
+        self.assertIn("[--preflight] (3/3) disk-IOPS probe", out, "precondition: all three gates were reached")
+        self.assertEqual(rc, 2, out)
+        self.assertIn("PREFLIGHT_GATES_RAN=0", out.splitlines())
+        self.assertIn("PREFLIGHT_GATES_SKIPPED=3", out.splitlines())
+        self.assertNotIn("all in-process gates PASS", out)
+
+    def test_g6_kde_partial_point_refused(self):
+        """F04-001#18: (0,0,999) as d=2 fit file and stdin was read as one point each, '1 1', exit 0."""
+        import struct as _st
+        d = self._d()
+        p = os.path.join(d, "fit.bin")
+        with open(p, "wb") as fh:
+            fh.write(_st.pack("<3d", 0, 0, 999))
+        with open(p, "rb") as fin:
+            r = subprocess.run([self.sbin, "--kde-score-stream", "--fit-file", p, "--d", "2", "--bandwidth", "1",
+                                "--threshold", "0"], stdin=fin, capture_output=True, text=True, timeout=120)
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertIn("not a whole number of 2-double points", r.stderr)
+
+    def test_g6_retrofit_needs_a_directory(self):
+        """F04-001#27: `--f1c5-sidecar-retrofit 9` took 9 as K, retrofitted nothing, exit 0."""
+        rc, out, err = self._s("--f1c5-sidecar-retrofit", "9")
+        self.assertEqual(rc, 2, out + err)
+        self.assertIn("F1C5_SIDECAR_RETROFIT_ARGS=REFUSED", err.splitlines())
+
+    # ==== CX-35X-E: F1C5 and KC tooling ==============================================================
+    def test_g6_f1_subset_spec_is_strict(self):
+        """F04-005#7: '3.0@garbage' ran as 3.0@0 (atoi), and trailing text after an orbit was ignored."""
+        rc, out, err = self._s("--f1-exact-c1c2c4", "--f1-subset", "3.0@0", timeout=300)
+        self.assertEqual(rc, 0, "control: 3.0@0 runs: " + (out + err)[-400:])
+        for bad in ("3.0@garbage", "3.0junk@63", "3.0@63junk", "3.0,"):
+            rc, out, err = self._s("--f1-exact-c1c2c4", "--f1-subset", bad, timeout=300)
+            self.assertNotEqual(rc, 0, "%r was accepted: %s" % (bad, out[-300:]))
+            self.assertIn("malformed subset spec", err)
+
+    def test_g6_f1_resume_checks_the_layer_digest(self):
+        """F04-005#1: flipping one value byte of the last layer, then re-running the same command,
+        resumed and printed total 26113 for the true 26112."""
+        d = os.path.join(self._d(), "D")
+        rc, out, err = self._s("--f1-exact-c1c2c4c5", "--f1-pairs", "9", "--layers-dir", d, timeout=600)
+        self.assertEqual(rc, 0, err[-600:])
+        self.assertIn("orbit-quotient C5-DP total = 26112", out + err, "precondition: the clean total")
+        rc, out, err = self._s("--f1-exact-c1c2c4c5", "--f1-pairs", "9", "--layers-dir", d, timeout=600)
+        self.assertEqual(rc, 0, "control: an unchanged ladder resumes: " + err[-600:])
+        self.assertIn("F1C5_RESUME_DIGEST=OK", err.splitlines())
+        p = os.path.join(d, "f1c5_layer_09.bin")
+        with open(p, "rb") as fh:
+            b = bytearray(fh.read())
+        b[116] ^= 1
+        with open(p, "wb") as fh:
+            fh.write(b)
+        rc, out, err = self._s("--f1-exact-c1c2c4c5", "--f1-pairs", "9", "--layers-dir", d, timeout=600)
+        self.assertNotIn("C5-DP total = 26113", out + err)
+        self.assertEqual(rc, 71, (out + err)[-600:])
+        self.assertIn("F1C5_RESUME_DIGEST=MISMATCH", err.splitlines())
+
+    def test_g6_c3_sidecar_branching_factor(self):
+        """F04-005#4: with C5 off (--f1-c3-hist) every budget digit is 0, so every branching factor read
+        0; the n=9 genesis state has 12 legal successors, 18 with --no-c2."""
+        import json as _j
+        for extra, want in (([], 12), (["--no-c2"], 18)):
+            d = os.path.join(self._d(), "C")
+            rc, out, err = self._s("--f1-c3-hist", "--f1-pairs", "9", "--layers-dir", d, *extra, timeout=600)
+            self.assertEqual(rc, 0, err[-600:])
+            with open(os.path.join(d, "f1c5_layer_stats_00.json")) as fh:
+                br = _j.load(fh)["branching"]
+            self.assertEqual((br["min"], br["max"]), (want, want), "genesis branching %r, want %d" % (br, want))
+
+    def test_g6_verify_layer_bounds_its_block_reads(self):
+        """F12-013#1, F12-014#8, F04-005#2: a v2 key index longer than compressBound(24*BLK) was read
+        into the fixed buffer (on 0df730cb: '*** buffer overflow detected ***', SIGABRT)."""
+        import struct as _st
+        base = self._d()
+        a, b = os.path.join(base, "A"), os.path.join(base, "B")
+        env = {"SOLVE_F1_KEEP_LAYERS": "1"}
+        self.assertEqual(self._s("--f1-exact-c1c2c4c5", "--f1-pairs", "9", "--layers-dir", a, env=env, timeout=600)[0], 0)
+        self.assertEqual(self._s("--f1-exact-c1c2c4c5", "--f1-pairs", "9", "--f1-out-of-core", b, env=env, timeout=600)[0], 0)
+        va, vb = os.path.join(a, "f1c5_layer_01.bin"), os.path.join(b, "f1c5_layer_01.bin")
+        rc, out, err = self._s("--f1c5-verify-layer", va, vb)
+        self.assertEqual(rc, 0, "control: the matching v1/v2 pair is IDENTICAL: " + out + err)
+        with open(vb, "rb") as fh:
+            raw = bytearray(fh.read())
+        nm = _st.unpack_from("<Q", raw, 32)[0]
+        big = 1573357 + 4096
+        _st.pack_into("<Q", raw, 72 + 4 * nm + 8 * (nm + 1) + 8, big)
+        raw += bytes(big)
+        bad = os.path.join(base, "bad.bin")
+        with open(bad, "wb") as fh:
+            fh.write(raw)
+        rc, out, err = self._s("--f1c5-verify-layer", va, bad)
+        self.assertEqual(rc, 2, out + err)
+        self.assertIn("v2 key index corrupt at block 0", err)
+
+    def test_g6_kc_tools(self):
+        """F04-006#6: `--kc-scan-merge F G ./chunk.json chunk.json` unlinked the input before refusing.
+        F04-006#11: `--kc-count > /dev/full` exited 0. FV-S5-K1#10: a walk with trailing text was a MEMBER.
+        FV-S5-K2#16: `--kc-force --kc-force` was accepted."""
+        d = self._d()
+        with open(os.path.join(d, "chunk.json"), "w") as fh:
+            fh.write("{}\n")
+        self._s("--kc-scan-merge", "Fmissing", "Gmissing", "./chunk.json", "chunk.json", cwd=d)
+        self.assertTrue(os.path.exists(os.path.join(d, "chunk.json")), "the merge deleted its own input")
+        self.assertEqual(self._s("--kc-build", "f9", "--f1-pairs", "9", cwd=d)[0], 0)
+        self.assertEqual(self._s("--kc-g-build", "g9", "--f1-pairs", "9", cwd=d)[0], 0)
+        with open(os.devnull, "w") as dn:
+            self.assertEqual(self._s("--kc-count", "f9", cwd=d, stdout=dn)[0], 0, "control: a writable stdout")
+        with open("/dev/full", "w") as full:
+            rc, _, err = self._s("--kc-count", "f9", cwd=d, stdout=full)
+        self.assertNotEqual(rc, 0, "a lost answer exited 0")
+        rc, out, err = self._s("--kc-member", "f9", self.W9, cwd=d)
+        self.assertEqual((rc, out.strip().splitlines()[-1]), (0, "MEMBER"), "control: the walk is a member")
+        rc, out, err = self._s("--kc-member", "f9", self.W9 + ",x", cwd=d)
+        self.assertNotEqual(rc, 0, out)
+        self.assertIn("not a plain decimal 0..63", err)   # FV-S5-K1#10: cured on the parent by G5b's strict parser (CX-35V-I)
+        rc, out, err = self._s("--kc-midjoin", "f9", "g9", "om", "--kc-walk", self.W9, "--kc-force", "--kc-force", cwd=d)
+        self.assertEqual(rc, 2, out[-400:])
+        self.assertIn("KC_MIDJOIN_ARGS=REFUSED", err.splitlines())
+
+    # ==== CX-35X-F: verify.c =========================================================================
+    def test_g6_verify_c_ie_spec_and_controls(self):
+        """F04-009#3: a spec naming orbit 3.0 twice counted 27264 walks with repeated hexagrams.
+        F04-009#4: --ie-brute and single-modulus Route D returned 0 under --*-negctl with nothing compared."""
+        rc, out, err = self._v("--ie-count", "--ie-spec", "3.0,3.0@0", "--ie-no-budget", "--ie-brute")
+        self.assertNotIn("BRUTE   : N = 27264", out)
+        self.assertNotEqual(rc, 0, out[-400:])
+        rc, out, err = self._v("--ie-count", "--ie-spec", "3.0,3.1,3.2@0", "--ie-negctl", "--ie-brute")
+        self.assertIn("BRUTE   : N = 38400", out, "precondition: the perturbed brute count")
+        self.assertEqual(rc, 1, out[-400:])
+        self.assertIn("IE_NEGCTL=NO_TARGET", out.splitlines())
+        rc, out, err = self._v("--ie-count", "--ie-spec", "3.0,3.1,3.2@0", "--ie-negctl", "--ie-brute", "--ie-expect", "26112")
+        self.assertEqual(rc, 0, "a control that DIFFERS from its target passes: " + out[-400:])
+        self.assertIn("DIFFERS (control OK)", out)
+        rc, out, err = self._v("--dp-count", "--dp-spec", "3.0,3.1,3.2@0", "--dp-negctl", "--dp-mod", "p0", "--dp-threads", "1", timeout=900)
+        self.assertEqual(rc, 1, out[-400:])
+        self.assertIn("DP_NEGCTL=NO_TARGET", out.splitlines())
+
+    def test_g6_verify_c_ie_checkpoint_pins_the_instance(self):
+        """F04-009#1: two 31-pin assignments shared a 159-character truncated header, so the second
+        resumed the first's cached N=1720320 (its own count is 0)."""
+        d = self._d()
+        p1 = []
+        for i in range(1, 32):
+            p1 += ["--ie-pin", "%d:%d" % (i, i)]
+        p2 = p1[:-4] + ["--ie-pin", "30:31", "--ie-pin", "31:30"]
+        ck = os.path.join(d, "CK")
+        rc, out, err = self._v("--ie-count", "--ie-no-quotient", "--ie-threads", "1", "--ie-checkpoint", ck, *p1)
+        self.assertIn("N = 1720320", out, "precondition: the identity assignment's count")
+        rc, out, err = self._v("--ie-count", "--ie-no-quotient", "--ie-threads", "1", "--ie-checkpoint", ck, *p2)
+        self.assertNotIn("N = 1720320", out, "the foreign checkpoint was resumed")
+        self.assertIn("checkpoint header mismatch", out)
+
+    def test_g6_verify_c_text_status(self):
+        """Structural. F04-009#13/#14: verify.c said the full-scale second instrument 'remains open' and
+        attributed the withdrawn B0-coincidence claim to the CURRENT TR-11 §5."""
+        src = self._src("verify.c")
+        self.assertNotIn("asks for. That remains open.", src)
+        self.assertNotIn('"    TR-11 §5 states that at full 31', src)
+        self.assertIn("An earlier revision of TR-11 §5 (corrected 2026-07-21)", src)
+
+    # ==== CX-35X-G: fix-verify G6 rows (verify.py midjoin, solve.py, comments) ========================
+    def test_g6_verify_py_midjoin_checker(self):
+        """FV-S5-C#4/#5, K1#4, K2#11, G#9: a t block without --midjoin-tdir, a NaN entropy, a FAIL
+        layer marker and a tampered summary row each certified PASS; a JSON missing 'states' raised an
+        uncaught traceback (no MIDJOIN_CHECK token)."""
+        import json as _j
+        d = self._d()
+        for argv in (["--kc-build", "f9", "--f1-pairs", "9"], ["--kc-g-build", "g9", "--f1-pairs", "9"],
+                     ["--kc-t-build", "f9", "t9"]):
+            self.assertEqual(self._s(*argv, cwd=d)[0], 0, argv)
+        rc, out, err = self._s("--kc-midjoin", "f9", "g9", "om", "--kc-walk", self.W9, "--kc-tdir", "t9", cwd=d)
+        self.assertIn("MIDJOIN=OK", out.splitlines(), (out + err)[-600:])
+
+        def chk(o, *extra):
+            r = subprocess.run([sys.executable, os.path.join(self.ROOT, "verify.py"), "--check-midjoin",
+                                os.path.join(d, "f9"), os.path.join(d, "g9"), os.path.join(d, o)] + list(extra),
+                               capture_output=True, text=True, timeout=900)
+            return r.returncode, r.stdout, r.stderr
+        tdir = ["--midjoin-tdir", os.path.join(d, "t9")]
+        rc, out, err = chk("om", *tdir)
+        self.assertEqual(rc, 0, "control: the clean run verifies: " + out[-800:])
+        rc, out, err = chk("om")
+        self.assertEqual(rc, 2, out[-400:])
+        self.assertIn("MIDJOIN_CHECK_T=UNCHECKED", out.splitlines())
+
+        def mutate(name, fn):
+            dst = os.path.join(d, name)
+            shutil.copytree(os.path.join(d, "om"), dst)
+            p = os.path.join(dst, "midjoin_layer_04.json")
+            with open(p) as fh:
+                J = _j.load(fh)
+            fn(J)
+            with open(p, "w") as fh:
+                _j.dump(J, fh)
+            return name
+        cases = (("nan", lambda J: J["masks"].__setitem__("entropy_bits", float("nan")), 1),
+                 ("marker", lambda J: J.__setitem__("MIDJOIN_LAYER", "FAIL"), 1),
+                 ("row", lambda J: J.__setitem__("summary_row", "\t".join(
+                     (lambda c: c[:2] + [str(int(c[2]) + 1)] + c[3:])(J["summary_row"].split("\t")))), 1),
+                 ("nokey", lambda J: J.pop("states"), 2))
+        for name, fn, want in cases:
+            rc, out, err = chk(mutate(name, fn), *tdir)
+            self.assertEqual(rc, want, "%s: %s" % (name, (out + err)[-600:]))
+            self.assertNotIn("Traceback", err)
+            self.assertIn("MIDJOIN_CHECK=%s" % ("FAIL" if want == 1 else "ERROR"), out.splitlines(), name)
+
+    def test_g6_solve_py_atlas_and_labels(self):
+        """FV-B52-G#5: at n > 13 an atlas whose t-identity gate key was deleted loaded (the denylist read
+        only the not-run string). FV-G23-C3#15 / FV-G23-C1#4: a multiset check printed 'valid C1..C5'
+        and a comment called the relative SE a 95% half-width. All three were cured on the parent by G5b
+        (CX-35V-C, CX-35V-E); this test keeps them pinned. CX-35V-C's refusal is scoped to a producer
+        atlas (one carrying engine_source_sha), so the fixture carries one."""
+        spec = importlib.util.spec_from_file_location("solve_g6", os.path.join(self.ROOT, "solve.py"))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        d = self._d()
+        p = os.path.join(d, "a.json")
+        with open(p, "w") as fh:
+            __import__("json").dump({"type": mod._ATLAS_TYPE, "n": 31, "N_total": "1", "layers": [{}] * 31, "branch_atlas": [], "gates": {"fails": 0}, "engine_source_sha": "0" * 64}, fh)
+        A = __import__("json").load(open(p))
+        self.assertEqual(mod._atlas_t_gate_absent(A["gates"], 31, A), ["t_root_eq_f_layer_sum (ABSENT)"])
+        self.assertIn("_atlas_t_gate_absent(gates, n, A)", self._src("solve.py"), "atlas_load still consults it")
+        src = self._src("solve.py")
+        self.assertNotIn('print(f"builder synthetic draw: valid C1..C5={match}', src)
+        self.assertNotIn("±6.1% conservative 95% CI (TR-2 v1.12)", src)
+
+    def test_g6_tests_and_evidence_scripts(self):
+        """Structural. F04-015#10: test methods imported numpy unconditionally. F04-005#14:
+        f1_orbit_dp.py printed '=== VALIDATION FAIL ===' and exited 0."""
+        src = self._src("tests.py")
+        self.assertNotIn("\n        import numpy as np\n", src)
+        dp = self._src("reports/evidence/f1/f1_orbit_dp.py")
+        self.assertIn("sys.exit(0 if all_ok else 1)", dp)
+
+    # ==== FT3h (ledger / history hygiene; CX-35X-H, CX-35X-J..N) ========================================
+    # Each test measures its precondition from the tree first (an archived log line, a record count, a
+    # solver source line, an append-only ledger sentence that must still be there) and then holds the
+    # cured text to it. On 0df730cb every precondition holds and the text assertion fails, which is the
+    # stated reason each is red there.
+
+    _G6H_ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    def _g6h_r(self, rel):
+        p = os.path.join(self._G6H_ROOT, rel)
+        self.assertTrue(os.path.isfile(p), "precondition: %s exists" % rel)
+        with open(p, encoding="utf-8") as fh:
+            return fh.read()
+
+    def _g6h_f(self, rel):
+        return " ".join(self._g6h_r(rel).split())
+
+    def _g6h_gz(self, rel):
+        import gzip
+        with gzip.open(os.path.join(self._G6H_ROOT, rel), "rt", encoding="utf-8", errors="replace") as fh:
+            return fh.read()
+
+    def _g6h_has(self, rel, *frags):
+        flat = self._g6h_f(rel)
+        for fr in frags:
+            self.assertIn(" ".join(fr.split()), flat, "%s lacks: %s" % (rel, fr[:100]))
+
+    def _g6h_cx(self, cx):
+        """The body of one CORRECTIONS.md entry (heading to next '## '), whitespace-folded."""
+        txt = self._g6h_r("documentation/CORRECTIONS.md")
+        m = re.search(r"^## %s — .*?(?=^## |\Z)" % re.escape(cx), txt, re.M | re.S)
+        self.assertIsNotNone(m, "CORRECTIONS.md has no %s entry" % cx)
+        return " ".join(m.group(0).split())
+
+    # ---- CX-35X-H ------------------------------------------------------------------------------------
+    def test_g6_canonical_hashes_anchor_extractor(self):
+        """F06-004#6 class: RUN the documented extractor against the file; it must print the 64-hex anchor.
+        On 0df730cb it printed 68 characters ('a256' kept from the label) and its own guard exited 1."""
+        txt = self._g6h_r("documentation/CANONICAL_HASHES.md")
+        self.assertIn("### d3 1T — published recipe", txt, "precondition: the section the snippet reads")
+        m = re.search(r"^### d3 1T — published recipe.*?^- \*\*sha256:\*\* `([0-9a-f]{64})`", txt, re.M | re.S)
+        self.assertIsNotNone(m, "precondition: the section carries a backticked 64-hex sha256")
+        want = m.group(1)
+        blk = re.search(r"^ANCHOR_1T=\$\(awk '(.*?)' \\\n\s*documentation/CANONICAL_HASHES\.md\)$", txt, re.M | re.S)
+        self.assertIsNotNone(blk, "precondition: the documented extractor is present")
+        prog = blk.group(1)
+        out = subprocess.run(["awk", prog, "documentation/CANONICAL_HASHES.md"], cwd=self._G6H_ROOT,
+                             capture_output=True, text=True, timeout=60)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        got = out.stdout.strip()
+        self.assertEqual(len(got), 64, "the documented extractor printed %d characters: %r" % (len(got), got))
+        self.assertEqual(got, want)
+
+    def test_g6_canonical_hashes_notes(self):
+        ch = self._g6h_r("documentation/CANONICAL_HASHES.md")
+        rows = re.search(r"^\*\*Cross-build \+ cross-architecture witnesses.*?^\*\*Independence criterion", ch, re.M | re.S)
+        self.assertIsNotNone(rows)
+        table = [l for l in rows.group(0).splitlines() if l.startswith("| 2026")]
+        self.assertEqual(len(table), 8, "the eight-path count is unchanged")
+        # stack: the solver warns below 8 MiB and --merge refuses below 64 MiB
+        src = self._g6h_r("solve.c")
+        self.assertIn("long long need_kb = 8192;   /* production: 8 MB */", src)
+        self.assertIn("rl.rlim_cur >= 64LL * 1024 * 1024", src)
+        self.assertNotIn("# required at large scales", ch)
+        flat = " ".join(ch.split())
+        for frag in ("a raw producer, pre-#169 or SOLVE_COMPRESS=0, writes no gzip frame: sha256sum solutions.bin",
+                     "file sha256 (the gzip container)", "line reports (the logical, decompressed stream)",
+                     "It is an extrapolation, with the comparability of the 2,480 unstarted tasks assumed",
+                     "Read the sentence as \"no independent receipt for this run is published\"",
+                     "two different eight-path lists exist", "means every **Active** canonical",
+                     "there is no remaining old-versus-new difference for the clause to describe",
+                     "the share is not a share of the 10,525,271,997 unique records"):
+            self.assertIn(" ".join(frag.split()), flat, frag)
+
+    def test_g6_retraction_registry_notes(self):
+        import hashlib
+        run = self._g6h_r("runs/20260716_f1c5_c1c2c4c5_d128westus3/run.out")
+        two = {int(k): float(v) for k, v in re.findall(r"layer k=\s*(\d+)/31: .*? two_layer=([\d.]+)GB", run)}
+        self.assertEqual(len(two), 31, "precondition: every layer k1..k31 is in run.out")
+        peak = max(two, key=two.get)
+        self.assertEqual(peak, 17, "precondition: the byte peak's second layer is k17 (pair k16+k17)")
+        rows = [l.rstrip("\n").split("\t") for l in self._g6h_r("documentation/RETRACTED_PHRASES.tsv").splitlines()
+                if l.strip() and not l.startswith("#")]
+        # rows are addressed by their RP key (8 hex of the needle's sha256), so this file does not carry the
+        # retracted phrasings themselves (doc_gates GATE 47 scans tests.py for them)
+        bykey = {hashlib.sha256(r[0].encode()).hexdigest()[:8]: r for r in rows}
+        self.assertIn("089c4de7", bykey, "precondition: needles unchanged (RP keys are needle hashes)")
+        for key in ("089c4de7", "bb7395cd"):
+            self.assertIn(key, bykey, "precondition: row RP key %s" % key)
+            self.assertIn("k16+k17", bykey[key][-1], key)
+        self.assertIn("withdrawn on 2026-09-04", bykey["3bbdabe5"][-1])
+        self.assertIn("in a wording this needle does not match", bykey["b383b2a9"][-1])
+        g6 = self._g6h_r("scripts/doc_gates.d/30_figures_liveness_banner_revisions.sh")
+        self.assertIn("imgs=$(git ls-files '*.svg' '*.png')", g6, "precondition: GATE 6 enumerates output images")
+        rf = self._g6h_r("documentation/RETRACTED_FIGURES.tsv")
+        self.assertNotIn("PRODUCES the image, never the image", rf)
+        self.assertIn("the residual\n#      is the tracked .png assets", rf)
+
+    # ---- CX-35X-J ------------------------------------------------------------------------------------
+    def test_g6_history_corrections_recorded(self):
+        hist = self._g6h_f("documentation/HISTORY.md")
+        # precondition: append-only — the wordings being corrected are still there
+        for frag in ("Corrected: C3 drives the filtering", "boundaries 15-19 are fully redundant",
+                     "positions 4-20 have exactly 3 distinct pairs each", "balanced ~64 GB per node",
+                     "the orbit count is N/24", "G is the free-action orbit count"):
+            self.assertIn(frag, hist, "precondition: HISTORY still carries %r" % frag)
+        run = self._g6h_r("runs/20260716_f1c5_c1c2c4c5_d128westus3/run.out")
+        ent = {int(k): int(v) for k, v in re.findall(r"layer k=\s*(\d+)/31: .*? entries=(\d+)", run)}
+        self.assertEqual(max(ent, key=ent.get), 16, "precondition: the entry peak is layer 16")
+        self.assertEqual(ent[16], 83585570784)
+        self.assertEqual("%.2f%%" % (100.0 * 759608573 / 3432399297), "22.13%")
+        arch = self._g6h_r("enumeration/analyze_sec25fix_742M.txt")
+        self.assertRegex(arch, r"pos 14 \( 4 distinct\)")
+        self.assertRegex(arch, r"pos 16 \( 4 distinct\)")
+        cx = self._g6h_cx("CX-35X-J")
+        for frag in ("83,585,570,784", "22.13%", "positions 14 and 16 have four pairs", "0.2803–1.5392",
+                     "32 GB per node", "twice the sequence-orbit count", "`56487ab5…`",
+                     "complementation preserves C3", "No HISTORY.md entry is edited"):
+            self.assertIn(frag, cx, frag)
+
+    # ---- CX-35X-K ------------------------------------------------------------------------------------
+    def test_g6_run_records(self):
+        d100 = "runs/20260419_100T_d3_d128westus3/"
+        log = self._g6h_gz(d100 + "enum_output.log.gz")
+        nchunk = len(re.findall(r"^  Chunk \d+: \d+ records sorted \+ written", log, re.M))
+        self.assertEqual(nchunk, 104, "precondition: the merge wrote 104 chunks")
+        self.assertIn("Input files:     60533", log)
+        pre100 = int(re.search(r"Total records before dedup: (\d+)", log).group(1))
+        pre10 = int(re.search(r"Total records before dedup: (\d+)",
+                              self._g6h_gz("runs/20260419_10T_d3_d128westus3/external_merge.log.gz")).group(1))
+        self.assertEqual(round(pre100 / pre10), 5, "precondition: the pre-dedup ratio is about 5")
+        ana = self._g6h_gz(d100 + "analyze_output.log.gz")
+        sec = ana[ana.index("[28] Edit-distance-to-KW histogram"):]
+        h = {int(a): int(b) for a, b in re.findall(r"^\s+(\d+)\s+\|\s+(\d+) \|", sec[:4000], re.M)}
+        n = sum(h.values()); mu = sum(k * v for k, v in h.items()) / n
+        var = sum((k - mu) ** 2 * v for k, v in h.items()) / n
+        skew = sum((k - mu) ** 3 * v for k, v in h.items()) / n / var ** 1.5
+        self.assertLess(skew, -1.5, "precondition: the histogram is left-skewed")
+        r100 = self._g6h_f(d100 + "README.md")
+        for frag in ("The external merge wrote **104** sorted chunks", "about **5×**", "Read \"left-skewed\"",
+                     "provisioned on-demand by mistake", "put `SOLVE_SKIP_AUTOMERGE=1` on the first command",
+                     "102.29 GiB"):
+            self.assertIn(" ".join(frag.split()), r100, frag)
+        pa = "runs/20260422_passA_10T_d64_laggard/"
+        for b in ("22_0_30_1_20_0", "22_1_30_1_20_0"):
+            prog = set(re.findall(r" (\d+)/2507 tasks", self._g6h_gz(pa + b + "/run.log.gz")))
+            self.assertEqual(prog, {"64"}, "precondition: every progress line shows 64 claimed tasks")
+        self._g6h_has(pa + "README.md", "both archived logs show `64/2507 tasks` on every progress line",
+                      "Read the box's inference as withdrawn")
+        pb = "runs/20260423_passB_D_10T_d64/"
+        import json
+        with open(os.path.join(self._G6H_ROOT, pb, "B_20_0_21_1_26_0", "sub_20_0_21_1_26_0.meta.json"), encoding="utf-8") as fh:
+            meta = json.load(fh)
+        self.assertEqual(meta["wall_seconds"], 1016, "precondition: the meta file's wall time")
+        self._g6h_has(pb + "README.md", "not growth with budget", "B 20_0_21_1_26_0 1,016",
+                      "`solve --sub-branch 20 0 21 0 26 1`")
+        f1 = "runs/20260716_f1c5_c1c2c4c5_d128westus3/"
+        out = self._g6h_r(f1 + "run.out")
+        self.assertIn("threads=64 out_of_core_dir", out, "precondition: the first segment ran at 64 threads")
+        self.assertEqual(len(re.findall(r"RESUME intra-layer checkpoint", out)), 12)
+        self.assertRegex(out, r"layer k= 1/31: canonical_masks=7 ")
+        self._g6h_has(f1 + "README.md", "N/24 is **twice** the sequence-orbit count", "layers k1–k11",
+                      "recovered from intra-layer checkpoints")
+        lc = self._g6h_f(f1 + "layer_curve.md")
+        self.assertIn("Values k1..k31 are read directly from the run log", lc)
+        self.assertIn("By bytes it is k16 + k17", lc)
+        for d in ("runs/20260418_10T_d3_fresh/", "runs/20260418_10T_d3_v1/"):
+            self._g6h_has(d + "README.md", "the cause is the better-fitting hypothesis")
+        self._g6h_has("runs/20260906_kc_ladders_n31/README.md", "`STAGE_{F,G,T}_LAYERSHA.txt` headers")
+        drv = self._g6h_r("reports/evidence/tr12/v3_rows_n31_20260925/run_v3_rows.sh")
+        self.assertIn("finish ERROR; }", drv, "precondition: die routes through finish")
+        self.assertRegex(drv, r"\n  exit 0; }\n")
+        b = "reports/evidence/tr12/v3_rows_n31_20260925/"
+        self._g6h_has(b + "README.md", "a caller must read `V3ROWS_STATE`, not the exit status")
+        import hashlib
+        sums = dict(l.split("  ")[::-1] for l in self._g6h_r(b + "SHA256SUMS").splitlines() if l.strip())
+        with open(os.path.join(self._G6H_ROOT, b, "README.md"), "rb") as fh:
+            self.assertEqual(sums["README.md"], hashlib.sha256(fh.read()).hexdigest(), "bundle SHA256SUMS")
+        js = self._g6h_r("enumeration/solve_results.json")
+        self.assertIn("8f2ced213973f89886786c916998373c9acd3da95749aa0df416bc93011e7fcc", js, "precondition")
+        self.assertTrue(self._g6h_r("enumeration/solutions.sha256").startswith("aa141517"), "precondition")
+        er = self._g6h_f("enumeration/README.md")
+        self.assertNotIn("full stdout of the April-15 10T", er)
+        self.assertIn("The four files document two runs", er)
+
+    # ---- CX-35X-L ------------------------------------------------------------------------------------
+    def test_g6_branches_explained(self):
+        src = self._g6h_r("solve.c")
+        self.assertIn("return;  /* branch budget exhausted — stop this branch only (legacy) */", src, "precondition")
+        self.assertIn('printf("DFS-state checkpoint: enabled (canonical-scale default, NODE_LIMIT >= 1T)\\n");', src)
+        self.assertIn("dfs_state_delete(p1, o1, p2, o2, p3_arg, o3_arg);", src)
+        self.assertEqual(src.count('getenv("SOLVE_DEPTH_PROFILE")'), 1, "precondition: one read, in the parallel path")
+        self.assertIn("ts->nodes_at_depth[step]++;", src)
+        be = self._g6h_f("documentation/BRANCHES_EXPLAINED.md")
+        self.assertNotIn("the two members are either complements of each other (every line flipped) or upside-down versions of each other. *This", be)
+        self.assertNotIn("a strictly larger truncated record set", be)
+        self.assertNotIn("and the 66 deletions are inside the `--selftest` block", be)
+        for frag in ("the second member is the first turned upside down or, only when turning it over changes nothing, its complement",
+                     "the recursive engine's reported node total runs past the budget",
+                     "a cell that finishes its tree deletes its checkpoint", "63 of the 66 deletions",
+                     "only its printing is", "has no public reproduction command"):
+            self.assertIn(" ".join(frag.split()), be, frag)
+        reg = self._g6h_r("documentation/BRANCH_REGISTRY.tsv")
+        self.assertIn("Pre-merge state preserved at archive/stageg-telemetry-20260824", reg, "precondition")
+        self.assertIn("except a merged-then-retired row whose tag is labelled Pre-merge", reg)
+
+    # ---- CX-35X-M ------------------------------------------------------------------------------------
+    def test_g6_ledger_self_corrections(self):
+        rep = self._g6h_r("scripts/tr12_repro.sh")
+        self.assertIn("That assumption is", rep, "precondition: the battery records the independence assumption false")
+        self.assertIn("FALSE, and it is why this row was budgeted at minutes", rep)
+        dev = self._g6h_f("documentation/DEVELOPMENT.md")
+        self.assertNotIn("is geometric with mean ≈8 and the certificate costs ≈8 calls", dev)
+        self.assertIn("C3 acceptance is strongly autocorrelated in rank order", dev)
+        tr3 = self._g6h_r("reports/TR3_REPRODUCIBLE_ENUMERATION.md")
+        self.assertIn("| v1.11 | 2026-08-31 |", tr3, "precondition: the v1.11 row")
+        ok = subprocess.run(["awk", "-v", "d=2026-08-31", "-v", "n=3",
+                             '/^## /{blk=""} {blk=blk"\\n"$0} {if (blk ~ d && blk ~ ("TR-?" n "[^0-9]")) found=1} END{exit found?0:1}',
+                             "documentation/CORRECTIONS.md"], cwd=self._G6H_ROOT, capture_output=True, timeout=120)
+        self.assertEqual(ok.returncode, 0, "no ledger entry names TR-3 and 2026-08-31 together (G10)")
+        cx = self._g6h_cx("CX-35X-M")
+        self.assertIn("TR-3 v1.11 (2026-08-31)", cx)
+        pin = self._g6h_r("scripts/gate_published_consistency.pin")
+        self.assertRegex(pin, r"(?m)^G10=0$")
+        for frag in ("**CX-45.**", "**CX-47.**", "records twelve intra-layer resume points",
+                     "C4 candidates are written to the inventory and never deleted from it"):
+            self.assertIn(frag, cx, frag)
+
+    # ---- CX-35X-N ------------------------------------------------------------------------------------
+    def test_g6_tr8_sharded_example_seed(self):
+        a1 = self._g6h_f("documentation/PREREG_TR8_DOF_MATCHED_SAMPLER_20260811_ADDENDUM_A1_20261003.md")
+        self.assertIn("without an explicit throwaway", a1, "precondition: A1's attestation (frozen)")
+        cli = self._g6h_r("documentation/SOLVE_PY_CLI.md")
+        self.assertIn("\n## EXAMPLES\n", cli, "precondition: the EXAMPLES section")
+        ex = cli[cli.index("\n## EXAMPLES\n"):cli.index("\n## FILES\n")]
+        calls = [l for l in ex.splitlines() if "solve.py --tr8-dof-sampler" in l and l.lstrip().startswith(("python3", "for"))]
+        self.assertTrue(calls, "precondition: the examples invoke the sampler")
+        for l in calls:
+            whole = l if "--tr8-dof-seed" in l else ex[ex.index(l):ex.index(l) + 300]
+            self.assertIn("--tr8-dof-seed", whole.split("\n\n")[0], "unseeded sampler example: %s" % l.strip())
+        self._g6h_cx("CX-35X-N")
+# end class TestBatchG6 (push group G6, CX-35X-A..CX-35X-N)
 
 
 if __name__ == "__main__":

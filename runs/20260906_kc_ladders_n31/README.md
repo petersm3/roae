@@ -198,3 +198,9 @@ layer. They constrain the files collectively and do not pin individual entries.
 The **code** in this repository is public domain. The **ladder data these fingerprint is not** — see
 the project's rights notice before redistributing any ladder you obtain. Publishing a digest places
 no rights claim on it and grants none.
+
+## Dated notes (2026-10-22)
+
+Added from Codex's final review (gpt-6-astra); the record above is kept as written. [CORRECTIONS.md](../../documentation/CORRECTIONS.md) CX-35X-K.
+
+- **`STAGE_{F,G,T}_LAYERSHA.txt` headers.** The three registries' comment headers still give the provenance this README corrected — a digest taken inline while each layer was being finalized. It was corrected on 2026-09-29 (CX-241): the sidecar digest is taken by re-reading the finalized layer file. The registries are frozen and keep their headers; the digest values are unaffected (Codex F07-010#7).

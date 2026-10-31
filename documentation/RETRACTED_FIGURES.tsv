@@ -116,9 +116,9 @@
 #      CORRECTED 2026-08-02 (item A8): this line used to end "…and are ungated entirely for
 #      statistics". That is no longer true — GATE 6 now runs a SECOND pass over the tracked
 #      figure generators using THIS registry, so a retracted statistic annotated onto a plot
-#      fails the gate. What remains true, and is the real residual: GATE 6 greps what
-#      PRODUCES the image, never the image, so a figure hand-edited in an SVG editor or
-#      committed without its generator is still invisible. Baseline when the pass shipped:
+#      fails the gate. NOTE 2026-10-22 (CX-35X-H, Codex F06-003#6): GATE 6 has since gained an OUTPUT leg
+#      that scans every tracked .svg (text and glyph-label comments) against both registries; the residual
+#      is the tracked .png assets, which no output leg can read and which rest on the generator legs. Baseline when the pass shipped:
 #      9 registered figures x 3 tracked generators = 0 hits.
 
 1.4σ	TR-2 v1.19 (2026-08-01) withdrew it as unreconstructible; v1.23 (2026-08-02) restored the comparison as 0.57σ BELOW under the file's stated convention |Δ|/sqrt(SE1²+SE2²). 1.4 came from dividing by the raw between-seed SD and omitting the Phase-1 run's own ±16.7%.

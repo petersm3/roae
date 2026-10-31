@@ -61,10 +61,12 @@ documentation/CAMPAIGN_METHODOLOGY.md	1459	marker	Corrected	3	CITATION LINE GATE
 documentation/CANONICAL_HASHES.md	66	marker	CORRECTED	1	-	reviewed:paragraph-above-already-says-two-per-cell-budgets	2663ae1a7c79
 documentation/CANONICAL_HASHES.md	71	ledger-link	CORRECTION	n/a	-	not-a-marker	b27d2543be32
 documentation/CANONICAL_HASHES.md	99	marker	CORRECTED	2	-	reviewed:the-sentences-it-withdraws-still-follow-it	60b8f7a9c810
+documentation/CANONICAL_HASHES.md	115	ledger-link	CORRECTION	n/a	-	not-a-marker	bc6f38db509d
 documentation/CANONICAL_HASHES.md	117	marker	WITHDRAWN	3	CITATION LINE GATE,GATE 26,GATE 27,GATE 2c	gate-anchored	6554902380e1
 documentation/CANONICAL_HASHES.md	123	marker	CORRECTED	1	-	reviewed:cell-already-separates-the-King-Wen-observation-from-the-verdict	7ed5382810ab
 documentation/CANONICAL_HASHES.md	143	marker	Corrected	1	-	reviewed:row-already-gives-2026-04-20-and-edccb16	63d88d44cf05
 documentation/CANONICAL_HASHES.md	183	marker	CORRECTED	2	-	reviewed:row-still-asserts-the-1T-drift-it-withdraws	11fd7b6f2df8
+documentation/CANONICAL_HASHES.md	200	ledger-link	CORRECTION	n/a	-	not-a-marker	1325a269bbe5
 documentation/CANONICAL_HASHES.md	202	ledger-link	CORRECTION	n/a	-	not-a-marker	b2334245885b
 documentation/CANONICAL_HASHES.md	202	ledger-link	RETRACTED	n/a	-	not-a-marker	b2334245885b
 documentation/CANONICAL_HASHES.md	202	marker	CORRECTED	1	-	reviewed:sentence-already-corrected	b2334245885b
@@ -81,6 +83,7 @@ documentation/CANONICAL_HASHES.md	367	ledger-link	RETRACTED	n/a	-	not-a-marker	a
 documentation/CANONICAL_HASHES.md	367	marker	CORRECTED	1	-	reviewed:text-already-uses-the-corrected-ratio;span-unclosed	a35557a8415a
 documentation/CANONICAL_HASHES.md	375	marker	Corrected	1	-	reviewed:dated-label-on-a-heading;notes-are-the-corrected-version	c7837a45af23
 documentation/CANONICAL_HASHES.md	385	marker	CORRECTED	1	-	reviewed:text-already-reads-4909e18-and-4900000-T	dcb1fc46614d
+documentation/CANONICAL_HASHES.md	387	ledger-link	CORRECTION	n/a	-	not-a-marker	5d280f8b6727
 documentation/CANONICAL_HASHES.md	412	ledger-link	CORRECTION	n/a	-	not-a-marker	14ca9b4e60d2
 documentation/CANONICAL_HASHES.md	435	ledger-link	CORRECTION	n/a	-	not-a-marker	111a9a1c9f61
 documentation/CANONICAL_HASHES.md	459	marker	CORRECTED	1	-	reviewed:scale-list-already-omits-d2-10T	50d1907facd1
@@ -95,6 +98,7 @@ documentation/CANONICAL_HASHES.md	581	marker	CORRECTED	1	-	reviewed:bullet-alrea
 documentation/CANONICAL_HASHES.md	581	marker	Corrected	1	-	reviewed:bullet-already-lists-the-real-checks-and-the-shipped-expect-kw	5e0096ec8528
 documentation/CANONICAL_HASHES.md	607	marker	CORRECTED	1	-	reviewed:convention-already-reads-logical-decompressed-size	466f5d4840e1
 documentation/CANONICAL_HASHES.md	609	marker	WITHDRAWN	3	GATE 26,GATE 27	reanchored:GATE-26=ledger-anchor+GATE-27=ledger-anchor	46cabaff2300
+documentation/CANONICAL_HASHES.md	618	ledger-link	CORRECTION	n/a	-	not-a-marker	6d9a9c9312a2
 documentation/CIRCULAR_KING_WEN.md	21	ledger-link	RETRACTED	n/a	-	not-a-marker	0a9af710aaee
 documentation/CIRCULAR_KING_WEN.md	61	marker	Corrected	1	-	reviewed:paragraph-above-already-says-C3-alone-breaks-rotation	24de4f00e658
 documentation/CIRCULAR_KING_WEN.md	64	ledger-link	RETRACTED	n/a	-	not-a-marker	8a37cde55342
@@ -569,6 +573,7 @@ enumeration/LEADERBOARD.md	7	marker	CORRECTED	1	-	reviewed:sentence-already-call
 enumeration/LEADERBOARD.md	102	marker	CORRECTED	1	-	reviewed:paragraph-already-reads-from-the-742M-archive	2cb7abe5c0a2
 enumeration/LEADERBOARD.md	175	marker	CORRECTED	1	-	reviewed:qualifier-already-uses-0-based-pair-numbers	8ff0ea958479
 enumeration/LEADERBOARD.md	192	marker	WITHDRAWN	3	GATE 26,GATE 27	reanchored:GATE-26=ledger-anchor+GATE-27=ledger-anchor	653e853d6ca7
+enumeration/README.md	34	ledger-link	CORRECTION	n/a	-	not-a-marker	2b79b481f0a0
 enumeration/README.md	47	ledger-link	CORRECTION	n/a	-	not-a-marker	02571355da1f
 lean/README.md	25	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	c905d50c57f8
 lean/README.md	71	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	023cb1dfad39
@@ -830,14 +835,25 @@ reports/evidence/tr12/README.md	22	marker	Corrected	1	-	reviewed:table-above-alr
 reports/evidence/tr12/README.md	63	marker	Corrected	1	-	reviewed:bullet-already-says-no-battery-run-took-the-digests	32c0b703681b
 reports/evidence/tr12/README.md	103	marker	Corrected	1	-	reviewed:bullet-already-scopes-the-container-count-to-t	80ab431c9646
 reports/evidence/tr12/v3_rows_n31_20260925/README.md	103	narration	now reads	1	-	reviewed:narration-inside-a-change-note;text-reads-correctly	27f78169945d
+reports/evidence/tr12/v3_rows_n31_20260925/README.md	133	ledger-link	CORRECTION	n/a	-	not-a-marker	4bfe994a71a4
 reports/evidence/w0d_lower_bound/README.md	86	marker	Corrected	1	-	reviewed:text-already-says-the-atlas-is-distributed	2b8aff0baaa3
 reviewer/README.md	42	ledger-link	CORRECTION	n/a	-	not-a-marker	9967306c5a2a
+runs/20260418_10T_d3_fresh/README.md	26	ledger-link	CORRECTION	n/a	-	not-a-marker	915ffbb0a62c
+runs/20260418_10T_d3_v1/README.md	26	ledger-link	CORRECTION	n/a	-	not-a-marker	915ffbb0a62c
 runs/20260419_100T_d3_d128westus3/README.md	65	marker	Corrected	1	-	reviewed:dated-label;row-already-says-not-present	f7f41ce12530
 runs/20260419_100T_d3_d128westus3/README.md	117	marker	Corrected	1	-	reviewed:bullet-already-cites-the-git-ls-files-listing	d7c195a0b90a
+runs/20260419_100T_d3_d128westus3/README.md	155	ledger-link	CORRECTION	n/a	-	not-a-marker	915ffbb0a62c
+runs/20260422_passA_10T_d64_laggard/README.md	135	ledger-link	CORRECTION	n/a	-	not-a-marker	915ffbb0a62c
+runs/20260423_passB_D_10T_d64/README.md	73	ledger-link	CORRECTION	n/a	-	not-a-marker	915ffbb0a62c
+runs/20260423_passB_D_10T_d64/README.md	78	ledger-link	CORRECTION	n/a	-	not-a-marker	d80e73104d56
 runs/20260716_f1c5_c1c2c4c5_d128westus3/README.md	43	marker	CORRECTED	3	GATE 3b	reanchored:GATE-3b=allowlist-row	250a146d1906
 runs/20260716_f1c5_c1c2c4c5_d128westus3/README.md	74	marker	CORRECTED	1	-	reviewed:example-above-already-reads-16384	2298a7a58936
+runs/20260716_f1c5_c1c2c4c5_d128westus3/README.md	85	ledger-link	CORRECTION	n/a	-	not-a-marker	915ffbb0a62c
+runs/20260716_f1c5_c1c2c4c5_d128westus3/layer_curve.md	7	ledger-link	CORRECTION	n/a	-	not-a-marker	8d3d16113f25
 runs/20260716_f1c5_c1c2c4c5_d128westus3/layer_curve.md	84	marker	Corrected	1	-	reviewed:bar-already-redrawn;note-is-provenance	eacac6a9e8de
+runs/20260716_f1c5_c1c2c4c5_d128westus3/layer_curve.md	86	ledger-link	CORRECTION	n/a	-	not-a-marker	dc3685c32fbe
 runs/20260906_kc_ladders_n31/README.md	37	marker	Corrected	1	-	reviewed:text-already-says-the-sidecar-re-reads-the-file	5a56ba8ff38d
+runs/20260906_kc_ladders_n31/README.md	204	ledger-link	CORRECTION	n/a	-	not-a-marker	915ffbb0a62c
 runs/20261003_tr8_dof_sampler_35782834/README.md	5	ledger-link	CORRECTION	n/a	-	not-a-marker	103edf34a7db
 scripts/tr12_expected/README.md	32	marker	CORRECTED	1	-	reviewed:sentence-above-already-scopes-to-what-a-row-prints	f830b198793f
 viz/README.md	271	ledger-link	CORRECTION	n/a	-	not-a-marker	869b2339f85a

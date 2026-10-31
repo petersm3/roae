@@ -13642,7 +13642,7 @@ def xa_w0d_lower_bound_cert(out_path, atlas_path=None, prod_uses_b0=False):
         except (OSError, ValueError) as exc:
             tok("XA_W0D_LB_CERT", "ERROR:atlas-unreadable:%s" % type(exc).__name__)
             return 2
-        atlas_sha = hashlib.sha256(raw).hexdigest()
+        atlas_sha = hashlib.sha256(raw).hexdigest(); _g6_atlas_t_warn(A, atlas_path)  # G6 FV-B52-G OOS 13392
         if not isinstance(A, dict) or A.get("n") != 31:
             tok("W0D_LB_ATLAS_N", A.get("n") if isinstance(A, dict) else "-")
             tok("XA_W0D_LB_CERT", "ERROR:atlas-is-not-the-n31-production-space")
@@ -14675,7 +14675,7 @@ def load_atlas(path):
     try:
         n = _atlas_json_index(a["n"], "n")
         total = _atlas_int(a["N_total"], "N_total")
-        layers = a["layers"]
+        layers = a["layers"]; _g6_atlas_t_warn(a, path)  # G6 FV-B52-G OOS 13392
     except (KeyError, TypeError, ValueError, AtlasError) as exc:
         raise DetectorError("atlas %s missing n / N_total / layers (%s)"
                             % (path, exc))
@@ -18088,7 +18088,7 @@ def atlas_residual_rank(atlas_path, allow_t_not_run=False):
         # 🔴 Q-1000 (batch 52; Fable B49 prepub, deferred D1): this mode read the atlas with json.load
         # alone, so a t-identity-not-run atlas ran to VERDICT=PASS with no warning while --atlas-queries
         # refused it (CX-350). The consumer's loader now vouches for the file before any rank is taken.
-        atlas_load(atlas_path, allow_t_not_run=allow_t_not_run)
+        a = atlas_load(atlas_path, allow_t_not_run=allow_t_not_run)   # G6 FV-B52-C#2: rank from the object the loader vouched for, not a second json.load
         n = _atlas_json_index(a["n"], "n")
         L = a["layers"]
         if len(L) != n:
@@ -20869,6 +20869,18 @@ def _g5b_finite(x, what="value"):
     if not math.isfinite(x):
         raise ValueError("%s=%r is not a finite number" % (what, x))
     return x
+
+
+def _g6_atlas_t_warn(A, path):
+    """G6 (FV-B52-G OOS): the certificate reader and the class-swap loader read the atlas directly; an
+    atlas whose t-identity gate did not run now gets atlas_load's warning there too."""
+    g = A.get("gates") if isinstance(A, dict) else None
+    if isinstance(g, dict):
+        nr = sorted(k for k, v in g.items() if v == "not-run (requires --kc-tdir)")
+        if nr:
+            print("[atlas] WARNING: %s: gate(s) %s did not run (the scan had no t ladder); this atlas is "
+                  "UNVERIFIED ACROSS CHUNKS" % (path, ", ".join(nr)), file=sys.stderr)
+
 
 
 if __name__ == "__main__":

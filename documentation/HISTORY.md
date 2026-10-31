@@ -11812,3 +11812,35 @@ Q-686=DONE
   slot).
 - **TR-12 now points to the capstone guide near its top** (v1.34), for a reader who wants to run something first.
 - No published count, sha, certificate or verdict changed; the new numbers sit beside published ones and move none.
+
+## 2026-10-23 — push group G6: engine and verifier hardening, and ledger and run-record hygiene, from Codex's final review
+
+- **Fast-track batch FT3c, the engine and verifier hardening (CX-35X-A to CX-35X-F).** Codex (gpt-6-astra) ran the
+  final review and Fable triaged it. Every shell command that splices a path now passes it as one quoted word, and the
+  layer hook keeps a layer it failed to copy; solve.lock is created with its owner already written; the
+  `--sub-branch` parallel checkpoint writes one task list per worker, so no task is marked done before its records
+  are saved, and the loader refuses an inconsistent snapshot; tier-2 chunks are never overwritten after a resume and a
+  failed last chunk fails the run; the shard readers refuse data past the gzip trailer's length; the merge's report
+  writers and provenance aggregation fail loudly; the Knuth estimator's list variables, pins and subtree sampler,
+  `--preflight`, `--analyze`, `--kde-score-stream` and `--f1c5-sidecar-retrofit` refuse or label what they did
+  not check; an F1 ladder resume checks the layer's recorded digest; verify.c's IE checkpoint, LC_RESUME, spec parser,
+  negative controls, checkpoints, selftest directories and error paths are hardened; the glibc-only and x86-only
+  interfaces are behind guards. Two items are held for the operator: making the ordinary path's
+  `hash_dedup_collisions` cumulative (it would change that published field) and a content digest in the midjoin
+  resume key.
+- **The fix-verify pass's G6 rows (CX-35X-G).** `verify.py --check-midjoin` refuses unchecked, failed and tampered
+  layers and reports input defects as ERROR; `--kc-midjoin` refuses four malformed inputs; solve.py's atlas readers
+  and two labels are corrected; eighteen ledger statements are corrected in place of the entries.
+- **Fast-track batch FT3h, the ledger and run-record hygiene (CX-35X-H, CX-35X-J to CX-35X-N).** Codex
+  (gpt-6-astra) ran the final review and Fable triaged it. CANONICAL_HASHES.md's documented anchor extractor
+  printed 68 characters and failed its own guard; it now takes the backticked token (F06-004#6 and three twins).
+  The registry, BRANCHES_EXPLAINED, BRANCH_REGISTRY's header, DEVELOPMENT, SOLVE_PY_CLI's sharded sampler example
+  and the retraction registries' notes say what their sources say; every run README Codex read gains a
+  dated-notes section, and the frozen logs, data and registries are not edited.
+  HISTORY.md and CORRECTIONS.md stay append-only: thirty-two HISTORY.md sentences are corrected in CX-35X-J, and
+  CX-45, CX-47, the full-31 entry and the preamble's C4 note in CX-35X-M, which also enters TR-3 v1.11's eight
+  corrections and drops the G10 exception from `scripts/gate_published_consistency.pin`. Four font-inventory rows
+  are held for the operator. No canonical sha, record count, certificate or verdict changed, and no published
+  figure is replaced: where a figure is in question, a dated note beside it says what its source gives.
+- No canonical sha, count, certificate or verdict changed: `./solve --selftest` prints sha256 `403f7202…`.
+  `TestBatchG6` holds each cure.

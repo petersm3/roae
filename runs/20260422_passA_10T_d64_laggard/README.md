@@ -129,3 +129,11 @@ Better path forward for the single-branch exhaustion thread:
 > **not publicly accessible**; a reader cannot fetch it. It is cited only as the planning record for
 > where effort went next. It carries no evidence for any measurement on this page — every number
 > above comes from the run artifacts in this directory.
+
+## Dated notes (2026-10-22)
+
+Added from Codex's final review (gpt-6-astra); the record above is kept as written. [CORRECTIONS.md](../../documentation/CORRECTIONS.md) CX-35X-K.
+
+- **"2,507 simultaneous tasks".** The 2026-09-19 correction box says the parallel solver spread the work across 2,507 simultaneous tasks. The run queued 2,507 depth-5 tasks for 64 worker threads, and both archived logs show `64/2507 tasks` on every progress line: 64 tasks were claimed, none finished, and the other 2,443 were never started. The like-for-like ratio (3.354×, α ≈ 0.53) is unaffected (Codex F07-010#5, F12-020#3).
+- **Tree size and exhaustion.** The same box's tree-size range and its "exhaustion becomes feasible" sentence do not follow from the ratio: α describes growth in distinct solutions found at two budgets, both BUDGETED, and gives no upper bound on the nodes left to walk — most queued tasks were never entered. The 2026-04-29 pilot at 100T on `22_0_30_1_20_0` also stayed BUDGETED, with 0 of 2,380 walked cells exhausted under a 40 G per-cell cap. Read the box's inference as withdrawn; the measured tables stand (F07-010#4, F12-020#4; [HISTORY.md](../../documentation/HISTORY.md)'s April 23 entry, append-only, is corrected by CX-35X-J).
+- **Units.** The output sizes are 525.8 MB (501.5 MiB) each; "502 MB" is the MiB figure (F07-010#13).

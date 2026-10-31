@@ -395,4 +395,4 @@ if __name__ == "__main__":
     results.append(validate("U3 (3+4+6 = 13 pairs)", U3, 63))
     all_ok = all(r[0] for r in results)
     print(f"\n=== VALIDATION {'PASS 3/3' if all_ok else 'FAIL'} ===")
-    full_run_extrapolation()
+    full_run_extrapolation(); sys.exit(0 if all_ok else 1)  # G6 F04-005#14: a FAIL used to exit 0

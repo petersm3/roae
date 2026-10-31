@@ -67,3 +67,12 @@ two VMs would not do duplicate work. Implementation lesson: the guard's
 `pkill` raced with the bash for-loop's next iteration — the D[6] solve
 was forked briefly before the kill propagated. Caught at +7s and
 terminated manually; partial dir removed.
+
+## Dated notes (2026-10-22)
+
+Added from Codex's final review (gpt-6-astra); the record above is kept as written. [CORRECTIONS.md](../../documentation/CORRECTIONS.md) CX-35X-K.
+
+- **"Evidence of heavy super-linear growth".** The 2.8× is the spread between ten different branches at one 1T budget, not growth with budget, and the 100T-aggregate yield it is set against came from a different traversal (one depth-3 cell walked within the aggregate budget, against 64 workers on depth-5 tasks here). [HISTORY.md](../../documentation/HISTORY.md) fits this cohort's growth as sub-linear. Read the sentence as a between-branch spread (Codex F07-010#3, F12-020#5).
+- **Wall times.** Eight exact wall-time cells differ by 1–4 s from their `sub_*.meta.json` `wall_seconds` (B 20_0_21_1_26_0 1,016; B 20_1_21_0_26_1 1,040; B 20_1_21_1_26_0 1,012; D[1] 1,034; D[2] 1,021; D[3] 1,012; D[4] 1,024; D[5] 1,020); the meta files are the record (F07-010#14).
+- **Reproduction.** `solve --sub-branch` takes six integer arguments, not the underscore-joined prefix: branch `20_0_21_0_26_1` runs as `solve --sub-branch 20 0 21 0 26 1` (F12-020#7).
+- **Dedup collision counts.** The parallel `--sub-branch` summary line (`… dedup collisions) ***`) added worker 0's `hash_collisions` a second time after summing every worker, so each archived log's collision figure overstates by worker 0's own count; no record count or sha is affected. The engine counts it once since push group G6 ([CORRECTIONS.md](../../documentation/CORRECTIONS.md) CX-35X-B; Codex F04-003#21).

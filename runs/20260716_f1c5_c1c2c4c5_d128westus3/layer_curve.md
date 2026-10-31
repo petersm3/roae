@@ -4,22 +4,22 @@ The out-of-core DP proceeds layer by layer over mask popcount k = 0..31, storing
 
 ## Full 32-layer table
 
-Values k10..k31 are read directly from the run log; k0..k9 are the palindrome mirror of k22..k31 (the k0..k9 prints scrolled out of the retained final-resume log, but were integrity-checked live during the campaign).
+Values k1..k31 are read directly from the run log (`run.out` carries the k1..k9 prints of the first, 64-thread segment as well as k10..k31); k0 = 1 is the empty mask and equals its mirror k31. *(Note 2026-10-22, Codex F07-010#17: this line said k0..k9 were the palindrome mirror of k22..k31 because their prints had scrolled out of the retained final-resume log, and the table's source column still says so for k0..k9. The published `run.out` holds k1..k9, every value matches the table, so all fifteen recoverable mirror pairs k1/k30 … k15/k16 hold directly, not the six that `count_result.json` and the README record. [CORRECTIONS.md](../../documentation/CORRECTIONS.md) CX-35X-K.)*
 
 **Independent cross-check: Σ masks(k) over k=0..31 = 93,939,712 = the known total canonical-mask count** (TR-11 §3: "93,939,712 canonical masks in place of 2³¹"). The reconstructed table reproduces this total exactly, confirming the k0..k9 values.
 
 | k | canonical_masks | source |
 |---|---|---|
 | 0 | 1 | palindrome (= k31) |
-| 1 | 7 | palindrome (= k30) |
-| 2 | 56 | palindrome (= k29) |
-| 3 | 378 | palindrome (= k28) |
-| 4 | 2,087 | palindrome (= k27) |
-| 5 | 9,707 | palindrome (= k26) |
-| 6 | 38,262 | palindrome (= k25) |
-| 7 | 128,414 | palindrome (= k24) |
-| 8 | 369,823 | palindrome (= k23) |
-| 9 | 919,819 | palindrome (= k22) |
+| 1 | 7 | log (and palindrome = k30) |
+| 2 | 56 | log (and palindrome = k29) |
+| 3 | 378 | log (and palindrome = k28) |
+| 4 | 2,087 | log (and palindrome = k27) |
+| 5 | 9,707 | log (and palindrome = k26) |
+| 6 | 38,262 | log (and palindrome = k25) |
+| 7 | 128,414 | log (and palindrome = k24) |
+| 8 | 369,823 | log (and palindrome = k23) |
+| 9 | 919,819 | log (and palindrome = k22) |
 | 10 | 1,986,807 | log |
 | 11 | 3,746,013 | log |
 | 12 | 6,191,140 | log |
@@ -82,3 +82,5 @@ Values k10..k31 are read directly from the run log; k0..k9 are the palindrome mi
 ```
 
 Symmetric about the k15/k16 midline (13,047,760 = C(31,15) canonical-reduced), monotone to k0 = k31 = 1. The peak two-live-layer window (k15 + k16) is where the out-of-core mode's ~4 TB disk footprint is set. *(Corrected 2026-10-02, Q-943: the k=19 bar was drawn with 35 marks, the length of the k=14 and k=17 bars, although its value is 6,191,140, the same as k=12; it now has 19 marks like k=12. Only the bar changed; every count in this file is as it was.)*
+
+*Note 2026-10-22 (Codex F07-010#16; [CORRECTIONS.md](../../documentation/CORRECTIONS.md) CX-35X-K): the sentence above names k15 + k16 as the peak two-live-layer window. By bytes it is k16 + k17: `run.out`'s `two_layer` column is 4,496.37 GB at k16 and 4,508.61 GB at k17, the layer whose write keeps k16 live; TR-11 §6 publishes that pair. k15/k16 is the midline of the mask-count curve, not of the byte curve, because entries per mask differ by layer.*

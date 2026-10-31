@@ -30,7 +30,7 @@
  *         mass exactly, at full-31, for every layer this program reaches.
  *   DOES NOT: verify layers beyond its memory reach (the plain state space grows ~16x per
  *         layer, so it exhausts long before k=31), and therefore does NOT constitute the
- *         independent full-scale recomputation §10(vi) asks for. That remains open.
+ *         independent full-scale recomputation §10(vi) asks for; that is --ie-count (Route B, below), which closed §10(vi)'s instrument half on 2026-07-25 (TR-11).
  *
  * INDEPENDENCE — OF ALGORITHM, NOT OF INPUT. Everything is rebuilt from the published
  * definitions — SPECIFICATION.md's C1-C5, partner() = rev unless palindromic else comp, and
@@ -680,10 +680,10 @@ static int same(const Ent *e, uint32_t mask, int last, const uint8_t *p) {
     return 1;
 }
 static void tab_init(Tab *t, size_t cap) {
-    /* on OOM sets cap=0; callers must check */
+    /* on OOM: stops the program cleanly (exit 3); before G6 it set cap=0 for callers that never checked */
     t->cap = cap; t->n = 0;
     t->e = calloc(cap, sizeof(Ent));
-    if (!t->e) { fprintf(stderr, "\n[memory exhausted allocating %zu entries — stopping cleanly]\n", cap); t->cap = 0; return; }
+    if (!t->e) { fprintf(stderr, "\n[memory exhausted allocating %zu entries — stopping cleanly]\n", cap); t->cap = 0; printf("VERIFY_DP=STOPPED (memory exhausted; no verdict is issued)\n"); fflush(stdout); exit(3); }   /* G6 F04-009#11: no caller checked cap=0, so tab_add indexed an empty table; stop here, cleanly */
     for (size_t i = 0; i < cap; i++) t->e[i].last = 0xFF;   /* 0xFF marks empty */
 }
 static void tab_free(Tab *t) { free(t->e); t->e = NULL; t->cap = t->n = 0; }
@@ -1619,7 +1619,7 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
         if (!rf) { printf("*** FAIL: cannot open LC_RESUME file %s for append\n", rf_path); return 1; }
         if (ftell(rf) == 0) {
             fprintf(rf, "LC_RESUME_V3 n=%u pl_hash=%016llx se=%u b0=%d,%d,%d,%d,%d\n", mn, (unsigned long long)m_plhash, mse, b0v[0], b0v[1], b0v[2], b0v[3], b0v[4]);
-            fflush(rf); fsync(fileno(rf));
+            if (fflush(rf) != 0 || fsync(fileno(rf)) != 0) { printf("*** FAIL: cannot write the LC_RESUME header to %s\n", rf_path); fclose(rf); return 1; }   /* G6 F04-009#7 */
         }
     }
 
@@ -1702,12 +1702,12 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
                          k, (unsigned long long)onm, (unsigned long long)one,
                          ov2?"v2":"v1", gd, md);
                 fprintf(rf, "%s h=%016llx\n", rec, (unsigned long long)lc_rec_hash(rec));
-                fflush(rf); fsync(fileno(rf));
+                if (fflush(rf) != 0 || fsync(fileno(rf)) != 0 || ferror(rf)) { printf("*** FAIL: an LC_RESUME row could not be written or fsynced; refusing to report a resumable record\n"); fclose(rf); return 1; }   /* G6 F04-009#7 */
             }
         }
         if (is_final && !r) { finalgrand = g; saw_final = 1; }
     }
-    if (rf) fclose(rf);
+    if (rf && fclose(rf) != 0) { printf("*** FAIL: closing the LC_RESUME file failed\n"); return 1; }
 
     /* orbit-weighted mass vs the run log (§Reading recipe steps 5-6) — the
      * independent full-scale re-derivation of every layer's reported mass. */
@@ -1831,7 +1831,7 @@ static int lc_check_layers(const char *dir, int maxk, const char *run_out) {
 static void lc_wr(FILE *f, const void *p, size_t n){ fwrite(p,1,n,f); }
 static int lc_selftest(void) {
     printf("verify.c --check-layers-selftest : synthesize v1+v2 fixtures and read them back\n");
-    const char *dir = "/tmp/lc_selftest_dir";
+    const char *g6v_mkdtemp(char *, size_t, const char *); void g6v_rmtree(const char *); char g6_d1[96]; const char *dir = g6v_mkdtemp(g6_d1, sizeof g6_d1, "lc_selftest_dir"); if (!dir) return 1;   /* G6 F04-009#8: a private directory per invocation (two concurrent runs shared one fixed name) */
     char cmd[256]; snprintf(cmd,sizeof cmd,"rm -rf %s && mkdir -p %s",dir,dir); if(system(cmd)){}
     /* toy instance: n=2, start_exit=0, b0=(1,1,0,0,0) => rad=(1,2,4,4,4), R=4.
      * layer k=1 (rid digit-sum must == 1): two masks {mask1,mask2}, entries with rid∈{1,2}. */
@@ -1929,7 +1929,7 @@ static int lc_selftest(void) {
     int r8 = lc_check_layers(dir, 31, NULL);
     { uint64_t kbad[3]={0,0,0}; kbad[1]=kidx[2]+1; kbad[2]=kidx[2];   /* kidx[1] > kidx[2] */
       WRITE_V2(kbad,0); }
-    printf("\n[9] v2 fixture with NON-MONOTONE kidx (kidx[1] > kidx[2]; block-0 length\n"
+    printf("\n[9] v2 fixture with NON-MONOTONE kidx (kidx[1] > kidx[2]; block-1 length\n"   /* G6 FV-G23-K OOS 6150: it is block 1 (kidx[2]-kidx[1]) that underflows */
            "    underflows) — MUST be rejected AS A SPEC VIOLATION, not a generic short read:\n");
     int r9 = lc_check_layers(dir, 31, NULL);
     WRITE_V2(kidx,0);                                    /* leave the fixture valid */
@@ -1990,7 +1990,7 @@ static int lc_selftest(void) {
      *   layer 2: canonical mask 011, Σval=5,  |stab|=2, orbit 3 -> mass 15
      *   layer 3: full mask 111,      Σval=11, |stab|=6, orbit 1 -> mass 11
      * ===================================================================== */
-    const char *dir2 = "/tmp/lc_selftest_dir2";
+    char g6_d2[96]; const char *dir2 = g6v_mkdtemp(g6_d2, sizeof g6_d2, "lc_selftest_dir2"); if (!dir2) return 1;
     snprintf(cmd,sizeof cmd,"rm -rf %s && mkdir -p %s",dir2,dir2); if(system(cmd)){}
     uint32_t n3=3, se3=0, pl3[3]={3,7,11}; int b3[5]={1,1,1,0,0};
     /* rad=(1,2,4,8,8), R=8; digit-sum-k rids: k1 in {1,2,4}, k2 in {3,5,6}, k3={7}=R-1 */
@@ -2105,7 +2105,7 @@ static int lc_selftest(void) {
            r8!=0?"Y":"N", r9!=0?"Y":"N", r10!=0?"Y":"N", r11!=0?"Y":"N",
            r12!=0?"Y":"N", r13!=0?"Y":"N", r14==0?"Y":"N", r15!=0?"Y":"N",
            ok?"PASS":"*** FAIL ***");
-    printf("LCSELFTEST_RESULT=%s\n", ok ? "PASS" : "FAIL");
+    if (ok) { g6v_rmtree(dir); g6v_rmtree(dir2); }   /* G6: a passing run removes its private fixtures (a failing one keeps them) */ printf("LCSELFTEST_RESULT=%s\n", ok ? "PASS" : "FAIL");
     printf("======================================================================\n");
     return ok ? 0 : 1;
 }
@@ -2172,7 +2172,7 @@ typedef struct {
     unsigned char *bounce;      /* aligned, chunk bytes */
     unsigned char *data;        /* plain, cap bytes */
     size_t cap, have, pos;
-    int *od_fallback;           /* shared note flag (stderr once) */
+    atomic_int *od_fallback;   /* G6 F04-009#10: shared across lanes, so atomic */           /* shared note flag (stderr once) */
 } LcsStream;
 
 static int lcs_open(const char *path, int odirect) {
@@ -2195,8 +2195,8 @@ static int lcs_fill(LcsStream *S, size_t need) {
         if (got < 0 && errno == EINVAL) {           /* O_DIRECT refused: fall back */
             int fl = fcntl(S->fd, F_GETFL);
             if (fl >= 0 && (fl & O_DIRECT) && fcntl(S->fd, F_SETFL, fl & ~O_DIRECT) == 0) {
-                if (S->od_fallback && !*S->od_fallback) {
-                    *S->od_fallback = 1;
+                if (S->od_fallback && !atomic_exchange(S->od_fallback, 1)) {
+                    /* (set by the atomic_exchange above) */
                     fprintf(stderr, "[scan] note: O_DIRECT unsupported here; buffered reads\n");
                 }
                 got = pread(S->fd, S->bounce, want, (off_t)a0);
@@ -2255,8 +2255,8 @@ typedef struct {
     const uint64_t *kidx, *vidx;
     long keys_base, vals_base, kblk_base, vblk_base;
     const LcScanCfg *cfg;
-    volatile int *abort_flag;
-    int *od_fallback;
+    atomic_int *abort_flag;   /* G6 F04-009#10, F12-014#9: was a plain volatile int written by one lane and read by the others (a data race; volatile is not synchronization) */
+    atomic_int *od_fallback;
     /* lane assignment: block range [blo,bhi) */
     uint64_t blo, bhi;
     /* results */
@@ -2564,7 +2564,7 @@ static int lcs_scan_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
         int Lc = cfg->lanes; if ((uint64_t)Lc > nblocks) Lc = nblocks ? (int)nblocks : 1;
         static LcsLane ln[64];
         memset(ln, 0, sizeof ln);
-        volatile int abort_flag = 0; int od_fb = 0;
+        atomic_int abort_flag = 0; atomic_int od_fb = 0;
         /* cut points */
         uint64_t cuts[65]; cuts[0] = 0; cuts[Lc] = nblocks;
         if (is_v2 && nblocks) {
@@ -2735,9 +2735,9 @@ static char *lcs_strip_pfx(const char *s, const char *pfx, size_t *n) {
 static int lcs_selftest(const char *argv0) {
     printf("verify.c --scan-selftest : parallel scan vs sequential reader byte-identity\n");
     char exe[1024]; ssize_t el = readlink("/proc/self/exe", exe, sizeof exe - 1);
-    if (el > 0) exe[el] = 0; else snprintf(exe, sizeof exe, "%s", argv0);
+    if (el > 0) exe[el] = 0; else snprintf(exe, sizeof exe, "%s", argv0); { int g6v_squote(char *, size_t, const char *); char g6_t[sizeof exe]; if (g6v_squote(g6_t, sizeof g6_t, exe) != 0) { fprintf(stderr, "verify.c --scan-selftest: executable path too long to quote\n"); return 1; } memcpy(exe, g6_t, sizeof exe); }   /* G6 F04-009#9, FV-G23-K#3: exe is spliced only into the shell commands below; it is now ONE quoted word */
     unsetenv("LC_RESUME");
-    const char *dir = "/tmp/lcs_scan_selftest";
+    const char *g6v_mkdtemp(char *, size_t, const char *); void g6v_rmtree(const char *); char g6_d3[96]; const char *dir = g6v_mkdtemp(g6_d3, sizeof g6_d3, "lcs_scan_selftest"); if (!dir) return 1;   /* G6 F04-009#8, FV-G23-K#2 */
     char cmd[8192], path[1200];
     LCS_CMD("rm -rf %s && mkdir -p %s/a1 %s/a2 %s/b %s/c", dir, dir, dir, dir, dir);
     if (system(cmd)) {}
@@ -2942,7 +2942,7 @@ static int lcs_selftest(const char *argv0) {
         int r2 = system(cmd);
         printf("  [c corrupt] sequential rc!=0: %s  scan rc!=0: %s\n",
                r1 ? "YES" : "*** NO ***", r2 ? "YES" : "*** NO ***");
-        if (!r1 || !r2) ok = 0;
+        { int g6v_clean_fail(int); if (!g6v_clean_fail(r1) || !g6v_clean_fail(r2)) ok = 0; }   /* G6 FV-G23-K OOS 6148: a crash (shell status 128+signal) is not a negative result */
     }
     /* root-content fixtures d/e: both modes must FAIL, and the unprefixed output
      * must still be byte-identical (both readers expand LC_ROOT_CHECK at one point) */
@@ -2963,18 +2963,18 @@ static int lcs_selftest(const char *argv0) {
         /* fixture e: since the stored-last guard (2026-10-03) a root key (start_exit+1)<<16
          * is first rejected by that guard AT LAYER 0, which names the root as the layer-0
          * domain; LC_ROOT_CHECK is gated on !fail and stays quiet. Either line names it. */
-        int named = rb && (which
-            ? (strstr(rb, "layer 0 key=") != NULL ||
+        int named = rb && (which   /* G6 FV-G23-K#1: fixture e must be rejected by the stored-last guard itself; with the guard disabled it fell to the root-key line and still passed */
+            ? (
                strstr(rb, "  k= 0  *** FAIL: 1 entries whose last is not an element of a pair in their mask (layer 0: the start exit)\n") != NULL)
             : strstr(rb, "layer 0 value != 1") != NULL);
         printf("  [%s root %s] sequential rc!=0: %s  scan rc!=0: %s  names the root: %s  filtered==sequential: %s\n",
                sub, which ? "key" : "value",
                r1 ? "YES" : "*** NO ***", r2 ? "YES" : "*** NO ***",
                named ? "YES" : "*** NO ***", ident ? "YES" : "*** NO ***");
-        if (!r1 || !r2 || !named || !ident) ok = 0;
+        { int g6v_clean_fail(int); if (!g6v_clean_fail(r1) || !g6v_clean_fail(r2) || !named || !ident) ok = 0; }
         free(rb); free(sb); free(sf);
     }
-    printf("SCAN-SELFTEST: %s\n", ok ? "PASS" : "*** FAIL ***");
+    if (ok) { g6v_rmtree(dir); } printf("SCAN-SELFTEST: %s\n", ok ? "PASS" : "*** FAIL ***");
     return ok ? 0 : 1;
 }
 #undef LCS_CMD   /* scoped to lcs_selftest: it hardcodes the name `cmd` and returns 1 */
@@ -3973,7 +3973,7 @@ static int lc_gt_selftest(void) {
            gen_ok ? "ok" : "*** FAIL ***");
 
     /* ---- write the three ladders (v1) ---- */
-    const char *fd = "/tmp/gt_selftest_f", *gd = "/tmp/gt_selftest_g", *td = "/tmp/gt_selftest_t";
+    const char *g6v_mkdtemp(char *, size_t, const char *); void g6v_rmtree(const char *); char g6_f[96], g6_g[96], g6_t[96]; const char *fd = g6v_mkdtemp(g6_f, sizeof g6_f, "gt_selftest_f"), *gd = g6v_mkdtemp(g6_g, sizeof g6_g, "gt_selftest_g"), *td = g6v_mkdtemp(g6_t, sizeof g6_t, "gt_selftest_t"); if (!fd || !gd || !td) return 1;   /* G6 F04-009#8 */
     char cmd[512];
     snprintf(cmd, sizeof cmd, "rm -rf %s %s %s && mkdir -p %s %s %s", fd, gd, td, fd, gd, td);
     if (system(cmd)) {}
@@ -4148,7 +4148,7 @@ static int lc_gt_selftest(void) {
              r10!=0?"Y":"N", r11!=0?"Y":"N",
              r12!=0?"Y":"N", r13!=0?"Y":"N", r14==0?"Y":"N",
              ok ? "PASS" : "*** FAIL ***");
-      printf("GTSELFTEST_RESULT=%s\n", ok ? "PASS" : "FAIL");
+      if (ok) { g6v_rmtree(fd); g6v_rmtree(gd); g6v_rmtree(td); } printf("GTSELFTEST_RESULT=%s\n", ok ? "PASS" : "FAIL");
       printf("======================================================================\n");
       return ok ? 0 : 1;
     }
@@ -4160,8 +4160,8 @@ static int lc_gt_selftest(void) {
  *   --ie-probe NSAMP [opts]    (full-31 throughput probe for cost sizing)
  *
  * PURPOSE. TR-11 §10(vi): the landed |C1∩C2∩C4∩C5| =
- * 1,097,051,278,789,181,790,036,112,071,176,579,186,688 rests on a single
- * instrument (the out-of-core symmetry-quotient layered DP in solve.c).
+ * 1,097,051,278,789,181,790,036,112,071,176,579,186,688 rested (until this mode ran it, 2026-07-25) on a single
+ * instrument (the out-of-core symmetry-quotient layered DP in solve.c); it is two-instrument now (TR-11 §10(vi)).
  * This mode is the independent second engine: a different algorithm class
  * that recomputes the same integer at full scale sharing no CODE and no
  * STATE with the primary — no layer files, no out-of-core streaming, no
@@ -4423,20 +4423,20 @@ static int ie_parse_spec(const char *spec, int *pl, int *np, int *start) {
     strncpy(buf, spec, 255); buf[255] = 0;
     char *at = strchr(buf, '@');
     *start = 0;
-    if (at) { *start = atoi(at + 1); *at = 0; }
+    if (at) { if (strcmp(at + 1, "0") != 0 && strcmp(at + 1, "63") != 0) return 0; *start = atoi(at + 1); *at = 0; }   /* G6: @garbage read as @0 */
     if (*start != 0 && *start != 63) return 0;
-    int n = 0;
+    int n = 0, g6_used[8] = {0};
     if (!strcmp(buf, "full31")) { for (int i = 1; i < 32; i++) pl[n++] = i; *np = n; return 1; }
     for (char *tok = strtok(buf, ","); tok; tok = strtok(NULL, ",")) {
         int L, I;
-        if (sscanf(tok, "%d.%d", &L, &I) != 2) return 0;
+        { int g6_c = 0; if (sscanf(tok, "%d.%d%n", &L, &I, &g6_c) != 2 || tok[g6_c] != '\0') return 0; }
         int idx = -1, cnt = 0;
         for (int r = 0; r < ie_orb_n; r++) {
             if (ie_orb_sz[r] != L) continue;
             if (cnt == I) { idx = r; break; }
             cnt++;
         }
-        if (idx < 0) return 0;
+        if (idx < 0 || g6_used[idx]++) return 0;   /* G6 F04-009#3: an orbit named twice repeated its pairs, and Route D / --ie-brute counted walks with repeated hexagrams */
         for (int t = 0; t < L; t++) { if (n >= 31) return 0; pl[n++] = ie_orb_row[idx][t]; }
     }
     *np = n;
@@ -4477,7 +4477,7 @@ typedef struct {
     uint32_t pinmask;          /* OR of 1<<position over pinned positions */
     int freepos[32], nfree;    /* unpinned pl-positions; outer sum = 2^nfree subsets
                                 * (t-space); mask = pinmask | expand(t)  */
-    char pinstr[160];          /* "24:24,25:25,..." — checkpoint-header pinning */
+    char pinstr[512];   /* G6 F04-009#1: was 160; 31 pins serialize to up to 186 chars and two assignments shared a truncated 159-char header */          /* "24:24,25:25,..." — checkpoint-header pinning */
     int pl[32];
     int b0v[5];
     uint32_t rad[5], R;
@@ -4849,7 +4849,7 @@ static void *ie_worker(void *arg) {
                         (unsigned long long)wsum, (unsigned long long)subs,
                         (unsigned long long)tcnt,
                         (unsigned long long)ie_ck_hash(ci, acc, wsum, subs, tcnt));
-                fflush(R->ckpt);
+                if (fflush(R->ckpt) != 0 || fsync(fileno(R->ckpt)) != 0 || ferror(R->ckpt)) R->fatal = 2;   /* G6 F04-009#7: flushed, never fsynced, and the result was ignored while the chunk was marked done */
             }
             R->done[ci] = 1;
         }
@@ -4874,7 +4874,7 @@ static int ie_run_pass(IeCtx *C, uint64_t mod, const char *modname, int threads,
     R.done = calloc(R.nchunks ? R.nchunks : 1, 1);
     if (!R.done) return 1;
     pthread_mutex_init(&R.mu, NULL);
-    char hdr[512];
+    char hdr[1024];   /* G6 F04-009#1: room for n=31 pl plus 31 pins; a full buffer is refused below */
     snprintf(hdr, sizeof hdr,
              "IEv1 n=%d start=%d b0=%d,%d,%d,%d,%d mod=%s quot=%d chunkbits=%d lo=%llu hi=%llu pl=",
              C->n, C->start, C->b0v[0], C->b0v[1], C->b0v[2], C->b0v[3], C->b0v[4],
@@ -4892,10 +4892,10 @@ static int ie_run_pass(IeCtx *C, uint64_t mod, const char *modname, int threads,
         strncat(hdr, " pins=", sizeof hdr - strlen(hdr) - 1);
         strncat(hdr, C->pinstr, sizeof hdr - strlen(hdr) - 1);
     }
-    if (ckpt_path) {
+    if (strlen(hdr) >= sizeof hdr - 1) { printf("*** FAIL: IE checkpoint header would be truncated; refusing a header that cannot pin the instance\n"); free(R.done); return 1; } if (ckpt_path) {
         FILE *f = fopen(ckpt_path, "r");
         if (f) {
-            char line[600];
+            char line[1100];
             if (!fgets(line, sizeof line, f)) { printf("*** FAIL: empty checkpoint %s\n", ckpt_path); fclose(f); free(R.done); return 1; }
             line[strcspn(line, "\n")] = 0;
             if (strcmp(line, hdr)) {
@@ -4928,7 +4928,7 @@ static int ie_run_pass(IeCtx *C, uint64_t mod, const char *modname, int threads,
             R.ckpt = fopen(ckpt_path, "a");
         } else {
             R.ckpt = fopen(ckpt_path, "w");
-            if (R.ckpt) { fprintf(R.ckpt, "%s\n", hdr); fflush(R.ckpt); }
+            if (R.ckpt) { fprintf(R.ckpt, "%s\n", hdr); if (fflush(R.ckpt) != 0 || fsync(fileno(R.ckpt)) != 0) { printf("*** FAIL: cannot write the checkpoint header to %s\n", ckpt_path); fclose(R.ckpt); free(R.done); return 1; } }
         }
         if (!R.ckpt) { printf("*** FAIL: cannot open checkpoint %s\n", ckpt_path); free(R.done); return 1; }
     }
@@ -4940,9 +4940,9 @@ static int ie_run_pass(IeCtx *C, uint64_t mod, const char *modname, int threads,
     for (int i = 0; i < threads; i++) pthread_join(th[i], NULL);
     clock_gettime(CLOCK_MONOTONIC, &w1);
     double wall = (w1.tv_sec - w0.tv_sec) + (w1.tv_nsec - w0.tv_nsec) * 1e-9;
-    if (R.ckpt) fclose(R.ckpt);
+    if (R.ckpt && fclose(R.ckpt) != 0) R.fatal = 2;
     free(R.done);
-    if (R.fatal) { printf("*** FAIL: orbit-stabilizer defect during pass (group bug?)\n"); return 1; }
+    if (R.fatal == 2) { printf("*** FAIL: an IE checkpoint row could not be written, flushed, fsynced or closed; the completed work is not durable\nIE_CHECKPOINT=WRITE-FAILED\n"); return 1; } if (R.fatal) { printf("*** FAIL: orbit-stabilizer defect during pass (group bug?)\n"); return 1; }
     /* full-space integrity: quotiented orbit weights must tile 2^n exactly;
      * pinned mode enumerates the 2^nfree t-space instead (quotient off). */
     {
@@ -5190,12 +5190,12 @@ static int ie_count_main(int argc, char **argv) {
                C.npin ? ", pins honored" : "");
         if (expect) {
             u192 E = u192_dec(expect), B = {{bc, 0, 0}};
-            int eq = u192_eq(E, B);
+            int eq = u192_eq(E, B); if (negctl) { printf("          negctl vs %s : %s\nIE_COMPARED=1\n", expect, eq ? "*** EQUAL (the control did not perturb the count) ***" : "DIFFERS (control OK)"); return eq ? 1 : 0; }   /* G6 F04-009#4: under --ie-negctl the brute count must DIFFER from the target */
             printf("          vs expected %s : %s\n", expect,
                    eq ? "MATCH" : "*** MISMATCH ***");
             return eq ? 0 : 1;
         }
-        return 0;
+        if (negctl) { printf("*** FAIL: --ie-negctl --ie-brute ran but NOTHING was compared (no --ie-expect); a control that cannot be compared has not run\nIE_NEGCTL=NO_TARGET\nIE_COMPARED=0\n"); return 1; } return 0;   /* G6 F04-009#4: this early return bypassed the NO_TARGET guard */
     }
 
     if (!ie_build_quot(&C)) return 1;   /* geff needed for reporting even unquotiented */
@@ -5682,7 +5682,7 @@ typedef struct {
     int pin_at[32];            /* [step t-1] = pl-position forced, or -1 */
     int pin_ord[32];           /* [step t-1] = pin order index, or -1 */
     int pqa[DP_MAXPIN], pqb[DP_MAXPIN]; /* pin order i -> its two hexagrams */
-    char pinstr[160];
+    char pinstr[512];   /* G6 F04-009#1 sibling: 512, not 160, so a build with a larger -DDP_MAXPIN cannot truncate the pin string */
     int nfree;
     int fpa[32], fpb[32];      /* free index -> hexagrams (PA/PB of the pair) */
     int fpl[32];               /* free index -> KW pair index (reporting) */
@@ -6251,7 +6251,7 @@ static int dp_count_main(int argc, char **argv) {
             ck = fopen(ckpt, "a");
         } else {
             ck = fopen(ckpt, "w");
-            if (ck) { fprintf(ck, "%s\n", hdr); fflush(ck); }
+            if (ck) { fprintf(ck, "%s\n", hdr); if (fflush(ck) != 0 || fsync(fileno(ck)) != 0) { printf("*** FAIL: cannot write the checkpoint header to %s\n", ckpt); fclose(ck); return 1; } }
         }
         if (!ck) { printf("*** FAIL: cannot open checkpoint %s\n", ckpt); return 1; }
     }
@@ -6273,13 +6273,13 @@ static int dp_count_main(int argc, char **argv) {
             fflush(stdout);
             if (ck) { fprintf(ck, "U %d %d %llu %llu\n", pi, nj, (unsigned long long)val,
                               (unsigned long long)dp_ck_hash(pi, nj, val));
-                      fflush(ck); fsync(fileno(ck)); }
+                      if (fflush(ck) != 0 || fsync(fileno(ck)) != 0 || ferror(ck)) { printf("*** FAIL: a Route D checkpoint row could not be written or fsynced\nDP_CHECKPOINT=WRITE-FAILED\n"); fclose(ck); return 1; } }   /* G6 F04-009#7 */
         }
     }
-    if (ck) fclose(ck);
+    if (ck && fclose(ck) != 0) { printf("*** FAIL: closing the Route D checkpoint failed\nDP_CHECKPOINT=WRITE-FAILED\n"); return 1; }
     if (!(runp[0] && runp[1] && runp[2])) {
         printf("RESULT: partial (single-modulus) run complete — no CRT\n");
-        return 0;
+        if (negctl) { printf("*** FAIL: --dp-negctl ran but NOTHING was compared (a single-modulus run has no CRT value to compare)\nDP_NEGCTL=NO_TARGET\nDP_COMPARED=0\n"); return 1; } return 0;   /* G6 F04-009#4 */
     }
 
     /* ---- fit + overdetermination check + CRT ---- */
@@ -6642,11 +6642,11 @@ typedef struct {
     pthread_t tid;
 } KnWorker;
 
-static void *kn_worker(void *arg) {
+static atomic_int g6v_kn_fail; static void *kn_worker(void *arg) {
     KnWorker *w = (KnWorker *)arg;
     KnState *S = malloc(sizeof *S);            /* keep large state off-stack */
     struct { uint8_t p, o; } *ch = malloc(62 * sizeof *ch);
-    if (!S || !w->init || !ch) { free(S); free(ch); return NULL; }
+    if (!S || !w->init || !ch) { free(S); free(ch); atomic_store(&g6v_kn_fail, 1); atomic_store_explicit(&w->done, w->nprobes, memory_order_relaxed); return NULL; }   /* G6 F04-009#12: the poller waited forever for probes this worker never ran */
     uint64_t rng = w->seed;
     uint64_t since = 0;
     for (uint64_t n = 0; n < w->nprobes; n++) {
@@ -6882,7 +6882,7 @@ static int kn_probe_main(int argc, char **argv) {
             fflush(stdout);
         }
     }
-    for (int t = 0; t < nthreads; t++) pthread_join(w[t].tid, NULL);
+    for (int t = 0; t < nthreads; t++) { pthread_join(w[t].tid, NULL); } if (atomic_load(&g6v_kn_fail)) { printf("*** FAIL: a Knuth worker could not allocate its state, so its probes did not run; no estimate is issued\nKNUTH_PROBE=FAILED\n"); return 1; }
     clock_gettime(CLOCK_MONOTONIC, &t1);
     double wall = (double)(t1.tv_sec - t0.tv_sec) + 1e-9 * (double)(t1.tv_nsec - t0.tv_nsec);
 
@@ -7722,7 +7722,7 @@ static int cj_join_main(int argc, char **argv) {
         inv[pl[i]] = (int)i;
     }
     uint32_t pinbits = 0; int dup = 0;
-    char pinstr[160]; pinstr[0] = 0;
+    char pinstr[512]; pinstr[0] = 0;   /* G6 F04-009#1 sibling */
     for (int i = 0; i < np; i++) {
         int p = ppair[i];
         if (p < 1 || p > 31 || inv[p] < 0) {
@@ -8063,8 +8063,8 @@ int main(int argc, char **argv) {
                b0_dfs_res[0], b0_dfs_res[1], b0_dfs_res[2], b0_dfs_res[3], b0_dfs_res[4],
                same_b0 ? "(agrees)"
                        : "*** DIFFERS — DOCUMENTED DEFECT ***\n"
-                         "    TR-11 §5 states that at full 31 the first-completion DFS and KW's boundary\n"
-                         "    multiset COINCIDE. They do not. Two independent implementations of the §5\n"
+                         "    An earlier revision of TR-11 §5 (corrected 2026-07-21) stated that at full 31 the first-completion DFS and KW's boundary\n"   /* G6 F04-009#14: the current §5 already rejects the claim */
+                         "    multiset COINCIDE; current §5 defines the full-31 B0 as KW's multiset. They do not coincide. Two independent implementations of the §5\n"
                          "    recipe (this one in C, and verify.py's in Python) both yield the witness\n"
                          "    above, while solve.c's manifest and KW's own multiset are (2,8,13,7,1).\n"
                          "    The §5 recipe reproduces B0 correctly on the REDUCED rungs (verify.py checks\n"
@@ -8173,4 +8173,49 @@ int g5b_last_in_mask(uint32_t last, uint32_t m, int k, uint32_t se, const uint32
     for (uint32_t b = 0; b < n; b++)
         if (((m >> b) & 1) && (last == (uint32_t)PA[pl[b]] || last == (uint32_t)PB[pl[b]])) return 1;
     return 0;
+}
+
+/* ===================== G6 — verifier hardening (push group G6, fast-track FT3c) =====================
+ * Codex's final review (gpt-6-astra), round 3a F04-009 and fix-verify FV-G23-K, as Fable triaged them. Helpers
+ * live here so the edits above stay line-neutral (documentation/ cites verify.c by line). */
+
+/* g6v_squote: SRC as ONE single-quoted shell word in DST (each ' written '\''); 0, or -1 if CAP is too small. */
+int g6v_squote(char *dst, size_t cap, const char *src) {
+    size_t o = 0;
+    if (cap < 3) return -1;
+    dst[o++] = '\'';
+    for (const char *p = src; *p; p++) {
+        if (*p == '\'') { if (o + 4 >= cap) return -1; memcpy(dst + o, "'\\''", 4); o += 4; }
+        else { if (o + 1 >= cap) return -1; dst[o++] = *p; }
+    }
+    if (o + 2 > cap) return -1;
+    dst[o++] = '\''; dst[o] = 0;
+    return 0;
+}
+
+/* g6v_mkdtemp: a private /tmp/<STEM>_XXXXXX directory in BUF (F04-009#8, FV-G23-K#2: the selftests used fixed /tmp
+ * names, so two concurrent runs deleted and replaced each other's fixtures). NULL with a message on failure. The name
+ * is [A-Za-z0-9_/] only, so the selftests may still splice it unquoted into their rm/mkdir commands. */
+const char *g6v_mkdtemp(char *buf, size_t cap, const char *stem) {
+    if (snprintf(buf, cap, "/tmp/%s_XXXXXX", stem) >= (int)cap || !mkdtemp(buf)) {
+        fprintf(stderr, "verify.c: cannot create a private selftest directory for %s: %s\n", stem, strerror(errno));
+        return NULL;
+    }
+    return buf;
+}
+
+/* g6v_rmtree: remove a selftest directory made by g6v_mkdtemp (only a /tmp/... path of the mkdtemp alphabet). */
+void g6v_rmtree(const char *dir) {
+    if (!dir || strncmp(dir, "/tmp/", 5) != 0 || strstr(dir, "..")) return;
+    for (const char *p = dir; *p; p++)
+        if (!((*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z') || (*p >= '0' && *p <= '9') || *p == '_' || *p == '/')) return;
+    char cmd[256];
+    if (snprintf(cmd, sizeof cmd, "rm -rf %s", dir) >= (int)sizeof cmd) return;
+    if (system(cmd)) {}
+}
+
+/* g6v_clean_fail: the system() status of a negative leg that REJECTED its input: the shell exited normally with
+ * status 1..125. A child killed by a signal shows as 128+signal (a 139 crash used to count as a rejection). */
+int g6v_clean_fail(int st) {
+    return st != -1 && WIFEXITED(st) && WEXITSTATUS(st) >= 1 && WEXITSTATUS(st) <= 125;
 }

@@ -28,9 +28,9 @@ codifies five rules — call them C1 through C5 — and the credit for each
 is different:
 
 - **C1 — Pairs.** The 64 hexagrams are arranged as 32 consecutive
-  pairs. Within each pair, the two members are either complements of
-  each other (every line flipped) or upside-down versions of each
-  other. *This is a classical observation* — it appears in the *Yi
+  pairs. Within each pair, the second member is the first turned upside
+  down or, only when turning it over changes nothing, its complement (every line flipped). *(Note 2026-10-22, Codex F12-018#1, CX-35X-L: this read "either complements of each other or upside-down versions of each other", which admits pairings the code refuses.)*
+  *This is a classical observation* — it appears in the *Yi
   Zhuan* commentary tradition (traditionally dated ~5th-3rd c. BCE,
   though modern dating is later); the earliest rigorous modern-form
   presentation known to this project is
@@ -340,7 +340,7 @@ sha, record count or file size depends on either figure. See
 The counter (`ts->nodes`, and the budget-bearing `ts->branch_nodes`) is
 incremented in exactly one place per engine — on **frame entry**
 (`solve.c` `backtrack_iterative`, the `ENTER` phase; and the recursive
-`backtrack`, at function entry). Both engines count identically. What
+`backtrack`, at function entry). Both engines count identically ⚠ **[NOTE 2026-10-22 — up to the budget. When the budget runs out, the iterative engine stops the whole walk; the recursive engine without DFS checkpointing returns from the current frame only, and its ancestors go on entering sibling frames, each counted and returning at once. No further leaf is reached, so the record set is the same, but the recursive engine's reported node total runs past the budget. Canonical-scale runs (`SOLVE_NODE_LIMIT` ≥ 10¹²) select the iterative engine and checkpointing automatically. Codex (gpt-6-astra) F12-018#2; CX-35X-L.]**. What
 that means concretely:
 
 - **A candidate rejected by a rule is NOT a node.** While scanning for
@@ -371,7 +371,7 @@ count even given the published budget.)*
 A "node budget" or "node limit" is a stopping rule. When a sub-branch
 has consumed N nodes of work without finishing, we stop walking it and
 move to the next. Budgets are how we guarantee runs finish in
-predictable time.
+predictable time. *(Note 2026-10-22: the budget bounds the records found and the iterative engine's node total; see the note on how nodes are counted above for the recursive engine's overshoot. CX-35X-L.)*
 
 ---
 
@@ -383,7 +383,7 @@ There are two main ways to drive the solver:
 and walks the WHOLE tree, depth-first, expanding all 56 first-level
 branches in turn. One process does it all. Output: a directory full of
 shard files — one per depth-3 cell **that found at least one solution**;
-a zero-yield cell leaves a `.dfs_state` checkpoint and no `.bin`, because
+a zero-yield cell leaves a `.dfs_state` checkpoint (when DFS checkpointing is on: `SOLVE_DFS_CHECKPOINT=1`, or automatically at `SOLVE_NODE_LIMIT` ≥ 10¹², as on every canonical run; a cell that finishes its tree deletes its checkpoint — note 2026-10-22, Codex F12-018#3, CX-35X-L) and no `.bin`, because
 `flush_sub_solutions_d3` in [solve.c](../solve.c) returns before opening
 the file when `solution_count == 0`. (At 560T that is **65,281**
 non-empty shards against **158,364** `.dfs_state` checkpoints — see
@@ -458,8 +458,8 @@ work. Stated plainly:
 "At a fixed partition depth" is load-bearing, and so is the budget
 qualifier. Changing the depth changes the number of cells — 3,030 at
 depth 2 against 158,364 at depth 3 — so an equal *per-cell* budget buys
-52.27x the aggregate work at depth 3 and a strictly larger truncated
-record set. The theorem as stated in
+52.27x the aggregate work at depth 3 and in practice a larger truncated
+record set (not a theorem: at a per-cell budget of one node both record sets are empty; note 2026-10-22, Codex F12-018#6, CX-35X-L). The theorem as stated in
 [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) §"Scope restriction:
 exhaustive vs budgeted" requires **exhaustive** enumeration of each cell;
 under a node budget it holds only when the per-sub-branch budget is held
@@ -523,7 +523,7 @@ What this tells us about King Wen:
   (its driver dimensions were KW-referencing); the de-circularized re-run
   on the KW-independent dimensions places KW at ≈ the 30th percentile of
   joint density across the 3.43-billion-record d3 100T enumeration —
-  distributionally unremarkable.
+  distributionally unremarkable. *(Note 2026-10-22: this re-run has no public reproduction command — the shipped CLI cannot select its two dimensions or its seeds, a gap [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md) records under "Reproducing this figure". Codex F12-018#8; CX-35X-L.)*
 
 ---
 
@@ -537,7 +537,7 @@ sub-sub-branch), we record:
 - **Depth profile** — at what positions did most of the work happen?
   **Not recorded per canonical cell.** The per-depth node histogram
   (`nodes_at_depth[33]` in [solve.c](../solve.c)) is gated on
-  `SOLVE_DEPTH_PROFILE=1`, which is off by default precisely so that
+  `SOLVE_DEPTH_PROFILE=1` *(note 2026-10-22, Codex F12-018#7, CX-35X-L: only its printing is. Both engines count the histogram at every frame entry on every run; the flag gates a stderr summary that exists only on the parallel `--sub-branch` path, and that path's `per_task_stats.csv` carries per-task depth columns with or without the flag. Canonical runs never write the histogram out)*, which is off by default precisely so that
   existing runs stay byte-identical — so canonical enumeration runs leave
   it off by construction — and when it is on it is aggregated per
   *invocation*, not per cell. The parallel `--sub-branch` path separately
@@ -556,7 +556,7 @@ This per-branch data lets us ask:
 - Are there branches that produce orderings FAR from King Wen?
 - Does work concentrate at certain positions (e.g., position 14 vs
   position 50)? — answerable only for runs launched with
-  `SOLVE_DEPTH_PROFILE=1`, which the canonical runs were not.
+  `SOLVE_DEPTH_PROFILE=1` on the parallel `--sub-branch` path (or from its `per_task_stats.csv`), which the canonical runs were not.
 
 ---
 
@@ -765,7 +765,7 @@ explains (a C1-only null cannot speak to C2–C5; for position within the C1–C
 | **Sub-branch (depth-2)** | A specific choice for pair 2 inside a first-level branch. About 54 per first-level. |
 | **Sub-sub-branch (depth-3)** | A specific choice for pair 3 inside a sub-branch. About 50 per sub-branch. There are 158,364 depth-3 sub-sub-branches total in the King Wen problem. |
 | **Node** | One step of the solver: one frame entry in the search tree, including the frame the walk starts from. See §"Exactly what counts as a node (the replicator's definition)" for the replicator-grade statement. |
-| **Node budget** | A maximum number of nodes the solver can spend in one sub-branch before stopping. |
+| **Node budget** | A maximum number of nodes the solver can spend in one sub-branch before stopping (exact on the iterative engine; the recursive engine without checkpointing stops finding records at the budget but its node count runs past it — note 2026-10-22, CX-35X-L). |
 | **Yield** | The number of valid orderings produced by a given branch (or the whole problem). |
 | **Partition invariance** | The theorem that, **at a fixed partition depth**, the invocation modes (whole-tree vs by-branch) give byte-identical merged outputs. Stated for **exhaustive** enumeration; under a node budget it holds only when every cell gets the same per-sub-branch budget (`SOLVE_PER_SUB_BRANCH_LIMIT`). Changing the partition depth changes the cell count and so the aggregate work, and does **not** preserve the output. See [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) §"Scope restriction: exhaustive vs budgeted". |
 | **`solutions.bin`** | The binary file containing all valid orderings produced by an enumeration run. Each record is exactly 32 bytes, one byte per **pair** (not per hexagram): `byte[i] = (pair_index << 2) \| (orient << 1)`, with `pair_index` in bits 7-2 and the orientation bit in bit 1. The 64 hexagrams are recovered by expanding each byte through the fixed pair table. See [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) §Record format. |
@@ -848,7 +848,7 @@ describe as undecided.
   orbit-host functions (`orb_recanon_dfs`, `orb_repr_global`, `orb_normalize_rec_op`, the
   `OrbitProblem` type) that occur zero times in `main`'s `solve.c`. From its merge base with
   `main` (`3fc0e6b1`) the newest tag changes `solve.c` by 2,740 insertions and 66 deletions, and
-  the 66 deletions are inside the `--selftest` block. The candidate port onto `main` (on
+  63 of the 66 deletions are inside the `--selftest` block; the other three replace production lines — the checkpoint-format version, the recursive DFS call and the external merger's record write (note 2026-10-22, Codex F06-010#3, CX-35X-L). The candidate port onto `main` (on
   `archive/orbit-port-188-candidate-20260824`) is marked in its own commit `e7c63d83` as not for
   merging: it bumps the checkpoint format and turns the prune stack on by default, so landing it
   would move the `403f7202` anchor.

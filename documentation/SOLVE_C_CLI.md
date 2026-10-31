@@ -431,8 +431,8 @@ mind:
 > `RESULT: N gate(s) SKIPPED — this preflight attests NOTHING at this budget` with exit 2, and
 > the all-PASS line is not printed at all.
 >
-> **Still read the per-gate lines.** A gate can also decline for reasons the dispatcher cannot
-> see — its `SOLVE_SKIP_*` override, or the check being unavailable (`statvfs` fails; the probe
+> **Still read the per-gate lines.** A gate's `SOLVE_SKIP_*` override is now counted as SKIPPED too, with exit 2 (2026-10-23, Codex F12-001#2). A gate can also decline for reasons the dispatcher cannot
+> see — the check being unavailable (`statvfs` fails; the probe
 > cannot create files or threads; `/proc/self/exe` is unreadable). Those still report as
 > `PASS (rc=0)`; each prints its own loud `SKIPPED` line to stderr. Gates:
 > `tests.py::TestSolveCliHardeningTokens`, both legs red-tested against the pre-fix binary.
@@ -869,12 +869,12 @@ analysis, no impact on the enumeration code path). See [MCKENNA.md](MCKENNA.md) 
 > and `--verify-wrap-parity`.** The three audit readers are tabulators,
 > not validators; they trust the artifact more than `--verify` does.
 >
-> - **Framing is not checked.** The record count comes from the header
+> - **Framing: ✅ checked since 2026-10-23 (G6, Codex F04-001#19).** After the declared records each reader now requires the end of the stream (`verify_stream_ends_here`, as `--verify` does), prints `VERIFY=ERROR` and exits 20 on the fixture below; `--analyze` refuses it too. Before that fix: the record count came from the header
 >   (`hdr_records`, solve.c:40507-40512) and the read loop is bounded by it (`n_records`, solve.c:40529),
 >   with no comparison against the file's logical size. The Q-277
 >   invariant — logical size == 32-byte header + 32 bytes per declared record —
 >   landed in `--verify` only (`SOL_HEADER_SIZE`, solve.c:43956-43957); the three audit
->   readers were not swept. Measured on this tree: a 96-byte artifact
+>   readers were not swept. Measured on the earlier tree: a 96-byte artifact
 >   whose header declares 1 record but carries 2 reports `records=1`,
 >   scans only the first, and prints `RULE2=TABULATED` — likewise
 >   `NINTH_SIX=PASS` and `WRAP_PARITY=PASS` — with the surplus record
@@ -1533,8 +1533,8 @@ Self-test of the `--f1-out-of-core` **v2** per-block zlib layer codec (#223
 retool; the codec is RFC-1950 zlib, not gzip — the flag name is historical):
 round-trips the per-block zlib compress/decompress path across compression
 levels and asserts byte-identical recovery of the key/value block payload. Exit
-0 on PASS, non-zero on any round-trip mismatch or allocation failure. Verifies
-the on-disk layer-file format layer in isolation; sha-neutral (argv-dispatched,
+0 on PASS, non-zero on any round-trip mismatch or allocation failure. It exercises
+the block codec only — no layer header or index is written or read (2026-10-23, Codex F04-005#9; the key blocks are round-tripped since then too); sha-neutral (argv-dispatched,
 never on the enumeration path). *(2026-09-26, Q-849: it takes no arguments; any argument is refused with exit 2 and a `F1C5_GZIP_SELFTEST_ARGS=REFUSED` line, before the round-trip runs. Before that it was accepted and silently ignored.)*
 
 ### --f1c5-verify-layer
@@ -3284,7 +3284,7 @@ All hardening gates fire by default on canonical-enum dispatch (no `--xxx` subco
 | `SOLVE_F1_CKPT_SEC` | 300 | `--f1-out-of-core` (#223): intra-layer checkpoint cadence in seconds. The DP snapshots a CRC32-guarded chunk-boundary marker (`f1c5_build.ckpt`) every interval; `--resume-from-layers` then resumes **mid-layer** from it after an interruption/eviction (not just at a layer boundary). Sha-neutral. |
 | `SOLVE_F1_MAX_LAYER` | `n` (all layers) | `--f1-exact-c1c2c4c5` / `--f1-out-of-core` "PROBE MODE": stop the layered DP after layer `k=N` (clamped to `[1, n]`) instead of running to completion. Used for validation and partial builds (e.g. checking early-layer counts or exercising resume without a full multi-day run). Emits a `[f1] PROBE MODE` stderr line. A capped build is a partial count, not the published exact integer. Sha-neutral. |
 | `SOLVE_F1_KEEP_LAYERS` | 0 | `--f1-exact-c1c2c4c5` / `--f1-out-of-core`: when `=1`, retain **every** layer file `0..n` instead of rolling the two-layer window (the default drops layer `k-2` as the window advances). The preserve-all-layers substrate for the knowledge-compiler query tool and a full on-disk ladder for archival. Peak disk becomes the **full** ladder (full-31: **3.29 TB MEASURED** — 3,293,894,951,830 B by `du -sb FDIR` on 2026-08-02, [TR-12](../reports/TR12_QUERY_PROGRAM.md) §R.0's measured table; a 4 TB volume holds it with little headroom), not the ~1×-largest-layer transient. ⚠ **[CORRECTED 2026-09-24 (Q-725) — this cell gave a 2.5 to 2.7 TB *projection* from the 2026-07-23 partial measurement (1.624 TB at `k = 0..16`, 17 of 32 layers, plus a mask-palindrome projection) and said to plan a 4 TB disk. The completed ladder measured 3.29 TB, above the whole projected range.]** This row sizes the **f** ladder only: the g ladder (`--kc-g-build`) is a separate **8.27 TB** and the t ladder **3.48 TB**, both measured (same TR-12 table); f+g+t together need ~15 TB. The flag only suppresses the `k-2` unlink; the count and the layer bytes are unchanged → **Sha-neutral**. Emits a `[f1c5] KEEP-LAYERS` stderr banner. |
-| `SOLVE_F1_STREAM_COLD_CMD` | (unset) | `--f1-exact-c1c2c4c5` / `--f1-out-of-core`: operational archival hook. When set, the command is run on each about-to-be-deleted finalized layer file **before** the rolling-window `unlink`, invoked as `<cmd> <layer_path> <k>` — so a layer can be streamed to other storage as the DP advances without keeping the whole ladder on local disk (contrast `SOLVE_F1_KEEP_LAYERS`, which keeps all layers). The hook's exit status is logged (`[f1c5] STREAM-COLD` / `STREAM-COLD WARNING`) but **non-fatal**: the DP continues and the local delete proceeds regardless. Fires only when the window would delete a layer (not under `KEEP_LAYERS`); the final two layers are never window-deleted, so grab those directly at the end. Purely off the arithmetic path → **Sha-neutral**. |
+| `SOLVE_F1_STREAM_COLD_CMD` | (unset) | `--f1-exact-c1c2c4c5` / `--f1-out-of-core`: operational archival hook. When set, the command is run on each about-to-be-deleted finalized layer file **before** the rolling-window `unlink`, invoked as `<cmd> <layer_path> <k>` — so a layer can be streamed to other storage as the DP advances without keeping the whole ladder on local disk (contrast `SOLVE_F1_KEEP_LAYERS`, which keeps all layers). The hook's exit status is logged (`[f1c5] STREAM-COLD` / `STREAM-COLD WARNING`) but **non-fatal**: the DP continues; since 2026-10-23 (G6, Codex F04-005#6) a failed hook KEEPS the layer on disk instead of deleting the only copy, and the layer path reaches the hook as one quoted shell word. Fires only when the window would delete a layer (not under `KEEP_LAYERS`); the final two layers are never window-deleted, so grab those directly at the end. Purely off the arithmetic path → **Sha-neutral**. |
 | `SOLVE_F1_PROGRESS_JSON` | 1 (on when a run dir exists) | `--f1-exact-c1c2c4c5` / `--f1-out-of-core`: emit `f1c5_progress.json` in the run dir, refreshed ~every 5 s and written **atomically** (temp + `rename`, so a reader never sees a torn write). Pure observability — reports `schema_version`, `phase` (`counting`/`finalizing_write`/`layer_complete`/`resuming`/`done`), `cumulative_count` (running partial count), the in-progress `layer{masks_target, masks_done, entries_done, bin_bytes_target/written, rates, eta}`, a `completed[]` per-layer table, and `resumes{}`. Set `=0` to disable. It only reads state the DP already tracks and writes a side file (best-effort; a failed emit never aborts the run) → **Sha-neutral**. |
 | `SOLVE_SKIP_AUTO_VERIFY` | 0 | Auto-`solve --verify solutions.bin` after `--merge` (exit 30 on C1-C5 fail). |
 | `SOLVE_MERGE_RUN_ANALYZE` | 0 | **Opt-in:** when `=1`, `--merge` forks `solve --analyze` after solutions.bin finalize and captures output to `solutions.analytics.txt`. Off by default because of the wall-time cost (~30 min at 11.2T, ~2-4h at 560T). Recommended ON for archival merges. |
@@ -3324,7 +3324,7 @@ completeness and honesty, not as knobs to set.
 
 | Code | Meaning |
 |---|---|
-| 0 | Success *(2026-09-27, Q-875: a merge whose `solutions.bin`, sha and auto-verify are complete but whose provenance roll-up could not read every `sub_*.bin.provenance.json` exits **2** with `MERGE_PROVENANCE=INCOMPLETE` — in `--merge` and in the in-process end-of-enumeration merge; the fork-merge path reports the child's 2 as 30. See `--merge`.)* |
+| 0 | Success *(2026-09-27, Q-875: a merge whose `solutions.bin`, sha and auto-verify are complete but whose provenance roll-up could not read every `sub_*.bin.provenance.json` exits **2** with `MERGE_PROVENANCE=INCOMPLETE` — in `--merge` and in the in-process end-of-enumeration merge; the fork-merge path reports the child's 2 as 30. See `--merge`. Since 2026-10-23 (G6, CX-35X-C) a merge or run whose `solve_results.json`, `solutions.meta.json` or `solutions.provenance.json` could not be written, flushed, fsynced, closed or renamed also exits **2** with `REPORT_WRITE=FAILED`; `solutions.bin` and its sha are unaffected.)* |
 | 1 | General failure (invalid args, constraint check failed, regression test FAIL) |
 | 10 | I/O error (file not found, opendir failed, malloc failed; since 2026-09-27 also a record `--show` could not read, with `SHOW_RECORDS=IO_ERROR`) |
 | 20 | Format error (file size not a multiple of 32 bytes; corrupted header; truncated record; since 2026-09-27, Q-875, also a `sub_*.bin` the merge scan cannot read or size, `MERGE_SHARD=UNREADABLE`; since 2026-10-03, Q-941, also a checkpoint line whose status is one no writer emits, `MERGE_INPUT=UNRECOGNIZED_STATUS`) |
@@ -4137,7 +4137,7 @@ only by tmp, fsync, rename. On restart, a layer whose JSON has the same `resume_
 `SOURCE_SHA`, or the running binary's sha256 when that is `unknown`) prints
 `MIDJOIN_LAYER=<k>:RESUMED` and is skipped. A JSON with another key is refused,
 `MIDJOIN=FAIL:stale-result-<k>`, and the file is left alone. `--kc-force` recomputes every
-layer. At most one layer is lost to a kill. Every requested layer's header and exact file size is
+layer. At most one layer is lost to a kill. ⚠ *(Scope, 2026-10-23, Codex FV-S5-K2#1/#3: the key binds the input files' NAMES and SIZES, not their content, and a resumed JSON is matched by its key and marker text, not re-parsed; so a same-size change to a ladder with OUTDIR retained is RESUMED. After any change to the inputs, recompute with `--kc-force` or check with `verify.py --check-midjoin`. When the engine identity is `unavailable` (no `SOURCE_SHA`, no sha256 tool) a matching key is not trusted and the layer is recomputed; `--kc-force` may be given once.)* Every requested layer's header and exact file size is
 checked before any layer streams. Each of these stops the run with
 `MIDJOIN_LAYER=<k>:FAIL:<reason>`, no JSON for that layer, and exit 1: an f/g or f/t context
 mismatch (refused before any stream), a mask-list mismatch, a key out of order or outside its
@@ -4145,7 +4145,7 @@ domain, a zero f value, a g-only key at layer 0, an inflate error, a file size t
 format's, a short read, `Σ W ≠ N`, the stream never reaching the walk's state or reaching it with
 another value than the point read, a pin mismatch, a profile table that is malformed or missing a
 step, t geometry different from f's. A 192-bit
-overflow exits 70, as everywhere in the engine. Nothing is warn-and-continue.
+overflow exits 70, as everywhere in the engine. Nothing is warn-and-continue: a v1 layer whose header pad is not 0, a manifest that names a pair twice, a profile step/entry/exit that is not a plain decimal in range, and a `midjoin_progress.json` that cannot be written also stop the run (2026-10-23).
 
 **Tokens**, whole lines on stdout: `MIDJOIN_LAYER=<k>:OK|RESUMED|FAIL:<reason>` per layer, then
 `MIDJOIN_CUT_IDENTITY=OK|FAIL`, `MIDJOIN_KW_F_PIN=OK|MISMATCH|SKIP` and last

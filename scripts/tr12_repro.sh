@@ -389,7 +389,7 @@ norm(){
     [ -n "$SOLVE" ] && s+=( -e "s#$(_rq "$SOLVE")#<SOLVE>#g" )
     [ -n "$WORK" ] && s+=( -e "s#$(_rq "$WORK")#<WORK>#g" )
     [ -n "$REPO_ROOT" ] && s+=( -e "s#$(_rq "$REPO_ROOT")#<REPO>#g" )
-    sed "${s[@]}" \
+    sed "${s[@]}" -e 's#\(/kc_oocverify_v[12]_n[0-9]*\)_p[0-9]*#\1#g' \
         -e 's#[^[:space:]]*/solve_selftest_[A-Za-z0-9._]*#<SELFTEST_TMP>#g' \
         -e 's#/tmp/[A-Za-z0-9][A-Za-z0-9_.-]*_[A-Za-z0-9]\{6\}#<SELFTEST_TMP>#g' \
         -e 's#"engine_git": "[^"]*"#"engine_git": "<GIT>"#g' \

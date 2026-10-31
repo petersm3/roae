@@ -24,14 +24,14 @@ now invalidated. These files remain as historical reference and
 methodological audit trail — they should be read with the awareness
 that the counts they describe are superseded.
 
-- **`solve_output.txt`** (532 KB) — full stdout of the April-15 10T
-  enumeration run that produced the 742M sha.
+- **`solve_output.txt`** (532 KB) — full stdout of the April-14 (UTC) 10T
+  enumeration run (742,043,303 records; its own output sha is `8f2ced21…`).
 - **`solve_results.json`** (17 KB) — machine-readable summary of the
   same run.
 - **`checkpoint.txt`** (406 KB) — per-sub-branch completion trail
   from that run.
 - **`solutions.sha256`** (80 B) — sha for the superseded 742M
-  solutions.bin.
+  solutions.bin (`aa141517…`). *(Note 2026-10-22, Codex F12-020#9, F07-010#20: this is not the run the stdout and JSON above record — they give output sha `8f2ced21…` for a run on April 14 UTC, and `aa141517…` comes from another run with the same record count; equal counts do not make equal bytes. The four files document two runs. [CORRECTIONS.md](../documentation/CORRECTIONS.md) CX-35X-K.)*
 
 ## Historical `--analyze` outputs (742M era)
 

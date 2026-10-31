@@ -114,16 +114,16 @@ Neither changes layer bytes.
 **Two properties of the cold hook a caller must plan around**, because
 neither is what the shorthand above suggests:
 
-1. **The command string goes to `system()`, i.e. to `/bin/sh`, and the layer
-   path is interpolated unquoted** (the format is literally `"%s %s %d"`). A
+1. **The command string goes to `system()`, i.e. to `/bin/sh`.** *(Since 2026-10-23, G6, Codex F04-005#6: the layer path is passed as ONE single-quoted shell word, so a space, quote or `;` in it stays part of the path. Before that fix:)* the layer
+   path was interpolated unquoted (the format was literally `"%s %s %d"`). A
    run directory whose path contains a space, a quote or a glob character
-   therefore does *not* reach the hook as two arguments — the hook is handed
+   therefore did *not* reach the hook as two arguments — the hook was handed
    a mis-split or shell-expanded command line. Keep run directory paths to a
    shell-safe alphabet (letters, digits, `_`, `-`, `.`, `/`).
-2. **The hook's exit status is logged but not acted on.** The rolling
-   `unlink()` of that layer runs immediately afterwards whether the hook
+2. **A failed hook now keeps the layer** (G6, F04-005#6): the rolling `unlink()` runs only when the hook exited 0. Before that fix the exit status was logged but not acted on. The rolling
+   `unlink()` of that layer ran immediately afterwards whether the hook
    succeeded or failed, so a hook that fails — including one that failed
-   because of (1) — loses the only local copy of the layer. A caller that
+   because of (1) — lost the only local copy of the layer. A caller that
    cannot tolerate that should use `SOLVE_F1_KEEP_LAYERS=1` and copy layers
    out itself.
 

@@ -35733,3 +35733,598 @@ current main). `scripts/tr12_n31_golden_gate.sh` over the re-minted set, without
 code version in the set, not a count. No repository file changes; this entry records the result.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group D1.
+
+## CX-35X-A — the engine and the verifier built shell commands from unquoted paths, two path buffers truncated silently, solve.lock could be held twice, and the source used glibc-only and x86-only interfaces without guards (solve.c; verify.c; documentation/DEVELOPMENT.md; documentation/F1C5_LAYER_FORMAT.md; documentation/SOLVE_C_CLI.md; tests.py)
+
+**2026-10-23.** **Source.** Codex (gpt-6-astra), final review, F04-001#1, F04-002#13, F04-005#6, F04-006#14, F04-007#2,
+F04-015#3, F04-009#9, F04-001#2, F04-002#11, F04-001#6, F04-007#1, F09-A01#2, F09-A01#4, F09-A03#2, F09-A04#1,
+F09-A04#2 and F09-A06#3, with fix-verify FV-G23-K#3; triaged by Fable (fast-track batch FT3c); push group G6.
+
+**What the code did, and what it does now.** No record stream, sha, count or verdict changes; `./solve --selftest`
+still prints sha256 `403f7202…`.
+- **Shell words.** Every `system()`/`popen()` site that splices a path — the `--merge-layers` clean-up (`rm -rf` of
+  `<root>/_merged_`), the shard-manifest emitter and verifier, the post-merge `--verify` and `--analyze`
+  self-invocations, the logical-sha helper, the F1C5 layer hook, the `--selftest-resume`,
+  `--selftest-resume-d3` and `--validate-canonical` launchers, both regression harnesses, the KC selftest scratch
+  clean-up and the KC oracle reader — now passes each path as ONE single-quoted shell word (`g6_q`, built on the
+  existing `sh_squote`). Before, an apostrophe in a layer root closed the quote of a destructive command, a space in
+  a manifest name redirected `sort` into another file, and `$(…)` in `SOLVE_D3_GATE_ENGINE` was evaluated. A path
+  too long to quote is refused, never truncated. verify.c's `--scan-selftest` quotes its own executable path the
+  same way. `SOLVE_KC_SCRATCH` must use a plain path alphabet (it is spliced into many selftest commands).
+- **The layer hook** (`SOLVE_F1_STREAM_COLD_CMD`) receives the layer path as one word, and a hook that exits
+  nonzero now KEEPS the layer instead of deleting the only local copy (F1C5_LAYER_FORMAT.md §the cold hook and
+  SOLVE_C_CLI.md's env-table row say so).
+- **solve.lock.** The owner line is written and fsynced into a private temp file that is then `link()`ed into
+  place, so the lock is never observable empty; an unparsable lock is refused, not reclaimed; and `kill(pid, 0)`
+  failing with `EPERM` counts as a live owner. Before, a second process could read the empty file in the window
+  between create and write, call it stale, unlink it and also acquire.
+- **Path buffers.** `--merge-layers` builds its layer paths in `PATH_MAX` buffers and refuses a truncated one (a
+  512-byte buffer had skipped a long later layer, so an earlier layer won); `SOLVE_REGRESS_DIR` is refused above
+  1024 bytes (a 4095-byte value filled the buffer and both `rm -rf` operands named the base itself).
+- **Portability.** `<gnu/libc-version.h>`, the CPU-affinity calls, `_SC_AVPHYS_PAGES` and the `--cpu-features`
+  x86 builtins are reached only through wrappers under `__GLIBC__`, `__linux__` and `__x86_64__`/`__i386__` guards;
+  on this host they return what the direct calls returned. That removes these blockers; no non-x86 or non-glibc
+  build of the current source has been run, and DEVELOPMENT.md's note on the ARM witness says so.
+- gcc 13.3.0 now emits no `-Wformat-truncation=` warning on solve.c (the compile gate's baseline allowed one); the baseline is left at one because an existing test pins it, and the gate's eliminated-class note says so.
+
+**Tests.** `TestBatchG6.test_g6_manifest_paths_are_one_shell_word` and
+`test_g6_verify_c_scan_selftest_from_a_path_with_a_space` run the binaries on such paths; both fail on 0df730cb
+(the emitter exits 30 and writes a file named `a`; the selftest's child commands split the executable path).
+`test_g6_portability_wrappers` is structural (no other toolchain here).
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G6, from Codex (gpt-6-astra) findings
+triaged by Fable.
+
+## CX-35X-B — the --sub-branch parallel checkpoint could mark a task done before its records were saved, wrote its metadata unchecked, resumed a capped task as complete, and the tier-2 flush overwrote chunk 000000 after a resume and failed silently on its last chunk (solve.c; documentation/DEVELOPMENT.md; runs/20260423_passB_D_10T_d64/README.md; tests.py)
+
+**2026-10-23.** **Source.** Codex (gpt-6-astra), final review, F04-002#5, F04-002#6, F04-002#7, F04-002#9,
+F04-017#1, F04-017#2, F04-001#3, F04-002#8, F04-001#5, F04-003#23, F04-001#9, F04-002#2, F04-002#3, F04-002#4,
+F04-002#10, F04-002#12 and F04-003#21; triaged by Fable (FT3c); push group G6. None of these paths is on the
+canonical depth-3 recipe except where said.
+
+**What the code did, and what it does now.**
+- **Per-worker task lists.** Each worker snapshot used to publish the GLOBAL completed-task bitmap, so a task
+  another worker had just finished could be marked done before its records were in any snapshot; a crash then lost
+  them, because resume skips done tasks. Each worker now writes its own `sub_ckpt_task_done<tid>.txt`
+  (`G6CKPT1 records <N> tasks <T>` and a bitmap of the tasks IT completed, uncapped), under its own table lock and
+  after its snapshot. The loader requires every snapshot to have its task list and the attested record count, and
+  refuses otherwise (`SUB_CKPT_RESUME=REFUSED`, exit 30): a missing, short or unreadable snapshot used to load as
+  fewer records with its tasks still skipped. A checkpoint from an earlier binary (one global bitmap) is refused
+  unless `SOLVE_CKPT_ACCEPT_LEGACY=1` accepts it knowingly. The global file is still written, for monitoring.
+- **Capped tasks.** A task stopped by `SOLVE_PER_TASK_NODE_LIMIT` is no longer persisted as done, so a resume
+  replays it instead of reporting `EXHAUSTED` over its unexplored suffix.
+- **Checked writes.** The meta, depth and bitmap writers check every write, flush, fsync and close and install by
+  `rename` only when all succeeded (DEVELOPMENT.md's open exception is marked fixed).
+- **Tier-2 chunks.** The flush sequence restarts at 0 in every process, and `rename()` replaced an existing
+  `sub_flush_chunk_000000_wrk0.bin` after a resume. Chunks are now published by `link()` to the first free name. The
+  final flush returns its status: a chunk that could not be written now ends the run `ENUM_RUN=FAILED` (exit 30)
+  with the incomplete marker and checkpoints kept, where it used to reach `FINISHED`, clear the marker and delete
+  the checkpoints. `--merge-layers` refuses a layer holding tier-2 chunks (it used to skip them, dropping their
+  records).
+- **Resume contract.** A v2 (iterative-walk) sidecar is refused when `SOLVE_DFS_ITERATIVE` is off
+  (`DFS_MODE_RESUME=REFUSED`); a sidecar with an empty stack (`sp=-1`) is refused (it resumed as `EXHAUSTED` after
+  zero work); a prior shard whose logical length is not a whole number of 32-byte records refuses the resume (a raw
+  shard read through `gzfread` dropped a partial last record with a clean EOF).
+- **Finalization.** A relaunch that finds every cell checkpointed but `solutions.bin` absent or older than
+  `checkpoint.txt` now says so (`ENUM_FINALIZE=PENDING`, run `./solve --merge` there); its exit status is unchanged.
+- **Durability.** A worker that finished fewer cells than one `SOLVE_FSYNC_BATCH_SIZE` batch now syncs before it
+  exits, and after the workers join the main thread syncs once and restores per-write fsync. The host fingerprint
+  uses a private temp file per call (every worker shared one PID-named file).
+- **Collisions.** The parallel `--sub-branch` summary added worker 0's `hash_collisions` twice; it is counted once.
+  The archived Pass B/D logs carry the old figure (runs README note). HELD: the ordinary path resets the counter at
+  every shard flush, so `hash_dedup_collisions` in `solve_results.json` covers only the last cell; making it
+  cumulative would change that published field on reproduction, so it is left for an operator decision.
+
+**Tests.** `test_g6_sub_branch_snapshot_without_task_list_is_refused` fails on 0df730cb (the 31-byte snapshot loads
+as 0 records, the task is skipped, `ENUM_RUN=FINISHED`); `test_g6_sub_branch_interrupted_run_resumes_from_worker_task_lists`
+is the green control (a stopped run leaves per-worker lists and resumes from them); the finalize token is structural.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G6, from Codex (gpt-6-astra) findings
+triaged by Fable.
+
+## CX-35X-C — shard readers trusted the gzip ISIZE, the single-cell loader took names that extend the shard's, merge scratch names collided, report and provenance writes could fail silently, and a truncated provenance sidecar was aggregated (solve.c; documentation/SOLVE_C_CLI.md; tests.py)
+
+**2026-10-23.** **Source.** Codex (gpt-6-astra), final review, F04-022#1, F04-001#7, F04-001#8, F04-003#1,
+F04-003#7, F04-001#4, F04-001#10, F04-007#6, F04-001#19, F04-003#15, F04-003#19 and F04-003#20; triaged by Fable
+(FT3c); push group G6.
+
+**What the code did, and what it does now.**
+- **ISIZE.** The external merge's serial and parallel readers, and the `--branch` / `--sub-branch` shard loader,
+  sized a gz shard by its gzip trailer, which describes the LAST member only (modulo 2³²). A two-member shard merged
+  as one record, exit 0. Each reader now requires a clean end of stream after the declared records and refuses more
+  data or a stream error (`MERGE_SHARD=UNREADABLE`). The solver writes single-member shards, so no shipped shard is
+  affected. The record-count sums are bounded before each add (they could overflow first).
+- **Names.** The single-cell loader tested the shard name as a prefix, so `sub_1_0_2_0_3_0.bin.backup.bin` was loaded
+  too; it now takes the exact name, and `--branch` only `sub_<p1>_<o1>_<digits>[_<digits>…].bin`.
+- **Scratch.** External-merge chunk names carry the PID (`temp_sorted_<pid>_NNNN.bin`), so two merges sharing
+  `SOLVE_TEMP_DIR` no longer overwrite each other's chunks, and a `SOLVE_TEMP_DIR` over 200 bytes is refused (two
+  chunk names truncated to one).
+- **Framing.** `--analyze` and the three audit readers (`--verify-rule2`, `--verify-9th-six`,
+  `--verify-wrap-parity`) refuse an artifact whose header count disagrees with its record stream, as `--verify`
+  does (SOLVE_C_CLI.md's input-trust note says so).
+- **Writes.** The `--merge-layers` MANIFEST.txt, `solve_results.json`, `solutions.meta.json` and
+  `solutions.provenance.json` writers report a failed write or close, and the merge or run then exits 2 with
+  `REPORT_WRITE=FAILED` (solutions.bin and its sha are unaffected) instead of printing "written".
+- **Provenance.** A shard sidecar whose JSON object or writes array never closes is counted unusable
+  (`MERGE_PROVENANCE_SIDECAR=INCOMPLETE`); a shard whose existing history cannot be read (over 1 MiB, unreadable)
+  keeps it and records a warning, where the next write used to replace the whole history with one entry.
+
+**Tests.** `test_g6_external_merge_refuses_a_multimember_shard`, `test_g6_framing_mismatch_refused_by_analyze_and_audit_readers`,
+`test_g6_report_write_failure_is_loud` and `test_g6_truncated_provenance_sidecar_is_not_aggregated` each fail on
+0df730cb (exit 0 with one record, with a tabulation, with "written", with the prefix aggregated). The two 2026-09-26 leak tests whose fsync shim also reaches the roll-up (`TestProvenanceExtensionTotalsLongSidecarCloseEP.test_no_file_leak_when_sidecar_fsync_fails` and `..._rollup_fsync_fails`) asserted exit 0 as a liveness check against the fd-exhaustion death; they now assert exit 2 with `REPORT_WRITE=FAILED` and still assert no leaked handle. The `.budget` leg is unchanged: a per-shard sidecar's failed fsync stays a warning.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G6, from Codex (gpt-6-astra) findings
+triaged by Fable.
+
+## CX-35X-D — the Knuth estimator read its list variables leniently, ran a prefix that violated its own pins and a subtree sampler that ignored its strict walks, printed a zero-width interval at zero hits, and --preflight, --analyze, --kde-score-stream and --f1c5-sidecar-retrofit each reported success on a case they had not checked (solve.c; documentation/SOLVE_C_CLI.md; tests.py)
+
+**2026-10-23.** **Source.** Codex (gpt-6-astra), final review, F04-001#16, F04-004#1, F04-004#2, F04-004#3,
+F04-004#4, F04-004#6, F04-004#7, F04-004#10, F04-004#11, F04-001#12, F12-001#2, F04-001#18, F04-001#20,
+F04-001#21, F04-001#22, F04-001#23, F04-001#24, F04-001#25, F04-003#12, F04-003#26 and F04-001#27; triaged by
+Fable (FT3c); push group G6. None of these is on a published command line except where said.
+
+**What the code did, and what it does now.**
+- **List variables.** `SOLVE_KNUTH_C5_BUDGET` must be the full 63-transition multiset (`d:count` pairs, each d in
+  0..6 once, counts 0..63, d5 absent or 0, d6 ≥ 1, sum 63): a vector summing to 64 had turned exact counting into
+  capacity-bounded counting, and `6:-2147483648` overflowed the opening decrement. `SOLVE_KNUTH_PIN_SLOTS` and
+  `SOLVE_KNUTH_FIBER_PERM` accept only comma-separated decimals in range: a minus sign was skipped, so `-1` read as
+  `1`, and text selected no pins. A refusal prints `SOLVE_ENV=REFUSED name=<VAR>`. Every committed `d:count` vector
+  in reports/evidence satisfies the rule.
+- **Pins and strict walks.** A fixed prefix that places another pair in a pinned slot is refused (it was counted).
+  `SOLVE_KNUTH_SUBTREE_DEPTH` is refused with the strict walks, slot pins or budget overrides, which the subtree
+  sampler never applied.
+- **Intervals and labels.** The `DERIVED-N_gs` line uses the N−1 variance and prints no interval at N < 2 or zero
+  hits; without `SOLVE_KNUTH_MOORE_STRICT` it is labelled as NOT triple-strict. The H2 audit dump and the F4P
+  histogram allocation fail the run instead of losing records silently.
+- **--preflight.** A gate skipped by its `SOLVE_SKIP_*` override is counted SKIPPED, exit 2; with all three set the
+  report said `RAN=3`, `SKIPPED=0`, all-PASS.
+- **--analyze.** A worker histogram allocation failure, or a first statistics pass that stopped early, now refuses
+  the analysis; section 11's 4096-slot table stops when full and marks the row a lower bound (it probed forever);
+  section 14 counts its "63+" bin's records exactly, keeps counting stored patterns at the 8192-pattern cap, and
+  prints the measured KW varying-position set; sections 7, 8, 15 and 20 say so when KW is absent; section 27's rates
+  are labelled as shares of checkpoint LINES; sections 17, 19 and 23 say their sets are fixed historical choices.
+  On the canonical datasets every count is unchanged.
+- **--kde-score-stream** refuses a fit file or stdin that ends inside a point or fails to read. **`--f1c5-sidecar-retrofit`**
+  refuses a call that names no directory, and a bare number that is also a directory.
+
+**Tests.** `test_g6_knuth_list_parsers_are_strict`, `test_g6_knuth_subtree_and_pinned_prefix_refusals`,
+`test_g6_preflight_counts_overrides_as_skipped`, `test_g6_kde_partial_point_refused` and
+`test_g6_retrofit_needs_a_directory` each fail on 0df730cb (the estimator runs; PASS with nothing run; counts
+printed; exit 0).
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G6, from Codex (gpt-6-astra) findings
+triaged by Fable.
+
+## CX-35X-E — the F1C5 and KC tools: an in-run resume trusted a layer's values, the cross-format checker read an unbounded block, the C3 sidecars reported every branching factor as 0, the subset parser and the walk parser read numeric prefixes, and four KC tools failed open (solve.c; reports/evidence/f1/f1_orbit_dp.py; documentation/SOLVE_C_CLI.md; tests.py)
+
+**2026-10-23.** **Source.** Codex (gpt-6-astra), final review, F04-005#1, F04-005#2, F12-013#1, F12-014#8,
+F04-005#3, F04-005#4, F04-005#5, F04-005#7, F04-005#9, F04-005#10, F04-005#11, F04-005#14, F04-006#6, F04-006#7,
+F04-006#9, F04-006#11, F04-006#13, F04-006#15 and F04-006#16; triaged by Fable (FT3c); push group G6.
+
+**What the code did, and what it does now.**
+- **Resume digest.** Resuming a ladder from its manifest's last layer checked the header only, so flipping one value
+  byte of `f1c5_layer_09.bin` at n=9 printed total 26113 for the true 26112. The resume now recomputes the layer's
+  decompressed-stream sha256 and compares it with the append-only sha ledger's line, else the layer-stats sidecar's
+  `own_sha256_decompressed`, and refuses a mismatch (`F1C5_RESUME_DIGEST=MISMATCH`, exit 71); with neither recorded
+  it resumes as before and says `UNVERIFIED`. The published totals have independent recounts and are not exposed.
+- **Bounded reads.** `--f1c5-verify-layer` bounds each block length by `compressBound(24·BLK)` before reading it (an
+  oversized index overflowed the buffer; on 0df730cb the fixture aborts with "buffer overflow detected").
+- **Sidecars.** The digest pipe ignores `SIGPIPE` (a tool that exits unread killed the build); with C5 off
+  (`--f1-c3-hist`) the branching factor counts admissible successors (12 at the n=9 genesis, 18 with `--no-c2`)
+  where the budget test had made it 0; `--f1c5-sidecar-retrofit` also compares the layer header's n, k,
+  start_exit and pl_hash with the manifest.
+- **Parsers.** `--f1-subset` (and the f1u subset parser) accept only `L.I,…[@0|@63]`: `3.0@garbage` ran as `3.0@0`.
+  The KC walk parser accepts only decimals separated by commas or blanks, exactly 2n of them (signs, text and extra
+  hexagrams were skipped).
+- **Progress fields.** In-RAM runs record compression level 0 (they write raw v1 layers), and `last_restart_chunk`
+  is the chunk index, not the mask offset. The `--f1c5-gzip-selftest` round-trips the key blocks too, and
+  SOLVE_C_CLI.md no longer says it checks the on-disk layer format.
+- **KC tools.** `--kc-scan-merge` refuses an OUT that is the same FILE as a chunk under another spelling (it unlinked
+  the input first); witness walks bound every atlas field before it indexes a table; the witness-walk help says a
+  `--kc-layers` chunk is refused (the parser needs every layer); a KC answer that cannot be written to stdout exits
+  2; the g-build segment byte counters no longer re-add a resumed process's reads and writes; `--kc-oocverify`
+  names its scratch ladders per process (`scripts/tr12_repro.sh`'s scrubber drops the new `_p<pid>` suffix, so the
+  `a0_oocverify` golden is unchanged); the g-domain comment no longer says the stored set "mirrors f exactly".
+- `reports/evidence/f1/f1_orbit_dp.py` exits 1 when a validation fails (it printed FAIL and exited 0).
+
+**Tests.** `test_g6_f1_resume_checks_the_layer_digest`, `test_g6_verify_layer_bounds_its_block_reads`,
+`test_g6_c3_sidecar_branching_factor`, `test_g6_f1_subset_spec_is_strict` and `test_g6_kc_tools` each fail on
+0df730cb for the reason named in their docstrings.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G6, from Codex (gpt-6-astra) findings
+triaged by Fable.
+
+## CX-35X-F — verify.c: a 31-pin checkpoint header truncated to a shared prefix, LC_RESUME did not bind the budget, repeated orbit names and two NO_TARGET bypasses passed, checkpoints were not durable, selftests shared fixed /tmp names, and three error paths raced, hung or indexed an empty table (verify.c; documentation/VERIFY.md; tests.py)
+
+**2026-10-23.** **Source.** Codex (gpt-6-astra), final review, F04-009#1, F04-009#2, F04-009#3, F04-009#4,
+F04-009#6, F04-009#7, F04-009#8, F04-009#10, F12-014#9, F04-009#11, F04-009#12, F04-009#13 and F04-009#14, with
+fix-verify FV-G23-K#1, FV-G23-K#2 and two out-of-scope notes on the same lines; triaged by Fable; push group G6.
+
+**What the code did, and what it does now.**
+- The IE checkpoint's pin string is 512 bytes (two 31-pin assignments shared a 159-character truncated header, so the
+  second resumed the first's N = 1,720,320; its own count is 0), and a header that would not fit is refused.
+- `LC_RESUME`'s header binding the budget `b0` (pl_hash excludes it, so two reduced instances accepted each other's
+  cache; F04-009#2) was already cured by CX-35V-J, whose `LC_RESUME_V3` header pins `start_exit` and `b0`; this batch
+  adds only the checked write of that header (F04-009#7, below).
+- The spec parser refuses an orbit named twice, trailing text and a non-numeric anchor; `--ie-brute` and a
+  single-modulus Route D run under `--*-negctl` with nothing compared now exit 1 with `NO_TARGET`, and
+  `--ie-brute --ie-negctl --ie-expect` requires the count to DIFFER.
+- IE checkpoint rows are fsynced and every IE, LC_RESUME and Route D checkpoint write is checked (a failed write
+  marked the chunk done). The plain-DP table allocator stops cleanly on exhaustion (`VERIFY_DP=STOPPED`, exit 3); a
+  Knuth worker whose allocation fails no longer leaves the poller waiting forever.
+- The scan lanes' abort and O_DIRECT-fallback flags are `atomic_int` (a data race on the error path).
+- The three selftests use private `mkdtemp` directories, removed on PASS; the scan selftest's negative legs require a
+  clean nonzero exit (a crash counted as a rejection), fixture e must be rejected by the stored-last guard itself
+  (with the guard disabled it fell to the root-key line and passed), and a diagnostic names block 1, not block 0.
+- F04-009#6 was already fixed (FT3j, CX recorded 2026-10-17): both selftests pass on this tree.
+- Comments: the full-scale second instrument closed §10(vi)'s instrument half on 2026-07-25 (it said "remains
+  open"), and the B0 diagnostic attributes the coincidence claim to an EARLIER revision of TR-11 §5.
+
+**Tests.** `test_g6_verify_c_ie_spec_and_controls`, `test_g6_verify_c_ie_checkpoint_pins_the_instance` and
+`test_g6_verify_c_scan_selftest_from_a_path_with_a_space` fail on 0df730cb; `test_g6_verify_c_selftests_use_private_directories`
+and `test_g6_verify_c_text_status` are structural.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G6, from Codex (gpt-6-astra) findings
+triaged by Fable.
+
+## CX-35X-G — the fix-verify pass's G6 rows: the midjoin verifier certified unchecked, failed or tampered layers, the midjoin engine accepted a nonzero v1 pad, a repeated pair, numeric-prefix profile fields and a repeated --kc-force, solve.py loaded an atlas missing its t-identity key and printed two labels wrongly, and eighteen ledger statements said more or other than their sources (verify.py; solve.c; solve.py; tests.py; scripts/citation_line_gate.sh; documentation/SOLVE_C_CLI.md)
+
+**2026-10-23.** **Source.** Codex (gpt-6-astra), fix-verify pass over push groups B52, FT1, FT2A, G2/G3, G4 and S5
+(FV-* ids below); triaged by Fable; push group G6. Fix-verify also reran the final review's F04-015#10 class
+(tests.py's numpy imports), recorded here.
+
+**What the code did, and what it does now.**
+- `verify.py --check-midjoin` now refuses a JSON set carrying a t block without `--midjoin-tdir` (ERROR, exit 2,
+  `MIDJOIN_CHECK_T=UNCHECKED`) where it printed PASS (FV-S5-C#4); requires a finite entropy (C#5), every layer's
+  recorded walk (K1#5), `MIDJOIN_LAYER: OK` and `walk.f_pin` OK or SKIP (K1#4), the stored mask list equal to EVERY
+  canonical mask of popcount k (K1#1), g-only keys inside the stored domain (K2#4), a manifest budget summing to n
+  (K2#2), exact `midjoin_layer_NN.json` names (K2#7) and `top ≥ 1` (K2#9); recomputes each layer's summary row and
+  its `midjoin_summary.tsv` line (G#9); refuses a v1 header with a nonzero pad (C#3); and turns any unhandled input
+  defect into `MIDJOIN_CHECK=ERROR`, exit 2 (K2#11).
+- `--kc-midjoin` refuses a nonzero v1 pad (C#3), a manifest naming a pair twice with its own failure (K2#13),
+  profile step/entry/exit fields that are not plain decimals in range (K2#14), an unwritable progress file (K2#15)
+  and a repeated `--kc-force` (K2#16); it recomputes, not resumes, a layer when the engine identity is unavailable
+  (C#13); its selftest's negative G5 leg must fail on the pin itself (G#8). HELD, with SOLVE_C_CLI.md scoped
+  meanwhile: the resume key binds input names and sizes, not content, and a resumed JSON is matched by text, not
+  re-parsed (K2#1, K2#3); a content digest in the key is a larger change.
+- solve.py: `--atlas-residual-rank` ranks from the object `atlas_load` returned (B52-C#2: it ranked from a second
+  `json.load`, so CX-358's "before it parses anything" was not so); the certificate reader and the class-swap loader
+  warn on a t-not-run atlas (B52-G OOS). Three rows of this group were already cured on the parent and are not
+  re-done here: an atlas with its `t_root_eq_f_layer_sum` key deleted (B52-G#5) is refused by CX-35V-C for any atlas
+  carrying the producer's `engine_source_sha` at n ≥ 15; the R11 builder label (G23-C3#15) and the GS interval
+  comment (G23-C1#4) by CX-35V-E.
+- solve.c comments: the Latin-square null's grid is a Cartesian product of trigrams (G4-C5#3; MCKENNA.md and
+  roae.py, whose output the example reports reproduce, are left to their owners), the de Bruijn walk counts 2²⁷
+  circuits (G4-C5 OOS), and the g-domain comment (S5-C OOS, with F04-006#16). verify.py's Shangbo adjacency text
+  carries the within-pair qualifier KING_WEN_PROVENANCE.md has (G4-C7#9). tests.py's numpy/pyarrow tests skip,
+  naming the module, when it is absent (F04-015#10).
+
+**Ledger notes** (the entries named are kept as written).
+- CX-358: `--atlas-residual-rank` read the atlas twice, so "before it parses anything" was false (FV-B52-C#2).
+- CX-359: the first full-31 atlas completed 2026-09-21 (10:29Z); its checks first ran on 2026-09-22 (FV-B52-C#4).
+- CX-365: two of the three ids it says are still in HISTORY.md are (86276eb, 6d6539f); 800a8df is not (FV-FT1-C#2).
+- CX-366: "ten calibration runs" lists nine ids (FV-FT2A-C1#1).
+- CX-367: the rows it names are TR-12's Confidence Ledger, not §12.9, and TR-1's fiber results are §7, not §3; CX-368
+  calls the §12 opening banner "the §12.9 banner" (FV-FT2A-C1#3, #7). TR-12's v-row repeats both; its next revision
+  row is left to the TR-12 lane.
+- CX-369: −7.9 %/+6.9 % recompute to −8.05 %/+6.81 % (0.0297/0.0323 − 1, 0.0345/0.0323 − 1); it and
+  `scripts/citation_line_gate.sh` swapped "executive summary" and "abstract" (TR-12:83 is the abstract; the gate's
+  row label is corrected) (FV-FT2A-C1#8, #9).
+- CX-396: `SKIP-FRAGMENT` is assigned after `run_one` executes, so the lane does run those classes (FV-G23-C4#1).
+  CX-397: eight command lines remained at that change, not seven (six today) (FV-G23-C4#6). CX-399: the
+  plant-reached-and-clean-control assertion holds for two of its eight tests (FV-G23-G3#10).
+- CX-404: the sentence it cites at ":98 (§Sections item 3)" is under item 4, at :93; TR-4's v1.43 row repeats it and
+  its next revision row is left to the TR-4 lane (FV-G23-C2#5).
+- CX-35T-B, -I, -J and -L: their **Tests.** paragraphs over-describing what the named methods measure (FV-G4-G1#17
+  with FV-G4-C2#3, FV-G4-C1#9, FV-G4-C6#7, FV-G4-C7#12) are already noted in CX-35Y-I and are not repeated here. CX-35T-F cites Q-641's gzip-framing items as evidence that no
+  H1/H3 verdict was issued, which they are not (FV-G4-C3#7). CX-35T-K's "CANONICAL_HASHES 1T note" is the sentence
+  at :96 of the d3 560T entry (FV-G4-C3#10).
+- File lists: CX-357..CX-361 omit CORRECTIONS_INVENTORY.tsv, HISTORY.md, HISTORY_INDEX.md and
+  `scripts/tr12_expected/_GATE_STAMP.txt`; the FT1 entries omit both inventories, `80_repro_reach_claim_shapes.sh`
+  and the stamp; CX-373, CX-381 and CX-35T-C/D omit their `correction_marker_inventory.sh` re-keys (FV-B52-C#6,
+  FV-FT1-C#3, FV-FT2A-C2#6, FV-FT2A-C3#9, FV-G4-C2#9).
+
+**Tests.** `test_g6_verify_py_midjoin_checker` (four mutations and the no-tdir run each certified PASS, or raised a
+traceback, on the parent 0df730cb); `test_g6_solve_py_atlas_and_labels` pins the three rows CX-35V-C/E cured; `test_g6_tests_and_evidence_scripts` is structural.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G6, from Codex (gpt-6-astra) fix-verify
+findings triaged by Fable.
+
+## CX-35X-H — the canonical-hash registry: the documented anchor extractor returned 68 characters and failed its own guard, and seven further sentences said more than their sources; three notes in the retraction registries named the wrong peak window, an unmeasured diagnosis and a closed coverage gap (documentation/CANONICAL_HASHES.md; documentation/RETRACTED_PHRASES.tsv; documentation/RETRACTED_FIGURES.tsv; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, F06-004#6, F06-005#6, F06-006#1, F07-009#1,
+F07-009#12, F06-006#13, F06-006#12, F07-009#10, F06-006#9, F07-009#11, F09-H03#2, F07-009#18, F07-009#19, F07-009#2, F06-006#8, F06-003#4, F06-003#2 and F06-003#6;
+triaged by Fable (fast-track batch FT3h); push group G6.
+
+**What was published, and what it says now.**
+- §d3 1T "Sourcing this anchor in a script": the awk extractor deleted every non-hex character from the
+  `- **sha256:**` line, which keeps `a256` from the label, so it printed 68 characters and the snippet's own
+  64-character guard exited 1 before `--validate-canonical` ran. It now takes the backticked token
+  (`split($0,a,"`"); print a[2]`), which prints the 64-character anchor. No other document carries the extractor.
+- §d3 560T, campaign details: a dated note says the 2026-08-28 label's "old-vs-new comparison … unaffected" has had no
+  object since CX-222 withdrew that comparison, and that the share of 560T records "from cells empty at 11.2T"
+  counts pre-merge shard records against cells classed empty from the deduplicated 11.2T output — two
+  populations, not a share of the 10,525,271,997 unique records.
+- §d3 11.2T, the 2026-06-13 re-derive: "no sha attestation … published anywhere" is read as "no independent
+  receipt": HISTORY.md's 2026-06-14 trajectory entry says the re-derive landed byte-identical. The run stays
+  outside the table, for want of a receipt.
+- §"100B and sub-canonical reference shas", item 1: "the one cell measured directly needs ≥31 × 10¹² nodes" is an extrapolation with
+  the comparability of 2,480 unstarted tasks assumed; the strictly measured floor is > 10¹¹ nodes. A note beside
+  the provenance paragraph says so (item 1 itself carries a reviewed marker and is not re-worded here).
+- §"Sha-determining vs operational env vars", the `SOLVE_NODE_LIMIT` A/B example, names its two hashes: the file sha256 is the gzip container's, the
+  `solutions.sha256` line is the logical stream's.
+- "Both commands … reproduce every canonical above" is noted as every **Active** canonical; current `main`
+  does not reproduce the frozen v2 rows.
+- The reproduction recipe's `ulimit -s unlimited` comment said "required"; the solver warns below 8 MiB and
+  `--merge` raises the limit itself and refuses below 64 MiB, so the comment says "recommended". The recipe's
+  verification line gains the raw-producer form (`sha256sum solutions.bin` for a pre-#169 or
+  `SOLVE_COMPRESS=0` file, which has no gzip frame).
+- §Validation status combined two different eight-path lists: this registry's witness table (build/host paths,
+  no branch decomposition) and HISTORY.md's 8-path roster, whose Tiers 2b/2c are the multi-path validations.
+  A note states the two rosters; the registry's count is its table's.
+- RETRACTED_PHRASES.tsv: the notes on the two layer-footprint rows (keys `RP-089c4de7` and the in-RAM floor row)
+  named k15+k16 as the peak live pair. `run.out`'s `two_layer` column peaks at k16+k17, 4,508.61 GB against
+  4,496.37 GB, as TR-11 §6 publishes; each row gains a dated note. The note on the 1T-drift diagnosis row called
+  the host-environment diagnosis established; the 2026-09-04 row withdrew it (one binary on one host produced
+  both 1T values, the per-cell budget the only variable), and the note now says so. The registries' needles are
+  unchanged, so no key moves.
+- RETRACTED_FIGURES.tsv's header said GATE 6 never reads an image. GATE 6 has an output leg over every tracked
+  `.svg`; the residual is the tracked `.png` assets. The comment now says that.
+
+No sha, record count, canonical value or verdict changes, and no figure in the registry is replaced.
+
+**Tests.** `TestBatchG6.test_g6_canonical_hashes_anchor_extractor` runs the documented snippet against the file
+and requires the 64-character anchor (68 on the uncured file). `test_g6_canonical_hashes_notes` measures its
+precondition from the tree (the solver's stack handler) and holds the registry's notes to their text.
+`test_g6_retraction_registry_notes` (which recomputes the peak pair from `run.out` and checks every needle is
+unchanged) holds the other sites. Each fails on the uncured tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G6; sites found by Codex
+(gpt-6-astra), final review, F06-004#6, F06-005#6, F06-006#1, F07-009#1,
+F07-009#12, F06-006#13, F06-006#12, F07-009#10, F06-006#9, F07-009#11, F09-H03#2, F07-009#18,
+F07-009#19, F07-009#2, F06-006#8, F06-003#4, F06-003#2, F06-003#6.
+
+## CX-35X-J — HISTORY.md, which is append-only, said more than its sources in thirty-two places; the corrections are recorded here and the entries are not edited (documentation/HISTORY.md; documentation/RETRACTED_PHRASES.tsv; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, F06-007#5 to F06-007#18, F06-008#6 to F06-008#18,
+F07-007#20, F07-009#15, F06-003#3, F07-010#4, F06-010#4, F06-009#3 and F06-009#4; triaged by Fable (fast-track
+batch FT3h); push group G6.
+
+**What HISTORY.md says, and what the record supports.** Each item names the entry; the entries stand as written.
+- *Missteps table, cascade rows.* The "Corrected:" cells give, as the fixes, a 16-branch proof and "C3 drives the
+  filtering". CORRECTIONS.md (the `--prove-cascade` entry) retracts both: the 16-branch result holds only inside the
+  instrument's two-candidate shift subspace, and that restriction is the instrument's own enumeration choice, not
+  C3 (F06-007#5, F06-008#8).
+- *Missteps table and 742M findings, boundary redundancy.* "Boundaries 15-19 are fully redundant … knowing one
+  implies all others": an overlap ratio of 1.000 shows the smaller survivor set is contained in the larger, not
+  mutual implication; the survivor counts differ (F06-007#6).
+- *742M findings.* "Positions 4-20 have exactly 3 distinct pairs each" and the 4-20 entropy range: positions 14
+  and 16 have four pairs, and the range over 4-20 is 0.2803–1.5392 bits; the upper value quoted belongs to
+  position 21 (F06-007#7).
+- *742M findings, [20].* "Complement is NOT closed — C3 breaks under the map": complementation preserves C3 (it
+  swaps the two positions of each complement pair, leaving their separation unchanged). The zero result comes
+  from C4's oriented opening, as `solve.c`'s analyzer now says (F06-007#8).
+- *Exact KW self-check.* "The exact form passes only for canonical King Wen": the startup predicates accept a
+  sequence with a different pair ordering (Codex executed a witness), so they are a typo guard, not a uniqueness
+  check (F06-007#9).
+- *Minimum constraint analysis (31.6M).* "eliminate 99.6% but leave 1,055 survivors" cannot both hold for that
+  dataset: leaving 1,055 eliminates about 99.997% (F06-007#10).
+- *Recon campaign and the archived-runs bullet.* `runs/20260420_singlebranch1T_d32westus3/` is cited for full
+  results and as archived; the directory has no tracked files (F06-007#11).
+- *T9+c.1.* "The first 100T canonical … had its merge killed by Spot eviction": the same file records that run's
+  VM as provisioned on-demand by mistake, and its own bug list says the original used full-enumeration mode, not
+  `solve --merge`. "verify.py was written after the original 100T (task #73)": the verifier predates that run; task
+  #73 added its multiprocessing (F06-007#12, F06-007#13).
+- *Wrapper-enforcement lesson.* "three months passed and three incidents accumulated": the dated passages put the
+  deferral at three days (2026-04-22 to 2026-04-25) and one further incident (F06-007#14).
+- *Phase C merge lesson.* "the 10T pre-dedup buffer … fits comfortably" contradicts the operational footnote a few
+  lines above it, which records that merge exceeding memory on the same machine class and calls auto-mode unsafe
+  (F06-007#15).
+- *v2 at 11.2T.* "most cells naturally terminate" and "v1 is already ~95% of the way to local exhaustion": the
+  v1/v2 yield gap does not measure distance to exhaustion; v1's 11.2T count is 22.13% of the 100T count, and
+  every 100T sub-branch stayed BUDGETED (F06-007#16).
+- *v2 ablation, finding 1, and the design pass.* "24-27× more impactful … across all 4 scales": the four measured
+  ratios are about 36.9, 23.9, 26.6 and 14.5; the range holds at the two middle scales only (F06-007#17).
+- *NUMA interleave.* "balanced ~64 GB per node": 128 threads × 512 MB is about 64 GB in total, 32 GB per node on
+  two nodes (F06-007#18).
+- *G3 selftest on `25c7d4d`.* The expected selftest sha at that commit is `56487ab5…` (hardcoded in its handler,
+  which is byte-identical to `9d00c48`'s); the McKenna diagnostics did not change it (F06-008#6).
+- *560T campaign entry.* Its King Wen note names `TestVerifyRecordsPath` as the instrument and rejects
+  `TestSolveVerifyKingWenScope`; the sentence is about the C binary's `--verify`, whose instrument is
+  `TestSolveVerifyKingWenScope` (CX-41, CX-42) (F06-008#7).
+- *2026-07-22, C3 scalar identity.* "G is the free-action orbit count": G is the sum over the 12 complement couples
+  of their slot distances (TR-11 §10(ii); `verify.py`) (F06-008#9).
+- *Same entry.* "no cheaper one exists" and a per-pass compute projection: no theorem excludes a cheaper
+  algorithm, TR-11 publishes no compute bound, and the figure is a projection (F06-008#10).
+- *Same entry.* "a definitional, classically-attested convention (the Xugua's Heaven-then-Earth opening)": the
+  Xugua attests the opening pair, not its within-pair orientation, as CORRECTIONS.md narrowed on 2026-09-01
+  (F06-008#11).
+- *2026-07-16 landing.* The label "the orbit count is N/24": N counts orientation-explicit sequences, on which the
+  order-48 group acts freely, so N/24 is twice the sequence-orbit count (CX-53, CX-232). The retraction registry's
+  needle does not match this wording; its note now says so (F06-003#3, F06-008#12).
+- *Full-31 status.* "the DP's measured peak is layer 13": the completed run peaks at layer 16, with 83,585,570,784
+  entries (`run.out`; FULL31_EXACT_AGGREGATES) (F06-008#13). The exact integer landed on 2026-07-16; 2026-07-25 is
+  the second-engine recount (F06-008#14).
+- *Same entries.* "zero lost work": `run.out` records twelve intra-layer resume points, so the interrupted layers'
+  completed work was kept; whether any uncheckpointed work was lost is not measured (F06-008#15; CORRECTIONS.md's
+  side is in CX-35X-M).
+- *CX-29/CX-35 summary.* "the rewrite never reached the public remote at all" is stronger than CX-35, which calls
+  its own evidence not a proof (F06-008#16).
+- *v1-vs-v3 bench.* "host-quality noise on shared Spot D128": the bench ran on Standard D128 (the same entry and
+  PERFORMANCE_HISTORY.md say so) (F06-008#17).
+- *Over-emission withdrawal.* "The entry is annotated in place": the in-place annotation of the 560T over-emission
+  paragraph is the 2026-08-28 raw-versus-canonical label, which does not withdraw the surplus or its eviction
+  inference; CX-222 withdraws both (F06-008#18).
+- *Search-space entry.* The orders-of-magnitude figure for the undercount: the quoted ranges differ by about 25
+  orders, as SEARCH_SPACE_SIZE.md corrected (F07-007#20). *560T selected findings.* An overlap coefficient is
+  called independence, and a sum of per-position marginal entropies is called total entropy; the leaderboard
+  withdrew both readings (F07-009#15).
+- *Pass 1 α correction.* The tree-size range and "exhaustion feasible" do not follow from two budgeted yields
+  (F07-010#4; the run README carries the note). *Branch retirement.* "Each" tag restores its branch: the
+  stageg-telemetry tag pins the pre-merge state, and the merged head is on `main` (F06-010#4; BRANCH_REGISTRY.tsv
+  now says so). *UB cures.* The progress-counter reads are counted among the cured findings; CX-236 says they
+  still race (F06-009#3). *`--prove-cascade` 1,000-row table.* "a full run of the old and the new code prints the
+  same bytes" drops CX-281's qualifier that Phase 2's search was stubbed (F06-009#4).
+
+No HISTORY.md entry is edited. No sha, record count, canonical value or verdict changes.
+
+**Tests.** `TestBatchG6.test_g6_history_corrections_recorded` measures what the tree can (the layer-16 peak from
+`run.out`, the 742M pair counts and entropy range from the archive, the ratio 759,608,573 / 3,432,399,297), confirms each HISTORY.md wording is still present (the
+precondition: the ledger is append-only), and requires this entry to state the measured value. It fails on the
+uncured tree, which has no CX-35X-J.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G6; sites found by Codex
+(gpt-6-astra), final review, F06-007#5 to #18, F06-008#6 to #18, F07-007#20, F07-009#15, F06-003#3, F07-010#4,
+F06-010#4, F06-009#3, F06-009#4.
+
+## CX-35X-K — the run records: a merge-chunk count that was the input-file count, a fivefold ratio printed as tenfold, two distributions with the wrong skew, a queue of 2,507 tasks read as 2,507 simultaneous ones, a between-branch spread read as growth, an orbit-count label, a peak window, a thread count, mixed provenance and a driver that exits 0 on failure (runs/*/README.md; runs/20260716_f1c5_c1c2c4c5_d128westus3/layer_curve.md; enumeration/README.md; reports/evidence/tr12/v3_rows_n31_20260925/README.md; reports/evidence/tr12/v3_rows_n31_20260925/SHA256SUMS; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, F07-010#3, #4, #5, #6, #7, #9, #10, #11, #12, #13,
+#14, #16, #17, #19, #20, F07-011#11, F12-020#1, #3, #4, #5, #6, #7, #9, #10, #11, #12, #13, #14 and
+F06-008#12; triaged by Fable (fast-track batch FT3h); push group G6.
+
+**What was published, and what it says now.** The run records are kept as written; each README gains a
+"Dated notes (2026-10-22)" section, and the frozen data files, logs, JSON and registries are not edited.
+- *100T README.* "Merge chunks produced" was the input-file count; the merge wrote 104 chunks. The pre-dedup
+  input is about 5× the 10T companion's, not tenfold. 102.3 is the GiB size. The edit-distance and C3
+  distributions are left-skewed (edit-distance skewness ≈ −1.84). The VM was on-demand, not Spot. The printed
+  re-enumeration recipe merges twice unless `SOLVE_SKIP_AUTOMERGE=1` is set on the first command. The deprecation
+  note's cause for the 4,607-record undercount is the better-fitting hypothesis, not a finding. The archived
+  analysis log's §[25] read 4,096 of 158,364 cells (fixed in CX-151) and its §[7] "minimum proven" line follows
+  only a triple disproof; the minimum at 100T is five.
+- *Pass 1 (yield-16 laggards).* The run queued 2,507 depth-5 tasks for 64 workers, and every progress line
+  shows 64 claimed; 2,443 tasks were never started. The tree-size range and exhaustion-feasibility inference in
+  the 2026-09-19 correction box do not follow from two budgeted yields, and the 2026-04-29 pilot at 100T stayed
+  BUDGETED. 502 is the MiB size.
+- *Pass B/D.* The 2.8× is a between-branch spread at one budget, not growth; eight wall-time cells differ by
+  1–4 s from the meta files; `--sub-branch` takes six integers, not the underscore prefix.
+- *Full-31 README.* N/24 is twice the sequence-orbit count; the run computed layers k1–k11 at 64 threads and the
+  rest at 128; the evictions were recovered from intra-layer checkpoints; `run.out` allows all fifteen mirror
+  pairs to be checked. *layer_curve.md.* k1–k9 are read from `run.out` (it carries them), and the peak
+  two-live-layer window by bytes is k16+k17.
+- *Deprecated 10T READMEs (×2).* The cause of the 4,607-record undercount is stated as the better-fitting
+  hypothesis.
+- *KC ladders README.* The three LAYERSHA registries' headers keep the corrected provenance; the README notes it.
+- *v3_rows bundle README.* The archived driver exits 0 after `finish ERROR`; a caller must read `V3ROWS_STATE`.
+  The bundle's `SHA256SUMS` line for `README.md` is updated with it.
+- *enumeration/README.md.* The stdout was an April-14 (UTC) run, and its output sha is `8f2ced21…`; the
+  `solutions.sha256` beside it (`aa141517…`) is from another run with the same record count. The four files
+  document two runs.
+
+No sha, record count, canonical value or verdict changes.
+
+**Tests.** `TestBatchG6.test_g6_run_records` measures each fact from the archived artifacts (merge chunk lines,
+pre-dedup counts, histogram skewness, `64/2507` progress lines, `wall_seconds`, `run.out` thread headers and
+`two_layer` column, the two sha values in `enumeration/`) and requires the note to state it. It fails on the uncured tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G6; sites found by Codex
+(gpt-6-astra), final review, F07-010#3, #4, #5, #6, #7, #9, #10, #11, #12, #13, #14, #16, #17, #19, #20,
+F07-011#11, F12-020#1, #3, #4, #5, #6, #7, #9, #10, #11, #12, #13, #14, F06-008#12.
+
+## CX-35X-L — BRANCHES_EXPLAINED stated C1 more weakly than the code, the node budget as exact on both engines, a zero-yield checkpoint as unconditional, a record set as strictly larger, the depth histogram as gated, and a diff's deletions as all in the selftest; the branch registry promised byte-for-byte restoration for a pre-merge tag (documentation/BRANCHES_EXPLAINED.md; documentation/BRANCH_REGISTRY.tsv; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, F12-018#1, F12-018#2, F12-018#3, F12-018#6,
+F12-018#7, F12-018#8, F06-010#3 and F06-010#4; triaged by Fable (fast-track batch FT3h); push group G6.
+
+**What was published, and what it says now.**
+- C1 read "the two members are either complements … or upside-down versions"; the code requires the reversal
+  unless the hexagram reads the same upside down, and only then the complement. The definition says that.
+- The node-accounting section said both engines count identically. Up to the budget they do; at the budget the
+  recursive engine without checkpointing returns one frame at a time and its node total runs past the budget
+  (no further leaf is reached), while the iterative engine stops the walk. Canonical-scale runs select the
+  iterative engine. A note and the glossary row say so.
+- "A zero-yield cell leaves a `.dfs_state` checkpoint" holds only when checkpointing is on (explicitly, or
+  automatically at `SOLVE_NODE_LIMIT` ≥ 10¹²); a cell that finishes its tree deletes its checkpoint.
+- "a strictly larger truncated record set" at depth 3 is "in practice a larger" one: at a per-cell budget of one
+  node both sets are empty.
+- The depth histogram is counted on every run; `SOLVE_DEPTH_PROFILE=1` gates only a stderr summary on the
+  parallel `--sub-branch` path, whose `per_task_stats.csv` has depth columns regardless.
+- The joint-density re-run cited for King Wen's percentile has no public reproduction command
+  (DISTRIBUTIONAL_ANALYSIS.md records the gap); a note says so.
+- "the 66 deletions are inside the `--selftest` block": 63 are; three replace production lines (the
+  checkpoint-format version, the recursive DFS call, the external merger's record write).
+- BRANCH_REGISTRY.tsv's header promised that `git branch <name> <tag>` restores every retired branch
+  byte-for-byte; the stageg-telemetry tag pins the pre-merge commit `a0542067`, and the merged head `f5a63e27`
+  is on `main`. The header names the exception.
+
+No sha, record count, canonical value or verdict changes.
+
+**Tests.** `TestBatchG6.test_g6_branches_explained` checks the solver's source for each precondition (the C1
+predicate, the recursive budget return, the checkpoint auto-enable at 10¹², the deletion of a finished cell's
+state, the single `SOLVE_DEPTH_PROFILE` read) and holds the page and the registry header to it. It fails on the
+uncured tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G6; sites found by Codex
+(gpt-6-astra), final review, F12-018#1, F12-018#2, F12-018#3, F12-018#6, F12-018#7, F12-018#8, F06-010#3,
+F06-010#4.
+
+## CX-35X-M — four ledger entries corrected on their own record: CX-45's certificate cost rested on an independence assumption the 2026-09-16 timeout showed false, CX-47 kept "minutes" for a step that took about two days, the full-31 entry said interrupted-layer work was redone, and the preamble promised the inventory never drops a C4 candidate; TR-3 v1.11's eight corrections are entered (documentation/CORRECTIONS.md; documentation/DEVELOPMENT.md; scripts/gate_published_consistency.pin; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, F06-009#1, F09-H01#26, F12-008#8, F06-009#2,
+F06-008#15, F06-002#7 and F06-012#5; triaged by Fable (fast-track batch FT3h); push group G6.
+
+**What was published, and what it says now.** The entries named are not edited; this entry records the
+correction.
+- **CX-45.** It ends by deriving, from the banked C3 acceptance rate at `T=387`, a small expected cost for the
+  general certificate at n = 31, which assumes acceptance is independent across rank. HISTORY.md's 2026-09-16
+  entry and `scripts/tr12_repro.sh` record it is not: C3 acceptance is strongly autocorrelated in rank order (the
+  first twenty ranks all carry `cd = 787`), and the row ran past six hours. The certificate's cost at n = 31 is
+  not small, and it has not been run. DEVELOPMENT.md repeated the sentence; it is replaced there by the measured
+  account.
+- **CX-47.** It says the second half of the atlas-cost claim — everything after the ladders runs in minutes —
+  "is correct and stands", while describing an atlas merge of about 47 hours. TR-12 limits "minutes" to the query
+  steps after atlas assembly; that is the half that stands.
+- **The full-31 count entry** says the interrupted layer's partial work was redone after each eviction. `run.out`
+  records twelve intra-layer resume points: the completed part of each interrupted layer was kept. (HISTORY.md's
+  opposite overstatement, "zero lost work", is in CX-35X-J.)
+- **The preamble's C4 note** says C4 candidates are written to the inventory and never deleted from it. The
+  inventory is regenerated from the current text and the commit messages, so a qualifier whose text later changed
+  or went away leaves it (Codex counted 48 C4 ids in the inventory's history that the current file lacks). The
+  exclusion is auditable for the current text; earlier candidates are in the inventory's git history.
+- **TR-3 v1.11 (2026-08-31), eight corrections from prose batch P09, entered here.** (1) §1's contract read the
+  output as a function of one integer; `SOLVE_DEPTH` is sha-determining and defaults to 2, so the contract now
+  names the whole launch configuration. (2) The budget was called the only free parameter; `SOLVE_DEPTH` and
+  `SOLVE_PER_SUB_BRANCH_LIMIT` are sha-determining, and `SOLVE_NODE_LIMIT` only when no explicit per-cell budget is
+  given. (3) gcc versions were said to be recorded with each anchor; they appear only on the ARM witness rows.
+  (4) A `--validate-canonical` mismatch was called diagnosed; the gate prints the host fingerprint and three
+  candidate causes and exits 33. (5) §Scope now cites its public evidence for the host-level finding. (6) A
+  100-billion-node run was offered as reproducing a full canonical; sub-1T runs are smoke checks. (7) §3's
+  throughput figure for task #108 was the occupancy ratio; the measured figures are wall about 2.0× (3,430 s →
+  1,679 s) and sub-branch throughput +43%. (8) A weekend-runway sentence became an observation that did not
+  replicate. The pinned exception in `scripts/gate_published_consistency.pin` (G10) is removed and the pin is 0.
+
+No sha, record count, canonical value or verdict changes.
+
+**Tests.** `TestBatchG6.test_g6_ledger_self_corrections` requires DEVELOPMENT.md to have dropped the
+independence sentence while `scripts/tr12_repro.sh` still records the assumption false (the precondition), runs
+the G10 leg's own awk over the ledger for TR-3 and 2026-08-31, and requires the pin to be 0. It fails on the
+uncured tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G6; sites found by Codex
+(gpt-6-astra), final review, F06-009#1, F09-H01#26, F12-008#8, F06-009#2, F06-008#15, F06-002#7, F06-012#5.
+
+## CX-35X-N — TR-8 addendum A1 is frozen and three of its sentences said more than the tree: the public tree did invoke the sampler without a throwaway seed, A1 is not the first pre-measurement digest on the escrow page, and the frozen-root qualifier attaches to one item of three (documentation/SOLVE_PY_CLI.md; tests.py)
+
+**2026-10-22.** **Source.** Codex (gpt-6-astra), final review, F11-015#7, F11-015#9 and F11-015#17; triaged by
+Fable (fast-track batch FT3h); push group G6.
+
+**What A1 says, and what the record supports.** A1 is frozen and is not edited.
+- A1 attests that the public tree never invokes the sampler or `--tr8-dof-emit-bank` without an explicit
+  throwaway `--tr8-dof-seed`. SOLVE_PY_CLI.md's sharded example, dated 2026-08-11, invoked `--tr8-dof-sampler`
+  without one, which selects the frozen root. The attestation's description of the tree was wrong; nothing shows
+  the example was run before registration. The example now carries the throwaway seed root.
+- A1 calls its escrow row "the first such row the escrow page carries". The original TR-8 registration's digest
+  was escrowed on 2026-08-22, before the run it governs; A1 is the first addendum so escrowed, not the first
+  pre-measurement digest.
+- "Nobody has seen a value of F̂, of any median, or of any frozen-root clause marginal": the frozen-root
+  qualifier attaches to the third item only, while throwaway smoke runs, which print F̂ and medians, were run and
+  are acknowledged in A1 itself. Read the sentence as being about frozen-root values.
+
+No measured value, seed, verdict or registered parameter changes.
+
+**Tests.** `TestBatchG6.test_g6_tr8_sharded_example_seed` requires every `--tr8-dof-sampler` invocation in
+SOLVE_PY_CLI.md's examples to carry `--tr8-dof-seed`, with the precondition that A1 still carries its attestation.
+It fails on the uncured page.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G6; sites found by Codex
+(gpt-6-astra), final review, F11-015#7, F11-015#9, F11-015#17.

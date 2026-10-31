@@ -54,7 +54,9 @@ G9=0
 #       1: TR3 v1.11 (2026-08-31), "eight corrections from the executed prose review (batch P09)".
 #       Pinned rather than bulk-edited because whether a batch of eight prose corrections warrants a
 #       ledger entry is an editorial call, not a mechanical one.
-G10=1
+#       2026-10-22 (push group G6, Codex final review F06-012#5): the call was made — TR-3 v1.11's
+#       eight corrections are back-filled as CORRECTIONS.md CX-35X-M; measured 0, re-pinned in the same commit.
+G10=0
 # G11 — a published gain series must name the boundary the archived run picked. Fixed 2026-09-07.
 G11=0
 # G12 — a pre-registered gate must be quoted with its own threshold. Fixed 2026-09-07.
