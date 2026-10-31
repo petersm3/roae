@@ -35713,3 +35713,23 @@ equivalence was wrong. HISTORY.md is append-only, so the sentence stays as writt
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G5c; found by Codex (gpt-6-astra), final
 review, F06-007#19.
+
+## CX-36A-A — follow-up to CX-263: the n=31 golden set's two stale rows re-minted with `solve.c` at `e4f6c4fc`; Tier 1 now reads OK (no repository file changes)
+
+**2026-10-25.** Origin: backlog row Q-947, the open end of CX-263. CX-263 re-pinned the gate's Tier 1 table and
+recorded that the n=31 golden set minted 2026-09-22 then read `[WRONG]` on `a0_xa_iii` and `b_scan_selftest`, because
+those two rows were minted before CX-87 and CX-142 moved their outputs.
+
+**What was done.** At public commit `e4f6c4fc`, `solve.c` was built (`gcc -O2 -pthread -fopenmp -o solve solve.c -lm -lz`,
+`--selftest` sha `403f7202…`), the two row bodies were taken verbatim from `scripts/tr12_repro.sh` and normalised by its
+own `norm()`, and their outputs replaced the two files of the minted set; its `_MANIFEST.txt` was re-hashed and the other
+43 files were checked byte-identical. Neither row's command takes a ladder, an n or a knob (CX-263). Before the gate was
+run, the universe on the n=31 ladders was re-counted: `KC COUNT n=31 = 1097051278789181790036112071176579186688`, the
+published N.
+
+**Result.** `a0_xa_iii` → `716eeadd…`, `b_scan_selftest` → `c1df8f1f…`, the two Tier 1 pins CX-263 set (unchanged at
+current main). `scripts/tr12_n31_golden_gate.sh` over the re-minted set, without the 0-byte `c_xcheck.txt` placeholder:
+65 checks held, 0 contradicted, Tier 1 OK (before the re-mint: 63 held, 2 contradicted). As CX-263 said, this changes a
+code version in the set, not a count. No repository file changes; this entry records the result.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group D1.

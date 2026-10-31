@@ -2133,7 +2133,7 @@ promotion of these rules into the formal constraint system carries these credits
   coverage** (the first seven pairs exhibit all seven yang-count levels): **Cook, Richard S.,** *Classical
   Chinese Combinatorics: Derivation of the Book of Changes Hexagram Sequence*, STEDT Monograph Series 5,
   Berkeley, 2006 (his subset-sB terminal rule and "seven levels" opening constraint). For a critical
-  review of Cook's derivation see J. Drasny's review at biroco.com/yijing/cook.htm.
+  review of Cook's derivation see J. Drasny's review at biroco.com/yijing/cook.htm. The final-pair anchor's share is also counted exactly in [TR-12 §12.10](../reports/TR12_QUERY_PROGRAM.md): 0.0636 over C1∩C2∩C4∩C5 and 0.0741 under C1–C7 with C3 dropped (the latter added 2026-10-27, Q-1028).
 <a id="hacker-moore2003"></a>
 - **18:18 two-part class split** (18 inversion-classes in each half of the text): classical observation —
   **Zhang Xingcheng 张行成** and **Zhu Xi 朱熹** (Song dynasty, per the first-hand pass of
@@ -2799,7 +2799,7 @@ document (icrea site, Belgium; later fourpillars.net). [Archived](https://web.ar
   population atypicality of his description, not independent confirmation; see TR-1 §7 for the full scoping.
   His broader reconstruction also audits cleanly: 17 of 19 checkable claim-groups verify exactly,
   and his two self-declared exceptions sit precisely where computation finds the misfits. The finding
-  is his; the operationalization, exact enumeration, and population placement are ROAE's.
+  is his; the operationalization, exact enumeration, and population placement are ROAE's. He also notes (kingwen.pdf p. 2) that the four elementary pairs run "from completely unmixed hexagrams (1/2 pair) to perfectly mixed hexagrams (63/64 pair)". How often the 63/64 pair closes a rule-satisfying ordering is counted in [TR-12 §12.10](../reports/TR12_QUERY_PROGRAM.md) (0.0741 exact under C1–C7 with C3 dropped; added 2026-10-27, Q-1028); the closing-pair rule itself is Cook's final-pair anchor ([Cook 2006](#cook2006)).
 
 <a id="drasny-yiglobe"></a>
 Drasny, J. (n.d.). *The Yi-globe*. i-ching.hu. https://www.i-ching.hu/ (unreachable as of 2026-07-04; [archived copy](https://web.archive.org/web/2024/https://www.i-ching.hu/))

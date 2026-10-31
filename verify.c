@@ -4279,6 +4279,18 @@ static int lc_gt_selftest(void) {
  * pin set has no published exact: pass --ie-expect, or the run reports
  * IE_COMPARED=0.
  *
+ * MEASURED WITH THESE PINS (2026-10-26; Route D agrees digit for digit, see
+ * the --dp-pin block): Q-1028, pins 31:31 + --ie-pin-c6c7 --ie-no-quotient
+ * = 38293199327899746001979197628416 orderings end on KW pair #31 (the
+ * alternating pair, hexagrams 63/64), 0.0741 of the C1–C7-with-C3-dropped row
+ * (TR-12 §12.10). The rule (alternating pair last) is Cook 2006's
+ * final-pair anchor, and Van den Berghe describes the same pairs as the
+ * end of an unmixed-to-perfectly-mixed progression (CITATIONS.md); this
+ * file only counts it. Q-1027, pins 1:1 3:3 4:4 20:20 21:21 +
+ * --ie-pin-c6c7 --ie-no-quotient = 39219925415120354378424320, the
+ * project's own five-boundary set {1,4,21,25,27} over the whole
+ * C1∩C2∩C4∩C5 space, C3 dropped (BOUNDARY_MINIMUM.md).
+ *
  * HONEST GATE LOSS (pins): the pinned subset space is NOT closed under
  * the 24-group (the pointwise stabilizer of pairs {24,25,26,27} is
  * trivial), so (a) the quotient lemma is unavailable — pinned runs
@@ -5616,6 +5628,12 @@ static int ie_probe_main(int argc, char **argv) {
  * B0's d2/d4 budgets (count MUST differ). --dp-no-budget drops C5 entirely
  * (plain (M,last) DP, one node — the F4-variant cross-check). --dp-size-only
  * prints the layer plan (masks, bytes, peak resident) and exits.
+ * Measured with these pins (2026-10-26, Route B agreeing; see the --ie-pin
+ * block for the counts and credits): Q-1028 (Cook 2006's final-pair anchor,
+ * Van den Berghe's framing), `--dp-spec full31@0 --dp-pin 31:31
+ * --dp-pin-c6c7`, peak near 200 GB; Q-1027 (this project's five-boundary
+ * set), `--dp-spec full31@0 --dp-pin 1:1 --dp-pin 3:3 --dp-pin 4:4
+ * --dp-pin 20:20 --dp-pin 21:21 --dp-pin-c6c7`.
  * ========================================================================== */
 
 static uint64_t dp_C[33][33];                     /* binomials (colex ranking) */

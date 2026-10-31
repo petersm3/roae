@@ -54533,6 +54533,97 @@ class TestBatchG5c(unittest.TestCase):
 # end class TestBatchG5c (push group G5c, CX-35W-*)
 
 
+class TestBatchD1(unittest.TestCase):
+    """Push group D1 (2026-10-27): Q-1028's premise and the D1 wording.
+
+    Q-1028 counts how often King Wen's closing pair, 既濟/未濟 (hexagrams 63/64), sits in the last pair-slot of a
+    C1–C7-with-C3-dropped ordering (TR-12 §12.10). The rule, alternating pair last, is Cook 2006's "final-pair
+    anchor"; Van den Berghe describes the same pairs as the end of a progression from completely unmixed (1/2) to
+    perfectly mixed (63/64) hexagrams (documentation/CITATIONS.md). This class checks the premise the count rests
+    on, not the count (that needs ~200 GB and is published with its command, like the other n=31 exacts): in
+    verify.c's encoding, KW pair #0 is the only pair of hexagrams with no adjacent-line transition and KW pair #31
+    the only pair with five, transitions = popcount((x ^ (x >> 1)) & 0x1F); and `--ie-pin 31:31` / `--dp-pin 31:31`
+    is the last slot in verify.c's pin convention. Each check is shown to discriminate: the unmasked formula, or
+    the neighbouring pair index, gives a different answer.
+    """
+
+    @staticmethod
+    def _kw():
+        with open("verify.c", encoding="utf-8") as fh:
+            c = fh.read()
+        m = re.search(r"static const int KW\[64\] = \{([^}]*)\}", c)
+        if not m: raise AssertionError("verify.c no longer declares `static const int KW[64]`")
+        kw = [int(x) for x in re.findall(r"\d+", m.group(1))]
+        if sorted(kw) != list(range(64)): raise AssertionError("KW[] is not a permutation of 0..63")
+        return c, kw
+
+    @staticmethod
+    def _trans(x, mask=0x1F):
+        return bin((x ^ (x >> 1)) & mask).count("1")
+
+    def test_q1028_premise_pairs_0_and_31_are_the_transition_extremes(self):
+        c, kw = self._kw()
+        self.assertIn("pair i = (KW[2i], KW[2i+1])", c, "precondition: verify.c's pair numbering")
+        pair = lambda i: {kw[2 * i], kw[2 * i + 1]}
+        by_t = {}
+        for h in range(64):
+            by_t.setdefault(self._trans(h), set()).add(h)
+        self.assertEqual(by_t[0], pair(0))
+        self.assertEqual(by_t[5], pair(31))
+        self.assertEqual(pair(31), {21, 42})
+        # top-line-first encoding (Codex draft review #3): 既濟 = 010101, 未濟 = 101010
+        self.assertEqual((format(kw[62], "06b"), format(kw[63], "06b")), ("010101", "101010"))
+        # discriminates: without the mask the top line is counted against an implicit 0 (Codex draft review #7)
+        self.assertEqual(self._trans(63, mask=-1), 1)
+        self.assertEqual(self._trans(42, mask=-1), 6)
+        self.assertNotEqual({h for h in range(64) if self._trans(h, mask=-1) == 0}, pair(0))
+        self.assertNotEqual({h for h in range(64) if self._trans(h, mask=-1) == 5}, pair(31))
+        # discriminates: the neighbouring pair indices are not the extremes
+        self.assertNotEqual(by_t[5], pair(30))
+        self.assertNotEqual(by_t[0], pair(1))
+
+    def test_q1028_pin_31_is_the_last_slot(self):
+        c, kw = self._kw()
+        # verify.c's --ie-pin convention: step k fills pair-slot k, slot 0 is C4's pair 0, so with 32 pairs the
+        # last slot is 31 (TR-12's "slot 32" counted from 1).
+        self.assertIn("walk step SLOT (1-based; step k fills pair-slot k of the final ordering,", c)
+        self.assertIn("slot 0 being the C4-pinned pair 0)", c)
+        self.assertEqual(len(kw) // 2 - 1, 31)
+        self.assertNotEqual(len(kw) // 2, 31, "a 1-based last slot would be 32, not the pin used")
+
+    def test_d1_wording(self):
+        def rd(*p):
+            with open(os.path.join(*p), encoding="utf-8") as fh:
+                return fh.read()
+        num, den = 38293199327899746001979197628416, 516880238445773965371923491676160
+        self.assertEqual("%.4f" % (num / den), "0.0741")
+        tr12 = rd("reports", "TR12_QUERY_PROGRAM.md")
+        self.assertIn("**38,293,199,327,899,746,001,979,197,628,416**", tr12)
+        self.assertIn("./verify --ie-count --ie-spec full31@0 --ie-pin 31:31 --ie-pin-c6c7 --ie-no-quotient", tr12)
+        self.assertIn("./verify --dp-count --dp-spec full31@0 --dp-pin 31:31 --dp-pin-c6c7", tr12)
+        self.assertIn("evidence of design", tr12[tr12.index("Q-1028, measured 2026-10-26"):])
+        self.assertIn("withdrew 1/31 as a reference for the C1–C5 share", tr12)
+        self.assertIn("Not to be set beside the exact 3.9×10²⁵", rd("reports", "TR4_SIZE_OF_THE_SPACE.md"))
+        self.assertIn("New to the project? [The capstone guide](CAPSTONE_GUIDE.md)", tr12)
+        q = 39219925415120354378424320
+        self.assertEqual("%.1e" % (q / den), "7.6e-08")
+        bm = rd("documentation", "BOUNDARY_MINIMUM.md")
+        self.assertIn("**39,219,925,415,120,354,378,424,320**", bm)
+        self.assertIn("--ie-pin 1:1 --ie-pin 3:3 --ie-pin 4:4 --ie-pin 20:20 --ie-pin 21:21 --ie-pin-c6c7 "
+                      "--ie-no-quotient", bm)
+        self.assertIn("--dp-pin 1:1 --dp-pin 3:3 --dp-pin 4:4 --dp-pin 20:20 --dp-pin 21:21 --dp-pin-c6c7", bm)
+        cit = rd("documentation", "CITATIONS.md")
+        self.assertEqual(cit.count("added 2026-10-27, Q-1028"), 2)
+        self.assertEqual(cit.count("(the latter added 2026-10-27, Q-1028)"), 1)
+        vc = rd("verify.c")
+        self.assertIn("final-pair anchor, and Van den Berghe describes the same pairs", vc)
+        self.assertIn("Q-1027, pins 1:1 3:3 4:4 20:20 21:21", vc)
+        corr = rd("documentation", "CORRECTIONS.md")
+        self.assertIn("## CX-36A-A — follow-up to CX-263", corr)
+        for bad in ("not in this repository", "outside the repository"):
+            self.assertNotIn(bad, corr[corr.index("## CX-36A-A"):])
+
+
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))

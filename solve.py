@@ -10135,7 +10135,7 @@ def db1_verify():
 # orientation-resolved ordering; booleans return 0/1. VdB's terms: "counter"
 # = complement (h ^ 63); "elementary" trigrams = {Qian 7, Kun 0, Kan 2,
 # Li 5}; pair slots are 1-based (slot k = positions 2k-1, 2k) matching both
-# VdB's pair numbering and the audit.
+# VdB's pair numbering and the audit. Also his: the elementary pairs run from completely unmixed (1/2) to perfectly mixed (63/64); ROAE's exact count of the closing half is Q-1028 (TR-12 §12.10).
 # ---------------------------------------------------------------------------
 
 _VDB_ELEM = (7, 0, 2, 5)   # Qian, Kun, Kan, Li — VdB's elementary trigrams

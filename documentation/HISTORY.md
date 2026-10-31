@@ -11791,3 +11791,24 @@ Q-686=DONE
   fixture and fails on the uncured script. Held for a ruling: F06-001#2, F06-007#4, F06-008#5 (which storage
   redactions the append-only alignment may accept), F06-007#20 (interior insertions and committed reorders in
   CORRECTIONS.md) and F06-006#10 (semantic binding of the claim ledger's population and unit columns).
+
+## 2026-10-27 — push group D1: the n=31 golden set current again, the §12.7 queries re-run, and two exact counts beside published rows
+
+- **2026-10-25 — Q-947: the n=31 golden set is current again (CX-36A-A).** The two rows CX-263 found stale (`a0_xa_iii`,
+  `b_scan_selftest`) were re-minted using `solve.c` at `e4f6c4fc` and replaced in the n=31 golden set; Tier 1 now passes.
+  The gate reported 65 checks held and 0 contradicted.
+- **2026-10-26 — the TR-12 §12.7 follow-up queries re-run end to end.** Queries 8, 1b, 7 and 9 were run again at
+  `9967ec14`, in one process from start to finish; every output (the Q8 and Q1b profiles and summaries, the Q7 dead-state
+  census and its g-free cross-check, the Q9 witness walks and their arrangement checks, and the verdict tokens) is
+  byte-identical to the 2026-09-25 run's.
+- **2026-10-26 — Q-1027:** the five-boundary set {1, 4, 21, 25, 27} is shared by ≈3.9×10²⁵ raw, orientation-explicit
+  orderings in C1∩C2∩C4∩C5, with C3 dropped (39,219,925,415,120,354,378,424,320; two routes agree). It singles King Wen
+  out only within the enumerated 100T and 560T slices. BOUNDARY_MINIMUM.md carries the scope sentence and both commands. TR-4 §5 sets the count beside its k = 4 estimate and says the two are not comparable (v1.46).
+- **2026-10-26 — Q-1028:** Cook's final-pair anchor (the alternating 既濟/未濟 pair last) counted exactly under C1–C7 with
+  C3 dropped: 0.0741 of the raw, orientation-explicit orderings, beside TR-12 §12.10's 0.0636 over C1∩C2∩C4∩C5 and
+  TR-7's 0.078 over C1–C5. Added to §12.10 as a note beside the table, with both commands, crediting Cook 2006 for the rule
+  and Van den Berghe for the unmixed-to-mixed framing; CITATIONS.md, `verify.c` and `solve.py` point to it, and
+  `TestBatchD1` checks the premise (pairs #0 and #31 are the only zero- and five-transition pairs; pin 31 is the last
+  slot).
+- **TR-12 now points to the capstone guide near its top** (v1.34), for a reader who wants to run something first.
+- No published count, sha, certificate or verdict changed; the new numbers sit beside published ones and move none.
