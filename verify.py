@@ -521,9 +521,9 @@ def check_shen_orbits():
 
     The sixteen checked below are a SUBSET of that -- 6 of Wu Cheng's 20 orbits.
 
-    THE SAME SIXTEEN AND THE SAME SIX GROUPS ARE ALSO CUI SHU'S, c.1800, reached
-    independently -- creditably so, since 《易纂言外翼》 was lost after the Ming and
-    only reconstructed from the 永樂大典 in 1781. Verified 2026-08-16 from the print
+    THE SAME SIXTEEN AND THE SAME SIX GROUPS ARE ALSO CUI SHU'S, c.1800, plausibly
+    reached independently (different terminology; access to 《易纂言外翼》, lost after
+    the Ming and reconstructed from the 永樂大典 in 1781, is not excluded; Codex F03-007#15). Verified 2026-08-16 from the print
     (Kansai Univ. 内藤文庫 IIIF scan of 崔東壁先生遺書; ctext transcription agrees):
     崔述 (1740-1816), 〈易卦次圖說〉 in 《易卦圖說》, defines the two operations by
     LINE RULES -- 「何謂平對？陰陽之爻互易者也。何謂反對？上下之爻互易者也」, i.e.
@@ -1005,8 +1005,8 @@ def check_classical_groups():
     print("ALL_AGREE_WITH_REV_ON_NONDEGENERATE=%s"
           % ("yes" if all(partner[h] == _zong(h) for h in core) else "NO"))
     print("SCOPE_UNIQUENESS=the_%d_are_ONE_rule_under_%d_labellings;"
-          "_fixed_vs_swapped_is_VACUOUS_exactly_where_the_two_operations_coincide"
-          % (exact, exact))
+          "_fixed_vs_swapped_is_VACUOUS_on_the_%d_eligible_hexagrams_(%d_where_the_operations_coincide+%d_self-reverse)"
+          % (exact, exact, len(elig), len(cuo_is_zong), len(selfrev)))  # Codex F03-001#10
 
     # 吳澄's own second count, as a check that we are reading his chapter correctly.
     orbs = _orbits([_zong, _swap])
@@ -1028,10 +1028,10 @@ def check_classical_groups():
     jq_ok = sum(1 for s in jq if s in orb4)
     print("JIAOXUN_WORKED_QUADRUPLES_ARE_EXACT_ORBITS=%d/5" % jq_ok)
 
-    # The three-generator group <complement, reverse, trigram-swap>. Whalen (1998)'s
+    # The three-generator group <complement, reverse, trigram-swap>. Hershock (1991)'s
     # "families of derivation" appendix is a correct orbit decomposition under exactly this
-    # group; CITATIONS.md records "14 orbits, machine-verified, zero errors" and this is the
-    # command behind that number. Reception history for TR-8 -- NOT prior art for any result.
+    # group; CITATIONS.md records "14 orbits, zero errors"; this command reproduces the orbit
+    # count and profile, not the appendix comparison (Codex F01-008#6/#7). Reception history for TR-8 -- NOT prior art for any result.
     orb3 = _orbits([_cuo, _zong, _swap])
     prof3 = sorted(len(c) for c in orb3)
     print("THREE_GENERATOR_ORBITS=%d" % len(orb3))

@@ -125,13 +125,13 @@ documentation/CITATIONS.md	1703	marker	CORRECTED	1	-	reviewed:entries-above-alre
 documentation/CITATIONS.md	1828	ledger-link	CORRECTION	n/a	-	not-a-marker	86a2b580a24c
 documentation/CITATIONS.md	1837	ledger-link	CORRECTION	n/a	-	not-a-marker	82a7e893f3e6
 documentation/CITATIONS.md	1903	marker	CORRECTED	1	-	reviewed:entry-already-drops-the-edition-label	903fed00def5
-documentation/CITATIONS.md	2050	marker	Corrected	1	-	reviewed:list-already-omits-the-nonexistent-file	bc2854ad3918
-documentation/CITATIONS.md	2058	marker	CORRECTED	1	-	reviewed:item-already-states-toolchain-scope-and-budget-condition	5aac052a61f0
-documentation/CITATIONS.md	2161	marker	CORRECTED	1	-	reviewed:entry-already-drops-the-edition-label	a53ab4f07e27
-documentation/CITATIONS.md	2564	marker	CORRECTED	1	-	reviewed:entry-already-drops-the-edition-claim	cdcd6af5e472
-documentation/CITATIONS.md	2600	marker	CORRECTED	1	-	reviewed:caveat-already-says-budgeted-enumeration	081a7f35084a
-documentation/CITATIONS.md	2769	marker	CORRECTED	1	-	reviewed:entry-already-dates-the-read-and-warns	534aabe4016a
-documentation/CITATIONS.md	2793	marker	Corrected	1	-	reviewed:sentence-already-says-an-exception-is-forced	70008db57739
+documentation/CITATIONS.md	2056	marker	Corrected	1	-	reviewed:list-already-omits-the-nonexistent-file	bc2854ad3918
+documentation/CITATIONS.md	2064	marker	CORRECTED	1	-	reviewed:item-already-states-toolchain-scope-and-budget-condition	8837789bd77d
+documentation/CITATIONS.md	2167	marker	CORRECTED	1	-	reviewed:entry-already-drops-the-edition-label	a53ab4f07e27
+documentation/CITATIONS.md	2573	marker	CORRECTED	1	-	reviewed:entry-already-drops-the-edition-claim	cdcd6af5e472
+documentation/CITATIONS.md	2609	marker	CORRECTED	1	-	reviewed:caveat-already-says-budgeted-enumeration	081a7f35084a
+documentation/CITATIONS.md	2780	marker	CORRECTED	1	-	reviewed:entry-already-dates-the-read-and-warns	534aabe4016a
+documentation/CITATIONS.md	2804	marker	Corrected	1	-	reviewed:sentence-already-says-an-exception-is-forced	70008db57739
 documentation/CLAIMS_DECIDED.md	46	marker	Corrected	1	-	reviewed:row-already-gives-the-one-5-line-transition	5675b59012d1
 documentation/CLAIMS_DECIDED.md	54	ledger-link	CORRECTION	n/a	-	not-a-marker	ff081f2a9227
 documentation/CLAIMS_DECIDED.md	80	marker	CORRECTED	1	-	reviewed:clause-already-says-orientation-is-definitional	1d8b91106749
@@ -244,9 +244,9 @@ documentation/GUIDE.md	261	marker	Corrected	1	-	reviewed:sentence-already-gives-
 documentation/KING_WEN_PROVENANCE.md	32	marker	Corrected	1	-	reviewed:sentence-already-says-fragments	88e8bf323be9
 documentation/KING_WEN_PROVENANCE.md	119	marker	CORRECTED	1	-	reviewed:sentence-already-attributes-the-operations-to-Yu-Fan	8d387c35b577
 documentation/KING_WEN_PROVENANCE.md	125	marker	Corrected	1	-	reviewed:parenthetical-already-gives-the-16-and-8-split	8d31a7ebfff4
-documentation/KING_WEN_PROVENANCE.md	196	ledger-link	CORRECTION	n/a	-	not-a-marker	177483df3350
-documentation/KING_WEN_PROVENANCE.md	227	marker	Corrected	2	-	reviewed:the-next-paragraph-refers-to-the-correction-above-for-the-3-testable-split	9ed102c86ec7
-documentation/KING_WEN_PROVENANCE.md	243	marker	Corrected	1	-	reviewed:passage-already-reads-correctly;gating-rule-is-in-VERIFY.md	fea6292056fb
+documentation/KING_WEN_PROVENANCE.md	197	ledger-link	CORRECTION	n/a	-	not-a-marker	177483df3350
+documentation/KING_WEN_PROVENANCE.md	228	marker	Corrected	2	-	reviewed:the-next-paragraph-refers-to-the-correction-above-for-the-3-testable-split	9ed102c86ec7
+documentation/KING_WEN_PROVENANCE.md	244	marker	Corrected	1	-	reviewed:passage-already-reads-correctly;gating-rule-is-in-VERIFY.md	fea6292056fb
 documentation/LARGE_SCALE_CAMPAIGNS.md	214	marker	CORRECTED	3	GATE 53(file)	gate-anchored	5bb8dd2d7db7
 documentation/LARGE_SCALE_CAMPAIGNS.md	252	marker	CORRECTED	3	GATE 53(file)	gate-anchored	1eb38121d2c9
 documentation/LARGE_SCALE_CAMPAIGNS.md	318	marker	CORRECTED	3	GATE 53(file)	gate-anchored	3d5ead6523c8
@@ -311,7 +311,7 @@ documentation/PARTITION_STABILITY_BOUNDARIES.md	52	marker	CORRECTED	1	-	reviewed
 documentation/PARTITION_STABILITY_BOUNDARIES.md	60	marker	Corrected	1	-	reviewed:paragraph-already-reads-monotone-and-stable	8af9abd8ef6a
 documentation/PARTITION_STABILITY_BOUNDARIES.md	92	ledger-link	CORRECTION	n/a	-	not-a-marker	5f15c6486deb
 documentation/PARTITION_STABILITY_BOUNDARIES.md	96	ledger-link	CORRECTION	n/a	-	not-a-marker	198f330262e1
-documentation/PASS1_TRAJECTORY_DETERMINISM.md	3	marker	CORRECTED	1	-	reviewed:result-already-reads-under-1-percent-from-1e11	6c11157e7511
+documentation/PASS1_TRAJECTORY_DETERMINISM.md	3	marker	CORRECTED	1	-	reviewed:result-already-reads-under-1-percent-from-1e11	80a096bb8146
 documentation/PASS1_TRAJECTORY_DETERMINISM.md	45	ledger-link	CORRECTION	n/a	-	not-a-marker	9e7979fcdfc3
 documentation/PASS1_TRAJECTORY_DETERMINISM.md	45	marker	Corrected	1	-	reviewed:paragraph-already-says-the-matching-rule-is-reproducible	9e7979fcdfc3
 documentation/PASS1_TRAJECTORY_DETERMINISM.md	47	marker	Corrected	1	-	reviewed:sentence-already-carries-the-sampling-caveat	aa0563dffc6f
@@ -558,8 +558,8 @@ documentation/TRIGRAM_STRUCTURE.md	328	marker	Corrected	3	GATE 66	stays:verbatim
 documentation/TRIGRAM_STRUCTURE.md	332	marker	Corrected	3	GATE 66	stays:verbatim-copy-of-the-lean/TrigramTheorems.lean-header;moves-only-with-the-Lean-file	58a1c902d08a
 documentation/VERIFY.md	15	marker	Corrected	1	-	reviewed:row-already-names-KingWen.lean	c8a94784a806
 documentation/VERIFY.md	16	marker	Corrected	1	-	reviewed:row-already-gives-the-16-MB-requirement	1469cd949612
-documentation/VERIFY.md	76	marker	CORRECTED	1	-	reviewed:row-already-attributes-to-Yu-Fan-and-scopes-the-12-16-band	afea3277851e
-documentation/VERIFY.md	76	marker	Corrected	1	-	reviewed:row-already-attributes-to-Yu-Fan-and-scopes-the-12-16-band	afea3277851e
+documentation/VERIFY.md	76	marker	CORRECTED	1	-	reviewed:row-already-attributes-to-Yu-Fan-and-scopes-the-12-16-band	9afbbe585ef3
+documentation/VERIFY.md	76	marker	Corrected	1	-	reviewed:row-already-attributes-to-Yu-Fan-and-scopes-the-12-16-band	9afbbe585ef3
 documentation/VERIFY.md	78	marker	Corrected	1	-	reviewed:dated-label;row-already-cites-Lemma-1	ccc7478b2a31
 documentation/VERIFY.md	157	marker	CORRECTED	2	-	reviewed:the-sentence-it-withdraws-still-stands-immediately-above-it	b0831baa9ed2
 documentation/VERIFY.md	690	marker	Corrected	1	-	reviewed:text-already-gives-9-15-7	453d2b32b175
@@ -681,7 +681,7 @@ reports/TR12_QUERY_PROGRAM.md	2630	marker	Corrected	1	-	reviewed:text-already-sa
 reports/TR12_QUERY_PROGRAM.md	2657	ledger-link	CORRECTION	n/a	-	not-a-marker	bf86a36d3823
 reports/TR12_QUERY_PROGRAM.md	2666	marker	Corrected	1	-	reviewed:cell-already-says-no-battery-run-took-the-digests	8f4153493d43
 reports/TR12_QUERY_PROGRAM.md	2709	marker	Corrected	1	-	reviewed:cell-already-scopes-the-container-count-to-t	6854b73d97ab
-reports/TR12_QUERY_PROGRAM.md	2711	marker	Corrected	1	-	reviewed:cell-already-says-bound-from-below	474bb47a658a
+reports/TR12_QUERY_PROGRAM.md	2711	marker	Corrected	1	-	reviewed:cell-already-says-bound-from-below	6e1226b0918f
 reports/TR12_QUERY_PROGRAM.md	2733	marker	Withdrawn	1	-	reviewed:sentence-already-lists-the-figure-as-withdrawn	ceefbb4faa97
 reports/TR12_QUERY_PROGRAM.md	2780	marker	Corrected	2	-	reviewed:bullet-above-still-calls-the-witnesses-leg-a-named-skip	efc7d1699e2a
 reports/TR12_QUERY_PROGRAM.md	2806	marker	Corrected	1	-	reviewed:text-already-says-the-atlas-is-distributed	3615257e9c26

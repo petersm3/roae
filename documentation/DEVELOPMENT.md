@@ -44,7 +44,7 @@ sudo apt-get install -y build-essential zlib1g-dev
 - **`zlib1g-dev`** — `zlib.h`. `solve.c` uses zlib natively for the per-block-gzip layer format;
   without the headers the compile fails at the first `#include <zlib.h>`.
 - **OpenMP** — ships with gcc as `libgomp` on Debian/Ubuntu; no separate package.
-- **`python3`** — for `tests.py`, `solve.py`, `roae.py`, `verify.py`. Stdlib only for the core
+- **`python3` ≥ 3.10** — for `tests.py`, `solve.py`, `roae.py`, `verify.py` (`roae.py` and `solve.py` use `int.bit_count`, new in 3.10; Codex final review, F09-A02#3). Stdlib only for the core
   solve / verify / test paths: `python3 tests.py`, `python3 roae.py`, `sat.py --emit-cnf`, and
   `verify.py`'s default and `--recount` legs need no third-party module (re-confirmed 2026-08-30
   by running them with numpy/pyarrow/pandas/scipy/sklearn/matplotlib blocked at import — 77 tests
@@ -166,8 +166,8 @@ Standardized paired-bench harness lives at `scripts/perf_bench.sh`. It runs
 control vs treatment on a single fresh Spot VM in westus3, runs a pure-CPU
 preflight throttle probe on every core **and refuses to bench a host that does
 not read `HEALTHY`** (teardown, exit 5), flushes the page cache between paired
-runs **and verifies that the flush happened**, captures enum-only wall (merge
-wall separately, not part of the speedup metric), takes `sha` and `records`
+runs **and verifies that the flush happened**, captures branch wall including the branch merge (Codex final review, F12-008#4; the separate global merge
+wall is not part of the speedup metric), takes `sha` and `records`
 over the **decompressed** stream, and emits a JSON block that pastes directly
 into a new entry. Multi-scale: 1B / 1T
 / 11.2T selectable via `--scale` — note the SKU is chosen **per scale**
@@ -912,7 +912,7 @@ For the operational mechanics of running a canonical enumeration ≥11.2T — pr
 The runbook's mandatory invariants for canonical runs:
 
 - Enum OS disk: explicit `--storage-sku StandardSSD_LRS` (Azure defaults `s`-suffix VMs to Premium_LRS otherwise)
-- Shards on attached managed disk (`solver-data-westus3`), not the enum VM's OS disk
+- Shards on attached managed disk (the project's data disk), not the enum VM's OS disk
 - ERR trap preserves the enum VM (never auto-`teardown_enum`); recovery from Phase 2 errors is then a Phase-2-only re-run instead of a full enum redo
 - Large-file transfers via streaming `curl -T file` (NEVER `--data-binary @file` — OOMs at 2 GB+)
 - Mount logic handles existing-ext4 (operator data on solver-data); write canonical outputs to `$ARCHIVE_PREFIX/` subdirectory
@@ -1074,7 +1074,7 @@ solve --verify solutions.bin                    # C1-C5 structural check of all 
 
 Run both; both must pass. The first catches any corruption of PHASE_A's recorded content; the second catches any invalid record emitted anywhere in solutions.bin, including the PHASE_B-new region. (An earlier draft added a `--verify-resume` coordinator subcommand wrapping both; removed 2026-05-15 as redundant — the two-step recipe here is the same thing without adding a maintained subcommand.)
 
-**Cost:** zero at canonical time. Manifest write is O(shard count); manifest verify is O(shard count × shard size) with streaming sha256; structural verify is O(record count) running the same C1-C5 logic as the existing `solve --verify` mode.
+**Cost:** not zero at canonical time: the manifest is emitted automatically at canonical completion, and emission hashes every shard (each gzip shard is decompressed twice; Codex final review, F09-H01#7); manifest verify is O(shard count × shard size) with streaming sha256; structural verify is O(record count) running the same C1-C5 logic as the existing `solve --verify` mode.
 
 ### Phase 1 speedup benchmarking methodology (2026-05-15)
 
@@ -1453,7 +1453,7 @@ cases.
 
 Every canonical-scale enumeration (≥1T `SOLVE_NODE_LIMIT`) MUST run in a clean, dedicated run directory. The solver enforces this in part with startup gates (LOCK file, `build.sha` check, `.budget` sidecar verification) — but those guard against subsets of the failure modes documented in the audit (`petersm3/roae-private:V3_1_HARDENING_AUDIT_2026_05_25.md`). One mode (Outlier #6: filename-pattern false-positive from foreign `sub_*.bin` files in the run dir) is intentionally NOT enforced in code, because a hard "empty cwd" gate would be too operator-unfriendly. Instead, follow this convention:
 
-**One canonical campaign → one fresh subdirectory.** Pattern: `solver-data-westus3:/<YYYYMMDD>_<lineage>_<scale>_<campaign_id>/` (e.g., `20260521_v2_100T_buildA/`).
+**One canonical campaign → one fresh subdirectory.** Pattern: `<data-disk>:/<YYYYMMDD>_<lineage>_<scale>_<campaign_id>/` (e.g., `20260521_v2_100T_buildA/`).
 
 What goes in the run dir:
 - The solver binary `solve` (or a build-recipe script that produces it)
@@ -1470,7 +1470,7 @@ What MUST NOT go in the run dir:
 
 If you're recovering from a failed run and need to combine partial shards from multiple attempts: do so in a freshly-created run dir, not in either source dir. The `solve --merge` step is meant to be the single point where shards meet `solutions.bin`; do the assembly explicitly.
 
-For the 560T campaign specifically (per `project_560T_review_gate`): the run-dir convention is mandatory pre-launch and the dir must be created on `solver-data-westus3` immediately before the enum VM is provisioned — no shared / reused dirs. The strict-default `.budget` sidecar check means a fresh 560T enum doesn't need an explicit env var to opt into strict mode — strict is the default. Don't set `SOLVE_ALLOW_MISSING_BUDGET_SIDECAR=1` for 560T; let any missing-sidecar shard re-walk via the LOAD path.
+For the 560T campaign specifically (per `project_560T_review_gate`): the run-dir convention is mandatory pre-launch and the dir must be created on the data disk immediately before the enum VM is provisioned — no shared / reused dirs. The strict-default `.budget` sidecar check means a fresh 560T enum doesn't need an explicit env var to opt into strict mode — strict is the default. Don't set `SOLVE_ALLOW_MISSING_BUDGET_SIDECAR=1` for 560T; let any missing-sidecar shard re-walk via the LOAD path.
 
 ### Auto-protect gates that fire on canonical-enum startup (added 2026-05-26)
 
@@ -2029,7 +2029,7 @@ For canonical campaigns at 11.2T+, no host-level drift has been observed either 
   the merge buffer is 82 GB (2.77B records × 32 bytes). For larger runs
   or smaller VMs, `SOLVE_MERGE_MODE=external` uses disk-based sorted
   chunks + k-way heap merge. Produces identical output to in-memory merge.
-  Default (`auto`) selects external when needed RAM exceeds 70% of
+  Default (`auto`) selects external when needed RAM exceeds 80% of
   physical. `SOLVE_MERGE_CHUNK_GB` controls chunk size (default 4 GB).
 - **Disk tier dominates external merge time.** Lesson from the 2026-04-18
   10T depth-3 production-scale external merge test on Standard_LRS
@@ -2322,7 +2322,7 @@ cycle and grows the disk + filesystem if usage crosses a threshold.
 **Mechanism:**
 1. `df -BG /data` on the solver VM measures usage
 2. If pct ≥ threshold and current disk size < `MAX_DISK_GB`:
-   - Orchestrator: `az disk update -g RG-CLAUDE -n solver-data --size-gb (cur + INCREMENT)`
+   - Orchestrator: `az disk update -g <resource-group> -n <data-disk> --size-gb (cur + INCREMENT)`
    - Inside VM: `sudo resize2fs $(mount | grep /data | cut -d" " -f1)`
 3. Telemetry CSV gets a `disk_expanded` row.
 

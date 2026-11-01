@@ -976,8 +976,8 @@ conformity count), operational spec frozen in
 `roae-private/DRASNY_RULE_OF_TEN_SCOPING_2026_07_11.md` (measured 2026-07-11:
 verified true and reported as a data-like fitted description — a tautology of a
 KW-extracted template, no p attached; [TR-10 §3b](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)). Asserts that the bit-structural precedence classifier
-(`B ≻ A ≻ F ≻ C ≻ D ≻ E ≻ G`) reproduces Drasny's Table 4.1 (book p. 75) eight-group
-system EXACTLY for all 64 hexagrams — flip-equivariant, C1-pair-consistent, zero
+(`B ≻ A ≻ F ≻ C ≻ D ≻ E ≻ G`) reproduces Drasny's Table 4.1 (book p. 75) for all 64
+hexagrams with his G1 and G2 merged into one class (seven classes, as the conformity score needs; Codex FV-G4-C6#3) — flip-equivariant, C1-pair-consistent, zero
 residue, group sizes (A,B,C,D,E,F,G)=(5,4,4,4,6,3,6) — and that the King Wen
 pair→slot conformity count **X = 22** (deviant slots 2 5 7 10 11 15 18 24 31 32, i.e.
 Drasny's Table 4.2 list of 10 deviant pairs), plus the analytic uniform-permutation
@@ -1142,7 +1142,7 @@ the entry that first surfaced the theorem statements. *(Source status
 corrected 2026-09-01: this sentence previously graded the attribution as
 annotation-only with the primary source still unread — a status the
 attribution block at solve.py:10514-10517 and the ledger entry at
-[CITATIONS.md](CITATIONS.md):2845 had already superseded on 2026-07-11.)* Prints one PASS/FAIL line per claim
+[CITATIONS.md](CITATIONS.md):2856 had already superseded on 2026-07-11.)* Prints one PASS/FAIL line per claim
 with expected + computed values. Exit 0 iff all 14 pass. Wall <1 s.
 Attribution per claim function in solve.py; master ledger
 [CITATIONS.md](CITATIONS.md).
@@ -3502,7 +3502,7 @@ External cleanup is not required but is a disk-hygiene best practice.
 
 - The default action and `--branch` / `--sub-branch` produce
   byte-identical sha256 across thread count (above a minimum) and merge
-  mode (in-memory vs external), given matching solver version and inputs —
+  mode (in-memory vs external), given matching solver version and inputs, per-cell budgets (a parallel `--sub-branch` run under one global `SOLVE_NODE_LIMIT` varies its record set between runs — solve.c's determinism note) and a sha taken over decompressed bytes (gzip framing varies with zlib version and level — [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md); Codex final review, F12-003#12) —
   that much is the partition-invariance theorem
   ([PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md)), which is about
   partition granularity and says nothing about hardware or region.
@@ -4079,7 +4079,8 @@ Per layer it computes:
   weightings do not, because any walk tends to pass through well-trodden states. The same triples
   are given for `g(s)` and for the through-mass `w(s) = orbit·f·g`. All three range over the
   f-stored states, and a state with no g entry reads `g = 0`.
-- Also: a 1/8-octave histogram of `f` under the three weightings, so any other walk can be
+- Also: a histogram of `f` under the three weightings, binned by bit length and the three bits after the leading one
+  (linear eighths of the leading mantissa, not equal 1/8-octave bins — Codex FV-S5-C#23), so any other walk can be
   bracketed later without another pass; the dead-state count (`f > 0`, `g = 0`, the same number
   as `--kc-dead-census`'s `dead_states`); and the g-only count (g keys with no f partner, the
   stored-domain superset of `GT_LADDER_FORMAT.md`).
@@ -4113,8 +4114,8 @@ blocks in parallel into a bounded ring. The default is `min(2, nproc/3)`. Both p
 same fetch and decode code in the same block order, and the selftest requires their JSON to be
 byte-identical. A v2 file's block size is taken from its header, as the format document requires.
 Opening never aborts: a bad header, a size that is not the format's, a corrupt index or a short
-read is a `FAIL:<reason>` token. All ladder files are opened read-only, and nothing is written
-outside OUTDIR (and `--kc-masks-out`).
+read is a `FAIL:<reason>` token. All ladder files are opened read-only, and no result is written
+outside OUTDIR (and `--kc-masks-out`); the binary-digest helpers use a scratch file `/tmp/solve_exesha_<pid>` / `/tmp/solve_msha_<pid>` (Codex FV-S5-C#18).
 
 **Outputs**, all in OUTDIR:
 
@@ -4128,8 +4129,9 @@ outside OUTDIR (and `--kc-masks-out`).
   columns are mid-rank doubles for display; the JSON holds the integers. The file is regenerated
   from the JSONs at the end of every run.
 - `midjoin_progress.json`, rewritten atomically at the start and end of each layer and every
-  60 s during it (bytes read, rate, a layer ETA). A wrapper should key on its `layer` field, not
-  on its age. The 60 s heartbeat also goes to stderr.
+  60 s during it (bytes read, rate, a layer ETA) — checked once every 4,096 masks, so the interval is
+  at least 60 s, not exactly 60 s (Codex FV-S5-C#19). A wrapper should key on its `layer` field, not
+  on its age. The heartbeat also goes to stderr.
 
 **Resume and failure.** The unit of resume is one layer. A layer's JSON reaches its final name
 only by tmp, fsync, rename. On restart, a layer whose JSON has the same `resume_key` (instance,
@@ -4139,8 +4141,9 @@ only by tmp, fsync, rename. On restart, a layer whose JSON has the same `resume_
 `MIDJOIN=FAIL:stale-result-<k>`, and the file is left alone. `--kc-force` recomputes every
 layer. At most one layer is lost to a kill. ⚠ *(Scope, 2026-10-23, Codex FV-S5-K2#1/#3: the key binds the input files' NAMES and SIZES, not their content, and a resumed JSON is matched by its key and marker text, not re-parsed; so a same-size change to a ladder with OUTDIR retained is RESUMED. After any change to the inputs, recompute with `--kc-force` or check with `verify.py --check-midjoin`. When the engine identity is `unavailable` (no `SOURCE_SHA`, no sha256 tool) a matching key is not trusted and the layer is recomputed; `--kc-force` may be given once.)* Every requested layer's header and exact file size is
 checked before any layer streams. Each of these stops the run with
-`MIDJOIN_LAYER=<k>:FAIL:<reason>`, no JSON for that layer, and exit 1: an f/g or f/t context
-mismatch (refused before any stream), a mask-list mismatch, a key out of order or outside its
+`MIDJOIN_LAYER=<k>:FAIL:<reason>`, no new JSON for that layer (after a failed `--kc-force` rerun the previous
+run's JSON stays; it is replaced only on success — Codex FV-S5-G#12), and exit 1: an f/g or f/t context
+mismatch (refused before any stream, and printed as `MIDJOIN=FAIL:context-mismatch` alone — Codex FV-S5-C#21), a mask-list mismatch, a key out of order or outside its
 domain, a zero f value, a g-only key at layer 0, an inflate error, a file size that is not the
 format's, a short read, `Σ W ≠ N`, the stream never reaching the walk's state or reaching it with
 another value than the point read, a pin mismatch, a profile table that is malformed or missing a
@@ -4165,7 +4168,8 @@ or a walk that is not a member. Unknown, repeated or non-numeric options are ref
 - **G3**, at n=9 and n=13: the streaming reader against an in-memory reader of the same layers
   (`kc_load` arrays and `kc_flookup` point reads), gated JSON byte-identical.
 - **G4**: the same over v1 cut into 61-entry blocks, over v2 re-blocked at 61 entries per block
-  with a 4 KB window (synchronous, 1-, 2- and 3-thread producers), and over v2 as the engine
+  with a 4 KB window (synchronous, 1-, 2- and 3-thread producers) and a 1 MB window (2-thread producers;
+  Codex FV-S5-K2#17), and over v2 as the engine
   writes it.
 - **G5**: the pin against the walk's own `--kc-profile` table, and its refusal of a table whose
   step-4 `f` is off by one.

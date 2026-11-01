@@ -54,7 +54,7 @@
 #                                   # naming a flag that does not exist — the doc->code direction
 #                                   # GATE 2 misses; and LEG 2 (REPORT-ONLY, never affects rc) a
 #                                   # doc that publishes a measured figure and names no way to
-#                                   # re-derive it. NOT in `all` — by caution, per its header.
+#                                   # re-derive it. Also run by `all` (Codex FV-FT1-G:OOS:12212).
 #   scripts/doc_gates.sh withdrawn-markers # GATE 27: a registered WITHDRAWN figure restated with
 #                                   # no supersession marker — table rows judged PER ROW, prose per
 #                                   # blank-line paragraph (a marker on the wrapped next line

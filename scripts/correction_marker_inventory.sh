@@ -245,7 +245,7 @@ REVIEWED = {
         ('1', 'reviewed:entry-already-dates-the-read-and-warns'),
     ('documentation/CITATIONS.md', '5914e3df6f6a'):
         ('1', 'reviewed:framing-already-names-the-self-reverse-subgroup'),
-    ('documentation/CITATIONS.md', '5aac052a61f0'):
+    ('documentation/CITATIONS.md', '8837789bd77d'):  # re-keyed 2026-10-30, push group G7 (was 5aac052a61f0; line edited; verdict re-read, stands)
         ('1', 'reviewed:item-already-states-toolchain-scope-and-budget-condition'),
     ('documentation/CITATIONS.md', '61d2ec0c2088'):
         ('1', 'reviewed:passage-already-attributes-the-group-to-Yu-Fans-operation'),
@@ -472,7 +472,7 @@ REVIEWED = {
         ('1', 'reviewed:paragraph-already-reads-monotone-and-stable'),
     ('documentation/PASS1_TRAJECTORY_DETERMINISM.md', '36ee2235a004'):
         ('1', 'reviewed:list-already-itemises-both-missing-commits'),
-    ('documentation/PASS1_TRAJECTORY_DETERMINISM.md', '6c11157e7511'):
+    ('documentation/PASS1_TRAJECTORY_DETERMINISM.md', '80a096bb8146'):  # re-keyed 2026-10-30, push group G7 (was 6c11157e7511; line edited; verdict re-read, stands)
         ('1', 'reviewed:result-already-reads-under-1-percent-from-1e11'),
     ('documentation/PASS1_TRAJECTORY_DETERMINISM.md', '74eb5fead8b8'):
         ('1', 'reviewed:sentence-already-says-consistent-with-but-cannot-confirm'),
@@ -796,7 +796,7 @@ REVIEWED = {
         ('1', 'reviewed:sentence-already-says-kernel-evaluated-for-all-three'),
     ('documentation/VERIFY.md', '1469cd949612'):
         ('1', 'reviewed:row-already-gives-the-16-MB-requirement'),
-    ('documentation/VERIFY.md', 'afea3277851e'):  # re-keyed 2026-10-17, push group G4 (line edited; verdict re-read, stands)
+    ('documentation/VERIFY.md', '9afbbe585ef3'):  # re-keyed 2026-10-30, push group G7 (was afea3277851e, itself re-keyed 2026-10-17 G4; line edited; verdict re-read, stands)
         ('1', 'reviewed:row-already-attributes-to-Yu-Fan-and-scopes-the-12-16-band'),
     ('documentation/VERIFY.md', '453d2b32b175'):
         ('1', 'reviewed:text-already-gives-9-15-7'),
@@ -875,7 +875,7 @@ REVIEWED = {
         ('1', 'reviewed:text-already-describes-what-the-row-delivers'),
     ('reports/TR12_QUERY_PROGRAM.md', '3615257e9c26'):
         ('1', 'reviewed:text-already-says-the-atlas-is-distributed'),
-    ('reports/TR12_QUERY_PROGRAM.md', '474bb47a658a'):
+    ('reports/TR12_QUERY_PROGRAM.md', '6e1226b0918f'):  # re-keyed 2026-10-30, push group G7 (was 474bb47a658a; line edited; verdict re-read, stands)
         ('1', 'reviewed:cell-already-says-bound-from-below'),
     ('reports/TR12_QUERY_PROGRAM.md', '6854b73d97ab'):  # re-keyed FT2b-1 (CX-384): this row's framing clause now says zlib-block framed, no outer gzip; verdict re-read, unchanged
         ('1', 'reviewed:cell-already-scopes-the-container-count-to-t'),

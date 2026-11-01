@@ -314,7 +314,7 @@ which is what produced every published figure — with the divergence disclosed:
   pair fixed by C4 where stated.
 - **Population fractions** are ratios of weighted canonical-leaf masses (orientation-resolved unless
   marked canonical); every scorer's rule semantics has a KW-value reproduction gate
-  (`--registry-verify` for the registry rules; `--dav-verify`, `--db1-verify`, `--f4p-verify` for the other scorer families; named 2026-10-17, CX-35T-I) run before any measurement is trusted.
+  (`--registry-verify` for the registry rules; `--dav-verify`, `--dav2-verify`, `--db1-verify`, `--f4p-verify` for the other scorer families — `--dav2-verify` added by Codex FV-G4-C1#7; named 2026-10-17, CX-35T-I) run before any measurement is trusted.
 - **Global observable ledger (enterprise-wide multiple comparisons).** Bonferroni corrections in this
   suite are applied within each pre-registered family (F5 /11, F4′ /13, Davis /9, Davis follow-up /12,
   permutation /13). Family-wise control does not control the error rate of the whole enterprise. The
@@ -496,7 +496,7 @@ commands (`--estimate-knuth 0`, the orbit-quotient DP, `--verify`) are determini
   for it. **The n=31 atlas that every §12 figure is computed from IS distributed** —
   `runs/20260906_kc_ladders_n31/atlas_n31.json`, 5,978,126 bytes, sha256 `9d6ba3d2…` — so those
   figures are re-derivable with no ladder at all: `python3 solve.py --atlas-probe runs/20260906_kc_ladders_n31/atlas_n31.json`
-  for §12.1–§12.8, and `python3 solve.py --atlas-queries runs/20260906_kc_ladders_n31/atlas_n31.json --atlas-out DIR`
+  for the §12.1–§12.6 figures §12.9 maps to a token (§12.7's are derived and §12.8 quotes none; Codex FV-G4-C1#8), and `python3 solve.py --atlas-queries runs/20260906_kc_ladders_n31/atlas_n31.json --atlas-out DIR`
   with TR-7's published anchors for §12.10, in seconds (scoped 2026-10-17, CX-35T-I: this named `--atlas-probe` alone). Run order and hardware notes live in
   [VERIFY.md](../documentation/VERIFY.md) §"TR-12 query program".
 

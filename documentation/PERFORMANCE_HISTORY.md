@@ -537,7 +537,7 @@ This is the **first entry produced by the standardized `scripts/perf_bench.sh` h
 
 Lessons captured during this run:
 1. **OS disk sizing**: 64 GB filled when both Build B and Build C shards co-resident on the merge phase; needed manual intervention. For future paired benches, plan for 128 GB OS disk or external data disk for shard scratch.
-2. **Merge time should be excluded from speedup**: the script captures enum-only wall in the `WALL` variable; `--merge` runs separately after.
+2. **Merge time should be excluded from speedup**: the script's `WALL` variable times the whole `--branch` process — load, sort, dedup, write and hash included (Codex final review, F12-008#4); the global `--merge` runs separately after.
 3. **v1 baseline (commit `1d4dc6e`) crashed at depth-3 + 128 threads**: hypothesis is buffer-overflow detection in v1's pre-#72 array-domain code under high thread count. Diagnostic re-attempt at depth-2 in progress (Build A in current bench).
 
 Full results to be appended once 1T bench completes.

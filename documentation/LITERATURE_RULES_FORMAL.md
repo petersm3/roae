@@ -119,7 +119,9 @@ exempts exactly those two stations; every other target scores the rule as stated
 
 ### 2.4 CC-N4, the S25–S28 face configuration — `ccn4`
 
-Source: [Schulz 2016](CITATIONS.md#schulz2016) pp. 23–24, [Schulz 2011](CITATIONS.md#schulz2011).
+Source: [Schulz 2016](CITATIONS.md#schulz2016) pp. 23–24, [Schulz 2011](CITATIONS.md#schulz2011); stated earlier by
+[Li Shangxin 2000](CITATIONS.md#lishangxin2000) (p. 53), who credits the core observation to Gu Boxu 顾伯叙 (1997)
+(Codex final review, F03-008#5).
 Let `f_s` be the canonical gua of station `s` for `s = 25, 26, 27, 28`. The rule holds iff
 `up(f_s) = Dui (3)` for all four **and** `(lo(f_25), lo(f_26), lo(f_27), lo(f_28)) = (Qian 7, Kun 0,
 Kan 2, Li 5)` in that order. Returns bool; KW **True** (faces 31, 24, 26, 29). Convention note:
@@ -128,7 +130,8 @@ the top trigram of those faces is Dui, and that is what is encoded.
 
 ### 2.5 CC-N8, exception co-location — `ccn8`
 
-Source: [Schulz 2016](CITATIONS.md#schulz2016) pp. 14–15 (SC-7). The rule holds iff the gender
+Source: [Schulz 2016](CITATIONS.md#schulz2016) pp. 14–15 (SC-7); [Li Shangxin 2000](CITATIONS.md#lishangxin2000)
+(p. 53) independently places the two exceptions of his station-parity rule at columns 25–26. The rule holds iff the gender
 violation set of §2.3 is **exactly** `{25, 26}` **and** both 25 and 26 are in the R-S2 violation set
 of §3.2. Returns bool; KW **True**. It requires only that the two violation sets *share* the locus
 (R-S2's set may be larger — King Wen's is `{11, 13, 14, 25, 26, 32}`).
@@ -141,7 +144,8 @@ Identifiers are the `solve.py --registry-verify` row names (`reg_<id>`); the sco
 ### 3.1 `rs1` — R-S1, xiaoxi trisection and solstice minimum
 
 Source: [Schulz & Cunningham 1990](CITATIONS.md#schulz-cunningham1990) /
-[Schulz 1990](CITATIONS.md#schulz1990-motifs). With Fu = 1 (`000001`, one yang at the bottom) and
+[Schulz 1990](CITATIONS.md#schulz1990-motifs); the units-13/25 trisection is also [Li Shangxin's](CITATIONS.md#li2008)
+(Codex fix-verification, FV-G23-C3#9). With Fu = 1 (`000001`, one yang at the bottom) and
 Gou = 62 (`111110`): **trisect** iff `station(63) = 1`, `station(1) = 13` and `station(62) = 25`;
 **minimum** iff the balance of Fu's station equals `−4` and equals the minimum balance over the
 **non-pure** stations (canonical popcount not in `{0, 6}`). Holds iff trisect and minimum. Bool;

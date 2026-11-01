@@ -4,8 +4,8 @@
 """
 sat.py — SAT/certificate layer for the ROAE constraint system (established 2026-07-02).
 
-HARD RULE: no hand-written constraint PREDICATES. Every rule predicate and constant is derived
-from `solve` (solve.py) imports, the single source of truth for King Wen and C1-C5; a clause
+HARD RULE: no hand-written constraint PREDICATES. Rule predicates and constants are derived from `solve`
+(solve.py) imports, the single source of truth for King Wen and C1-C5, except the two local gender-violation tests viol_hex/viol_ex (SAT_CLI.md; Codex FV-G4-C3#6); a clause
 encoding a C-rule from scratch is a bug by definition. The clause ARITHMETIC that places them
 (station offsets, gender stations) is this file's own: tested, not derived (tests.py
 TestSatEmittedClausesNonKW). Every encoding is round-trip checked (model -> decode -> solve.py).

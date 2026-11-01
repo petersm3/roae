@@ -89,10 +89,10 @@ newly discovered documents] [Doctoral dissertation, Zhejiang University; supervi
   asymmetry that the classical 36-unit reasoning explains only arithmetically. [ch. 伍 §三 read in
   full from the extracted text 2026-09-03; the rest of the dissertation not read]
 - **McKenna, Terence and McKenna, Dennis** (1975). *The Invisible Landscape: Mind, Hallucinogens, and the I Ching*. Seabury Press, New York (**2nd, revised and updated edition: HarperSanFrancisco/HarperCollins, 1993, 229 pp. — this is the edition carrying Peter Meyer's appendix *The Mathematics of Timewave Zero*, pp. 211–220**; subsequent printing 1994, ISBN 0-06-250635-8 / 978-0062506351; [Open Library](https://openlibrary.org/isbn/9780062506351)). The "first-order of difference" analysis appears in **Part Two, Chapter 9 ("Order in the I Ching and Order in the World")**. McKenna explicitly states "a perfect ratio of three to one; three even integers to each odd integer" and gives the count as "fourteen threes and two ones constitute sixteen instances of an odd integer occurring out of a possible sixty-four" — confirming he was using the **circular reading** (64 transitions including the wrap-around s₆₃ → s₀, which has Hamming distance 3 in King Wen). Figure 17 (Table II, "Change in the King Wen Sequence") enumerates the full difference-wave histogram pair-by-pair. In the same chapter McKenna formalizes the sequence design under three rules: (1) absolutely exclude transitions of value 5 — the **linear** restriction of this is our **C2**, but McKenna applies it circularly (all 64 transitions including the wrap), which is strictly stronger: C1–C5-valid orderings with a 5-line wrap exist (SAT-decided 2026-07-03, explicit witness in [CIRCULAR_KING_WEN.md](CIRCULAR_KING_WEN.md) §"New result"; reproduce with `python3 sat.py --witness wrap-d5`), and circular C2 would cut the space by ×1.21 (full-space d=5-wrap mass 17.4%, 2×10¹⁰ probes). Cf. [MCKENNA.md](MCKENNA.md) §"McKenna's 25/75 odd-even split"; (2) minimize transitions of value 1 except where doing so would force a value 5 — empirically measured at the d3 560T canonical 2026-06-15 (`9a968fa2…`, 10,525,271,997 records: 80.03% of C1-C5 records violate it; KW is in the 19.97% minority that obeys it). **NOT promoted to a formal C-rule** — it would be reverse-engineered from KW's specific value-1 placements without first-principles or independent-corroboration support; see MCKENNA.md for the peer-review-defensibility analysis; (3) maintain a three-to-one ratio of even to odd transitions (= our **Theorem on wrap-around parity**, since 3:1 circular is a consequence of C4 + C5 + the XOR parity identity).
-- *Status of earlier references:* The 1975 first edition (Seabury Press) contains the same I Ching analysis as the 1994 HarperCollins reprint; the work was reprinted, not revised. The underlying intuitions date to the McKennas' 1971 Amazonian expedition (see *True Hallucinations*, 1993, and Timewave-Zero biographical sources). No pre-1975 peer-reviewed paper or published lecture transcript on the I Ching analysis has been located via open web sources.
+- *Status of earlier references:* The 1975 first edition (Seabury Press) is the earliest appearance of the I Ching analysis located here. The 1993 second edition is described as revised and updated and adds Peter Meyer's appendix; this project's page references are to the 1993 edition (1994 printing), and the 1975 text has not been compared with it here, so no claim is made that the Chapter 9 analysis is unchanged between the editions (Codex final review, F03-001#12). The underlying intuitions date to the McKennas' 1971 Amazonian expedition (see *True Hallucinations*, 1993, and Timewave-Zero biographical sources). No pre-1975 peer-reviewed paper or published lecture transcript on the I Ching analysis has been located via open web sources.
 - Cook (2006) also presents the 5-line absence as part of the broader combinatorial analysis; independently derived within his framework.
 
-**Status in ROAE:** ROAE encodes this as constraint C2 and independently verifies it across the canonical datasets. We do not claim originality for the observation itself; ROAE's contribution is the **exhaustive null-model testing** (see §Methodology below) which shows C2 is essentially unreachable in de Bruijn and random permutation families, and the **analytic decomposition** of why Latin-square row×col traversals satisfy C2 at 57.96% rate (believed novel; see [CRITIQUE.md](CRITIQUE.md)).
+**Status in ROAE:** ROAE encodes this as constraint C2 and independently verifies it across the canonical datasets. We do not claim originality for the observation itself; ROAE's contribution is the **exhaustive null-model testing** (see §Methodology below) which shows C2 is impossible in the de Bruijn family and rare among random permutations (about 0.18% of a 10⁹ sample; [CRITIQUE.md](CRITIQUE.md)) (Codex final review, F03-001#14), and the **analytic decomposition** of why Latin-square row×col traversals satisfy C2 at 57.96% rate (believed novel; see [CRITIQUE.md](CRITIQUE.md)).
 
 ### C3 — complement distance minimization
 
@@ -311,7 +311,7 @@ publications of record.
 
 **Earliest attestation of the received sequence** (Shaughnessy 2022, ch. 11 — the same chapter Table 11.2 sits in). This is the concrete philology behind the repo-wide hedge that "the dating of the ordering's fixation is debated in modern scholarship": the earliest artifactual witness of the *received* hexagram sequence is the Xiping Stone Classics (175–183 CE), with the fragmentary Fuyang *Zhouyi* (tomb dated 165 BCE) an earlier partial witness. Mawangdui (copied before 168 BCE) attests a *different* ordering in circulation, so the received order's antiquity beyond the early Han rests on inference — on a *reading* of six numeral hexagrams on two late-Western-Zhou pottery paddles ([Li Xueqin 2003](#lixueqin2003); Shaughnessy 2022, pp. 450–452) and on the circumstantial Chu-slip evidence — not on an object that shows the arrangement.
 
-**Expanded 2026-08-16 — two earlier witnesses were missing from this summary.** The paragraph above cited ch. 11 while omitting two of the witnesses that chapter discusses: the **Shanghai Museum Chu bamboo *Zhouyi*** (c. 300 BCE — the earliest known *Zhouyi* manuscript, ~135 years before Fuyang) and the **Haihun Hou 海昏侯 *Yijing*** (mid-1st c. BCE, a received-*like* order including the 30/34 split). Neither omission was a claim, but a reader checking the cited chapter would have found an unexplained gap. **Why the earliest one does not move the attestation date:** the Chu strips preserve only 34 of 64 hexagrams and came out of the ground **unbound and disordered**, and the published arrangement is the modern editor's own, taken from the received sequence *because* the manuscript is incomplete — [Pu Maozuo 2003](#pu2003), p. 135: 「又楚竹書《周易》尚不完整，本篇卦序排列也暫按今本」. It attests the *existence* of the *Zhouyi* at that date, not its *ordering*. **The full dated record now lives in [KING_WEN_PROVENANCE.md](KING_WEN_PROVENANCE.md)**, which also states which other orderings this project does not study and why; this entry, [the README](../README.md) and [CRITIQUE](CRITIQUE.md) all link there so the record cannot drift apart again.
+**Expanded 2026-08-16 — two earlier witnesses were missing from this summary.** The paragraph above cited ch. 11 while omitting two of the witnesses that chapter discusses: the **Shanghai Museum Chu bamboo *Zhouyi*** (c. 300 BCE — the earliest known *Zhouyi* manuscript, ~135 years before Fuyang) and the **Haihun Hou 海昏侯 *Yijing*** (mid-1st c. BCE, a received-*like* order including the 30/34 split). Neither omission was a claim, but a reader checking the cited chapter would have found an unexplained gap. **Why the earliest one does not move the attestation date:** the Chu strips preserve only 34 of 64 hexagrams and **arrived unbound and disordered** (looted and purchased, with no excavation record; see [KING_WEN_PROVENANCE.md](KING_WEN_PROVENANCE.md); Codex final review, F03-003#8), and the published arrangement is the modern editor's own, taken from the received sequence *because* the manuscript is incomplete — [Pu Maozuo 2003](#pu2003), p. 135: 「又楚竹書《周易》尚不完整，本篇卦序排列也暫按今本」. It attests the *existence* of the *Zhouyi* at that date, not its *ordering*. **The full dated record now lives in [KING_WEN_PROVENANCE.md](KING_WEN_PROVENANCE.md)**, which also states which other orderings this project does not study and why; this entry, [the README](../README.md) and [CRITIQUE](CRITIQUE.md) all link there so the record cannot drift apart again.
 
 **ERRATUM (2026-07-05).** From 2026-04-06 to 2026-07-05 the Mawangdui array in `roae.py`/`solve.c` was **wrong** — right octet membership, wrong octet order, wrong within-octet order (a synthesized double loop that matched neither the manuscript nor its own code comment; the cited Wikipedia article contains no sequence at all). The error was caught by cross-checking Shaughnessy 2022 Table 11.2 during a literature audit, and the corrected array was verified against multiple independent sources (Shaughnessy 2022; Cook 2006's full 64-position table; Shaughnessy 1996's generation rule via Rutt's review; S. J. Marshall's biroco.com conversion chart; independent web statements of the rule; and, 2026-10-09, the primary publications themselves — [Zhang 1984](#zhang1984) pp. 12–13, [Yu 1984](#yu1984) p. 16, [Han 1984](#hanzhongmin1984) p. 23 and [Liu 1985](#liudajun1985) pp. 54–55 — by hexagram name, and the editio princeps, the [释文](#shiwen1984)). Consequence: the former claim that Mawangdui satisfies C2 is **withdrawn** — the authentic Mawangdui order has **exactly one 5-line transition**, at the octet seam #48 Jing → #51 Zhen (positions 24→25), where its trigram-block construction resets. C2 is satisfied by King Wen and Jing Fang only (2 of 4 tested orderings), and the former "three of four / classical Chinese design principle" reframing of McKenna's observation is likewise **withdrawn**. All published Mawangdui-derived numbers were recomputed on the corrected array 2026-07-05; no other verdict flipped ([TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md)'s F5 corpus gate and [TR-10](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)'s specificity gate both still pass — in both cases more cleanly). See also:
 
@@ -439,8 +439,8 @@ applicable.
   **What ROAE should cite vs not.** When ROAE makes claims that
   touch findings 1, 2, or 4 above (mean Hamming distance,
   lag-1 autocorrelation, within/between-pair asymmetry), the
-  augchan42 paper should be cited as parallel/independent
-  statement of the same observation. Findings 3 (yang-balanced
+  augchan42 paper should be cited as prior art (Chan published
+  first; ROAE's statement is independent but later — the timing note above; Codex final review, F03-001#13). Findings 3 (yang-balanced
   groups of 4) and 5 (surprise distribution variance) are
   augchan42-original; ROAE should not claim them and should
   attribute them when discussing.
@@ -550,7 +550,7 @@ componentwise XOR and adds a topological-group structure; the received sequence 
 [Schöter (1998)](#schoter1998) a further independent-then-crediting arrival (he reports the bulk of
 his work predated his awareness of Goldenberg). Neither Yuan nor Cao cites Ouyang (verified against
 the papers themselves), so their independence from him is plausible but not provable from the
-texts; neither displaces Ouyang as earliest. All of these act on the
+texts; neither is earlier than Ouyang, and [Goldenberg 1975](#goldenberg1975) precedes them all (Codex fix-verification, FV-G4-C2#5). All of these act on the
 **hexagram set**; none states a group acting on the space of admissible **orderings** (TR-5's object),
 enumerates that space, or proves a ceiling on it.
 
@@ -679,8 +679,8 @@ enumerates that space, or proves a ceiling on it.
   independently. **Reference corrected 2026-08-15** against Xing Wen 2021, who works directly from
   Cui: the work is 《**易卦图说**》, of which 《易卦次图说》 is one of three constituent essays
   (alongside 《易卦画图说》 and 《易十二卦应十二月图说》); Xing cites it in 《崔东壁集》 (Shanghai:
-  群学社, 1928), pp. 2–21, and reproduces its diagrams from the **1817 (嘉庆二十二年) woodblock
-  edition cut by Cui's disciple 陈履和** **The correction concerns which EDITION Xing works from, and which work the essay sits inside —
+  群学社, 1928), pp. 2–21, and reproduces its diagrams from the **woodblock
+  edition cut by Cui's disciple 陈履和** (its colophon is dated 道光四年/1824; an "1817 (嘉庆二十二年)" date given here earlier is corrected, as in the [Cui Shu](#cuishu) entry — Codex final review, AIF-001#8) **The correction concerns which EDITION Xing works from, and which work the essay sits inside —
   not where it lives.** Shen's own sentence, quoted above, says he read it 在崔东璧遗书, and that is
   not in dispute: Cui's writings were compiled by 陈履和 as 《崔东壁遗书》 (道光四年/1824). What this
   project had wrong was treating 《易卦次图说》 as a standalone work, when it is one of three essays
@@ -894,7 +894,7 @@ enumerates that space, or proves a ceiling on it.
   precisely Wu Cheng's two degenerate classes** — his 正對不反易者四 (the 8 self-reverse) plus his
   正對兼反易者四 (the 8 where complement coincides with reversal). All 70 agree with reversal
   elsewhere, so they are **one rule under 70 labellings**: "fixed point" versus "swapped pair" is a
-  vacuous distinction exactly where the two operations coincide — i.e. exactly on his sixteen.
+  vacuous distinction on his sixteen — the 8 where the two operations coincide and the 8 self-reverse hexagrams, which reversal fixes (Codex final review, F03-001#10).
   Reproduce with `python3 verify.py --check-classical-groups`.
   **What this leaves us.** The orbit decomposition itself is ceded to [朱元昇](#zhuyuansheng)
   (complete by 1270), with Wu Cheng retaining the count and the operational phrasing — the same narrowing
@@ -1042,7 +1042,7 @@ enumerates that space, or proves a ceiling on it.
   Shen wrote 「近讀崔東壁遺書易卦次圖說，乃與予說不謀而合」. Their *epistemic status* differs — see
   that entry.
   ⚠ Cui's remark that the joint use was uncommon in his day — 「反對人多言之，而**平對則罕有及者**」
-  — **must NOT be quoted as evidence of novelty. It is false as a survey claim**: 虞翻 (c. 220),
+  — **must NOT be quoted as evidence of novelty: earlier instances exist** (Codex final review, F03-001#4): 虞翻 (c. 220),
   [Kong Yingda](#kongyingda) (648, 非覆即變, in the 十三經注疏), [Wu Cheng](#wucheng) (c. 1300) and
   Lai Zhide 來知德 (c. 1600, a complete 64-row table of 錯 and 綜) all precede him. It survives only
   as a remark about his own coinages 平對 / 交卦. His text names no predecessor at all — only
@@ -1191,8 +1191,8 @@ enumerates that space, or proves a ceiling on it.
   per-slip 釋文考釋 reports as physically observed, excluding every entry 附錄二 reconstructs *from*
   the invariance: **3 testable pairs, 3 agreements, 0 disagreements** (corrected 2026-09-03 from "9 testable pairs, 9 agreements" — see [CORRECTIONS.md](CORRECTIONS.md); the verifier held nine *number* pairs but no symbol value, and only three pairs have **both** symbols in the transcribed record: (39,40) 蹇·解, (47,48) 困·井, (55,56) 豐·旅. The other six lie in slips 1–27, not yet transcribed). The exclusion itself restates an objection
   [王振復](#wangzhenfu2004) raised in December 2004 — that Pu's same-symbol conclusion was reached by
-  hypothesising the missing symbols — known to us only through [Chen Renren 2005](#chenrenren2005), p. 25;
-  his text is not held *(credit added 2026-09-05)*. That agreement is nonetheless
+  hypothesising the missing symbols — first known here through [Chen Renren 2005](#chenrenren2005), p. 25,
+  and since read in Wang's own text ([Wang Zhenfu 2005](#wangzhenfu2005), §三, p. 15) *(credit added 2026-09-05; Codex final review, F03-001#7)*. That agreement is nonetheless
   **non-discriminating**, because King Wen seats every hexagram beside its own partner, so
   "respects reversal" and "constant on contiguous King Wen blocks" predict identically on every
   available observation. Reproduce with `python3 verify.py --check-kw-pair-adjacency` (reads no
@@ -1265,8 +1265,8 @@ enumerates that space, or proves a ceiling on it.
   Museum]. *Zhouyi yanjiu* 周易研究 2005(1) 總69: 10–16 (文章編號 1003-3882(2005)01-0010-07; 收稿 2004-11-10; 復旦
   大學中文系). The paper [Chen Renren 2005](#chenrenren2005) (p. 25) reports as remarks at the 山東大學出土文獻學術研討會
   of December 2004 — submitted a month before that meeting, printed February 2005; one work, cited here from its own
-  text (until 2026-09-05 this entry rested on Chen's paraphrase alone, under the year 2004). §三 (pp. 14–16) is the
-  earliest published critique of [Pu's](#pu2003) symbol argument. **Three things it has priority over, in this
+  text (until 2026-09-05 this entry rested on Chen's paraphrase alone, under the year 2004). §三 (pp. 14–16) is an
+  early published critique of [Pu's](#pu2003) symbol argument ([Li Shangxin 2004](#lishangxin2004), printed earlier, objects to Pu's sequence; Codex final review, F03-001#5). **Three things it has priority over, in this
   project's own order of concession.** *(1)* **The reconstruction objection** (p. 15): to obtain the rule that
   「对立成组」 hexagrams share a symbol, Pu 「忽视师卦竹简之实际情况，将师卦之尾符也说成是红方形的」, and likewise reads
   the lost or undeterminable 蠱 tail (「本是残失无法判定」), 革 tail, 艮 tail and 小過 head as matching their partners
@@ -1417,7 +1417,7 @@ enumerates that space, or proves a ceiling on it.
   ⚠ **Do not read that as a general novelty claim.** A later sweep the same day found that the
   ⟨錯, 綜⟩ composite **is** constructed elsewhere in the Chinese literature — see
   [Li Shangxin 2002](#lishangxin2002), who names the joint object 「六十四卦錯綜圖」 and the
-  four-element relation 「互為錯綜卦」. Kondō's significance is narrower and specific: he is the
+  relation 「互為錯綜卦」 (stated for the eight trigrams, with no orbit partition of the hexagrams — see that entry; Codex final review, AIF-001#2). Kondō's significance is narrower and specific: he is the
   scholar who came closest to an orbit quotient **of the manuscript symbols** and consciously
   declined it.
   **On the base function of the marks (added 2026-09-05).** §五 reads both marks as ordinary scribal punctuation
@@ -1425,8 +1425,8 @@ enumerates that space, or proves a ceiling on it.
   卦名」; the tail mark 「起到墨釘的最一般的作用，表示段落的終結」, and in the 周易 additionally 「依據二色三層構造的圖案，來
   表示那個卦所屬之宮」. 墨釘 is the series' own category ([上博（一）凡例 七](#ma2001)). His classification (【A】–【H】)
   is made 「僅限於可以確認的符號」 from the 彩色圖版, independently of Pu's table, and reads the slip-48 艮 head and the
-  slip-49 tail both as 【Ｈ】(内紅、中空、外黑). This is the earliest held statement in print that the base function is
-  ordinary ([Jiang Guanghui 2004](#jiangguanghui2004) is earlier by posting date). Consequence for this
+  slip-49 tail both as 【Ｈ】(内紅、中空、外黑). This is an early held statement in print that the base function is
+  ordinary ([Li Shangxin 2004](#lishangxin2004), p. 23, already takes the delimiting function as given, and [Jiang Guanghui 2004](#jiangguanghui2004) is earlier by posting date; Codex final review, F03-001#6). Consequence for this
   project: "ordinary punctuation" and "dedicated apparatus" are not rival readings in this literature — they are floor
   and superstructure — and any statement here that the marks are a structural apparatus must say so.
   *(Added 2026-08-16. Corrections welcome: this is a statement about our literature search, not a
@@ -1531,11 +1531,11 @@ enumerates that space, or proves a ceiling on it.
   暫不予討論。」 The paper's purpose is 象數 exegesis — reading 參伍 in the 《繫辭傳》 as 三才/五行,
   and the sequence as built to realise 3-spacings and 5-counts.
   **Consequence for scoping, stated carefully in both directions.** This project claims no priority
-  for composing the two operations or for noticing 錯 = 綜 on the degenerate pairs — that is here,
-  and in 來知德 before it. **But citing this paper as prior *orbit* work would overstate it**, and
+  for composing the two operations or for noticing 錯 = 綜 on the degenerate pairs — the composition is
+  [朱元昇](#zhuyuansheng)'s, complete by 1270, and 來知德 names the degenerate cases without composing (see those entries; Codex final review, F03-007#3). **But citing this paper as prior *orbit* work would overstate it**, and
   our ordering-level claim ([TR5](../reports/TR5_SYMMETRY.md)) is **not** narrowed by it, since he
-  defers even which hexagram occupies which position. Hexagram-level orbit structure remains ceded
-  to [Zhang Qingyu 1998](#zhang1994) and [Radisic 2026](#radisic2026).
+  defers even which hexagram occupies which position. Hexagram-level orbit structure remains ceded —
+  classically to [朱元昇](#zhuyuansheng), in modern form to [Zhang Qingyu 1998](#zhang1994) and [Radisic 2026](#radisic2026).
   ⚠ *Two textual cautions for anyone quoting this article.* Journal page 61 is **shared**: its upper
   half (the 卦氣說 material and a reference list ending 責任編輯:劉玉建) belongs to a **different
   article**; Li's text resumes under 「(上接第49頁)」. And the typeset 綜 definition ends 「即為錯」
@@ -1543,9 +1543,9 @@ enumerates that space, or proves a ceiling on it.
   Related items in the same programme. 〈今本《周易》六十四卦卦序的基本骨架〉 *Zhouyi yanjiu*
   1999(4) and 〈《序卦》卦序中的陰陽平衡互補與變通配四時思想〉 1999–2000(3) were **obtained and read
   2026-08-16** (both free from CNKI); *(status corrected 2026-08-19 — this line previously read
-  "texts not yet obtained", which was true when written and is no longer)*. ⚠ **Those reads are
-  single, unaudited passes and nothing is cited from them here.** PhD 《今、帛、竹書〈周易〉卦序研究》
-  (Shandong Univ., 2007): existence confirmed, **not obtained**.
+  "texts not yet obtained", which was true when written and is no longer)*. ⚠ **The 1999(4) read is a
+  single, unaudited pass and nothing is cited from it here**; the 2000(3) article was later read in full and audited and is cited as [Li Shangxin 2000](#lishangxin2000). PhD 《今、帛、竹書〈周易〉卦序研究》
+  (Shandong Univ., 2007): later obtained and read first-hand — see [Li 2007](#li2007) (Codex final review, F03-001#8).
   *(Added 2026-08-16 — found by a targeted sweep of the excavated-manuscript symbol literature,
   which the 2026-07-30 prior-art review did not cover. That review was scoped to 卦序 mathematics;
   this paper sits in neither field cleanly and was missed by both.)* [analyzed 2026-08-16; free PDF
@@ -1905,6 +1905,12 @@ and [曹红军 et al. 1995](#caohongjun1995) (§the (Z/2)⁶ algebra), [李尚�
 - **Burnside / Cauchy–Frobenius orbit-counting lemma** (standard; see Burnside, W., *Theory of Groups of Finite Order*, Cambridge University Press, 1897). The orbit-counting identity (|orbits| = average number of fixed points over the group) underlying ROAE's symmetry-quotient exact count in [TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md).
 <a id="mckay1998"></a>
 - **McKay, Brendan D.** (1998). "Isomorph-free exhaustive generation." *Journal of Algorithms* 26(2): 306–324. Canonical-representative / isomorph-free generation tradition; the lineage ROAE's canonical-mask orbit enumeration follows (TR-11).
+<a id="ryser1963"></a>
+- **Ryser, Herbert J.** (1963). *Combinatorial Mathematics*. Carus Mathematical Monographs 14, Mathematical Association of America. The inclusion–exclusion formula for the permanent; with Karp (1982) and Björklund–Husfeldt (2006), the lineage of the signed inclusion–exclusion counter that `verify.c --ie-spec` uses, not invents ([FULL31_EXACT_AGGREGATES.md](../reports/FULL31_EXACT_AGGREGATES.md); Codex final review, F11-019#4).
+<a id="karp1982"></a>
+- **Karp, Richard M.** (1982). "Dynamic programming meets the principle of inclusion and exclusion." *Operations Research Letters* 1(2): 49–51. Inclusion–exclusion counting of Hamiltonian paths in polynomial space.
+<a id="bjorklund-husfeldt2006"></a>
+- **Björklund, Andreas and Husfeldt, Thore** (2006). "Inclusion–exclusion algorithms for counting set partitions." *Proceedings of the 47th IEEE Symposium on Foundations of Computer Science (FOCS 2006)*, 575–582.
 
 ### Random number generation
 
@@ -2055,7 +2061,7 @@ certified-counting checks rest on this stack.)*
 
 Subject to the disclaimer at the top of this document, the following are believed to be ROAE-original contributions:
 
-1. **Partition Invariance theorem** — the guarantee that the canonical `solutions.bin` sha256 is byte-identical across **partition granularity** (one full-parallel invocation vs 56 independent single-branch invocations), thread count, and invocation mode, for **one fixed solver binary** and fixed input parameters. Formal statement in [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) §1; its hypothesis is enumeration to exhaustion, and for budgeted runs — which is every published canonical — invariance additionally requires the per-sub-branch budget to be pinned with `SOLVE_PER_SUB_BRANCH_LIMIT` (§3 there). Reproduction from *source* rather than from one binary is the weaker claim, holding **within the tested toolchain class documented in [DEVELOPMENT.md](DEVELOPMENT.md)** — that scope is not decoration: the same `solve.c` rebuilt on later hardware has produced a different sha ([DEVELOPMENT.md](DEVELOPMENT.md) §"Build reproducibility"; [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) §Reproducibility). Cross-hardware and cross-region byte-identity is recorded **empirically** (item 2 below; PARTITION_INVARIANCE.md §5a), not derived from the theorem. ⚠ **[CORRECTED 2026-09-01 — this item listed hardware and region among the axes the theorem holds fixed and named no toolchain scope, promising the reader more here than the format spec and the build-reproducibility section give, and more than §1 states. It also omitted the budget condition, so it read as covering canonicals the theorem's stated hypothesis does not reach.]**
+1. **Partition Invariance theorem** — the guarantee that the canonical `solutions.bin` sha256 is byte-identical across **partition granularity** (one full-parallel invocation vs 56 independent single-branch invocations), thread count, and invocation mode, for **one fixed solver binary** and fixed input parameters. Formal statement in [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md) §1; its hypothesis is enumeration to exhaustion, and for budgeted runs — which is every published canonical — invariance additionally requires the per-sub-branch budget to be pinned with `SOLVE_PER_SUB_BRANCH_LIMIT` (§3 there). Reproduction from *source* rather than from one binary is the weaker claim, holding **within the tested toolchain class documented in [DEVELOPMENT.md](DEVELOPMENT.md)** — that scope is not decoration: a rebuild of the same `solve.c` on another host is not guaranteed to give the same sha — one early canonical (d3 5.6T, `c34390c0…`) could not be reproduced from any committed source on later hosts, its cause unresolved between a build-environment difference and a since-fixed bug, while at 11.2T+ the anchor reproduces across builds, hosts and architectures and no drift attributable to the host alone is on the record (Codex fix-verification, FV-G4-C3:OOS:12041; [DEVELOPMENT.md](DEVELOPMENT.md) §"Build reproducibility"; [SOLUTIONS_FORMAT.md](SOLUTIONS_FORMAT.md) §Reproducibility). Cross-hardware and cross-region byte-identity is recorded **empirically** (item 2 below; PARTITION_INVARIANCE.md §5a), not derived from the theorem. ⚠ **[CORRECTED 2026-09-01 — this item listed hardware and region among the axes the theorem holds fixed and named no toolchain scope, promising the reader more here than the format spec and the build-reproducibility section give, and more than §1 states. It also omitted the budget condition, so it read as covering canonicals the theorem's stated hypothesis does not reach.]**
 2. **4-corners validation grid** — cross-SKU, cross-region, cross-merge-algorithm empirical confirmation of partition invariance. See [HISTORY.md](HISTORY.md) and [SOLVE.md](SOLVE.md).
 3. **Large-scale budgeted enumeration under the C1+C2+C3 conjunction at 10T, 100T, and 560T scale** (every sub-branch budget-limited, none exhausted — see [SEARCH_SPACE_SIZE.md](SEARCH_SPACE_SIZE.md); "exhaustive" corrected to "budgeted" 2026-08-01 to match the repo's own coverage framing; constraint set is the full C1–C5 canonical — "C1+C2+C3" in older text is legacy naming for the same population, see METHODS §"Legacy shorthand"; corrected 2026-08-01 from an earlier parenthetical of mine that asserted C1+C2+C3 was the narrower truth) — 10,525,271,997 d3 560T (sha `9a968fa2…`, 2026-06-08, **current deepest**) / 3,432,399,297 d3 100T (sha `915abf30…`) / 706,427,594 d3 10T (current canonical `b85c8871…`) / 286,357,503 d2 10T. Revealed that the boundary-minimum is monotone non-decreasing with scale (greedy minimum: 4 at 10T, 5 at 100T, 5 at 560T with the identical set {1, 4, 21, 25, 27}; working 4-set count drops 8 → 0 across 11.2T → 560T, where the 8 is log-verified at d3 10T and the 11.2T attribution is pending archived-log confirmation (note added 2026-07-04) — see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md); corrected 2026-07-04 from an earlier "non-monotone, 4 again at 560T" reading, a survivor-counting error) and that KW sits at the C3 ceiling, not the floor, reaffirmed at 560T.
 4. **Comprehensive null-model testing framework** — seven structured and unstructured permutation families tested via `solve.c --null-*` subroutines: de Bruijn, Gray, Latin-square, lexicographic, historical, random, pair-constrained.
@@ -2253,10 +2259,12 @@ constraint-system symmetry group are complementary results about different objec
 **McKenna, Stephen E. & Mair, Victor H.** "A Reordering of the Hexagrams of the I Ching," *Philosophy East
 and West* 29:4 (October 1979), 421–441. (Distinct from McKenna & McKenna 1975.) They judged the received
 order structurally indefensible beyond its local pairing and proposed a Gray-code-based replacement. Both
-halves of that position are now formally addressed: population measurement finds discriminating structure
+halves of that position have been examined, and the first is answered by measurement: population measurement finds discriminating structure
 far beyond pairing (rules to ×11,364 rarity, measured under the ≤2-violations convention and robust to the source-stated exception form — see
-[LITERATURE_RULES_POPULATION_TESTS.md](LITERATURE_RULES_POPULATION_TESTS.md)), and no Gray-code ordering
-can satisfy the pairing constraint at all ([CRITIQUE.md](CRITIQUE.md) Claim 2). They retain clear priority
+[LITERATURE_RULES_POPULATION_TESTS.md](LITERATURE_RULES_POPULATION_TESTS.md)). The Gray-code replacement is not refuted: no *fully
+smooth* ordering (every adjacent transition one line) can realise a complement/inversion pairing ([CRITIQUE.md](CRITIQUE.md) Claim 2),
+but their published ordering is hybrid by design — single-line steps between pair representatives, six-line steps
+within each pair — and that theorem does not exclude it ([TR-8](../reports/TR8_REORDERING_REVISITED.md); Codex final review, F03-002#3). They retain clear priority
 for the idea that drives this project's methodology: evaluating the King Wen sequence against explicitly
 constructed alternatives rather than by inspection alone.
 
@@ -2435,9 +2443,9 @@ Hershock, P. D. (1991). The structure of change in the I Ching. *Journal of Chin
   sequence is globally random — the premise TR-8 measures — and answers with a third reordering, a
   circular mandala built from the complement, reverse, trigram-swap, and nuclear operations. Its
   "families of derivation" appendix is a correct orbit decomposition of the 64 hexagrams under the group
-  generated by complement, reverse, and trigram swap (14 orbits; machine-verified against ROAE's tables 2026-07-10, zero
-  errors — reproduce with `python3 verify.py --check-classical-groups`,
-  `THREE_GENERATOR_ORBITS=14`). Contains no transition statistics or constraint analysis of the King Wen
+  generated by complement, reverse, and trigram swap (14 orbits; checked against ROAE's tables 2026-07-10, zero
+  errors; `python3 verify.py --check-classical-groups` reproduces the orbit count and size profile,
+  `THREE_GENERATOR_ORBITS=14`, not the comparison with the appendix itself — Codex final review, F01-008#6). Contains no transition statistics or constraint analysis of the King Wen
   order itself; reception history for TR-8, not prior art for any ROAE constraint or result (corrections
   invited). [analyzed 2026-07-10]
 
@@ -2506,8 +2514,9 @@ Moore, S. (2005). *Structural elements in the King Wen sequence* (Oracle Papers 
 
 <a id="olsvanger1948"></a>
 Olsvanger, I. (1948). *Fû-Hsî: The Sage of Ancient China*. Jerusalem: Massadah. (OCLC [29364796](https://search.worldcat.org/oclc/29364796).)
-  Earliest source located by us that represents the King Wen hexagrams as binary numbers under the
-  bottom-line-as-least-significant-bit convention ROAE also uses (p. 7), and lays the sequence out as an
+  Earliest source located by us that represents the King Wen hexagrams as binary numbers (p. 7), reading
+  the lines from the bottom with the bottom line as the most significant bit — hexagram 41 is 49 in his square
+  (see the Hacker erratum above), where ROAE's bottom-line-as-least-significant-bit convention gives 35 (Codex final review, F03-002#2) — and lays the sequence out as an
   8×8 numeric square. Olsvanger himself attributes the 0/1 line-valuation to Leibniz (p. 15), claiming
   novelty only for the binary analysis of the square. His symmetric "magic-group" sum properties (pp. 11–14)
   are arithmetic features of that specific layout, not constraints on the ordering; his pairing rule
@@ -2722,9 +2731,11 @@ University Press.
 Yu Fan (164–233, via Li Dingzuo's *Zhouyi jijie*), Zhang Xingcheng 张行成 and Zhu Xi 朱熹 (Song, the
 18:18 split, via Li Shangxin 2008 — *corrected 2026-07-30 from a previously listed "Zheng Qiao (~1150)",
 which the Li 2008 primary pass does not support*), Hu Yigui (b. 1247, *Yixue qimeng yizhuan*
-易學啟蒙翼傳 — his "winged" supplement to Zhu Xi's *Yixue qimeng*), Lai Zhide (1525–1604, via Schulz, 1982), Kong Yingda (574–648, *Zhouyi zhengyi* — see the
-[§C1 entry](#kongyingda)), and Zhu Yuansheng (13th c., via Schulz, 2018) are all
-[secondary], known through the modern literature above.
+易學啟蒙翼傳 — his "winged" supplement to Zhu Xi's *Yixue qimeng*) and Kong Yingda (574–648, *Zhouyi zhengyi* — see the
+[§C1 entry](#kongyingda)) are
+[secondary], known through the modern literature above. Lai Zhide (1525–1604) and Zhu Yuansheng (13th c.) were first
+known through Schulz (1982; 2018) and have since been transcribed directly — see the [Lai Zhide](#laizhide) and
+[朱元昇](#zhuyuansheng) entries (Codex final review, F03-001#9).
 
 ### Websites
 

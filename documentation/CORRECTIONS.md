@@ -36328,3 +36328,173 @@ It fails on the uncured page.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G6; sites found by Codex
 (gpt-6-astra), final review, F11-015#7, F11-015#9, F11-015#17.
+
+
+## CX-36B-A — CITATIONS.md said things about its own sources that other entries in the same file contradicted (documentation/CITATIONS.md)
+
+**2026-10-28.** **Source.** Codex (gpt-6-astra), final review, AIF-001#2/#7/#8, F01-008#6, F03-001#4/#5/#6/#7/#8/#9/#10/#12/#13/#14,
+F03-002#2/#3, F03-003#3/#7/#8, F03-005#4/#5, F03-006#5, F03-007#2/#3/#5/#6/#7/#10/#16/#17, F03-008#8/#9/#19, F03-009#3/#5/#6/#7/#8,
+F03-H01#18/#21/#22/#23/#25/#26/#27/#29/#41, F03-H02#7/#8, F03-H03#6, F03-H04#15/#17, F03-H05#13/#14/#15/#17/#18/#19 and
+F11-019#4; fix-verification pass, FV-G4-C2#5 and FV-G4-C3:OOS:12041; triaged by Fable (fast-track batch FT3d). Push group G7.
+
+**What was published, and what it says now.**
+- *The Invisible Landscape*: "the work was reprinted, not revised", beside the 1993 "2nd, revised and updated edition". The
+  1975 text has not been compared with the 1993 one here, and the entry now says so instead of asserting the analysis is unchanged.
+- C2 was "essentially unreachable in de Bruijn and random permutation families". It is impossible in the de Bruijn family
+  and rare (about 0.18% of a 10⁹ sample) among random permutations, as CRITIQUE.md measures.
+- The Shanghai Museum slips "came out of the ground unbound and disordered"; they arrived so, looted and purchased, with no
+  excavation record (KING_WEN_PROVENANCE.md).
+- The Chan entry told the reader both to credit three observations as prior art and to cite them as a parallel statement.
+  One instruction remains: prior art.
+- Xing's reproduction was dated to an "1817 woodblock" that the Cui Shu entry had already corrected to the 1824 colophon.
+- Wu Cheng's sixteen were "exactly where the two operations coincide". Complement and reversal coincide on 8 hexagrams; the
+  sixteen are those 8 plus the 8 self-reverse hexagrams. `verify.py --check-classical-groups` printed the same wrong
+  scope and now prints `…_on_the_16_eligible_hexagrams_(8_where_the_operations_coincide+8_self-reverse)`; VERIFY.md's row
+  is corrected with it.
+- Cui Shu's "rarely discussed" was called "false as a survey claim"; four earlier instances show only that earlier
+  instances exist, and the sentence now says that.
+- Wang Zhenfu's objection was "known to us only through Chen Renren … his text is not held", while Wang's own entry reads
+  the paper first-hand; the annotation now points there. Wang 2005 was "the earliest published critique" of Pu's symbol
+  argument and Kondō "the earliest held statement in print" of the marks' ordinary function; Li Shangxin 2004 is earlier
+  for both, and both superlatives are narrowed.
+- The Kondō entry credited Li Shangxin 2002 with a "four-element relation 互為錯綜卦"; Li's own entry places it in an
+  eight-trigram passage with no orbit partition, and the cross-reference now says so. The Li 2002 scoping paragraph ceded
+  the composition to 來知德, whom the Lai Zhide entry shows never composing; it now names 朱元昇 (1270), as the rest of
+  the file does, and cedes hexagram-level orbit structure classically to him.
+- The 2026-08 acquisition paragraph said nothing was cited from Li's 1999–2000 reads and that his 2007 dissertation was
+  not obtained; the 2000 article was later audited and is cited, and the dissertation was read first-hand. Both are said.
+- The McKenna & Mair summary presented the no-fully-smooth-ordering theorem as an answer to their Gray-code replacement.
+  Their ordering is hybrid by design and the theorem does not exclude it (TR-8); the summary now says only the first half
+  of their position is answered.
+- Hershock's appendix was "machine-verified … reproduce with `--check-classical-groups`"; the command reproduces the
+  orbit count and size profile, not the comparison with the appendix, and the entry says so.
+- Olsvanger was said to use "the bottom-line-as-least-significant-bit convention ROAE also uses"; the Hacker erratum in
+  the same file shows hexagram 41 as 49 in his square, where ROAE's convention gives 35. He reads the bottom line as the
+  most significant bit.
+- The classical-source inventory filed Lai Zhide and Zhu Yuansheng as [secondary], via Schulz; both entries record
+  direct transcription. The inventory now says they were first known through Schulz and have since been transcribed.
+- The originality list said "the same `solve.c` rebuilt on later hardware has produced a different sha", attributing to the
+  host what DEVELOPMENT.md leaves unresolved (`c34390c0…`: build environment or a since-fixed bug); the sentence now states
+  that case and the 11.2T+ record. The Ouyang chain said "neither displaces Ouyang as earliest"; Goldenberg 1975 precedes them all.
+- FULL31_EXACT_AGGREGATES.md and verify.c named a "Karp/Ryser/Björklund–Husfeldt style" counter with no entry here.
+  Entries for Ryser (1963), Karp (1982) and Björklund & Husfeldt (2006) are added and linked.
+
+**Held.** F03-001#1, F03-H01#38 and F04-013#11: `verify.py`'s `SHANGBO_OBSERVED_PAIRS` omits (43,44) although both
+symbols are stored, so the Shangbo census reads 3 testable pairs where Codex counts 4. Changing it changes a published
+count (CITATIONS.md, KING_WEN_PROVENANCE.md), so it waits for the operator.
+
+**Tests.** `TestBatchG7.test_g7_citation_wording` and `test_g7_classical_groups_scope_counts_the_sixteen`. Each fails on
+the uncured files.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G7; the defects were found by Codex
+(gpt-6-astra), final review, AIF-001, F01-008, F03-001..F03-009, F03-H01..F03-H05 and F11-019, and fix-verification pass.
+
+
+## CX-36B-B — attributions outside CITATIONS.md lagged the entries they cite: CC-N4's lineage, the station-parity and trisection credits, Gardner, Hu Yigui, and the code's own credits (reports/TR1_EIGHT_CENTURIES_MEASURED.md, reports/TR2_THE_RULES_CONFLICT.md, reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md, documentation/LITERATURE_RULES_FORMAL.md, documentation/LITERATURE_RULES_POPULATION_TESTS.md, documentation/KING_WEN_PROVENANCE.md, verify.py, solve.py, solve.c, roae.py)
+
+**2026-10-28.** **Source.** Codex (gpt-6-astra), final review, AIF-001#1/#10, F03-003#6/#9/#10/#11/#12, F03-004#1, F03-005#1,
+F03-006#3/#11, F03-007#11/#12/#13/#15, F03-008#5, F03-H01#24/#30, F03-H02#1/#4/#6, F03-H03#1, F03-H04#14 and F03-H05#1;
+fix-verification pass, FV-G23-C3#8/#9/#10, FV-G4-C2#2 and FV-G4-C2#5; triaged by Fable (fast-track batch FT3d). Push group G7.
+
+**What was published, and what it says now.**
+- CITATIONS.md records that Li Shangxin 2000 (p. 53) states the S25–28 configuration (`ccn4`), crediting Gu Boxu 顾伯叙
+  (1997), years before Schulz 2011/2016. TR-1 §3, TR-2's abstract and §1, and LITERATURE_RULES_FORMAL §2.4 credited Schulz
+  alone; each now carries the earlier statement. §2.5 notes that Li places his own station-parity exceptions at columns
+  25–26. TR-2's abstract no longer traces both Schulz rules to a 13th-century commentator: that holds for the gender rule's
+  exception, not for the configuration.
+- The units-13/25 trisection (`rs1`) is also Li Shangxin's (2008), as CITATIONS.md says any published R-S1 result must
+  credit; LITERATURE_RULES_FORMAL §3.1 and LITERATURE_RULES_POPULATION_TESTS now do.
+- TR-1 linked "Schulz & Cunningham" to the anchor of Schulz's solo paper; it links the joint paper. TR-1 dated Hu Yigui by
+  his birth year as though it were the work's; it reads "b. 1247".
+- TR-10 cited Gardner (1974) for a "no-global-pattern verdict"; Gardner wrote "This is an unsolved problem". Both TR-10
+  sites now give his words.
+- KING_WEN_PROVENANCE.md: "roughly 1,050 years" from c. 1000 BCE to the mid-1st century BCE is about 950; the paddles carry
+  three reversal pairs, one of which (#63·64) is also a complement pair, so "no complement pair" is "no complement-only
+  pair"; Wu Cheng's three classes do not match "three ways a hexagram can be fixed" — the twelve groups of four have no
+  fixed point; the Mawangdui row's "unlike every other entry in this table" is narrowed to the three rule-generated rows;
+  Cui Shu reached the sixteen "plausibly independently", as CITATIONS.md has said since 2026-09-01, and verify.py's
+  comment says the same.
+- Code credits: verify.py credited the three-generator appendix to "Whalen (1998)" (it is Hershock 1991); solve.c gave
+  `dist_runs` to "Moore 1988" (1989), `palspan` to "biroco.com / Moore" (Moore's papers, hosted on S. J. Marshall's site)
+  and `front_load` to McKenna & Mair 1979 (the spec says McKenna & McKenna 1975); solve.py's `palspan` docstring credited
+  "Moore, *Yijing Dao*"; the R-L1 docstring made the 36-unit consolidation Lai Zhide's alone (a Song-to-Ming lineage ends
+  with him); two Chan docstrings still waited on "full-paper access"; roae.py called Ouyang "the earliest and fullest".
+- TR-2's v1.31 revision row and the CORRECTIONS.md entry for the same correction cite `SCHULZ_2011_NOTES.md` SC-25 without saying it
+  is a note in `roae-private`, the private staging repository (`books/papers/SCHULZ_2011_NOTES.md`); both are append-only
+  and are not edited, and TR-2's v1.45 row says so. TR-1's v1.28 row says the 孔穎達 rule was "verified from the primary
+  text"; CITATIONS.md holds it at attribution level, with the verbatim wording pending, and TR-1's v1.44 row says so.
+
+**Held.** The CC-N4 label inside `viz/report_figures.py` and `reports/figures/fig_tr1_rules_tradeoff.svg` (FV-G23-C3#10):
+the figure must be regenerated, not hand-edited, and goes to the next figure pass.
+
+**Tests.** `TestBatchG7.test_g7_code_credits`. It fails on the uncured files.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G7; the defects were found by Codex
+(gpt-6-astra), final review, AIF-001 and F03-003..F03-H05, and fix-verification pass, FV-G23-C3 and FV-G4-C2.
+
+
+## CX-36B-C — operational resource names in the current tree (documentation/DEPLOYMENT.md, documentation/DEVELOPMENT.md, CLAUDE.md, enumeration/SOLUTIONS_BIN_LOCATION.txt)
+
+**2026-10-28.** **Source.** Codex (gpt-6-astra), final review, F10-001#3, F10-002#4 and F10-003#3; triaged by Fable (fast-track
+batch FT3i). Push group G7.
+
+**What changed.** CAMPAIGN_METHODOLOGY.md says resource names stay private, but DEPLOYMENT.md's `az` examples printed the
+resource group, DEPLOYMENT.md, DEVELOPMENT.md and CLAUDE.md named the project's data disks, and SOLUTIONS_BIN_LOCATION.txt
+named the disk and path holding an old file. Each cited site now uses a placeholder (`<resource-group>`, `<data-disk>`)
+or says "the data disk"; the sha256 in SOLUTIONS_BIN_LOCATION.txt is kept. This applies to the cited sites, current tree only.
+
+**Held for the operator.** HISTORY.md:4111 names a local mirror path; HISTORY.md is append-only and no in-place edit is
+sanctioned for it. `scripts/spot_health_precheck.sh` defaults `RG` to the resource-group name, and several run READMEs
+name a data disk; changing a script default or a run record is the operator's call. The licence scope (F10-001#7,
+F10-002#8, F10-003#8, F10-006#1) and the basis for shipping the A102241 term list (F10-001#8, F10-006#2) are rights
+questions for the operator and are held as asked; nothing about them is decided or characterised here, and this
+entry asserts no rights.
+
+**Tests.** `TestBatchG7.test_g7_operational_names_redacted`. It fails on the uncured files.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G7; the findings are Codex's (gpt-6-astra),
+final review, F10-001, F10-002 and F10-003.
+
+
+## CX-36B-D — reproduction commands that failed as written, and CLI and ops sentences that said more than the code (reports/TR12_QUERY_PROGRAM.md, reports/METHODS.md, documentation/SOLVE_C_CLI.md, documentation/SOLVE_PY_CLI.md, documentation/VERIFY.md, documentation/DEPLOYMENT.md, documentation/DEVELOPMENT.md, documentation/PERFORMANCE_HISTORY.md, documentation/PASS1_TRAJECTORY_DETERMINISM.md, documentation/LARGE_SCALE_CAMPAIGNS.md, reviewer/README.md, runs/20261003_tr8_dof_sampler_35782834/README.md, scripts/doc_gates.sh, reports/certificates/verify_all.sh, sat.py, CLAUDE.md, solve.c, solve.py)
+
+**2026-10-28.** **Source.** Codex (gpt-6-astra), fix-verification pass, FV-G23-C4#8, FV-G4-C2:OOS:12032, FV-G4-C1#7/#8,
+FV-G23-C5#2, FV-G4-C3#6, FV-G4-C4#6, FV-G4-C5#6, FV-G4-C6#3, FV-G4-C7#5/#11, FV-S5-C#18/#19/#21/#23, FV-S5-G#12,
+FV-S5-K2#12/#17, FV-FT1-G:OOS:12212/12214; final review, F12-016#4/#5, F12-008#4, F12-007#4, F12-003#12, F09-H01#5/#7/#8,
+F09-H02#2/#3/#4, F09-A02#3, F09-A04#5 and F04-003#22; triaged by Fable (fast-track batch FT3f, first pass). Push group G7.
+
+**What was published, and what it says now.**
+- TR-12's atlas commands named `atlas_n31.json` with no path and failed from the repository root; they name
+  `runs/20260906_kc_ladders_n31/atlas_n31.json`. Its two-instrument IE recipe omitted `--ie-count`. METHODS.md listed the
+  KW-value gates without `--dav2-verify` and gave `--atlas-probe` §12.1–§12.8, where §12.1–§12.6 is what it covers.
+- SOLVE_C_CLI.md's mid-join section: no result is written outside OUTDIR, but the digest helpers use a `/tmp` scratch file;
+  the heartbeat is checked every 4,096 masks, so its interval is at least 60 s; a context mismatch prints
+  `MIDJOIN=FAIL:context-mismatch` alone; a failed `--kc-force` rerun leaves the previous layer JSON; the G4 test also
+  streams with a 1 MB window; the "1/8-octave" histogram bins are linear eighths of the leading mantissa. VERIFY.md: a
+  mid-join JSON naming another instance is FAIL (1), not ERROR (2); the C2-shift interval is [8.620%, 9.160%].
+- The Drasny classifier "reproduces Table 4.1's eight-group system EXACTLY"; it reproduces it with G1 and G2 merged, as
+  TR-10 and CITATIONS.md say (SOLVE_C_CLI.md, solve.py, solve.c). The Mawangdui L2 null was labelled "M1∧M3-conditioned";
+  it is sampled with both conventions free, wider than the implemented M3 (SOLVE_PY_CLI.md and solve.py's printed heading).
+  The TR-8 sampler's K = 24 median is censored, not a bound (SOLVE_PY_CLI.md, the run's README).
+- sat.py's header and CLAUDE.md said every rule predicate is imported; the two gender-violation tests are local, as
+  SAT_CLI.md says. reviewer/README.md's "at least 12 GB" is about 10 GB, as the capstone guide says. LARGE_SCALE_CAMPAIGNS'
+  scale note now records the 560T validation. doc_gates.sh's usage and verify_all.sh's comment said `repro-reach` and
+  GATE 24 are outside `all`; both run in it.
+- PASS1_TRAJECTORY_DETERMINISM.md's headline said "under 1% at every matched node count" after its own table withdrew
+  matched-count precision; it says "at the nearest samples". Its "new science only starts" sentence and its claim that a longer run on the branch must
+  cross a task-exhaustion boundary are reworded against HISTORY.md's projection (the stopped run would have left 2,443 of 2,507 tasks unclaimed).
+- The merge mode switches to external at 80% of RAM (solve.c); six sentences in DEVELOPMENT.md and DEPLOYMENT.md said 70%.
+  The bench script times the whole `--branch` process, not "enum-only wall". The shard manifest's emission is not "zero
+  cost at canonical time". DEPLOYMENT.md's and SOLVE_C_CLI.md's reproducibility promises are scoped to per-cell budgets
+  and decompressed bytes. VERIFY.md's pure-Python reach (n = 20–28 are out of reach, n = 18–19 fit), the C1∩C2∩C4∩C5 scope
+  label, the battery's need for writable scratch and the IE route to the n=31 count are stated. DEVELOPMENT.md states the
+  Python ≥ 3.10 floor (`int.bit_count`). solve.c's comments no longer say `-fopenmp` is optional, and its build lines carry `-lz`.
+
+**Not yet done.** The rest of FT3f — the SOLVE_C_CLI KC-tool set, the DEVELOPMENT drift set, the format documents,
+LARGE_SCALE_CAMPAIGNS §6c/§12, the remaining DEPLOYMENT, CAMPAIGN_METHODOLOGY, PERFORMANCE_HISTORY, example/README and
+CLAUDE.md sets — is a later pass.
+
+**Tests.** `TestBatchG7.test_g7_reproduction_commands_and_scopes` and `test_g7_code_credits`. Each fails on the uncured files.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G7; the defects were found by Codex
+(gpt-6-astra), final review and fix-verification pass.

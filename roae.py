@@ -1674,8 +1674,8 @@ def print_symmetry():
 
     ATTRIBUTION: reading the 64 hexagrams as the elementary abelian group (Z/2)^6
     under XOR, and analysing the King Wen divisions as its subgroups and cosets,
-    is PRIOR ART, not this project's contribution. The earliest and fullest
-    development located is Ouyang Weicheng (欧阳维诚) 1992, which sets out the
+    is PRIOR ART, not this project's contribution. The fullest early development
+    located is Ouyang Weicheng (欧阳维诚) 1992 (Goldenberg 1975 is earlier; Codex FV-G4-C2#5), which sets out the
     (Z/2)^6 structure together with the subgroup/coset analysis; Suenaga 2012
     carries the associated counting. See documentation/CITATIONS.md. What is new
     here is the budgeted (not exhaustive) C1-C7 enumeration, the ceiling result, and the Lean

@@ -215,7 +215,7 @@ real billing cost and accumulates across sessions.
    create still leaves the NIC, public IP and NSG behind. On Dals_v7,
    create with `--os-disk-delete-option Delete` so the managed OS disk is
    removed with the VM (DEPLOYMENT.md rule 6, scoped 2026-09-25, Q-763).
-4. **Data disks (like `solver-data`, `solver-data-westus3`) are NEVER
+4. **Data disks (the project's managed data disks) are NEVER
    deleted by Claude.** Detach before VM delete. User explicit approval
    needed to touch data-disk contents or delete the disk itself.
 5. **On any session crash / interrupt, the first thing the next wakeup
@@ -265,7 +265,7 @@ real billing cost and accumulates across sessions.
 `mkfs.ext4 -F /dev/nvme0n3` against what it thought was an empty
 256 GB Premium SSD temp disk. On the VM in question, kernel device
 naming had reversed Azure LUN order: `/dev/nvme0n3` was actually
-the 3 TB `solver-data-westus3` disk holding the 100T canonical
+the 3 TB data disk holding the 100T canonical
 artifact (102 GB `solutions.bin`, sha `915abf30…`) and the entire
 2026-05 validation campaign's intermediate state. The `-F` flag
 was in the command, but it is not what let this through: mkfs's
@@ -400,7 +400,7 @@ dependency sprawl. The canonical source files are `solve.c` (enumeration,
 sha-anchored), `solve.py` (analysis + ground truth), and `sat.py` (SAT/
 certificate layer, operator-approved 2026-07-02; imports solve.py and must
 contain no hand-written constraint *predicates* — rule predicates and constants
-come from solve.py, while the clause arithmetic that places them (station
+come from solve.py (except the two local gender-violation tests `viol_hex`/`viol_ex`, SAT_CLI.md; Codex FV-G4-C3#6), while the clause arithmetic that places them (station
 offsets, gender stations) is sat.py's own and is tested, not derived: CX-232,
 Codex LSD review row R7; see its header and SAT_CLI.md). They stay
 that way; SAT work goes in `sat.py`, not new files.
@@ -492,9 +492,8 @@ itself contains the decision tree).
 - F64als_v6 westus2 is **retired**. New large-scale enumeration uses
   Dalsv7 westus3 exclusively.
 - Managed disks are region-locked — cross-region needs snapshot+copy.
-  Bi-region archival is handled by `solver-data-westus3` (new
-  canonical holder) + legacy `solver-validate-d3` (westus2, d3 10T
-  canonical artifacts).
+  Disk and resource names are kept in the private runbook (Codex final
+  review, F10-002#4; CAMPAIGN_METHODOLOGY.md's boundary).
 
 ## One-line rule of thumb
 

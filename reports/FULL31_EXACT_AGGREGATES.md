@@ -165,7 +165,7 @@ reaches in-process on a 2-core host (measured ~90 s, ~0.95 GB peak); n=18/19 are
 repository can recount full-31 independently"*, justified by the plain DP's peak live-state count
 exceeding any single-node RAM budget past n≈19. **That ceiling is an extrapolation, not a measurement, and it does not support the
 universal claim either.** ⚠ **[CORRECTED 2026-09-25 (Q-700, Codex V3A-081#2) — this read "That ceiling is real".** The plain DP accepts rungs up to n = 19 and no larger (`verify.py --recount-rung` takes 18 and 19 only), and its largest measured run is small: `python3 verify.py --recount-rung 19`, 573 s, ~3.2 GB, per [REPRODUCE.md](../documentation/REPRODUCE.md). Past n = 19 the only figure is `verify.py`'s own estimate of ~4×10⁹ peak live states at n = 24. Single nodes with 6–24 TiB of RAM exist and were never tried ([TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §6). So the ceiling describes the hosts this project used, not every single node.]** `verify.c` carries a second instrument of a *different algorithm class* — Route B,
-a signed inclusion–exclusion over subsets of the free pairs (Karp/Ryser/Björklund–Husfeldt style,
+a signed inclusion–exclusion over subsets of the free pairs ([Karp](../documentation/CITATIONS.md#karp1982)/[Ryser](../documentation/CITATIONS.md#ryser1963)/[Björklund–Husfeldt](../documentation/CITATIONS.md#bjorklund-husfeldt2006) style,
 used rather than invented here) — whose DP state is `(last hexagram, budget vector)`, **64 × ≤413
 slots, under 1 MB per thread and no disk at full 31**. It accepts `--ie-spec full31@0` and ships
 `--ie-probe` explicitly for cost sizing. **Full-31 independent recounting is therefore a question of

@@ -4180,7 +4180,7 @@ static int lc_gt_selftest(void) {
  * (build_pairs / derive_pair_perms / lc_restrict_perms / lc_radix / u192).
  *
  * ALGORITHM (classical signed inclusion–exclusion — Karp-1982-style
- * Hamiltonian-walk counting; cf. Ryser, Björklund–Husfeldt; used, not
+ * Hamiltonian-walk counting; cf. Ryser, Björklund–Husfeldt, CITATIONS.md; used, not
  * invented, here): with F = the instance's free pairs (31 at full scale),
  *
  *     N = Σ_{S ⊆ F} (−1)^{|F|−|S|} · W(S)

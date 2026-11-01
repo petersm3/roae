@@ -142,7 +142,7 @@ recounts by separate programs are what bear on that.
   (not included; needs network). Its probe records are not in this package, and no step here bears
   on it.
 - **The proofs are not in this package.** The Lean proofs and SAT certificates are in the full
-  repository; checking them needs at least 12 GB of free RAM (*reported upstream (measured)*;
+  repository; checking every Lean file needs about 10 GB of free RAM, 16 GB comfortable (*reported upstream (measured)*;
   `reports/certificates/verify_all.sh` there). That requirement does not apply to the 13 steps.
 
 ## What is in it

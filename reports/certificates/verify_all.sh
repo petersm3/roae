@@ -1192,8 +1192,8 @@ else
   # after the last gate, and pins the check to `all` rather than to one of the named modes
   # (`retract`, `generated`, `repro-reach`) whose banners read "PASS" too.
   # NOT a substitute for reading the output: that banner covers the HARD gates only, and
-  # names its own carve-outs — gates 1, 5, 13 and GATE 17 LEG B are report-only, GATE 24 is
-  # not in `all` at all, and GATE 18 is hard for UNADJUDICATED defects only. A PASS here is
+  # names its own carve-outs — gates 1, 5, 13 and GATE 17 LEG B are report-only (GATE 24 has
+  # been in `all` since 2026-09-04; Codex FV-FT1-G:OOS:12214), and GATE 18 is hard for UNADJUDICATED defects only. A PASS here is
   # exactly what the banner says it is and no more. Measured 2026-09-02: 2m24s, 38 gates.
   check "scripts/doc_gates.sh (documentation gates, 'all' mode)" \
     "require_match 'DOC GATES: PASS  — hard gates only:' bash scripts/doc_gates.sh"

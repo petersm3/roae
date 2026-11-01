@@ -7523,7 +7523,7 @@ def _reg_stations(seq):
     Canonical = the class member at the lower seq[] slot. Palindromic hexagrams
     (h == reverse_6bit(h)) are singleton stations, so complement pairs like
     Qian/Kun contribute two stations each.
-    ATTRIBUTION: the 36-unit consolidation is Lai Zhide 1599 (CICC), used
+    ATTRIBUTION: the 36-unit consolidation is a Song-to-Ming lineage ending with Lai Zhide 1599 (CICC; CITATIONS.md §Classical sources; Codex FV-G23-C3#8), used
     analytically by Schulz 1990 (JCP 17:345-358) and Cook 2006."""
     seen = set()
     out = []
@@ -8071,8 +8071,8 @@ def reg_c1(seq):
     """C1 — Yang balance of consecutive non-overlapping groups of 4 hexagrams.
 
     ATTRIBUTION: Chan 2026 arXiv:2604.09234 (Table 2; p=0.002 vs 100,000
-    random baselines — exact formulation pending full-paper access, registry
-    proxy used). Aggregate deviation sum(|yang_lines(group) - 12|) over the 16
+    random baselines — the registry proxy is kept; the paper has since been
+    read, CITATIONS.md #chan2026; Codex FV-G4-C2#2). Aggregate deviation sum(|yang_lines(group) - 12|) over the 16
     groups seq[4i..4i+3]. KW measured value 24 anchors the gate (the registry
     gives the percentile, not the raw score). Returns count."""
     return sum(abs(sum(_reg_hw(h) for h in seq[i:i + 4]) - 12)
@@ -8082,7 +8082,7 @@ def reg_c2(seq):
     """C2 — Within-pair Hamming distance profile (asymmetry fingerprint).
 
     ATTRIBUTION: Chan 2026 arXiv:2604.09234 (Table 2; 99.2nd percentile vs
-    random — exact asymmetry metric pending full-paper access). Deterministic
+    random — registry proxy, not Chan's own metric; CITATIONS.md #chan2026). Deterministic
     proxy: the intra-pair HD histogram as ((hd, npairs), ...) sorted by hd.
     KW measured: ((2, 12), (4, 12), (6, 8)) — partially explained by reg_r3 /
     reg_r4 (the 8 HD-6 pairs are the palindrome + anti-symmetric classes).
@@ -8207,8 +8207,8 @@ def f4p_dist_runs(seq):
 
 def f4p_palspan(seq):
     """6. Highest pair-position holding a palindromic hexagram (rev6(h)==h);
-    lowest is 0 by C4. Axis: Moore, *Yijing Dao*
-    (biroco.com, n.d.) symmetric-hexagram placement."""
+    lowest is 0 by C4. Axis: Moore's papers, hosted on S. J. Marshall's
+    *Yijing Dao* (biroco.com, n.d.), symmetric-hexagram placement (Codex F03-007#12)."""
     return max(i // 2 for i, h in enumerate(seq) if _f4p_rev6(h) == h)
 
 def f4p_comp_adj(seq):
@@ -9876,7 +9876,7 @@ def _db1_is_mono(h):
 
 def db1_group(h):
     """Bit-structural classifier reproducing Drasny's Table 4.1 (book p. 75)
-    eight-group system EXACTLY for all 64 hexagrams (verified: flip-equivariant,
+    for all 64 hexagrams with G1/G2 merged into G (Codex FV-G4-C6#3; verified: flip-equivariant,
     C1-pair-consistent, zero residue). Linear precedence B > A > F > C > D > E > G
     (frozen spec §1.2). lo=h&7 (lower trigram), up=(h>>3)&7 (upper trigram),
     w()=Hamming weight. Returns a group code 0..6 (see DB1_GROUP_NAMES)."""
@@ -12231,8 +12231,8 @@ def r7_corpus(n=1_000_000, seed=42, jf_exact=True):
           f"(expected ~{n/40320:.1f} at this N -- NOT 0-expected, unlike the "
           "L0-conditioned rates above).\n")
 
-    # --- Mawangdui L2 (M1^M3-conditioned, both conventions free) ---
-    print("## Mawangdui L2 (M1^M3-conditioned, both conventions free) -- "
+    # --- Mawangdui L2 (both conventions free; wider than the implemented M3 -- Codex FV-G4-C5#6) ---
+    print("## Mawangdui L2 (both conventions free over 8! x 8!; wider than the implemented M3) -- "
           "full 11-observable battery\n")
     print("Frozen decision rule (section 10): exact 8! x 8! grid "
           "(1,625,702,400 sequence evaluations) only if < ~2 h on the worker; "

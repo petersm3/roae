@@ -572,7 +572,7 @@ BTFILE = re.compile(r'`([^`\s]+\.[A-Za-z]{1,5})`:(?=\d)')
 MDLINK = re.compile(r'\[[^\]\n]*\]\(`?([^)\s#`]+\.[A-Za-z]{1,5})`?\):(?=\d)')
 def cites(line, citer, prev=(), quiet=False):
     """(target, lo, hi, text) for every live citation on the line; exclusions counted."""
-    if allt:     # a markdown link glued to its line number, `[CITATIONS.md](CITATIONS.md):2031`, is the
+    if allt:     # a markdown link glued to its line number, `[CITATIONS.md](CITATIONS.md):2037`, is the
         # same citation: read it as one -- and a link destination is RELATIVE TO THE CITING DOCUMENT
         # (F05-011#16), so it is rewritten to that tracked path when there is one, never left bare for
         # a root-level homonym to win.

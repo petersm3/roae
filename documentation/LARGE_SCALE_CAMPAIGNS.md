@@ -26,7 +26,7 @@
 >   (§9c's tiered-merge recipe was withdrawn 2026-09-01 as unrunnable; the
 >   section retains the explanation of why)
 > * **§13.0 scale honesty** — the disclosure that solve.c is **not empirically validated**
->   at PT scales, only to the 100T pilot
+>   at PT scales, only to the 100T pilot (since then also at 560T — §13.0 and CANONICAL_HASHES.md; Codex FV-G4-C7#11)
 > * **§13a** — common gotchas observed across real campaigns
 >
 > So this file is **not** awaiting deletion. It is the operational guide; CAMPAIGN_METHODOLOGY.md

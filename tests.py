@@ -48783,8 +48783,8 @@ class TestBatchG4(unittest.TestCase):
         self._lacks(m, "| Orbit count \\|C1∩C2∩C4∩C5\\|/24 |", "Every report's Verification Guide tags its claims with the rung they sit on.",
                     "None of those has yet had an examiner who did not also write them.")
         self._has(m, "| N/24 = \\|C1∩C2∩C4∩C5\\|/24 (= 2 × the sequence-level orbit count;", "`SOLVE_KNUTH_SEED` overrides it",
-                  "`--dav-verify`, `--db1-verify`, `--f4p-verify` for the other scorer families",
-                  "TR-11's Verification Guide tags its claims", "for §12.1–§12.8, and `python3 solve.py --atlas-queries")
+                  "`--dav-verify`, `--dav2-verify`, `--db1-verify`, `--f4p-verify` for the other scorer families",  # G7 FV-G4-C1#7
+                  "TR-11's Verification Guide tags its claims", "for the §12.1–§12.6 figures §12.9 maps to a token")  # G7 FV-G4-C1#8
 
     # ---- CX-35T-J: the report-wording sweep ----------------------------------------------------------------
     def test_report_wording_sweep(self):
@@ -55363,6 +55363,78 @@ class TestBatchG6(unittest.TestCase):
             self.assertIn("--tr8-dof-seed", whole.split("\n\n")[0], "unseeded sampler example: %s" % l.strip())
         self._g6h_cx("CX-35X-N")
 # end class TestBatchG6 (push group G6, CX-35X-A..CX-35X-N)
+
+
+class TestBatchG7(unittest.TestCase):
+    """Push group G7 (fast-track FT3d + FT3i + a first FT3f pass + the G7 fix-verify rows, CX-36B-*):
+    citations, attributions, operational redaction and CLI/ops documentation from Codex's final review
+    and fix-verification pass (gpt-6-astra), as Fable triaged them.
+
+    Every test reads the TRACKED files of the tree it sits in, so on the tree before G7 (0df730cb) each
+    one fails for the reason its comment states. Needles that quote withdrawn wording are assembled from
+    pieces so the retraction registry's literal scan does not see a re-publication here."""
+
+    def _doc(self, rel):
+        with open(rel, encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_g7_classical_groups_scope_counts_the_sixteen(self):
+        # F03-001#10 / CRZ-002#4: the two operations coincide on 8 hexagrams; the eligible set is 16.
+        r = subprocess.run([sys.executable, "verify.py", "--check-classical-groups"],
+                           capture_output=True, text=True, timeout=300)
+        line = [l for l in r.stdout.splitlines() if l.startswith("SCOPE_UNIQUENESS=")]
+        self.assertEqual(len(line), 1, "precondition: one SCOPE_UNIQUENESS line")
+        self.assertIn("on_the_16_eligible_hexagrams_(8_where_the_operations_coincide+8_self-reverse)", line[0])
+
+    def test_g7_citation_wording(self):
+        cit = self._doc(os.path.join("documentation", "CITATIONS.md"))
+        for gone in ("the work was reprinted, " + "not revised",              # F03-001#12
+                     "C2 is essentially " + "unreachable in de Bruijn",       # F03-001#14
+                     "came out of the ground " + "**unbound",                 # F03-003#8
+                     "i.e. exactly on his " + "sixteen",                      # F03-001#10
+                     "It is false as a " + "survey claim",                    # F03-001#4
+                     "known to us only through [Chen Renren 2005](#chenrenren2005), p. 25;\n  his text is " + "not held",
+                     "single, unaudited passes and nothing is cited from " + "them here",  # F03-001#8
+                     "neither displaces Ouyang as " + "earliest",             # FV-G4-C2#5
+                     "bottom-line-as-least-significant-bit convention ROAE " + "also uses (p. 7)",  # F03-002#2
+                     "Lai Zhide (1525–1604, via " + "Schulz, 1982)"):         # F03-001#9
+            self.assertNotIn(gone, cit, gone)
+        for anchor in ("ryser1963", "karp1982", "bjorklund-husfeldt2006"):  # F11-019#4
+            self.assertIn('<a id="%s"></a>' % anchor, cit)
+        self.assertIn("CITATIONS.md#karp1982", self._doc(os.path.join("reports", "FULL31_EXACT_AGGREGATES.md")))
+
+    def test_g7_code_credits(self):
+        self.assertNotIn("Whalen (" + "1998)", self._doc("verify.py"))                # F01-008#7
+        c = self._doc("solve.c")
+        self.assertNotIn("dist_runs     Moore " + "1988", c)                            # F03-007#13
+        self.assertNotIn("front_load    McKenna & " + "Mair 1979", c)                   # F03-007#11
+        self.assertNotIn("Table 4.1 " + "EXACTLY", c)                                    # FV-G4-C6#3
+        self.assertNotIn("pragmas are no-ops and " + "execution", c)                     # F09-A04#5
+        p = self._doc("solve.py")
+        self.assertNotIn("eight-group system " + "EXACTLY", p)
+        self.assertNotIn("pending full-paper " + "access", p)                            # FV-G4-C2#2
+        self.assertNotIn("Mawangdui L2 (M1^M3-" + "conditioned", p)                      # FV-G4-C5#6
+        self.assertNotIn("Every rule predicate and constant is " + "derived", self._doc("sat.py"))  # FV-G4-C3#6
+
+    def test_g7_operational_names_redacted(self):
+        # F10-002#4 / F10-001#3 / F10-003#3: no resource-group or disk names in the cited files.
+        for rel in (os.path.join("documentation", "DEPLOYMENT.md"), os.path.join("documentation", "DEVELOPMENT.md"),
+                    "CLAUDE.md", os.path.join("enumeration", "SOLUTIONS_BIN_LOCATION.txt")):
+            d = self._doc(rel)
+            for name in ("RG-" + "CLAUDE", "solver-data-" + "westus3", "solver-validate-" + "d3", "Path on " + "disk:"):
+                self.assertNotIn(name, d, "%s carries %s" % (rel, name))
+
+    def test_g7_reproduction_commands_and_scopes(self):
+        tr12 = self._doc(os.path.join("reports", "TR12_QUERY_PROGRAM.md"))
+        self.assertNotIn("--atlas-probe " + "atlas_n31.json", tr12)                       # FV-G23-C4#8
+        self.assertNotIn("--atlas-queries " + "atlas_n31.json", tr12)
+        self.assertNotIn("`verify.c --ie-pin-c6c7", tr12)                                 # FV-G4-C2:OOS:12032
+        dep = self._doc(os.path.join("documentation", "DEPLOYMENT.md"))
+        self.assertNotIn("Input < " + "70% of merge-VM RAM", dep)                        # F09-H01#8
+        self.assertNotIn("exceeds " + "70% of", self._doc(os.path.join("documentation", "DEVELOPMENT.md")))
+        p1 = self._doc(os.path.join("documentation", "PASS1_TRAJECTORY_DETERMINISM.md"))
+        self.assertNotIn("under **1%** at every " + "matched node count", p1)            # F12-016#4
+        self.assertIn("python3` ≥ 3.10", self._doc(os.path.join("documentation", "DEVELOPMENT.md")))  # F09-A02#3
 
 
 if __name__ == "__main__":

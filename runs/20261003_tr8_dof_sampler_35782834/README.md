@@ -46,8 +46,8 @@ them can be recomputed from the per-shard hit files in about two seconds (§Repr
 | `OLD_6E-5_FIGURE` | STAYS_WITHDRAWN |
 
 All five K, pool A (`POOL_A_K<K>_FHAT`, `_MEDIAN`, `_CENSORED_FRACTION`): F̂ = 0.0000, 0.6370,
-1.0000, 1.0000, 1.0000; m̂ = 1.8450e-03, 8.1400e-05, 3.6000e-06, 2.0000e-07 and, at K = 24, the bound
-`<1.000e-07`; censored fractions 0, 0, 0.002, 0.237, 0.837. Their CIs, deciles, hit ranges, mean
+1.0000, 1.0000, 1.0000; m̂ = 1.8450e-03, 8.1400e-05, 3.6000e-06, 2.0000e-07 and, at K = 24, censored —
+`<1.000e-07` is the detection floor, not a bound (TR-8 §1; Codex FV-G23-C5#2); censored fractions 0, 0, 0.002, 0.237, 0.837. Their CIs, deciles, hit ranges, mean
 pairwise clause overlaps and family compositions are in `analysis_RECORDED.json`.
 
 **Which computation governs.** By A1 §A1.3(l), the governing verdict, gates and §6 outcome are the

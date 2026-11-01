@@ -11844,3 +11844,22 @@ Q-686=DONE
   figure is replaced: where a figure is in question, a dated note beside it says what its source gives.
 - No canonical sha, count, certificate or verdict changed: `./solve --selftest` prints sha256 `403f7202…`.
   `TestBatchG6` holds each cure.
+
+## 2026-10-28 — push group G7: citations and attributions, operational names, and a first pass of the CLI and ops documentation, from Codex's final review
+
+- **Fast-track batch FT3d, citations and attribution (CX-36B-A, CX-36B-B).** Codex (gpt-6-astra) ran the final review and
+  the fix-verification pass, and Fable triaged both. CITATIONS.md now agrees with itself: the acquisition paragraph, the
+  classical-source inventory, the Pu, Kondō and Li Shangxin cross-references, the Olsvanger bit convention, the Hershock
+  reproduction scope, the McKenna & Mair summary and Wu Cheng's sixteen (8 coincident + 8 self-reverse; `verify.py
+  --check-classical-groups` prints the same) say what their own entries record. CC-N4's earlier statement (Li Shangxin 2000,
+  crediting Gu Boxu 1997) reaches TR-1, TR-2 and LITERATURE_RULES_FORMAL; the code's credits to Moore, McKenna, Hershock,
+  Lai Zhide and Ouyang are aligned with the citations; Ryser, Karp and Björklund & Husfeldt are cited for the IE counter.
+  One item, the Shangbo symbol census's (43,44) pair, would change a published count and is held for the operator.
+- **Fast-track batch FT3i, operational names (CX-36B-C).** Resource-group and data-disk names are replaced by placeholders
+  in DEPLOYMENT.md, DEVELOPMENT.md, CLAUDE.md and SOLUTIONS_BIN_LOCATION.txt. The licence scope, the A102241 term list,
+  one HISTORY.md path, a script default and the run READMEs are the operator's decisions and are held.
+- **The G7 fix-verification rows and a first FT3f pass (CX-36B-D).** TR-12's atlas and IE commands run as written; the
+  mid-join, Drasny, Mawangdui and sampler sentences say what the code does; PASS1's headline, the 80% merge threshold, the
+  bench wall, the reproducibility scope, VERIFY.md's reach and scope labels and the Python ≥ 3.10 floor are corrected. The
+  larger FT3f sets are a later pass.
+- No canonical sha, count, certificate or verdict changed. `TestBatchG7` holds each cure and fails on the uncured tree.

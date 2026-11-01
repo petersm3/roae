@@ -45,8 +45,8 @@ the whole run. Keep them independent.
 - **Atomic writes.** `solve.c` writes to `foo.tmp` then renames. A mid-write
   snapshot by the monitor must never read a truncated file.
 - **Per-sub-branch node limits.** Thread scheduling varies, but each sub-branch
-  has a deterministic node budget, so results are reproducible regardless of
-  how threads pick up work.
+  has a deterministic node budget, so per-cell results are reproducible regardless of
+  how threads pick up work; the record set of a parallel `--sub-branch` run under one global budget can vary between runs (solve.c's own note; Codex final review, F12-007#4).
 - **Run ID file.** `/data/run_id.txt` identifies the current run. Before wiping
   the persistent volume at launch, compare to the intended run ID — resume if
   they match, wipe only if they differ.
@@ -372,8 +372,8 @@ and ignores core count; the SKU and priority in these rows are withdrawn.)*
 
 ### Recommendations by dataset scale
 
-- **Input < 70% of merge-VM RAM.** Default (auto) selects in-memory. Fastest.
-- **Input ≥ 70% of merge-VM RAM, or running on small VM.** Use external merge.
+- **Input < 80% of merge-VM RAM.** Default (auto) selects in-memory. Fastest.
+- **Input ≥ 80% of merge-VM RAM, or running on small VM.** Use external merge.
   - On Standard HDD: usable but slow. Budget 3-4 hours for 10T, proportionally
     longer at 100T. Only viable when cost-minimizing is the priority over
     wall time.
@@ -402,13 +402,13 @@ gives the chunk cycle its own fast device. On the 10T d3 merge this moved
 wall time from ~3 hours to ~30-45 min at roughly the same total cost.
 
 **When the pattern is needed.** Any external merge where wall time on HDD
-would exceed ~1 hour. That is any merge where input ≥ 70% of merge-VM RAM
+would exceed ~1 hour. That is any merge where input ≥ 80% of merge-VM RAM
 (which forces external mode) at ≥ 10T scale. For smaller runs that fit
 in-memory, the pattern is unnecessary — auto mode selects in-memory and
 neither the SSD nor external mode is involved.
 
 **When the pattern is strictly necessary.** 100T and beyond. In-memory is
-not viable (the measured ~443 GB pre-dedup buffer exceeds the 70%-of-RAM
+not viable (the measured ~443 GB pre-dedup buffer exceeds the 80%-of-RAM
 in-memory rule on every D-series SKU this project uses — D128als_v7 is
 256 GB — and a memory-optimized SKU costs ~10× for marginal benefit).
 External merge is forced; running external on HDD at that scale projects to
@@ -442,11 +442,11 @@ so its temp I/O runs at SSD speed; destroy the SSD afterward.**
 #    For 100T, use P40 (2 TB). Cost scales with size, NOT with I/O.
 SIZE_GB=512                      # P20; a single parameter for BOTH the create
                                  # and the step-3 selector, so they cannot drift
-az disk create -g RG-CLAUDE -n merge-scratch -l westus2 \
+az disk create -g <resource-group> -n merge-scratch -l westus2 \
   --size-gb "$SIZE_GB" --sku Premium_LRS --no-wait
 
 # 2. Attach to the on-demand merge VM (after it's up).
-az vm disk attach -g RG-CLAUDE --vm-name <merge-vm-name> \
+az vm disk attach -g <resource-group> --vm-name <merge-vm-name> \
   --name merge-scratch --lun 1
 
 # 3. On the VM: identify disk by SIZE + empty-FS state, format,
@@ -483,8 +483,8 @@ ssh solver@<vm-private-ip> '
 #    at end of merge. Nothing of value remains on the SSD.
 
 # 6. Detach + delete the SSD.
-az vm disk detach -g RG-CLAUDE --vm-name <merge-vm-name> --name merge-scratch
-az disk delete -g RG-CLAUDE -n merge-scratch --yes --no-wait
+az vm disk detach -g <resource-group> --vm-name <merge-vm-name> --name merge-scratch
+az disk delete -g <resource-group> -n merge-scratch --yes --no-wait
 ```
 
 **Cost accounting.** Premium SSD is billed per-hour, but Azure bills at a
@@ -506,7 +506,7 @@ pre-dedup records = 442,650,655,328 B ≈ 443 GB** of merge input
 extrapolated "~27.7B pre-dedup records = ~830 GB" — the pre-run linear
 projection from 10T, never replaced by the measurement; the real 10T→100T
 pre-dedup growth was 5.0× per 10× budget. Corrected 2026-09-03.)* In-memory
-merge would need a memory-optimized SKU (≥512 GB RAM under the 70% rule;
+merge would need a memory-optimized SKU (more than 554 GB RAM under the 80% rule, 443 GB / 0.8 — the threshold `solve.c` applies, Codex final review, F09-H01#8;
 D128als_v7 is 256 GB) at roughly 10× the cost for marginal benefit. The
 practical path at 100T is **external merge on Premium SSD**:
 
@@ -694,7 +694,7 @@ mitigations are tested. Key non-obvious constraints captured there:
 - **Enum OS disk: explicit `--storage-sku StandardSSD_LRS`.** Azure
   defaults `s`-suffix VM sizes to Premium_LRS, which is wasted on
   CPU-bound enum.
-- **Shards belong on the attached managed disk (solver-data-westus3),
+- **Shards belong on the attached managed disk (the project's data disk),
   not the enum VM's OS disk.** Lose-the-VM-lose-the-shards is what
   drove half the saga's overrun.
 - **Trap discipline: NEVER `teardown_enum` in the ERR trap.**
@@ -1136,7 +1136,7 @@ than legacy DFS at the same budget (typically ~500 MB at 10T for rich
 branches). These are too big for git-native storage but need preservation
 for scientific reproducibility. Established pattern (from 2026-04-22 Pass 1):
 
-1. **Big file stays on `solver-data-westus3` managed disk** at
+1. **Big file stays on the project's managed data disk** at
    `/data/archive/<run-label>/<branch>/sub_<branch>.bin`. Attach the disk
    temporarily to the source VM, `cp` the file, `sync && umount`, detach.
 2. **Commit only the small artifacts** to the public repo at
@@ -1148,7 +1148,7 @@ for scientific reproducibility. Established pattern (from 2026-04-22 Pass 1):
 3. **Top-level `README.md`** in the run directory summarizing parameters,
    results, growth analysis, conclusion, cost.
 
-Verification recipe: attach `solver-data-westus3` to any D2als_v7+, then:
+Verification recipe: attach the data disk to any D2als_v7+, then:
 ```bash
 cd /data/archive/<run-label>/<branch>
 # The .sha256 sidecar holds the LOGICAL (decompressed) sha, not the sha of the

@@ -341,7 +341,7 @@ population maximum. Shift the window by 1–5 and KW scores 4, 0, 1, 2, 1. Under
 1.7×10⁻⁴ mass is priced as specification. Attribution narrows accordingly: Drasny and Schulz & Cunningham
 state the *identification* of the xiaoxi (a bit-pattern classification, constant on every ordering); the
 positional predicate is this suite's own formalization. Schulz's separate xiaoxi *placement* rule — the
-1/13/25 trisection, row `rs1` — is a distinct row and is **not** classified here; it needs its own dof
+1/13/25 trisection, row `rs1`, also [Li Shangxin's](CITATIONS.md#li2008) — is a distinct row and is **not** classified here; it needs its own dof
 count. Full detail in
 [reports/TR1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) §3 headline 3.
 

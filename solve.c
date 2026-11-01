@@ -186,7 +186,7 @@
  * BUILD
  * =====
  *   gcc -O3 -pthread -fopenmp -march=native \
- *       -DGIT_HASH=\"$(git rev-parse --short HEAD)\" -o solve solve.c -lm
+ *       -DGIT_HASH=\"$(git rev-parse --short HEAD)\" -o solve solve.c -lm -lz
  *
  *   -fopenmp parallelizes the heavy --analyze loops (3-subset enumeration,
  *    4-subset enumeration, MI matrix). Without it, --analyze still works
@@ -6091,13 +6091,13 @@ static void score_registry(const int seq[64], double W, KnuthArg *a){
  *   2 trigram_runs  trigram clustering, registered with a classical credit (Hu Yigui 1247 via Hacker & Moore 2003) that CITATIONS.md does not carry: #hacker-moore2003 covers the 18:18 split only; Zheng Qiao credit withdrawn 2026-07-30; no first-hand classical source cited (CRITIQUE.md task #157)
  *   3 nuclear_adj   Cook 2006 (STEDT Monograph 5) nuclear-trigram structure
  *   4 yang_drift    Schulz 1990 (JCP 17) gender waning / Mawangdui comparison
- *   5 dist_runs     Moore 1988 rhythm/run structure
- *   6 palspan       biroco.com / Moore symmetric-hexagram placement
+ *   5 dist_runs     Moore 1989 rhythm/run structure (Codex F03-007#13)
+ *   6 palspan       Moore symmetric-hexagram placement (papers hosted on S. J. Marshall's biroco.com)
  *   7 comp_adj      Davis 2012 / C3 adjacency form
  *   8 house_balance Lai Zhide 1599 (CICC) two-halves organization
  *   9 par_switch    Zhu Yuansheng parity skeleton, second order
  *  10 dist_autocorr Chan 2026 (arXiv:2604.09234) lag-1 autocorrelation
- *  11 front_load    McKenna & Mair 1979 (PEW 29:4) wave asymmetry
+ *  11 front_load    McKenna & McKenna 1975 (Invisible Landscape ch. 9) wave asymmetry (Codex F03-007#11)
  *  12 value_trend   Fu Xi binary-ordering axis (Kendall-tau numerator)
  *  13 wrap_class    McKenna circular reading (TR-7; CIRCULAR_KING_WEN.md) */
 
@@ -6685,7 +6685,7 @@ static inline int db1_is_mono(int h){
     return db1_ispow2(h + 1) || db1_ispow2((h ^ 63) + 1);
 }
 
-/* Bit-structural classifier: reproduces Drasny's Table 4.1 EXACTLY for all 64
+/* Bit-structural classifier: reproduces Drasny's Table 4.1, G1/G2 merged, for all 64
  * hexagrams (flip-equivariant, C1-pair-consistent, zero residue -- verified).
  * Linear precedence B > A > F > C > D > E > G (frozen spec section 1.2). Returns
  * a group code 0..6 (db1_group_names). */
@@ -44592,10 +44592,10 @@ int main(int argc, char *argv[]) {
      *   - Uses __builtin_popcountll for SIMD-friendly intersection counts.
      *   - Parallelizes the heavy 3-subset, 4-subset, MI, redundancy, and
      *     null-model loops via OpenMP. Compile with `gcc -fopenmp -march=native`
-     *     to enable; without -fopenmp the pragmas are no-ops and execution
-     *     falls back to single-threaded.
+     *     (required: omp.h and the OpenMP runtime calls are unconditional, so
+     *     the build fails without it; Codex F09-A04#5).
      *
-     * Build: gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm
+     * Build: gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm -lz
      *        (libgomp is shipped with gcc and covered by the GCC Runtime
      *         Library Exception — no LICENSE change required.)
      *
