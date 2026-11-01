@@ -2326,13 +2326,15 @@ def _read_model_lits(path):
 # The native C reference count (`solve --f1-exact-c1c2c4c5 --f1-pairs N`) is
 # supplied by the caller via --expect; sat.py never invokes solve.c.
 #
-# RUN-VALIDATION NOTE (2026-07-10): the argv forms and output-parsing patterns
-# below follow D4 v1's and the CPOG repo's documented interfaces, but they
-# have NOT yet been executed against built binaries (none are installed in
-# the dev environment). They are to be RUN-validated during the R2-c
-# cross-check campaign (Spot VM with d4/cpog-gen/cpog-check built) before any
-# certified count from this path is cited. The absent-tools graceful path IS
-# tested (tests.py TestGates.test_certify_count_absent_tools).
+# RUN-VALIDATED 2026-08-20, and independently reproduced 2026-08-26 with the
+# toolchain rebuilt from source (documentation/SAT_CLI.md §NOTES and
+# §--certify-count): the argv forms and output-parsing patterns below were
+# executed against built d4 / cpog-gen / cpog-check binaries and certified the
+# n=9 count 26,112, with the --expect control shown able to fail. This note
+# still said they "have NOT yet been executed against built binaries" (written
+# 2026-07-10, before those runs) until 2026-10-29 — Codex gpt-6-astra
+# F01-007#4. The absent-tools graceful path is tested by tests.py
+# TestGates.test_certify_count_absent_tools.
 # ============================================================================
 
 _CERTIFY_TOOLS_MSG = (
@@ -2341,12 +2343,24 @@ _CERTIFY_TOOLS_MSG = (
     "cpog-gen/cpog-check (https://github.com/rebryant/cpog); see documentation/SAT_CLI.md.\n"
     "The rest of sat.py works without them.")
 
+def _run_keep_cr(argv):
+    """subprocess.run with stdout/stderr decoded WITHOUT newline translation (2026-10-29,
+    Codex gpt-6-astra F12-012#6). `text=True` is universal-newlines mode: it rewrites a bare
+    CR into LF before any parser sees it, so "\\rs UNSATISFIABLE" arrived as two lines and no
+    split rule could tell a CR-prefixed verdict from a verdict on a line of its own. The
+    whole-line verdict rules below (kissat, cpog-check) read these strings: LF-delimited,
+    only a TRAILING CR stripped, exactly as SAT_CLI.md states the contract."""
+    r = subprocess.run(argv, capture_output=True)
+    return subprocess.CompletedProcess(r.args, r.returncode,
+                                       r.stdout.decode("utf-8", "replace"),
+                                       r.stderr.decode("utf-8", "replace"))
+
 def _run_tool(argv):
     """Run one external certificate-toolchain binary. Graceful-absence idiom
     (roae.py Graphviz `dot`): a missing binary exits with a clear install
     message instead of an unhandled FileNotFoundError traceback."""
     try:
-        return subprocess.run(argv, capture_output=True, text=True)
+        return _run_keep_cr(argv)
     except FileNotFoundError:
         raise SystemExit(_CERTIFY_TOOLS_MSG % argv[0])
 
@@ -2387,7 +2401,7 @@ def certify_count(cnf_obj, label, keep_dir=None):
             if os.path.exists(_stale):
                 os.remove(_stale)
         # 1) D4 v1: compile to Decision-DNNF (argv per D4 v1 README; the CPOG
-        #    toolchain consumes D4 v1 .nnf — RUN-validate, see section header)
+        #    toolchain consumes D4 v1 .nnf — run-validated, see section header)
         r_d4 = _run_tool(["d4", "-dDNNF", cnf_path, "-out=" + nnf_path])
         if r_d4.returncode != 0:
             raise SystemExit("d4 failed (rc=%s); no d-DNNF is trusted from a failed compile"
@@ -2408,14 +2422,23 @@ def certify_count(cnf_obj, label, keep_dir=None):
         # 3) cpog-check: verify the certificate against the ORIGINAL CNF; the
         #    count it reports is the CERTIFIED model count
         r_chk = _run_tool(["cpog-check", cnf_path, cpog_path])
-        m = re.findall(r"(?im)^.*\bmodel count\b[^0-9]*(\d+)\s*$", r_chk.stdout)
+        # LF-delimited lines, trailing CR only (the solver rule below): the count and the
+        # verdict are read from WHOLE lines of stdout, never from the stream as one string
+        chk_lines = [ln.rstrip("\r") for ln in r_chk.stdout.split("\n")]
+        m = [mm.group(1) for mm in (re.fullmatch(r"(?i).*\bmodel count\b[^0-9]*(\d+)\s*", ln)
+                                    for ln in chk_lines) if mm]
         if r_chk.returncode != 0 or not m:
             raise SystemExit("cpog-check did not certify a count (rc=%s)\n--- output tail ---\n%s"
                              % (r_chk.returncode, _tool_tail(r_chk)))
         # gate on the FULL-proof verdict, not just rc+count: cpog-check
         # distinguishes full from one-sided/partial verification, and only a
-        # full proof certifies the count (defense-in-depth; R2-delta review)
-        if "FULL-PROOF SUCCESS" not in r_chk.stdout:
+        # full proof certifies the count (defense-in-depth; R2-delta review).
+        # The verdict is a line that BEGINS with the token — cpog-check prints
+        # `CHECK: FULL-PROOF SUCCESS.  CPOG representation verified` (run-validated
+        # 2026-08-20) — so a line that merely quotes or negates it (`NOT A FULL-PROOF
+        # SUCCESS`) is not a verdict. Until 2026-10-29 this was a substring test on
+        # the whole stdout (Codex gpt-6-astra F01-002#1, F01-008#1).
+        if not any(re.match(r"(?:CHECK: )?FULL-PROOF SUCCESS\b", ln) for ln in chk_lines):
             raise SystemExit("cpog-check succeeded without FULL-PROOF SUCCESS — "
                              "partial/one-sided verification is not a certified count"
                              "\n--- output tail ---\n%s" % _tool_tail(r_chk))
@@ -2440,10 +2463,13 @@ def _run_expect_unsat(out, subcommand):
             "kissat is required for %s --run but was not found on PATH.\n"
             "Install kissat (https://github.com/arminbiere/kissat); see SAT_CLI.md." % subcommand)
     proof = out + ".drat"
-    r = subprocess.run(["kissat", "-q", out, proof], capture_output=True, text=True)
+    r = _run_keep_cr(["kissat", "-q", out, proof])
     # whole line + exit status, CR-normalised (2026-09-03; was a substring test on stdout
-    # with the exit status unread -- the same two-leg rule the drat-trim leg below applies)
-    klines = [ln.rstrip("\r") for ln in r.stdout.splitlines()]
+    # with the exit status unread -- the same two-leg rule the drat-trim leg below applies).
+    # LF-delimited, trailing CR only, on a CR-preserving capture (2026-10-29, Codex gpt-6-astra
+    # F12-012#6): splitlines() also breaks on a bare CR, and text-mode capture had already
+    # turned the CR into LF, so "\rs UNSATISFIABLE" read as a verdict line.
+    klines = [ln.rstrip("\r") for ln in r.stdout.split("\n")]
     verdict = ("UNSAT" if "s UNSATISFIABLE" in klines and r.returncode == 20
                else "SAT" if "s SATISFIABLE" in klines and r.returncode == 10
                else "UNKNOWN(rc=%d)" % r.returncode)
@@ -2749,7 +2775,7 @@ if __name__ == "__main__":
             f = tempfile.NamedTemporaryFile("w", suffix=".cnf", delete=False)
             cnf.write(f.name, "target=" + target)
             try:
-                r = subprocess.run(["kissat", "-q", f.name], capture_output=True, text=True)
+                r = _run_keep_cr(["kissat", "-q", f.name])   # CR-preserving: see _run_keep_cr
             except FileNotFoundError:
                 # graceful-absence idiom (roae.py Graphviz `dot`): external solver
                 # missing is a clear install message, not a traceback
@@ -2760,8 +2786,15 @@ if __name__ == "__main__":
                     "documentation/SAT_CLI.md.\nThe rest of sat.py works without it.")
             os.unlink(f.name)
             # WHOLE line + exit status, two legs, CR-normalised (the drat-trim rule, applied to
-            # the solver too): kissat exits 10 on SAT, 20 on UNSAT, anything else is not a verdict
-            lines = [ln.rstrip("\r") for ln in r.stdout.splitlines()]
+            # the solver too): kissat exits 10 on SAT, 20 on UNSAT, anything else is not a verdict.
+            # LF-delimited with only a TRAILING CR stripped, on a CR-preserving capture (2026-10-29,
+            # Codex gpt-6-astra F12-012#6): str.splitlines() also splits on a bare CR -- and the
+            # text-mode capture had already rewritten it as LF -- so "\rs UNSATISFIABLE" with rc 20
+            # was accepted as UNSAT while SAT_CLI.md promises SOLVER_ERROR for a CR-prefixed verdict
+            # line. (The drat-trim leg of _run_expect_unsat keeps its text-mode capture and its
+            # leading-CR tolerance: drat-trim prefixes every line with a bare CR, as verify_all.sh
+            # documents and normalises the same way.)
+            lines = [ln.rstrip("\r") for ln in r.stdout.split("\n")]
             if "s UNSATISFIABLE" in lines and r.returncode == 20:
                 print("UNSAT at attempt %d" % attempt)
                 print("WITNESS_RESULT=UNSAT"); result = 0; break

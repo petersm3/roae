@@ -571,9 +571,12 @@ theorem g48_couples_to_couples :
    stated in lean/README.md's C3Decomposition scope note; this line said "the
    one non-kernel step" until 2026-10-23, Codex gpt-6-astra F01-006#2): reading
    the C1∩C4 null as "uniform over the 31! free pair-orders" is a modeling
-   choice, made independently by
-   verify.py (whose DP also uses a differently-phrased G accumulator, so
-   agreement is evidence); the brute-force theorems remove the recurrence
+   choice. verify.py's DP (`check_null_g`) carries the SAME recurrence in a
+   second language, so its agreement checks the implementation, not this
+   step (until 2026-10-29 this read "made independently by verify.py (whose
+   DP also uses a differently-phrased G accumulator, so agreement is
+   evidence)" — Codex gpt-6-astra F01-006#4, fix-verification round);
+   the brute-force theorems remove the recurrence
    itself from the trust base at small size, and the 12/7/31 instance runs the
    identical generic definition.
 

@@ -1442,8 +1442,11 @@ theorem trigram_balance_invariant (l : List Nat) (hperm : l.Perm (List.range 64)
     C1-valid ordering, a pair-slot holds a pure hexagram in its even position
     iff it holds one in its odd position — pure hexagrams necessarily sit in
     pure-pure couples; their pairwise adjacency in King Wen (#1-2, #29-30,
-    #51-52, #57-58) is forced by the pairing rule, not a design choice. Only
-    the four slot POSITIONS are a degree of freedom. -/
+    #51-52, #57-58) is forced by the pairing rule, not a design choice. C1
+    forces the pairing; the four couples' slot positions and each couple's
+    within-pair orientation remain degrees of freedom (this read "Only the
+    four slot POSITIONS are a degree of freedom" until 2026-10-29 — the
+    theorem below forces neither; Codex gpt-6-astra F01-008#3). -/
 theorem pure_pairslot_couple (l : List Nat) (hb : ∀ x ∈ l, x < 64)
     (hlen : l.length = 64) (h1 : c1ok l = true) :
     ∀ i, i < 32 → pureHex (l.getD (2*i+1) 0) = pureHex (l.getD (2*i) 0) := by

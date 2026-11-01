@@ -36498,3 +36498,147 @@ CLAUDE.md sets — is a later pass.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group G7; the defects were found by Codex
 (gpt-6-astra), final review and fix-verification pass.
+
+## CX-36D-A — four Lean module comments claimed more than the theorem beside them proves: an "independent" DP that is the same recurrence, a ceiling over "any generator scored purely in G-invariant primitives", a ladder "only to n = 16", and "only the four slot POSITIONS" as the free choice (lean/C3Decomposition.lean; lean/KingWen.lean; lean/PruneExactness.lean; lean/TrigramTheorems.lean; tests.py)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), fix-verification round, F01-006#4, F01-004#2 / F01-006#2, F01-007#3 /
+F11-003#7 and F01-008#3; Fable's slice-2 triage (rows D506, D507, D509, D530); Fable lane (claude-fable-5-1), push group
+FV2-L. Comment-only: every theorem statement and proof in the four modules is byte-identical to the parent, and the
+test diffs the two versions and requires every changed line to lie inside a comment.
+
+**What the comments said, and what they say now.**
+- `C3Decomposition.lean`, modeling note. "Made independently by verify.py (whose DP also uses a differently-phrased G
+  accumulator, so agreement is evidence)": `verify.py`'s `check_null_g` implements the same recurrence over the same
+  modeling choice, so its agreement checks the implementation, not the modeling step. The note now says so; what does
+  remove the recurrence from the trust base at small size — the brute-force theorems — is stated as before.
+- `KingWen.lean`, header summary. "Any generator scored purely in G-invariant primitives gives KW's record exactly
+  1/24 of its orbit's mass": the theorem's hypothesis is that the output mass factors through a G-invariant score
+  (`mass (score r)`); an invariant score with an enumeration-order tie-break is not covered. The §Novelty paragraph
+  and the theorem docstring already said this (CX-35Z-D); the summary at the top of the file did not.
+- `PruneExactness.lean`, §TR-11 opening. "Plain-vs-quotient agreement exists only to n = 16" contradicted the scope
+  note three screens below, moved to n = 19 on 2026-10-23 (CX-35Z-D: REPRODUCE.md, `verify.py --recount-rung 18` and
+  `19`). The opening now says 19 and names the same evidence.
+- `TrigramTheorems.lean`, `pure_pairslot_couple`. "Only the four slot POSITIONS are a degree of freedom": the theorem
+  forces that pure hexagrams sit in pure–pure couples and nothing else; each couple's within-pair orientation is free as
+  well (documentation/TRIGRAM_STRUCTURE.md already said so). The docstring now states both degrees of freedom.
+
+**Tests.** `TestBatchFV2L.test_lean_docstrings_rescoped_comment_only`: for each module the parent carries the old
+wording (precondition), the tree carries the new and not the old, and every line the diff touches is a comment line in
+both versions with the code-line count unchanged. Red on the parent for each of the four.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, push group FV2-L; the defects were found by Codex
+(gpt-6-astra), fix-verification round, F01-006#4, F01-004#2, F01-006#2, F01-007#3, F11-003#7, F01-008#3.
+
+## CX-36D-B — sat.py: the certify-count note still said the toolchain had never been run, the cpog-check verdict was read as a substring of the whole stream, and a CR-prefixed solver verdict read as a verdict (sat.py; tests.py)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), fix-verification round, F01-007#4, F01-002#1 / F01-008#1 and
+F12-012#6; Fable's slice-2 triage (rows D922, D923, D924); Fable lane (claude-fable-5-1), push group FV2-L. No
+certificate, CNF, count or verdict changes: the run-validated transcript form still certifies; kissat and
+cpog-check print no bare carriage return before their verdicts, and drat-trim, which prefixes every line with one,
+keeps its tolerant leg unchanged.
+
+**What the code did, and what it does now.**
+- The `--certify-count` section header still carried the 2026-07-10 note that its argv forms "have NOT yet been
+  executed against built binaries", with a "RUN-validate" pointer at the d4 call, while documentation/SAT_CLI.md has
+  recorded the 2026-08-20 run-validation and the 2026-08-26 reproduction (certified n=9 count 26,112; `--expect`
+  shown able to fail) since August. The note now states the validation and its dates and keeps the pointer to the
+  absent-tools test.
+- `certify_count` tested `"FULL-PROOF SUCCESS" in r_chk.stdout` — a substring of the whole stream — while every other
+  verdict in this file and in `verify_all.sh` is held to a whole line. cpog-check's actual verdict line is
+  `CHECK: FULL-PROOF SUCCESS.  CPOG representation verified` (the 2026-07-11 and 2026-08-20 transcripts), so the
+  whole-line *equality* the triage row prescribed would have refused the run-validated output; the rule applied is
+  line-anchored instead: a line that BEGINS with the token, optionally after cpog-check's `CHECK: ` prefix. A line such
+  as `NOT A FULL-PROOF SUCCESS` no longer certifies. The count is read from the same LF-split lines.
+- `--witness` and `--rigidity-cnf --run` split the solver's stdout with `str.splitlines()`, which also breaks on a
+  bare CR, so `\rs UNSATISFIABLE` with exit 20 read as `s UNSATISFIABLE` and passed as UNSAT, while SAT_CLI.md promises
+  `SOLVER_ERROR` for "a truncated or CR-prefixed verdict line". The LF-only split the row prescribed is necessary but
+  not sufficient: the capture ran in `text=True` (universal-newlines) mode, which rewrites a bare CR into LF before any
+  parser sees it (measured: `printf '\rs UNSATISFIABLE\n'` arrives as `'\ns UNSATISFIABLE\n'`), so no split rule on
+  that string can tell the two apart — the same mechanism the review extractor recorded for its own output in
+  September. Both kissat captures and `_run_tool` (d4, cpog-gen, cpog-check) now go through `_run_keep_cr`, which
+  decodes the raw bytes, and the verdict lines are LF-delimited with only a trailing CR stripped. The drat-trim leg
+  keeps its text-mode capture and its leading-CR tolerance: drat-trim prefixes every line with a bare CR, which
+  `verify_all.sh` normalises the same way.
+
+**Tests.** `TestBatchFV2L`: `test_certify_note_is_run_validated` (the parent carries the old note; the tree names the
+run-validation and an existing test); `test_cpog_check_verdict_is_a_whole_line` (the toolchain replaced by stubs: the
+transcript form certifies 26,112 with and without CRLF, the negated and the CR-prefixed forms raise, and the parent's
+text certifies the negated form); `test_cr_prefixed_solver_verdict_is_not_a_verdict` (a kissat stub printing
+`\rs UNSATISFIABLE` at exit 20 is `WITNESS_RESULT=SOLVER_ERROR` exit 2 and `EXPECTED UNSAT` on the rigidity leg, a CRLF
+stub is still UNSAT, and the parent's text prints `WITNESS_RESULT=UNSAT` exit 0 on the CR-prefixed stub).
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, push group FV2-L; the defects were found by Codex
+(gpt-6-astra), fix-verification round, F01-007#4, F01-002#1, F01-008#1, F12-012#6.
+
+## CX-36D-C — verify_all.sh: the selftest leg matched the substring PASS, require_line stopped at the first matching line, require_agree trusted a count it could not read, require_verdict_line searched merged stderr, and the §3b witness check lost a header with no sequence (reports/certificates/verify_all.sh; reports/certificates/README.md; tests.py)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), fix-verification round, F05-020#6, F05-020#7, F05-020#5, F08-020#20 /
+F09-H05#15 and F05-020#8; Fable's slice-2 triage (rows D824–D828); Fable lane (claude-fable-5-1), push group FV2-L.
+Hardening to the file's own whole-line and "could not look is not found" rules: no current producer is misread by any
+of the five legs (each entry below says why), so no verdict changes.
+
+**What the harness did, and what it does now.**
+- §1 `--selftest` was `require_match PASS`, a substring test; `solve` exits 40 on a mismatch and prints its FAIL on
+  stderr, so no shipped build could print `NOT_PASS` at rc 0, but a future output change could. The leg is now
+  `require_line '[--selftest] PASS — sha256 matches canonical baseline'`, the line solve.c prints on a matching digest.
+- `require_line` returned 0 on the first line equal to the wanted one, so a producer printing `X=PASS` for one leg and
+  `X=FAIL` for a later one passed on the first. It now reads every line: for a token line (`KEY=value` or
+  `KEY: value`) any other line under the same key that differs is a contradiction and the check fails. A free-text
+  want gets no contradiction scan — the triage row's "token prefix before the first space" would have failed the real
+  selftest, which prints `[--selftest] Running in …`, `[--selftest] Expected sha256: …` and `[--selftest] Actual
+  sha256: …` beside its verdict (solve.c), so the key is derived from `=` or `:` only, and the one free-text want is
+  covered by the producer's exit status.
+- `require_agree` read `na=$(wc -l < "$fa")`; if `wc` failed, `[ "" -lt N ]` was a bash error whose false result
+  skipped the floor branch and `diff` of two files it never counted decided the gate. Unreached by any producer
+  (`wc` on a file the function just wrote), but a non-numeric count is now `<TOKEN>=COUNT_UNREADABLE`, rc 1.
+- `require_verdict_line` captured `2>&1` and grepped the merged file, so a checker printing `s VERIFIED UNSAT` on
+  stderr alone and exiting 0 passed — the gap reports/certificates/README.md disclosed beside cake_lpr's theorem,
+  which is about stdout. stdout and stderr are now captured to two files, both copied to the log before anything is
+  judged, and only stdout is searched. drat-trim, cake_lpr and `sat.py --kw-control` all print their verdict on
+  stdout, so every archived certificate still verifies; the README sentence now says the harness judges stdout.
+- §3b read a `G=` header into `g`/`c3`/`hdr` and judged it only on the `SEQ=` line that followed, so a header with no
+  sequence — an orphan at the end, or two headers in a row — was overwritten silently: an impossible G claim with no
+  witness passed and the count was unchanged. A header now opens a pending record; a second header, or the end of the
+  file, with one pending fails, and a `SEQ=` with no header of its own fails. The shipped file has 42 paired records.
+
+**Tests.** `TestBatchFV2L`: `test_selftest_leg_wants_the_whole_pass_line` (the wanted line is the one solve.c prints;
+the three informational selftest lines plus the verdict pass; `NOT_PASS` and a bare `PASS` fail; the parent's
+`require_match PASS` accepts `NOT_PASS` at rc 0), `test_require_line_rejects_a_contradicting_token` (`X=PASS` +
+`X=FAIL` in either order, `SCAN-SELFTEST: PASS` + `*** FAIL ***`, and `KEY=value extra` fail; a repeated wanted line, a
+line that quotes the key mid-sentence, and the FT3j whole-line cases behave as before; the parent accepts the
+contradiction), `test_require_agree_fails_when_a_count_is_unreadable` (a shadowed `wc` returning 1 on both sides, and on one side only:
+`COUNT_UNREADABLE` rc 1 here, rc 0 on the parent), `test_require_verdict_line_judges_stdout_only` (a stderr-only verdict is
+`T=FAIL rc=0 verdict_line=absent` and still logged, a stdout verdict beside stderr noise passes, drat-trim's CR prefix
+is still normalised, the parent passes the stderr-only verdict; the README sentence is pinned),
+`test_c3_witness_check_pairs_every_header_with_its_seq` (the heredoc run through the production double-quote-and-eval
+path on a copy of the tree: the shipped file passes with `WITNESS_G95_LAYOUT=PASS`; an orphan header at the end and an
+impossible header before a real one fail here and pass on the parent; a sequence without a header fails).
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, push group FV2-L; the defects were found by Codex
+(gpt-6-astra), fix-verification round, F05-020#5, F05-020#6, F05-020#7, F05-020#8, F08-020#20, F09-H05#15.
+
+## CX-36D-D — verify_all.sh Lean legs (B) and (D): a filter that could not run counted as zero non-allowlisted lines, so a module with exit 0 read PASS under an invalid allowlist or an unreadable capture (reports/certificates/verify_all.sh; tests.py)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), fix-verification round, F05-020#4; Fable's slice-2 triage (row D829);
+Fable lane (claude-fable-5-1), push group FV2-L. No Lean verdict changes on a working toolchain: the allowlist regex
+and the census filter are constants, and a readable capture filtered the same lines before.
+
+**What the legs did, and what they do now.** `lean_module_check` computed
+`bad=$(grep -v -E -- "$LEAN_AXIOM_ALLOWLIST_RE" "$cap" | grep -c '')`: if the first grep failed (an invalid regex, an
+unreadable capture) it printed nothing, the count was 0, and a module whose `lean` exited 0 was `LEAN_MODULE_<M>=PASS`
+— the "could not look" shape this file bans one section earlier. Leg (D), added in CX-35Z-B, repeated the shape in its
+`other=` line. The triage row prescribed `st=${PIPESTATUS[0]}` after the assignment; measured, that reads the
+assignment's own status (1, because `grep -c ''` exits 1 on an empty count), not the subshell pipeline's first grep
+(2), so it would still have passed. Each filter now writes its lines to a file and its exit status is judged first:
+0 and 1 are answers, anything else is `LEAN_MODULE_<M>=FAIL rc=<n> filter_rc=<st>` (resp.
+`LEAN_AXIOM_CENSUS_<M>=FAIL … filter_rc=<st>`), rc 1 when `lean` itself exited 0; a non-numeric line count is
+`COUNT_UNREADABLE`.
+
+**Tests.** `TestBatchFV2L`: `test_lean_module_check_fails_when_the_filter_cannot_run` (a stub `lean` printing an
+allowlisted line: PASS under the shipped regex, `non_allowlisted_lines=1` with a sorry warning, `filter_rc=2` under
+`LEAN_AXIOM_ALLOWLIST_RE='('`, and PASS on the parent under the same broken regex) and
+`test_lean_axiom_census_fails_when_the_filter_cannot_run` (a clean census passes; with `grep -v` shadowed to exit 2 the
+tree reports `filter_rc=2` and the parent reports `PASS constants=1`).
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, push group FV2-L; the defect was found by Codex
+(gpt-6-astra), fix-verification round, F05-020#4.

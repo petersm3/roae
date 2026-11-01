@@ -11863,3 +11863,26 @@ Q-686=DONE
   bench wall, the reproducibility scope, VERIFY.md's reach and scope labels and the Python ≥ 3.10 floor are corrected. The
   larger FT3f sets are a later pass.
 - No canonical sha, count, certificate or verdict changed. `TestBatchG7` holds each cure and fails on the uncured tree.
+
+## 2026-10-29 — push group FV2-L: the Lean, SAT and DRAT rows of Codex's fix-verification round
+
+- **Lean comments (CX-36D-A).** Codex (gpt-6-astra) read the fix batches back against the sources and Fable triaged the
+  Lean, SAT and DRAT rows into this group (the slice-2 triage, rows D506–D530, D824–D829, D922–D924). Four module
+  comments now claim what the theorem beside them proves: `verify.py`'s null-G DP is the same recurrence in a second
+  language, not an independent check of the modeling step; the equivariance ceiling's summary states the factoring
+  hypothesis; the TR-11 opening says the plain-vs-quotient ladder reaches n = 19, as its own scope note already did; and
+  `pure_pairslot_couple` leaves both the slot positions and each couple's orientation free. Comment-only, with a test
+  that diffs each module against the parent and admits only comment lines.
+- **SAT layer (CX-36D-B).** The `--certify-count` header no longer says the toolchain was never run (it was, 2026-08-20
+  and 2026-08-26); the cpog-check verdict is a line that begins with `FULL-PROOF SUCCESS` (after cpog-check's `CHECK: `
+  prefix) rather than a substring of the stream; and a CR-prefixed solver verdict is `SOLVER_ERROR`, as SAT_CLI.md
+  promised — which needed a CR-preserving capture, since text-mode capture had been rewriting the bare CR into a line
+  break before any split rule could see it.
+- **Certificate harness (CX-36D-C, CX-36D-D).** The selftest leg wants solve's whole verdict line; `require_line` fails
+  on a contradicting token under the same key; `require_agree` refuses a count it could not read;
+  `require_verdict_line` judges stdout and logs stderr, closing the gap the certificates README disclosed beside
+  cake_lpr's theorem; the §3b witness check fails a header with no sequence; and both Lean legs read their line
+  filter's exit status instead of counting a filter that did not run as zero lines (the `PIPESTATUS` form the triage
+  proposed reads the wrong status, measured).
+- No theorem statement, certificate, CNF, count, sha or verdict changed. `TestBatchFV2L` holds each cure, every test
+  red on the parent through the parent's own text. The Lean build (legs A–D) is executed by the worker chain, not here.

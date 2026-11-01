@@ -174,15 +174,33 @@ require_match() {          # $1 = fixed string that MUST appear; $2.. = command 
 # 2026-10-17, batch FT3j). A substring match would accept `LCSELFTEST_RESULT=PASSED` or a line
 # that merely quotes the token; the selftests below print their verdict as a line of its own, so
 # the check holds them to exactly that line. Here-string loop, not a pipe: see the note above.
+# NO CONTRADICTING TOKEN (2026-10-29, push group FV2-L; Codex gpt-6-astra F05-020#7). Until today the
+# loop returned 0 on the first line equal to $want, so a producer that printed `X=PASS` for one leg and
+# `X=FAIL` for a later one passed on the first. Now every line is read: when $want is a token line
+# (`KEY=value` or `KEY: value`, the key being the text before whichever of `=` or `:` comes first),
+# any OTHER line that starts with the same key and differs from $want is a contradiction and the
+# check fails even though the wanted line is present. A free-text want (no `=` or `:`) gets no
+# contradiction scan: there is no key to derive, and the measured producer of the one such want
+# (`solve --selftest`) prints `[--selftest] Running in …`, `[--selftest] Expected sha256: …` and
+# `[--selftest] Actual sha256: …` beside its verdict, so a first-word key would fail a passing run.
 require_line() {           # $1 = exact line that MUST appear; $2.. = command and arguments
   local want=$1; shift
-  local out rc line
+  local out rc line key="" found=0
   out=$("$@" 2>&1); rc=$?
   printf '%s\n' "$out"
   [ "$rc" -eq 0 ] || { echo "NONZERO EXIT $rc from: $*"; return "$rc"; }
+  case $want in
+    *=*|*:*)
+      local keq=${want%%=*} kcol=${want%%:*}
+      if [ "${#keq}" -le "${#kcol}" ]; then key="$keq="; else key="$kcol:"; fi ;;
+  esac
   while IFS= read -r line; do
-    [ "$line" = "$want" ] && return 0
+    if [ "$line" = "$want" ]; then found=1
+    elif [ -n "$key" ]; then
+      case $line in "$key"*) echo "CONTRADICTING LINE under the same key: $line"; return 1 ;; esac
+    fi
   done <<< "$out"
+  [ "$found" -eq 1 ] && return 0
   echo "EXPECTED LINE NOT FOUND: $want"; return 1
 }
 
@@ -250,6 +268,17 @@ require_agree() {  # $1 = token name  $2 = minimum lines per side  $3 = command 
   eval "$A" > "$fa"; ra=$?      # stderr is NOT redirected: check() already sends it to $LOG
   eval "$B" > "$fb"; rb=$?
   na=$(wc -l < "$fa"); nb=$(wc -l < "$fb")
+  na=${na//[[:space:]]/}; nb=${nb//[[:space:]]/}
+  # A COUNT THAT COULD NOT BE READ IS NOT A COUNT (2026-10-29, push group FV2-L; Codex gpt-6-astra
+  # F05-020#5). If wc fails, $na is empty, `[ "" -lt N ]` is a bash error whose false result skips the
+  # floor branch, and diff of two files it never counted decides the gate. Unreached by any producer
+  # this function runs (wc on a file it just wrote), but the rule at require_verdict_line applies:
+  # "could not look" must never read as "found".
+  case ${na:-?}:${nb:-?} in *[!0-9:]*)
+    echo "$tok=COUNT_UNREADABLE linesA:${na:-?},linesB:${nb:-?}"
+    echo "wc could not count one side -- this is NOT an agreement"
+    rm -f "$fa" "$fb"; return 1 ;;
+  esac
   echo "$tok=rcA:$ra,rcB:$rb,linesA:$na,linesB:$nb"
   if [ "$ra" -ne 0 ] || [ "$rb" -ne 0 ]; then
     echo "AN INSTRUMENT DID NOT RUN: exit $ra (A) / $rb (B) — this is NOT a disagreement"
@@ -278,9 +307,13 @@ require_agree() {  # $1 = token name  $2 = minimum lines per side  $3 = command 
 #     the ONE byte normalised below; nothing else is.
 #   * cake_lpr exits 0 on pass AND on fail (documentation/SAT_CLI.md §Checkers). The verdict line is
 #     the whole verdict; the rc leg here is inert for it and costs nothing.
-# Contract: capture the producer's UNFILTERED stdout+stderr to a file; copy it to the log BEFORE
-# anything is judged; then leg A = producer rc 0, leg B = the exact line is present (grep -Fqx on
-# the CR-stripped FILE -- not a pipe: `tr | grep -q` is the class-B shape this file bans). Emits one
+# Contract: capture the producer's UNFILTERED stdout and stderr to two files; copy both to the log
+# BEFORE anything is judged; then leg A = producer rc 0, leg B = the exact line is present ON STDOUT
+# (grep -Fqx on the CR-stripped stdout FILE -- not a pipe: `tr | grep -q` is the class-B shape this
+# file bans). STDOUT ONLY since 2026-10-29 (push group FV2-L; Codex gpt-6-astra F08-020#20,
+# F09-H05#15): the merged `2>&1` capture let a verdict printed on stderr alone pass, while cake_lpr's
+# soundness theorem is about stdout (reports/certificates/README.md); the stderr file is logged, not
+# searched. drat-trim, cake_lpr and sat.py --kw-control all print their verdict on stdout. Emits one
 # whole-line token `<TOKEN>=PASS` or `<TOKEN>=FAIL rc=<n> verdict_line=<present|absent>` so a reader
 # can `grep -qx` the log. Returns the producer's status when nonzero (is_resource_status still sees
 # 134/137/139), else 1 when the line is missing. A grep that cannot read its own file is reported
@@ -289,12 +322,12 @@ require_verdict_line() {   # $1 = token name  $2 = exact whole line that MUST ap
   local tok=$1 want=$2; shift 2
   local cap rc line=absent g
   cap=$(mktemp "${TMPDIR:-/tmp}/roae_verdict.XXXXXX") || { echo "$tok=FAIL rc=? verdict_line=MKTEMP_FAILED"; return 1; }
-  "$@" > "$cap" 2>&1; rc=$?
-  cat "$cap"
+  "$@" > "$cap" 2> "$cap.err"; rc=$?
+  cat "$cap" "$cap.err"
   tr -d '\r' < "$cap" > "$cap.nocr"
   grep -Fqx -- "$want" "$cap.nocr"; g=$?
   case $g in 0) line=present ;; 1) line=absent ;; *) echo "GREP FAILED rc=$g on $cap.nocr -- treated as ABSENT"; line=absent ;; esac
-  rm -f "$cap" "$cap.nocr"
+  rm -f "$cap" "$cap.err" "$cap.nocr"
   if [ "$rc" -eq 0 ] && [ "$line" = present ]; then echo "$tok=PASS"; return 0; fi
   echo "$tok=FAIL rc=$rc verdict_line=$line"
   [ "$line" = absent ] && echo "EXPECTED VERDICT LINE NOT FOUND (whole line): $want"
@@ -370,7 +403,11 @@ if [ "$HAVE_GCC" = "0" ]; then
   skip "--selftest" "needs gcc"
 else
   check "solve.c build" "gcc -O2 -pthread -fopenmp -o \"\$SCRATCH/solve\" solve.c -lm -lz"
-  check "--selftest" "require_match PASS \"\$SCRATCH/solve\" --selftest"
+  # WHOLE LINE, not the substring PASS (2026-10-29, push group FV2-L; Codex gpt-6-astra F05-020#6):
+  # the line solve.c prints on a matching digest, and nothing shorter. require_match also required
+  # rc 0 and solve exits 40 on a mismatch, so no shipped solve could print NOT_PASS at rc 0; this
+  # holds the leg to the file's own whole-line standard against a future output change.
+  check "--selftest" "require_line '[--selftest] PASS — sha256 matches canonical baseline' \"\$SCRATCH/solve\" --selftest"
 fi
 
 # 1b (added 2026-10-17, batch FT3j, Codex gpt-6-astra F12-014#2). verify.c's two layer-reader
@@ -653,13 +690,25 @@ import sys, re
 sys.argv = ['verify.py']
 import verify
 g = c3 = None; n = 0; seen_g = []; hdr = ''; g95_layout = None; annotations = 0
+# EVERY HEADER NEEDS ITS SEQ, EVERY SEQ ITS HEADER (2026-10-29, push group FV2-L; Codex gpt-6-astra
+# F05-020#8). Until today a G= header only set g/c3/hdr and was judged on the SEQ= line that
+# followed, so a header with no sequence (an orphan, or two headers in a row) was silently
+# overwritten: an impossible G claim with no witness passed and n was unchanged.
+pending = False
 for ln in open('reports/certificates/c3_positional_witnesses.txt'):
     if ln.startswith('G='):
+        if pending:
+            raise SystemExit(f'FAIL: header {hdr.strip()} has no SEQ= line (orphan header '
+                             f'before witness {n})')
         head = ln.split('#')[0].split()
         g, c3 = int(head[0][2:]), int(head[1][3:])
         hdr = ln
+        pending = True
     if not ln.startswith('SEQ='):
         continue
+    if not pending:
+        raise SystemExit(f'FAIL witness {n}: SEQ= line with no G= header of its own')
+    pending = False
     seq = [int(x) for x in ln[4:].split()]
     if sorted(seq) != list(range(64)):                                    # permutation of H
         raise SystemExit(f'FAIL witness {n}: not a permutation of H')
@@ -704,6 +753,8 @@ for ln in open('reports/certificates/c3_positional_witnesses.txt'):
             annotations += 1
     seen_g.append(g)
     n += 1
+if pending:
+    raise SystemExit(f'FAIL: the last header {hdr.strip()} has no SEQ= line')
 if n != 42:
     raise SystemExit(f'FAIL: checked {n} witnesses, expected 42 — '
                      f'a short count means the input was truncated or empty, '
@@ -786,13 +837,33 @@ echo "== 4. Lean kernel check (every lean/*.lean file) =="
 LEAN_AXIOM_ALLOWLIST_RE="^'[^']+' does not depend on any axioms\$|^'[^']+' depends on axioms: \[(propext|Classical\.choice|Quot\.sound)(, (propext|Classical\.choice|Quot\.sound))*\]\$"
 LEAN_LAST_TOKEN=""
 lean_module_check() {   # $1 = <Module>.lean relative to lean/; runs from INSIDE lean/ (B11a above)
-  local m=$1 name cap rc bad
+  local m=$1 name cap rc bad st
   name=${m%.lean}
   cap=$(mktemp "${TMPDIR:-/tmp}/roae_lean.XXXXXX") || { LEAN_LAST_TOKEN="LEAN_MODULE_$name=FAIL rc=? non_allowlisted_lines=MKTEMP_FAILED"; echo "$LEAN_LAST_TOKEN"; return 1; }
   (cd lean && "$LEAN" -DwarningAsError=true "$m") > "$cap" 2>&1; rc=$?
   cat "$cap"
-  bad=$(grep -v -E -- "$LEAN_AXIOM_ALLOWLIST_RE" "$cap" | grep -c '')
-  rm -f "$cap"
+  # THE FILTER'S OWN STATUS IS READ (2026-10-29, push group FV2-L; Codex gpt-6-astra F05-020#4).
+  # Until today this was `bad=$(grep -v ... "$cap" | grep -c '')`: a grep that could not run (an
+  # invalid allowlist regex, an unreadable capture) printed nothing, the count was 0, and a module
+  # with rc 0 read PASS -- the "could not look" shape this file bans. The filter now writes a file and
+  # its status is judged first; 0 (lines left) and 1 (none) are answers, anything else is a FAIL.
+  # Not a pipeline: PIPESTATUS inside `$( )` belongs to the subshell and is lost.
+  grep -v -E -- "$LEAN_AXIOM_ALLOWLIST_RE" "$cap" > "$cap.bad"; st=$?
+  if [ "$st" -ne 0 ] && [ "$st" -ne 1 ]; then
+    rm -f "$cap" "$cap.bad"
+    LEAN_LAST_TOKEN="LEAN_MODULE_$name=FAIL rc=$rc filter_rc=$st"; echo "$LEAN_LAST_TOKEN"
+    echo "the allowlist filter did not run (grep exit $st): the module's output was NOT judged"
+    [ "$rc" -ne 0 ] && return "$rc"
+    return 1
+  fi
+  bad=$(grep -c '' "$cap.bad")
+  case $bad in ''|*[!0-9]*) bad=unreadable ;; esac
+  rm -f "$cap" "$cap.bad"
+  if [ "$bad" = unreadable ]; then
+    LEAN_LAST_TOKEN="LEAN_MODULE_$name=FAIL rc=$rc non_allowlisted_lines=COUNT_UNREADABLE"; echo "$LEAN_LAST_TOKEN"
+    [ "$rc" -ne 0 ] && return "$rc"
+    return 1
+  fi
   if [ "$rc" -eq 0 ] && [ "$bad" -eq 0 ]; then
     LEAN_LAST_TOKEN="LEAN_MODULE_$name=PASS"; echo "$LEAN_LAST_TOKEN"; return 0
   fi
@@ -833,7 +904,7 @@ lean_module_check() {   # $1 = <Module>.lean relative to lean/; runs from INSIDE
 #       tested wherever this script runs with Lean.
 LEAN_CENSUS_LAST=""; LEAN_CENSUS_LAST_N=0
 lean_axiom_census_check() {   # $1 = <Module>.lean  $2 = scratch dir  $3 = template; runs from the repo root
-  local m=$1 dir=$2 tpl=$3 name rc n ok hit complete other pin
+  local m=$1 dir=$2 tpl=$3 name rc n ok hit complete other pin st
   name=${m%.lean}
   pin=${LEAN_PIN_FILE:-lean/lean-toolchain}
   LEAN_CENSUS_LAST_N=0
@@ -871,7 +942,17 @@ lean_axiom_census_check() {   # $1 = <Module>.lean  $2 = scratch dir  $3 = templ
   # bracketed list; THIS module's COMPLETE line). Until 2026-10-27 (Codex gpt-6-astra rev_g8l #6)
   # the exemption was by prefix, so `AXSCAN_COMPLETE Bar constants=1 hits=1` or `AXSCAN_OK malformed
   # garbage` beside a clean census was "nothing else on stdout" and the module passed (measured).
-  other=$(grep -v -E "^AXSCAN_OK [^ ]+ :: \[|^AXSCAN_COMPLETE $name constants=[0-9]+ hits=[0-9]+\$" "$dir/$name.census.out" | grep -c '')
+  # The filter's own status is judged, as in lean_module_check above (2026-10-29, push group FV2-L;
+  # Codex gpt-6-astra F05-020#4): a grep that could not run must not count as "nothing else".
+  grep -v -E "^AXSCAN_OK [^ ]+ :: \[|^AXSCAN_COMPLETE $name constants=[0-9]+ hits=[0-9]+\$" "$dir/$name.census.out" > "$dir/$name.census.other"; st=$?
+  if [ "$st" -ne 0 ] && [ "$st" -ne 1 ]; then
+    LEAN_CENSUS_LAST="LEAN_AXIOM_CENSUS_$name=FAIL rc=$rc filter_rc=$st"; echo "$LEAN_CENSUS_LAST"
+    echo "the census line filter did not run (grep exit $st): the module's output was NOT judged"
+    [ "$rc" -ne 0 ] && return "$rc"
+    return 1
+  fi
+  other=$(grep -c '' "$dir/$name.census.other")
+  case $other in ''|*[!0-9]*) other=unreadable ;; esac
   n=$(sed -n -E "s/^AXSCAN_COMPLETE $name constants=([0-9]+) hits=[0-9]+\$/\1/p" "$dir/$name.census.out" | head -n 1)
   [ -n "$n" ] || n=0
   LEAN_CENSUS_LAST_N=$n

@@ -19,7 +19,11 @@
   no distance-5 transition, exactly 15 parity-class alternations), plus the finite
   component of Theorem A (exactly 48 of the 720 bit permutations map KW to a valid
   C1–C5 sequence — the centralizer of reversal), the EQUIVARIANCE CEILING
-  (2026-07-26): any generator scored purely in G-invariant primitives
+  (2026-07-26): any generator whose output mass factors through a G-invariant
+  score (the theorem's `mass (score r)`; an invariant score with an
+  enumeration-order tie-break is not covered — this summary said "scored
+  purely in G-invariant primitives" until 2026-10-29, Codex gpt-6-astra
+  F01-004#2 / F01-006#2, the sibling of the §Novelty scope below)
   gives KW's record exactly 1/24 of its orbit's mass — it can never single out KW,
   and the COMPLEMENT Z₂ SYMMETRY (2026-07-26, final section): global
   complementation x ↦ x ⊕ 63 is an exact symmetry of C1∩C2∩C3∩C5, broken only

@@ -258,7 +258,7 @@ regenerates — **never that the CNF means what the prose says it means**
 is a statement about the proofs, not about the mathematics; the encoding-fidelity gap is narrowed, not closed, by
 the two-way encoding validation (a replica of the rule predicates checked against `solve.py` at King Wen and on 300 seeded permutations, plus King-Wen-pinned SAT/UNSAT targets); the clause arithmetic the emitted families use (`sat.py` station offsets and gender stations) is not machine-checked; since 2026-09-29 it is tested (`tests.py` `TestSatEmittedClausesNonKW`: each rule family's emitted clauses evaluated on King Wen and the 44 public non-King-Wen witnesses against `solve.py`'s rule scores, all agreeing, plus one constructed sequence on which the `base = st2 + 4` offset mutant, which agrees with the correct formula at King Wen and on every public witness, is rejected). Until then that mutant passed every shipped gate; a test on finitely many sequences is still not a proof. Three assumptions are inherited rather than
 proved: `basis_ffi.c`, gcc, the linker and the OS are unverified C and unverified toolchain; and the
-theorem is about **stdout**, while the harness greps merged `2>&1`.
+theorem is about **stdout**, and since 2026-10-29 the harness judges the verdict line on stdout alone (stderr is captured to the log but not searched; until then it grepped merged `2>&1`, so a verdict printed only on stderr would have passed — Codex gpt-6-astra F08-020#20, F09-H05#15).
 
 ⚠ **Two operational facts, recorded because each can produce a false PASS.** `cake_lpr` **exits 0 on
 both success and failure** — the verdict is the `s VERIFIED UNSAT` line and nothing else; and its

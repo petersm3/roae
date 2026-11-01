@@ -551,9 +551,9 @@ class TestGates(unittest.TestCase):
         # (d4/cpog-gen/cpog-check). With them absent it must exit gracefully
         # with the clear install message (roae.py Graphviz `dot` idiom), never a
         # traceback. PATH is scrubbed to an empty dir so this gate holds even
-        # on hosts that DO have the tools installed. The present-tools path is
-        # RUN-validated during the R2-c cross-check campaign (see sat.py's
-        # certify-count section header).
+        # on hosts that DO have the tools installed. The present-tools path was
+        # run-validated 2026-08-20 and reproduced 2026-08-26 (SAT_CLI.md and sat.py's
+        # certify-count section header; the header said "not yet" until 2026-10-29).
         import os, tempfile
         with tempfile.TemporaryDirectory() as empty:
             env = dict(os.environ, PATH=empty)
@@ -640,7 +640,7 @@ class TestSatInputGuards(unittest.TestCase):
     raised: `certify_count` can also exit with the missing-tools message
     (_CERTIFY_TOOLS_MSG), so a bare assertRaises would pass on a host without d4
     while proving nothing about the guard. Verified 2026-09-19 that the --keep
-    guard fires BEFORE any tool use (sat.py:2363 precedes the d4 call at :2391),
+    guard fires BEFORE any tool use (sat.py:2377 precedes the d4 call at :2405),
     so these are green on a host with no SAT toolchain installed."""
 
     def test_keep_dir_uncreatable_is_refused_before_the_work(self):
@@ -17421,7 +17421,8 @@ chmod +x "$out"
 out=""
 while [ $# -gt 0 ]; do [ "$1" = -o ] && { out="$2"; shift; }; shift; done
 echo "BIN $out" >> "$VA_REC"
-printf '#!/bin/sh\n# q856-stub\ncase "$1" in --selftest) echo PASS ;; --f4p-verify) seq 1 14 ;; --check-layers-selftest) echo LCSELFTEST_RESULT=PASS ;; --scan-selftest) echo "SCAN-SELFTEST: PASS" ;; esac\n' > "$out"
+# the stub solve prints the selftest line solve.c prints: since FV2-L (CX-36D-C) §1 wants that whole line, not `PASS`
+printf '#!/bin/sh\n# q856-stub\ncase "$1" in --selftest) echo "[--selftest] PASS — sha256 matches canonical baseline" ;; --f4p-verify) seq 1 14 ;; --check-layers-selftest) echo LCSELFTEST_RESULT=PASS ;; --scan-selftest) echo "SCAN-SELFTEST: PASS" ;; esac\n' > "$out"
 chmod +x "$out"
 """,
         "python3": r"""#!/bin/bash
@@ -55435,6 +55436,405 @@ class TestBatchG7(unittest.TestCase):
         p1 = self._doc(os.path.join("documentation", "PASS1_TRAJECTORY_DETERMINISM.md"))
         self.assertNotIn("under **1%** at every " + "matched node count", p1)            # F12-016#4
         self.assertIn("python3` ≥ 3.10", self._doc(os.path.join("documentation", "DEVELOPMENT.md")))  # F09-A02#3
+
+
+import difflib  # TestBatchFV2L (push group FV2-L)
+
+
+class TestBatchFV2L(unittest.TestCase):
+    """Push group FV2-L (2026-10-29): the Lean / SAT / DRAT rows of the FV2 fix-verification triage
+    (Codex gpt-6-astra; Fable's slice-2 triage rows D506/D507/D509/D530, D922/D923/D924, D824-D829),
+    built in the Fable lane (claude-fable-5-1). CX-36D-A..CX-36D-D. Every test asserts its
+    precondition and is RED on the parent tree (BASE) for the reason its docstring names; the red
+    arms run the parent's own text, read with `git show`, so a test that cannot read it fails."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    BASE = "802926059dffe8c45b3668414e4be9573b09076e"  # public G6 commit: FV2-L's files are unchanged between it and FV2-L's parent
+    VA = "reports/certificates/verify_all.sh"
+    _mod_n = [0]
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="fv2l_")
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _read(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _base_text(self, rel):
+        r = subprocess.run(["git", "-C", self.ROOT, "show", self.BASE + ":" + rel],
+                           capture_output=True, text=True)
+        if r.returncode != 0 or not r.stdout:
+            self.fail("git show %s:%s failed, so the red arm measured nothing: %s"
+                      % (self.BASE, rel, r.stderr[-400:]))
+        return r.stdout
+
+    def _base_file(self, name):
+        p = os.path.join(self.tmp, "base_" + name)
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(self._base_text(name))
+        return p
+
+    def _sat_src(self):
+        p = _py_src("sat")   # ROAE_TESTS_SATPY_SRC selects a mutant, as in TestG31SatCliEdges
+        return p if os.path.isabs(p) else os.path.join(self.ROOT, p)
+
+    @staticmethod
+    def _fn(src, name):
+        m = re.search(r"^%s\(\) \{.*?^\}\n" % re.escape(name), src, re.S | re.M)
+        if not m:
+            raise AssertionError("verify_all.sh defines no %s()" % name)
+        return m.group(0)
+
+    def _bash(self, script, cwd=None, env=None):
+        return subprocess.run(["bash", "-c", script], cwd=cwd or self.tmp, env=env,
+                              capture_output=True, text=True, timeout=120)
+
+    # ---- CX-36D-A: four Lean docstrings, comment-only -----------------------------------------
+    @staticmethod
+    def _code_lines(text):
+        """Indices of lines holding at least one character outside a Lean comment (`/- … -/`,
+        nested, and `--` to end of line). A changed line outside this set is a comment line."""
+        code = set(); depth = 0; i = 0; line = 0; n = len(text); in_line = False
+        while i < n:
+            c = text[i]
+            if c == "\n":
+                line += 1; in_line = False; i += 1; continue
+            if in_line:
+                i += 1; continue
+            if depth == 0 and text.startswith("--", i):
+                in_line = True; i += 2; continue
+            if text.startswith("/-", i):
+                depth += 1; i += 2; continue
+            if depth > 0 and text.startswith("-/", i):
+                depth -= 1; i += 2; continue
+            if depth == 0 and not c.isspace():
+                code.add(line)
+            i += 1
+        return code
+
+    def test_lean_docstrings_rescoped_comment_only(self):  # F01-006#4, F01-004#2/F01-006#2, F01-007#3/F11-003#7, F01-008#3
+        rows = {
+            "lean/C3Decomposition.lean": ("choice, made independently by verify.py",
+                                          "checks the implementation, not this step"),
+            "lean/KingWen.lean": ("any generator scored purely in G-invariant primitives",
+                                  "any generator whose output mass factors through a G-invariant score"),
+            "lean/PruneExactness.lean": ("agreement exists only to n = 16",
+                                         "agreement is established to n = 19"),
+            "lean/TrigramTheorems.lean": ("design choice. Only the four slot POSITIONS are a degree of freedom",
+                                          "within-pair orientation remain degrees of freedom"),
+        }
+        for rel, (old, new) in rows.items():
+            with self.subTest(file=rel):
+                cur, base = self._read(rel), self._base_text(rel)
+                self.assertIn(old, " ".join(base.split()), "precondition: the parent carries the old wording")
+                norm = " ".join(cur.split())
+                self.assertNotIn(old, norm, rel)
+                self.assertIn(new, norm, rel)
+                # every changed line, in both versions, lies inside a comment: no statement or proof moved
+                bl, cl = base.splitlines(), cur.splitlines()
+                code_b, code_c = self._code_lines(base), self._code_lines(cur)
+                sm = difflib.SequenceMatcher(None, bl, cl, autojunk=False)
+                for tag, i1, i2, j1, j2 in sm.get_opcodes():
+                    if tag == "equal":
+                        continue
+                    self.assertFalse(any(k in code_b for k in range(i1, i2)),
+                                     "a non-comment line of the parent changed: %r" % bl[i1:i2])
+                    self.assertFalse(any(k in code_c for k in range(j1, j2)),
+                                     "a non-comment line was added: %r" % cl[j1:j2])
+                self.assertEqual(len(code_b), len(code_c), "the number of code lines moved")
+
+    # ---- CX-36D-B: sat.py ---------------------------------------------------------------------
+    def test_certify_note_is_run_validated(self):  # F01-007#4
+        base = self._base_text("sat.py")
+        self.assertIn("have NOT yet been executed against built binaries", base, "precondition")
+        with open(self._sat_src(), encoding="utf-8") as fh:
+            cur = fh.read()
+        self.assertNotIn("# have NOT yet been executed against built binaries (none are installed in", cur)
+        self.assertNotIn("RUN-validate, see section header", cur)
+        self.assertNotIn("# RUN-VALIDATION NOTE (2026-07-10)", cur)
+        self.assertIn("RUN-VALIDATED 2026-08-20", cur)
+        self.assertIn("TestGates.test_certify_count_absent_tools", cur)
+        self.assertTrue(hasattr(TestGates, "test_certify_count_absent_tools"), "the note names a test that exists")
+
+    def _load(self, path):
+        self._mod_n[0] += 1
+        spec = importlib.util.spec_from_file_location("fv2l_sat_%d" % self._mod_n[0], path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def _certify(self, mod, chk_stdout, d):
+        """certify_count with d4 / cpog-gen / cpog-check replaced by stubs; cpog-check prints chk_stdout."""
+        def fake(argv):
+            tool = os.path.basename(argv[0])
+            if tool == "d4":
+                with open(argv[3][len("-out="):], "w") as fh:
+                    fh.write("nnf stub\n")
+                return subprocess.CompletedProcess(argv, 0, "s 26112\n", "")
+            if tool == "cpog-gen":
+                with open(argv[3], "w") as fh:
+                    fh.write("cpog stub\n")
+                return subprocess.CompletedProcess(argv, 0, "", "")
+            if tool == "cpog-check":
+                return subprocess.CompletedProcess(argv, 0, chk_stdout, "")
+            raise AssertionError("unexpected tool %r" % argv)
+
+        class Cnf:
+            def write(self, path, label):
+                with open(path, "w") as fh:
+                    fh.write("c %s\np cnf 1 1\n1 0\n" % label)
+        old = mod._run_tool
+        mod._run_tool = fake
+        try:
+            return mod.certify_count(Cnf(), "fv2l-probe", keep_dir=d)
+        finally:
+            mod._run_tool = old
+
+    def test_cpog_check_verdict_is_a_whole_line(self):  # F01-002#1, F01-008#1
+        # the run-validated transcript form (2026-08-20 / 08-26): the verdict BEGINS the line
+        real = "CHECK: FULL-PROOF SUCCESS.  CPOG representation verified\nCHECK: Regular model count = 26112\n"
+        negated = "NOT A FULL-PROOF SUCCESS\nCHECK: Regular model count = 26112\n"
+        cr = "\rFULL-PROOF SUCCESS\nCHECK: Regular model count = 26112\n"
+        cur = self._load(self._sat_src())
+        d = os.path.join(self.tmp, "certify"); os.makedirs(d, exist_ok=True)
+        self.assertEqual(self._certify(cur, real, d), (26112, 26112))
+        self.assertEqual(self._certify(cur, real.replace("\n", "\r\n"), d), (26112, 26112))   # trailing CR
+        for label, out in (("negated", negated), ("CR-prefixed", cr)):
+            with self.subTest(case=label):
+                with self.assertRaises(SystemExit) as cm:
+                    self._certify(cur, out, d)
+                self.assertIn("without FULL-PROOF SUCCESS", str(cm.exception))
+        base = self._load(self._base_file("sat.py"))
+        self.assertEqual(self._certify(base, negated, d), (26112, 26112),
+                         "BASE refused the negated verdict; this is not the pre-fix text")
+
+    def _kissat_stub(self, body):
+        d = tempfile.mkdtemp(dir=self.tmp); p = os.path.join(d, "kissat")
+        with open(p, "w") as fh:
+            fh.write("#!/bin/sh\n" + body)
+        os.chmod(p, 0o755)
+        return d, p
+
+    def _run_py(self, script, args, path_dir):
+        env = dict(os.environ, PYTHONPATH=self.ROOT,
+                   PATH=path_dir + os.pathsep + os.environ.get("PATH", ""))
+        return subprocess.run([sys.executable, script] + args, capture_output=True, text=True,
+                              env=env, cwd=self.ROOT, timeout=600)
+
+    def test_cr_prefixed_solver_verdict_is_not_a_verdict(self):  # F12-012#6
+        d, p = self._kissat_stub("printf '\\rs UNSATISFIABLE\\n'\nexit 20\n")
+        self.assertEqual(shutil.which("kissat", path=d), p, "the stub is not the kissat that will run")
+        r = self._run_py(self._sat_src(), ["--witness", "plain"], d)
+        self.assertEqual(r.returncode, 2, r.stdout[-400:] + r.stderr[-400:])
+        self.assertIn("WITNESS_RESULT=SOLVER_ERROR", r.stdout.splitlines())
+        self.assertNotIn("Traceback", r.stderr)
+        d2, _ = self._kissat_stub("printf 's UNSATISFIABLE\\r\\n'\nexit 20\n")   # CRLF: still a verdict
+        r = self._run_py(self._sat_src(), ["--witness", "plain"], d2)
+        self.assertEqual(r.returncode, 0, r.stdout[-400:] + r.stderr[-400:])
+        self.assertIn("WITNESS_RESULT=UNSAT", r.stdout.splitlines())
+        # the sibling solver read in _run_expect_unsat (--rigidity-cnf --run)
+        out = os.path.join(self.tmp, "rig.cnf")
+        r = self._run_py(self._sat_src(), ["--rigidity-cnf", out, "--run"], d)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("EXPECTED UNSAT", r.stderr)
+        self.assertNotIn("Traceback", r.stderr)
+        # RED: the parent split on the bare CR and read UNSAT
+        r = self._run_py(self._base_file("sat.py"), ["--witness", "plain"], d)
+        self.assertEqual(r.returncode, 0, r.stdout[-400:] + r.stderr[-400:])
+        self.assertIn("WITNESS_RESULT=UNSAT", r.stdout.splitlines(),
+                      "BASE did not accept the CR-prefixed verdict; this is not the pre-fix text")
+
+    # ---- CX-36D-C: verify_all.sh helpers --------------------------------------------------------
+    def _rl(self, fn, want, text, rc=0):
+        return self._bash(fn + "require_line %s bash -c %s\n" % (
+            shlex.quote(want), shlex.quote("printf '%%s\\n' %s; exit %d" % (shlex.quote(text), rc))))
+
+    def test_selftest_leg_wants_the_whole_pass_line(self):  # F05-020#6
+        va, base = self._read(self.VA), self._base_text(self.VA)
+        old = 'require_match PASS \\"\\$SCRATCH/solve\\" --selftest'
+        want = "[--selftest] PASS — sha256 matches canonical baseline"
+        new = "require_line '%s' \\\"\\$SCRATCH/solve\\\" --selftest" % want
+        self.assertIn(old, base, "precondition")
+        self.assertNotIn(old, va)
+        self.assertIn(new, va)
+        self.assertIn('printf("%s\\n");' % want, self._read("solve.c"), "the wanted line is the one solve.c prints")
+        fn = self._fn(va, "require_line")
+        info = "[--selftest] Running in /tmp/x\n[--selftest] Expected sha256: a\n[--selftest] Actual sha256:   a\n"
+        self.assertEqual(self._rl(fn, want, info + want).returncode, 0)
+        self.assertNotEqual(self._rl(fn, want, info + "[--selftest] NOT_PASS — sha256 matches canonical baseline").returncode, 0)
+        self.assertNotEqual(self._rl(fn, want, info + "PASS").returncode, 0)
+        # RED: the parent's substring leg accepted NOT_PASS at rc 0
+        r = self._bash(self._fn(base, "require_match") + "require_match PASS bash -c %s\n"
+                       % shlex.quote("printf '[--selftest] NOT_PASS\\n'; exit 0"))
+        self.assertEqual(r.returncode, 0, "BASE's require_match rejected NOT_PASS; this is not the pre-fix text")
+
+    def test_require_line_rejects_a_contradicting_token(self):  # F05-020#7
+        va, base = self._read(self.VA), self._base_text(self.VA)
+        cur = self._fn(va, "require_line")
+        r = self._rl(cur, "X=PASS", "X=PASS\nX=FAIL")
+        self.assertNotEqual(r.returncode, 0); self.assertIn("CONTRADICTING LINE", r.stdout)
+        self.assertNotEqual(self._rl(cur, "X=PASS", "X=FAIL\nX=PASS").returncode, 0)
+        self.assertNotEqual(self._rl(cur, "SCAN-SELFTEST: PASS", "SCAN-SELFTEST: PASS\nSCAN-SELFTEST: *** FAIL ***").returncode, 0)
+        self.assertNotEqual(self._rl(cur, "LCSELFTEST_RESULT=PASS", "LCSELFTEST_RESULT=PASS\nLCSELFTEST_RESULT=PASS extra").returncode, 0)
+        self.assertEqual(self._rl(cur, "X=PASS", "a\nX=PASS\nb").returncode, 0)
+        self.assertEqual(self._rl(cur, "X=PASS", "X=PASS\nX=PASS").returncode, 0)
+        self.assertEqual(self._rl(cur, "X=PASS", "X=PASS\nnote: X=FAIL").returncode, 0)   # not under the key
+        self.assertNotEqual(self._rl(cur, "X=PASS", "X=PASSED").returncode, 0)             # FT3j's whole-line leg kept
+        self.assertNotEqual(self._rl(cur, "X=PASS", "X=PASS", rc=1).returncode, 0)
+        # RED: the parent returned on the first match
+        self.assertEqual(self._rl(self._fn(base, "require_line"), "X=PASS", "X=PASS\nX=FAIL").returncode, 0,
+                         "BASE rejected the contradiction; this is not the pre-fix text")
+
+    def test_require_agree_fails_when_a_count_is_unreadable(self):  # F05-020#5
+        va, base = self._read(self.VA), self._base_text(self.VA)
+        call = "require_agree TOK 1 'echo same' 'echo same'; echo RC=$?\n"
+        shadow = "wc() { return 1; }\n"
+        r = self._bash(self._fn(va, "require_agree") + call)
+        self.assertEqual(r.stdout.splitlines()[-1], "RC=0", r.stdout)
+        self.assertIn("TOK=rcA:0,rcB:0,linesA:1,linesB:1", r.stdout.splitlines())
+        r = self._bash(shadow + self._fn(va, "require_agree") + call)
+        self.assertEqual(r.stdout.splitlines()[-1], "RC=1", r.stdout)
+        self.assertTrue(any(l.startswith("TOK=COUNT_UNREADABLE") for l in r.stdout.splitlines()), r.stdout)
+        once = 'wc() { if [ ! -e "$PWD/wc_once" ]; then : > "$PWD/wc_once"; return 1; fi; command wc "$@"; }\n'
+        r = self._bash(once + self._fn(va, "require_agree") + call)   # unreadable on ONE side only
+        os.remove(os.path.join(self.tmp, "wc_once"))
+        self.assertEqual(r.stdout.splitlines()[-1], "RC=1", "one unreadable side must not read as an agreement: " + r.stdout)
+        self.assertTrue(any(l.startswith("TOK=COUNT_UNREADABLE") for l in r.stdout.splitlines()), r.stdout)
+        r = self._bash(shadow + self._fn(base, "require_agree") + call)
+        self.assertEqual(r.stdout.splitlines()[-1], "RC=0", "BASE failed on an unreadable count; this is not the pre-fix text")
+
+    def test_require_verdict_line_judges_stdout_only(self):  # F08-020#20, F09-H05#15
+        va, base = self._read(self.VA), self._base_text(self.VA)
+        def rv(fn, cmd):
+            return self._bash(fn + "require_verdict_line T 's VERIFIED UNSAT' sh -c %s; echo RC=$?\n" % shlex.quote(cmd))
+        cur = self._fn(va, "require_verdict_line")
+        r = rv(cur, 'echo "s VERIFIED UNSAT" >&2')
+        self.assertIn("T=FAIL rc=0 verdict_line=absent", r.stdout.splitlines(), r.stdout)
+        self.assertEqual(r.stdout.splitlines()[-1], "RC=1")
+        self.assertIn("s VERIFIED UNSAT", r.stdout, "stderr is still copied to the log")
+        r = rv(cur, 'echo "s VERIFIED UNSAT"; echo "c note" >&2')
+        self.assertIn("T=PASS", r.stdout.splitlines()); self.assertEqual(r.stdout.splitlines()[-1], "RC=0")
+        self.assertIn("c note", r.stdout)
+        r = rv(cur, 'printf "\\rs VERIFIED UNSAT\\n"')   # drat-trim's CR prefix is still normalised
+        self.assertIn("T=PASS", r.stdout.splitlines())
+        r = rv(self._fn(base, "require_verdict_line"), 'echo "s VERIFIED UNSAT" >&2')
+        self.assertIn("T=PASS", r.stdout.splitlines(), "BASE failed a stderr-only verdict; this is not the pre-fix text")
+        readme = self._read("reports/certificates/README.md")
+        self.assertIn("judges the verdict line on stdout alone", readme)
+        self.assertNotIn("while the harness greps merged", readme)
+
+    def _c3_block(self, src):
+        bodies = [b for b in re.findall(r"\"python3 - <<'PYEOF'\n(.*?)\nPYEOF\"", src, re.S)
+                  if "c3_positional_witnesses.txt" in b]
+        self.assertEqual(len(bodies), 1, "exactly one §3b heredoc")
+        return bodies[0]
+
+    def test_c3_witness_check_pairs_every_header_with_its_seq(self):  # F05-020#8
+        va, base = self._read(self.VA), self._base_text(self.VA)
+        wit = "reports/certificates/c3_positional_witnesses.txt"
+        orig = self._read(wit)
+        lines = orig.splitlines(keepends=True)
+        hdr = [i for i, l in enumerate(lines) if l.startswith("G=")]
+        seq = [i for i, l in enumerate(lines) if l.startswith("SEQ=")]
+        self.assertEqual((len(hdr), len(seq)), (42, 42), "precondition: 42 two-line records")
+
+        def run(src, text):
+            d = tempfile.mkdtemp(dir=self.tmp)
+            os.makedirs(os.path.join(d, "reports", "certificates"))
+            os.symlink(os.path.join(self.ROOT, "verify.py"), os.path.join(d, "verify.py"))
+            with open(os.path.join(d, wit), "w", encoding="utf-8") as fh:
+                fh.write(text)
+            # the production quoting path: the heredoc is a double-quoted check() argument that is eval'd
+            script = "cmd=\"python3 - <<'PYEOF'\n" + self._c3_block(src) + "\nPYEOF\"\neval \"$cmd\"\n"
+            return self._bash(script, cwd=d)
+        r = run(va, orig)
+        self.assertEqual(r.returncode, 0, r.stderr[-600:])
+        self.assertIn("WITNESS_G95_LAYOUT=PASS", r.stdout.splitlines())
+        cases = {
+            "orphan header at EOF": orig + "G=999 C3=8008\n",
+            "two headers in a row": "".join(lines[:hdr[5]] + ["G=999 C3=8008\n"] + lines[hdr[5]:]),
+        }
+        for label, text in cases.items():
+            with self.subTest(case=label):
+                r = run(va, text)
+                self.assertNotEqual(r.returncode, 0)
+                self.assertIn("has no SEQ= line", r.stderr)
+                rb = run(base, text)
+                self.assertEqual(rb.returncode, 0, "BASE failed on %s; this is not the pre-fix text: %s"
+                                 % (label, rb.stderr[-300:]))
+        lone = "".join(lines[:seq[0] + 1] + [lines[seq[0]]] + lines[seq[0] + 1:])   # a SEQ with no header
+        r = run(va, lone)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("no G= header of its own", r.stderr)
+
+    # ---- CX-36D-D: the Lean legs read their filter's status ------------------------------------
+    def test_lean_module_check_fails_when_the_filter_cannot_run(self):  # F05-020#4
+        va, base = self._read(self.VA), self._base_text(self.VA)
+        d = os.path.join(self.tmp, "lean_mod"); shutil.rmtree(d, ignore_errors=True)
+        os.makedirs(os.path.join(d, "lean")); os.makedirs(os.path.join(d, "bin"))
+        with open(os.path.join(d, "lean", "X.lean"), "w") as fh:
+            fh.write("theorem t : True := trivial\n#print axioms t\n")
+        stub = os.path.join(d, "bin", "lean")
+        with open(stub, "w") as fh:
+            fh.write('#!/bin/bash\nprintf "%b" "$LEAN_OUT"; exit "${LEAN_RC:-0}"\n')
+        os.chmod(stub, 0o755)
+        real_re = re.search(r"^LEAN_AXIOM_ALLOWLIST_RE=.*$", va, re.M).group(0)
+
+        def run(src, re_line, out):
+            script = re_line + '\nLEAN_LAST_TOKEN=""\n' + self._fn(src, "lean_module_check") + "lean_module_check X.lean; echo RC=$?\n"
+            r = self._bash(script, cwd=d, env=dict(os.environ, LEAN=stub, LEAN_OUT=out))
+            toks = [l for l in r.stdout.splitlines() if l.startswith("LEAN_MODULE_X=")]
+            return (toks[-1] if toks else ""), r.stdout.splitlines()[-1]
+        clean = "'t' does not depend on any axioms\\n"
+        self.assertEqual(run(va, real_re, clean), ("LEAN_MODULE_X=PASS", "RC=0"))
+        self.assertEqual(run(va, real_re, clean + "warning: declaration uses 'sorry'\\n"),
+                         ("LEAN_MODULE_X=FAIL rc=0 non_allowlisted_lines=1", "RC=1"))
+        self.assertEqual(run(va, "LEAN_AXIOM_ALLOWLIST_RE='('", clean), ("LEAN_MODULE_X=FAIL rc=0 filter_rc=2", "RC=1"))
+        self.assertEqual(run(base, "LEAN_AXIOM_ALLOWLIST_RE='('", clean), ("LEAN_MODULE_X=PASS", "RC=0"),
+                         "BASE failed on a broken filter; this is not the pre-fix text")
+
+    def test_lean_axiom_census_fails_when_the_filter_cannot_run(self):  # F05-020#4, the leg (D) sibling
+        va, base = self._read(self.VA), self._base_text(self.VA)
+        tpl = os.path.join(self.ROOT, "lean", "AxiomCensus.lean.in")
+        self.assertTrue(os.path.isfile(tpl), "precondition: the census template is shipped")
+        d = os.path.join(self.tmp, "census"); shutil.rmtree(d, ignore_errors=True)
+        for sub in ("bin", "lean", "scratch"):
+            os.makedirs(os.path.join(d, sub))
+        shutil.copy2(tpl, os.path.join(d, "lean", "AxiomCensus.lean.in"))
+        with open(os.path.join(d, "lean", "Foo.lean"), "w") as fh:
+            fh.write("theorem t : True := trivial\n")
+        with open(os.path.join(d, "lean", "lean-toolchain"), "w") as fh:
+            fh.write(self._read("lean/lean-toolchain"))
+        stub = os.path.join(d, "bin", "lean")
+        with open(stub, "w") as fh:   # the TestBatchG8L stub, minus the pin probe
+            fh.write('#!/bin/bash\nif [ "$2" = -o ]; then echo stub > "$3"; exit 0; fi\n'
+                     'printf "%b" "$CENSUS_OUT"; exit 0\n')
+        os.chmod(stub, 0o755)
+
+        def census_fn(src):
+            m = re.search(r'^LEAN_CENSUS_LAST=""; LEAN_CENSUS_LAST_N=0\n(lean_axiom_census_check\(\) \{.*?^\}\n)', src, re.S | re.M)
+            self.assertIsNotNone(m, "no lean_axiom_census_check()")
+            return 'LEAN_CENSUS_LAST=""; LEAN_CENSUS_LAST_N=0\n' + m.group(1)
+        # a grep that cannot run its -v filter (exit 2, as on an invalid regex or an unreadable file)
+        shadow = 'grep() { case " $* " in *" -v "*) return 2 ;; esac; command grep "$@"; }\n'
+        clean = "AXSCAN_OK Foo.t :: [propext]\\nAXSCAN_COMPLETE Foo constants=1 hits=0\\n"
+
+        def run(src, pre):
+            script = pre + census_fn(src) + "lean_axiom_census_check Foo.lean %s/scratch lean/AxiomCensus.lean.in; echo RC=$?\n" % d
+            r = self._bash(script, cwd=d, env=dict(os.environ, CENSUS_OUT=clean, LEAN=stub))
+            toks = [l for l in r.stdout.splitlines() if l.startswith("LEAN_AXIOM_CENSUS_Foo=")]
+            return (toks[-1] if toks else ""), r.stdout.splitlines()[-1]
+        self.assertEqual(run(va, ""), ("LEAN_AXIOM_CENSUS_Foo=PASS constants=1", "RC=0"))
+        self.assertEqual(run(va, shadow), ("LEAN_AXIOM_CENSUS_Foo=FAIL rc=0 filter_rc=2", "RC=1"))
+        self.assertEqual(run(base, shadow), ("LEAN_AXIOM_CENSUS_Foo=PASS constants=1", "RC=0"),
+                         "BASE passed with a filter that did not run; this is not the pre-fix text")
+
+# end class TestBatchFV2L (push group FV2-L, CX-36D-*)
 
 
 if __name__ == "__main__":
