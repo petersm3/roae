@@ -3875,7 +3875,7 @@ class TestSolveVerifyKingWenScope(unittest.TestCase):
         self.assertIn("KW_REQUIRED=NO", lines)
 
     def test_kw_presence_is_a_machine_readable_token_in_both_modes(self):
-        """KW_PRESENT mirrors verify.py:7559 exactly, and pairs with KW_REQUIRED.
+        """KW_PRESENT mirrors verify.py:7632 exactly, and pairs with KW_REQUIRED.
 
         Presence is a FACT about the artifact; KW_REQUIRED is the CONTRACT in force. A log carrying
         only the second cannot answer "was King Wen actually there?" without re-parsing the prose
@@ -50952,6 +50952,8 @@ exit 0
         self.assertNotIn("Q696_COVERAGE=PASS", out.splitlines())
         with open(os.path.join("reports", "METHODS.md"), encoding="utf-8") as fh:
             meth = fh.read()
+        with open(os.path.join("documentation", "VERIFY.md"), encoding="utf-8") as fh:   # FV2V F12-006#1: the median z is now gated at VERIFY.md's printed 3-dp token (-0.043); METHODS.md prints the same figure 2-dp (-0.04). Both docs are published sources for a gated constant.
+            meth += "\n" + fh.read()
         rc, out = self._vcall(V.orbit_coverage, table)
         for want in [l.rsplit("  published ", 1)[1].strip("'") for l in out.splitlines() if l.startswith("[ MATCH]")]:
             if want in ("65281", "48", "4183", "(19, 0)"):
@@ -57222,6 +57224,429 @@ class TestBatchQ54(unittest.TestCase):
         self.assertIn("`instance.cnf` (71,429 B)", doc)
 
 # end class TestBatchQ54 (push group Q54, CX-36K)
+
+
+
+class TestBatchFV2V(unittest.TestCase):
+    """Push group FV2-V: the independent verifiers' rows of the FV2 adjudication (verify.c + verify.py),
+    CX-36E-A..D. Each test drives the verifier built/loaded from THIS tree and names the defect it
+    reproduces on the base G6 tree (80292605); where the failure path is a resource-exhaustion event
+    that cannot be injected from outside, the test says "structural" and checks the guard in the source.
+    Every behavioural test also builds/loads the base (uncured) verifier via `git show 80292605:` (G6, the
+    commit the batch was built and reviewed on; a pinned commit, not HEAD, so the class still discriminates
+    once the batch is committed) and asserts
+    the defect is present there and absent here — the gate discriminates. Developed with AI assistance
+    (Claude, Anthropic): claude-fable-5-1 (pinned), from Codex (gpt-6-astra) final-review findings."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    ANCHOR = "1,32,8,4,2,16,31,62,55,59,61,47,45,18,33,30,12,51"
+    PLHASH_N2 = 0x8d1766904a36a688   # lc_pl_hash(n=2, se=0, pl=[1,2]) — deterministic
+    BASE = "80292605"   # public G6: its verify.c / verify.py are the blobs this batch was built and reviewed on
+
+    @classmethod
+    def _show_head(cls, path, dst):
+        r = subprocess.run(["git", "-C", cls.ROOT, "show", cls.BASE + ":" + path], capture_output=True, text=True)
+        if r.returncode != 0:
+            return None
+        with open(dst, "w", encoding="utf-8") as fh:
+            fh.write(r.stdout)
+        return dst
+
+    @classmethod
+    def _loadpy(cls, path, name):
+        spec = importlib.util.spec_from_file_location(name, path)
+        m = importlib.util.module_from_spec(spec)
+        argv, sys.argv = sys.argv, [name + ".py"]
+        try:
+            spec.loader.exec_module(m)
+        finally:
+            sys.argv = argv
+        return m
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="fv2v_")
+        # verify.c: cured (this tree) and uncured (base G6)
+        cls.vbin = os.path.join(cls.tmp, "verify_cured")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.vbin,
+                            os.path.join(cls.ROOT, "verify.c"), "-lm", "-lz"], capture_output=True, text=True, timeout=900)
+        cls.vbuild_ok, cls.vbuild_err = r.returncode == 0, r.stderr[-1500:]
+        hc = cls._show_head("verify.c", os.path.join(cls.tmp, "verify_head.c"))
+        cls.vbin_u = os.path.join(cls.tmp, "verify_uncured")
+        cls.vbuild_u_ok = False
+        if hc:
+            r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.vbin_u, hc, "-lm", "-lz"],
+                               capture_output=True, text=True, timeout=900)
+            cls.vbuild_u_ok = r.returncode == 0
+        # verify.py: cured and uncured modules
+        cls.V = _load("verify")
+        hp = cls._show_head("verify.py", os.path.join(cls.tmp, "verify_head.py"))
+        cls.Vu = cls._loadpy(hp, "verify_head") if hp else None
+        # solve + n=9 ladders (for the oracle and the c67-join)
+        cls.sbin = os.path.join(cls.tmp, "solve_fv2v")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin,
+                            os.path.join(cls.ROOT, "solve.c"), "-lm", "-lz"], capture_output=True, text=True, timeout=1800)
+        cls.sbuild_ok = r.returncode == 0
+        cls.f9 = os.path.join(cls.tmp, "f9"); cls.g9 = os.path.join(cls.tmp, "g9")
+        cls.walks9 = os.path.join(cls.tmp, "walks9.txt")
+        if cls.sbuild_ok:
+            for argv in ([cls.sbin, "--kc-build", cls.f9, "--f1-pairs", "9"],
+                         [cls.sbin, "--kc-g-build", cls.g9, "--f1-pairs", "9"],
+                         [cls.sbin, "--kc-t-build", cls.f9, os.path.join(cls.tmp, "t9")]):
+                subprocess.run(argv, capture_output=True, text=True, timeout=600)
+            with open(cls.walks9, "w") as fh:
+                subprocess.run([cls.sbin, "--kc-enum", cls.f9], stdout=fh, stderr=subprocess.DEVNULL, timeout=600)
+
+    @classmethod
+    def tearDownClass(cls):
+        t = getattr(cls, "tmp", None)
+        if t and os.path.basename(t).startswith("fv2v_"):
+            shutil.rmtree(t, ignore_errors=True)
+
+    # ---- helpers ----
+    def _v(self, *args, binary=None, timeout=300):
+        self.assertTrue(self.vbuild_ok, "verify.c did not build: " + self.vbuild_err)
+        r = subprocess.run([binary or self.vbin] + list(args), capture_output=True, text=True, timeout=timeout)
+        return r.returncode, r.stdout + r.stderr
+
+    def _vcall(self, mod, fnname, *a):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+            try:
+                rc = getattr(mod, fnname)(*a)
+            except SystemExit as e:
+                rc = e.code
+            except Exception as e:
+                rc, buf = "EXC:" + type(e).__name__, buf
+        return rc, buf.getvalue()
+
+    def _src(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _kw_bin(self):
+        return bytes(i << 2 for i in range(32))
+
+    def _wrap1(self, rec):
+        import struct
+        return b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", 1) + b"\0" * 16 + rec
+
+    # ==== CX-36E-A: verify.py fail-open / fail-closed verifier rows ====
+    def test_d1564_q1_oracle_rejects_a_non_walk_of_the_universe(self):
+        """F04-013#1: the oracle counted and pinned ranks but never checked a parsed line is a walk
+        of the universe; an invalid 18-tuple sorting above the anchor kept every rank and PASS printed."""
+        self.assertTrue(self.sbuild_ok and os.path.exists(self.walks9), "precondition: n=9 universe built")
+        lines = open(self.walks9).read().splitlines()
+        rc, out = self._vcall(self.V, "q1_labeling_oracle", self.walks9, self.ANCHOR)
+        self.assertEqual(rc, 0, "positive control: the clean universe passes\n" + out[-300:])
+        # plant: overwrite a walk that sorts above the anchor under all three labelings with a
+        # distinct repeated-step 18-tuple (its element set is 16, not the 18 rung hexagrams).
+        import importlib
+        V = self.V
+        anchor = tuple(int(x) for x in self.ANCHOR.split(","))
+        pair_of = {}
+        for i in range(32):
+            pair_of[V.KW[2 * i]] = i; pair_of[V.KW[2 * i + 1]] = i
+        def k_o3(w):
+            st = [(w[j], w[j + 1]) for j in range(0, 18, 2)]
+            return tuple(pair_of[e] for e, _ in st)
+        ka = k_o3(anchor)
+        ws = [tuple(int(v) for v in l.split(",")) for l in lines if l and l[0].isdigit()]
+        idx = next(j for j, l in enumerate(lines) if l and l[0].isdigit() and k_o3(tuple(int(v) for v in l.split(","))) > ka)
+        w = ws[[j for j, l in enumerate(lines) if l and l[0].isdigit()].index(idx)] if False else tuple(int(v) for v in lines[idx].split(","))
+        bad = w[:16] + w[:2]
+        bad_lines = [",".join(map(str, bad)) if n == idx else l for n, l in enumerate(lines)]
+        p = os.path.join(self.tmp, "walks9_bad.txt")
+        open(p, "w").write("\n".join(bad_lines) + "\n")
+        rc, out = self._vcall(self.V, "q1_labeling_oracle", p, self.ANCHOR)
+        self.assertNotEqual(rc, 0, "a non-walk above the anchor passed:\n" + out[-300:])
+        self.assertIn("not a walk of the n=9 universe", out)
+        if self.Vu:
+            rcu, _ = self._vcall(self.Vu, "q1_labeling_oracle", p, self.ANCHOR)
+            self.assertEqual(rcu, 0, "the base tree must ACCEPT the planted non-walk (gate discriminates)")
+
+    def test_d1565_check_repr_sniffs_the_gzip_magic_not_the_suffix(self):
+        """F12-006#5: a gzip stream under a name other than .gz/.bin was opened raw and reported
+        FAIL_short_header, contradicting SOLUTIONS_FORMAT.md's 'sniffs the magic automatically'."""
+        import gzip
+        blob = self._wrap1(self._kw_bin())
+        dat = os.path.join(self.tmp, "sol.dat")
+        open(dat, "wb").write(gzip.compress(blob))
+        rc, out = self._vcall(self.V, "check_repr", dat, 1)
+        self.assertIn("CHECK_REPR=PASS", out, "a gzip artifact under .dat must verify: " + out[-300:])
+        if self.Vu:
+            rcu, outu = self._vcall(self.Vu, "check_repr", dat, 1)
+            self.assertNotIn("CHECK_REPR=PASS", outu, "the base tree must fail-closed on the same .dat")
+
+    def test_d1566_full31_reader_rejects_a_decorated_contradictory_row(self):
+        """F11-019#1: a right-width section-1 row with a **k** label was skipped, so a second
+        contradictory row for a layer was invisible to the uniqueness check."""
+        src = self._src(os.path.join("reports", "FULL31_EXACT_AGGREGATES.md")).splitlines()
+        out = []
+        for l in src:
+            out.append(l)
+            cells = [c.strip() for c in l.strip().strip("|").split("|")]
+            if len(cells) == 8 and cells[0] == "5":
+                out.append("| **5** | 999,999 | " + " | ".join(cells[2:]) + " |")
+        p = os.path.join(self.tmp, "full31_bad.md"); open(p, "w").write("\n".join(out) + "\n")
+        for mod, expect_raise in ((self.V, True), (self.Vu, False)):
+            if mod is None:
+                continue
+            old = mod._AGG_DOC
+            try:
+                mod._AGG_DOC = p
+                if expect_raise:
+                    with self.assertRaises(Exception):
+                        mod._published_canonical_masks()
+                else:
+                    mod._published_canonical_masks()   # base tree silently skips the row
+            finally:
+                mod._AGG_DOC = old
+
+    def test_d1570_preserve_sha_malformed_row_is_a_census_failure(self):
+        """F04-013#2: a PRESERVE_SHA256.txt row with != 2 fields was `continue`d, dropping its
+        artifact from the census while the verdict read 'all N digests match'."""
+        import hashlib
+        d = os.path.join(self.tmp, "cert_d1570")
+        shutil.copytree(os.path.join(self.ROOT, "runs", "20260716_f1c5_c1c2c4c5_d128westus3"), d)
+        shas = os.path.join(d, "PRESERVE_SHA256.txt")
+        rows = [l for l in open(shas).read().splitlines() if len(l.split()) == 2]
+        out = []
+        for i, r in enumerate(rows):
+            want, fn = r.split()
+            fp = os.path.join(d, fn)
+            if not os.path.exists(fp):
+                open(fp, "wb").write(b"x" * (i + 1))
+            out.append(hashlib.sha256(open(fp, "rb").read()).hexdigest() + "  " + fn)
+        out.insert(1, "deadbeef  " + out[0].split()[1] + "  extra")
+        open(shas, "w").write("\n".join(out) + "\n")
+        rc, o = self._vcall(self.V, "check_certificate", d)
+        self.assertNotEqual(rc, 0, "a 3-field digest row passed:\n" + o[-300:])
+        self.assertIn("malformed PRESERVE_SHA256", o)
+        if self.Vu:
+            rcu, ou = self._vcall(self.Vu, "check_certificate", d)
+            self.assertIn("MATCH] preserved artifact digests", ou, "the base tree silently dropped the row")
+
+    def test_d1571_sidecar_chain_rejects_blank_digests(self):
+        """F04-013#3: the chain link compared input/own sha with neither validated; two sidecars both
+        carrying "" satisfied the link, so a broken lineage certified."""
+        import json
+        d = os.path.join(self.tmp, "side_d1571")
+        shutil.copytree(os.path.join(self.ROOT, "runs", "20260906_kc_ladders_n31", "sidecars", "run_f"), d)
+        shutil.copy2(os.path.join(self.ROOT, "runs", "20260716_f1c5_c1c2c4c5_d128westus3", "f1c5_manifest.txt"), d)
+        for k in (1, 2):
+            p = os.path.join(d, "f1c5_layer_stats_%02d.json" % k)
+            j = json.load(open(p)); j["own_sha256_decompressed"] = ""; j["input_sha256_decompressed"] = ""
+            json.dump(j, open(p, "w"))
+        def link2_ok(mod):
+            _, o = self._vcall(mod, "check_layer_sidecars", d)
+            return "k=2: BROKEN HASH CHAIN" in o
+        self.assertTrue(link2_ok(self.V), "the k=2 blank-vs-blank link must now FAIL")
+        if self.Vu:
+            self.assertFalse(link2_ok(self.Vu), "the base tree accepted the blank-vs-blank link")
+
+    def test_d1572_t3_membership_counts_a_damaged_draw(self):
+        """F04-013#4: a draw whose cd= field was damaged (e.g. cx=) was skipped by the reader and
+        dropped from the census, so the rest still printed 100% MEMBER."""
+        w = ",".join(str(h) for h in self.V.KW if h not in (0, 63))
+        good = "0\tcd=387\t%s\nrecord\tm=1\t%s\n" % (w, w)
+        dmg = good + "1\tcx=387\t%s\nrecord\tm=1\t%s\n" % (w, w)
+        pg = os.path.join(self.tmp, "t3good.out"); open(pg, "w").write(good)
+        pd = os.path.join(self.tmp, "t3dmg.out"); open(pd, "w").write(dmg)
+        rc, o = self._vcall(self.V, "t3_membership", pg)
+        self.assertEqual(rc, 0, "one clean draw is a member:\n" + o[-300:])
+        rc, o = self._vcall(self.V, "t3_membership", pd)
+        self.assertNotEqual(rc, 0, "a damaged draw was not counted:\n" + o[-300:])
+        self.assertIn("structural failures (length / permutation) : 1", o)
+        self.assertIn("draws with a malformed cd= field : 1", self._vcall(self.V, "t3_stats", pd)[1])
+        if self.Vu:
+            rcu, _ = self._vcall(self.Vu, "t3_membership", pd)
+            self.assertEqual(rcu, 0, "the base tree dropped the damaged draw and passed")
+
+    # ==== CX-36E-B: verify.py doc-contract rows ====
+    def test_d1567_coverage_median_gate_is_the_published_three_dp_token(self):
+        """F12-006#1: the median-z gate compared at 2 dp (-0.04) while VERIFY.md publishes
+        RELERR_GE_10_MEDIAN_Z=-0.043 at 3 dp."""
+        src = self._src("verify.py")
+        self.assertIn('"-0.043")', src, "the gate literal must be the published 3-dp token")
+        self.assertNotIn('f"{float(S[\'RELERR_GE_10\'].get(\'MEDIAN_Z\', \'nan\')):.2f}", "-0.04")', src)
+        tbl = os.path.join(self.ROOT, "reports", "evidence", "knuth195_percell_100000.csv.gz")
+        if os.path.exists(tbl):
+            rc, o = self._vcall(self.V, "orbit_coverage", tbl)
+            self.assertIn("Q696_COVERAGE=PASS", o, "the real table still passes at 3 dp:\n" + o[-300:])
+
+    def test_d1575_kc_b0_refuses_unicode_digits(self):
+        """F04-017#4: str.isdigit() accepts Unicode digits int() rejects, so --b0 '²,2,2,2,1'
+        died with a ValueError traceback instead of the documented refusal string."""
+        r = self.V._kc_parse_b0("²,2,2,2,1", 9)
+        self.assertIsInstance(r, str, "a Unicode-digit --b0 must return the refusal string, not raise")
+        self.assertIn("five comma-separated", r)
+        self.assertEqual(self.V._kc_parse_b0("2,2,2,2,1", 9), (2, 2, 2, 2, 1), "positive control")
+
+    def test_d1576_orbit_coverage_se_scale(self):
+        """F12-006#7: se_scale defaulted to 1.0, so an explicit --orbit-coverage-se-scale 1 read as
+        'absent' (no REFUSE alone; PASS with a table, both against VERIFY.md:90)."""
+        import argparse
+        src = self._src("verify.py")
+        self.assertIn("default=None,   # FV2V F12-006#7", src)
+        r = subprocess.run([sys.executable, os.path.join(self.ROOT, "verify.py"), "--orbit-coverage-se-scale", "1"],
+                           capture_output=True, text=True, timeout=120)
+        self.assertEqual(r.returncode, 2, "se-scale 1 alone must be REFUSED rc 2: " + (r.stdout + r.stderr)[-200:])
+        tbl = os.path.join(self.ROOT, "reports", "evidence", "knuth195_percell_100000.csv.gz")
+        if os.path.exists(tbl):
+            r = subprocess.run([sys.executable, os.path.join(self.ROOT, "verify.py"), "--orbit-coverage", tbl,
+                                "--orbit-coverage-se-scale", "1"], capture_output=True, text=True, timeout=120)
+            self.assertIn("Q696_COVERAGE=CONTROL", r.stdout, "se-scale 1 with a table is a CONTROL, never PASS")
+            self.assertNotIn("Q696_COVERAGE=PASS", r.stdout)
+
+    def test_d1577_missing_records_file_prints_verify_error(self):
+        """F12-006#6: the records-file opens were outside any try, so a missing path raised a bare
+        traceback (rc 1, no VERIFY=ERROR) against VERIFY.md:66's whole-line contract."""
+        r = subprocess.run([sys.executable, os.path.join(self.ROOT, "verify.py"), "/nonexistent_fv2v.bin"],
+                           capture_output=True, text=True, timeout=120)
+        self.assertEqual(r.returncode, 2, (r.stdout + r.stderr)[-200:])
+        self.assertIn("VERIFY=ERROR", r.stdout)
+        self.assertNotIn("Traceback", r.stderr)
+
+    def test_d1573_g_structure_drops_the_overclaim(self):
+        """F04-013#5: the --g-structure printout stated 'G is NOT an independent-sum statistic'
+        unconditionally, while VERIFY.md:102 scopes it to i.i.d. m-fold sums."""
+        self.assertNotIn("NOT an independent-sum", self._src("verify.py"))
+
+    # ==== CX-36E-C: verify.c soundness rows ====
+    def _toy_layer(self, d, b0=(1, 1, 0, 0, 0), v2=False, pad=None, double_root=False):
+        import struct, zlib
+        os.makedirs(d, exist_ok=True)
+        n, se, plhash = 2, 0, self.PLHASH_N2
+        def hdr(mag, k, nm, ne, padv):
+            return (mag + struct.pack("<I", 2 if mag.endswith(b"2") else 1) + struct.pack("<I", n)
+                    + struct.pack("<I", k) + struct.pack("<I", se) + struct.pack("<Q", plhash)
+                    + struct.pack("<Q", nm) + struct.pack("<Q", ne) + struct.pack("<5I", *b0) + struct.pack("<I", padv))
+        rv = 2 if double_root else 1
+        open(os.path.join(d, "f1c5_layer_00.bin"), "wb").write(
+            hdr(b"F1C5LAY1", 0, 1, 1, 0) + struct.pack("<I", 0) + struct.pack("<2Q", 0, 1)
+            + struct.pack("<I", se << 16) + struct.pack("<3Q", rv, 0, 0))
+        masks = [1, 2]; off = [0, 1, 3]; keys = [(17 << 16) | 1, (23 << 16) | 1, (58 << 16) | 2]; vals = [7, 11, 13]; ne = 3
+        p1 = os.path.join(d, "f1c5_layer_01.bin")
+        if not v2:
+            open(p1, "wb").write(hdr(b"F1C5LAY1", 1, 2, ne, 0) + struct.pack("<2I", *masks) + struct.pack("<3Q", *off)
+                                 + struct.pack("<3I", *keys) + b"".join(struct.pack("<3Q", v, 0, 0) for v in vals))
+        else:
+            BLK = pad if pad is not None else 2
+            nblk = (ne + BLK - 1) // BLK if BLK <= ne else 1
+            blocks = [(0, 2), (2, 3)] if BLK == 2 else [(0, ne)]
+            zk = [zlib.compress(struct.pack("<%dI" % (b - a), *keys[a:b]), 6) for a, b in blocks]
+            zv = [zlib.compress(b"".join(struct.pack("<3Q", v, 0, 0) for v in vals[a:b]), 6) for a, b in blocks]
+            kidx = [0]; vidx = [0]
+            for a, b in zip(zk, zv):
+                kidx.append(kidx[-1] + len(a)); vidx.append(vidx[-1] + len(b))
+            nb = len(blocks)
+            open(p1, "wb").write(hdr(b"F1C5LAY2", 1, 2, ne, BLK) + struct.pack("<2I", *masks) + struct.pack("<3Q", *off)
+                                 + struct.pack("<%dQ" % (nb + 1), *kidx) + struct.pack("<%dQ" % (nb + 1), *vidx)
+                                 + b"".join(zk) + b"".join(zv))
+        open(os.path.join(d, "f1c5_manifest.txt"), "w").write(
+            "f1c5_manifest_v1\nn=2\nstart_exit=0\npl=1,2\npl_hash=%016x\nb0=%s\nlast_complete_k=1\n"
+            % (plhash, ",".join(map(str, b0))))
+        return d
+
+    def test_d1543_v2_block_ceiling(self):
+        """F04-009#7: 4u*BLK and (BLK?BLK:65536)*4 are 32-bit products that wrap for BLK>=2^30.
+        Fail-closed only on hosts that cannot allocate the 24*BLK-byte entry buffer; on a larger host
+        the inflate overran the wrapped 4-byte key buffer. The ceiling refusal now precedes every
+        allocation; a legal BLK still verifies."""
+        bad = self._toy_layer(os.path.join(self.tmp, "c1543"), v2=True, pad=0x40000001)
+        rc, o = self._v("--check-layers", bad, "31")
+        self.assertNotEqual(rc, 0)
+        self.assertIn("exceeds the format ceiling", o)
+        ok = self._toy_layer(os.path.join(self.tmp, "c1543ok"), v2=True, pad=2)
+        rc, o = self._v("--check-layers", ok, "31")
+        self.assertEqual(rc, 0, "a legal v2 block size still verifies:\n" + o[-300:])
+
+    def test_d1544_reduced_instance_b0_must_sum_to_n(self):
+        """F04-009#13: for a reduced instance the manifest b0 was taken on faith; a consistent set
+        with sum(b0) != n passed the structural report."""
+        bad = self._toy_layer(os.path.join(self.tmp, "c1544"), b0=(1, 1, 1, 0, 0))
+        rc, o = self._v("--check-layers", bad, "31")
+        self.assertNotEqual(rc, 0)
+        self.assertIn("b0 sums to 3, not n=2", o)
+        if self.vbuild_u_ok:
+            rcu, _ = self._v("--check-layers", bad, "31", binary=self.vbin_u)
+            self.assertEqual(rcu, 0, "the base tree accepted b0 that does not sum to n")
+        ok = self._toy_layer(os.path.join(self.tmp, "c1544ok"), b0=(1, 1, 0, 0, 0))
+        self.assertEqual(self._v("--check-layers", ok, "31")[0], 0, "positive control")
+
+    def test_d1553_dp_duplicate_pin_negctl_has_no_target(self):
+        """F04-009#3: the Route D duplicate-pin shortcut returned 0 under --dp-negctl having compared
+        nothing."""
+        rc, o = self._v("--dp-count", "--dp-spec", "3.0,3.1,3.2@0", "--dp-pin", "1:4", "--dp-pin", "2:4",
+                        "--dp-negctl", "--dp-mod", "p0", "--dp-threads", "1")
+        self.assertEqual(rc, 1, o[-300:])
+        self.assertIn("DP_NEGCTL=NO_TARGET", o)
+        if self.vbuild_u_ok:
+            rcu, _ = self._v("--dp-count", "--dp-spec", "3.0,3.1,3.2@0", "--dp-pin", "1:4", "--dp-pin", "2:4",
+                             "--dp-negctl", "--dp-mod", "p0", "--dp-threads", "1", binary=self.vbin_u)
+            self.assertEqual(rcu, 0, "the base tree 'passed' a control that compared nothing")
+
+    def test_d1557_knuth_reference_ratio_matches_the_mode(self):
+        """F04-009#16: the C3-conditional reference ratio printed the c67 population's 0.1008 for the
+        unpinned mode too, whose estimands are |C1..C5| / |C1nC2nC4nC5| (ratio 0.1211)."""
+        rc, o = self._v("--knuth-probe", "1000", "--knuth-no-c67")
+        self.assertIn("1.3287e38 / 1.09705e39 = 0.1211", o, "unpinned reference ratio")
+        rc, o = self._v("--knuth-probe", "1000")
+        self.assertIn("5.21e31 / 5.16880e32 = 0.1008", o, "c67 reference ratio unchanged")
+
+    def test_d1558_c67_join_checks_the_f_root_content(self):
+        """F04-009#4: the c67-join validated spans structurally but never the endpoint CONTENT; a
+        reduced ladder with every f layer-0 value doubled passed with the count printed (COMPARED=0)."""
+        self.assertTrue(self.sbuild_ok and os.path.isdir(self.f9), "precondition: n=9 ladders built")
+        rc, o = self._v("--c67-join", self.f9, self.g9, "--join-pin", "1:3")
+        self.assertIn("C67_JOIN_COUNT=", o)
+        self.assertEqual(rc, 0, "positive control: the clean join runs:\n" + o[-300:])
+        import struct
+        fbad = os.path.join(self.tmp, "f9bad")
+        shutil.copytree(self.f9, fbad)
+        p = os.path.join(fbad, "f1c5_layer_00.bin"); raw = bytearray(open(p, "rb").read())
+        nm, = struct.unpack_from("<Q", raw, 32); ne, = struct.unpack_from("<Q", raw, 40); base = 72 + 4 * nm + 8 * (nm + 1)
+        v0, = struct.unpack_from("<Q", raw, base + 4 * ne); struct.pack_into("<Q", raw, base + 4 * ne, v0 * 2)
+        open(p, "wb").write(raw)
+        rc, o = self._v("--c67-join", fbad, self.g9, "--join-pin", "1:3")
+        self.assertNotEqual(rc, 0, "a doubled f root passed:\n" + o[-300:])
+        self.assertIn("f_layer_root_not_unit", o)
+        if self.vbuild_u_ok:
+            rcu, ou = self._v("--c67-join", fbad, self.g9, "--join-pin", "1:3", binary=self.vbin_u)
+            self.assertIn("C67_JOIN_COUNT=", ou)
+            self.assertEqual(rcu, 0, "the base tree printed the doubled count (weak-open)")
+
+    def test_d1560_ie_expect_must_be_an_unsigned_decimal(self):
+        """F04-009#2: u192_dec skipped non-digits and wrapped silently, so --ie-expect abc parsed as 0
+        and MATCHed a degenerate N=0."""
+        rc, o = self._v("--ie-count", "--ie-spec", "3.0,3.1,3.2@0", "--ie-brute", "--ie-pin", "1:4",
+                        "--ie-pin", "2:4", "--ie-expect", "abc")
+        self.assertNotEqual(rc, 0, o[-300:])
+        self.assertIn("not an unsigned decimal", o)
+        rc, o = self._v("--ie-count", "--ie-spec", "3.0,3.1,3.2@0", "--ie-brute", "--ie-expect", "26112")
+        self.assertEqual(rc, 0, "positive control: the correct count matches:\n" + o[-300:])
+        self.assertIn("MATCH", o)
+        if self.vbuild_u_ok:
+            rcu, ou = self._v("--ie-count", "--ie-spec", "3.0,3.1,3.2@0", "--ie-brute", "--ie-pin", "1:4",
+                              "--ie-pin", "2:4", "--ie-expect", "abc", binary=self.vbin_u)
+            self.assertEqual(rcu, 0, "the base tree parsed 'abc' as 0 and MATCHed")
+
+    # ==== CX-36E-D: verify.c thread/worker guards (structural; the failure path is a resource
+    # exhaustion event that cannot be injected from outside without breaking verifier independence) ====
+    def test_d1551_d1554_thread_guards_are_present(self):
+        """Structural. F04-009#5/#6: six pthread_create sites ignored the return value (a failed create
+        left work uncomputed) and the IE pass discarded the join value and never required every chunk
+        done. The guards (inline fallback on create failure, join-value capture, chunk completeness) are
+        in the source; the normal path is unchanged (exercised by the IE/DP positive controls elsewhere)."""
+        src = self._src("verify.c")
+        self.assertIn("IE_PASS=INCOMPLETE", src)
+        self.assertGreaterEqual(src.count("FV2V F04-009#6"), 6, "all six create sites carry the inline fallback")
+        self.assertIn("for (uint64_t _ci = 0; _ci < R.nchunks; _ci++) if (!R.done[_ci]) R.fatal = 3;", src)
+        # positive control: a healthy IE pass still completes
+        rc, o = self._v("--ie-count", "--ie-spec", "3.0,3.1,3.2@0", "--ie-threads", "2")
+        self.assertEqual(rc, 0, "a healthy IE pass must still pass:\n" + o[-300:])
+        self.assertNotIn("IE_PASS=INCOMPLETE", o)
 
 
 if __name__ == "__main__":

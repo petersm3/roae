@@ -37176,3 +37176,134 @@ parses to `n` distinct pairs forming whole orbits), `test_q54_refusal_prints_the
 three fail with this `tests.py` over the `sat.py` of 512d2d34 (measured: `failures=2, errors=1`).
 
 Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, push group Q54.
+
+## CX-36E-A — the independent verifiers accepted, or fail-closed on, inputs they are built to catch: a non-walk ranked above the anchor kept every pinned rank, a gzip artifact under another suffix was read raw, a decorated contradictory table row was skipped, a malformed checksum or chain-digest line dropped its artifact silently, and a damaged draw was dropped from the membership census (verify.py; tests.py)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), final review, F04-013#1, F12-006#5, F11-019#1, F04-013#2,
+F04-013#3 and F04-013#4; triaged and built by the Fable lane (batch FV2-V); push group FV2-V.
+
+**What the verifier did, and what it does now.** No canonical output, certificate, count or verdict changes on the
+real data: `verify.py` on a real `solutions.bin`, the n=9 universe, the archived per-cell table, a real certificate
+directory and a real sidecar lineage all read exactly as before. Each fix makes the verifier FALSE on a planted
+defect it used to accept.
+- **The Q1 labeling oracle** (`--q1-labeling-oracle`) pinned `(rank, m, orient_idx)` and asserted the universe
+  SIZE, but never that each parsed line is a walk of the universe. Because ranks count from below, an invalid
+  18-tuple that sorts ABOVE the anchor keeps every pinned rank and the oracle printed PASS — the blind spot the
+  `:1781` comment documents for truncation, in the other direction. It now rejects any line that is not the
+  rung's hexagrams, each once, with every `(entry, exit)` a partner pair.
+- **`--check-repr` / `--check-artifact`** chose `gzip.open` by the `.gz`/`.bin` suffix, so a gzip stream under any
+  other name was read raw and reported `FAIL_short_header` — fail-closed against SOLUTIONS_FORMAT.md's "sniffs the
+  magic automatically". Both openers now sniff the two magic bytes, as the records path already did.
+- **The FULL31 aggregate readers** skipped any row whose label cell was not `\d+`, so a second, contradictory row
+  written `| **5** | … |` was invisible to the uniqueness check. A decorated label (`**5**`, `` `5` ``) is now
+  normalised and treated as the data row it is; a non-numeric label on a row that carries a count is a hard error.
+- **The preserved-digest census** (`--check-certificate`) `continue`d a `PRESERVE_SHA256.txt` line with ≠ 2 fields
+  and never validated the digest as 64 hex, so a corrupted row dropped its artifact while the verdict read "all N
+  recomputed digests match". A malformed row is now a census failure.
+- **The sidecar hash-chain** compared `input_sha256_decompressed` against the previous layer's
+  `own_sha256_decompressed` with neither operand validated, so two sidecars both carrying `""` satisfied the link.
+  Both operands must now be 64-hex digests.
+- **`--t3-membership`** dropped any draw-shaped line whose `cd=` field was damaged (e.g. `cx=`), so the surviving
+  draws still printed "100% MEMBER"; a line whose field 0 is a rank is now recognised positively as a draw and a
+  malformed `cd=` is counted as a structural failure.
+
+**Tests.** `TestBatchFV2V` builds the verifier from this tree and from the base G6 tree and asserts each defect is
+refused here and accepted there; every test carries a positive control that the correct input still passes.
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1 (pinned), push group FV2-V; sites found by
+Codex (gpt-6-astra), final review.
+
+## CX-36E-B — verify.py disagreed with its own published contract in VERIFY.md: a gated median was checked at a coarser precision than the token it publishes, an analysis printout overstated its scope, a Unicode-digit argument crashed instead of refusing, an explicit control flag read as absent, and a missing records file raised a bare traceback instead of the documented ERROR (verify.py; tests.py)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), final review, F12-006#1, F04-013#5, F04-017#4, F12-006#7 and
+F12-006#6; triaged and built by the Fable lane (batch FV2-V); push group FV2-V.
+
+**What the verifier did, and what it does now.** No measured value, token, verdict or count changes on the real
+data; `--orbit-coverage` on the archived table still prints `Q696_COVERAGE=PASS` and every published figure.
+- **`--orbit-coverage`** gated the relerr≥10% median z at two decimals against `-0.04`, while VERIFY.md publishes
+  the token `RELERR_GE_10_MEDIAN_Z=-0.043` and states each figure is gated at its printed precision. The gate is
+  now the published three-decimal value, so a median of `-0.036…-0.044` no longer passes.
+- **`--g-structure`** printed, unconditionally, "no m truncates → G is NOT an independent-sum statistic", while
+  VERIFY.md:102 scopes the readout to i.i.d. m-fold sums and leaves m ∈ {2,3,4,6,7} undecided by its window. The
+  printout now says exactly that and no longer makes the unqualified claim.
+- **`--kc-transitions --b0`** parsed with `str.isdigit()`, which accepts Unicode digits that `int()` rejects, so
+  `--b0 '²,2,2,2,1'` died with a `ValueError` traceback (rc 1, no token) instead of the documented refusal. The
+  check is now ASCII-only.
+- **`--orbit-coverage-se-scale`** defaulted to `1.0`, so an explicit `--orbit-coverage-se-scale 1` read as "not
+  given": alone it was accepted silently and with a table it ended `Q696_COVERAGE=PASS`, both against VERIFY.md:90
+  ("ends CONTROL, never PASS"; given without a table it is REFUSED rc 2). The flag now defaults to absent, so any
+  explicit value — including 1 — is the control.
+- **The records path** opened `solutions.bin` outside any `try`, so a missing or unreadable path raised a bare
+  traceback (rc 1, no `VERIFY=ERROR`) although `grep -qx` consumers read the absence of `ERROR` as a failed
+  verification. Both opens now print `VERIFY=ERROR` and exit 2.
+
+One sibling is for the documentation lane, not this one: VERIFY.md:88 says `--sigma-limit N` "can never read
+`PASS`", but `--sigma-limit 48` runs all 48 images and PASSes legitimately (F12-006#8). The code is correct and is
+left unchanged; the one-line doc correction belongs to VERIFY.md.
+
+**Tests.** `TestBatchFV2V` checks the three-decimal gate literal and the dropped overclaim in the source, the
+ASCII refusal and the `Q696_COVERAGE=CONTROL`/`REFUSED` and `VERIFY=ERROR` tokens against the real table and a
+missing path. Developed with AI assistance (Claude, Anthropic): claude-fable-5-1 (pinned), push group FV2-V; sites
+found by Codex (gpt-6-astra), final review.
+
+## CX-36E-C — verify.c's independent recounts accepted inputs that made them answer the wrong question: a reduced-instance manifest whose boundary budget did not sum to n, a duplicate-pin negative control that compared nothing, a non-decimal expected value parsed as zero, a join whose endpoint content was never checked, and a display ratio quoting the wrong population (verify.c; tests.py)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), final review, F04-009#13, F04-009#3, F04-009#2, F04-009#4 and
+F04-009#16; triaged and built by the Fable lane (batch FV2-V); push group FV2-V.
+
+**What the verifier did, and what it does now.** No canonical output changes: `--check-layers-selftest`,
+`--check-gt-selftest` and `--scan-selftest` print PASS unchanged; the full-31 and reduced counts, and every
+`--c67-join` on a real ladder, read as before.
+- **`--check-layers`** took a reduced instance's (`n ≠ 31`) manifest `b0` on faith; F1C5_LAYER_FORMAT.md requires
+  `Σ b0 = n`, which the IE and DP readers enforce but this reader did not, so a consistent set carrying
+  `b0 = (1,1,1,0,0)` for `n = 2` passed. It now fails unless `Σ b0 = n` (full-31 additionally still checks
+  `b0 = KW`).
+- **`--dp-count --dp-negctl`** with a duplicate pin returned 0 having compared nothing, mirroring the IE engine's
+  shortcut but not its negative-control guard. A duplicate-pin negative control now reports `DP_NEGCTL=NO_TARGET`
+  (rc 1) unless a target is given, in which case EQUAL is the failure.
+- **`--ie-expect` / `--dp-expect` / `--c67-join-expect`** were parsed by `u192_dec()`, which skips every non-digit
+  and wraps silently above 2¹⁹², so `--ie-expect abc` parsed as 0 and MATCHed a degenerate N = 0. A strict parser
+  now refuses a non-decimal or an overflowing value; the published decimal constants still parse identically.
+- **`--c67-join`** validated f/g spans structurally but never the endpoint CONTENT that `--check-layers` enforces:
+  with `a = 0` the f layer must be the single root entry (key = start_exit, value 1) and with `b = n` the g layer
+  the unit seed. Doubling every f layer-0 value passed all span checks and, with no target, printed the doubled
+  count (`C67_JOIN_COMPARED=0`); the endpoint content is now checked, so that input is refused.
+- **`--knuth-probe`** printed the reference ratio "5.21e31 / 5.16880e32 = 0.1008" for every `nfree = 31` run, but
+  that is the `--knuth-c67` population; the unpinned run's estimands are `|C1..C5| / |C1∩C2∩C4∩C5|`, ratio 0.1211.
+  The reference is now selected by mode. (Display only; no verdict depends on it.)
+
+**Tests.** `TestBatchFV2V` drives the verifier from this tree and the base G6 tree and asserts each planted input
+is refused here and accepted there, with a positive control (a legal layer set, the correct expected count, a
+clean join). Developed with AI assistance (Claude, Anthropic): claude-fable-5-1 (pinned), push group FV2-V; sites
+found by Codex (gpt-6-astra), final review.
+
+## CX-36E-D — verify.c hardening: six worker-thread creations ignored their return value, the IE pass discarded the join result and never required every chunk computed, and a v2 block-size field could wrap a 32-bit buffer size into a heap overflow on a crafted input (verify.c; tests.py)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), final review, F04-009#5, F04-009#6 and F04-009#7; triaged and
+built by the Fable lane (batch FV2-V); push group FV2-V.
+
+**What the code did, and what it does now.** No behaviour changes on any adequately resourced or well-formed run;
+the three verifier selftests and the IE/DP positive controls are unchanged.
+- **`pthread_create`** was called without checking its return value at six sites (the parallel scan's mask and lane
+  workers, the IE pass, the IE probe's scan and timing workers, and the Route-D step worker). A failed create under
+  a thread or memory limit left that worker's cells or chunks uncomputed, and with no published target the short
+  count printed as "pass complete". Each create now runs its (shared-cursor or disjoint-range) worker inline on
+  failure, so the work still completes.
+- **The IE pass** additionally discarded the worker join value — a worker that could not allocate its transfer
+  buffers returned a non-NULL failure flag that was ignored — and only the full-range sum check could notice a
+  missing chunk, so a partial-range (`--ie-range`) pass whose worker died at start printed `subsets=0` and returned
+  0. The pass now captures each join value and requires every chunk in the range to be marked done, else
+  `IE_PASS=INCOMPLETE` (rc 1).
+- **A v2 layer's block-size field** (`pad`) fed `compressBound(4u*BLK)` and `malloc((BLK?BLK:65536)*4)`, 32-bit
+  products that wrap for `BLK ≥ 2³⁰`. Whether such a file reached the wrapped buffer depended on the host: the
+  64-bit entry-buffer allocation (24·BLK bytes, ≥ 24 GiB) fails first wherever the process cannot obtain that much
+  address space — as on the review box, where the file was refused with an out-of-memory diagnostic — but on a host
+  that can, zlib inflates 8 bytes into a 4-byte key buffer: a heap overflow in the verifier on a crafted input, never
+  on a shipped file (every shipped layer carries BLK = 65536). The reader now refuses `BLK > 2²⁴` with a
+  spec-accurate message (F1C5_LAYER_FORMAT.md fixes 65536 in every shipped file) and computes the block-derived
+  sizes in 64 bits.
+
+These three are guards on resource-exhaustion failure paths that cannot be injected from outside the process
+without a fault hook that would break the verifier's independence, so `TestBatchFV2V` checks them structurally —
+the guards are present and the old unchecked pattern is gone — alongside the positive control that a healthy IE
+pass still completes. Developed with AI assistance (Claude, Anthropic): claude-fable-5-1 (pinned), push group
+FV2-V; sites found by Codex (gpt-6-astra), final review.

@@ -189,7 +189,7 @@ def check_repr(path, count, offset=0):
     solve.c -- but N records is N records. Do not report a sampled pass as
     whole-artifact agreement."""
     import gzip
-    opener = gzip.open if path.endswith('.gz') or path.endswith('.bin') and _is_gzip(path) else open
+    opener = gzip.open if _is_gzip(path) else open   # FV2V F12-006#5: sniff the gzip magic, not the suffix (SOLUTIONS_FORMAT.md); a gzip stream under any other name was read raw
     checked = agree = disagree = incomputable = 0
     try:
         with opener(path, 'rb') as fh:
@@ -298,7 +298,7 @@ def check_artifact(path, count=-1, offset=0):
 
     count < 0 means "to EOF". Verdicts are KEY=value for `grep -qx`."""
     import gzip
-    opener = gzip.open if path.endswith('.gz') or (path.endswith('.bin') and _is_gzip(path)) else open
+    opener = gzip.open if _is_gzip(path) else open   # FV2V F12-006#5: sniff the gzip magic, not the suffix (SOLUTIONS_FORMAT.md)
     budget0 = _c5_budget_from_kw()
     n = 0
     bad = dict(KEY=0, SPARE_BIT=0, OPENING=0, HD5=0, BUDGET=0, BUDGET_RESIDUE=0, ORDER=0,
@@ -1797,6 +1797,19 @@ def q1_labeling_oracle(path, anchor):
     if anchor_t not in set(walks):
         print("Q1_LABELING_FAIL\tanchor is not in the enumerated universe")
         return 1
+    # FV2V F04-013#1: the oracle pinned (rank,m,orient_idx) and COUNTED the universe, but
+    # never checked that each parsed line is a walk of THIS universe. An invalid 18-tuple that
+    # sorts ABOVE the anchor keeps every pinned rank (ranks count from below) and PASS printed --
+    # the :1781 comment documents the same blind spot for truncation, in the other direction.
+    _rung = set(anchor_t)   # the 2*n_pairs rung hexagrams; every valid walk is a permutation of them
+    for _w in walks:
+        _st = [(_w[i], _w[i + 1]) for i in range(0, len(_w), 2)]
+        if (len(_w) != len(anchor_t) or len(set(_w)) != len(_w) or set(_w) != _rung
+                or any(pair_of.get(e) is None or pair_of.get(e) != pair_of.get(x) for e, x in _st)):
+            print("Q1_LABELING_FAIL\ta parsed line is not a walk of the n=%d universe "
+                  "(need %d rung hexagrams, each once, every (entry,exit) a partner pair): %s"
+                  % (n_pairs, len(anchor_t), ",".join(map(str, _w))))
+            return 1
 
     def steps(w):
         return [(w[i], w[i + 1]) for i in range(0, len(w), 2)]
@@ -2510,7 +2523,14 @@ def _published_rung_layers(n):
         if _f31_width(cells, (5, 8), "section 2") or col + 1 >= len(cells):   # G5b F11-019#1
             continue
         k, m = cells[col], cells[col + 1]
-        if not re.fullmatch(r"\d+", k): continue
+        if not re.fullmatch(r"\d+", k):   # FV2V F11-019#1: a decorated label is still a data row
+            _s = k.strip("*` ")
+            if re.fullmatch(r"\d+", _s):
+                k = _s
+            elif re.fullmatch(r"\d{1,3}(,\d{3})*", m):
+                raise RuntimeError(f"{_AGG_DOC} section 2: a data row has a non-numeric label {cells[col]!r}")
+            else:
+                continue
         ki = int(k)  # 2026-10-03 (Codex PKG-V3 finding 5): a second row for a layer used to be skipped, so a wrong row after the right one passed; every numbered row of this column must now be in range, well formed, and the only row for its layer
         _why = (f"row k={ki} is outside 1..{n}" if not 1 <= ki <= n else f"row k={ki} has a malformed mass {m!r}" if not re.fullmatch(r"\d{1,3}(,\d{3})*", m) else f"layer k={ki} appears more than once" if ki in got else None)
         if _why: raise RuntimeError(f"{_AGG_DOC} section 2: n={n} {_why}")
@@ -2621,8 +2641,16 @@ def _f1_dec_published_masses():
         if not in_s1 or not line.startswith("|"):
             continue
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if _f31_width(cells, (8,), "section 1") or not re.fullmatch(r"\d+", cells[0]):   # G5b F11-019#1
+        if _f31_width(cells, (8,), "section 1"):   # G5b F11-019#1
             continue
+        if not re.fullmatch(r"\d+", cells[0]):   # FV2V F11-019#1: a decorated label (**5**, `5`) is still a data row; only separator/header rows are skipped here
+            _s = cells[0].strip("*` ")
+            if re.fullmatch(r"\d+", _s):
+                cells[0] = _s
+            elif re.fullmatch(r"\d{1,3}(,\d{3})*", cells[1]):
+                raise RuntimeError(f"{_AGG_DOC} section 1: a data row has a non-numeric label {cells[0]!r}")
+            else:
+                continue
         if not re.fullmatch(r"[\d,]+", cells[7]):
             continue
         out.append(int(cells[7].replace(",", "")))
@@ -3131,8 +3159,16 @@ def _published_canonical_masks():
         if not in_s1 or not line.startswith("|"):
             continue
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if _f31_width(cells, (8,), "section 1") or not re.fullmatch(r"\d+", cells[0]):   # G5b F11-019#1
+        if _f31_width(cells, (8,), "section 1"):   # G5b F11-019#1
             continue
+        if not re.fullmatch(r"\d+", cells[0]):   # FV2V F11-019#1: a decorated label (**5**, `5`) is still a data row; only separator/header rows are skipped here
+            _s = cells[0].strip("*` ")
+            if re.fullmatch(r"\d+", _s):
+                cells[0] = _s
+            elif re.fullmatch(r"\d{1,3}(,\d{3})*", cells[1]):
+                raise RuntimeError(f"{_AGG_DOC} section 1: a data row has a non-numeric label {cells[0]!r}")
+            else:
+                continue
         k = int(cells[0]); _why = (f"row k={k} is outside 1..31" if not 1 <= k <= 31 else f"row k={k} has a malformed canonical_masks {cells[1]!r}" if not re.fullmatch(r"\d{1,3}(,\d{3})*", cells[1]) else f"layer k={k} appears more than once" if k in got else None)  # 2026-10-03 (Codex PKG-V3 finding 5): a repeated layer used to overwrite the first, and a row outside 1..31 or with a malformed cell was skipped; each is now a failure
         if _why: raise RuntimeError(f"{_AGG_DOC} section 1: {_why}")
         got[k] = int(cells[1].replace(",", ""))
@@ -4597,7 +4633,7 @@ def orbit_cv(table):
     print(f"ORBIT_CV={'PASS' if rc == 0 else 'FAIL'}")
     return rc
 
-def orbit_coverage(table, se_scale=1.0):
+def orbit_coverage(table, se_scale=None):   # FV2V F12-006#7: None = real run; any explicit value (CLI or in-process) is the control
     """--orbit-coverage TABLE [--orbit-coverage-se-scale F]: the empirical
     COVERAGE of the Knuth estimator's printed interval, i.e. the calibration
     behind METHODS.md's reading rule for figures at >=10% relerr (Q-696 /
@@ -4643,11 +4679,13 @@ def orbit_coverage(table, se_scale=1.0):
         if not ok:
             rc = 1
         print(f"[{' MATCH' if ok else '*FAIL*'}] {name}: recomputed {got!r}  published {want!r}")
+    control = (se_scale is not None)   # FV2V F12-006#7: ANY explicit --orbit-coverage-se-scale (incl. 1) is the positive control and can never read PASS (VERIFY.md:90)
+    if se_scale is None:
+        se_scale = 1.0
     if not (se_scale > 0.0 and math.isfinite(se_scale)):
         print(f"[*FAIL*] --orbit-coverage-se-scale must be a finite positive number, got {se_scale!r}")
         print("Q696_COVERAGE=FAIL")
         return 1
-    control = (se_scale != 1.0)
     rows, trailer = _read_percell_table(table, "Q696_COVERAGE", se_scale)
     if rows is None:
         return 1
@@ -4779,7 +4817,7 @@ def orbit_coverage(table, se_scale=1.0):
     gate("orbits with >= 5 productive cells and non-zero replicate SD (published 3,727)", len(rat), 3727)
     gate("orbits with >= 5 productive cells and ZERO replicate SD (published 5)", zero_sd, 5)
     gate("median printed SE / replicate SD (published 1.031)",
-         f"{st.median(rat):.3f}" if rat else None, "1.031"); gate("RELERR_GE_10 median z at METHODS' precision (published -0.04)", f"{float(S['RELERR_GE_10'].get('MEDIAN_Z', 'nan')):.2f}", "-0.04")   # G5b CAL-020#115
+         f"{st.median(rat):.3f}" if rat else None, "1.031"); gate("RELERR_GE_10 median z at the published precision (VERIFY.md RELERR_GE_10_MEDIAN_Z=-0.043)", f"{float(S['RELERR_GE_10'].get('MEDIAN_Z', 'nan')):.3f}", "-0.043")   # FV2V F12-006#1 (was 2-dp -0.04, which VERIFY.md does not publish); CAL-020#115
     print(f"Q696_COVERAGE={'PASS' if rc == 0 else 'FAIL'}")
     return rc
 
@@ -5439,9 +5477,13 @@ def check_certificate(dirpath):
     if os.path.isfile(shas):
         import hashlib
         bad = []
-        for line in open(shas, encoding='utf-8'):
+        import re as _reh
+        for _ln, line in enumerate(open(shas, encoding='utf-8'), 1):
+            if not line.strip():
+                continue
             parts = line.split()
-            if len(parts) != 2:
+            if len(parts) != 2 or not _reh.fullmatch(r"[0-9a-f]{64}", parts[0]):   # FV2V F04-013#2: a malformed/truncated row used to be skipped, dropping its artifact from the census
+                bad.append(f"line {_ln}: malformed PRESERVE_SHA256.txt row")
                 continue
             want, fn = parts
             p = os.path.join(dirpath, fn)
@@ -5584,8 +5626,9 @@ def check_layer_sidecars(dirpath):
         if k - 1 in layers:
             chain_links[0] += 1
             ck(d.get("input_layer_k") == k - 1, f"k={k}: input_layer_k != k-1")
-            ck(d.get("input_sha256_decompressed") == layers[k - 1]["own_sha256_decompressed"],
-               f"k={k}: BROKEN HASH CHAIN — input sha != k-1's own sha")
+            _ih = d.get("input_sha256_decompressed"); _oh = layers[k - 1].get("own_sha256_decompressed")
+            ck(re.fullmatch(r"[0-9a-f]{64}", _ih or "") is not None and re.fullmatch(r"[0-9a-f]{64}", _oh or "") is not None and _ih == _oh,
+               f"k={k}: BROKEN HASH CHAIN — input sha != k-1's own sha (or either side is not a 64-hex digest)")   # FV2V F04-013#3: two sidecars both carrying "" satisfied the link
         elif k != min(layers):
             # A gap inside the retained set: the chain link cannot be evaluated,
             # which used to be a silent skip — the set is then NOT one proven
@@ -6103,12 +6146,21 @@ def _t3_iter_draws(paths, want_walk=False):
         with _t3_open(path) as fh:
             for line in fh:
                 f = line.rstrip("\n").split("\t")
-                if len(f) < 3 or f[0] == "record" or not f[1].startswith("cd="):
-                    continue
+                if len(f) < 3 or not (f[0].isascii() and f[0].isdigit()):
+                    continue   # not positionally a draw (a `record` line, a provenance header, or blank)
+                # field 0 is a rank, so this line IS a draw; its cd= field must be well formed. A
+                # damaged draw (e.g. `cx=`) used to be skipped here and dropped from the census, so
+                # the surviving draws still printed 100% MEMBER (FV2V F04-013#4).
+                _ok = f[1][:3] == "cd=" and f[1][3:].isascii() and f[1][3:].isdigit()
+                _cd = int(f[1][3:]) if _ok else -1
                 if want_walk:
-                    yield path, int(f[0]), int(f[1][3:]), [int(x) for x in f[2].split(",")]
+                    try:
+                        _w = [int(x) for x in f[2].split(",")]
+                    except ValueError:
+                        _w = []
+                    yield path, int(f[0]), _cd, _w
                 else:
-                    yield path, int(f[0]), int(f[1][3:])
+                    yield path, int(f[0]), _cd
 
 
 _T3_GEN = (
@@ -6150,8 +6202,12 @@ def t3_stats(path):
     counts = [0] * T3_BUCKETS
     per_stream = {}
     n_le = M = out_of_range = 0
+    bad_cd = 0
     r_min = r_max = None
     for p, r, cd in _t3_iter_draws(paths):
+        if cd < 0:   # FV2V F04-013#4: a draw with a damaged cd= field (reader marks it -1)
+            bad_cd += 1
+            continue
         M += 1
         per_stream[p] = per_stream.get(p, 0) + 1
         if 0 <= r < T3_N:
@@ -6176,7 +6232,8 @@ def t3_stats(path):
     print(f"  N              : {T3_N}")
     print(f"  ranks outside [0,N) : {out_of_range}"
           + ("" if out_of_range == 0 else "   *** INVALID ***"))
-    if out_of_range:
+    print(f"  draws with a malformed cd= field : {bad_cd}" + ("" if bad_cd == 0 else "   *** INVALID ***"))
+    if out_of_range or bad_cd:
         print("  A rank outside [0,N) is a first-order defect in the unrank path.")
         return 1
     # R12b #12 (Codex, 2026-10-01): the only population guard was M == 0, so a 16-line fixture with
@@ -6343,6 +6400,12 @@ def t3_membership(path, limit=0):
     per_pred = {}
     seen = set()
     for p, _r, cd_rec, w in _t3_iter_draws(paths, want_walk=True):
+        if cd_rec < 0:   # FV2V F04-013#4: a draw whose cd= field is damaged was dropped silently
+            bad_struct += 1
+            if len(bad) < 10:
+                bad.append((os.path.basename(p), tot, ["BAD_DRAW_STRUCTURE"]))
+            tot += 1
+            continue
         S = _t3_reconstruct(w)
         if len(w) != 62 or sorted(w) != list(range(1, 63)):
             bad_struct += 1
@@ -6548,7 +6611,9 @@ def g_structure(c2on_path, c2off_path):
                 pw = _g_series_pow(q, 1.0 / m, 35)
                 tail = max(abs(pw[j] / pw[0]) for j in range(30, 35))
                 print("  m=%-4d %.3e" % (m, tail))
-            print("  VERDICT: no m truncates -> G is NOT an independent-sum statistic.")
+            print("  READOUT: no i.i.d. m-fold root with m >= 8 truncates at degrees 30-34;")   # FV2V F04-013#5: VERIFY.md:102 scopes this to i.i.d. m-fold sums; m in {2,3,4,6,7} are undecided by this window; an analysis printout, not a gate
+            print("           m in {2,3,4,6,7} are not decided by this coefficient window. This")
+            print("           is an analysis printout, not a gate.")
             print("  The moment denominators (5, then 105 = 3*5*7) and the smooth-to-31")
             print("  factorisations above identify it as a PERMUTATION statistic")
             print("  (sampling WITHOUT replacement), which is why no convolution fits.")
@@ -6713,7 +6778,7 @@ def _kc_raw_layers(pairs, start, b0):
 def _kc_parse_b0(s, n):
     """--b0 a,b,c,d,e -> 5-tuple, or a string saying why it is refused."""
     parts = s.split(",")
-    if len(parts) != 5 or not all(p.isdigit() for p in parts):
+    if len(parts) != 5 or not all(p.isascii() and p.isdigit() for p in parts):   # FV2V F04-017#4: str.isdigit() accepts '\u00b2' etc. that int() then rejects with a traceback
         return f"--b0 must be five comma-separated non-negative integers, got {s!r}"
     b0 = tuple(int(p) for p in parts)
     if sum(b0) != n:
@@ -7086,11 +7151,11 @@ def main():
                              'leaves_canonical at depth-3 cells, printed relerr 5-30%% (19 cells at '
                              '30-50%%, none above); a figure beyond 30%% relerr is uncalibrated here. '
                              '~2 s. Does NOT read solutions.bin.')
-    parser.add_argument('--orbit-coverage-se-scale', type=float, metavar='F', default=1.0,
+    parser.add_argument('--orbit-coverage-se-scale', type=float, metavar='F', default=None,   # FV2V F12-006#7: None distinguishes 'not given' from an explicit 1
                         help='With --orbit-coverage: POSITIVE CONTROL. Multiply every printed relerr by '
                              'F at parse time and re-score (F=0.5 / 2 measured 72.3%% / 99.9%% WALD95 '
-                             'coverage at >=10%% relerr against 94.4%% at F=1). Any F != 1 ends '
-                             'Q696_COVERAGE=CONTROL and can never print PASS.')
+                             'coverage at >=10%% relerr against 94.4%% at F=1). Any explicit F, including 1, ends '
+                             'Q696_COVERAGE=CONTROL and can never print PASS; given without --orbit-coverage it is REFUSED (rc 2).')
     parser.add_argument('--recount-finite', action='store_true',
                         help='Independently recompute the finite record-mode + wrap/parity tallies: '
                              'TR-5\'s 48-of-720 validity classification / 24 records / 23 twins '
@@ -7354,14 +7419,14 @@ def main():
     if args.orbit_cv is not None:
         sys.exit(orbit_cv(args.orbit_cv))
 
-    if args.orbit_coverage_se_scale != 1.0 and args.orbit_coverage is None:
+    if args.orbit_coverage_se_scale is not None and args.orbit_coverage is None:   # FV2V F12-006#7: an explicit scale (incl. 1) without a table is REFUSED
         # Q-696 review N6: argparse accepted the control flag alone and did nothing, so a
         # mistyped subject flag read as a clean run. Refused with a bare token, rc 2.
         print("Q696_COVERAGE=REFUSED")
         sys.stdout.flush()
         parser.error("--orbit-coverage-se-scale only makes sense with --orbit-coverage TABLE")
     if args.orbit_coverage is not None:
-        sys.exit(orbit_coverage(args.orbit_coverage, args.orbit_coverage_se_scale))
+        sys.exit(orbit_coverage(args.orbit_coverage, args.orbit_coverage_se_scale))   # FV2V F12-006#7: None -> real run; any explicit value -> CONTROL
 
     if args.recount_fiber:
         sys.exit(recount_fiber())
@@ -7413,8 +7478,12 @@ def main():
     # byte-offset parallel chunking which gzip cannot seek, so transparently decompress a gz file
     # to a temp raw file and verify that — the logical (decompressed) content is byte-identical to
     # a raw solutions.bin, so all constraint/sort/dup checks are unchanged. Temp removed at exit.
-    with open(path, 'rb') as _fh:
-        _is_gz = _fh.read(2) == b'\x1f\x8b'
+    try:   # FV2V F12-006#6: a missing/unreadable path raised a bare traceback (rc 1, no VERIFY=ERROR); VERIFY.md:66 makes ERROR the whole-line contract
+        with open(path, 'rb') as _fh:
+            _is_gz = _fh.read(2) == b'\x1f\x8b'
+    except OSError as _e:
+        print(f"VERIFY=ERROR cannot open {path}: {_e}")
+        sys.exit(2)
     if _is_gz:
         _fd, _tmp = tempfile.mkstemp(prefix='verify_solbin_', suffix='.bin')
         os.close(_fd)
@@ -7426,8 +7495,12 @@ def main():
         print(f"  decompressed: {os.path.getsize(path):,} bytes (logical content)")
 
     # Read header from main process to validate format and get record count.
-    with open(path, 'rb') as f:
-        head = f.read(SOL_HEADER_SIZE)
+    try:   # FV2V F12-006#6: the header open was also outside any try
+        with open(path, 'rb') as f:
+            head = f.read(SOL_HEADER_SIZE)
+    except OSError as _e:
+        print(f"VERIFY=ERROR cannot open {path}: {_e}")
+        sys.exit(2)
     try:
         declared_records = parse_header(head)
     except ValueError as e:

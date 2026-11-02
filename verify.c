@@ -824,6 +824,24 @@ static u192 u192_dec(const char *s) {                   /* decimal string -> u19
             v.l[i] = (uint64_t)t; c = t >> 64; } }
     return v;
 }
+/* FV2V F04-009#2: strict unsigned-decimal parse for a user-supplied --*-expect / target value.
+ * u192_dec() skips every non-digit and wraps silently above 2^192, so `--ie-expect abc` parsed as
+ * 0 (and MATCHed a degenerate N=0) and a too-long value wrapped. Returns 1 on success, 0 if the
+ * string is empty, carries a non-digit (',' and '_' separators are allowed), or exceeds 2^192. */
+static int u192_parse(const char *str, u192 *out) {
+    if (!str || !*str) return 0;
+    u192 v = {{0,0,0}}; int any = 0;
+    for (const char *p = str; *p; p++) {
+        if (*p == ',' || *p == '_') continue;
+        if (*p < '0' || *p > '9') return 0;
+        any = 1;
+        unsigned __int128 c = (unsigned)(*p - '0');
+        for (int i = 0; i < 3; i++) { unsigned __int128 t = (unsigned __int128)v.l[i]*10 + c; v.l[i] = (uint64_t)t; c = t >> 64; }
+        if (c) return 0;   /* carry out of limb 2 => value exceeds 2^192 */
+    }
+    if (!any) return 0;
+    *out = v; return 1;
+}
 static void u192_print(u192 v, char *out) {             /* out >= 60 bytes */
     if (u192_zero(v)) { strcpy(out, "0"); return; }
     char t[64]; int n = 0; u192 x = v;
@@ -1224,6 +1242,7 @@ static int lc_check_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
     uint64_t nm = nm64, ne = ne64;
     uint32_t BLK = is_v2 ? pad : 0;
     if (is_v2) LCF(BLK>0, "v2 block size (pad field) is zero");
+    if (is_v2) LCF(BLK <= (1u<<24), "v2 block size %u exceeds the format ceiling 2^24 (F1C5_LAYER_FORMAT.md: 65536 in every shipped file)", BLK);   /* FV2V F04-009#7: 4u*BLK and (BLK?BLK:65536)*4 are 32-bit products that wrap for BLK >= 2^30; a huge BLK failed closed only where the 24*BLK-byte entry buffer could not be allocated; elsewhere the inflate overran the wrapped 4-byte key buffer */
     /* Spec LAYOUT invariants (F1C5_LAYER_FORMAT.md: v1 pad = 0; exact file size
      * 80+12·nm+28·ne for v1 and kblk_base+kidx[nblk]+vidx[nblk] for v2; kidx/vidx
      * monotone; per-block compressed size within compressBound). Added 2026-09-03
@@ -1310,10 +1329,10 @@ static int lc_check_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
             LCF(kidx[b+1] >= kidx[b] && vidx[b+1] >= vidx[b],
                 "kidx/vidx not monotone at block %llu", (unsigned long long)b);
             if (fail) break;
-            LCF(kidx[b+1]-kidx[b] <= compressBound(4u*BLK),
+            LCF(kidx[b+1]-kidx[b] <= compressBound((uLong)4*BLK),
                 "key block %llu compressed size %llu > compressBound(4*BLK)",
                 (unsigned long long)b, (unsigned long long)(kidx[b+1]-kidx[b]));
-            LCF(vidx[b+1]-vidx[b] <= compressBound(24u*BLK),
+            LCF(vidx[b+1]-vidx[b] <= compressBound((uLong)24*BLK),
                 "val block %llu compressed size %llu > compressBound(24*BLK)",
                 (unsigned long long)b, (unsigned long long)(vidx[b+1]-vidx[b]));
         }
@@ -1325,9 +1344,9 @@ static int lc_check_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
         if (fail) { free(kidx); free(vidx); goto cleanup; }
     }
 
-    uint32_t *kbuf = malloc((BLK?BLK:65536)*4);
+    uint32_t *kbuf = malloc((size_t)(BLK?BLK:65536)*4);   /* FV2V F04-009#7: was a 32-bit product */
     unsigned char *vbuf = malloc((size_t)(BLK?BLK:65536)*24);
-    unsigned char *zbuf = is_v2 ? malloc(compressBound(24u*BLK)+64) : NULL;
+    unsigned char *zbuf = is_v2 ? malloc(compressBound((uLong)24*BLK)+64) : NULL;
     if (!kbuf || !vbuf || (is_v2 && !zbuf)) { printf("  k=%2d  *** FAIL: OOM stream buffers\n", k);
         fail=1;
         free(kbuf); free(vbuf); free(zbuf); free(kidx); free(vidx); goto cleanup; }
@@ -1519,6 +1538,8 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
     int plhash_ok = (rec_plhash == m_plhash);
     printf("manifest: n=%u start_exit=%u last_complete_k=%d b0=(%d,%d,%d,%d,%d)\n",
            mn, mse, last_k, b0v[0],b0v[1],b0v[2],b0v[3],b0v[4]);
+    { int _b0s = b0v[0]+b0v[1]+b0v[2]+b0v[3]+b0v[4];   /* FV2V F04-009#13: F1C5_LAYER_FORMAT.md requires Sum b0 = n; full-31 also checks b0==KW below, but a reduced instance took the manifest b0 on faith */
+      if (_b0s != (int)mn) { printf("*** FAIL: manifest b0 sums to %d, not n=%d (F1C5_LAYER_FORMAT.md: one boundary budget per pair)\n", _b0s, mn); return 1; } }
     printf("pl_hash : manifest %016llx  recomputed %016llx  %s\n",
            (unsigned long long)m_plhash, (unsigned long long)rec_plhash,
            plhash_ok ? "MATCH" : "*** MISMATCH ***");
@@ -2447,6 +2468,7 @@ static int lcs_scan_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
     uint64_t nm = nm64, ne = ne64;
     uint32_t BLK = is_v2 ? pad : 0;
     if (is_v2) LCF(BLK>0, "v2 block size (pad field) is zero");
+    if (is_v2) LCF(BLK <= (1u<<24), "v2 block size %u exceeds the format ceiling 2^24 (F1C5_LAYER_FORMAT.md: 65536 in every shipped file)", BLK);   /* FV2V F04-009#7: 4u*BLK and (BLK?BLK:65536)*4 are 32-bit products that wrap for BLK >= 2^30; a huge BLK failed closed only where the 24*BLK-byte entry buffer could not be allocated; elsewhere the inflate overran the wrapped 4-byte key buffer */
     /* spec LAYOUT invariants — same checks as lc_check_layer (2026-09-03) */
     if (is_v1) LCF(pad==0, "v1 pad=%u != 0 (spec: v1 pad is zero)", pad);
     long fsz = -1;
@@ -2480,10 +2502,10 @@ static int lcs_scan_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
             mj[t].lo = nm * (uint64_t)t / T; mj[t].hi = nm * (uint64_t)(t+1) / T;
             mj[t].masks = masks; mj[t].off = off; mj[t].orbits = orbits;
             mj[t].rp = rp; mj[t].geff = geff; mj[t].k = k; mj[t].exp_n = exp_n;
-            if (T > 1) pthread_create(&mj[t].tid, NULL, lcs_mask_worker, &mj[t]);
+            if (T > 1) { if (pthread_create(&mj[t].tid, NULL, lcs_mask_worker, &mj[t]) != 0) { lcs_mask_worker(&mj[t]); mj[t].tid = 0; } }   /* FV2V F04-009#6: create failed -> run this disjoint range inline */
             else lcs_mask_worker(&mj[t]);
         }
-        if (T > 1) for (int t = 0; t < T; t++) pthread_join(mj[t].tid, NULL);
+        if (T > 1) for (int t = 0; t < T; t++) if (mj[t].tid) pthread_join(mj[t].tid, NULL);
         uint64_t bad_pc=0, bad_hibit=0, bad_canon=0, bad_orb=0;
         uint64_t moff = UINT64_MAX, mmask = UINT64_MAX;
         for (int t = 0; t < T; t++) {
@@ -2537,10 +2559,10 @@ static int lcs_scan_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
             LCF(kidx[b+1] >= kidx[b] && vidx[b+1] >= vidx[b],
                 "kidx/vidx not monotone at block %llu", (unsigned long long)b);
             if (fail) break;
-            LCF(kidx[b+1]-kidx[b] <= compressBound(4u*BLK),
+            LCF(kidx[b+1]-kidx[b] <= compressBound((uLong)4*BLK),
                 "key block %llu compressed size %llu > compressBound(4*BLK)",
                 (unsigned long long)b, (unsigned long long)(kidx[b+1]-kidx[b]));
-            LCF(vidx[b+1]-vidx[b] <= compressBound(24u*BLK),
+            LCF(vidx[b+1]-vidx[b] <= compressBound((uLong)24*BLK),
                 "val block %llu compressed size %llu > compressBound(24*BLK)",
                 (unsigned long long)b, (unsigned long long)(vidx[b+1]-vidx[b]));
         }
@@ -2588,10 +2610,10 @@ static int lcs_scan_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
             L->kblk_base = kblk_base; L->vblk_base = vblk_base;
             L->cfg = cfg; L->abort_flag = &abort_flag; L->od_fallback = &od_fb;
             L->blo = cuts[t]; L->bhi = cuts[t+1];
-            if (Lc > 1) pthread_create(&L->tid, NULL, lcs_lane_worker, L);
+            if (Lc > 1) { if (pthread_create(&L->tid, NULL, lcs_lane_worker, L) != 0) { lcs_lane_worker(L); L->tid = 0; } }   /* FV2V F04-009#6 */
             else lcs_lane_worker(L);
         }
-        if (Lc > 1) for (int t = 0; t < Lc; t++) pthread_join(ln[t].tid, NULL);
+        if (Lc > 1) for (int t = 0; t < Lc; t++) if (ln[t].tid) pthread_join(ln[t].tid, NULL);
 
         int lane_fail = 0;
         for (int t = 0; t < Lc; t++)
@@ -3778,17 +3800,17 @@ static void gts_write_v2(const char *dir, const char *pfx, const char *magic8,
     memcpy(hd+68, &BLK, 4);
     uint64_t nblk = ne ? (ne + BLK - 1)/BLK : 0;
     uint64_t *kidx = calloc(nblk+1, 8), *vidx = calloc(nblk+1, 8);
-    unsigned char *zk = malloc((nblk?nblk:1) * compressBound(4u*BLK));
-    unsigned char *zv = malloc((nblk?nblk:1) * compressBound(24u*BLK));
+    unsigned char *zk = malloc((nblk?nblk:1) * compressBound((uLong)4*BLK));
+    unsigned char *zv = malloc((nblk?nblk:1) * compressBound((uLong)24*BLK));
     unsigned char *tmp = malloc(24u*BLK);
     uint64_t zkn = 0, zvn = 0;
     for (uint64_t b = 0; b < nblk; b++) {
         uint64_t bs = b*BLK, bn = (bs + BLK <= ne) ? BLK : ne - bs;
-        uLongf zl = compressBound(4u*BLK);
+        uLongf zl = compressBound((uLong)4*BLK);
         compress2(zk + zkn, &zl, (const Bytef*)(keys + bs), bn*4, 6);
         zkn += zl; kidx[b+1] = zkn;
         for (uint64_t j = 0; j < bn; j++) memcpy(tmp + j*24, &vals[bs+j], 24);
-        zl = compressBound(24u*BLK);
+        zl = compressBound((uLong)24*BLK);
         compress2(zv + zvn, &zl, tmp, bn*24, 6);
         zvn += zl; vidx[b+1] = zvn;
     }
@@ -4936,13 +4958,17 @@ static int ie_run_pass(IeCtx *C, uint64_t mod, const char *modname, int threads,
     clock_gettime(CLOCK_MONOTONIC, &w0);
     pthread_t th[256];
     if (threads > 256) threads = 256;
-    for (int i = 0; i < threads; i++) pthread_create(&th[i], NULL, ie_worker, &R);
-    for (int i = 0; i < threads; i++) pthread_join(th[i], NULL);
+    int _iemd[256] = {0}; void *_ieret;
+    for (int i = 0; i < threads; i++)
+        if (pthread_create(&th[i], NULL, ie_worker, &R) == 0) _iemd[i] = 1;
+        else { _ieret = ie_worker(&R); if (_ieret) R.fatal = 3; }   /* FV2V F04-009#6: create failed (e.g. EAGAIN) -> run the lane inline so the chunk cursor is drained */
+    for (int i = 0; i < threads; i++) if (_iemd[i]) { _ieret = NULL; pthread_join(th[i], &_ieret); if (_ieret) R.fatal = 3; }   /* FV2V F04-009#5: a worker that could not allocate returned (void*)1; the join value was discarded before */
+    for (uint64_t _ci = 0; _ci < R.nchunks; _ci++) if (!R.done[_ci]) R.fatal = 3;   /* FV2V F04-009#5: a partial-range pass whose worker died at start printed subsets=0 and returned 0 */
     clock_gettime(CLOCK_MONOTONIC, &w1);
     double wall = (w1.tv_sec - w0.tv_sec) + (w1.tv_nsec - w0.tv_nsec) * 1e-9;
     if (R.ckpt && fclose(R.ckpt) != 0) R.fatal = 2;
     free(R.done);
-    if (R.fatal == 2) { printf("*** FAIL: an IE checkpoint row could not be written, flushed, fsynced or closed; the completed work is not durable\nIE_CHECKPOINT=WRITE-FAILED\n"); return 1; } if (R.fatal) { printf("*** FAIL: orbit-stabilizer defect during pass (group bug?)\n"); return 1; }
+    if (R.fatal == 2) { printf("*** FAIL: an IE checkpoint row could not be written, flushed, fsynced or closed; the completed work is not durable\nIE_CHECKPOINT=WRITE-FAILED\n"); return 1; } if (R.fatal == 3) { printf("*** FAIL: an IE worker could not allocate its transfer buffers, or a chunk in the range went uncomputed; no count is issued\nIE_PASS=INCOMPLETE\n"); return 1; } if (R.fatal) { printf("*** FAIL: orbit-stabilizer defect during pass (group bug?)\n"); return 1; }
     /* full-space integrity: quotiented orbit weights must tile 2^n exactly;
      * pinned mode enumerates the 2^nfree t-space instead (quotient off). */
     {
@@ -5189,7 +5215,7 @@ static int ie_count_main(int argc, char **argv) {
                C.no_budget ? ", no budget" : "",
                C.npin ? ", pins honored" : "");
         if (expect) {
-            u192 E = u192_dec(expect), B = {{bc, 0, 0}};
+            u192 E, B = {{bc, 0, 0}}; if (!u192_parse(expect, &E)) { printf("*** FAIL: --ie-expect is not an unsigned decimal: %s\n", expect); return 1; }   /* FV2V F04-009#2 */
             int eq = u192_eq(E, B); if (negctl) { printf("          negctl vs %s : %s\nIE_COMPARED=1\n", expect, eq ? "*** EQUAL (the control did not perturb the count) ***" : "DIFFERS (control OK)"); return eq ? 1 : 0; }   /* G6 F04-009#4: under --ie-negctl the brute count must DIFFER from the target */
             printf("          vs expected %s : %s\n", expect,
                    eq ? "MATCH" : "*** MISMATCH ***");
@@ -5309,7 +5335,7 @@ static int ie_count_main(int argc, char **argv) {
                 target = LC_PUBLISHED_COUNT_C1C7NOC3;
         }
         if (target) {
-            u192 E = u192_dec(target);
+            u192 E; if (!u192_parse(target, &E)) { printf("*** FAIL: expected value is not an unsigned decimal: %s\n", target); return 1; }   /* FV2V F04-009#2 */
             int eq = u192_eq(N, E);
             compared = 1;
             if (negctl) {
@@ -5328,7 +5354,7 @@ static int ie_count_main(int argc, char **argv) {
         printf("wrap    : N mod 2^64 = %llu (exact iff N < 2^64)\n",
                (unsigned long long)acc[0]);
         if (expect) {
-            u192 E = u192_dec(expect);
+            u192 E; if (!u192_parse(expect, &E)) { printf("*** FAIL: --ie-expect is not an unsigned decimal: %s\n", expect); return 1; }   /* FV2V F04-009#2 */
             int eq = (E.l[1] == 0 && E.l[2] == 0 && E.l[0] == acc[0]);
             compared = 1;
             if (negctl) {   /* before 2026-09-03 a wrap-only negative control compared NOTHING */
@@ -5503,8 +5529,9 @@ static int ie_probe_main(int argc, char **argv) {
     struct timespec a0, a1;
     clock_gettime(CLOCK_MONOTONIC, &a0);
     pthread_t th[256];
-    for (int i = 0; i < threads; i++) pthread_create(&th[i], NULL, ie_scan_worker, &S);
-    for (int i = 0; i < threads; i++) pthread_join(th[i], NULL);
+    int _smd[256] = {0};
+    for (int i = 0; i < threads; i++) if (pthread_create(&th[i], NULL, ie_scan_worker, &S) == 0) _smd[i] = 1; else ie_scan_worker(&S);   /* FV2V F04-009#6 */
+    for (int i = 0; i < threads; i++) if (_smd[i]) pthread_join(th[i], NULL);
     clock_gettime(CLOCK_MONOTONIC, &a1);
     double scan_wall = (a1.tv_sec - a0.tv_sec) + (a1.tv_nsec - a0.tv_nsec) * 1e-9;
     uint64_t total_canon = 0;
@@ -5531,8 +5558,9 @@ static int ie_probe_main(int argc, char **argv) {
         T.C = &C; T.mod = primes[0]; T.samp = S.samp[k]; T.nsamp = S.nsamp[k];
         pthread_mutex_init(&T.mu, NULL);
         int nth = threads < T.nsamp ? threads : T.nsamp;
-        for (int i = 0; i < nth; i++) pthread_create(&th[i], NULL, ie_time_worker, &T);
-        for (int i = 0; i < nth; i++) pthread_join(th[i], NULL);
+        int _tmd[256] = {0};
+        for (int i = 0; i < nth; i++) if (pthread_create(&th[i], NULL, ie_time_worker, &T) == 0) _tmd[i] = 1; else ie_time_worker(&T);   /* FV2V F04-009#6 */
+        for (int i = 0; i < nth; i++) if (_tmd[i]) pthread_join(th[i], NULL);
         double us = T.cpu_ns / 1e3 / T.nsamp;
         double tr = (double)T.trans / T.nsamp;
         printf(" %2d | %11llu | %7d | %15.1f | %17.0f | %7.2f\n",
@@ -5873,8 +5901,9 @@ static int dp_run_unit(const DpCtx *X, uint64_t mod, uint64_t y, int threads,
         if ((uint64_t)nth > T.nm) nth = (int)T.nm;
         if (nth > 256) nth = 256;
         pthread_t th[256];
-        for (int i = 0; i < nth; i++) pthread_create(&th[i], NULL, dp_step_worker, &W);
-        for (int i = 0; i < nth; i++) pthread_join(th[i], NULL);
+        int _dmd[256] = {0};
+        for (int i = 0; i < nth; i++) if (pthread_create(&th[i], NULL, dp_step_worker, &W) == 0) _dmd[i] = 1; else dp_step_worker(&W);   /* FV2V F04-009#6: create failed -> run the lane inline so T.v is fully summed */
+        for (int i = 0; i < nth; i++) if (_dmd[i]) pthread_join(th[i], NULL);
         trans += W.trans;
         free(S.v);
         S = T;
@@ -6036,6 +6065,10 @@ static int dp_count_main(int argc, char **argv) {
          * (matches the IE engine's duplicate-pin self-test). */
         printf("pins    : DUPLICATE pinned pair -> N = 0 identically\n");
         printf("RESULT  : N = 0\n");
+        if (negctl) {   /* FV2V F04-009#3: a --dp-negctl with a duplicate pin returned 0 having compared nothing */
+            if (expect) { int eq = !strcmp(expect, "0"); printf("          negctl vs %s : %s\nDP_COMPARED=1\n", expect, eq ? "*** EQUAL (the control did not perturb the count) ***" : "DIFFERS (control OK)"); return eq ? 1 : 0; }
+            printf("*** FAIL: --dp-negctl with a duplicate pin compared NOTHING (no --dp-expect); a control that cannot be compared has not run\nDP_NEGCTL=NO_TARGET\nDP_COMPARED=0\n"); return 1;
+        }
         if (expect) {
             int eq = !strcmp(expect, "0");
             printf("          vs expected %s : %s\n", expect, eq ? "MATCH" : "*** MISMATCH ***");
@@ -6334,7 +6367,7 @@ static int dp_count_main(int argc, char **argv) {
                  : ((pin_c6c7 && X.npin == 4) ? LC_PUBLISHED_COUNT_C1C7NOC3
                              : (X.npin ? NULL : LC_PUBLISHED_COUNT));
     if (target) {
-        u192 E = u192_dec(target);
+        u192 E; if (!u192_parse(target, &E)) { printf("*** FAIL: expected value is not an unsigned decimal: %s\n", target); return 1; }   /* FV2V F04-009#2 */
         int eq = u192_eq(N, E);
         compared = 1;
         if (negctl) {
@@ -6928,8 +6961,10 @@ static int kn_probe_main(int argc, char **argv) {
                "(C3-free walk calibration)\n", exact_s, cy.mean / exact, zden);
         if (cy.mean > 0)
             printf("[knuth] C3 conditional ratio (canonical / no-C3): %.6Lf  "
-                   "(published-derived reference 5.21e31 / 5.16880e32 = 0.1008)\n",
-                   cx.mean / cy.mean);
+                   "(published-derived reference %s = %s)\n",
+                   cx.mean / cy.mean,
+                   c67 ? "5.21e31 / 5.16880e32" : "1.3287e38 / 1.09705e39",
+                   c67 ? "0.1008" : "0.1211");   /* FV2V F04-009#16: unpinned (--knuth-no-c67) estimands are |C1..C5| / |C1nC2nC4nC5|, ratio 0.1211, not the c67 population's 0.1008 */
     }
     return identfail ? 1 : 0;
 }
@@ -7822,6 +7857,14 @@ static int cj_join_main(int argc, char **argv) {
             why = "g_layer_entry_checks"; goto done; }
     }
     if (gc.e != gc.ne) { why = "g_layer_entries"; goto done; }
+    if (b == (int)n) {   /* FV2V F04-009#4: the C67 join checked g spans structurally but never the SEED content; layer n must be the unit seed (each pair element once, rid=R-1, value 1) */
+        uint32_t _seed[64]; uint32_t _nel = 0;
+        for (uint32_t _q = 0; _q < n; _q++) { _seed[_nel++] = (uint32_t)PA[pl[_q]]; _seed[_nel++] = (uint32_t)PB[pl[_q]]; }
+        for (uint32_t _i = 1; _i < _nel; _i++) { uint32_t _x = _seed[_i], _c = _i; while (_c && _seed[_c-1] > _x) { _seed[_c] = _seed[_c-1]; _c--; } _seed[_c] = _x; }
+        if (gc.ne != _nel) { why = "g_seed_not_unit"; goto done; }
+        for (uint32_t _j = 0; _j < _nel; _j++) { u192 _one = {{1,0,0}};
+            if (gkeys[_j] != (((uint32_t)_seed[_j] << 16) | (R - 1)) || !u192_eq(gvals[_j], _one)) { why = "g_seed_not_unit"; goto done; } }
+    }
     printf("g layer  : k=%d nm=%llu ne=%llu %s — in RAM, structural checks OK\n", b,
            (unsigned long long)gc.nm, (unsigned long long)gc.ne, gc.is_v2 ? "v2" : "v1");
 
@@ -7846,6 +7889,8 @@ static int cj_join_main(int argc, char **argv) {
             uint32_t cm = fc.masks[i];
             uint64_t cnt = gt_read_span(&fc, i, fkeys, fvals, cap);
             if (cnt == UINT64_MAX) { why = "f_layer_entries"; goto done; }
+            if (a == 0) { u192 _one = {{1,0,0}};   /* FV2V F04-009#4: a==0 f layer must be the single root entry (key=start_exit<<16, value 1); doubling every f layer-0 value passed all SPAN checks */
+                if (fc.ne != 1 || cnt != 1 || fkeys[0] != (se << 16) || !u192_eq(fvals[0], _one)) { why = "f_layer_root_not_unit"; goto done; } }
             uint64_t allow = 0;
             if (a == 0) allow = 1ull << se;
             else for (uint32_t bb = 0; bb < n; bb++)
@@ -7947,7 +7992,8 @@ done:
         printf("======================================================================\n");
         return 0;
     }
-    int eq = u192_eq(acc, u192_dec(target));
+    u192 _Ej; if (!u192_parse(target, &_Ej)) { printf("*** FAIL: --c67-join-expect is not an unsigned decimal: %s\nC67_JOIN_REFUSED=expect_not_decimal\n", target); return 1; }   /* FV2V F04-009#2 */
+    int eq = u192_eq(acc, _Ej);
     printf("C67_JOIN_EXPECT=%s\n", target);
     printf("C67_JOIN_COMPARED=1\n");
     printf("C67_JOIN=%s\n", eq ? "PASS" : "FAIL");

@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 7 place(s) over all 219 dated sections, 6 of them among the 143 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 8 place(s) over all 220 dated sections, 7 of them among the 144 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -17,6 +17,7 @@
 - line 11223: 2026-10-08 ([section](HISTORY.md#2026-10-08--batch-44-the-document-gates-strip-comments-the-way-the-compiler-and-the-shell-do-read-each-exemption-from-the-claims-own-sentence-row-or-file-read-more-number-shapes-and-check-three-more-exit-statuses)), below line 11196: 2026-10-09
 - line 11765: 2026-10-22 ([section](HISTORY.md#2026-10-22--push-group-g5c-the-shell-harness-from-codexs-final-review--gates-that-read-a-failed-producer-a-substring-or-a-stale-binary-as-a-pass)), below line 11741: 2026-10-23
 - line 11816: 2026-10-23 ([section](HISTORY.md#2026-10-23--push-group-g6-engine-and-verifier-hardening-and-ledger-and-run-record-hygiene-from-codexs-final-review)), below line 11795: 2026-10-27
+- line 11955: 2026-10-29 ([section](HISTORY.md#2026-10-29--push-group-fv2-v-the-independent-verifiers-rows-of-the-fv2-adjudication-verifyc-and-verifypy)), below line 11942: 2026-11-02
 
 ## Dated sections, in date order
 
@@ -238,9 +239,10 @@
 | 214 | 2026-10-27 | iso | 11795 | [open](HISTORY.md#2026-10-27--push-group-d1-the-n31-golden-set-current-again-the-127-queries-re-run-and-two-exact-counts-beside-published-rows) 2026-10-27 — push group D1: the n=31 golden set current again, the §12.7 queries re-run, and two exact counts beside published rows |
 | 215 | 2026-10-28 | iso | 11848 | [open](HISTORY.md#2026-10-28--push-group-g7-citations-and-attributions-operational-names-and-a-first-pass-of-the-cli-and-ops-documentation-from-codexs-final-review) 2026-10-28 — push group G7: citations and attributions, operational names, and a first pass of the CLI and ops documentation, from Codex's final review |
 | 216 | 2026-10-29 | iso | 11867 | [open](HISTORY.md#2026-10-29--push-group-fv2-l-the-lean-sat-and-drat-rows-of-codexs-fix-verification-round) 2026-10-29 — push group FV2-L: the Lean, SAT and DRAT rows of Codex's fix-verification round |
-| 217 | 2026-11-01 | iso | 11890 | [open](HISTORY.md#2026-11-01--push-group-fv2-h-dated-corrections-to-published-figures-the-held-g6-leaderboard-and-registry-items-and-errata-to-four-frozen-pre-registrations) 2026-11-01 — push group FV2-H: dated corrections to published figures, the held G6 leaderboard and registry items, and errata to four frozen pre-registrations |
-| 218 | 2026-11-01 | iso | 11920 | [open](HISTORY.md#2026-11-01--push-group-fv2-e1-the-first-half-of-the-solvec-rows-of-codexs-fix-verification-round) 2026-11-01 — push group FV2-E1: the first half of the solve.c rows of Codex's fix-verification round |
-| 219 | 2026-11-02 | iso | 11942 | [open](HISTORY.md#2026-11-02--push-group-q54-satpys-reduced-instance-table-synced-to-solvecs-eighteen-rungs) 2026-11-02 — push group Q54: sat.py's reduced-instance table synced to solve.c's eighteen rungs |
+| 217 | 2026-10-29 | iso | 11955 | [open](HISTORY.md#2026-10-29--push-group-fv2-v-the-independent-verifiers-rows-of-the-fv2-adjudication-verifyc-and-verifypy) 2026-10-29 — push group FV2-V: the independent verifiers' rows of the FV2 adjudication (verify.c and verify.py) |
+| 218 | 2026-11-01 | iso | 11890 | [open](HISTORY.md#2026-11-01--push-group-fv2-h-dated-corrections-to-published-figures-the-held-g6-leaderboard-and-registry-items-and-errata-to-four-frozen-pre-registrations) 2026-11-01 — push group FV2-H: dated corrections to published figures, the held G6 leaderboard and registry items, and errata to four frozen pre-registrations |
+| 219 | 2026-11-01 | iso | 11920 | [open](HISTORY.md#2026-11-01--push-group-fv2-e1-the-first-half-of-the-solvec-rows-of-codexs-fix-verification-round) 2026-11-01 — push group FV2-E1: the first half of the solve.c rows of Codex's fix-verification round |
+| 220 | 2026-11-02 | iso | 11942 | [open](HISTORY.md#2026-11-02--push-group-q54-satpys-reduced-instance-table-synced-to-solvecs-eighteen-rungs) 2026-11-02 — push group Q54: sat.py's reduced-instance table synced to solve.c's eighteen rungs |
 
 ## Sections with no date in the heading, in file order
 

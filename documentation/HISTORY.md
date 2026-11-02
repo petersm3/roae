@@ -11951,3 +11951,30 @@ Q-686=DONE
 - No canonical sha, count, golden or verdict changed; `solve.c` is untouched. The n=9 certificate input is
   byte-identical (`instance.cnf` 71,429 B, sha256 `800fde57…`). `TestBatchQ54` holds the cure; three of its four
   tests fail on 512d2d34's sat.py, the fourth is the n=9 invariance pin.
+
+## 2026-10-29 — push group FV2-V: the independent verifiers' rows of the FV2 adjudication (verify.c and verify.py)
+
+- **The verifiers that could pass over a defect (CX-36E-A, CX-36E-C).** Codex (gpt-6-astra) ran the final review
+  and the Fable lane triaged and built it. `verify.py`'s Q1 labeling oracle now rejects a parsed line that is not a
+  walk of the universe (an invalid 18-tuple ranked above the anchor used to keep every pinned rank); `--check-repr`
+  sniffs the gzip magic instead of the file suffix; the FULL31 readers treat a decorated contradictory row as data,
+  not noise; the preserved-digest census and the sidecar hash-chain reject a malformed or blank digest; and
+  `--t3-membership` counts a damaged draw instead of dropping it. In `verify.c`, `--check-layers` requires a reduced
+  instance's `b0` to sum to `n`; `--dp-negctl` with a duplicate pin reports `NO_TARGET` instead of returning 0 having
+  compared nothing; `--ie-expect`/`--dp-expect`/`--c67-join-expect` are parsed strictly (a non-decimal no longer
+  reads as 0); and `--c67-join` checks its endpoint CONTENT (a doubled f root is refused).
+- **The verifier made to agree with its own published contract (CX-36E-B).** The `--orbit-coverage` median gate is
+  the three-decimal token VERIFY.md publishes; the `--g-structure` printout no longer overstates its scope; a
+  Unicode-digit `--b0` refuses instead of crashing; `--orbit-coverage-se-scale` treats any explicit value, including
+  1, as the control; and a missing records file prints `VERIFY=ERROR` rather than a bare traceback. One sibling,
+  VERIFY.md:88's "`--sigma-limit` can never read PASS", is a documentation defect left for the doc lane: the code is
+  correct (`--sigma-limit 48` is the full run and PASSes).
+- **Hardening, and one crafted-input overflow (CX-36E-D).** Six worker-thread creations now fall back to an
+  inline run on failure; the IE pass captures each join value and requires every chunk computed; and a v2 block-size
+  field above 2²⁴ is refused before any buffer is sized (on a host able to allocate the 24·BLK-byte entry buffer,
+  the wrapped 4-byte key buffer was overrun by the inflate — a crafted-input overflow, never a shipped file).
+- No canonical output, count, certificate or verdict changed on the real data: the three verifier selftests
+  (`--check-layers-selftest`, `--check-gt-selftest`, `--scan-selftest`) print PASS, `--orbit-coverage` on the
+  archived table prints `Q696_COVERAGE=PASS`, and the reduced counts read as before. `TestBatchFV2V` builds the
+  verifier from this tree and from the base and holds each cure against both. Developed with AI assistance (Claude,
+  Anthropic): claude-fable-5-1 (pinned); sites found by Codex (gpt-6-astra), final review.
