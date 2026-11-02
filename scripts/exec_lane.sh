@@ -113,7 +113,7 @@
 #   - A command a source line QUOTES AS FAILING (the verb right after the closing backtick:
 #     "fails", "does not link", ...) is held to failing — PASS if rc != 0, FAIL if it exits 0 (a
 #     stale correction note). Counting cannot tell a defect from its own withdrawal quote; the
-#     verb can (2026-09-02, SOLVE_C_CLI.md:3597).
+#     verb can (2026-09-02, SOLVE_C_CLI.md:3612).
 #   - A failed BUILD line's `-o` target is restored from the previous successful build: ld
 #     unlinks its output on a failed link, and on 2026-09-02 one quoted-as-failing build line
 #     took `solve` with it, so 167 RUN commands reported SKIP-MISSING-INPUT and no `./solve`
@@ -981,7 +981,7 @@ corpus_publishes_complete_form() {   # $1 = command; true iff the inventory hold
 
 doc_says_fails() {   # $1 = sources, $2 = command; true iff a source LINE (joined with the line
   # after it -- the verb is often hard-wrapped) quotes the command and says, right after the
-  # closing backtick, that it fails. Measured 2026-09-02: SOLVE_C_CLI.md:3597 quotes the
+  # closing backtick, that it fails. Measured 2026-09-02: SOLVE_C_CLI.md:3612 quotes the
   # pre-correction build line `gcc -O0 -fopenmp -o solve solve.c -lm -lpthread` and line 3546
   # begins "fails with 13 undefined references" -- a correction note DOCUMENTING the defect it
   # withdrew, and the lane reported the quote as a live FAIL. Counting cannot tell a defect from
@@ -1063,7 +1063,7 @@ run_one() {  # $1=class $2=gating $3=ctx $4=cwd $5=origins $6=sources $7=command
   mkdir -p "$WS/.lane_tmp"
   execmd="$(sed -E "s#(^|[[:space:]\"'=>(:])/tmp/#\1$WS/.lane_tmp/#g" <<<"$execmd")"
   # A failed link UNLINKS its output (ld's default). Measured 2026-09-02 on the full lane: BUILD
-  # `gcc -O0 -fopenmp -o solve solve.c -lm -lpthread` (SOLVE_C_CLI.md:3597, a quoted pre-fix line)
+  # `gcc -O0 -fopenmp -o solve solve.c -lm -lpthread` (SOLVE_C_CLI.md:3612, a quoted pre-fix line)
   # failed as documented and took the `solve` that BUILD 17 had just built with it; 167 RUN
   # commands then reported SKIP-MISSING-INPUT and `./solve --selftest` never ran. Keep the
   # previous output of a build line's `-o` target and put it back if the failed build removed it.
@@ -1164,14 +1164,14 @@ $(tail -c 2000 "$ref")"; fi
     else outcome="FAIL(refusal names a prereq the source doc does NOT state)"; fi
   elif grep -qiE "failed to allocate|cannot allocate|out of memory|bad_alloc|alloc.{0,16}fail|free disk in cwd|No space left on device" <<<"$out"; then
     outcome="SKIP-RESOURCE(allocation/disk failure — host, not claim)"
-  # solve.c's disk_iops_pre_check (solve.c:4120) refuses with "ERROR: projected fsync-wait
-  # ~%.1fh is %.0f%% of the estimated enum wall ~%.1fh." and main returns 31 (solve.c:49479).
+  # solve.c's disk_iops_pre_check (solve.c:4262) refuses with "ERROR: projected fsync-wait
+  # ~%.1fh is %.0f%% of the estimated enum wall ~%.1fh." and main returns 31 (solve.c:49852).
   # That is a HOST verdict — this box's disk is too slow — not a verdict on the documented
   # claim, so it is a SKIP-RESOURCE exactly as an allocation failure is. Measured 2026-09-07:
   # no branch above matched it, so `solve --preflight` (SOLVE_C_CLI.md:58/:385 — a gating row,
   # and bare --preflight defaults to 560T so the IOPS probe really runs) fell through to the
   # terminal `else` and was reported FAIL(rc=31): a host refusal published as a doc defect.
-  # Anchored on "projected fsync-wait", NOT on "fsync" alone -- the PASS line (solve.c:4113, `disk-IOPS pre-check PASS`)
+  # Anchored on "projected fsync-wait", NOT on "fsync" alone -- the PASS line (solve.c:4255, `disk-IOPS pre-check PASS`)
   # also says "fsync ~x% of est enum wall ... fsync-wait vs ... est wall". SOLVE_ALLOW_SLOW_IOPS
   # is the second anchor because `out` is only the last 4000 bytes: the ERROR's first line can
   # fall outside that window while its override hint survives.

@@ -184,7 +184,7 @@ script and `PERFORMANCE_HISTORY.md` §"Standard bench harness".)* Every workload
 >
 > 1. ~~**The provisioned VM cannot build.**~~ **CLEARED** — the install line now
 >    reads `build-essential zlib1g-dev`, so the bench VM builds `solve.c`
->    (`#include <zlib.h>` at `solve.c:330`) without a manual step. Fixed
+>    (`#include <zlib.h>` at `solve.c:333`) without a manual step. Fixed
 >    `bb0b7430`; this note is kept because the paragraph above it told operators
 >    to install zlib by hand and that instruction is now wrong.
 > 2. ~~**The JSON certifies a page-cache flush that may not have happened.**~~
@@ -1009,7 +1009,7 @@ SOLVE_RESUME_HISTORY="2026-05-14T18:23:00Z=spot-eviction-at-90%, 2026-05-14T20:1
 # SOLVE_DFS_ITERATIVE=<0|1>
 # SOLVE_DFS_CHECKPOINT=<0|1>
 # SOLVE_PER_SUB_BRANCH_LIMIT=<N>   (only if > 0)
-# SOLVE_RESUME_HISTORY: <free-form, "(none — clean single-shot run)" if env var not set>
+# SOLVE_RESUME_HISTORY: <free-form; if the env var is not set, "(none - clean single-shot run)", or "(not supplied - this run resumed from on-disk checkpoint state)" when the process imported checkpoint.txt cells, a worker snapshot or a .dfs_state (FV2-E1, 2026-11-01)>
 ```
 
 **Future extensions (Item 2 follow-ups, not yet landed):** host fingerprint (CPU model + microcode + kernel version), per-sub-branch checksum manifest reference (see Item 5), VM provider + region + Spot/Regular priority. None of these block landing the schema above.

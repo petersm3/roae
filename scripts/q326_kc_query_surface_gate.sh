@@ -85,7 +85,7 @@ fi
 #
 # WHY BOTH AND NOT JUST THIS ONE. The runtime report alone has a false-ERROR arm the library
 # does not: a binary built by a bare `gcc -O2 ... -o solve solve.c` passes no -DSOURCE_SHA, so it
-# reports the "unknown" default (solve.c:393) and is CURRENT BY CONSTRUCTION all the same -- see
+# reports the "unknown" default (solve.c:396) and is CURRENT BY CONSTRUCTION all the same -- see
 # the `gcc -O2 ... -o ./solve_167 solve.c` line in pre_push_gate.sh's "CONDITIONAL #167 zero-yield
 # resume leg", which builds exactly that way. Erroring on it would be the same disease in
 # the other direction. So the ladder is: the library decides (and is the one that runs BEFORE any

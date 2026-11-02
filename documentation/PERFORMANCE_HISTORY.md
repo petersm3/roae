@@ -1129,7 +1129,7 @@ Three-part hardening landed to make this class of bug structurally impossible:
 1. **`scripts/build_pgo.sh`** — canonical PGO build helper. Builds both passes to the SAME output name (renames after Pass 1), so the `.gcda` lookup key matches. Asserts `.gcda` file count > 0 between passes. Adds `-Werror=missing-profile` on Pass 2. *[Note 2026-09-27, Q-828: none of these three checks could tell a training workload that was stopped from one that finished. `solve.c` answers SIGTERM by checkpointing and exiting 0, and the rc check added 2026-09-24 (Q-749) passes on rc 0, so Pass 2 could build from the profile of a workload stopped after seconds. The default workload sets `SOLVE_SKIP_AUTOMERGE`, whose exit printed the same line whether the run finished or was stopped, so no line of the log told them apart either. `solve.c` now prints a whole-line `ENUM_RUN=FINISHED` or `ENUM_RUN=STOPPED` as an enumeration run ends, and the helper requires `ENUM_RUN=FINISHED`, and no stop line, in the workload log before Pass 2. This note records the gap; it does not re-examine any bench in this log.]*
 
    > **⚠ Correction (2026-08-30):** **as of 2026-08-30 this helper can no longer build `solve.c`.** Both of its link lines — Pass 1 at
-   > `scripts/build_pgo.sh:77-78@184e3523` and Pass 2 at `:128-130@184e3523` — end in `-lm` with no `-lz`, but `solve.c:330` has
+   > `scripts/build_pgo.sh:77-78@184e3523` and Pass 2 at `:128-130@184e3523` — end in `-lm` with no `-lz`, but `solve.c:333` has
    > included `<zlib.h>` since #169, and its own comment there says "link with `-lz`" (`DEVELOPMENT.md` marks
    > `-lz` mandatory in the canonical recipe too). Running the script's exact Pass-1 command against `solve.c`
    > at this commit fails at link: rc=1, undefined references to `gzclose`, `gzfread` and friends. The
@@ -1603,7 +1603,7 @@ They live in other files and must be fixed there; each is marked at its site abo
 meantime.
 
 1. **`scripts/build_pgo.sh` cannot build `solve.c`.** Both link lines (`build_pgo.sh:77-78@184e3523` Pass 1, `:128-130@184e3523` Pass 2) end
-   in `-lm` with no `-lz`, while `solve.c:330` has included `<zlib.h>` since #169. Running the script's exact
+   in `-lm` with no `-lz`, while `solve.c:333` has included `<zlib.h>` since #169. Running the script's exact
    Pass-1 command against `solve.c` at this commit fails at link (rc=1, undefined `gzclose`/`gzfread`/…). The
    2026-05-24 entry advertises this script as the canonical reusable PGO recipe; it is not one until `-lz`
    lands, and a repo self-check should assert its Pass-1 link against HEAD `solve.c`.

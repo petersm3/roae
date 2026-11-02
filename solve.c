@@ -65,7 +65,7 @@
  *
  * 🔴 CORRECTED 2026-08-28 (Q-349). This read: *"Canonical means within each pair, the smaller
  * hexagram value comes first."* That is false in both halves. The pair table is built from King
- * Wen's own sequence — pairs[p] = (KW[2p], KW[2p+1]) at :1543 — so pairs[0] is (63, 0), storing
+ * Wen's own sequence — pairs[p] = (KW[2p], KW[2p+1]) at :1546 — so pairs[0] is (63, 0), storing
  * the LARGER value first; and every one of the 10.5 B canonical records carries byte 0 = 0x00,
  * i.e. orient 0, whose sequence begins 63 then 0. Nothing anywhere orders a pair by magnitude.
  * The collapse is done by MASKING the orientation bit, not by choosing an order within the pair.
@@ -188,9 +188,12 @@
  *   gcc -O3 -pthread -fopenmp -march=native \
  *       -DGIT_HASH=\"$(git rev-parse --short HEAD)\" -o solve solve.c -lm -lz
  *
- *   -fopenmp parallelizes the heavy --analyze loops (3-subset enumeration,
- *    4-subset enumeration, MI matrix). Without it, --analyze still works
- *    but runs single-threaded. -march=native enables popcount/AVX intrinsics.
+ *   -fopenmp is REQUIRED: the source names _OPENMP outside any #ifdef, so a
+ *    build without it fails to compile (measured 2026-11-01, gcc 13: "'_OPENMP'
+ *    undeclared"). It also parallelizes the heavy --analyze loops (3-subset
+ *    enumeration, 4-subset enumeration, MI matrix). -march=native enables
+ *    popcount/AVX intrinsics. (FV2-E1 D1344, Codex F04-003#22: this said a
+ *    build without -fopenmp still worked, single-threaded.)
  *    libgomp (the OpenMP runtime) ships with gcc and is covered by the
  *    GCC Runtime Library Exception — no LICENSE.md change needed.
  *
@@ -1896,6 +1899,7 @@ static long long current_per_branch_budget = 0;
 /* Helper: parse one checkpoint file (legacy checkpoint.txt OR per-thread
  * checkpoint_t<N>.txt). Both formats are identical line-by-line; the per-
  * thread file split is only for write-side mutex elimination (task #106). */
+static long long read_budget_sidecar(const char *bin_fname);   /* FV2-E1 D1347: defined at the end of the file */
 static void load_sub_checkpoint_file(FILE *f) {
     char line[512];
     /* Q-368: count checkpoint lines rejected for out-of-range indices. See the validation below. */
@@ -1912,7 +1916,13 @@ static void load_sub_checkpoint_file(FILE *f) {
          * natural DFS exhaustion within budget, legacy "COMPLETE" is treated
          * as EXHAUSTED here. That's conservative — in the worst case, a
          * legacy run whose labels were meaningful will skip some sub-branches
-         * on resume, which is the same behavior as old solve.c. */
+         * on resume, which is the same behavior as old solve.c.
+         * [FV2-E1 D1347 (Codex F04-002#6), 2026-11-01: superseded. Skipping a
+         * legacy COMPLETE cell whose walk was budget-limited loses its records
+         * silently, which is the wrong direction to fail. A legacy COMPLETE line
+         * now counts as done only when the cell's .budget sidecar records a budget
+         * at least the current one (0 = uncapped = infinite); otherwise the cell
+         * is re-walked, which is always correct. No current writer emits COMPLETE.] */
         if (strstr(line, "INTERRUPTED")) { q619_note_interrupted(line); continue; }  /* Q-619 #2: remembered, so promote_orphaned_shards() never adopts this cell's partial shard */
         /* Parse the budget field (new format: "...budget N" at line end;
          * old format: no budget field). If this is a BUDGETED entry and
@@ -1977,6 +1987,17 @@ static void load_sub_checkpoint_file(FILE *f) {
             if (matched == 6)
                 bad = bad || (p3v < 0 || p3v > 31) || (o3v < 0 || o3v > 1);
             if (bad) { ckpt_rejected++; continue; }
+            if (strstr(line, "Sub-branch COMPLETE ") != NULL) {   /* FV2-E1 D1347: legacy COMPLETE = BUDGETED at an unknown budget */
+                char bn[96];
+                if (matched == 6) snprintf(bn, sizeof(bn), "sub_%d_%d_%d_%d_%d_%d.bin", p1v, o1v, p2v, o2v, p3v, o3v);
+                else snprintf(bn, sizeof(bn), "sub_%d_%d_%d_%d.bin", p1v, o1v, p2v, o2v);
+                long long sb = read_budget_sidecar(bn);
+                long long eff = (current_per_branch_budget > 0) ? current_per_branch_budget : LLONG_MAX;
+                if (!(sb > 0 && sb >= eff)) {
+                    fprintf(stderr, "NOTE: legacy checkpoint line COMPLETE for %s has no .budget sidecar at or above the current budget; the cell is re-walked (FV2-E1 D1347)\n", bn);
+                    continue;
+                }
+            }
             if (n_completed_subs >= MAX_COMPLETED_SUBS) break;
             completed_sub_branches[n_completed_subs][0] = p1v;
             completed_sub_branches[n_completed_subs][1] = o1v;
@@ -2153,6 +2174,22 @@ static int promote_orphaned_shards(void) {
             if (matched != 4) continue;
             p3 = -1; o3 = -1;
         }
+        /* FV2-E1 D1350 (Codex F04-002#5): the coordinates were used unvalidated, so sub_40_0_1_0.bin (or a
+         * negative or non-canonical spelling such as sub_01_0_2_0.bin) was masked into the completion-bitmap key
+         * and could mark ANOTHER cell complete. Promote only the exact canonical spelling of an in-range cell
+         * with pairwise-distinct pairs; anything else is left alone, as a non-shard name always was. */
+        {
+            char canon[96]; int bad = 0;
+            if (p3 >= 0 || matched == 6) snprintf(canon, sizeof(canon), "sub_%d_%d_%d_%d_%d_%d.bin", p1, o1, p2, o2, p3, o3);
+            else snprintf(canon, sizeof(canon), "sub_%d_%d_%d_%d.bin", p1, o1, p2, o2);
+            if (strcmp(canon, n) != 0) bad = 1;
+            if (p1 < 0 || p1 >= 32 || p2 < 0 || p2 >= 32 || (o1 != 0 && o1 != 1) || (o2 != 0 && o2 != 1) || p1 == p2) bad = 1;
+            if (matched == 6 && (p3 < 0 || p3 >= 32 || (o3 != 0 && o3 != 1) || p3 == p1 || p3 == p2)) bad = 1;
+            if (bad) {
+                fprintf(stderr, "WARN: %s looks like a shard name but is not a canonical in-range cell; not promoted (FV2-E1 D1350)\n", n);
+                continue;
+            }
+        }
         /* Skip-list check — already-known sub-branches are no-ops */
         int is_done = (p3 >= 0)
             ? is_sub_branch_completed_d3(p1, o1, p2, o2, p3, o3)
@@ -2160,7 +2197,15 @@ static int promote_orphaned_shards(void) {
         if (is_done) { continue; } if (q619_was_interrupted(p1, o1, p2, o2, p3, o3)) { fprintf(stderr, "WARN: orphaned shard %s belongs to a sub-branch the checkpoint records as INTERRUPTED, so it holds only the records found before the stop (Q-619 #2); refusing promotion, the sub-branch will be walked again\n", n); integrity_fail++; continue; }  /* Q-619 #2: the .budget sidecar alone used to promote it */
 
         /* Integrity check: the LOGICAL size must be a positive multiple of SOL_RECORD_SIZE. Q-838 (2026-09-26): this read st_size, the COMPRESSED size of a gz shard, so ~31 of every 32 gz shards were refused */
-        long long lsz = gz_logical_size(n); { int q888_gz_stream_bad(const char *); int q941_raw_shard_bad(const char *, long long); if (lsz > 0 && lsz % SOL_RECORD_SIZE == 0 && (q888_gz_stream_bad(n) || q941_raw_shard_bad(n, lsz))) { integrity_fail++; continue; } }  /* Q-888 (5): a renamed gz shard whose data never reached the disk can carry a size trailer that passes the check below; its stream is now inflated and its CRC checked. Q-941: a shard with no gzip header has no CRC (a zero-filled block passes the size check), so its records are read and each must be well formed. gz: ISIZE trailer (per-cell shards are < 4 GiB, so exact); raw: stat size; -1 on error */
+        long long lsz = gz_logical_size(n);
+        if (lsz > 0 && file_is_gzip(n)) {   /* FV2-E1 D1320 (Codex F04-003#1, F04-008#7): the ISIZE trailer is the LAST member's size mod 2^32, so a multi-member or >= 4 GiB gz shard read short and its promoted record count was wrong. Promotion now inflates the stream (q888 below already did, for the CRC) and refuses a shard whose true size differs from its trailer. */
+            long long gz_inflated_size(const char *); long long ex = gz_inflated_size(n);
+            if (ex >= 0 && ex != lsz) {
+                fprintf(stderr, "WARN: orphaned shard %s inflates to %lld bytes but its gzip size trailer says %lld (a multi-member or >= 4 GiB stream); refusing promotion, leaving it for the LOAD path (FV2-E1 D1320)\n", n, ex, lsz);
+                integrity_fail++; continue;
+            }
+        }
+        { int q888_gz_stream_bad(const char *); int q941_raw_shard_bad(const char *, long long); if (lsz > 0 && lsz % SOL_RECORD_SIZE == 0 && (q888_gz_stream_bad(n) || q941_raw_shard_bad(n, lsz))) { integrity_fail++; continue; } }  /* Q-888 (5): a renamed gz shard whose data never reached the disk can carry a size trailer that passes the check below; its stream is now inflated and its CRC checked. Q-941: a shard with no gzip header has no CRC (a zero-filled block passes the size check), so its records are read and each must be well formed. gz: ISIZE trailer (per-cell shards are < 4 GiB, so exact); raw: stat size; -1 on error */
         if (lsz <= 0 || lsz % SOL_RECORD_SIZE != 0) {
             fprintf(stderr,
                     "WARN: orphaned shard %s failed integrity check (logical size=%lld); leaving for LOAD path\n",
@@ -2187,7 +2232,7 @@ static int promote_orphaned_shards(void) {
          * current budget). */
         long long shard_budget = read_budget_sidecar(n);
         if (shard_budget > 0) {
-            if (current_per_branch_budget > 0 && shard_budget != current_per_branch_budget) {
+            if (shard_budget != current_per_branch_budget) {   /* FV2-E1 D1351 (Codex F04-002#4): an UNCAPPED run (budget 0) promoted a shard written under a finite budget, inheriting a budget-truncated cell as exhaustive; any mismatch now refuses */
                 fprintf(stderr,
                         "WARN: orphaned shard %s was generated at per-sub-branch budget %lld, "
                         "current run is at %lld (Outlier #5); refusing promotion. LOAD path "
@@ -2352,6 +2397,7 @@ static long long read_budget_sidecar(const char *bin_fname) {
 
 /* Forward decls for runtime flags read by the provenance helpers below. */
 extern int dfs_iterative_enabled;
+extern int g_resume_restored;  /* FV2-E1 D1316: set when this process imported any on-disk resume state */
 extern int dfs_checkpoint_enabled;
 
 /* ---------- Metadata-equivalence retool 2026-05-26 (task #102) ----------
@@ -2373,8 +2419,9 @@ static int compute_host_fingerprint(char out_hex[65]) {
     const char *tool = sha256_tool();
     if (!tool) { strcpy(out_hex, "unknown"); return -1; }
     /* Build fingerprint input in /tmp file (avoids shell-quote pain). */
-    char tmp_in[64];
-    snprintf(tmp_in, sizeof(tmp_in), "/tmp/solve_hfp_in_%d_XXXXXX", (int)getpid()); int g6_hfd = mkstemp(tmp_in);   /* G6 F04-002#12: one private file per call; the PID-named file was shared by every worker */
+    char tmp_in[PATH_MAX]; int solve_mktemp(char *, size_t, const char *);
+    int g6_hfd = solve_mktemp(tmp_in, sizeof(tmp_in), "solve_hfp_in") == 0 ? open(tmp_in, O_WRONLY | O_TRUNC) : -1;   /* FV2-E1 D1358: under TMPDIR */
+    if (g6_hfd < 0 && tmp_in[0]) unlink(tmp_in);   /* G6 F04-002#12: one private file per call; the PID-named file was shared by every worker */
     FILE *tf = g6_hfd >= 0 ? fdopen(g6_hfd, "w") : NULL;
     if (!tf) { if (g6_hfd >= 0) { close(g6_hfd); unlink(tmp_in); } strcpy(out_hex, "unknown"); return -1; }
     /* uname -a */
@@ -2399,8 +2446,8 @@ static int compute_host_fingerprint(char out_hex[65]) {
     }
     fclose(tf);
     /* sha256 it */
-    char cmd[256];
-    snprintf(cmd, sizeof(cmd), "%s %s 2>/dev/null", tool, tmp_in);
+    char cmd[2 * PATH_MAX + 64]; const char *g6_q(const char *);
+    snprintf(cmd, sizeof(cmd), "%s %s 2>/dev/null", tool, g6_q(tmp_in));   /* FV2-E1 D1358: TMPDIR may hold any byte */
     FILE *p = popen(cmd, "r");
     if (!p) { unlink(tmp_in); strcpy(out_hex, "unknown"); return -1; }
     char buf[256] = {0};
@@ -2537,7 +2584,7 @@ static void append_shard_provenance(const char *bin_fname,
                                      long long budget,
                                      long long nodes_explored,
                                      long long records_emitted,
-                                     const char *status) {
+                                     const char *status, int shard_resumed) {
     if (budget <= 0) return;  /* nothing meaningful to record */
     char prov_path[160], tmp_path[160];
     int n1 = snprintf(prov_path, sizeof(prov_path), "%s.provenance.json", bin_fname);
@@ -2553,8 +2600,8 @@ static void append_shard_provenance(const char *bin_fname,
     char tbuf[64];
     time_t now = time(NULL); struct tm tm_b;
     strftime(tbuf, sizeof(tbuf), "%Y-%m-%dT%H:%M:%SZ", gmtime_r(&now, &tm_b));
-    const char *rh = getenv("SOLVE_RESUME_HISTORY");
-    char rh_esc[1024]; json_escape(rh && *rh ? rh : "(none - clean single-shot run)", rh_esc, sizeof(rh_esc));
+    const char *rh = getenv("SOLVE_RESUME_HISTORY");   /* FV2-E1 D1316: this shard's own walk decides the label when the operator supplied none */
+    char rh_esc[1024]; json_escape(rh && *rh ? rh : shard_resumed ? "(not supplied - this write resumed the cell from its .dfs_state)" : "(none - clean single-shot run)", rh_esc, sizeof(rh_esc));
 
     /* Auto-detect extension: if prior .provenance.json exists and recorded
      * a smaller final_per_sub_branch_limit than the current budget, this
@@ -3129,6 +3176,37 @@ static int prov_check_string_field(const char *a, const char *b, const char *key
 
 /* Compare two sub-objects for byte-identity, normalizing only whitespace.
  * Used for shards_by_final_status + final_budget_distribution. */
+/* FV2-E1 D1367 (Codex F12-003#4): a whitespace-normalised JSON object {"k":v,...} rewritten in place with its
+ * top-level members in sorted order, so two objects that differ only in member order compare equal (the
+ * byte-wise compare failed --compare-provenance on the same budget distribution written in another order).
+ * Members are split at depth-1 commas outside string literals. Anything that is not one object is left as is. */
+static int prov_member_cmp(const void *x, const void *y) { return strcmp(*(char *const *)x, *(char *const *)y); }
+static void prov_sort_members(char *o) {
+    size_t n = strlen(o);
+    if (n < 2 || o[0] != '{' || o[n - 1] != '}') return;
+    char *body = malloc(n), *out = malloc(n + 1);
+    char **mem = malloc(sizeof(char *) * (n / 2 + 1));
+    if (!body || !out || !mem) { free(body); free(out); free(mem); return; }
+    memcpy(body, o + 1, n - 2); body[n - 2] = '\0';
+    size_t nm = 0; int depth = 0, in_str = 0, esc = 0; char *start = body;
+    for (char *q = body; ; q++) {
+        if (*q == '\0') { if (q > start) mem[nm++] = start; break; }
+        if (esc) { esc = 0; continue; }
+        if (*q == '\\') { esc = 1; continue; }
+        if (*q == '"') { in_str = !in_str; continue; }
+        if (in_str) continue;
+        if (*q == '{' || *q == '[') depth++;
+        else if (*q == '}' || *q == ']') depth--;
+        else if (*q == ',' && depth == 0) { *q = '\0'; mem[nm++] = start; start = q + 1; }
+    }
+    if (depth != 0 || in_str) { free(body); free(out); free(mem); return; }
+    qsort(mem, nm, sizeof(char *), prov_member_cmp);
+    size_t j = 0; out[j++] = '{';
+    for (size_t i = 0; i < nm; i++) { size_t l = strlen(mem[i]); if (i) out[j++] = ','; memcpy(out + j, mem[i], l); j += l; }
+    out[j++] = '}'; out[j] = '\0';
+    if (j <= n) memcpy(o, out, j + 1);
+    free(body); free(out); free(mem);
+}
 static int prov_check_object_field(const char *a, const char *b, const char *key, int *fail_count) {
     char *oa = prov_extract_object(a, key);
     char *ob = prov_extract_object(b, key);
@@ -3162,6 +3240,7 @@ static int prov_check_object_field(const char *a, const char *b, const char *key
         nb[jb++] = ob[i];
     }
     nb[jb] = '\0';
+    prov_sort_members(na); prov_sort_members(nb);   /* FV2-E1 D1367: member order is not content */
     int ok = (strcmp(na, nb) == 0);
     if (!ok) {
         fprintf(stderr, "  [FAIL] object %s differs:\n    A=%s\n    B=%s\n", key, na, nb);
@@ -3351,13 +3430,14 @@ static int do_emit_shard_manifest(const char *manifest_path) {
              "f=\"$1\"; "
              "magic=$(dd if=\"$f\" bs=1 count=2 2>/dev/null | od -An -tx1 | tr -d \" \\n\"); "
              "if [ \"$magic\" = \"1f8b\" ]; then "
+             "  gzip -t \"$f\" 2>/dev/null || exit 1; "   /* FV2-E1 D1373: `gzip -dc | sha` hid a corrupt stream behind a short, well-formed row */
              "  sz=$(gzip -dc \"$f\" 2>/dev/null | wc -c); "
              "  sh=$(gzip -dc \"$f\" 2>/dev/null | %s | cut -d\" \" -f1); "
              "else "
-             "  sz=$(stat -c%%s \"$f\" 2>/dev/null) || exit 0; "
+             "  sz=$(stat -c%%s \"$f\" 2>/dev/null) || exit 1; "
              "  sh=$(%s \"$f\" 2>/dev/null | cut -d\" \" -f1); "
              "fi; "
-             "[ -n \"$sh\" ] && printf \"%%s\\t%%s\\t%%s\\n\" \"$f\" \"$sz\" \"$sh\""
+             "[ -n \"$sh\" ] || exit 1; printf \"%%s\\t%%s\\t%%s\\n\" \"$f\" \"$sz\" \"$sh\""
              "' _ | LC_ALL=C sort > %s",
              threads, tool, tool, g6_q(tmp_path)) >= (int)sizeof(cmd)) return 30;
     int rc = system(cmd);
@@ -3388,6 +3468,26 @@ static int do_emit_shard_manifest(const char *manifest_path) {
     { char lb[8192]; while (fgets(lb, sizeof(lb), tf)) emitted++; }
     fclose(tf);
     if (emitted == 0) { unlink(tmp_path); return 23; }
+    {   /* FV2-E1 D1373 (Codex F04-001#12): the pipeline's status is sort's, so a shard the worker could not hash
+         * was silently absent from the manifest and rc stayed 0. Every file the find selects (a regular
+         * sub_*.bin in this directory) must have its row; otherwise nothing is installed (any existing
+         * manifest is left untouched, as for the Q-457 empty case) and the emit fails. */
+        int on_disk = 0; DIR *dd = opendir(".");
+        if (!dd) { unlink(tmp_path); return 30; }
+        struct dirent *de; struct stat lst;
+        while ((de = readdir(dd)) != NULL) {
+            size_t l = strlen(de->d_name);
+            if (l >= 8 && strncmp(de->d_name, "sub_", 4) == 0 && strcmp(de->d_name + l - 4, ".bin") == 0
+                && lstat(de->d_name, &lst) == 0 && S_ISREG(lst.st_mode)) on_disk++;
+        }
+        closedir(dd);
+        if (emitted != on_disk) {
+            fprintf(stderr, "ERROR: shard manifest has %d row(s) for %d shard file(s): a shard could not be read or hashed "
+                    "(see its name by comparing the two); not installing %s\nSHARD_MANIFEST=INCOMPLETE\n",
+                    emitted, on_disk, manifest_path);
+            unlink(tmp_path); return 30;
+        }
+    }
     if (rename(tmp_path, manifest_path) != 0) {
         fprintf(stderr, "ERROR: cannot install manifest %s: %s\n", manifest_path, strerror(errno));
         unlink(tmp_path);
@@ -3398,6 +3498,23 @@ static int do_emit_shard_manifest(const char *manifest_path) {
 
 /* Verify a shard manifest. Returns 0 on PASS, 22 on any failure, 30 on
  * infrastructure error (manifest unreadable). Out-params receive counts. */
+/* FV2-E1 D1388 (Codex F04-002#18): failed manifest rows whose shard has NO .dfs_state beside it -- divergence
+ * that a legitimate resume does not explain. Counted per shard by do_verify_shard_manifest; the startup check
+ * used to compare only the failure COUNT with the number of .dfs_state files in the directory, so one corrupt
+ * completed shard beside one unrelated resuming cell (1 failure, 1 frontier) drew no warning at all. */
+static int g_mf_unexplained = 0;
+static int mf_shard_has_dfs_state(const char *fname) {
+    char p[600]; size_t n = strlen(fname);
+    if (n < 4 || n + 7 >= sizeof(p) || strcmp(fname + n - 4, ".bin") != 0) return 0;
+    memcpy(p, fname, n - 4); memcpy(p + n - 4, ".dfs_state", 11);
+    return access(p, F_OK) == 0;
+}
+static void mf_note_failure(const char *fname) {
+    if (!mf_shard_has_dfs_state(fname)) {
+        g_mf_unexplained++;
+        fprintf(stderr, "UNEXPLAINED: %s failed the manifest check and carries no .dfs_state (not a resuming cell)\n", fname);
+    }
+}
 static int do_verify_shard_manifest(const char *manifest_path,
                                     int *out_total, int *out_missing,
                                     int *out_shrunk, int *out_diverged) {
@@ -3452,7 +3569,9 @@ static int do_verify_shard_manifest(const char *manifest_path,
              "fname=$(printf \"%%s\" \"$line\" | cut -f1); "
              "sz=$(printf \"%%s\" \"$line\" | cut -f2); "
              "sha=$(printf \"%%s\" \"$line\" | cut -f3); "
-             "[ -z \"$fname\" ] && exit 0; case \"$sz\" in \"\"|*[!0-9]*) printf \"DIVERGED\\t%%s\\tmalformed-manifest-size\\t%%s\\n\" \"$fname\" \"$sha\"; exit 0;; esac; shabad=; case \"$sha\" in *[!0-9a-f]*) shabad=1;; esac; if [ -n \"$shabad\" ] || [ ${#sha} -ne 64 ]; then printf \"DIVERGED\\t%%s\\tmalformed-manifest-sha\\t%%s\\n\" \"$fname\" \"$sha\"; exit 0; fi; "  /* A11R #6: a size that is not a decimal made `head -c` and `[ -lt ]` fail silently and the empty-stream sha then MATCHED; the manifest line is validated (decimal size, 64 lowercase hex) before either is used */
+             /* FV2-E1 D1375 (Codex F04-002#17): a size of 19+ digits overflows the shell's integer tests, both of which then
+                fail, so the row rested on the sha alone; it is now malformed (DIVERGED) like any non-decimal size. */
+             "[ -z \"$fname\" ] && exit 0; case \"$sz\" in \"\"|*[!0-9]*|???????????????????*) printf \"DIVERGED\\t%%s\\tmalformed-manifest-size\\t%%s\\n\" \"$fname\" \"$sha\"; exit 0;; esac; shabad=; case \"$sha\" in *[!0-9a-f]*) shabad=1;; esac; if [ -n \"$shabad\" ] || [ ${#sha} -ne 64 ]; then printf \"DIVERGED\\t%%s\\tmalformed-manifest-sha\\t%%s\\n\" \"$fname\" \"$sha\"; exit 0; fi; "  /* A11R #6: a size that is not a decimal made `head -c` and `[ -lt ]` fail silently and the empty-stream sha then MATCHED; the manifest line is validated (decimal size, 64 lowercase hex) before either is used */
              "if [ ! -f \"$fname\" ]; then "
              "  printf \"MISSING\\t%%s\\t%%s\\n\" \"$fname\" \"$sz\"; exit 0; "
              "fi; "
@@ -3499,24 +3618,25 @@ static int do_verify_shard_manifest(const char *manifest_path,
         return 30;
     }
     int missing = 0, shrunk = 0, diverged = 0;
+    g_mf_unexplained = 0;
     char outline[4096];
     while (fgets(outline, sizeof(outline), p)) {
         if (strncmp(outline, "MISSING\t", 8) == 0) {
             char fname[512]; long long sz = 0;
-            if (sscanf(outline + 8, "%511s %lld", fname, &sz) >= 1)
-                fprintf(stderr, "MISSING: %s (was %lld bytes at manifest time)\n", fname, sz);
+            if (sscanf(outline + 8, "%511s %lld", fname, &sz) >= 1) {
+                fprintf(stderr, "MISSING: %s (was %lld bytes at manifest time)\n", fname, sz); mf_note_failure(fname); }
             missing++;
         } else if (strncmp(outline, "SHRUNK\t", 7) == 0) {
             char fname[512]; long long actual_sz = 0, sz = 0;
-            if (sscanf(outline + 7, "%511s %lld %lld", fname, &actual_sz, &sz) >= 1)
+            if (sscanf(outline + 7, "%511s %lld %lld", fname, &actual_sz, &sz) >= 1) {
                 fprintf(stderr, "SHRUNK: %s now %lld bytes, manifest had %lld\n",
-                        fname, actual_sz, sz);
+                        fname, actual_sz, sz); mf_note_failure(fname); }
             shrunk++;
         } else if (strncmp(outline, "DIVERGED\t", 9) == 0) {
             char fname[512], got[128] = {0}, sha[128] = {0};
-            if (sscanf(outline + 9, "%511s %127s %127s", fname, got, sha) >= 1)
+            if (sscanf(outline + 9, "%511s %127s %127s", fname, got, sha) >= 1) {
                 fprintf(stderr, "DIVERGED: %s - sha=%s, manifest=%s\n",
-                        fname, got, sha);
+                        fname, got, sha); mf_note_failure(fname); }
             diverged++;
         }
     }
@@ -3751,8 +3871,16 @@ static int resume_contract_check_and_stamp(int n_threads, int depth,
         }
         fclose(f);
         if (frontier) {
-            int mismatch = (st_threads > 0 && st_threads != n_threads) ||
-                           (st_depth > 0 && st_depth != depth);
+            /* FV2-E1 D1385 (Codex F04-001#11): both fields defaulted to -1 and the test was guarded on `> 0`,
+             * so a stamp whose threads= or depth= line was missing or malformed disabled the comparison and
+             * read as a MATCH over a live frontier. Every stamp this code writes carries both, so a stamp
+             * without a well-formed pair is now a violation like a mismatch (same override). */
+            const int stamp_malformed = !(st_threads >= 1 && st_threads <= 65536 && st_depth >= 1 && st_depth <= 32);
+            if (stamp_malformed)
+                fprintf(stderr, "[resume-contract] %s has no well-formed threads=/depth= pair (read threads=%d depth=%d); "
+                        "the interrupted run's shape cannot be verified (FV2-E1 D1385)\nRESUME_CONTRACT=MALFORMED\n",
+                        fname, st_threads, st_depth);
+            int mismatch = stamp_malformed || st_threads != n_threads || st_depth != depth;
             if (mismatch) {
                 const char *ov = getenv("SOLVE_RESUME_SHAPE_OVERRIDE");
                 if (ov && atoi(ov) == 1) {
@@ -3865,7 +3993,14 @@ static int auto_verify_shard_manifest_if_exists(void) {
      * and proceed. Real integrity on resume is enforced by per-shard headers,
      * the .budget sidecar + Outlier-#5 re-walk, and — authoritatively — the
      * merge-time sha-gate against the canonical sha. A fresh manifest is
-     * re-emitted right after promotion, so the snapshot is brought current. */
+     * re-emitted right after promotion, so the snapshot is brought current.
+     * FV2-E1 D1388: the merge does NOT compare shards with their manifest rows
+     * (its manifest cross-ref checks only that each listed shard is present), and only a merged
+     * output with a published canonical sha has a sha-gate at all; so failures
+     * of shards with no .dfs_state are now named one by one and counted
+     * (AUTO_MANIFEST_UNEXPLAINED=<n>). The exit status is unchanged: a shard that
+     * finished EXHAUSTED during an interrupted extension has lost its .dfs_state
+     * legitimately, so making this fatal could re-open the #163 false abort. */
     int n_resuming = resuming_shard_count();
     if (n_resuming > 0) {
         int n_failed = missing + shrunk + diverged;
@@ -3873,10 +4008,17 @@ static int auto_verify_shard_manifest_if_exists(void) {
             "[hardening] auto-verify-manifest ADVISORY on resume/extension "
             "(%d total: %d missing, %d shrunk, %d diverged; %d shard(s) carry a .dfs_state) — "
             "expected when shards legitimately advanced past the prior snapshot; NOT fatal (#164). "
-            "Final correctness is enforced by the merge-time sha-gate; a fresh manifest is "
+            "The merge does not re-check these shards' bytes against this manifest (its cross-ref checks only that "
+            "each listed shard is present); a fresh manifest is "
             "re-emitted after promotion. Override with SOLVE_SKIP_AUTO_MANIFEST=1 to "
             "skip this check entirely.\n",
             total, missing, shrunk, diverged, n_resuming);
+        fprintf(stderr, "AUTO_MANIFEST_UNEXPLAINED=%d\n", g_mf_unexplained);   /* FV2-E1 D1388 */
+        if (g_mf_unexplained > 0)
+            fprintf(stderr,
+                "[hardening] 🔴 SCOPE WARNING (FV2-E1 D1388): %d failed shard(s) carry no .dfs_state, so a resume does "
+                "not explain them (each is named UNEXPLAINED above). Inspect them before trusting the merge: a shard "
+                "that finished EXHAUSTED in an interrupted extension is the only legitimate cause.\n", g_mf_unexplained);
         if (n_failed > n_resuming) {
             fprintf(stderr,
                 "[hardening] 🔴 SCOPE WARNING (Q-367): %d shard(s) failed the manifest check but only "
@@ -4848,6 +4990,15 @@ static void analyze_solution(ThreadState *ts, const int seq[64]) {
  *   - Stack depth bounded by 34 frames (depth 0 to 32, plus sentinel).
  */
 int dfs_iterative_enabled = 0;
+/* FV2-E1 D1316 (Codex F04-002#24): 1 once this process imported on-disk resume state -- completed cells from
+ * checkpoint.txt, a --sub-branch worker snapshot (sub_ckpt_load) or a cell's .dfs_state. The sidecars used to
+ * print "clean single-shot run" whenever SOLVE_RESUME_HISTORY was unset, even after a resume. */
+int g_resume_restored = 0;
+const char *resume_history_label(void) {
+    const char *rh = getenv("SOLVE_RESUME_HISTORY");
+    if (rh && *rh) return rh;
+    return g_resume_restored ? "(not supplied - this run resumed from on-disk checkpoint state)" : "(none - clean single-shot run)";
+}
 
 #define DFSITER_PHASE_ENTER  0  /* first time at this depth — counter++, budget check, leaf check */
 #define DFSITER_PHASE_RETRY  1  /* return-from-child — restore iter state, advance to next iter */
@@ -9987,6 +10138,13 @@ static void *thread_func_single(void *arg) {
             }
         }
 
+        /* FV2-E1 D1308 (Codex F09-H01#30): a v2 resume re-ENTERs the captured frame, whose ENTER the prior
+         * invocation already counted (dfs_state_write_v2 saves branch_nodes - 1 for exactly this reason), so this
+         * invocation's ts->nodes delta is one higher than the nodes it adds. The provenance sidecar sums the
+         * per-write figures, so it subtracts the replayed node; the walk, its counters and stdout are unchanged. */
+        const int prov_replayed_node = ts->dfs_v2_resume_active ? 1 : 0;
+        const int walk_resumed = (ts->dfs_resume_active || ts->dfs_v2_resume_active) ? 1 : 0;
+        if (walk_resumed) g_resume_restored = 1;   /* FV2-E1 D1316 */
         if (dfs_iterative_enabled) {
             backtrack_iterative(ts, seq, &used_mask, budget, backtrack_start_step);  /* task #72 Phase B */
         } else {
@@ -10074,8 +10232,9 @@ static void *thread_func_single(void *arg) {
                                          sb->pair3 >= 0 ? sb->pair3 : -1,
                                          sb->pair3 >= 0 ? sb->orient3 : -1,
                                          per_branch_node_limit,
-                                         sub_nodes, (long long)sub_solutions,
-                                         sb_status);
+                                         sub_nodes > prov_replayed_node ? sub_nodes - prov_replayed_node : sub_nodes,
+                                         (long long)sub_solutions,
+                                         sb_status, walk_resumed);
             }
         } else if (ts->sol_table) {
             memset(ts->sol_table, 0, (size_t)ts->ht_size * SOL_RECORD_SIZE);
@@ -10188,11 +10347,13 @@ static void *thread_func_single(void *arg) {
 
 /* Enumerate valid (p4, o4, p5, o5) extensions of the shared depth-3 prefix.
  * Populates sub_sub_tasks[] and sets n_sub_sub_tasks. Tasks emitted in
- * lex (p4, o4, p5, o5) order — important: workers pull in this same order,
- * so the output of a BUDGETED run is {tasks 0..K-1} where K is the count
- * that completed before budget was hit, and lex-smallest-wins dedup in
- * analyze_solution collapses any canonical-equivalent solutions to a
- * deterministic winner regardless of thread scheduling.
+ * lex (p4, o4, p5, o5) order, and workers pull in this same order. A BUDGETED
+ * run's output is the union of the tasks that completed plus the partial
+ * records of the tasks still in flight when the budget was hit, so it depends
+ * on thread scheduling; only an EXHAUSTED run is scheduling-independent, and
+ * there lex-smallest-wins dedup in analyze_solution fixes the representative
+ * of each canonical-equivalence class. (FV2-E1 D1309, Codex F04-002#23: this
+ * said a budgeted run's output was exactly {tasks 0..K-1}.)
  *
  * Pruning matches the per-step logic in backtrack() exactly at each depth:
  *   depth 4: p4 not used, Hamming(s3, f4) != 5, budget has room for bd4+wd4
@@ -10382,7 +10543,7 @@ static long long sub_ckpt_load(ThreadState *consolidate_into) { int g6_ckpt_vali
         long long v;
         if (sscanf(line, "shared_nodes %lld", &v) == 1) shared = v;
     }
-    fclose(mf); if (g6_ckpt_validate() != 0) exit(30);   /* G6 F04-002#6, F04-017#2: every worker snapshot must have its task list and record count, and match it */
+    fclose(mf); if (g6_ckpt_validate() != 0) exit(30); g_resume_restored = 1;   /* FV2-E1 D1316 */   /* G6 F04-002#6, F04-017#2: every worker snapshot must have its task list and record count, and match it */
 
     /* Pre-size consolidation table to max(2^24, 2*total_records) slots.
      * Loading N records into a 2^24 = 16.7M-slot table when N >> 16M causes
@@ -11029,14 +11190,7 @@ static int write_sha256_with_metadata(const char *bin_name, const char *sha_name
     fprintf(sf, "# SOLVE_DFS_CHECKPOINT=%d\n", dfs_checkpoint_enabled);
     if (per_sub_branch_override > 0)
         fprintf(sf, "# SOLVE_PER_SUB_BRANCH_LIMIT=%lld\n", per_sub_branch_override);
-    {
-        const char *rh = getenv("SOLVE_RESUME_HISTORY");
-        if (rh && *rh) {
-            fprintf(sf, "# SOLVE_RESUME_HISTORY: %s\n", rh);
-        } else {
-            fprintf(sf, "# SOLVE_RESUME_HISTORY: (none - clean single-shot run)\n");
-        }
-    }
+    fprintf(sf, "# SOLVE_RESUME_HISTORY: %s\n", resume_history_label());   /* FV2-E1 D1316 */
     /* stdio latches write errors, so one ferror() before the close covers every fprintf above. */
     if (ferror(sf)) {
         fprintf(stderr, "ERROR: write error while producing %s (the sidecar is incomplete)\n",
@@ -13597,9 +13751,11 @@ static void run_c3_min(const char *filename) {
     int min_c3 = 100000;
     long long count_at_min = 0;
     long long count_at_max = 0;
-    int kw_idx = -1;  /* record index of KW if found */
+    long long kw_idx = -1;  /* record index of KW if found */
     int kw_c3_observed = -1;
-    int histogram[5000] = {0};  /* C3 histogram (should never exceed ~2048 practically) */
+    long long histogram[5000] = {0};  /* C3 histogram (should never exceed ~2048 practically) */
+    /* FV2-E1 D1321 (Codex F04-008#12): kw_idx and the counters were int, so a record index or a bucket past
+     * 2^31-1 truncated or wrapped (the 2026-08-15 full-31 file already holds 1,776,347,935 records). */
     int max_c3_observed = 0;
     time_t start = time(NULL);
 
@@ -13634,7 +13790,7 @@ static void run_c3_min(const char *filename) {
         for (int i = 0; i < 64 && is_kw; i++) {
             if (seq[i] != KW[i]) is_kw = 0;
         }
-        if (is_kw) { kw_idx = (int)r; kw_c3_observed = c3; }
+        if (is_kw) { kw_idx = r; kw_c3_observed = c3; }
 
         if ((r & 0xFFFFFFULL) == 0 && r > 0) {
             time_t now = time(NULL);
@@ -13835,7 +13991,7 @@ static F1U192 f1_shr(F1U192 a, int s) {
 }
 
 /* a << s as a GATE primitive: returns 0 when the result does not fit in 192 bits,
- * instead of aborting. f1_mul_small aborts (:13883), which is right for an accumulator
+ * instead of aborting. f1_mul_small aborts (:14039), which is right for an accumulator
  * and wrong for a check -- a gate must be able to report "this does not fit" and FAIL
  * the table, never take the process down. (KCP5 #3, Fable adjudication 2026-09-12.) */
 static int f1_shl_fits(F1U192 a, int s, F1U192 *out) {
@@ -14350,6 +14506,8 @@ static int f1_try_resume(const char *dir, const F1Ctx *c, F1Layer *L) {
     char line[2048];
     int n = -1, se = -1, lk = -1;
     unsigned long long ph = 0;
+    F1_CHECK(fgets(line, sizeof(line), f) != NULL && strcmp(line, "f1_manifest_v1\n") == 0,   /* FV2-E1 D1325 sibling: the kind tag */
+             "manifest %s does not begin with the line f1_manifest_v1 -- wrong --layers-dir?", path);
     while (fgets(line, sizeof(line), f)) {
         sscanf(line, "n=%d", &n);
         sscanf(line, "start_exit=%d", &se);
@@ -14378,6 +14536,23 @@ static int f1_try_resume(const char *dir, const F1Ctx *c, F1Layer *L) {
     if ((L->nm && fread(L->masks, sizeof(uint32_t), L->nm, f) != L->nm) ||
         (L->nm && fread(L->vals, sizeof(F1U192), L->nm * 64, f) != L->nm * 64))
         f1_ckpt_io_abort("fread body", path);
+    /* FV2-E1 D1322 (Codex F04-005#1): the header's n_masks was trusted, so a truncated predecessor layer with
+     * n_masks = 0 resumed into an exact count of 0 printed as a result. The layer must hold EXACTLY the canonical
+     * masks of popcount lk (the enumeration f1_build uses for that layer; layer 0 is {0}) and end there. */
+    {
+        int extra = fgetc(f) != EOF;
+        int same = 0;
+        if (lk == 0) same = (L->nm == 1 && L->masks[0] == 0);
+        else {
+            void f1_enum_canonical_ext(const F1Ctx *, int, uint32_t **, uint64_t *);
+            uint32_t *cm = NULL; uint64_t cn = 0;
+            f1_enum_canonical_ext(c, lk, &cm, &cn);
+            same = (cn == L->nm && (cn == 0 || memcmp(cm, L->masks, sizeof(uint32_t) * cn) == 0));
+            free(cm);
+        }
+        F1_CHECK(same && !extra, "layer file %s does not hold exactly the canonical masks of popcount %d (n_masks=%llu%s) -- refusing to resume from it",
+                 path, lk, (unsigned long long)L->nm, extra ? ", trailing bytes" : "");
+    }
     fclose(f);
     return lk;
 }
@@ -14451,6 +14626,7 @@ static void f1_enum_canonical(const F1Ctx *c, int k1, uint32_t **out, uint64_t *
     *out = masks;
     *nout = nm;
 }
+void f1_enum_canonical_ext(const F1Ctx *c, int k1, uint32_t **out, uint64_t *nout) { f1_enum_canonical(c, k1, out, nout); }   /* FV2-E1 D1322: for f1_try_resume, defined above it */
 
 /* Phase B: gather. For each canonical target of layer k+1, pull from each
  * canonicalized predecessor, mapping stored `last` keys through the INVERSE
@@ -15806,6 +15982,13 @@ static int f1c5_try_resume_as(const char *dir, const char *pfx, int is_g,
     int n = -1, se = -1, lk = -1, mb0[5] = {-1, -1, -1, -1, -1};
     int mg = 0, mg_c5 = -1, mg_nc2 = -1;
     unsigned long long ph = 0;
+    {   /* FV2-E1 D1325 (Codex F12-014#3): line 1 is the manifest's kind/version tag (GT_LADDER_FORMAT.md) and was
+         * never read, so a t_manifest_v1 manifest with matching metadata resumed (and updated) a g ladder */
+        char tag[64], want[64];
+        snprintf(want, sizeof(want), "%s_manifest_v1\n", pfx);
+        F1_CHECK(fgets(tag, sizeof(tag), f) != NULL && strcmp(tag, want) == 0,
+                 "manifest %s does not begin with the line %s_manifest_v1 -- not a %s manifest (wrong --layers-dir?)", path, pfx, pfx);
+    }
     while (fgets(line, sizeof(line), f)) {
         sscanf(line, "n=%d", &n);
         sscanf(line, "start_exit=%d", &se);
@@ -15869,6 +16052,19 @@ static int f1c5_try_resume_as(const char *dir, const char *pfx, int is_g,
             (!idx_only && L->ne && fread(L->keys, sizeof(uint32_t), L->ne, f) != L->ne) ||
             (!idx_only && L->ne && fread(L->vals, sizeof(F1U192), L->ne, f) != L->ne))
             f1_ckpt_io_abort("fread body", path);
+        /* FV2-E1 D1326 (Codex F04-008#22): resumed keys were used raw; a stored last >= 64 indexes ginv[] out of
+         * bounds in the gather and a rid >= R reads past the budget tables. Every mask must have popcount lk,
+         * every key a last < 64 (after stripping a C3 key's gofs) and a rid inside the budget's rid space. */
+        for (uint64_t mi = 0; mi < L->nm; mi++)
+            F1_CHECK(__builtin_popcount(L->masks[mi]) == lk, "resumed layer %s: mask %llu has popcount %d, not k=%d", path,
+                     (unsigned long long)mi, __builtin_popcount(L->masks[mi]), lk);
+        if (!idx_only)
+            for (uint64_t e = 0; e < L->ne; e++) {
+                const uint32_t key = L->keys[e];
+                const uint32_t last = gm ? ((key >> 16) & 0x3fu) : (key >> 16);
+                F1_CHECK(last < 64 && (key & 0xffffu) < B->R, "resumed layer %s: key %llu (0x%08x) is out of range (last %u, rid %u, R %u)",
+                         path, (unsigned long long)e, key, last, key & 0xffffu, B->R);
+            }
     }
     fclose(f);
     { const char *ixw = a11r_layer_index_why(L->masks, L->off, NULL, L->nm, L->ne); F1_CHECK(!ixw, "resume offset table corrupt: %s (%s)", ixw, path); }  /* A11R #3: was endpoints only */
@@ -16161,6 +16357,20 @@ static void f1c5_deflate_block(const void *src, uLong srcLen,
 
 /* Decompress srcLen bytes into dst; the caller-supplied expected decompressed
  * size dstLen is verified exactly (torn/short data hard-fails). */
+/* FV2-E1 D1327 (Codex F12-002#13): the same one-stream check, returning -1 (with the reason on stderr) instead of
+ * aborting, for the read-only layer tools whose documented answer to a corrupt input is an ERROR line and exit 2;
+ * the build and resume paths keep the abort (f1c5_inflate_block below). */
+static int f1c5_inflate_block_rc(const void *src, uLong srcLen, Bytef *dst, uLongf dstLen) {
+    z_stream zs; memset(&zs, 0, sizeof zs); int rc = inflateInit(&zs); zs.next_in = (Bytef *)src; zs.avail_in = (uInt)srcLen; zs.next_out = dst; zs.avail_out = (uInt)dstLen;
+    if (rc == Z_OK) { rc = inflate(&zs, Z_FINISH); } uLong out = zs.total_out; uInt left = zs.avail_in; inflateEnd(&zs);
+    if (rc == Z_STREAM_END && out == dstLen && left == 0) return 0;
+    fprintf(stderr, "ERROR: f1c5 inflate block failed (zlib rc=%d, got=%lu want=%lu, %u unread source byte(s))\n",
+            rc, (unsigned long)out, (unsigned long)dstLen, (unsigned)left);
+    return -1;
+}
+/* FV2-E1 D1327: set by the --f1c5-layer-sha / --f1c5-layer-cmp handlers only; f1c5_lstream_next then reports a short
+ * read or a corrupt block by setting f1c5_lstream_failed and ending the stream, instead of exiting 71. */
+static __thread int f1c5_lstream_soft = 0, f1c5_lstream_failed = 0;
 static void f1c5_inflate_block(const void *src, uLong srcLen,
                                Bytef *dst, uLongf dstLen) {   /* Codex KCV R14 (2026-09-29): ONE stream that fills dst exactly AND consumes every source byte; uncompress() stopped at the first stream end and ignored trailing bytes in the block's span */
     z_stream zs; memset(&zs, 0, sizeof zs); int rc = inflateInit(&zs); zs.next_in = (Bytef *)src; zs.avail_in = (uInt)srcLen; zs.next_out = dst; zs.avail_out = (uInt)dstLen;
@@ -16262,11 +16472,11 @@ static int f1c5_verify_layer(const char *v1path, const char *v2path) {
         uint64_t kc = kidx[b + 1] - kidx[b]; if (kidx[b + 1] < kidx[b] || kc > (uint64_t)compressBound(24ull * F1C5_OOC_BLK)) { fprintf(stderr, "v2 key index corrupt at block %llu (length %llu exceeds the %llu-byte block bound)\n", (unsigned long long)b, (unsigned long long)kc, (unsigned long long)compressBound(24ull * F1C5_OOC_BLK)); return 2; }   /* G6 F04-005#2, F12-013#1, F12-014#8: bounded BEFORE the fread into cb */
         fseek(f2, kblk_base + (long)kidx[b], SEEK_SET);
         if (fread(cb, 1, kc, f2) != kc) { fprintf(stderr, "v2 kblock read\n"); return 2; }
-        f1c5_inflate_block(cb, kc, (Bytef *)(k2 + e0), 4ull * bn);
+        if (f1c5_inflate_block_rc(cb, kc, (Bytef *)(k2 + e0), 4ull * bn) != 0) { fprintf(stderr, "v2 key block %llu corrupt\n", (unsigned long long)b); return 2; }   /* FV2-E1 D1327: exit 2, not 71 */
         uint64_t vc = vidx[b + 1] - vidx[b]; if (vidx[b + 1] < vidx[b] || vc > (uint64_t)compressBound(24ull * F1C5_OOC_BLK)) { fprintf(stderr, "v2 value index corrupt at block %llu (length %llu exceeds the block bound)\n", (unsigned long long)b, (unsigned long long)vc); return 2; }
         fseek(f2, vblk_base + (long)vidx[b], SEEK_SET);
         if (fread(cb, 1, vc, f2) != vc) { fprintf(stderr, "v2 vblock read\n"); return 2; }
-        f1c5_inflate_block(cb, vc, (Bytef *)(val2 + e0), 24ull * bn);
+        if (f1c5_inflate_block_rc(cb, vc, (Bytef *)(val2 + e0), 24ull * bn) != 0) { fprintf(stderr, "v2 value block %llu corrupt\n", (unsigned long long)b); return 2; }   /* FV2-E1 D1327 */
     }
     const int v2_trail = fseek(f2, 0, SEEK_END) != 0 || ftell(f2) != vblk_base + (long)vidx[nblk]; fclose(f2);   /* R12b #14: the file must end where the last v-block ends */
     int bad = 0; if (v1_trail) { fprintf(stderr, "MISMATCH: v1 file has trailing bytes after vals[]\n"); bad = 1; } if (v2_trail) { fprintf(stderr, "MISMATCH: v2 file does not end at its last value block (trailing or missing bytes)\n"); bad = 1; }   /* R12b #14 */
@@ -16456,6 +16666,10 @@ static uint64_t f1c5_lstream_next(F1c5LayerStream *S, const uint8_t **out) {
         if (raw) {
             if (S->raw_left == 0) { f1c5_lstream_advance(S); continue; }
             uint64_t want = S->raw_left < S->dcap ? S->raw_left : S->dcap;
+            if (f1c5_lstream_soft && fread(S->dbuf, 1, want, S->f) != want) {   /* FV2-E1 D1327 */
+                fprintf(stderr, "ERROR: %s: short read at logical offset %llu\n", S->path, (unsigned long long)S->logical);
+                f1c5_lstream_failed = 1; return 0;
+            } else if (!f1c5_lstream_soft)
             F1_CHECK(fread(S->dbuf, 1, want, S->f) == want,
                      "%s: short read at logical offset %llu",
                      S->path, (unsigned long long)S->logical);
@@ -16472,10 +16686,17 @@ static uint64_t f1c5_lstream_next(F1c5LayerStream *S, const uint8_t **out) {
         const uint64_t *idx = (S->section == 2) ? S->kidx : S->vidx;
         uint64_t clen = idx[b + 1] - idx[b];
         uint64_t unit = (S->section == 2) ? 4ull : 24ull;
+        if (f1c5_lstream_soft) {   /* FV2-E1 D1327 */
+            if (fread(S->cbuf, 1, clen, S->f) != clen || f1c5_inflate_block_rc(S->cbuf, clen, (Bytef *)S->dbuf, unit * bn) != 0) {
+                fprintf(stderr, "ERROR: %s: %s block %llu cannot be read or inflated\n", S->path, S->section == 2 ? "keys" : "vals", (unsigned long long)b);
+                f1c5_lstream_failed = 1; return 0;
+            }
+        } else {
         F1_CHECK(fread(S->cbuf, 1, clen, S->f) == clen,
                  "%s: short read on %s block %llu",
                  S->path, S->section == 2 ? "keys" : "vals", (unsigned long long)b);
         f1c5_inflate_block(S->cbuf, clen, (Bytef *)S->dbuf, unit * bn);
+        }
         S->blocks++;
         S->logical += unit * bn;
         *out = S->dbuf;
@@ -16534,22 +16755,26 @@ static int f1c5_layer_sha_hex(const char *path, char hex[65],
     F1c5LayerStream S;
     if (f1c5_lstream_open(path, &S) != 0) return 2;
     const char *tool = sha256_tool();   /* caller checked availability */
-    char tmp[128];
-    snprintf(tmp, sizeof(tmp), "/tmp/solve_lsha_%d", (int)getpid());
-    char cmd[192];
-    snprintf(cmd, sizeof(cmd), "%s > %s", tool, tmp);
+    char tmp[PATH_MAX]; int solve_mktemp(char *, size_t, const char *); const char *g6_q(const char *);
+    if (solve_mktemp(tmp, sizeof(tmp), "solve_lsha") != 0) { fprintf(stderr, "ERROR: cannot create a temp file under TMPDIR (or /tmp): %s\n", strerror(errno)); f1c5_lstream_close(&S); return 2; }   /* FV2-E1 D1358 */
+    char cmd[2 * PATH_MAX + 64];
+    snprintf(cmd, sizeof(cmd), "%s > %s", tool, g6_q(tmp));
     void (*g6_op)(int) = signal(SIGPIPE, SIG_IGN); FILE *p = popen(cmd, "w");   /* G6 F04-005#3: a sha tool that exits unread must degrade the digest, not SIGPIPE-kill the build */
     if (!p) {
         fprintf(stderr, "ERROR: popen(%s) failed\n", cmd); if (g6_op != SIG_ERR) signal(SIGPIPE, g6_op);
-        f1c5_lstream_close(&S); return 2;
+        unlink(tmp); f1c5_lstream_close(&S); return 2;
     }
     const uint8_t *chunk;
     uint64_t len;
+    f1c5_lstream_failed = 0;
     while ((len = f1c5_lstream_next(&S, &chunk)) > 0) {
         if (fwrite(chunk, 1, len, p) != len) {
             fprintf(stderr, "ERROR: pipe write to %s failed\n", tool);
             pclose(p); if (g6_op != SIG_ERR) signal(SIGPIPE, g6_op); unlink(tmp); f1c5_lstream_close(&S); return 2;
         }
+    }
+    if (f1c5_lstream_failed) {   /* FV2-E1 D1327: soft mode only (the CLI tools); the reason is already on stderr */
+        pclose(p); if (g6_op != SIG_ERR) signal(SIGPIPE, g6_op); unlink(tmp); f1c5_lstream_close(&S); return 2;
     }
     int prc = pclose(p); if (g6_op != SIG_ERR) signal(SIGPIPE, g6_op);
     if (prc != 0) {
@@ -16614,9 +16839,11 @@ static int f1c5_layer_cmp_files(const char *pa, const char *pb) {
     const uint8_t *ca = NULL, *cb = NULL;
     uint64_t la = 0, lb = 0, ia = 0, ib = 0, off = 0;
     int rc = 0;
+    f1c5_lstream_failed = 0;
     for (;;) {
         if (ia == la) { la = f1c5_lstream_next(&A, &ca); ia = 0; }
         if (ib == lb) { lb = f1c5_lstream_next(&B, &cb); ib = 0; }
+        if (f1c5_lstream_failed) { rc = 2; break; }   /* FV2-E1 D1327: a corrupt input is an error (exit 2), not a divergence */
         if (la == 0 || lb == 0) {
             if (la != lb) {
                 printf("[f1c5-layer-cmp] *** DIVERGENT *** at offset %llu: %s ends, %s continues "
@@ -16826,14 +17053,14 @@ static void f1c5_sha_of_string(const char *s, char out_hex[65]) {
     strcpy(out_hex, "unavailable");
     const char *tool = sha256_tool();
     if (!tool) return;
-    char tmp_in[96];
-    snprintf(tmp_in, sizeof(tmp_in), "/tmp/solve_chain_in_%d", (int)getpid());
+    char tmp_in[PATH_MAX]; int solve_mktemp(char *, size_t, const char *); const char *g6_q(const char *);
+    if (solve_mktemp(tmp_in, sizeof(tmp_in), "solve_chain_in") != 0) return;   /* FV2-E1 D1358 */
     FILE *tf = fopen(tmp_in, "w");
-    if (!tf) return;
+    if (!tf) { unlink(tmp_in); return; }
     fputs(s, tf);
     if (fclose(tf) != 0) { unlink(tmp_in); return; }
-    char cmd[256];
-    snprintf(cmd, sizeof(cmd), "%s %s 2>/dev/null", tool, tmp_in);
+    char cmd[2 * PATH_MAX + 64];
+    snprintf(cmd, sizeof(cmd), "%s %s 2>/dev/null", tool, g6_q(tmp_in));
     FILE *p = popen(cmd, "r");
     if (!p) { unlink(tmp_in); return; }
     char buf[256] = {0};
@@ -17067,6 +17294,14 @@ static int f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
             const F1U192 *v = &vbuf[i];
             const int last = SK.is_c3 ? (int)((key >> 16) & 63u) : (int)(key >> 16);  /* Q-418: a C3 key32 = gofs<<22 | last<<16 | rid -- strip gofs */
             const uint32_t rid = key & 0xffffu;
+            if (last < 0 || last >= 64 || rid >= R) {   /* FV2-E1 D1335 (Codex F04-005#3): `last` fed F1C5_CLS[popcount(last ^ entry)] and rid indexed B->dig[d][] unchecked */
+                F1C5_SIDECAR_WARN("layer %s entry %llu: key 0x%08x out of range (last %d, rid %u, R %u); no sidecar written for a corrupt layer",
+                                  lpath, (unsigned long long)e, key, last, rid, (unsigned)R);
+                free(masks); free(off); free(marg_last); free(marg_rid); free(vh); free(bh);
+                free(fullent);
+                f1c5_lstream_close(&SK); f1c5_lstream_close(&SV);
+                return 1;
+            }
             while (mi < nm && off[mi + 1] <= e) mi++;
             /* (1) value histogram + (5) headroom */
             const int bits = f1c5_u192_bits(v);
@@ -17515,6 +17750,7 @@ typedef struct {
     uint64_t *kidx, *vidx, nblk, idx_cap;      /* growable seek index */
     Bytef *kc, *vc; uLong kcap, vcap;          /* compressed scratch */
     int level;
+    F1C5OocIo *io;                             /* FV2-E1 D1339: the layer's write accounting (NULL = none) */
 } F1C5V2Out;
 
 static void f1c5_v2out_init(F1C5V2Out *o, const char *ofin, int level) {
@@ -17558,10 +17794,15 @@ static void f1c5_v2out_flush_block(F1C5V2Out *o) {
         F1_CHECK(o->kidx && o->vidx, "v2out idx realloc failed");
     }
     uLongf cl = o->kcap; f1c5_deflate_block(o->bk, 4ull * o->fill, o->kc, &cl, o->level);
+    double fw0 = omp_get_wtime();
     f1c5_v2out_write_all(o->kfd, o->kc, cl, o->kpath);
+    double fws = omp_get_wtime() - fw0;
     o->kidx[o->nblk + 1] = o->kidx[o->nblk] + cl;
     uLongf vl = o->vcap; f1c5_deflate_block(o->bv, 24ull * o->fill, o->vc, &vl, o->level);
+    fw0 = omp_get_wtime();
     f1c5_v2out_write_all(o->vfd, o->vc, vl, o->vpath);
+    fws += omp_get_wtime() - fw0;
+    if (o->io) { o->io->bytes_written += (uint64_t)cl + (uint64_t)vl; o->io->sec_write += fws; }   /* FV2-E1 D1339 (Codex F12-013#6): block writes were not in the layer's byte/time accounting */
     o->vidx[o->nblk + 1] = o->vidx[o->nblk] + vl;
     o->nblk++;
     o->fill = 0;
@@ -17595,6 +17836,11 @@ static void f1c5_v2out_push(F1C5V2Out *o, const uint32_t *keys, const F1U192 *va
  * SOLVE_F1_KILL_PRE_CONCAT=<k> exits 137 before the concat starts,
  * SOLVE_F1_KILL_IN_FINALIZE=<k> exits 137 mid-concat AFTER the kblk sidecar
  * was consumed and unlinked (the worst-case in-window kill). */
+/* FV2-E1 D1340 (Codex F12-013#2): finalisation unlinked each block sidecar as it was consumed, before the concatenated
+ * layer was durable and the intra-layer checkpoint retired, so a kill in that window left a checkpoint naming deleted
+ * sidecars and the layer was rebuilt from scratch (the drill hook SOLVE_F1_KILL_IN_FINALIZE exercises exactly this).
+ * The callers now drop the sidecars only after the layer is renamed, its marker written and the checkpoint unlinked. */
+static void f1c5_v2out_drop_sidecars(const F1C5V2Out *o) { unlink(o->kpath); unlink(o->vpath); }
 static void f1c5_v2out_finalize(F1C5V2Out *o, const char *otmp, const char *ofin,
                                 const F1C5LayerHdr *h, const uint32_t *masks,
                                 const uint64_t *off, uint64_t nm, uint64_t ne,
@@ -17617,6 +17863,7 @@ static void f1c5_v2out_finalize(F1C5V2Out *o, const char *otmp, const char *ofin
     int ofd = open(otmp, O_RDWR | O_CREAT | O_TRUNC, 0666);
     if (ofd < 0) f1_ckpt_io_abort("open (v2 otmp)", otmp);
     double tw = omp_get_wtime();
+    const double fin_sw0 = io->sec_write;   /* FV2-E1 D1348 */
     uint64_t off_pos = 0;
     f1c5_ooc_pwrite(ofd, h, sizeof(*h), off_pos, otmp, io); off_pos += sizeof(*h);
     if (nm) { f1c5_ooc_pwrite(ofd, masks, 4ull * nm, off_pos, otmp, io); off_pos += 4ull * nm; }
@@ -17626,7 +17873,7 @@ static void f1c5_v2out_finalize(F1C5V2Out *o, const char *otmp, const char *ofin
     /* inline decompressed-stream sha: open the tool pipe and feed masks+off
      * (the head of the logical stream) before the block walk. */
     FILE *shp = NULL;
-    char shtmp[128];
+    char shtmp[PATH_MAX] = {0};
     int sha_ok = 0;
     void (*oldpipe)(int) = SIG_ERR;
     if (sha_hex) {
@@ -17636,10 +17883,13 @@ static void f1c5_v2out_finalize(F1C5V2Out *o, const char *otmp, const char *ofin
         sha_hex[0] = '\0';
         const char *tool = sha256_tool();
         if (tool) {
-            snprintf(shtmp, sizeof(shtmp), "/tmp/solve_fsha_%d", (int)getpid());
-            char cmd[192];
-            snprintf(cmd, sizeof(cmd), "%s > %s", tool, shtmp);
-            shp = popen(cmd, "w");
+            int solve_mktemp(char *, size_t, const char *); const char *g6_q(const char *);
+            char cmd[2 * PATH_MAX + 64];
+            if (solve_mktemp(shtmp, sizeof(shtmp), "solve_fsha") == 0) {   /* FV2-E1 D1358 */
+                snprintf(cmd, sizeof(cmd), "%s > %s", tool, g6_q(shtmp));
+                shp = popen(cmd, "w");
+                if (!shp) { unlink(shtmp); shtmp[0] = '\0'; }
+            }
             if (shp) {
                 sha_ok = 1;
                 if ((nm && fwrite(masks, 4, nm, shp) != nm) ||
@@ -17678,12 +17928,12 @@ static void f1c5_v2out_finalize(F1C5V2Out *o, const char *otmp, const char *ofin
                     if (fwrite(dbuf, 1, unit * bn, shp) != unit * bn) sha_ok = 0;
                 }
             }
-            fclose(rf); unlink(paths[s]);
+            fclose(rf);   /* FV2-E1 D1340: the sidecar is NOT unlinked here; see f1c5_v2out_drop_sidecars */
             if (s == 0) {
                 const char *e = getenv("SOLVE_F1_KILL_IN_FINALIZE");
                 if (e && *e && atoi(e) == (int)h->k) {
                     fprintf(stderr, "[TEST-KILL] SOLVE_F1_KILL_IN_FINALIZE=%d reached "
-                            "(layer k=%u, kblk consumed+unlinked mid-concat) — _exit(137)\n",
+                            "(layer k=%u, kblk consumed mid-concat) — _exit(137)\n",
                             atoi(e), h->k);
                     _exit(137);
                 }
@@ -17701,12 +17951,12 @@ static void f1c5_v2out_finalize(F1C5V2Out *o, const char *otmp, const char *ofin
                 if (r == 0) break;
                 f1c5_ooc_pwrite(ofd, cpy, (uint64_t)r, off_pos, otmp, io); off_pos += (uint64_t)r;
             }
-            close(rf); unlink(paths[s]);
+            close(rf);   /* FV2-E1 D1340 */
             if (s == 0) {
                 const char *e = getenv("SOLVE_F1_KILL_IN_FINALIZE");
                 if (e && *e && atoi(e) == (int)h->k) {
                     fprintf(stderr, "[TEST-KILL] SOLVE_F1_KILL_IN_FINALIZE=%d reached "
-                            "(layer k=%u, kblk consumed+unlinked mid-concat) — _exit(137)\n",
+                            "(layer k=%u, kblk consumed mid-concat) — _exit(137)\n",
                             atoi(e), h->k);
                     _exit(137);
                 }
@@ -17741,7 +17991,7 @@ static void f1c5_v2out_finalize(F1C5V2Out *o, const char *otmp, const char *ofin
     close(ofd);
     if (rename(otmp, ofin) != 0) f1_ckpt_io_abort("rename (v2)", ofin);
     f1_fsync_dir(dir);
-    io->sec_write += omp_get_wtime() - tw;
+    io->sec_write = fin_sw0 + (omp_get_wtime() - tw);   /* FV2-E1 D1348: the pwrite()s inside this window already added their own seconds; count the window once */
     if (out_bytes) *out_bytes = off_pos;
     *out_kidx = o->kidx; *out_vidx = o->vidx; o->kidx = o->vidx = NULL;
     free(o->bk); free(o->bv); free(o->kc); free(o->vc);
@@ -17856,6 +18106,10 @@ static int f1c5_build_ckpt_read(const char *dir, const char *pfx, const char *ck
     if (!f) return 0;   /* no marker => fresh (not an error) */
     memset(d, 0, sizeof(*d));
     int ok = 1;
+    /* FV2-E1 D1341 (Codex F04-005#9): the 2^40 bounds still let a corrupt marker request an 8 TiB allocation, whose
+     * F1_CHECK aborted BEFORE the unusable marker was removed, so every restart died the same way. Each array must
+     * also fit in the marker file itself, and an allocation failure refuses the marker (removed, layer rebuilt). */
+    uint64_t ck_fsz = 0; { struct stat fst; if (fstat(fileno(f), &fst) == 0 && fst.st_size > 0) ck_fsz = (uint64_t)fst.st_size; }
     uLong crc = crc32(0L, Z_NULL, 0);   /* Fix #1: whole-payload CRC, verified below */
     #define CK_RD(ptr, n) do { if (ok && fread((ptr), 1, (size_t)(n), f) != (size_t)(n)) ok = 0; \
                                else if (ok) crc = crc32(crc, (const Bytef *)(ptr), (uInt)(n)); } while (0)
@@ -17867,16 +18121,18 @@ static int f1c5_build_ckpt_read(const char *dir, const char *pfx, const char *ck
                blk != (uint64_t)F1C5_OOC_BLK ||
                lvl != (uint64_t)f1c5_ooc_gzip_level())) ok = 0;   /* stale / config / level-changed (Fix #3) */
     CK_RD(&d->t0_next, 8); if (ok && d->t0_next >= (1ull << 40)) ok = a11r_bld_refuse(path, "t0_next out of range");   /* A11R #9: bound BEFORE the 8*(t0_next+1) alloc, which wraps */
+    if (ok && 8ull * (d->t0_next + 1) > ck_fsz) ok = a11r_bld_refuse(path, "t0_next is larger than the marker file can hold");   /* FV2-E1 D1341 */
     if (ok) {
         d->off = (uint64_t *)malloc(8ull * (d->t0_next + 1));
-        F1_CHECK(d->off, "build ckpt off alloc");
+        if (!d->off) ok = a11r_bld_refuse(path, "cannot allocate the offset table");   /* FV2-E1 D1341: was an F1_CHECK abort */
         CK_RD(d->off, 8ull * (d->t0_next + 1));
     }
     CK_RD(&d->nblk, 8); if (ok && d->nblk >= (1ull << 40)) ok = a11r_bld_refuse(path, "nblk out of range");   /* A11R #9: same, for 8*(nblk+1) */
+    if (ok && 16ull * (d->nblk + 1) > ck_fsz) ok = a11r_bld_refuse(path, "nblk is larger than the marker file can hold");   /* FV2-E1 D1341 */
     if (ok) {
         d->kidx = (uint64_t *)malloc(8ull * (d->nblk + 1));
         d->vidx = (uint64_t *)malloc(8ull * (d->nblk + 1));
-        F1_CHECK(d->kidx && d->vidx, "build ckpt idx alloc");
+        if (!d->kidx || !d->vidx) ok = a11r_bld_refuse(path, "cannot allocate the block indexes");   /* FV2-E1 D1341 */
         CK_RD(d->kidx, 8ull * (d->nblk + 1));
         CK_RD(d->vidx, 8ull * (d->nblk + 1));
     }
@@ -17884,8 +18140,8 @@ static int f1c5_build_ckpt_read(const char *dir, const char *pfx, const char *ck
     if (ok) {
         d->bk = (uint32_t *)malloc(4ull * (d->fill ? d->fill : 1));
         d->bv = (F1U192 *)malloc((uint64_t)sizeof(F1U192) * (d->fill ? d->fill : 1));
-        F1_CHECK(d->bk && d->bv, "build ckpt accum alloc");
-        if (d->fill) {
+        if (!d->bk || !d->bv) ok = a11r_bld_refuse(path, "cannot allocate the partial block");   /* FV2-E1 D1341 */
+        if (ok && d->fill) {
             CK_RD(d->bk, 4ull * d->fill);
             CK_RD(d->bv, (uint64_t)sizeof(F1U192) * d->fill);
         }
@@ -18218,7 +18474,7 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const F1C3
         have_ckpt = f1c5_build_ckpt_read(dir, "f1c5", ck_magic, ofin, (uint64_t)nxt->k, f1_pl_hash(c),
                                          chunk_cap, &ckpt); if (have_ckpt && ckpt.t0_next > nxt->nm) { fprintf(stderr, "build checkpoint refused: t0_next=%llu exceeds the layer's %llu masks -- the layer is rebuilt fresh (A11R #9)\n", (unsigned long long)ckpt.t0_next, (unsigned long long)nxt->nm); f1c5_build_ckpt_free(&ckpt); have_ckpt = 0; }
         if (have_ckpt) {
-            f1c5_v2out_resume(&v2o, ofin, gzip_level, &ckpt);
+            f1c5_v2out_resume(&v2o, ofin, gzip_level, &ckpt); v2o.io = io;   /* FV2-E1 D1339 */
             resume_t0 = ckpt.t0_next;
             if (g_f1c5_prog.enabled) {   /* observability: intra-layer resume */
                 g_f1c5_prog.last_restart_chunk = resume_t0 / (chunk_cap ? chunk_cap : 1);   /* G6 F04-005#11: t0_next is a MASK offset; the published field is the zero-based chunk index t0/chunk_cap */
@@ -18232,7 +18488,7 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const F1C3
                     (unsigned long long)nxt->nm, (unsigned long long)ckpt.nblk,
                     (unsigned long long)ckpt.fill);
         } else {
-            f1c5_v2out_init(&v2o, ofin, gzip_level);
+            f1c5_v2out_init(&v2o, ofin, gzip_level); v2o.io = io;   /* FV2-E1 D1339 */
         }
     }
     /* intra-layer checkpoint cadence + deterministic kill hook (test-only) */
@@ -18503,7 +18759,8 @@ static void f1c5_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const F1C3
         /* layer file is committed (rename+dir-fsync inside finalize); the
          * intra-layer marker is now obsolete — remove it so a later resume of the
          * NEXT layer can never misread a complete layer's stale checkpoint. */
-        { char ckp[4200]; snprintf(ckp, sizeof(ckp), "%s/f1c5_build.ckpt", dir); unlink(ckp); }
+        { char ckp[4200]; snprintf(ckp, sizeof(ckp), "%s/f1c5_build.ckpt", dir); unlink(ckp); f1_fsync_dir(dir); }
+        f1c5_v2out_drop_sidecars(&v2o);   /* FV2-E1 D1340: last, after the checkpoint is retired */
     } else {
         f1c5_ooc_pwrite(ofd, &h, sizeof(h), 0, otmp, io);
         f1c5_ooc_pwrite(ofd, nxt->masks, sizeof(uint32_t) * nxt->nm, sizeof(h), otmp, io);
@@ -18869,6 +19126,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
         if (rk >= 0) {
             k0 = rk;
             f1c5_prog_note_resume();   /* observability: record the resume */
+            if (g_f1c5_prog.enabled) g_f1c5_prog.current_layer = rk;   /* FV2-E1 D1346 (Codex F04-005#12): a resume of a ladder whose last layer is complete skipped every layer-begin, so the completion record said current_layer 0 */
             /* ADOPT the on-disk format so a dropped/wrong SOLVE_F1_OOC_FORMAT env on a
              * relaunch can NEVER reinterpret existing bytes as the other format (Fable
              * review Finding 1 — was a silent-wrong-count path). */
@@ -18939,6 +19197,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
         F1U192 ooc_mass = {0, 0, 0};
         uint64_t ooc_states = 0;
         int adopted = 0;
+        double ooc_wsec = 0.0, ooc_sc_s = 0.0;   /* FV2-E1 D1348: write and sidecar seconds inside the ooc build window */
         if (ooc) {
             if (k >= 1 && !keep_layers) {   /* resume needs only layer k; drop k-1
                              * BEFORE k+1 grows on disk (halves the transient disk
@@ -18961,7 +19220,9 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
                                      &ooc_mass, &ooc_states, use_v2, gzip_level);
                 f1c5_sidecar_x.build_wall_s = omp_get_wtime() - _sw0;
             }
+            { const double sc0 = omp_get_wtime();
             f1c5_sidecar_emit(dir, "f1c5", c, &B, nxt.k);   /* catalog sidecar (non-fatal) */
+              ooc_sc_s = omp_get_wtime() - sc0; }
             { const char *e = getenv("SOLVE_F1_KILL_BEFORE_MANIFEST");   /* drill hook */
               if (e && *e && atoi(e) == nxt.k) {
                   fprintf(stderr, "[TEST-KILL] SOLVE_F1_KILL_BEFORE_MANIFEST=%d reached "
@@ -18970,6 +19231,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
                   _exit(137);
               } }
             t2 = omp_get_wtime();
+            ooc_wsec = io.sec_write;
         } else {
         const int gw1 = gm ? gm->gw[k + 1] : 1;      /* target-layer G band (1 = no channel) */
         const int glo1 = gm ? gm->glo[k + 1] : 0;
@@ -19076,9 +19338,15 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
         /* observability: record the completed layer (count_s = build wall for ooc /
          * count+fill for in-RAM; write_s = measured write seconds; mdec = running
          * partial |C1&C2&C4&C5|). Pure side-channel, sha-neutral. */
+        {   /* FV2-E1 D1348 (Codex F12-013#7, F04-005#14): for ooc, count_s was the whole build window, which also holds
+             * the layer write and the catalog sidecar, so count_s + write_s exceeded the layer's wall; it now excludes
+             * both (write_s is io.sec_write, which f1c5_v2out_finalize no longer counts twice) */
+            double cnt_s = ooc ? (t2 - t1) - ooc_wsec - ooc_sc_s : (t2 - t1) + (t3 - t2);
+            if (cnt_s < 0.0) cnt_s = 0.0;
         f1c5_prog_layer_end(k + 1, nxt.nm, nxt.ne, io.bytes_written,
-                            ooc ? (t2 - t1) : (t2 - t1) + (t3 - t2),
+                            cnt_s,
                             io.sec_write, mdec);
+        }
         f1c5_layer_free(&cur);
         cur = nxt;   /* ooc: keys/vals are NULL — entries live on disk only */
         if (delay_ms > 0) usleep((useconds_t)delay_ms * 1000);
@@ -19136,12 +19404,8 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
                  "total = 0 but B0 is achievable by construction — DP defect"); if (b0_override && f1_is_zero(&total)) fprintf(stderr, "[f1c5] --f1-b0 override admits no completed walk: total = 0 (a property of the synthetic budget, not a DP defect)\n");
         char tdec[64];
         f1_dec(total, tdec);
-        /* observability: final total known -> mark done + publish flagship count */
-        if (g_f1c5_prog.enabled) {
-            snprintf(g_f1c5_prog.cumulative_count, sizeof(g_f1c5_prog.cumulative_count), "%s", tdec);
-            g_f1c5_prog.phase = "done";
-            f1c5_prog_emit(1);
-        }
+        /* observability: "done" + the total are published at the END of this branch, after every
+         * divisibility and support check below (FV2-E1 D1349) */
         if (ooc) {
             double rss_cur, rss_peak;
             f1_rss_mb(&rss_cur, &rss_peak);
@@ -19288,6 +19552,14 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
                    b0v[0], b0v[1], b0v[2], b0v[3], b0v[4]);
             printf("  orbit-quotient C5-DP total = %s\n", tdec);
             printf("F1C5 SUBSET: DONE (%.1fs)\n", omp_get_wtime() - T0);
+        }
+        /* FV2-E1 D1349 (Codex F04-005#10): phase "done" and the total used to be published BEFORE the %48
+         * divisibility and G-support checks above, so a layer those checks reject (they abort) still left a
+         * "done" progress record. They are published here, once every check has passed. */
+        if (g_f1c5_prog.enabled) {
+            snprintf(g_f1c5_prog.cumulative_count, sizeof(g_f1c5_prog.cumulative_count), "%s", tdec);
+            g_f1c5_prog.phase = "done";
+            f1c5_prog_emit(1);
         }
     }
 
@@ -22738,7 +23010,7 @@ static void kc_g_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
         have_ckpt = f1c5_build_ckpt_read(dir, pfx, F1C5_BUILD_CKPT_MAGIC, ofin, (uint64_t)nxt->k, f1_pl_hash(c),
                                          chunk_cap, &ckpt); if (have_ckpt && ckpt.t0_next > nxt->nm) { fprintf(stderr, "build checkpoint refused: t0_next=%llu exceeds the layer's %llu masks -- the layer is rebuilt fresh (A11R #9)\n", (unsigned long long)ckpt.t0_next, (unsigned long long)nxt->nm); f1c5_build_ckpt_free(&ckpt); have_ckpt = 0; }
         if (have_ckpt) {
-            f1c5_v2out_resume(&v2o, ofin, gzip_level, &ckpt);
+            f1c5_v2out_resume(&v2o, ofin, gzip_level, &ckpt); v2o.io = io;   /* FV2-E1 D1339 */
             resume_t0 = ckpt.t0_next;
             fprintf(stderr, "[kc-%s-ooc] RESUME intra-layer checkpoint: layer k=%d "
                     "restart at chunk t0=%llu (%llu/%llu masks done, %llu blocks + "
@@ -22747,7 +23019,7 @@ static void kc_g_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
                     (unsigned long long)nxt->nm, (unsigned long long)ckpt.nblk,
                     (unsigned long long)ckpt.fill);
         } else {
-            f1c5_v2out_init(&v2o, ofin, gzip_level);
+            f1c5_v2out_init(&v2o, ofin, gzip_level); v2o.io = io;   /* FV2-E1 D1339 */
         }
     }
     double last_ckpt_wt = omp_get_wtime();
@@ -23051,7 +23323,8 @@ static void kc_g_ooc_build_layer(const F1Ctx *c, const F1C5Budget *B, const char
          * time (adoption never re-appends). */
         f1c5_finalized_marker_write(dir, pfx, c, B, nxt->k, nxt->nm, nxt->ne, lbytes, lsha);
         f1c5_sha_ledger_append(dir, pfx, nxt->k, lbytes, lsha);
-        { char ckp[4200]; snprintf(ckp, sizeof(ckp), "%s/%s_build.ckpt", dir, pfx); unlink(ckp); }
+        { char ckp[4200]; snprintf(ckp, sizeof(ckp), "%s/%s_build.ckpt", dir, pfx); unlink(ckp); f1_fsync_dir(dir); }
+        f1c5_v2out_drop_sidecars(&v2o);   /* FV2-E1 D1340 */
     } else {
         f1c5_ooc_pwrite(ofd, &h, sizeof(h), 0, otmp, io);
         f1c5_ooc_pwrite(ofd, nxt->masks, sizeof(uint32_t) * nxt->nm, sizeof(h), otmp, io);
@@ -25287,6 +25560,10 @@ static int kc_h_arr_parse(const char *arg, int *s) {
     return n == 64 ? 0 : -1;
 }
 
+/* FV2-E1 D1355 (Codex F12-002#3): the pinned declarations kc_h_arr_cert_write emits; a certificate whose
+ * check_order or space_labels is missing or different no longer verifies (SOLVE_C_CLI.md pins both). */
+#define KC_ARR_CHECK_ORDER "C1,C2,C3,C4,C5 (pinned)"
+#define KC_ARR_SPACE_LABELS "SUPER=C1&C2&C4&C5 (walk superspace); C15=C1-C5 (C3<=776)"
 static void kc_h_arr_cert_write(FILE *f, const int *s, const KcArrRes *r,
                                 const char *label) {
     char seq[512];
@@ -25299,7 +25576,7 @@ static void kc_h_arr_cert_write(FILE *f, const int *s, const KcArrRes *r,
     fprintf(f, "  \"version\": 1,\n");
     fprintf(f, "  \"label\": \"%s\",\n", label);
     fprintf(f, "  \"arrangement\": \"%s\",\n", seq);
-    fprintf(f, "  \"check_order\": \"C1,C2,C3,C4,C5 (pinned)\",\n");
+    fprintf(f, "  \"check_order\": \"%s\",\n", KC_ARR_CHECK_ORDER);
     fprintf(f, "  \"perm_ok\": %d,\n", r->perm_ok);
     fprintf(f, "  \"c1\": %d,\n  \"c2\": %d,\n  \"c3\": %d,\n  \"c4\": %d,\n  \"c5\": %d,\n",
             r->c1, r->c2, r->c3, r->c4, r->c5);
@@ -25310,7 +25587,7 @@ static void kc_h_arr_cert_write(FILE *f, const int *s, const KcArrRes *r,
     fprintf(f, "  \"first_violation\": \"%s\",\n", vn[r->first_viol]);
     fprintf(f, "  \"verdict_super\": \"%s\",\n", r->in_super ? "IN" : "OUT");
     fprintf(f, "  \"verdict_c15\": \"%s\",\n", r->in_c15 ? "IN" : "OUT");
-    fprintf(f, "  \"space_labels\": \"SUPER=C1&C2&C4&C5 (walk superspace); C15=C1-C5 (C3<=776)\",\n");
+    fprintf(f, "  \"space_labels\": \"%s\",\n", KC_ARR_SPACE_LABELS);
     fprintf(f, "  \"checker\": \"solve.c/--check-arrangement (independent first-principles reimplementation; certificate, not proof)\",\n");
     fprintf(f, "  \"engine_git\": \"%s\",\n", GIT_HASH);
     fprintf(f, "  \"engine_source_sha\": \"%s\"\n", SOURCE_SHA);
@@ -25333,7 +25610,7 @@ static void kc_h_arr_cert_write(FILE *f, const int *s, const KcArrRes *r,
  *
  * A short write is a FAILED artifact and must not be left behind for a consumer to open, so the
  * partial file is removed. Returns 0 on a clean (and, since Q-553, DURABLE) close, -1 otherwise. */
-static int kc_h_unlink_regular(const char *path); static int kc_h_close_durable(FILE *f, const char *path, const char *tag);
+static int kc_h_unlink_regular(const char *path); static int kc_h_close_durable(FILE *f, const char *path, const char *tag); static int kc_h_out_reset(const char *tag, const char *out, char *const *args);
 static int kc_h_close_artifact(FILE *f, const char *path, const char *tag) {
     /* 🔴 Q-553 (2026-09-26): this used to be ferror + fclose, so rc 0 meant "in the page cache"
      * and the driver renamed CHUNK.part onto CHUNK on it. kc_h_close_durable (after the last
@@ -25359,6 +25636,7 @@ static int kc_check_arrangement_main(int argc, char *argv[]) {
         else if (strcmp(argv[ai], "--label") == 0) label = "";  /* a value-less --label is refused, never ignored */ else { argv_refuse_arg(argv[1], argv[ai], "an arrangement, then --cert-out FILE and --label NAME"); return 2; }
     if (label && (!*label || strlen(label) > 64 || strchr("._-", *label) || label[strspn(label, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-")]))
         { fprintf(stderr, "ERROR: [check-arrangement] --label must be 1..64 chars of [A-Za-z0-9._-], starting alphanumeric\n"); return 2; }
+    if (kc_h_out_reset("check-arrangement", cert_out, argv) != 0) return 2;   /* FV2-E1 D1371 */
     int s[64];
     if (kc_h_arr_parse(argv[2], s) != 0) {
         fprintf(stderr, "ERROR: [check-arrangement] need exactly 64 integers (or KW)\n");
@@ -25409,24 +25687,27 @@ typedef struct {
     int s[64];
     int perm_ok, c1, c2, c3, c4, c5, c3_value, c2_d5, dist[7];
     char first_viol[8], verdict_super[8], verdict_c15[8];
+    char check_order[64], space_labels[128];   /* FV2-E1 D1355: declarations the verifier now requires */
 } KcArrCert;
+/* FV2-E1 D1356 (Codex F12-002#2): a certificate integer is a run of 1..9 decimal digits and nothing else
+ * (atoi read "1x" as 1 and "-3" as -3; values are flags, counts and C3, all non-negative). */
+static int kc_h_cert_uint(const char *t, int *out) {
+    int nd = 0; long v = 0;
+    for (const char *p = t; *p; p++) { if (*p < '0' || *p > '9' || ++nd > 9) return -1; v = v * 10 + (*p - '0'); }
+    if (nd == 0) return -1;
+    *out = (int)v;
+    return 0;
+}
 
 static int kc_h_arr_cert_parse(const char *buf, KcArrCert *c) {
     char v[512];
     if (kc_h_field(buf, "arrangement", v, sizeof(v)) != 0) return -1;
-    if (kc_h_arr_parse(v, c->s) != 0) {
-        /* not a permutation is representable (perm_ok=0 certs) — parse raw */
-        int n = 0;
-        const char *p = v;
-        while (*p && n < 64) {
-            if ((*p >= '0' && *p <= '9') || *p == '-') c->s[n++] = (int)strtol(p, (char **)&p, 10);
-            else p++;
-        }
-        if (n != 64) return -1;
-    }
+    /* FV2-E1 D1356: exactly 64 unsigned values. The writer's arrangement always parses here (an out-of-range
+     * value is kept as 999 and judged by the permutation test, so perm_ok=0 certificates still read); the
+     * loose fallback that stood here took the first 64 numbers of anything, ignoring a 65th and minus signs. */
+    if (strcmp(v, "KW") == 0 || kc_h_arr_parse(v, c->s) != 0) return -1;
 #define KCH_INT(key, dst) do { char t[64]; \
-        if (kc_h_field(buf, key, t, sizeof(t)) != 0) return -1; \
-        (dst) = atoi(t); } while (0)
+        if (kc_h_field(buf, key, t, sizeof(t)) != 0 || kc_h_cert_uint(t, &(dst)) != 0) return -1; } while (0)
     KCH_INT("perm_ok", c->perm_ok);
     KCH_INT("c1", c->c1); KCH_INT("c2", c->c2); KCH_INT("c3", c->c3);
     KCH_INT("c4", c->c4); KCH_INT("c5", c->c5);
@@ -25436,14 +25717,11 @@ static int kc_h_arr_cert_parse(const char *buf, KcArrCert *c) {
     {
         char t[128];
         if (kc_h_field(buf, "dist_hist", t, sizeof(t)) != 0) return -1;
-        int n = 0;
-        const char *p = t;
-        while (*p && n < 7) {
-            if (*p >= '0' && *p <= '9') c->dist[n++] = (int)strtol(p, (char **)&p, 10);
-            else p++;
-        }
-        if (n != 7) return -1;
+        int g5b_strict_ints(const char *, int *, int);
+        if (g5b_strict_ints(t, c->dist, 7) != 7) return -1;   /* FV2-E1 D1356: exactly seven unsigned cells (a minus sign or an 8th cell was dropped) */
     }
+    if (kc_h_field(buf, "check_order", c->check_order, sizeof(c->check_order)) != 0) return -1;     /* FV2-E1 D1355 */
+    if (kc_h_field(buf, "space_labels", c->space_labels, sizeof(c->space_labels)) != 0) return -1;
     if (kc_h_field(buf, "first_violation", c->first_viol, sizeof(c->first_viol)) != 0) return -1;
     if (kc_h_field(buf, "verdict_super", c->verdict_super, sizeof(c->verdict_super)) != 0) return -1;
     if (kc_h_field(buf, "verdict_c15", c->verdict_c15, sizeof(c->verdict_c15)) != 0) return -1;
@@ -25470,6 +25748,8 @@ static int kc_h_arr_cert_verify(const KcArrCert *c, int quiet) {
     KCH_CK("first violation matches (pinned order)", strcmp(vn[r.first_viol], c->first_viol) == 0);
     KCH_CK("SUPER verdict matches", strcmp(r.in_super ? "IN" : "OUT", c->verdict_super) == 0);
     KCH_CK("C15 verdict matches", strcmp(r.in_c15 ? "IN" : "OUT", c->verdict_c15) == 0);
+    KCH_CK("check_order is the pinned order", strcmp(c->check_order, KC_ARR_CHECK_ORDER) == 0);       /* FV2-E1 D1355 */
+    KCH_CK("space_labels are the pinned labels", strcmp(c->space_labels, KC_ARR_SPACE_LABELS) == 0);
 #undef KCH_CK
     return fails;
 }
@@ -25776,11 +26056,11 @@ static void kc_h_exe_sha_init(void) {  /* called ONLY through pthread_once above
      * pathname was used for nothing but this open. */
     FILE *in = fopen("/proc/self/exe", "rb");
     if (!in) return;
-    char tmp[128], cmd[192];
-    snprintf(tmp, sizeof(tmp), "/tmp/solve_exesha_%d", (int)getpid());
-    snprintf(cmd, sizeof(cmd), "%s > %s", tool, tmp);
+    char tmp[PATH_MAX], cmd[2 * PATH_MAX + 64]; int solve_mktemp(char *, size_t, const char *); const char *g6_q(const char *);
+    if (solve_mktemp(tmp, sizeof(tmp), "solve_exesha") != 0) { fclose(in); return; }   /* FV2-E1 D1358 */
+    snprintf(cmd, sizeof(cmd), "%s > %s", tool, g6_q(tmp));
     void (*g6_op)(int) = signal(SIGPIPE, SIG_IGN); FILE *p = popen(cmd, "w");   /* G6 F04-005#3 sibling */
-    if (!p) { fclose(in); if (g6_op != SIG_ERR) signal(SIGPIPE, g6_op); return; }
+    if (!p) { fclose(in); if (g6_op != SIG_ERR) signal(SIGPIPE, g6_op); unlink(tmp); return; }
     unsigned char buf[65536];
     size_t got;
     int wbad = 0;
@@ -25817,6 +26097,29 @@ static int kc_h_unlink_regular(const char *path) {
     if (!S_ISREG(st.st_mode)) return 0;
     return unlink(path) == 0 ? 0 : -1;
 }
+/* FV2-E1 D1371 (Codex F12-002#5, #6, #7, F12-024#1): a KC writer that failed BEFORE creating its output left the
+ * PREVIOUS run's artifact at the requested path, where a consumer reads it as this run's; only some writers removed
+ * it (kc-scan and kc-scan-merge on entry, a few failure paths). Every KC writer now removes a regular file at its
+ * output path on entry, after its arguments are accepted; an output that is the same file as one of the
+ * invocation's own arguments is refused and nothing is removed. */
+static int kc_h_out_reset(const char *tag, const char *out, char *const *args) {
+    if (!out) return 0;
+    struct stat so;
+    if (stat(out, &so) == 0 && S_ISREG(so.st_mode) && args)
+        for (int i = 0; args[i]; i++) {
+            if (args[i] == out) continue;
+            struct stat si;
+            if (stat(args[i], &si) == 0 && si.st_dev == so.st_dev && si.st_ino == so.st_ino) {
+                fprintf(stderr, "ERROR: [%s] the output %s is the same file as the argument %s; refusing (nothing removed)\n", tag, out, args[i]);
+                return -1;
+            }
+        }
+    if (kc_h_unlink_regular(out) != 0) {
+        fprintf(stderr, "ERROR: [%s] cannot remove the previous %s: %s\n", tag, out, strerror(errno));
+        return -1;
+    }
+    return 0;
+}
 
 /* stream one solutions container through the full check battery.
  * Returns 0 if the stream was processed (defects TALLIED in st), -1 on
@@ -25844,14 +26147,15 @@ static int kc_h_oracle_file(const KC *kc, const int *p2q, const char *path,
     }
     if (!in) { st->io_error = 1; return -1; }
     /* sha co-process over the decompressed stream */
-    char shafile[256];
-    snprintf(shafile, sizeof(shafile), "/tmp/kc_oracle_sha_%d.txt", (int)getpid());
+    char shafile[PATH_MAX] = {0}, shraw[PATH_MAX + 8] = {0}; int solve_mktemp(char *, size_t, const char *); const char *g6_q(const char *);
     FILE *shp = NULL;
     const char *tool = sha256_tool();
-    if (tool) {
-        char scmd[512];
-        snprintf(scmd, sizeof(scmd), "%s > '%s.raw' && cut -d' ' -f1 '%s.raw' > '%s'; s=$?; rm -f '%s.raw'; exit $s", tool, shafile, shafile, shafile, shafile);   /* G5b F04-006#5: the HASH tool's status, not cut's */
-        shp = popen(scmd, "w");
+    if (tool && solve_mktemp(shafile, sizeof(shafile), "kc_oracle_sha") == 0) {   /* FV2-E1 D1358: under TMPDIR, quoted */
+        char scmd[8 * PATH_MAX + 128];
+        snprintf(shraw, sizeof(shraw), "%s.raw", shafile);
+        const char *qr = g6_q(shraw), *qf = g6_q(shafile);
+        snprintf(scmd, sizeof(scmd), "%s > %s && cut -d' ' -f1 %s > %s; s=$?; rm -f %s; exit $s", tool, qr, qr, qf, qr);   /* G5b F04-006#5: the HASH tool's status, not cut's */
+        shp = popen(scmd, "w"); if (!shp) unlink(shafile);
     }
     int rc = 0;
     uint8_t hdr[32];
@@ -25865,7 +26169,9 @@ static int kc_h_oracle_file(const KC *kc, const int *p2q, const char *path,
         memcpy(&ver, hdr + 4, 4);
         memcpy(&cnt, hdr + 8, 8);
         st->is_test = (ver == KC_H_TEST_VERSION);
-        if (ver != 1u && !st->is_test) { st->header_bad = 1; rc = -1; }
+        int resv_bad = 0; for (int ri = 16; ri < 32; ri++) if (hdr[ri]) resv_bad = 1;   /* FV2-E1 D1359 (Codex F04-008#15): header bytes 16..31 MUST be zero (SOLUTIONS_FORMAT.md); they were never read */
+        if (resv_bad) { fprintf(stderr, "ERROR: [kc-oracle] %s: header reserved bytes 16..31 are not all zero\n", path); st->header_bad = 1; rc = -1; }
+        else if (ver != 1u && !st->is_test) { st->header_bad = 1; rc = -1; }
         else if (ver == 1u && kc->n != 31) {
             fprintf(stderr, "ERROR: [kc-oracle] %s is a v1 (full-31) solutions.bin but the "
                     "ladder has n=%d — refusing to misinterpret\n", path, kc->n);
@@ -26076,6 +26382,7 @@ static int kc_oracle_main(int argc, char *argv[]) {
         printf("KC_ORACLE=ERROR\n");
         return 2;
     }
+    if (kc_h_out_reset("kc-oracle", cert_out, argv) != 0) { printf("KC_ORACLE=ERROR\n"); return 2; }   /* FV2-E1 D1371 */
     KC *kc = (KC *)calloc(1, sizeof(KC));
     F1_CHECK(kc != NULL, "[kc-oracle] alloc");
     if (kc_open(kc, fdir, force_ooc, cache_mb) != 0) {
@@ -27127,6 +27434,7 @@ static int kc_o3_cert_main(const char *fdir, const char *gdir, const char *arg,
     KC *fkc = (KC *)calloc(1, sizeof(KC));
     KC *gkc = (KC *)calloc(1, sizeof(KC));
     F1_CHECK(fkc && gkc, "[kc-o3-cert] alloc");
+    if (kc_h_out_reset("kc-o3-cert", cert_out, NULL) != 0) { free(fkc); free(gkc); return 2; }   /* FV2-E1 D1371 */
     if (kc_open(fkc, fdir, force_ooc, cache_mb) != 0) { free(fkc); free(gkc); return 2; }
     if (kc_open_as(gkc, gdir, "g", 1, force_ooc, cache_mb) != 0) {
         kc_free(fkc); free(fkc); free(gkc);
@@ -27454,8 +27762,32 @@ static int kc_verify_certificate_main(int argc, char *argv[]) {
     if (!f) { fprintf(stderr, "ERROR: [verify-certificate] cannot read %s\n", path); return 2; }
     static char buf[1 << 20];
     size_t got = fread(buf, 1, sizeof(buf) - 1, f);
+    const int more = fgetc(f) != EOF;
     fclose(f);
     buf[got] = '\0';
+    {   /* FV2-E1 D1360 (Codex F04-008#14): the fields were extracted by substring from at most 1 MiB - 1 bytes, so a
+         * certificate cut off after the fields it needs, or longer than the buffer, verified as complete. The whole
+         * file must now be ONE balanced JSON object (string-aware brace scan) with nothing but whitespace after it. */
+        const char *why = NULL;
+        if (more) why = "is larger than the 1 MiB certificate limit";
+        else if (strlen(buf) != got) why = "contains a NUL byte";
+        else {
+            const char *q = buf; while (*q == ' ' || *q == '\t' || *q == '\n' || *q == '\r') q++;
+            if (*q != '{') why = "does not begin with a JSON object";
+            else {
+                int depth = 0, in_str = 0, esc = 0;
+                for (; *q; q++) {
+                    if (in_str) { if (esc) esc = 0; else if (*q == '\\') esc = 1; else if (*q == '"') in_str = 0; continue; }
+                    if (*q == '"') in_str = 1;
+                    else if (*q == '{' || *q == '[') depth++;
+                    else if (*q == '}' || *q == ']') { if (--depth == 0) { q++; break; } if (depth < 0) break; }
+                }
+                if (depth != 0 || in_str) why = "is truncated (its top-level object never closes)";
+                else { while (*q == ' ' || *q == '\t' || *q == '\n' || *q == '\r') q++; if (*q) why = "has bytes after its top-level object"; }
+            }
+        }
+        if (why) { fprintf(stderr, "ERROR: [verify-certificate] %s %s\n", path, why); return 2; }
+    }
     char type[80];
     if (kc_h_field(buf, "type", type, sizeof(type)) != 0) {
         fprintf(stderr, "ERROR: [verify-certificate] no \"type\" field\n");
@@ -29331,7 +29663,7 @@ static void kc_h_scan_tail_checks(const KC *fkc, KcScanTab *T, int want_raw) {
      * not help: its arm below sits inside the ok[i]==0 branch, so an un-run check never reaches
      * it. The consumer ALREADY refuses "not-run" (solve.py atlas_load), so the fix is not a new
      * mechanism -- it is to stop laundering the un-run state through a word nothing checks.
-     * Unreachable at n<=13 (want_raw is forced at :30268 and :31002), so no golden moves. */
+     * Unreachable at n<=13 (want_raw is forced at :30600 and :31337), so no golden moves. */
     int tail_notrun = 0;
     for (int i = 0; i < KC_SCAN_NTC; i++) {
         strcpy(T->tail_report[i], ok[i] < 0 ? "not-run" : (ok[i] ? "PASS" : "FAIL"));
@@ -29459,7 +29791,7 @@ static int kc_h_scan_tail(const KC *fkc, const KC *gkc, KC *tkc, const char *fdi
     }
     {   /* VERTICAL: sum over layers of the class-d mass == b0[d] * N.
          * PROOF. kc_finish_init asserts sum_d b0[d] == n on EVERY ladder-open
-         * path (solve.c:19420-19422) -- derived by f1c5_derive_b0 or parsed from
+         * path (solve.c:19692-19694) -- derived by f1c5_derive_b0 or parsed from
          * the manifest, the assertion runs either way. A walk makes exactly n
          * transitions, and kc_h_scan_layers refuses one once dig[cls] >= b0[cls],
          * so each walk uses AT MOST b0[d] of class d and n in total. Caps summing
@@ -29647,11 +29979,11 @@ static int kc_h_scan_chunk_abort(FILE *f, const char *outp) {
 static int kc_h_sha256_mem(const void *data, size_t len, char hex[65]) {
     const char *tool = sha256_tool();
     if (!tool) return -1;
-    char tmp[128], cmd[192];
-    snprintf(tmp, sizeof(tmp), "/tmp/solve_msha_%d", (int)getpid());
-    snprintf(cmd, sizeof(cmd), "%s > %s", tool, tmp);
+    char tmp[PATH_MAX], cmd[2 * PATH_MAX + 64]; int solve_mktemp(char *, size_t, const char *); const char *g6_q(const char *);
+    if (solve_mktemp(tmp, sizeof(tmp), "solve_msha") != 0) return -1;   /* FV2-E1 D1358 */
+    snprintf(cmd, sizeof(cmd), "%s > %s", tool, g6_q(tmp));
     void (*g6_op)(int) = signal(SIGPIPE, SIG_IGN); FILE *p = popen(cmd, "w");   /* G6 F04-005#3 sibling */
-    if (!p) { if (g6_op != SIG_ERR) signal(SIGPIPE, g6_op); return -1; }
+    if (!p) { if (g6_op != SIG_ERR) signal(SIGPIPE, g6_op); unlink(tmp); return -1; }
     if (len && fwrite(data, 1, len, p) != len) { pclose(p); if (g6_op != SIG_ERR) signal(SIGPIPE, g6_op); unlink(tmp); return -1; }
     { int g6_pc = pclose(p); if (g6_op != SIG_ERR) signal(SIGPIPE, g6_op); if (g6_pc != 0) { unlink(tmp); return -1; } }
     FILE *tf = fopen(tmp, "r");
@@ -30903,6 +31235,9 @@ static int kc_h_merge_selfkill(void) {
     return -1;
 }
 
+/* FV2-E1 D1365 (Codex F12-002#15): SOLVE_C_CLI.md promises KC_SCAN_MERGE_ENGINE and KC_SCAN_MERGE_ROWBIND on every
+ * run; an early failure (bad argv, unreadable FDIR, ...) printed only KC_SCAN_MERGE=FAIL. Both legs were not reached. */
+#define KC_SCAN_MERGE_EARLY_FAIL() printf("KC_SCAN_MERGE_ENGINE=NOT-REACHED\nKC_SCAN_MERGE_ROWBIND=NOT-REACHED\nKC_SCAN_MERGE=FAIL\n")
 static int kc_scan_merge_main(int argc, char *argv[]) {
     if (argc < 6) {
         fprintf(stderr,
@@ -30924,19 +31259,19 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
     int want_raw = 0, force_ooc = 0, cache_mb = 0;
     const char *chunks[4096];
     int nchunk = 0;
-    { if (argv_refuse_repeat(argc, argv, 5, "--kc-cache-mb --kc-tdir")) { printf("KC_SCAN_MERGE=FAIL\n"); return 2; } } /* Q-864 */ for (int ai = 5; ai < argc; ai++) {
+    { if (argv_refuse_repeat(argc, argv, 5, "--kc-cache-mb --kc-tdir")) { KC_SCAN_MERGE_EARLY_FAIL(); return 2; } } /* Q-864 */ for (int ai = 5; ai < argc; ai++) {
         if (strcmp(argv[ai], "--kc-raw") == 0) want_raw = 1;
         else if (strcmp(argv[ai], "--kc-ooc") == 0) force_ooc = 1;
-        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) { if (argv_int(argv[1], "--kc-cache-mb", argv[++ai], 0, kc_cache_mb_max, &cache_mb)) { printf("KC_SCAN_MERGE=FAIL\n"); return 2; } }  /* Q-865 */
+        else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cache-mb") == 0) { if (argv_int(argv[1], "--kc-cache-mb", argv[++ai], 0, kc_cache_mb_max, &cache_mb)) { KC_SCAN_MERGE_EARLY_FAIL(); return 2; } }  /* Q-865 */
         else if (ai + 1 < argc && strcmp(argv[ai], "--kc-tdir") == 0) tdir = argv[++ai];
         else if (argv[ai][0] == '-') {
             fprintf(stderr, "ERROR: [kc-scan-merge] unknown option %s\n", argv[ai]);
-            printf("KC_SCAN_MERGE=FAIL\n");
+            KC_SCAN_MERGE_EARLY_FAIL();
             return 2;
         } else {
             if (nchunk >= (int)(sizeof(chunks) / sizeof(chunks[0]))) {
                 fprintf(stderr, "ERROR: [kc-scan-merge] too many chunk files\n");
-                printf("KC_SCAN_MERGE=FAIL\n");
+                KC_SCAN_MERGE_EARLY_FAIL();
                 return 2;
             }
             chunks[nchunk++] = argv[ai];
@@ -30944,7 +31279,7 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
     }
     if (nchunk == 0) {
         fprintf(stderr, "ERROR: [kc-scan-merge] no chunk files given\n");
-        printf("KC_SCAN_MERGE=FAIL\n");
+        KC_SCAN_MERGE_EARLY_FAIL();
         return 2;
     }
     /* G2 F3 (2026-09-04): OUT must mean "THIS invocation's complete output". Before this
@@ -30955,20 +31290,20 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
     for (int ci = 0; ci < nchunk; ci++)
         if (strcmp(chunks[ci], outp) == 0 || g6_same_file(chunks[ci], outp)) {   /* G6 F04-006#6: the same FILE, not only the same string (./chunk.json vs chunk.json) */
             fprintf(stderr, "ERROR: [kc-scan-merge] OUT %s names a chunk file\n", outp);
-            printf("KC_SCAN_MERGE=FAIL\n");
+            KC_SCAN_MERGE_EARLY_FAIL();
             return 2;
         }
     if (kc_h_unlink_regular(outp) != 0) {
         fprintf(stderr, "ERROR: [kc-scan-merge] cannot remove pre-existing %s: %s\n",
                 outp, strerror(errno));
-        printf("KC_SCAN_MERGE=FAIL\n");
+        KC_SCAN_MERGE_EARLY_FAIL();
         return 2;
     }
-    if (!sha256_tool()) { require_sha256_tool(); printf("KC_SCAN_MERGE=FAIL\n"); return 2; }
+    if (!sha256_tool()) { require_sha256_tool(); KC_SCAN_MERGE_EARLY_FAIL(); return 2; }
     /* H-4 drill hook, merge variant (2026-09-11): SIGKILL after K chunks have been consumed
      * by the chunk loop below, before anything is written at OUT. Test-only; env-only. */
     const int kill_after = kc_h_merge_selfkill();
-    if (kill_after < 0) { printf("KC_SCAN_MERGE=FAIL\n"); return 2; }
+    if (kill_after < 0) { KC_SCAN_MERGE_EARLY_FAIL(); return 2; }
     const double merge_w0 = kc_h_mono_sec();
 
     KC *fkc = (KC *)calloc(1, sizeof(KC));
@@ -30977,22 +31312,22 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
     F1_CHECK(fkc && gkc && (!tdir || tkc), "[kc-scan-merge] alloc");
     if (kc_open(fkc, fdir, force_ooc, cache_mb) != 0) {
         free(fkc); free(gkc); free(tkc);
-        printf("KC_SCAN_MERGE=FAIL\n");
+        KC_SCAN_MERGE_EARLY_FAIL();
         return 2;
     }
     kc_h_check_hex_linear(&fkc->c);   /* G16 */
     if (kc_open_as(gkc, gdir, "g", 1, force_ooc, cache_mb) != 0) {
         kc_free(fkc); free(fkc); free(gkc); free(tkc);
-        printf("KC_SCAN_MERGE=FAIL\n");
+        KC_SCAN_MERGE_EARLY_FAIL();
         return 2;
     }
     if (tdir && kc_open_as(tkc, tdir, "t", 2, force_ooc, cache_mb) != 0) {
         kc_free(fkc); kc_free(gkc); free(fkc); free(gkc); free(tkc);
-        printf("KC_SCAN_MERGE=FAIL\n");
+        KC_SCAN_MERGE_EARLY_FAIL();
         return 2;
     }
     /* same hard checks --kc-scan applies */
-    if (!kc_fg_ctx_same(fkc, gkc, "kc-scan-merge")) { kc_free(fkc); kc_free(gkc); if (tkc) kc_free(tkc); free(fkc); free(gkc); free(tkc); printf("KC_SCAN_MERGE=FAIL\n"); return 2; }  /* Q-326 (6) */ F1_CHECK(f1_eq(&fkc->total, &gkc->total) && fkc->n == gkc->n,
+    if (!kc_fg_ctx_same(fkc, gkc, "kc-scan-merge")) { kc_free(fkc); kc_free(gkc); if (tkc) kc_free(tkc); free(fkc); free(gkc); free(tkc); KC_SCAN_MERGE_EARLY_FAIL(); return 2; }  /* Q-326 (6) */ F1_CHECK(f1_eq(&fkc->total, &gkc->total) && fkc->n == gkc->n,
              "[kc-scan-merge] f/g ladders disagree (n or total)");
     if (tkc)
         F1_CHECK(fkc->n == tkc->n && fkc->start_exit == tkc->start_exit &&
@@ -31002,12 +31337,10 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
     if (fkc->n <= 13) want_raw = 1;
 
     const int n = fkc->n;
-    char want_N[64], want_pl[32], want_b0[128], want_fdir[2048], want_gdir[2048];
+    char want_N[64], want_pl[32], want_b0[128];
     f1_dec(fkc->total, want_N);
     snprintf(want_pl, sizeof(want_pl), "%016llx", (unsigned long long)f1_pl_hash(&fkc->c));
     kc_h_scan_b0_str(fkc, want_b0, sizeof(want_b0));
-    kc_h_json_escape(fdir, want_fdir, sizeof(want_fdir));
-    kc_h_json_escape(gdir, want_gdir, sizeof(want_gdir));
 
     KcScanTab T;
     kc_h_scan_alloc(fkc, want_raw, &T);
@@ -31015,7 +31348,7 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
      * kw_* must agree (both sides are bound to the same ladders by leg 3) */
     if (kc_h_scan_ref_walk(fkc, gkc, &T) != 0) {
         fprintf(stderr, "ERROR: [kc-scan-merge] cannot derive the reference walk (L6a)\n");
-        printf("KC_SCAN_MERGE=FAIL\n");
+        KC_SCAN_MERGE_EARLY_FAIL();
         kc_scan_free(&T);
         kc_free(fkc); kc_free(gkc); if (tkc) kc_free(tkc);
         free(fkc); free(gkc); free(tkc);
@@ -31073,8 +31406,8 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
         KC_MERGE_ID("N_total", want_N);
         KC_MERGE_ID("pl_hash", want_pl);
         KC_MERGE_ID("b0", want_b0);
-        KC_MERGE_ID("fdir", want_fdir);
-        KC_MERGE_ID("gdir", want_gdir);
+        KC_MERGE_ID("fdir", fdir);   /* FV2-E1 D1366 (Codex F04-006#7): kc_h_field DECODES the chunk's string, so it is */
+        KC_MERGE_ID("gdir", gdir);   /* compared with the invocation path itself, not its JSON escape (a quote or backslash in a dir refused every chunk) */
         KC_MERGE_ID("engine_git", GIT_HASH);
         /* leg 2, engine identity (G2 F1, 2026-09-04). The line this replaces was
          *     KC_MERGE_ID("engine_source_sha", SOURCE_SHA);
@@ -32016,12 +32349,12 @@ static int kc_h_par_tab_eq(const KcScanTab *A, const KcScanTab *B, int n) {
             !f1_eq(&A->hist[i].mw, &B->hist[i].mw) || !f1_eq(&A->hist[i].mworb, &B->hist[i].mworb))
             return 0;
     /* 🔴 L6a `kw` AND L7' `rid_mass` (Codex KCP5 #2, adjudicated by Fable 2026-09-12).
-     * Both are per-thread accumulators reduced at :28355-28359 and both are PERSISTED --
-     * `kwrank` at :28000/:28006, `rid_mass` at :28016/:28020 -- yet neither appeared in this
+     * Both are per-thread accumulators reduced at :28687-28691 and both are PERSISTED --
+     * `kwrank` at :28332/:28338, `rid_mass` at :28348/:28352 -- yet neither appeared in this
      * comparator, so a difference confined to either could not fail the thread-count or
      * in-core/OOC equality it backs. The gates do not close the gap: L6a's bins are
-     * invariant under an lt/gt swap (:29170), and L7' checks only 1-D marginals of the rid
-     * joint (:29194), so a 2x2 marginal-preserving move also passes. */
+     * invariant under an lt/gt swap (:29502), and L7' checks only 1-D marginals of the rid
+     * joint (:29526), so a 2x2 marginal-preserving move also passes. */
     if (A->kw_ok != B->kw_ok || A->R != B->R) return 0;
     for (int i = 0; i < n * 15; i++)
         if (A->kw[i].cnt != B->kw[i].cnt || A->kw[i].orb != B->kw[i].orb ||
@@ -32525,6 +32858,7 @@ static int kc_profile_main(int argc, char *argv[]) {
     KC *gkc = (KC *)calloc(1, sizeof(KC));
     KcProfile *P = (KcProfile *)calloc(1, sizeof(KcProfile));
     F1_CHECK(fkc && gkc && P, "[kc-profile] alloc");
+    if (kc_h_out_reset("kc-profile", tsv, argv) != 0) return 2;   /* FV2-E1 D1371 */
     if (kc_open(fkc, fdir, force_ooc, cache_mb) != 0) { free(fkc); free(gkc); free(P); return 2; }
     if (kc_open_as(gkc, gdir, "g", 1, force_ooc, cache_mb) != 0) {
         kc_free(fkc); free(fkc); free(gkc); free(P);
@@ -34323,6 +34657,7 @@ static int kc_t_pick_cap(const F1U192 *M, int n, uint64_t budget) {
  * brute node counts by depth == the f layer masses up to an adaptive cap;
  * 1 + sum of branch t == t(root)), then emits the JSON certificate. */
 static int kc_t_cert_main(const char *outp) {
+    if (kc_h_out_reset("kc-t-cert", outp, NULL) != 0) return 2;   /* FV2-E1 D1371 */
     printf("[kc-t-cert] node-convention certificate (n=9 exhaustive; n=13 spot)\n");
     int fails = 0;
     /* ---- n=9 exhaustive ---- */
@@ -35213,10 +35548,11 @@ static int kc_h_self_run(const char *args, const char *logpath) {
     ssize_t l = readlink("/proc/self/exe", exe, sizeof(exe) - 1);
     if (l <= 0) return -1;
     exe[l] = '\0';
-    const size_t need = strlen(exe) + strlen(args) + strlen(logpath) + 32;
+    const char *g6_q(const char *); const char *qe = g6_q(exe), *ql = g6_q(logpath);   /* FV2-E1 D1377 (Codex F04-006#8): an apostrophe in the */
+    const size_t need = strlen(qe) + strlen(args) + strlen(ql) + 32;                       /* executable's path broke the hand-written '...' words */
     char *cmd = (char *)malloc(need);
     if (!cmd) return -1;
-    snprintf(cmd, need, "'%s' %s > '%s' 2>&1", exe, args, logpath);
+    snprintf(cmd, need, "%s %s >%s 2>&1", qe, args, ql);   /* a child's log, not a sidecar (the sidecar gate reads `"%s %s > %s` as one) */
     const int rc = kc_h_sh(cmd);
     free(cmd);
     return rc;
@@ -36018,7 +36354,7 @@ static int kc_dead_census_layer(KC *f, KC *g, int k, KcDeadTab *T) {
     } else if (f->n - k > T->local_max) {
         fprintf(stderr, "ERROR: [kc-dead] layer k=%d has %d remaining pairs > --kc-local-max %d; "
                 "the g-free shortcut is REFUSED there (give the g ladder)\n", k, f->n - k, T->local_max);
-        return -1;
+        return -2;   /* FV2-E1 D1378: a refusal, not a failed identity */
     }
     memset(Y, 0, sizeof(*Y));
     for (uint64_t mi = 0; mi < fnm; mi++) {
@@ -36074,8 +36410,10 @@ static int kc_dead_census_layer(KC *f, KC *g, int k, KcDeadTab *T) {
 }
 
 static int kc_dead_census_run(KC *f, KC *g, KcDeadTab *T) {
-    for (int k = T->k_lo; k < T->k_hi; k++)
-        if (kc_dead_census_layer(f, g, k, T) != 0) return -1;
+    for (int k = T->k_lo; k < T->k_hi; k++) {
+        const int r = kc_dead_census_layer(f, g, k, T);
+        if (r != 0) return r == -2 ? -2 : -1;   /* FV2-E1 D1378: -2 = a refused g-free layer */
+    }
     return 0;
 }
 
@@ -36196,6 +36534,7 @@ static int kc_dead_census_main(int argc, char *argv[]) {
     KC *fkc = (KC *)calloc(1, sizeof(KC));
     KC *gkc = local ? NULL : (KC *)calloc(1, sizeof(KC));
     F1_CHECK(fkc && (local || gkc), "[kc-dead] alloc");
+    if (kc_h_out_reset("kc-dead", outp, argv) != 0) return 2;   /* FV2-E1 D1371 */
     if (kc_open(fkc, fdir, force_ooc, cache_mb) != 0) { free(fkc); free(gkc); return 2; }
     if (!local) {
         if (kc_open_as(gkc, gdir, "g", 1, force_ooc, cache_mb) != 0) {
@@ -36216,7 +36555,16 @@ static int kc_dead_census_main(int argc, char *argv[]) {
     F1_CHECK(kc_dead_tab_init(&T, n, k_lo, k_hi) == 0, "[kc-dead] alloc");
     T.N = fkc->total; T.local = local; T.local_max = local_max;
     int rc = 0;
-    if (kc_dead_census_run(fkc, gkc, &T) != 0) rc = 1;
+    const int run_rc = kc_dead_census_run(fkc, gkc, &T);
+    if (run_rc == -2) {   /* FV2-E1 D1378 (Codex F12-002#11, F12-024#10): SOLVE_C_CLI.md documents exit 2 for a refused
+                           * g-free layer; it was reported KC_DEAD_CENSUS_IDENTITY=FAIL with exit 1 */
+        printf("KC_DEAD_CENSUS_IDENTITY=NOT-REACHED\nKC_DEAD_CENSUS=REFUSED\n");
+        kc_dead_tab_free(&T);
+        kc_free(fkc); free(fkc);
+        if (gkc) { kc_free(gkc); free(gkc); }
+        return 2;
+    }
+    if (run_rc != 0) rc = 1;
     const int id_ok = rc == 0 && kc_dead_identity(&T) == 0;
     if (rc == 0) {
         kc_dead_write(stdout, &T, fdir, gdir);
@@ -36570,11 +36918,30 @@ static int kc_wit_parse_atlas(const char *path, int n, KcWit **out) {
             return -1;
         }
     }
+    /* FV2-E1 D1379 (Codex F04-006#6): a --kc-layers chunk (type roae-kc-scan-chunk) holds only the rows of its
+     * half-open [k_lo, k_hi); the reader demanded every k in [0, n), so a chunk was rejected as "malformed".
+     * The range is read from the chunk's own header and must lie inside [0, n); an atlas covers [0, n). */
+    int k_lo = 0, k_hi = n;
+    {
+        const char *lay = strstr(buf, "\"layers\":");
+        const char *ty = strstr(buf, "\"type\": \"roae-kc-scan-chunk\"");
+        if (ty && (!lay || ty < lay)) {
+            const char *pl = strstr(buf, "\"k_lo\":"), *ph = strstr(buf, "\"k_hi\":");
+            char *e1 = NULL, *e2 = NULL;
+            long a = pl ? strtol(pl + 7, &e1, 10) : -1, b = ph ? strtol(ph + 7, &e2, 10) : -1;
+            if (!pl || !ph || (lay && (pl > lay || ph > lay)) || e1 == pl + 7 || e2 == ph + 7 || a < 0 || b > n || a >= b) {
+                fprintf(stderr, "ERROR: [kc-witness] chunk %s has no valid k_lo/k_hi range inside [0, %d)\n", path, n);
+                free(buf);
+                return -1;
+            }
+            k_lo = (int)a; k_hi = (int)b;
+        }
+    }
     static const int dv[5] = {1, 2, 3, 4, 6};
     KcWit *W = NULL;
     int cnt = 0, cap = 0, rc = 0;
     const char *p = buf;
-    for (int k = 0; k < n && rc == 0; k++) {
+    for (int k = k_lo; k < k_hi && rc == 0; k++) {
         char pat[64];
         snprintf(pat, sizeof(pat), "{\"k\": %d, \"flow\": \"", k);
         const char *row = strstr(p, pat);
@@ -36786,7 +37153,7 @@ static int kc_witness_walks_main(int argc, char *argv[]) {
             "Usage: solve --kc-witness-walks FDIR GDIR ATLAS.json [--kc-out OUT.tsv]\n"
             "                                [--kc-ooc] [--kc-cache-mb MB]\n"
             "  Atlas query 9: realise ONE walk through every non-null L4 `extrema`\n"
-            "  witness transition of a whole --kc-scan atlas (a --kc-layers chunk is refused:\n  merge the chunks with --kc-scan-merge first) built over these\n"   /* G6 F04-006#9: the parser needs a row for every k, so a chunk never parsed */
+            "  witness transition of a --kc-scan atlas, or of a --kc-layers chunk over its\n  own [k_lo, k_hi) rows, built over these\n"   /* FV2-E1 D1379 (Codex F04-006#6): a chunk is read over the range its header declares (G6 had documented a refusal) */
             "  ladders: backward through f (first predecessor), the witness step,\n"
             "  forward through g (first completion). Each walk is re-validated and\n"
             "  checked to pass through its witness with f, g and w equal to the atlas.\n"
@@ -36811,6 +37178,7 @@ static int kc_witness_walks_main(int argc, char *argv[]) {
     KC *fkc = (KC *)calloc(1, sizeof(KC));
     KC *gkc = (KC *)calloc(1, sizeof(KC));
     F1_CHECK(fkc && gkc, "[kc-witness] alloc");
+    if (kc_h_out_reset("kc-witness", outp, argv) != 0) return 2;   /* FV2-E1 D1371 */
     if (kc_open(fkc, fdir, force_ooc, cache_mb) != 0) { free(fkc); free(gkc); return 2; }
     if (kc_open_as(gkc, gdir, "g", 1, force_ooc, cache_mb) != 0) {
         kc_free(fkc); free(fkc); free(gkc);
@@ -37778,6 +38146,7 @@ static int kc_extremal_main(int argc, char *argv[]) {
     }
     KC *fkc = (KC *)calloc(1, sizeof(KC));
     F1_CHECK(fkc != NULL, "[kc-extremal] alloc");
+    if (kc_h_out_reset("kc-extremal", jout, argv) != 0) return 2;   /* FV2-E1 D1371 */
     if (kc_open(fkc, fdir, force_ooc, cache_mb) != 0) { free(fkc); return 2; }
     if (fkc->ooc != NULL) {
         fprintf(stderr,
@@ -37813,14 +38182,15 @@ static int kc_extremal_main(int argc, char *argv[]) {
         printf("#provenance\tengine=solve.c/kc-extremal\tfunc=%s\tbranch=%s\t"
                "git=%s\tsource_sha=%s\tspace=C1C2C4C5-SUPERSPACE\t"
                "semantics=certificate-not-proof\n", F->name, GIT_BRANCH, GIT_HASH, SOURCE_SHA);
+        int cw = 0;
         if (jout) {
-            const int cw = kc_x_write_cert(jout, fkc, F, fdir, gdir, want_max, 0, 0, 0,
-                                           NULL, want_w, 0, 0, 0, 0, -1);
+            cw = kc_x_write_cert(jout, fkc, F, fdir, gdir, want_max, 0, 0, 0,
+                                 NULL, want_w, 0, 0, 0, 0, -1);
             printf("KC_EXTREMAL_CERT=%s\n", cw == 0 ? "WRITTEN" : "FAILED");
         }
         printf("KC_EXTREMAL=FAIL\n");
         kc_free(fkc); free(fkc);
-        return 1;
+        return cw != 0 ? 2 : 1;   /* FV2-E1 D1387 (Codex F12-002#12): a certificate that could not be written exits 2 here too, as on the run path */
     }
 
     F1C5Layer *XL = (F1C5Layer *)calloc((size_t)fkc->n + 1, sizeof(F1C5Layer));
@@ -38682,7 +39052,7 @@ static int kc_cli(int argc, char *argv[]) {
             kval = strtol(ks, &kend, 10);
             /* SYNTAX only. The RANGE check belongs to kc_g_check_layer_main, which
              * already tests k against the REAL ladder (`k < 0 || k > fkc->n`,
-             * solve.c:23369) and so knows the bound this dispatch does not. Duplicating
+             * solve.c:23642) and so knows the bound this dispatch does not. Duplicating
              * it here with a constant would be a second source of truth that drifts. */
             if (ks[0] == '\0' || kend == ks || *kend != '\0' ||
                 errno == ERANGE || kval < INT_MIN || kval > INT_MAX) {
@@ -38779,10 +39149,10 @@ static int kc_cli(int argc, char *argv[]) {
     if (strcmp(cmd, "--kc-o3-cert") == 0 || strcmp(cmd, "--kc-ar2") == 0) {
         const int is_cert = strcmp(cmd, "--kc-o3-cert") == 0;
         if (argc < (is_cert ? 5 : 4)) {
-            fprintf(stderr, "Usage: solve %s FDIR GDIR %s[--kc-cert-out FILE] "
+            fprintf(stderr, "Usage: solve %s FDIR GDIR %s%s"   /* FV2-E1 D1390: --kc-cert-out belongs to --kc-o3-cert only */
                     "[--kc-ooc] [--kc-cache-mb MB]\n"
                     "  %s (KC-H module header above for semantics).\n",
-                    cmd, is_cert ? "\"e,x,...\"|KW " : "[\"e,x,...\"|KW] ",
+                    cmd, is_cert ? "\"e,x,...\"|KW " : "[\"e,x,...\"|KW] ", is_cert ? "[--kc-cert-out FILE] " : "",
                     is_cert ? "H3b rank-certificate emitter (SUPERSPACE walk rank)"
                             : "AR-2 emission-witness battery");
             return 2;
@@ -38795,6 +39165,11 @@ static int kc_cli(int argc, char *argv[]) {
             else if (ai + 1 < argc && strcmp(argv[ai], "--kc-cert-out") == 0) cert_out = argv[++ai]; else if (ai != 4 || argv[4][0] == '-') { argv_refuse_arg(cmd, argv[ai], is_cert ? "FDIR GDIR WALK, then --kc-cert-out FILE, --kc-ooc and --kc-cache-mb MB" : "FDIR GDIR, an optional WALK, then --kc-cert-out FILE, --kc-ooc and --kc-cache-mb MB"); return 2; } /* Q-852 */
         }
         if (argc > 4 && argv[4][0] != '-') warg = argv[4];
+        if (!is_cert && cert_out) {   /* FV2-E1 D1390 (Codex F04-006#9): the AR-2 battery writes no certificate; the option was
+                                       * accepted, advertised in the usage line, and ignored, so the run reported success with no file */
+            fprintf(stderr, "ERROR: --kc-ar2 writes no certificate; --kc-cert-out belongs to --kc-o3-cert (the battery's verdict is KC_AR2_RESULT on stdout)\nKC_AR2_ARGS=REFUSED\n");
+            return 2;
+        }
         if (is_cert) return kc_o3_cert_main(argv[2], argv[3], argv[4], cert_out, hooc, hcache);
         return kc_ar2_main(argv[2], argv[3], warg, hooc, hcache);
     }
@@ -40422,7 +40797,7 @@ int main(int argc, char *argv[]) {
                  "cd %s && "
                  "for v in $(env | grep '^SOLVE_' | cut -d= -f1); do unset \"$v\"; done && "
                  /* \U0001f534 SOLVE_HASH_LOG2=20 (32 MB/thread) instead of the 2^24 default
-                  * (512 MB/thread, and MEMSET-RESIDENT -- solve.c:9719 touches every page, so it
+                  * (512 MB/thread, and MEMSET-RESIDENT -- solve.c:9870 touches every page, so it
                   * is real RSS, not virtual). MEASURED 2026-09-08: the selftest child was carrying
                   * ~2.1 GB at the old hardcoded 4 threads, on a 7 GB box, concurrently with a
                   * gcc -O3 -march=native in the same gate. That is the MEMORY half of the crash;
@@ -42322,6 +42697,7 @@ int main(int argc, char *argv[]) {
             return 2;
         }
         if (require_sha256_tool()) return 30;
+        f1c5_lstream_soft = 1;   /* FV2-E1 D1327: a corrupt layer is ERROR + exit 2 here (SOLVE_C_CLI.md), not an abort */
         int lsha_rc = 0;
         for (int ai = 2; ai < argc; ai++) {
             struct stat lsha_st;
@@ -42363,6 +42739,7 @@ int main(int argc, char *argv[]) {
                 "  first divergence offset on mismatch. Exit 0 identical, 1 divergent, 2 error.\n");
             return 2;
         }
+        f1c5_lstream_soft = 1;   /* FV2-E1 D1327 */
         return f1c5_layer_cmp_files(argv[2], argv[3]);
     } else if (argc > 1 && strcmp(argv[1], "--f1c5-sidecar-retrofit") == 0) {
         /* Catalog future-proofing sidecars (2026-07-17): regenerate the
@@ -47386,11 +47763,7 @@ int main(int argc, char *argv[]) {
                 fprintf(sm, "# SOLVE_DFS_CHECKPOINT=%d\n", dfs_checkpoint_enabled);
                 if (per_sub_branch_override > 0)
                     fprintf(sm, "# SOLVE_PER_SUB_BRANCH_LIMIT=%lld\n", per_sub_branch_override);
-                const char *rh = getenv("SOLVE_RESUME_HISTORY");
-                if (rh && *rh)
-                    fprintf(sm, "# SOLVE_RESUME_HISTORY: %s\n", rh);
-                else
-                    fprintf(sm, "# SOLVE_RESUME_HISTORY: (none - clean single-shot run)\n");
+                fprintf(sm, "# SOLVE_RESUME_HISTORY: %s\n", resume_history_label());   /* FV2-E1 D1316 */
                 if (ferror(sm) || fclose(sm) != 0) {
                     fprintf(stderr, "ERROR: appending provenance metadata to %s failed: %s\n"
                                     "SIDECAR=WRITE-FAILED\n", sha_name, strerror(errno));
@@ -48276,7 +48649,7 @@ int main(int argc, char *argv[]) {
             else if (node_limit > 0)
                 { int q623_branch_partition(const int *, const int *, int); int nt = q623_branch_partition(budget_prefix, used_prefix, seq_prefix[3]); current_per_branch_budget = node_limit / (nt > 0 ? nt : 1); }  /* V3A-134#8: the allocator's divisor (this branch's partition), not 3030 */
             { if (check_build_sha_invariant() != 0) return 26; }  /* Q-844: --branch resumes checkpoint.txt and writes shards, so it refuses a foreign build.sha as the enum path does (same SOLVE_ALLOW_BUILD_MISMATCH override), before the checkpoint is read */ load_sub_checkpoint();
-            if (n_completed_subs > 0) {
+            if (n_completed_subs > 0) { g_resume_restored = 1;   /* FV2-E1 D1316 */
                 printf("Resuming: %d sub-branches already completed (from checkpoint.txt)\n",
                        n_completed_subs);
                 total_branches_completed = n_completed_subs;
@@ -49497,7 +49870,7 @@ sub_enum_done:
     cleanup_orphaned_tmp_files();
     int promoted_orphans = promote_orphaned_shards();
     if (promoted_orphans > 0) n_completed_subs += promoted_orphans;
-    if (n_completed_subs > 0) {
+    if (n_completed_subs > 0) { g_resume_restored = 1;   /* FV2-E1 D1316 */
         printf("Resuming: %d sub-branches already completed (from checkpoint.txt)\n",
                n_completed_subs);
         total_branches_completed = n_completed_subs;
@@ -52764,6 +53137,20 @@ int q888_manifest_missing(const char *dir, const char *ctx, const long long *cla
         printf("  Shard manifest cross-ref: all %d shard(s) listed in shard_manifest.txt are present (Q-888 (3))\n", listed);
     return missing;
 }
+/* FV2-E1 D1320: the true decompressed size of a gz file -- every member, no mod 2^32 -- by inflating it to the
+ * end (zlib's gzread continues across concatenated members and checks each member's CRC). -1 if the stream
+ * cannot be opened or is corrupt. O(decompressed size); used where a size feeds a record count. */
+long long gz_inflated_size(const char *path) {
+    gzFile gf = gzopen(path, "rb");
+    if (!gf) return -1;
+    static __thread unsigned char buf[1 << 16];
+    long long total = 0; int n;
+    while ((n = gzread(gf, buf, sizeof(buf))) > 0) total += n;
+    int err = 0; (void)gzerror(gf, &err);
+    int ok = (n == 0 && gzeof(gf) && err == Z_OK);
+    gzclose(gf);
+    return ok ? total : -1;
+}
 int q888_gz_stream_bad(const char *name) {
     if (!file_is_gzip(name) || gz_test(name) == 0) return 0;
     fprintf(stderr, "WARN: orphaned shard %s fails its gzip CRC-32/size check (its data did not all reach the disk, or it was\n"
@@ -55345,6 +55732,21 @@ void g5b_strict_tail_unlink(const char *outp, int gate_fails, int tail_fails) {
  * Codex's final review (gpt-6-astra), rounds 3a/3b, as Fable triaged them. The helpers live here so
  * the edits above stay line-neutral (documentation/ cites solve.c by line); each is declared at its
  * call site. None of them touches a record stream: every one refuses, reports, or quotes. */
+
+/* solve_mktemp (FV2-E1 D1358, Codex SUC-001#1): a private temp file "<TMPDIR or /tmp>/<stem>_<pid>_XXXXXX",
+ * created by mkstemp (so a pre-planted name or symlink is never followed) and closed; its name is in BUF.
+ * The digest and fingerprint helpers hard-coded /tmp, which broke on a host whose /tmp is unwritable but
+ * TMPDIR is set, and the repository-only disk promise of the battery. 0 on success, -1 (BUF = "") on failure. */
+int solve_mktemp(char *buf, size_t cap, const char *stem) {
+    const char *td = getenv("TMPDIR");
+    if (!td || !*td) td = "/tmp";
+    int n = snprintf(buf, cap, "%s/%s_%d_XXXXXX", td, stem, (int)getpid());
+    if (n < 0 || (size_t)n >= cap) { if (cap) buf[0] = '\0'; errno = ENAMETOOLONG; return -1; }
+    int fd = mkstemp(buf);
+    if (fd < 0) { buf[0] = '\0'; return -1; }
+    close(fd);
+    return 0;
+}
 
 /* g6_q: S as ONE single-quoted shell word (sh_squote), in one of four per-thread buffers so up to
  * four may appear in one snprintf. Never NULL: a NULL or unquotable S yields a word naming a path

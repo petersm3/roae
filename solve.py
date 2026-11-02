@@ -6963,7 +6963,7 @@ def extended_selftest(solve_binary):
     def _run(env_extra, dir_, args_=("0", "4")):
         env = {k: v for k, v in os.environ.items() if not k.startswith("SOLVE_")}   # G5b F04-011#3: no inherited SOLVE_*
         # Every --extended-selftest subtest runs BELOW the 1T canonical-stability threshold
-        # (100M-2G nodes), so solve.c's sub-canonical gate (solve.c:43658) refuses to start
+        # (100M-2G nodes), so solve.c's sub-canonical gate (solve.c:44035) refuses to start
         # without this override and the whole selftest dies at subtest 1. The gate exists
         # because a sub-1T sha is CODE-SPECIFIC and therefore not a cross-build anchor -- but
         # these subtests compare shas THREE WAYS AGAINST EACH OTHER on one build (recursive vs
@@ -12565,11 +12565,11 @@ def atlas_load(path, allow_t_not_run=False):
     if isinstance(fails, bool) or not isinstance(fails, int):
         raise AtlasError("%s: gates.fails=%r is not an integer" % (path, fails))
     # 🔴 Q-560, FIXED 2026-09-12. "see fails" was the ONLY value read as a failure, so the
-    # producer's honest disclosure that a gate never ran -- "not-emitted", solve.c:30147, emitted
+    # producer's honest disclosure that a gate never ran -- "not-emitted", solve.c:30479, emitted
     # for raw_marginal_sums_eq_N and kernel_marginals_eq_cls_raw whenever want_raw is 0 -- was
     # accepted beside "fails": 0. A verifier must be FALSE when its target is absent.
     # Reachable only at n > 13 (want_raw is forced below that), i.e. exactly the paid run.
-    # NARROW ON PURPOSE: "not-run (requires --kc-tdir)" (solve.c:30157) is ALSO an un-run gate,
+    # NARROW ON PURPOSE: "not-run (requires --kc-tdir)" (solve.c:30489) is ALSO an un-run gate,
     # but VERIFY.md:1268 states as POLICY that it "is not a failed run". Reversing a documented
     # decision is an operator call, not a bug fix, so it is filed separately rather than folded in.
     # DENYLIST, not allowlist: the minimal fixtures carrying only {"fails": 0} (tests.py:6940,
@@ -12627,11 +12627,11 @@ def atlas_load(path, allow_t_not_run=False):
                    ",".join(sorted(have - want)) or "-", ",".join(sorted(want - have)) or "-"))
     # 🔴 THE TAIL VERDICT WAS EMITTED AND NEVER READ (Codex KCP5 #1, adjudicated by Fable
     # 2026-09-12: ACCEPTED, and BROADER than charged). The five F3-rule tail checks count
-    # failures unconditionally (solve.c:29341, `if (ok[i] == 0)`) but increment `gate_fails` only under
-    # SOLVE_KC_SCAN_TAIL_STRICT=1 (:29343), while KC_SCAN (:30436) and KC_SCAN_MERGE
-    # (:31352) derive from `gate_fails` ALONE. So a non-strict run writes `gates.fails = 0`
+    # failures unconditionally (solve.c:29673, `if (ok[i] == 0)`) but increment `gate_fails` only under
+    # SOLVE_KC_SCAN_TAIL_STRICT=1 (:29675), while KC_SCAN (:30768) and KC_SCAN_MERGE
+    # (:31685) derive from `gate_fails` ALONE. So a non-strict run writes `gates.fails = 0`
     # beside `tail_checks.fails >= 1` in the SAME file and still prints KC_SCAN=OK, exit 0.
-    # SOLVE_C_CLI.md:2191 states that honestly; :2298 then claimed THIS loader closed it,
+    # SOLVE_C_CLI.md:2197 states that honestly; :2304 then claimed THIS loader closed it,
     # and it did not -- `tail_check` and `tail_report` appeared ZERO times in this file
     # (positive control: `atlas_emit_v1` = 2). Codex demonstrated the consequence rather
     # than asserting it: moving 48 units between two raw pair marginals produced vertical
@@ -12676,7 +12676,7 @@ def atlas_load(path, allow_t_not_run=False):
             % (path, tf, len(bad), ", ".join(bad) or "-"))
     # 🔴 Q-561, FIXED 2026-09-12. The guard that stood here fired only when "n/a" verdicts
     # were present AND some layer carried marginal_raw. But "n/a" was produced precisely when
-    # want_raw == 0, which is precisely when marginal_raw is ABSENT from every row -- solve.c:30016
+    # want_raw == 0, which is precisely when marginal_raw is ABSENT from every row -- solve.c:30348
     # asserts it appears exactly want_raw times. So the guard was conditioned on the data that
     # vanishes in the only case it had to catch: it could fire on a forged atlas and never on a
     # real one. Removed, not repaired. Every un-run verdict now lands in the notrun arm above,
@@ -14357,7 +14357,7 @@ def atlas_q3_reader_check(tsv_path, N):
         # profile traces rather than about the universe:
         #   f(s_i) counts the prefixes that reach s_i, and this walk's own prefix is one of
         #     them, so f >= 1 on every visited step;
-        #   alts counts the admissible oriented successors with g > 0 (solve.c:24017) and the
+        #   alts counts the admissible oriented successors with g > 0 (solve.c:24290) and the
         #     step actually taken is one of them, so alts >= 1.
         # >= 1 is the TIGHT bound, not a loose one: the committed golden
         # scripts/tr12_expected/n9/a2_q3_profile.txt bottoms out at f = 1 (step 1) and at
@@ -15569,7 +15569,7 @@ def pair_orbit_partition():
 
     That the two agree is then a real cross-check rather than a tautology.  The
     index convention matters and is easy to get wrong: solve.c indexes pairs by
-    KING WEN ORDER (`pairs[p] = (KW[2p], KW[2p+1])`, init_pairs at solve.c:1708), so
+    KING WEN ORDER (`pairs[p] = (KW[2p], KW[2p+1])`, init_pairs at solve.c:1711), so
     `king_wen_pairs()` is the matching constructor.  `build_pairs()` indexes by
     ascending hexagram value and yields the SAME SEVEN ORBIT SIZES with DIFFERENT
     MEMBERS -- a relabelling that would silently produce a wrong gate.
@@ -17259,7 +17259,7 @@ def t3_encode_solutions(out_bin, input_paths):
                     # tag, a cd= field, and the walk -- which has EXACTLY that shape and is a
                     # legitimate line. Refusing it would have broken the tool on real
                     # --kc-sample/--kc-unrank output. Checked by reading the emitters
-                    # (solve.c:38945 `record\tm=%llu\t`, :39020 and the `%s\tcd=%d\t` form beside them), not assumed.
+                    # (solve.c:39320 `record\tm=%llu\t`, :39395 and the `%s\tcd=%d\t` form beside them), not assumed.
                     #
                     # What is safe, and is done, is to COUNT what the skip discards, so a changed
                     # input shape is visible instead of silent.

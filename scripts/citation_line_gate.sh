@@ -268,7 +268,7 @@ PYEOF
 # The gate's matching is unchanged: no anchor rule or window was widened. The two rows left were
 # tr12_repro.sh row_skip text (the a1_q5 wave-3 reason).
 # DRAINED 2 -> 0, 2026-09-25 (Opus BC, batch 14). That reason now names `kc_open` on the cited span
-# solve.c:37781-37782 (the call, then the `fkc->ooc != NULL` refusal) and `KC_MEM_MAX_PAIRS` on
+# solve.c:38150-38151 (the call, then the `fkc->ooc != NULL` refusal) and `KC_MEM_MAX_PAIRS` on
 # :20692, so both citations are CHECKED. The row_skip branch runs only at n>=31, so the n=9
 # expected blocks do not carry the text. Only the ATTESTED rows below remain in this table.
 # A LANDS row still has leg A behind it: a shift under it fails leg A regardless of this pin.
@@ -290,7 +290,7 @@ ALL_PINS="${CITGATE_ALL_PINS-$ALL_PINS_DEFAULT}"
 # citations into files OTHER than solve.c (solve.c's rows are the table above, reused as-is).
 TARGET_PINS_DEFAULT=$(cat <<'PINS'
 # file	target	key	hash	reason
-documentation/CRITIQUE.md	documentation/CRITIQUE.md	a few hours	f8ba3b65a9cf	LANDS: line 60 is the Gray-code C3 rate bound 'scoped to its sampler', the over-reach correction the note refers back to (self-reference; re-hashed 2026-09-26, Opus EU: only line 60's two solve.c citations moved, +1 for batch 16's solve.c)
+documentation/CRITIQUE.md	documentation/CRITIQUE.md	a few hours	ff409f27a01f	LANDS: line 60 is the Gray-code C3 rate bound 'scoped to its sampler', the over-reach correction the note refers back to (self-reference; re-hashed 2026-09-26, Opus EU: only line 60's two solve.c citations moved, +1 for batch 16's solve.c)
 documentation/CAMPAIGN_METHODOLOGY.md	documentation/HISTORY.md	origin/main	76d247e90143	LANDS: HISTORY.md line 4158 is the line carrying the 8-hex UUID prefix `3620ba16-…` the sentence describes
 documentation/CAMPAIGN_METHODOLOGY.md	documentation/HISTORY.md	origin/main	0a6a430f95ad	LANDS: HISTORY.md line 1907 carries the `d63bb25c…` UUID token the sentence describes
 documentation/CAMPAIGN_METHODOLOGY.md	documentation/HISTORY.md	9a968fa2	db73f707cca7	LANDS: HISTORY.md line 5146-5147 carry the old/new pre-merge shard totals (43,876,464,466) the cell names
@@ -509,9 +509,9 @@ def is_unreadable(t):
     return _tsrc.get(t) == "UNREADABLE"
 
 # ---- the citation grammar -------------------------------------------------------------------
-# `solve.c:N`, `solve.c:N-M` (en dash too, and the abbreviated `:18875-18893`), and a bare `:N`
+# `solve.c:N`, `solve.c:N-M` (en dash too, and the abbreviated `:19133-19151`), and a bare `:N`
 # continuation, which belongs to the most recent `<name>.<ext>:N` citation on the same line and
-# counts only when that one is solve.c ("(solve.c:38960, :42132)", "solve.c:23871/:24502").
+# counts only when that one is solve.c ("(solve.c:39335, :42507)", "solve.c:24144/:24775").
 # (F05-011#9) any run of spaces around the range dash; (F05-011#8, --all-targets) an extensionless
 # tracked name (SHA256SUMS, lean-toolchain) is a file name too.
 _XL = ("|(?:[\\w\\-./]*/)?(?:%s)" % "|".join(re.escape(x) for x in EXTLESS)) if (EXTLESS and os.environ["ALLT"] == "1") else ""
@@ -765,7 +765,7 @@ def candidates(line, tname="solve.c"):
 def context(lines, li, ismd):
     """The citing line plus its paragraph neighbours (<= 3 lines each way, never across a blank
     line). Hard-wrapped prose puts the symbol on the line BEFORE the number as often as on the
-    same line (`...\n  `long long fail_c1 ...` (`solve.c:43973-43974`)`), and a comment block in a
+    same line (`...\n  `long long fail_c1 ...` (`solve.c:44350-44351`)`), and a comment block in a
     script is one sentence spread over several `#` lines. A markdown TABLE ROW is its own unit:
     the next row is a different claim, so a table row takes no neighbours; nor does a heading."""
     line = lines[li - 1]

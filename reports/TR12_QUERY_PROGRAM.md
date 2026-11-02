@@ -866,7 +866,7 @@ members via f·g**, vs PCA's projection of an enumerated sample slice (the d3 56
 | V2 | `viz_kc_river.md` — mass river | Layer-k mass split **by distance class of the k-th transition** (`atlas.layers[k].by_class{d1,d2,d3,d4,d6}`) — the **reduced form**, and the only one the atlas schema carries: a joint split by first branch and distance class is **not** available (a completed-solution split by first branch is, and is flat: `solutions(b)` at every layer), because `branch_atlas[]` holds per-branch totals, not per-layer-per-branch mass (`documentation/QUERY_INVENTORY.md` §3.1). Sankey/stacked flow across k=1..31; KW's path drawn as a line | scan table (iii) | F+G+scan | stacked-area/Sankey from TSV |
 | V3 | `viz_kc_spectrum.md` — rank spectrum | For ranks r on a systematic grid (r = i·⌊N/K⌋, K=10³–10⁴): walk-decomposable functional values of unrank(r) vs r — property drift across the index | `--kc-unrank` grid + solve.py evals | F (REL grid); G+O3 for the citable-order axis | shell loop + solve.py batch + scatter/line |
 | V4 | `viz_kc_shells.md` — KW's neighborhood shells | g(KW-prefix_k) vs k, log-scale (completions remaining after each KW choice) = Q3's rarity profile as a figure; optional band: min/max g over alternatives per step | Q3 output | G | semilog line from q3 TSV |
-| V5 | `viz_kc_grammar.md` — transition grammar | P(next-choice class \| layer k) exact, choice class = **(d, w)**: boundary distance class d∈{1,2,3,4,6} × **new-pair category, pinned 2026-09-23 as w = popcount(entry XOR exit) ∈ {2,4,6}**, the within-pair distance of the newly placed pair; heatmap over k; KW's actual choices marked. ⚠ *Updated 2026-09-24: this cell read "choice classes: **distance class d∈{1,2,3,4,6} only**" and "`documentation/QUERY_INVENTORY.md` §3.1 rules V5 the distance-class form only". "New-pair category" was never defined in this section; it was pinned by operator ruling as `w`, and the `(d, w)` cross-tab is derived consumer-side from the persisted kernel (`TR12_V5=PASS`, figure below). The history that follows is kept.* ⚠ *The "× new-pair category" second dimension was promised here until 2026-09-12 (V3B-03#13); `documentation/QUERY_INVENTORY.md` §3.1 rules V5 the distance-class form only.* ⚠ *Corrected 2026-09-12 (Codex KCP5 #4, Opus disposition): this read "**is absent from the atlas schema**", and that overstates the limitation in the one direction that costs money. With `--kc-raw` the atlas persists every nonzero raw kernel cell `m<a>_<b>` (`solve.c:28029`, under `want_raw`), and both `d = popcount(a ^ b)` and the new pair's identity through entry `b` are recoverable from the key — so the joint is **derivable from saved data, without a second n=31 pass**. What is actually missing is the category DEFINITION (`viz/viz_kc_grammar.md:140-141`), a consumer-side decision. "Absent from the schema" would have implied re-scanning to obtain it; that is not the situation.* | scan table (iv) | F+G+scan | heatmap from TSV |
+| V5 | `viz_kc_grammar.md` — transition grammar | P(next-choice class \| layer k) exact, choice class = **(d, w)**: boundary distance class d∈{1,2,3,4,6} × **new-pair category, pinned 2026-09-23 as w = popcount(entry XOR exit) ∈ {2,4,6}**, the within-pair distance of the newly placed pair; heatmap over k; KW's actual choices marked. ⚠ *Updated 2026-09-24: this cell read "choice classes: **distance class d∈{1,2,3,4,6} only**" and "`documentation/QUERY_INVENTORY.md` §3.1 rules V5 the distance-class form only". "New-pair category" was never defined in this section; it was pinned by operator ruling as `w`, and the `(d, w)` cross-tab is derived consumer-side from the persisted kernel (`TR12_V5=PASS`, figure below). The history that follows is kept.* ⚠ *The "× new-pair category" second dimension was promised here until 2026-09-12 (V3B-03#13); `documentation/QUERY_INVENTORY.md` §3.1 rules V5 the distance-class form only.* ⚠ *Corrected 2026-09-12 (Codex KCP5 #4, Opus disposition): this read "**is absent from the atlas schema**", and that overstates the limitation in the one direction that costs money. With `--kc-raw` the atlas persists every nonzero raw kernel cell `m<a>_<b>` (`solve.c:28361`, under `want_raw`), and both `d = popcount(a ^ b)` and the new pair's identity through entry `b` are recoverable from the key — so the joint is **derivable from saved data, without a second n=31 pass**. What is actually missing is the category DEFINITION (`viz/viz_kc_grammar.md:140-141`), a consumer-side decision. "Absent from the schema" would have implied re-scanning to obtain it; that is not the situation.* | scan table (iv) | F+G+scan | heatmap from TSV |
 
 Costs: data extraction rides §Q6's scan pass (V1/V2/V5) and Q3 (V4); V3's grid [cost redacted]
 (K unranks). Rendering is local. Verification: every figure's TSV is committed as evidence;
@@ -1082,7 +1082,7 @@ shortfall factor is not quoted from any of them.** (iii)
 what `--kc-t-cert` certifies today is **t vs an independent brute DFS** (n=9 exhaustive, n=13 spot);
 it explicitly does **not** claim the `SOLVE_NODE_LIMIT` mapping. Completing it (W0-D) needs the
 production enumerator to run at reduced n, which it cannot: `init_pairs()` fixes all 32 KW pairs
-unconditionally (`solve.c:1708–1714`) and `--f1-pairs` reaches only the f1c5/c3/kc paths. So W0-D's
+unconditionally (`solve.c:1711–1717`) and `--f1-pairs` reaches only the f1c5/c3/kc paths. So W0-D's
 cost is **a small compute run PLUS an unbudgeted change to the production enumerator** — an operator
 gate, not a compute line item. ⚠ And even after W0-D the verdict stays **one-sided** — but in the
 **other direction** from the one this paragraph gave. t-units bound production nodes from **below**:
@@ -2095,18 +2095,18 @@ query family and refines four existing items. All items below are labeled by spa
   both symbols are **Lean definitions**, not engine helpers: `lean/Automorphism.lean:127` defines
   `applyPerm` and `:131` defines `pairKey`. Measured on `origin/main`: `applyPerm` occurs **0**
   times in `solve.c` under every casing tried (`applyPerm`, `applyperm`, `APPLYPERM`, `ApplyPerm`,
-  `apply_perm`; control `main` = 38, `zzznotreal` = 0). The `PairKey` struct at `solve.c:45588` is
+  `apply_perm`; control `main` = 38, `zzznotreal` = 0). The `PairKey` struct at `solve.c:45965` is
   an unrelated `qsort` sort-record (`{ unsigned char pi[32]; long long idx; }`) with no coset
   semantics, so calling this a misspelling would point the reader at real machinery that does the
   wrong thing. The engine's actual XOR/coset tables are `F1Coset`/`f1_g24[24]`
-  (`solve.c:13945-14075`) and `F1UCoset`/`f1u_cos[48]` (`:39145-39292`), and **neither is
+  (`solve.c:14101-14231`) and `F1UCoset`/`f1u_cos[48]` (`:39520-39667`), and **neither is
   referenced anywhere on the `--kc-scan` path**.]** Aggregating the scan-pass mass table by coset
   id is therefore not possible at all — see the withdrawn cost line below.
 - **Stage:** post-G (needs the g-ladder). **Cost:** (a) [cost redacted] (projection of existing tables);
   (b) **ESTIMATE WITHDRAWN.**
   ⚠ **[CORRECTED 2026-09-20 — this read "[cost redacted] (one extra aggregation over the scan pass). Rides
   Q6's `--kc-scan`; no new heavy pass." It is **withdrawn rather than re-priced**, because it
-  understated by omitting FEASIBILITY, not by mis-pricing. `solve.c:25017` names what the scan pass
+  understated by omitting FEASIBILITY, not by mis-pricing. `solve.c:25290` names what the scan pass
   touches — `flow[k]`, `cls[k][.]`, `qmarg[k][.]`, `rawmarg[k][.]`, `fmass[k]` — every one keyed by
   layer and by distance class or quotient, with **no hexagram-identity axis**. No coset projection
   can be aggregated out of those tables at any price, so (b) does not ride Q6's scan pass. No

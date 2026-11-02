@@ -36956,3 +36956,172 @@ that each public pointer it names exists; red on the parent.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-H; resolution by Fable
 (claude-fable-5-1).
+
+## CX-36I-A — solve.c resume, provenance, orphan-promotion and shard-manifest contracts: a resumed run's provenance read one node per shard high and said "clean", a stray or two-member shard was promoted under the wrong cell or count, an uncapped run inherited a budgeted shard, a blanked stamp line matched any shape, and a manifest could be installed without a shard it could not hash (solve.c; documentation/SOLVE_C_CLI.md; documentation/DEVELOPMENT.md; tests.py)
+
+**2026-11-01.** **Source.** Codex (gpt-6-astra), fix-verification round, findings F04-002#1, F09-H01#30, F04-002#24,
+F12-003#4, F04-002#5, F04-003#1, F04-008#7, F04-002#4, F04-001#11, F04-002#18, F04-002#6, F04-001#12, F04-002#17,
+F04-002#23; Fable's slice-2 triage (rows D1474, D1308, D1316, D1367, D1350, D1320, D1351, D1385, D1388, D1347, D1373,
+D1375, D1309); push group FV2-E1. No canonical output changed: `./solve --selftest` still prints
+`403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` and `--selftest-resume`
+`b3862357fbde42e7743e219508ede16099b8934ebdf6cbcfc7dd051f8eca4072`; every change is on a resume, a sidecar, a refusal
+or a message.
+
+**What the code did, and what it does now.**
+- **Recursive walk over a v2 checkpoint (D1474).** Already cured at the base by G6 (CX-35X-B: `DFS_MODE_RESUME=REFUSED`,
+  exit 32). Measured on 0df730cb: a depth-2 `--branch 1 0` run checkpointed at budget 20,000 and resumed at 40,000 with
+  `SOLVE_DFS_ITERATIVE=0` wrote 3,282 records at exit 0, where the fresh 40,000 run and the iterative continuation both
+  write 6,890. No test pinned the refusal; one now does, together with the positive half (interrupt + resume is
+  byte-identical to the uninterrupted run).
+- **Provenance node count after a resume (D1308).** A v2 resume re-enters the captured frame, whose entry the earlier
+  invocation already counted, and the merge sums the shards' per-write figures, so `--compare-provenance` failed
+  `total_nodes_explored` 1,040,026 against 1,040,000 (26 resumed shards) for two equivalent outputs. The provenance
+  write of a resumed walk now subtracts that one node; the walk, its counters and stdout are unchanged. (The
+  DEVELOPMENT.md sentence that resume-equivalence of the provenance counters is untested at the 11.2T composition is
+  still true; this is a depth-2 test.)
+- **"Clean single-shot run" after a resume (D1316).** With `SOLVE_RESUME_HISTORY` unset the `.sha256` metadata and the
+  shard provenance said "(none - clean single-shot run)" even when the process had imported checkpoint state. A run
+  that imported checkpoint.txt cells, a worker snapshot or a `.dfs_state` now says "(not supplied - this run resumed
+  from on-disk checkpoint state)", and a resumed shard's provenance write says it resumed from its `.dfs_state`.
+- **Provenance objects by member order (D1367).** The comparison was byte-wise after whitespace removal; members are
+  now sorted before the compare.
+- **Orphan promotion (D1350, D1320, D1351).** The parsed coordinates were masked into the completion key, so
+  `sub_40_0_13_0.bin` was promoted as "pair1 40"; only the exact canonical spelling of an in-range cell with distinct
+  pairs is promoted now. The gzip size trailer is the last member's size mod 2^32, so a two-member shard was promoted
+  with 222 of its 444 records; promotion now inflates the stream and refuses a shard whose true size differs from its
+  trailer. An uncapped run (budget 0) promoted a shard written under a finite budget; any budget mismatch now refuses.
+  The other `gz_logical_size` callers are unchanged: they read the records back through zlib, which crosses members.
+- **Legacy COMPLETE lines (D1347).** A legacy "COMPLETE" checkpoint line counted as EXHAUSTED; it now counts only with a
+  `.budget` sidecar at or above the current budget, otherwise the cell is re-walked. No current writer emits COMPLETE.
+- **Resume-shape stamp (D1385).** A stamp whose `threads=` or `depth=` line was missing or malformed disabled the
+  comparison; it is now a violation (`RESUME_CONTRACT=MALFORMED`, exit 34, same override).
+- **Shard manifest (D1373, D1375, D1388).** The emitter's status was `sort`'s, so a shard that could not be read was
+  absent from an installed manifest at rc 0 and a gz shard with a corrupt stream was hashed short; every selected file
+  must now have its row (`SHARD_MANIFEST=INCOMPLETE` otherwise, nothing installed) and gz shards pass `gzip -t` first. A
+  manifest size of 19 or more digits overflowed the shell's integer tests and rested on the sha alone; it is malformed
+  now. On a resume the startup check downgraded every failure to advisory and compared only counts; failing shards
+  with no `.dfs_state` are now named (`UNEXPLAINED:`) and counted (`AUTO_MANIFEST_UNEXPLAINED=<n>`). Its exit status
+  is unchanged on purpose: a shard that finished EXHAUSTED during an interrupted extension loses its `.dfs_state`
+  legitimately, and making the check fatal could reopen the #163 false abort. That decision is the operator's.
+- **Budgeted `--sub-branch` output (D1309).** A comment said the output is exactly {tasks 0..K-1} and scheduling-free;
+  tasks still running when the budget is reached also contribute records, so only an exhausted run is
+  scheduling-independent.
+
+**Tests.** `TestBatchFV2E1`: `test_d1474_…`, `test_d1308_…`, `test_d1316_…`, `test_d1367_…`, `test_d1350_d1320_…`,
+`test_d1351_…`, `test_d1385_…`, `test_d1388_…`, `test_d1347_…`, `test_d1373_…`, `test_d1375_…` (D1309 in
+`test_d1321_d1309_d1344_structural_pins`). Each drives the binary built from the tree, with a positive control, and
+fails on 0df730cb; at the base 0058f638 only the D1474 test passes (the G6 cure).
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-E1; the defects were found by Codex
+(gpt-6-astra), fix-verification round, F04-002#1, F09-H01#30, F04-002#24, F12-003#4, F04-002#5, F04-003#1, F04-008#7,
+F04-002#4, F04-001#11, F04-002#18, F04-002#6, F04-001#12, F04-002#17, F04-002#23.
+
+## CX-36I-B — f/g/t ladder resume and layer tools: a zero-mask or out-of-range layer resumed into a wrong count, a manifest of another kind resumed a ladder, the read-only layer tools exited 71 on a corrupt block, a kill in finalisation discarded the layer's checkpoint, and a corrupt checkpoint aborted every restart (solve.c; documentation/SOLVE_C_CLI.md; tests.py)
+
+**2026-11-01.** **Source.** Codex (gpt-6-astra), fix-verification round, F04-005#1, F12-014#3, F04-008#22, F12-002#13,
+F04-005#3, F12-013#6, F12-013#2, F04-005#9, F04-005#12, F12-013#7, F04-005#14, F04-005#10; Fable's slice-2 triage
+(rows D1322, D1325, D1326, D1327, D1335, D1339, D1340, D1341, D1346, D1348, D1349); push group FV2-E1. No count, layer
+byte or digest changed; the n=9 rung still counts 26,112 on every path tested.
+
+**What the code did, and what it does now.**
+- **Resume inputs (D1322, D1325, D1326).** The in-RAM F1 resume trusted the header's `n_masks`: a layer cut to its header
+  with `n_masks = 0` resumed into "orbit-quotient DP total = 0". It must now hold exactly the canonical masks of its
+  popcount and end there. The ladder resume never read a manifest's first line, so an f1c5 directory whose manifest said
+  `t_manifest_v1` resumed; the kind tag must be the ladder's own (and `f1_manifest_v1` for the in-RAM F1 path). Resumed
+  v1 layer keys were used raw: with layer 5's first key's last field set to 0xFF01 and the stats sidecars off (so G6's
+  digest check had nothing to compare with) the n=9 rung printed 27,168. Every mask must have popcount k and every key
+  a last below 64 and a rid inside the budget's rid space.
+- **Read-only layer tools (D1327).** `--f1c5-layer-sha`, `--f1c5-layer-cmp` and `--f1c5-verify-layer` aborted through
+  F1_CHECK (exit 71) on a corrupt block; they now print the error and exit 2, as SOLVE_C_CLI.md documents. The build and
+  resume paths keep the abort.
+- **Stats sidecar (D1335).** The emitter indexed the budget tables with an unvalidated rid; a layer key out of range now
+  writes no sidecar (the retrofit exits 2).
+- **Finalisation order (D1340).** Each block sidecar was unlinked as it was consumed, before the layer was durable and
+  the intra-layer checkpoint retired; a kill in that window (the `SOLVE_F1_KILL_IN_FINALIZE` drill) rebuilt the layer
+  from scratch. The sidecars are now removed last, after the rename, the marker and the checkpoint's removal (with a
+  directory sync), and a restart resumes from the checkpoint.
+- **Corrupt build checkpoint (D1341).** The 2^40 bounds still allowed a 4 TiB allocation that aborted before the unusable
+  marker was removed, so every restart died ("build ckpt off alloc"). Each array must also fit in the marker file, and an
+  allocation failure refuses the marker; the layer is rebuilt.
+- **Progress record (D1339, D1346, D1348, D1349).** Block writes were missing from `bin_bytes` and the write seconds; a
+  resume of a finished ladder recorded `current_layer` 0; finalisation counted its window on top of the writes inside it,
+  and the out-of-core `count_s` held the write and sidecar seconds; phase "done" and the total were published before the
+  final divisibility and support checks. Each is corrected; the checks still abort on failure, so a failed check now
+  leaves the last layer record, never "done".
+
+**Tests.** `TestBatchFV2E1`: `test_d1322_…`, `test_d1325_…`, `test_d1326_…`, `test_d1327_…`, `test_d1335_…`,
+`test_d1340_…`, `test_d1341_…`, `test_d1346_…`, `test_d1339_…` and `test_d1348_d1349_…` (structural for the ordering and
+the timing, with a positive control on the final record). All fail on 0df730cb.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-E1; the defects were found by Codex
+(gpt-6-astra), fix-verification round, F04-005#1, F12-014#3, F04-008#22, F12-002#13, F04-005#3, F12-013#6, F12-013#2,
+F04-005#9, F04-005#12, F12-013#7, F04-005#14, F04-005#10.
+
+## CX-36I-C — KC tools: tokens, exit codes, chunk input, certificates read loosely, stale outputs and temp paths (solve.c; documentation/SOLVE_C_CLI.md; tests.py)
+
+**2026-11-01.** **Source.** Codex (gpt-6-astra), fix-verification round, F12-002#15, F04-006#7, F04-006#6, F12-002#11,
+F12-024#10, F12-002#12, F04-006#9, F04-008#15, F12-002#3, F12-002#2, F04-008#14, F12-002#5, F12-002#6, F12-002#7,
+F12-024#1, F04-006#8, SUC-001#1; Fable's slice-2 triage (rows D1365, D1366, D1379, D1378, D1387, D1390, D1359, D1355,
+D1356, D1360, D1371, D1377, D1358); push group FV2-E1. No atlas, certificate byte or verdict on a valid input changed.
+
+**What the code did, and what it does now.**
+- **Tokens and exits (D1365, D1378, D1387, D1390).** An early `--kc-scan-merge` failure printed only
+  `KC_SCAN_MERGE=FAIL`; the ENGINE and ROWBIND legs now print `NOT-REACHED` first. A refused g-free census printed
+  `KC_DEAD_CENSUS_IDENTITY=FAIL` and exited 1; it prints `NOT-REACHED` / `KC_DEAD_CENSUS=REFUSED` and exits 2. The
+  extremal refusal branch exited 1 after a failed certificate write; it exits 2. `--kc-ar2` accepted `--kc-cert-out`
+  and wrote nothing; the option is refused (`KC_AR2_ARGS=REFUSED`).
+- **Inputs (D1366, D1379, D1359).** The merge compared the chunks' decoded directory strings with JSON-escaped ones, so
+  a quote or backslash in a ladder directory refused every chunk; it compares the decoded strings. The witness-walk
+  reader demanded every layer, so a `--kc-layers` chunk was "malformed"; it reads the chunk's own `[k_lo, k_hi)`. This
+  reverses a sentence of CX-35X-E (2026-10-23: "the witness-walk help says a `--kc-layers` chunk is refused (the parser
+  needs every layer)"), which described the reader as it then was while SOLVE_C_CLI.md said a chunk works; CX-35X-E
+  stands as written and is superseded on that point from 2026-11-01. Finding ids are numbered per round: CX-35X-E's
+  F04-006#6, #7 and #9 are the final review's findings (its #9 is this refusal), and the F04-006 ids in this entry are
+  the fix-verification round's. The kc-oracle never read header bytes
+  16..31, which SOLUTIONS_FORMAT.md says must be zero; it does.
+- **Arrangement certificates (D1355, D1356, D1360).** `check_order` and `space_labels` were never read; they must equal
+  the pinned literals. The arrangement fallback kept the first 64 numbers of anything, `dist_hist` dropped minus signs
+  and the integer fields went through `atoi`; each is now an exact count of unsigned decimal tokens. `--verify-certificate`
+  read at most 1 MiB − 1 bytes and extracted fields by substring; the file must be one balanced JSON object of at most
+  1 MiB with nothing after it.
+- **Stale outputs (D1371).** A writer that failed before creating its output left the previous run's artifact at the
+  path. Every KC writer now removes a regular file at its output path on entry, after its arguments are accepted, and
+  refuses an output that is the same file as one of its arguments.
+- **Shell words and temp files (D1377, D1358).** The selftest child command wrapped the executable path in hand-written
+  quotes (G6 already refuses a quoted `SOLVE_KC_SCRATCH`); it uses `g6_q`. The digest, chain and fingerprint helpers
+  hard-coded `/tmp`; they create a private file with `mkstemp` under `TMPDIR` (default `/tmp`) and quote it.
+
+**Tests.** `TestBatchFV2E1`: `test_d1365_…`, `test_d1366_…`, `test_d1379_…`, `test_d1378_…`, `test_d1387_…`,
+`test_d1390_…`, `test_d1359_…`, `test_d1355_d1356_d1360_…` (seven mutants, each verified at exit 0 on 0df730cb),
+`test_d1371_…`, `test_d1377_…`, `test_d1358_…`. All fail on 0df730cb. Two rows of
+`TestQ864Q865Q866RepeatedAndNumericArgsHostFingerprint` now expect the two NOT-REACHED lines before `KC_SCAN_MERGE=FAIL`.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-E1; the defects were found by Codex
+(gpt-6-astra), fix-verification round, F12-002#15, F04-006#7, F04-006#6, F12-002#11, F12-024#10, F12-002#12, F04-006#9,
+F04-008#15, F12-002#3, F12-002#2, F04-008#14, F12-002#5, F12-002#6, F12-002#7, F12-024#1, F04-006#8, SUC-001#1.
+
+## CX-36I-D — two solve.c comments said more than the code, and an analysis mode held a record index in int (solve.c; tests.py)
+
+**2026-11-01.** **Source.** Codex (gpt-6-astra), fix-verification round, F04-008#12 and F04-003#22; Fable's slice-2
+triage (rows D1321, D1344); push group FV2-E1.
+
+**What the code did, and what it does now.**
+- **`--c3-min` (D1321).** The KW record index and the C3 histogram were `int`, so an index or a bucket past
+  2,147,483,647 truncates or wraps; the 2026-08-15 full-31 file already holds 1,776,347,935 records. Both are `long
+  long`. Analysis mode only.
+- **Build note (D1344).** The header said a build without `-fopenmp` still works, single-threaded; the source names
+  `_OPENMP` outside any `#ifdef` and does not compile without it (measured with gcc 13). The note now says the flag is
+  required.
+
+**Held for the operator, not built (two rows of this lane).** D1363 (Codex F09-H01#10): `--kc-scan` emits the raw
+marginals by default only for n ≤ 13, and VERIFY.md's loader refuses an atlas without them; either default would change
+what the scan writes or refuses at n > 13 (`--kc-raw` stays required at n = 31, as VERIFY.md says). D1376 (Codex
+F12-002#4): the t certificate's gate operands; emitting them changes the `a0_xa_iii` golden. Already cured at the base,
+no change: D1314 and D1317 (G6: chunk names published by `link()`; the merge's temp-dir length bound), D1354 (G6:
+an unreadable provenance history is kept, not replaced), D1474 (above).
+
+**Tests.** `TestBatchFV2E1.test_d1321_d1309_d1344_structural_pins` (structural, with `gcc -fsyntax-only` without
+`-fopenmp` as the check on the build note and a `--c3-min` run as the control).
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-E1; the defects were found by Codex
+(gpt-6-astra), fix-verification round, F04-008#12, F04-003#22.

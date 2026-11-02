@@ -517,7 +517,7 @@ REVIEWED = {
     ('documentation/QUERY_INVENTORY.md', 'f6d6a86e800e'):  # re-keyed 2026-10-17, push group G4 (line edited; verdict re-read, stands)
         ('1', 'reviewed:stale-narrowing-is-already-struck-through'),
     # re-keyed batch 35 (was 85bc4c72984a): only a line-number cite on the line moved; re-read, same verdict.
-    ('documentation/QUERY_INVENTORY.md', 'b26b7cea9ea8'):
+    ('documentation/QUERY_INVENTORY.md', 'cf2bca4dc9eb'):
         ('1', 'reviewed:stale-clause-is-already-struck-through'),
     ('documentation/QUERY_INVENTORY.md', '9600e1a20047'):  # re-keyed 2026-10-22, push group FV1 (line edited; verdict re-read, stands)
         ('1', 'reviewed:cell-already-names-the-kc-figure'),
@@ -527,7 +527,7 @@ REVIEWED = {
         ('2', 'reviewed:cell-above-still-describes-the-witness-row-as-unbuilt'),
     # re-keyed batch 35 (was daa1160a9ad7): only a line-number cite on the line moved; re-read, same verdict.
     # re-keyed (was 3c456275085a): batch 49 appended a dated note that the verdict was published one-sided; re-read, same verdict.
-    ('documentation/QUERY_INVENTORY.md', 'e41df972346c'):
+    ('documentation/QUERY_INVENTORY.md', '43d2a74c994c'):
         ('1', 'reviewed:cell-already-states-the-lower-bound-direction'),
     ('documentation/QUERY_INVENTORY.md', 'dacbcd2e9d4c'):
         ('2', 'reviewed:cell-above-still-gives-the-unbuilt-sat-witness-and-cert-path'),
@@ -659,7 +659,7 @@ REVIEWED = {
     ('documentation/SOLVE_C_CLI.md', '2338b84a23d6'):
         ('1', 'reviewed:dated-label;bullet-already-reads-correctly'),
     # re-keyed batch 35 (was 2cfd795d413c): only a line-number cite on the line moved; re-read, same verdict.
-    ('documentation/SOLVE_C_CLI.md', '907e2fa66794'):
+    ('documentation/SOLVE_C_CLI.md', '8edc57212467'):
         ('1', 'reviewed:line-already-gives-the-256-ceiling'),
     ('documentation/SOLVE_C_CLI.md', '45051dcbdad8'):
         ('1', 'reviewed:rule-already-sized-from-input-bytes'),
@@ -685,7 +685,7 @@ REVIEWED = {
         ('1', 'reviewed:bare-dated-tag;paragraph-already-reads-correctly'),
     ('documentation/SOLVE_C_CLI.md', 'aa7908b7e52b'):
         ('1', 'reviewed:cell-already-says-priced-and-declined'),
-    ('documentation/SOLVE_C_CLI.md', 'ab669c06c3cd'):
+    ('documentation/SOLVE_C_CLI.md', '9ff63678cabd'):
         ('1', 'reviewed:cell-already-says-per-depth-5-task'),
     ('documentation/SOLVE_C_CLI.md', 'abdc61332614'):
         ('1', 'reviewed:box-already-says-the-list-is-a-stale-subset-and-no-date'),
@@ -746,7 +746,7 @@ REVIEWED = {
         ('1', 'reviewed:paragraph-above-already-omits-F5'),
     # re-keyed batch 35 (was d929e80c48aa): only a line-number cite on the line moved; re-read, same verdict.
     # re-keyed (was fc0c83cdf4eb): batch 49: only a line-number cite on the line moved; re-read, same verdict.
-    ('documentation/SOLVE_PY_CLI.md', '3890e9592351'):
+    ('documentation/SOLVE_PY_CLI.md', '727006a07012'):
         ('2', 'reviewed:only-statement-that-the-encoded-orientation-is-the-representatives-not-the-draw'),
     ('documentation/SOLVE_SUMMARY.md', '17330333a03e'):
         ('1', 'reviewed:bullet-already-withdraws-the-superlative-in-its-own-words'),
@@ -836,7 +836,7 @@ REVIEWED = {
         ('1', 'reviewed:paragraph-already-reads-from-the-742M-archive'),
     # re-keyed batch 35 (was 829aed6413ee): only a line-number cite on the line moved; re-read, same verdict.
     # re-keyed batch 46 (was 945a371c2c4b; CX-340, Q-993): the solve.c cite became the span 46159-46160; re-read, same verdict.
-    ('enumeration/LEADERBOARD.md', 'cc2f320eeea0'):
+    ('enumeration/LEADERBOARD.md', '90a94005650f'):
         ('1', 'reviewed:sentence-already-calls-it-an-overlap-ratio'),
     ('enumeration/LEADERBOARD.md', '8ff0ea958479'):
         ('1', 'reviewed:qualifier-already-uses-0-based-pair-numbers'),
@@ -1160,9 +1160,9 @@ REVIEWED = {
         ('1', 'reviewed:note-already-says-the-boundary-minimum-did-not-shift'),
     # re-keyed batch 35 (was eaf5abc0b734): only a line-number cite on the line moved; re-read, same verdict.
     # re-keyed batch 46 (was 597d3234e446; CX-340, Q-993): the solve.c cite became the span 46159-46160; re-read, same verdict.
-    ('documentation/CRITIQUE.md', '43ac02bc5b0b'):
+    ('documentation/CRITIQUE.md', 'fdeca61f4d29'):
         ('1', 'reviewed:update-already-states-minimum-5-and-the-overlap-reading-of-ratio-0.007'),
-    ('documentation/CRITIQUE.md', 'f8ba3b65a9cf'):
+    ('documentation/CRITIQUE.md', 'ff409f27a01f'):
         ('1', 'reviewed:sentence-already-states-the-rate-bound-scoped-to-its-sampler;no-minimum-claim-left'),
     ('documentation/CRITIQUE.md', '14f8e15eb91d'):
         ('1', 'reviewed:paragraph-already-closes-order-64-Costas-by-construction-and-C1'),
@@ -1291,7 +1291,7 @@ REVIEWED = {
     ('-', 'pop:GATE 94 (ADVISORY)'):
         ('n/a', 'reviewed:advisory-live-count-falls-with-phrasings-quoted-inside-deleted-spans;CAMPAIGN_METHODOLOGY-GUIDE-viz_kc_river-runs'),
     # batch 50 (CX-354 item 5): "now reads" narration in the c8screen bundle README describing a
-    # code-comment edit between the pinned instrument and the committed scorer (solve.c:51905); the
+    # code-comment edit between the pinned instrument and the committed scorer (solve.c:52278); the
     # frozen digest 486cac40... is stated beside the amended 529fb27a..., so nothing withdrawn can be
     # re-derived and no public claim rests on the phrase.
     ('reports/evidence/c8screen/README.md', '0b049652ee25'):

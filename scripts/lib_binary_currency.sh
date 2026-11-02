@@ -41,11 +41,11 @@
 #   ./solve dated 2026-09-05         0 hits for the current sha                          -> 0 hits
 #
 # 🔴 A 64-HEX STRING IN THE BINARY IS NOT AUTOMATICALLY A SOURCE_SHA. solve.c carries four 64-hex
-# literals of its own — the canonical selftest sha 403f7202... (solve.c:4320, :40374, :42586) and
+# literals of its own — the canonical selftest sha 403f7202... (solve.c:4462, :40749, :42963) and
 # three all-one-digit placeholders. An early draft of this library read 403f7202... out of the
 # stale ./solve and concluded it was that binary's SOURCE_SHA, i.e. that the binary came from some
 # uncommitted tree. WRONG: it is a constant present in EVERY build, current ones included. The
-# stale ./solve embeds no SOURCE_SHA at all (it holds the "unknown" default, solve.c:393 — five
+# stale ./solve embeds no SOURCE_SHA at all (it holds the "unknown" default, solve.c:396 — five
 # occurrences). Hence the FOREIGN set below subtracts solve.c's own literals before concluding
 # anything, and the fact that a stale binary may carry NO usable signal whatsoever is why the
 # mtime arm is still needed and is not dead code.
@@ -65,8 +65,8 @@
 # consumes all input, never `head -1`, which would not.
 #
 # A THIRD, STRONGER SIGNAL EXISTS where the binary can be cheaply run: solve.c emits SOURCE_SHA at
-# runtime (`source_sha=` in the --kc-record provenance trailer, solve.c:23906/:24537; also
-# "build_source_sha" in solve_results.json, solve.c:11926). scripts/q326_kc_unrank_m0_gate.sh:63-68
+# runtime (`source_sha=` in the --kc-record provenance trailer, solve.c:24179/:24810; also
+# "build_source_sha" in solve_results.json, solve.c:12080). scripts/q326_kc_unrank_m0_gate.sh:63-68
 # already compares that against `sha256sum solve.c`. Asking the binary is better than reading its
 # image, but it costs a run and needs a subcommand the gate is not otherwise using; the image grep
 # is universal and free, so that is what this library does.
@@ -85,11 +85,11 @@
 #   sha absent, and solve.c is NEWER than binary -> STALE     (rc 1, signal mtime)
 #   sha absent, and binary is newer or equal     -> CURRENT, weak (rc 0, signal mtime-weak)
 #       "Absent" does not mean stale: several gates build with a bare `gcc -O2 ... -o solve solve.c`
-#       and no -DSOURCE_SHA, leaving SOURCE_SHA at its "unknown" default (solve.c:393). Those
+#       and no -DSOURCE_SHA, leaving SOURCE_SHA at its "unknown" default (solve.c:396). Those
 #       binaries are current BY CONSTRUCTION. Erroring on them would be a false ERROR, which is
 #       the same disease in the other direction. This arm is exactly as strong as the mtime guard
 #       it replaces — no weaker — and the sha arm above is a strict addition to it.
-#       🔴 It is NOT proof. solve.c:25751 records the matching fail-open on the engine side:
+#       🔴 It is NOT proof. solve.c:26031 records the matching fail-open on the engine side:
 #       a build passing neither -DGIT_HASH nor -DSOURCE_SHA leaves both "unknown", and
 #       "unknown" == "unknown" compares EQUAL. Callers should say "not established", not "verified".
 #

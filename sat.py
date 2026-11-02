@@ -1552,7 +1552,7 @@ def build(target, with_c3=False, c3_max=None, c3_min=None, not_kw=False):
 # f1c5_derive_b0 / f1c5_b0_dfs) and using only solve primitives. They emit no
 # clauses; they name the same numbers solve.c derives. The full-31 B0 this port
 # would produce ({1:2, 2:7, 3:13, 4:8, 6:1}) differs from the KW-derived BETWEEN_MULTISET ({1:2, 2:8, 3:13, 4:7, 6:1}) —
-# solve.c:15178-15201 special-cases the full-31 rung from King Wen rather than deriving it, and this port must not be used to extend the reduced encoder to n = 31; the reduced-subset B0 values + reference
+# solve.c:15354-15377 special-cases the full-31 rung from King Wen rather than deriving it, and this port must not be used to extend the reduced encoder to n = 31; the reduced-subset B0 values + reference
 # counts are pinned in tests.py (test_sat_c5_subset_*), and a #SAT/C-binary
 # cross-check at N in {9,13,16} is the intended follow-up (see the private
 # R2 note). C5 itself is the boundary budget: the N boundary transitions

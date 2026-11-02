@@ -11916,3 +11916,25 @@ Q-686=DONE
   audit (CX-36J-J, Q-183 part 1).
 - No canonical sha, record count, certificate, token or verdict changed. `TestBatchFV2H` holds each correction and
   fails on the parent.
+
+## 2026-11-01 — push group FV2-E1: the first half of the solve.c rows of Codex's fix-verification round
+
+- **Resume and shard contracts (CX-36I-A).** Codex (gpt-6-astra) read the fix batches back against the sources and
+  Fable triaged the engine rows; this group takes rows D1308–D1390 and D1474. The recursive-walk resume of a v2
+  checkpoint (3,282 records for 6,890 on the reviewed tree) was already refused by G6; a test now pins the refusal and
+  the byte-identical iterative continuation. A resumed run's provenance no longer reads one node per shard high or
+  "clean single-shot run"; orphan promotion refuses a non-canonical name, a multi-member gz shard and, in an uncapped
+  run, a budgeted shard; a legacy COMPLETE line no longer skips a cell; a blanked stamp line is a shape violation; the
+  manifest emitter refuses a shard it cannot hash, the verifier a 19-digit size, and the resume-time check names the
+  failing shards that no resume explains (its exit status is left to the operator).
+- **Ladders and layer tools (CX-36I-B).** A zero-mask, out-of-range or wrong-kind resume input is refused instead of
+  resuming into a wrong count; the read-only layer tools exit 2 on a corrupt block; a kill during finalisation resumes
+  from the intra-layer checkpoint; a corrupt checkpoint is refused instead of aborting every restart; the progress
+  record's bytes, seconds, resumed layer and "done" ordering are corrected.
+- **KC tools (CX-36I-C).** Early merge failures print both legs; refusals exit 2; the merge accepts a quote in a ladder
+  directory; witness walks read a chunk; the oracle checks the header's reserved bytes; arrangement certificates are
+  read strictly and whole; every KC writer removes a stale output on entry; temp files follow `TMPDIR`.
+- **Comments (CX-36I-D).** `--c3-min` holds its index in 64 bits; the build note says `-fopenmp` is required. Two rows are
+  held for the operator: the `--kc-scan` raw default above n = 13 and the t-certificate operands (a golden).
+- No canonical sha, count, golden or verdict changed (`--selftest` 403f7202…, `--selftest-resume` b3862357…).
+  `TestBatchFV2E1` holds each cure; all 33 tests fail on 0df730cb.

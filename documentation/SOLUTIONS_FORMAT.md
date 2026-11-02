@@ -204,7 +204,7 @@ treated as the same canonical ordering.
 
 **Exactly one record per canonical class is retained**, and the
 deterministic choice is **the lexicographically smallest orient variant
-among those the run encountered** — `solve.c:4795-4806` keeps a running
+among those the run encountered** — `solve.c:4937-4948` keeps a running
 byte-wise minimum over the variants that are actually inserted, which is
 what makes parallel `--sub-branch` merges deterministic for a complete (unbudgeted) run (⚠ *2026-09-27, Q-871: under a global node budget with more than one thread the record set itself varies run to run, so there is nothing fixed to be deterministic about; see `SOLVE_C_CLI.md` §--sub-branch*). **It is not the
 class-global minimum**: every enumeration this project publishes is
@@ -323,9 +323,9 @@ Each record in solutions.bin satisfies:
   ⚠ **[SCOPED 2026-09-19 — `--verify`'s failure total can WRAP, and the wrap is
   reachable at the scale this project publishes.** The per-constraint failure
   counters and their sum are **32-bit** (`int fail_c1 … fail_dup`,
-  `solve.c:43973-43974`; `int total_fail`, `:44133`; the verdict is
-  `total_fail == 0` at `:44148`), while the record loop counts in **64-bit**
-  (`long long r`, `:43977`). Past 2³² accumulated failures the total wraps.
+  `solve.c:44350-44351`; `int total_fail`, `:44510`; the verdict is
+  `total_fail == 0` at `:44525`), while the record loop counts in **64-bit**
+  (`long long r`, `:44354`). Past 2³² accumulated failures the total wraps.
   **Executed** on a 1,073,741,825-record witness: `*** VERIFY FAIL: -549899140
   issues found ***`, which is the true total 3,745,068,156 reduced mod 2³². The
   560 T canonical holds **10,525,271,997** records, far past 2³². This bounds
@@ -361,9 +361,9 @@ Minimum sketch for any language:
 ⚠ **[CORRECTED 2026-09-01 — step 6 previously asserted that neither of the
 two `solve` subcommands performed this cross-check, and told the reader not
 to rely on them for it. Both implement it, and both landed before that
-sentence was last reviewed: `solve.c:43948-43965` for `solve --verify`
+sentence was last reviewed: `solve.c:44325-44342` for `solve --verify`
 (Q-277, 2026-08-28), which prints `VERIFY=ERROR` and refuses when a header
-under-declares its record count, and `solve.c:44413-44424` for
+under-declares its record count, and `solve.c:44790-44801` for
 `solve --validate` (Q-367, 2026-08-29), which refuses to validate a record
 stream that contradicts its own header. The retracted advice steered
 operators away from a check that already existed.]**
@@ -393,7 +393,7 @@ qualifier [REBUILD_FROM_SPEC.md](REBUILD_FROM_SPEC.md) already carries.]**
 
 ⚠ **The first line does not work against anything this repository ships.**
 A binary built without `-DGIT_HASH` records the literal string `unknown`
-(`solve.c:381-382`), and every shipped artifact was built that way:
+(`solve.c:384-385`), and every shipped artifact was built that way:
 `enumeration/solve_results.json` carries no `git_hash` key at all,
 `runs/20260418_10T_d2_fresh/solve_results.json:16` records `unknown`, and
 all five tracked `solutions.meta.json` files — the 10T d2, 10T d3 fresh,
