@@ -3,7 +3,7 @@
 > **Authority note (legacy narrative).** This page predates the 2026-07 technical-report suite and is
 > retained as the project's working scientific record. Where this page and the
 > [technical reports](../reports/README.md) (or [CRITIQUE.md](CRITIQUE.md)) disagree, **the reports
-> win** — the discrepancy is a bug in this page; please report it (the same convention as
+> win** — the discrepancy is a bug in this page (the same convention as
 > [CLAIMS_DECIDED.md](CLAIMS_DECIDED.md)).
 
 > Canonical sha256 hashes, record counts, and reproducibility parameters are listed in [CANONICAL_HASHES.md](CANONICAL_HASHES.md). The deepest published partial enumeration is the **d3 560T canonical (10,525,271,997 orderings, sha `9a968fa2…`, 2026-06-08, CANONICAL-verified 2026-06-30)**; the d3 100T canonical (3,432,399,297 orderings, `915abf30…`) is the next-deepest and remains the dataset under which many of the findings in this document were originally computed. Both are validated via the Partition Invariance theorem in [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md). See [HISTORY.md](HISTORY.md) for narrative provenance. Full `solve.c` command-line reference (subcommands, env vars, exit codes): [SOLVE_C_CLI.md](SOLVE_C_CLI.md). The 560T `--analyze` pass completed 2026-06-11; findings that re-evaluated at 560T (boundary-minimum analysis, KW vs C3-minimum, top pairwise MI, conditional entropy) are summarized in [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) §"560T canonical results" and in [CRITIQUE.md](CRITIQUE.md) §"Update (2026-06-11, corrected 2026-07-04)". Structural findings depending on KW's membership in the canonical set transfer directly to 560T because the 100T set is a strict subset of the 560T set.
@@ -199,7 +199,7 @@ At the 31 between-pair boundaries, the analysis checks for trigram relationships
 
 ### Sequential construction (`--construct`)
 
-Building the sequence pair by pair, at each step the solver counts valid next-pairs under the no-5 constraint. Mean options per step: ~29 (out of ~31 remaining). Almost no steps are forced — 30 of 31 steps are genuine decision points.
+Building the sequence pair by pair, at each step the solver counts valid next-pairs under the no-5 constraint. Mean options per step: ~28.9 valid oriented choices (out of ~32 available oriented choices). Almost no steps are forced — 30 of 31 steps are genuine decision points.
 
 Three heuristics were tested against King Wen's actual choices:
 
@@ -238,7 +238,7 @@ The known rules remove **~169 of the 296 bits** needed to specify a permutation 
 Upper and lower trigram paths through the sequence are unremarkable:
 - Self-transitions: 4-5 per path (random mean: 3.5, ~53rd-73rd percentile)
 - Both trigrams change simultaneously in 54/63 transitions (86%), slightly below random (89%, 14th percentile)
-- Uses 46-49 of 56 possible trigram transitions
+- Uses 46-49 of 64 possible trigram transition types (43-44 of the 56 non-self types)
 
 No trigram path property distinguishes King Wen from random pair-constrained orderings.
 
@@ -256,7 +256,7 @@ Within a window of 2 pairs, nearby pairs share a trigram 57% of the time. Comple
 
 ## Differential analysis
 
-The most powerful analysis (`--differential`) generates solutions satisfying the 6 rules **up to a node/time budget — never exhaustively** (`solve.py` aborts the backtrack and clears its `exhausted` flag on `max_nodes` or `time_limit`; the 2026-08-28 correction at §"C solver" applies here too), de-duplicates them by pair ordering, computes 26 features for each, and identifies features where King Wen is extremal (min or max) *within that budgeted slice*.
+The most powerful analysis (`--differential`) generates solutions satisfying C1, C2, C4 and C5 by default (C3 is applied only with `--differential-apply-c3`) **up to a node/time budget — never exhaustively** (`solve.py` aborts the backtrack and clears its `exhausted` flag on `max_nodes` or `time_limit`; the 2026-08-28 correction at §"C solver" applies here too), de-duplicates them by pair ordering, computes 26 features for each, and identifies features where King Wen is extremal (min or max) *within that budgeted slice*.
 
 ### Results
 
@@ -406,11 +406,11 @@ Enforcing boundary 25 means: any candidate ordering must place King Wen's pair {
 - Pair 27 = ䷴ Jian (hexagram 53, 漸) / ䷵ Gui Mei (hexagram 54, 歸妹) — a reverse pair
 - Pair 28 = ䷶ Feng (hexagram 55, 豐) / ䷷ Lu (hexagram 56, 旅) — a reverse pair
 
-Enforcing boundary 27 means: Jian→Gui Mei (hexagrams 53-54, 漸→歸妹) in positions 53-54 AND Feng→Lu (hexagrams 55-56, 豐→旅) in positions 55-56 — exactly as King Wen does. Locks a second 4-hexagram window two positions later.
+Enforcing boundary 27 means: the pair {Jian, Gui Mei} (hexagrams 53-54, 漸/歸妹) in positions 53-54 AND the pair {Feng, Lu} (hexagrams 55-56, 豐/旅) in positions 55-56 — the pairs King Wen places there; the masks pin the pair, not its orientation. Locks a second 4-hexagram window two positions later.
 
 **Together**, enforcing boundaries {25, 27} locks positions 25, 26, 27, 28 (= pairs 25-28 = the 8-hexagram sub-sequence hexagrams 49-56
 
-The mandatory-{25,27} finding says: **no matter how cleverly you choose the other 2 of your 4 boundary constraints, you cannot uniquely identify King Wen without locking the Ge→Ding→Zhen→Gen window (hexagrams 49-52, 革→鼎→震→艮; boundary 25) and the Jian→Gui Mei→Feng→Lu window (hexagrams 53-56, 漸→歸妹→豐→旅; boundary 27)** — across both d2 and d3 partition depths. Why those two windows specifically? Currently unknown. Open Question: is there a combinatorial or symmetry reason these two second-half adjacencies are irreplaceable?
+The mandatory-{25,27} finding says: **no matter how cleverly you choose the other 2 of your 4 boundary constraints, you cannot uniquely identify King Wen without locking the Ge/Ding–Zhen/Gen window (hexagrams 49-52, 革/鼎–震/艮; boundary 25) and the Jian/Gui Mei–Feng/Lu window (hexagrams 53-56, 漸/歸妹–豐/旅; boundary 27)** (pairs pinned, orientation free) — across both d2 and d3 partition depths. Why those two windows specifically? Currently unknown. Open Question: is there a combinatorial or symmetry reason these two second-half adjacencies are irreplaceable?
 
 ### What the survivors after the mandatory {25, 27} boundaries look like
 
@@ -553,7 +553,7 @@ King Wen matches the position-by-position consensus (most common pair at each sl
 
 Betweenness centrality (how many shortest paths pass through a node) is unremarkable — 55th percentile. King Wen is central in terms of closeness but not a structural hub.
 
-Edit distance distribution from King Wen: most solutions are 5-7 swaps away, with a bell-shaped distribution peaking at 6. The closest alternatives are 2 swaps away (5 solutions); the farthest are 9 swaps (20 solutions).
+Edit distance distribution from King Wen, counted in differing pair positions: most solutions differ at 5-7 pair positions, with a bell-shaped distribution peaking at 6. The closest alternatives differ at two pair positions — a single transposition each (5 solutions); the farthest differ at 9 (20 solutions).
 
 ### Nuclear hexagrams and complement ordering
 
@@ -561,7 +561,7 @@ Nuclear hexagram sharing at boundaries is unremarkable (88th percentile, 1/31 bo
 
 ### Multi-feature combination search
 
-No single feature or combination of features uniquely identifies King Wen among the ~974 Rule 7a survivors. Tested: 26 features individually, 153 pairwise combinations (top/bottom 10% corners), and 10 triple combinations (top/bottom 20% corners). The best triple narrows to 33 solutions — far from unique. The 2 adjacency constraints encode information that none of the aggregate properties tested here replicates (scoped 2026-10-17, CX-35T-L, to the 26 features and their combinations tested; [SPECIFICATION.md](SPECIFICATION.md) retracts the unrestricted reading).
+No single feature or combination of features uniquely identifies King Wen among the ~974 Rule 7a survivors in the enumerated slice. Tested: 26 features individually, 153 pairwise combinations (top/bottom 10% corners), and 10 triple combinations (top/bottom 20% corners). The best triple narrows to 33 solutions — far from unique. The 2 adjacency constraints encode information that none of the aggregate properties tested here replicates (scoped 2026-10-17, CX-35T-L, to the 26 features and their combinations tested; [SPECIFICATION.md](SPECIFICATION.md) retracts the unrestricted reading).
 
 ### Additional findings
 
@@ -580,7 +580,7 @@ The hundreds of millions of alternative orderings satisfying C1–C5 (d3 canonic
 
 ### Summary
 
-Five constraints (C1-C5) narrow 10^89 possibilities to an estimated **≈1.33×10³⁸ *raw* valid orderings** (raw = orientation-explicit; [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md), a Knuth random-probe estimate, not a proven cardinality). The enumerated counts (d3 canonical: 706M; d2 canonical: 286M) are **budgeted slices** of that space — partition- and budget-dependent subsets of the exhaustive solution set, and lower bounds rather than its size. *(Corrected 2026-09-02: this sentence gave the slice counts as the size of the constrained space; see [CORRECTIONS.md](CORRECTIONS.md).)* Most of that funnel is elementary rather than surprising: roughly **44 of the ~51 orders of magnitude come from C1 alone** (the pair-structure skeleton, 64! → 32!·2³²), and only about 7 from the constrained measurement (C2–C5). Only Position 1 is universally locked. At the d3 100T canonical positions 5–20 admit 4–6 pairs each, while positions 3–4 admit 31 and positions 22–31 admit 15 (§[2]; corrected 2026-09-24, Q-760: this sentence previously called positions 3–18 highly constrained and 19–32 progressively free — see §"The millions of roads not taken" above). The minimum boundary set to uniquely determine KW is **4 boundaries at the 10T canonicals (5 at canonical depth — 100T/560T; corrected 2026-07-04)**, with **{25, 27} mandatory at every scale tested** (the other boundaries are partition + scale-dependent; see "Why 4 boundaries" above and [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md)).
+Five constraints (C1-C5) narrow 10^89 possibilities to an estimated **≈1.33×10³⁸ *raw* valid orderings** (raw = orientation-explicit; [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md), a Knuth random-probe estimate, not a proven cardinality). The enumerated counts (d3 canonical: 706M; d2 canonical: 286M) are **budgeted slices** of that space — partition- and budget-dependent subsets of the exhaustive solution set, and lower bounds rather than its size. *(Corrected 2026-09-02: this sentence gave the slice counts as the size of the constrained space; see [CORRECTIONS.md](CORRECTIONS.md).)* Most of that funnel is elementary rather than surprising: roughly **44 of the ~51 orders of magnitude come from C1 alone** (the pair-structure skeleton, 64! → 32!·2³²), and only about 7 from the constrained measurement (C2–C5). Only Position 1 is universally locked. At the d3 100T canonical positions 5–20 admit 4–6 pairs each, while positions 3–4 admit 31 and positions 22–31 admit 15 (§[2]; corrected 2026-09-24, Q-760: this sentence previously called positions 3–18 highly constrained and 19–32 progressively free — see §"The millions of roads not taken" above). The minimum boundary set to uniquely determine KW is **4 boundaries at the 10T canonicals (5 at canonical depth — 100T/560T, by greedy construction; corrected 2026-07-04)**, with **{25, 27} mandatory at every scale tested** (at 100T/560T: present in every greedy minimum found; necessity across all minimum quintuplets is not established) (the other boundaries are partition + scale-dependent; see "Why 4 boundaries" above and [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md)).
 
 **Note on earlier analyses in this document:** Several analyses above (centrality, pair swap, optimization, boundary bigrams, locked/free region comparison) were conducted on a 438-solution partial sample from a single search branch. Their findings about the "free region" (positions 24-32) were specific to that branch and may not generalize to the full solution space. These analyses are retained as methodological examples but their specific numerical results should be treated with caution.
 
@@ -692,7 +692,7 @@ King Wen's complement distance (12.125) is NOT the maximum among the differentia
 
 **Note: this theorem was derived under the "23 locked" assumption, which has been disproven. The budget analysis applies within a specific branch (fixed pair at position 2), not universally. The general principle — that later positions have more slack — remains valid.**
 
-Within King Wen's branch, the between-pair boundary budget for pair-slots 24-32 is exactly {1:2, 2:1, 3:5, 4:1} = 9 values for 9 boundaries — the 8 internal ones plus the incoming 23→24 boundary (King Wen's distances there: {1:2, 2:1, 3:5, 4:1} with the incoming one, {1:2, 2:1, 3:4, 4:1} without it). ⚠ *(corrected 2026-09-25: this counted 8 boundaries and derived a "slack of 1" that the count does not have. Whatever creates the multiple valid orderings here, it is not an unused value. Codex v3 review, V3A-053#8)*
+King Wen's own transition histogram for pair-slots 24-32 (a property of King Wen's sequence, not of the branch — orientation changes permitted within it alter the histogram) is {1:2, 2:1, 3:5, 4:1} = 9 values for 9 boundaries — the 8 internal ones plus the incoming 23→24 boundary (King Wen's distances there: {1:2, 2:1, 3:5, 4:1} with the incoming one, {1:2, 2:1, 3:4, 4:1} without it). ⚠ *(corrected 2026-09-25: this counted 8 boundaries and derived a "slack of 1" that the count does not have. Whatever creates the multiple valid orderings here, it is not an unused value. Codex v3 review, V3A-053#8)*
 
 ### Null model: is the constraint framework special?
 
@@ -785,9 +785,9 @@ Use `solve.py` for analysis (fingerprint, differential, reconstruction, etc.) an
 
 ## Requirements
 
-**solve.py:** Python 3.6+ with no external dependencies. Standalone — does not require `roae.py`.
+**solve.py:** Python 3.10+ with no external dependencies. Standalone — does not require `roae.py`.
 
-**solve.c:** C compiler (gcc, clang) plus libc, libm, pthreads, and OpenMP (`libgomp`, ships with gcc). One runtime dependency: `sha256sum` (GNU coreutils) *or* `shasum -a 256` (BSD/macOS) must be on `PATH` for modes that write `solutions.sha256` — `solve --merge`, `solve --selftest`, and normal/single-branch enumeration. The solver preflights this at startup and fails fast (exit 10) with install hints if neither binary is available, so a missing coreutils can never waste hours of enumeration before being caught. Read-only modes (`--verify`, `--validate`, `--analyze`, `--prove-*`, `--list-branches`) have no runtime dependencies beyond libc and libm. Memory is ~35 MB regardless of run time for the search phase; the merge phase scales with unique-record count (see [DEVELOPMENT.md §Gotchas](DEVELOPMENT.md#known-gotchas) and `SOLVE_MERGE_MODE=external` for memory-independent merging).
+**solve.c:** Linux (the fsync/`syncfs` durability path is Linux-only); C compiler (gcc, clang) plus libc, libm, zlib (`-lz`), pthreads, and OpenMP (`libgomp`, ships with gcc). Runtime dependencies: `sha256sum` (GNU coreutils) *or* `shasum -a 256` (BSD/macOS) must be on `PATH` for modes that write `solutions.sha256`, with `bash` and `gzip` for compressed-output hashing — `solve --merge`, `solve --selftest`, and normal/single-branch enumeration. The solver preflights this at startup and fails fast (exit 10) with install hints if neither binary is available, so a missing coreutils can never waste hours of enumeration before being caught. Read-only modes (`--verify`, `--validate`, `--analyze`, `--prove-*`, `--list-branches`) have no runtime dependencies beyond libc, libm and zlib. Search-phase memory is per worker — each allocating worker starts a 528 MiB hash table that grows with occupancy, so the total scales with the thread count; the merge phase scales with unique-record count (see [DEVELOPMENT.md §Gotchas](DEVELOPMENT.md#known-gotchas) and `SOLVE_MERGE_MODE=external` for memory-independent merging).
 
 ---
 

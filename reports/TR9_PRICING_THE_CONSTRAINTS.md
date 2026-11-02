@@ -44,7 +44,7 @@ regardless**, since even the maximal family charge (~13–19 bits) is small agai
 no-distance-5 rule roughly breaks even
 once its own statement cost is charged; and the celebrated transition-count recipe turns out to cost more to state than it saves — it
 is **description, not explanation**. After the C1–C7 layers are applied (known rules outside them restrict the residual further, §4), **between about 105 and 139 bits of the
-sequence remain unexplained (exact figure depends on which layers are granted explanatory standing: 105.4 = log₂|C1–C7| keeps every cut, even the data-like pins; 139.1 = log₂|C1∩C2∩C4| is the residual against the claimed-explanatory layers alone)** — the honest measure of how much of the sequence's information is still unaccounted for. It is not evidence that structure remains to be found: at the C5 layer the same pipeline leaves a residual of the same size for a random C1∩C2 ordering under its own extracted multiset (decoy control, N = 1,000, King Wen at the 65th percentile — §2 population context, §4, and the Verification Guide), and whether the residual is structure or noise is the open question of §5(g).
+sequence remain unexplained (exact figure depends on which layers are granted explanatory standing: 105.4 = log₂|C1–C7| keeps every cut, even the data-like pins; 139.1 = log₂|C1∩C2∩C4| is the residual against the claimed-explanatory layers alone)** — the honest measure of how much of the sequence's information is still unaccounted for. It is not evidence that structure remains to be found: at the C5 layer the same pipeline leaves a residual of the same size for a random C1∩C2 ordering under its own extracted multiset (decoy control, N = 1,000, King Wen at the 65th percentile; the control counts C4-opened orderings sharing each sampled multiset — §2 population context, §4, and the Verification Guide), and whether the residual is structure or noise is the open question of §5(g).
 This is the most judgment-dependent report in the suite; its accounting conventions are stated
 explicitly so a skeptic can re-price everything under their own.
 
@@ -118,7 +118,7 @@ V3A-095#2, Q-742) — read "the count of C4-opened orderings that share the targ
 pins (63,0), so only 14 of the 1,000 targets are members of the set their own figure counts (replayed
 2026-09-24; [evidence/decoy/README.md](evidence/decoy/README.md)). "Compresses it" is therefore not a
 statement about the target for the other 986. The King Wen comparison is unaffected, because both sides
-count C4-opened orderings. "Holds C1, C2 and C4 fixed" below holds for the counted side only.]**, and King Wen's exact 1.097051×10³⁹ sits at the **65th percentile** of the decoy cardinalities (651 of 1,000 below it; the decoy interquartile range is 2.4 bits and King Wen is 0.5 bit above the median; ⚠ *2026-09-25, Codex v3 review, V3B-12#17: [evidence/decoy/README.md](evidence/decoy/README.md) prints the percentile and the 8.1 / 9.9 / 14.2 quantiles over the 999 nonzero rows, the tails as `a[int(N·q)]` and the median as `a[int((N+1)/2)]` of the sorted values. The interquartile range and King Wen's offset follow from `awk -F'\t' 'NF==2 && $1+0>0 {print log($1+0)/log(2)}' reports/evidence/decoy/decoy_cardinality_n1000_2026_09_04.tsv | sort -g | awk '{a[NR]=$1} END {print a[int(NR*0.25)], a[int((NR+1)/2)], a[int(NR*0.75)]}'`, which prints `127.667 129.21 130.025`, against log₂ 1.097051×10³⁹ = 129.69*). The verdict "description, not explanation" is therefore measured as well as priced. The control holds C1, C2 and C4 fixed and says nothing about the C3 row.
+count C4-opened orderings. "Holds C1, C2 and C4 fixed" below holds for the counted side only.]**, and King Wen's exact 1.097051×10³⁹ sits at the **65th percentile** of the decoy cardinalities (651 of 1,000 below it; the decoy interquartile range is 2.4 bits and King Wen is 0.5 bit above the median; ⚠ *2026-09-25, Codex v3 review, V3B-12#17: [evidence/decoy/README.md](evidence/decoy/README.md) prints the percentile over all 1,000 valid decoys (651 of 1,000 below) and the 8.1 / 9.9 / 14.2 quantiles over the 999 nonzero rows, the tails as `a[int(N·q)]` and the median as `a[int((N+1)/2)]` of the sorted values. The interquartile range and King Wen's offset follow from `awk -F'\t' 'NF==2 && $1+0>0 {print log($1+0)/log(2)}' reports/evidence/decoy/decoy_cardinality_n1000_2026_09_04.tsv | sort -g | awk '{a[NR]=$1} END {print a[int(NR*0.25)], a[int((NR+1)/2)], a[int(NR*0.75)]}'`, which prints `127.667 129.21 130.025`, against log₂ 1.097051×10³⁹ = 129.69*). The verdict "description, not explanation" is therefore measured as well as priced. The control holds C1, C2 and C4 fixed and says nothing about the C3 row.
 
    ¹ C4 fixes the first pair and orientation among 32·2 choices ≈ 6 bits, charged in full — pair AND
    orientation (the orientation bit is definitional — our convention, not a classical attestation: the
@@ -139,8 +139,8 @@ count C4-opened orderings. "Holds C1, C2 and C4 fixed" below holds for the count
    priced as data (CRITIQUE.md §"Observable-selection accounting"); its marginal 3.0 bits are NOT claimed
    as explanation. ⁶ C6/C7 pin four
    slots: log₂(choices eliminated) ≈ their own compression — definitionally break-even. The cell's
-   parenthetical "~20.6" is **underived**: it is the only cost figure in this ledger with no recorded
-   derivation (it is near, but not equal to, the row's 21.3-bit marginal compression, and no
+   parenthetical "~20.6" is **underived**: it is one of three cost figures in this ledger with no recorded
+   derivation (with fn⁹'s Schulz rule-text ≈ 10–15 bits and C2's ~1.4-bit grammar overhead, §3; DESCRIPTION_LENGTH.md lists the same three) (it is near, but not equal to, the row's 21.3-bit marginal compression, and no
    computation producing 20.6 is on record in the corpus). It is retained, explicitly so labelled,
    because nothing rests on it — the row's verdict is definitional (cost ≈ compression ⇒ net ≈ 0)
    whatever the precise figure. ⁷ ⚠ **[CORRECTED 2026-09-02, prose batch P31]** — this cell read
@@ -158,7 +158,7 @@ count C4-opened orderings. "Holds C1, C2 and C4 fixed" below holds for the count
    the maximum *cost*, sign-flipped, rather than compression minus that cost. The cell now reads the
    bracket its own operands give, **+0.5 to +2.0** — positive under every coding this corpus states.
    The verdict does not move: C2 is break-even to marginally explanatory either way, and remains the
-   only narrow rule that reaches break-even. What does move is §4's savings envelope, whose low corner
+   only narrow rule that reaches break-even under the ledger's declared coding conventions (the alternative C5 code exhibited in §4 would net +0.1 to +0.4). What does move is §4's savings envelope, whose low corner
    consumed the −4; see there. The sibling cells at `documentation/DESCRIPTION_LENGTH.md:54` and
    `:206–208` carry the same defect under a separate adjudication and are not edited here. ⁸ *(Added 2026-09-02, prose lane; mirrors [DESCRIPTION_LENGTH.md](../documentation/DESCRIPTION_LENGTH.md) fn⁸.)* The 13.5 is
    log₂(11,364) = 13.47, and the ×11,364 was measured under **this project's "≤2 violations anywhere" relaxation** of
@@ -201,7 +201,7 @@ count C4-opened orderings. "Holds C1, C2 and C4 fixed" below holds for the count
    rising to ~4 once grammar overhead is charged; ⚠ *2026-09-25, Codex v3 review, V3B-12#3: that ~1.4-bit overhead has no exhibited encoding and is underived in the sense of fn⁶*): net **+0.5 to +2.0** — break-even to marginally
    positive, and positive under every coding this corpus states (fn⁷; the previously published
    negative endpoints were not reachable from any published cost). It is the only narrow
-   rule that even *reaches* break-even. **C5** is the ledger's sharpest
+   rule that even *reaches* break-even under the ledger's declared coding conventions (§4's alternative C5 code would net +0.1 to +0.4). **C5** is the ledger's sharpest
    verdict: the transition multiset compresses 9.4 bits but costs 15.7–23.3 bits to state (the
    marginal-consistent price of the 31 unimplied boundary transitions given C1+C2, up to the full 6-class
    weak-composition bound), netting −6.3 to −13.9 — net-negative under both declared conventions (not under every convention — §5(b)'s SCOPED note), a
@@ -209,14 +209,14 @@ count C4-opened orderings. "Holds C1, C2 and C4 fixed" below holds for the count
    via the orbit-quotient DP `solve --f1-exact-c1c2c4`, pinned the marginal). C5 earns its keep operationally (it is what makes enumeration
    tractable) but explains nothing: it is confirmed description of King Wen, not explanation. **C3** is
    circular: its threshold (776) is KW's own value, so its 3.0 marginal bits are priced as data and not
-   claimed. **C6/C7** pin four slots — definitionally break-even. The strongest *principled* literature rule — strongest among those stated independently of King Wen, since the data-like trigram rule scores higher but describes rather than explains — (the
+   claimed. **C6/C7** pin four slots — definitionally break-even. The strongest literature rule among those classified as *principled* — the data-like trigram rule scores higher but describes rather than explains, and the unclassified higher-scoring rows (ccn8 and others, [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md) §3) are outside the comparison — (the
    Schulz gender rule, ×11,364 — see [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md)) prices at ~13.5 bits gross⁸ against ~10–15 bits of rule text⁹:
    ≈ 0 to small positive.
 4. **The residual — the honest thesis.** Knowing C1–C7 — every row of this table that the count conditions on; the gender-rule row is priced but is not part of C1–C7 — the sequence retains
    **log₂|C1–C7| = 105.4 bits** of unexplained information — the most conservative reading: unexplained
    by any of the C1–C7 layers, even the data-like pins (known rules outside C1–C7, such as the gender row priced
    above, are not conditioned on; "by anything known" until 2026-10-17, CX-35T-J). At the other end, the residual against the layers this
-   report actually claims as *explanatory* — C1, C2 and C4 only (⚠ *2026-09-25, Codex v3 review, V3B-12#4: this counts all 6 of C4's bits as explanatory, including the orientation bit fn¹ calls definitional; the report does not separate that bit here*), since the ledger itself prices C3 as
+   report actually claims as *explanatory* — C1, C2 and C4 only (⚠ *2026-09-25, Codex v3 review, V3B-12#4: this counts all 6 of C4's bits as explanatory, including the orientation bit fn¹ calls definitional; the report does not separate that bit here; removing it — allowing both openings — gives log₂(2·|C1∩C2∩C4|) = 140.1 bits*), since the ledger itself prices C3 as
    circular and C5 as confirmed description — is **log₂|C1∩C2∩C4| = 139.1 bits**, an exact quantity
    (the logarithm of the exact 7.5706×10⁴¹ count, ledger §2). The published residual is therefore the
    range **105–139 bits**. The intermediate readings — ~126.6 (C1–C5, retaining the non-explanatory
@@ -327,13 +327,13 @@ count C4-opened orderings. "Holds C1, C2 and C4 fixed" below holds for the count
    or a difference of log-cardinalities (every marginal-compression cell) under **one fixed uniform
    code** over explicitly counted solution sets — machine-independent combinatorial quantities with no
    hidden constant. A cleverer description language could beat this code only by embodying structure
-   the uniform code does not know, and whether such structure exists is precisely the report's open
+   the uniform code does not know — provided its own description is charged and it is fixed without reference to which member is the target (a code that names King Wen cheaply by construction is the data, not a discovery) — and whether such structure exists is precisely the report's open
    question, not an accounting artifact: a language that compressed the residual below the stated bits
    would *constitute* the discovery this report says has not happened. Language-dependence is confined
    to the *statement-cost* column, where it is real, acknowledged, and handled by the dual-convention
    bracket (family vs derivation) rather than by any claimed-canonical machine; the single genuinely
    language-dependent cell — the Schulz rule-text estimate at ≈ 10–15 bits — carries a verdict
-   ("≈ 0 to small +") that tolerates ±5 bits either way.
+   ("≈ 0 to small +") that holds across the stated 10–15-bit bracket (net −1.5 to +3.5 bits); a cost 5 bits beyond that bracket would move it (net −6.5 at 20 bits).
    Framework attribution: conventions and framework are ROAE (to our knowledge first applied to this
    object here; corrections welcome via CITATIONS.md); constraint provenance per row: [SPECIFICATION.md](../documentation/SPECIFICATION.md) and
    CITATIONS.md.
@@ -345,7 +345,7 @@ count C4-opened orderings. "Holds C1, C2 and C4 fixed" below holds for the count
   layer (1.3287×10³⁸ full space) via the validated
   weighted-Knuth instrument — [documentation/SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md) (method; ⚠ *2026-09-25, Codex v3 review, V3B-12#15: the 0.03% self-validation is not in that document. It is [TR-1](TR1_EIGHT_CENTURIES_MEASURED.md)'s population run checked against 1.3287×10³⁸, and that run's own estimate is not archived, so the second operand is not printed anywhere. For comparison, the archived 2×10¹⁰-probe scoring run `evidence/r6/rc1c_primary.out` prints 1.328432×10³⁸, 0.022% below 1.328729×10³⁸*);
   C2 layer count **exact**: `solve --f1-exact-c1c2c4` (7.5706×10⁴¹, divisible by 24 per [TR-5](TR5_SYMMETRY.md);
-  the estimator path `SOLVE_KNUTH_RELAX_C5=1` reproduces it to ±0.01% — both documented in
+  the estimator path `SOLVE_KNUTH_RELAX_C5=1` reproduces it to 0.011% (a 10⁷-probe, 32-thread re-draw; the exact value lies inside its 95% interval) — both documented in
   SOLVE_C_CLI.md); C5 layer count **exact (two-instrument: independently recomputed at full scale 2026-07-25 by `verify.c --ie-count`, exact MATCH; the mod-24 gate, the 4/4 out-of-core ladder and identical cross-mode layer content (byte-identical in the v1-format validation runs) further corroborate it — [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §10(vi))**: `solve --f1-exact-c1c2c4c5 --f1-out-of-core DIR`
   (1.097051×10³⁹, divisible by 24 — [TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md); the prior
   estimator value 1.0971×10³⁹ ±0.01% matches it to 0.0044%)
@@ -444,11 +444,11 @@ that identity between v1.7 and 2026-09-02; see §2 fn⁷.
 ⚠ **Every `--estimate-knuth` command in this document requires a stack limit of at least 16 MB** — `ulimit -s 16384` suffices, and `ulimit -s unlimited` is one way to satisfy it, not the requirement itself. Under the default 8 MB stack the estimator does not start: `main` allocates a ~7.23 MB frame and `estimate_tree_knuth` a further ~1.02 MB (since 2026-08-21 the binary refuses with an actionable message; previously a bare SIGSEGV). *(Added 2026-08-21, an execution-lane finding — `scripts/exec_lane.sh` executes every command it classifies as runnable on a default environment; the same-day warning propagation (`1e4bd04a`) covered the four estimator guides but missed this file.)* *(Narrowed 2026-09-02, prose batch P31: the requirement had been published as `ulimit -s unlimited`, which is a sufficient setting mistaken for a necessary one — and one that a container with a hard 32 MB stack cap cannot even apply. `solve.c`'s preflight tests `rlim_cur != RLIM_INFINITY && rlim_cur < 16UL*1024*1024` and its message names ">= 16 MB". EXECUTED on a locally built binary: under `ulimit -s 8192` it refuses as documented and exits 1; under `ulimit -s 16384` the estimator runs to completion. `solve.c`'s own remedy line still prescribes only `unlimited` and is queued to offer both. Twelve sibling sites outside this report carry the same over-strict wording and are reported, not touched here.)* *(Frame sizes re-measured 2026-09-25, Codex v3 review, V3B-09#12: `gcc -O3 -pthread -fopenmp -fstack-usage -c solve.c` writes each function's frame size to `solve.su`. On this tree, with gcc 13.3.0, it reports `main` at 7,590,976 bytes (≈7.24 MiB; 7,590,960 before the same day's Q-825 fix added one call to `main`) and `estimate_tree_knuth` at 1,553,296 bytes (≈1.48 MiB). The ~1.02 MB figure above is from an earlier tree and is stale. The sum, ≈8.72 MiB, still exceeds 8 MiB and fits in 16 MB, so the requirement stands.)*
 
 Thirteen ordering-layer functionals, each drawn from a literature axis and registered with thresholds
-BEFORE measurement (documentation/CRITIQUE.md), were scored against the full population (2×10⁹ probes,
+BEFORE measurement (operator-attested: the escrow digest was published 2026-09-04, after the run; documentation/CRITIQUE.md, PREREGISTRATION_ESCROW.md), were scored against the full population (2×10⁹ probes,
 2026-07-04). All thirteen: null. The ~126 unexplained bits (the C1–C5-layer reading of the residual —
 the population this battery was scored against; the published range is 105–139, v1.22) therefore survive their first systematic
-literature-guided assault — strengthening this report's central claim that no currently known rule
-explains the second half of the sequence's information content. Evidence: the archived tier-1 run
+literature-guided assault — strengthening this report's central claim that no rule in this battery
+explains the second half of the sequence's information content — known rules outside C1–C7 (the gender rule priced in §2) restrict the residual further without explaining it (§4). Evidence: the archived tier-1 run
 output [evidence/f4p_tier1.out](evidence/f4p_tier1.out) — **"tier-1" naming the *scoring-axis
 class* (principled rules stated ahead of the data), not a run scale: this is the 2×10⁹-probe
 estimator run named in the same sentence, not the campaign "Tier 1" 11.2T canonical of
@@ -509,4 +509,5 @@ v1.0.*
 | v1.34 | 2026-10-16 | **Two restatements of the scoped C5 verdict carry its scope (Codex's final review, gpt-6-astra; CAL-010#100/#85, CAP-001, CAP-002; triaged by Fable; fast-track batch FT2a).** The sensitivity table's "under any defensible statement convention" (RP-16fc7cf8, scoped 2026-09-24) now reads "under both declared conventions — not under every convention", and footnote ⁵'s "coding-independent" names the three marginal-consistent codings. No figure changes. See CORRECTIONS.md (fast-track batch FT2a). |
 | v1.35 | 2026-10-17 | The execution-lane note says `scripts/exec_lane.sh` executes every command it classifies as runnable, not every documented command (the lane never runs its OPS, placeholder or fragment classes; Codex's final review, gpt-6-astra, CAL-009#62, CAL-010#97; triaged by Fable; fast-track batch FT2b-2). No figure changes. See CORRECTIONS.md (fast-track batches FT2b-2..4). |
 | v1.36 | 2026-10-17 | **Five restatements scoped (Codex's final review, gpt-6-astra; triaged by Fable; push group G4; F11-016#2/#3/#5/#13, F02-005#7, F02-H01#27, F02-H05#26, F07-015#2).** "Explained by nothing known today" now says none of the C1–C7 layers (known rules outside them, such as the Schulz gender row, are not conditioned on); "best possible" is scoped to complement/reversal matchings; C5's sign flip reaches break-even and then goes positive; the 15.7-bit cell is over all 52,360 weak compositions; the C1–C5 95% band is ±0.00049 bits from the unrounded SE, beside ±0.022 for C1–C7; the v1.26 row's "a fortiori" is withdrawn. No figure or verdict changes. See CORRECTIONS.md CX-35T-J. |
-| v1.37 *(current)* | 2026-10-22 | **Four restatements of the residual and the C5 verdict scoped (Codex's fix-verification pass, gpt-6-astra; triaged by Fable; push group FV1; FV-G4-C6#5, FV-G4-C4 OOS 11686, FV-G4-C7#6).** The abstract's residual is what remains after the C1–C7 layers, not "after all known rules"; §4 says known rules outside the layers, such as the gender row, are priced in the ledger but not conditioned on, where it said "not in the ledger"; the C5 ledger row and §3's verdict read "under both declared conventions", not "under every convention". No figure changes. See CORRECTIONS.md CX-35Y-G. |
+| v1.37 | 2026-10-22 | **Four restatements of the residual and the C5 verdict scoped (Codex's fix-verification pass, gpt-6-astra; triaged by Fable; push group FV1; FV-G4-C6#5, FV-G4-C4 OOS 11686, FV-G4-C7#6).** The abstract's residual is what remains after the C1–C7 layers, not "after all known rules"; §4 says known rules outside the layers, such as the gender row, are priced in the ledger but not conditioned on, where it said "not in the ledger"; the C5 ledger row and §3's verdict read "under both declared conventions", not "under every convention". No figure changes. See CORRECTIONS.md CX-35Y-G. |
+| v1.38 *(current)* | 2026-10-29 | **Eleven statements scoped (Codex's final review, gpt-6-astra; triaged by Fable; push group FV2-A, CX-36C-G; F07-015#1/#2/#4/#5/#6/#7, F08-016#6/#9/#12/#16/#18, F02-005#3/#4/#5, F11-016#2/#3/#5/#6/#7/#9, F02-H01#21/#25/#26/#28, F02-H04#30).** The decoy note says which statistics run over all 1,000 decoys and which over the 999 nonzero rows; fn⁶'s ~20.6 is one of three underived cost figures, not the only one; C2's break-even holds under the ledger's declared codes (§4's alternative C5 code nets +0.1 to +0.4); the strongest principled rule is compared only among classified rows; the counted C4 orientation bit gets its figure (140.1 bits without it); the universality argument names the two conditions a cleverer code must meet; the Schulz verdict holds across the stated 10–15-bit bracket, not ±5 beyond it; the C2 estimator re-draw is 0.011% off, not ±0.01%; the F4′ freeze is operator-attested (escrowed after the run); and the battery's null is a claim about this battery. No count, residual or verdict changed |

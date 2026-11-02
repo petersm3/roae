@@ -234,9 +234,9 @@ its 64 → 16 → 4 image chain with terminal set {0, 21, 42, 63} are classical
 (commentary tradition; treated in [Hershock 1991](CITATIONS.md#hershock1991)
 as "linking" and in [Cook 2006](CITATIONS.md#cook2006)). Machine-checked
 here: the nuclear map commutes with reversal and complement (`nuc_comm_rev`,
-`nuc_comm_comp`), preserves symmetric hexagrams, and descends along the C1
-pairing (`nuc_partner_descent`: the nuclear image of a canonical pair is
-always a reversal pair or, for symmetric hexagrams, a complement pair);
+`nuc_comm_comp`), preserves symmetric hexagrams, and maps a canonical pair {h, partner h}
+to a reversal pair, or a complement pair when h is symmetric (`nuc_partner_descent`; the identity is
+conditional on h — the pairing does not descend to nuclear images);
 image sizes 64 → 16 → 4 with the terminal set exactly {0, 21, 42, 63}
 (the set hardcoded in `solve.c`'s VdB terminal check) and nuc-closed.
 
@@ -368,7 +368,7 @@ Two annotations of this document's own, on the block above:
 ## 5. Verify yourself
 
 ```bash
-lean lean/TrigramTheorems.lean        # exit 0 = all theorems check; expect 40 #print axioms lines, NOT silence
+(cd lean && exec lean TrigramTheorems.lean)  # a subshell, from inside lean/, so the pinned toolchain runs and the next line still runs from the repo root; exit 0 = all theorems check; expect 40 #print axioms lines, NOT silence
                                        # (wall time and peak RSS: the benchmark table in lean/README.md; Lean 4.31.0, core only)
 python3 solve.py --trigram-verify      # independent Python re-check of every finite/KW-instance claim
 ```

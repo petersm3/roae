@@ -16,7 +16,7 @@ Your verifier reads a `solutions.bin` file and answers: *does every record satis
 
 Concretely:
 
-1. Parse and validate the 32-byte header (magic, version, record count).
+1. Parse and validate the 32-byte header (magic, version, record count — a zero record count is rejected).
 2. For each 32-byte record, decode it into a 64-hexagram sequence.
 3. Check each sequence against **C1** (pair structure), **C2** (no Hamming-5 transitions), **C3** (complement distance ≤ 776), **C4** (first pair = pair 0, `63→0`), **C5** (exact distance distribution).
 4. Verify records are in sorted order as defined in `SOLUTIONS_FORMAT.md`.
@@ -48,7 +48,7 @@ Read the first 32 bytes of the file. Per [`SOLUTIONS_FORMAT.md`](SOLUTIONS_FORMA
 
 ✅ **Scope of that cross-check — divergence found 2026-09-02, CLOSED the same day.** "Both shipped verifiers" above means `verify.py` and `solve --verify`. On the morning of 2026-09-02 it did **not** extend to `verify.c --check-artifact`, the independent C instrument documented in [VERIFY.md](VERIFY.md): that mode read the 32-byte header, checked the magic, and then reported `SCOPE=validity_sortedness_dedup_only_NOT_completeness`, holding no version, reserved-byte or file-geometry test. Executed then on one-record artifacts built from King Wen — with `header[20]=0x5A`, with a declared format version of `2`, and with a header declaring 5 records over a 1-record body — `verify.py` returned rc=1, rc=2 and rc=2 with a named error in each case, while `verify.c --check-artifact` returned `ARTIFACT=PASS` on all three. ⚠ **[CORRECTED 2026-09-02 — this paragraph read "Until that is closed in `verify.c`" and instructed the reader not to treat a `verify.c` pass as agreement about the header. The gap closed the same day and the instruction went stale.]** `verify.c` now counts and reports `BAD_HDR_VERSION`, `BAD_HDR_RESERVED` and `BAD_GEOMETRY` (and `BAD_C3`) into its failure total, and `verify.py` prints the same four counters, so **all three shipped readers now agree about the header** and a `verify.c --check-artifact` pass may be read as header agreement. The three fixtures above are permanent negative controls in `tests.py::TestCheckArtifactControls`; re-executed 2026-09-02 (`python3 -m unittest tests.TestCheckArtifactControls`, 9 tests, all green), each asserts `ARTIFACT=FAIL` with its own `BAD_` token from **both** instruments, matched whole-line. `verify.c`'s `SCOPE=` line still bounds what a pass attests — validity, sortedness and dedup, never completeness — and that has not changed.
 
-After header parse, assert `file_size == 32 + record_count × 32`. If the declared count and the actual file geometry disagree, the file is corrupt — reject.
+After header parse, assert `record_count > 0` (verify.py and solve.c reject a zero-record artifact) and `file_size == 32 + record_count × 32`. If the declared count and the actual file geometry disagree, the file is corrupt — reject.
 
 Python:
 
@@ -73,6 +73,7 @@ with opener(path, 'rb') as f:
     if version != 1:
         raise ValueError(f"unknown format version {version}")
     record_count = int.from_bytes(hdr[8:16], 'little')
+    if record_count == 0: raise ValueError("artifact declares zero records")
     if hdr[16:32] != b'\x00' * 16:
         raise ValueError("header reserved bytes must be zero")
     nbytes = 0   # STREAM it (a 100T file is ~102 GiB); do the per-record checks of steps 3-6 inside this loop
@@ -345,7 +346,7 @@ A `solutions.bin` produced by `./solve --selftest` has:
 
 To reach that anchor from a shell instead of through `--selftest`, you have to reproduce the child
 **environment** that `--selftest` builds, not two settings out of it. `solve.c` forks its selftest
-child with a wildcard scrub of every inherited `SOLVE_*` variable followed by nine explicit
+child with a wildcard scrub of every inherited `SOLVE_*` variable followed by ten explicit
 settings; without the scrub the command inherits whatever `SOLVE_*` the caller had exported, and a
 single leaked variable can change the output or suppress the auto-merge that writes
 `solutions.bin` at all. The standalone equivalent is:
@@ -353,7 +354,7 @@ single leaked variable can change the output or suppress the auto-merge that wri
 ```sh
 cd "$(mktemp -d)" && \
 for v in $(env | grep '^SOLVE_' | cut -d= -f1); do unset "$v"; done && \
-SOLVE_THREADS=4 SOLVE_NODE_LIMIT=100000000 \
+SOLVE_HASH_LOG2=20 SOLVE_THREADS=$(( $(getconf _NPROCESSORS_ONLN) < 4 ? $(getconf _NPROCESSORS_ONLN) : 4 )) SOLVE_NODE_LIMIT=100000000 \
 SOLVE_ALLOW_SUB_CANONICAL=1 SOLVE_SKIP_CANONICAL_LOCK=1 \
 SOLVE_SKIP_AUTO_SELFTEST=1 SOLVE_SKIP_DISK_CHECK=1 \
 SOLVE_SKIP_BINARY_SNAPSHOT=1 SOLVE_SKIP_AUTO_MANIFEST=1 \
@@ -414,7 +415,7 @@ No further gaps identified as of 2026-04-18.
 
 A verifier built from the current specs + this document will be **correct**: it accepts exactly the files that satisfy C1-C5, the sort order and the dedup rule, and rejects the rest. It does **not** thereby establish byte-reproducibility, and Steps 1-11 cannot. Step 10 tests strict ordering on the masked key and canonical-duplicate adjacency; nothing in the file lets it test *which* orient variant of a canonical class was retained, because the competing variants are precisely what dedup removed. Byte-reproducibility is a property of the **producer**, and the bullet immediately above says so.
 
-The repository does ship an instrument for the representative question — `python3 verify.py --check-repr` and `verify.c --check-repr`, which recompute the lexicographically least valid orientation completion of a record's pair key from the definition rather than from `solve.c`. It is deliberately **not** part of `--check-artifact`, and folding it in there would be wrong rather than merely expensive: `solutions.bin` is a pre-normalization artifact, so a raw merge output disagrees with the global representative on a regionally varying 1.06%-42.2% of records (measured 2026-08-15 over 1,776,347,935 records, INCOMPUTABLE=0 throughout), and the normalizing post-pass that would make agreement the right expectation is on no published ref in this tree — see [VERIFY.md](VERIFY.md), its `--check-repr` row and its "NOT AVAILABLE IN THIS TREE" box. Read `--check-repr` as the acceptance test for that post-pass's output, not as a conformance step this recipe owes a rebuilder.
+The repository does ship an instrument for the representative question — `python3 verify.py --check-repr` and `verify.c --check-repr`, which recompute the lexicographically least valid orientation completion of a record's pair key from the definition rather than from `solve.c`. It is deliberately **not** part of `--check-artifact`, and folding it in there would be wrong rather than merely expensive: `solutions.bin` is a pre-normalization artifact, so a raw merge output disagrees with the global representative on a regionally varying 1.06%-42.2% of records (measured 2026-08-15 on the examined prefix of the 1,776,347,935-record artifact — the sweep stopped early; INCOMPUTABLE=0 over the examined records), and the normalizing post-pass that would make agreement the right expectation exists on the public tag `v4-repr-fc-legc-20260813`, not on main, and a later revision is unpublished — see [VERIFY.md](VERIFY.md), its `--check-repr` row and its "NOT AVAILABLE IN THIS TREE" box. Read `--check-repr` as the acceptance test for that post-pass's output, not as a conformance step this recipe owes a rebuilder.
 
 ⚠ **[CORRECTED 2026-09-02 — the sentence opening this block used to run on and pair correctness with an unconditional byte-reproducibility guarantee (the retired wording is registered in [`RETRACTED_PHRASES.tsv`](RETRACTED_PHRASES.tsv), not requoted here). It contradicted this section's own preceding bullet two lines earlier. Executed on this tree: a two-record artifact holding natural King Wen plus a C1-C5-valid but non-minimal orient variant of a second pair key returns `VERIFY PASS` from `verify.py` even under `--expect-kw`, and `ARTIFACT=PASS` from `verify.c --check-artifact` — both correctly, since neither mode claims the representative property; `verify.py --check-repr` on the same file reports `AGREE=1 DISAGREE=1` and `CHECK_REPR=FAIL`, which is the instrument that does. The claim was not merely stale: byte-reproducibility was never the verifier's to certify.]**
 

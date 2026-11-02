@@ -47,5 +47,5 @@ Every draw value is within 1% of its exact value (largest gap: 7-free leaves, 0.
 ## Provenance
 
 Run 2026-09-25 on a 16-core x86-64 Linux worker; gcc 13.3.0, flags as above. `solve.c` sha256
-`950525812ffb9af71806c4d46ee02ec9553b0e03f4918f61414dccaeeaf5e7fe`. Wall time about 1 to 3 s per
+`950525812ffb9af71806c4d46ee02ec9553b0e03f4918f61414dccaeeaf5e7fe` (this digest matches no public commit's `solve.c`; the sampled lines reproduce only from that source — a replacement receipt from a public commit is pending). Wall time about 1 to 3 s per
 sampled rung. The files are the unedited stdout and stderr of the commands above.

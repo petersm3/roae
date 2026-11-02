@@ -161,7 +161,7 @@ global node limit, per-sub-branch limit)** — the same tuple enumerated by
 which publishes one row per canonical with `SOLVE_DEPTH`, `SOLVE_NODE_LIMIT`
 and `SOLVE_PER_SUB_BRANCH_LIMIT` set out separately. All four must match:
 two campaigns agreeing on every element should produce the same
-sha; campaigns differing in the budget elements should not (the larger campaign will
+sha; campaigns whose *effective* per-cell budgets differ should not — an explicit per-cell override can make a changed global limit irrelevant (the larger campaign will
 include a superset of records up to the smaller campaign's per-cell boundary,
 plus more records that the smaller didn't have budget to find).
 
@@ -386,7 +386,7 @@ provenance sidecars, and an `EXTENSION_RECIPE.txt`):
    tar -xzf /mnt/solver-data/<source-campaign>/dfs_state.tar.gz
    tar -xzf /mnt/solver-data/<source-campaign>/budget.tar.gz
    ```
-   These three sets are what makes extension possible:
+   These three sets (once each extracted `*.gz` member is gunzipped to the exact filename the solver looks for) are what makes extension possible:
    - `sub_<cell>.bin` — the records found within the source budget
    - `<cell>.dfs_state` — the DFS state at the source-budget boundary
    - `<cell>.budget` — the source per-cell budget value (Outlier #5 protection)
@@ -453,8 +453,8 @@ provenance sidecars, and an `EXTENSION_RECIPE.txt`):
 >
 > Empirically, the probe is **noisy on a cold-cache VM** — that is, a VM that
 > has just been brought up via `az vm start` (eviction-resume) or is being
-> used for the first time (extension launch). The 100-iteration concurrent
-> probe runs before any disk warmup, and on a freshly-attached Premium SSD
+> used for the first time (extension launch). The concurrent probe (64 iterations
+> per worker, at most 32 workers) runs before any disk warmup, and on a freshly-attached Premium SSD
 > can measure 200–300 fsync/sec where the warm disk would steady-state at
 > 2000+ fsync/sec. That triggers a false refuse-to-start.
 >
@@ -529,15 +529,15 @@ run that did nothing. The strict-increase and per-cell-coverage assertions
 above are the missing leg; they are stated as required criteria, and are
 **not yet implemented as tooling.**]**
 
-The new canonical contains every record from the source canonical
-**byte-identically as a prefix per cell**, plus the additional records
+The new canonical contains every pair identity from the source canonical
+**preserved per cell** (representatives and record order may change), plus the additional records
 found in the budget-extension range.
 
 ### Verification that extension was byte-faithful
 
 To prove that the extended canonical is correctly an extension of the source
 (rather than a redo from scratch that happened to land at a similar sha), the
-source `solutions.bin` records must appear as an ordered subset of the new
+source `solutions.bin` pair identities must appear (masked-identity containment) in the new
 `solutions.bin` records:
 
 > **CORRECTED 2026-08-01 — the recipe previously published here was NOT EXECUTABLE.**
@@ -860,7 +860,7 @@ What this means for a third-party reproducer:
 - **Also compare the record count**, which is the cheapest completeness
   signal available and needs no re-enumeration. The canonical file layout is
   a 32-byte header followed by fixed 32-byte records, so the count is
-  `(filesize − 32) ÷ 32` — for the 560 T canonical,
+  `(logical size − 32) ÷ 32` (decompressed size — outputs are gzip-framed by default) — for the 560 T canonical,
   `(336,808,703,936 − 32) ÷ 32 = 10,525,271,997`, the count published for
   that scale in [CANONICAL_HASHES.md](CANONICAL_HASHES.md). A **differing**
   count proves the record sets differ and tells you by how much. A
@@ -903,7 +903,7 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
 | Enum wall | **171.5 h** (= 7.15 days, including all eviction-recovery defer windows) |
 | Merge wall | **18 h 42 m** (single external chunked-sort pass, 250+ sort chunks) |
 | `solve --verify` | **PASS — all 10,525,271,997 records satisfy C1-C5 + sorted + no duplicates.** The same run additionally REPORTED that the King Wen sequence is present; that is a true measured observation about the artifact and is not part of the PASS verdict. ⚠ **[CORRECTED 2026-09-07 — this row read "PASS — all 10,525,271,997 records satisfy C1-C5 + sorted + no duplicates, King Wen sequence found", running the King Wen observation into the verdict clause as though `--verify` enforced it.** It does not: `kw_found_v` is printed (`King Wen found:` and the machine-readable `KW_PRESENT=YES\|NO`) and enters `total_fail` only via `fail_kw`, set only under the opt-in `--expect-kw` (in `solve.c`, inside the `--verify` handler's `if (g_expect_kw && !kw_found_v)` guard, `fail_kw` being the last term summed into `total_fail`; cited by symbol rather than line number, re-verified against this tree 2026-09-07, because `solve.c` line numbers drift), so a default `--verify` on an artifact with the King Wen record deleted returns `VERIFY=PASS`, rc 0. **The observation stands** — King Wen is in the 560 T canonical — but it is a FACT the run reported, not a criterion it gated on, and `--expect-kw` (added 2026-09-04) is what makes absence a FAIL; it did not exist when this row's 2026-06-08 run was made. Enforcement by default was deliberately retracted 2026-09-02 (registry `RP-60347080`) because a shard or a budgeted slice legitimately lacks the record; `tests.py`'s `TestSolveVerifyKingWenScope` pins the reported-not-enforced contract with a mutation test. The witness row for the same run in [CANONICAL_HASHES.md](CANONICAL_HASHES.md) carries the same marker of this date. No sha, record count or verdict changes — PASS was and remains PASS on the constraint, sort and dedup checks.]** |
-| `verify.py --jobs 16` | PASS (2026-06-09) — independent Python re-verify of all 10,525,271,997 records; see CANONICAL_HASHES.md witness table |
+| `verify.py --jobs 64` | PASS (2026-06-09) — independent Python re-verify of all 10,525,271,997 records; see CANONICAL_HASHES.md witness table |
 | Total realized cost | **not published.** The pre-launch projection is not restated here; the realized total varied with eviction-defer wall-time and no itemized ledger has been published for it. ⚠ **[CORRECTED 2026-09-01 — this read "recorded in HISTORY.md campaign ledger". It is not: the 560 T entry in HISTORY.md records launch, wall, records, sha, dedup ratio, verify status and eviction count, and no cost total; that file's cost totals stop at earlier, smaller campaigns. The cross-reference pointed at a ledger that does not exist, and a `[cost redacted]` 560 T total elsewhere in this document was anchored to it — see §7 rule 9, where both are withdrawn.]** ⚠ **[AMENDED 2026-09-01, later the same day — "not published" is right about the public corpus but was read here as "not known", and that is wrong. A realized total **was measured** at campaign closeout and is recorded in the project's private closeout analysis (`petersm3/roae-private:560T_FINAL_ANALYSIS.md`, the "Cost (realized)" row, stated against the campaign's hard cap). So this is a **publication** gap, not a measurement gap. The figure is deliberately not restated here: a cost total carries no reproduction command, and §7 rule 9 has set the bar for putting one in this document at an **itemized** ledger — VM hours by SKU, disk-months, closeout — which the private one-line total does not supply. Withdrawing it as an estimation anchor (rule 9) and knowing it was measured are both true at once.]** |
 | Eviction count handled | **5** — all M-F, all in a 37-min window 07:12-07:49 PT (Mon 07:12, Tue 07:39, Wed 07:34, Thu 07:42, Fri 07:49). **0 weekend evictions** (Sat 2026-06-06 + Sun 2026-06-07) — strong empirical support for M-F-only scheduled reclamation in the westus3 D128als_v7 Spot pool. |
 | Throttled-host re-provisions | 0 (no host returned throttled state) |
@@ -1011,15 +1011,15 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
 - **Progress measurement: count `.dfs_state` files (not `.bin`).**
   The C enumerator's stdout (`enum.out`) has two number-bearing patterns
   that look like progress indicators but mislead: (a) per-thread
-  `*** Sub-branch NNNNN/158364 BUDGETED ***` announcements are emitted by
-  whichever thread happens to exhaust its current cell's per-cell budget,
-  and post-eviction-resume the new enum process picks cells out of order
+  `*** Sub-branch NNNNN/158364 BUDGETED ***` announcements carry the atomic
+  processed-branch counter (a progress count, not a cell index), emitted by
+  whichever thread happens to exhaust its current cell's per-cell budget;
+  post-eviction-resume the new enum process picks cells out of order
   based on which `.dfs_state` checkpoints exist — so a tail-1 of those
-  announcements returns a stale-looking cell index, not the maximum;
+  announcements does not name the furthest cell reached;
   (b) the periodic status line's `XXXX/158364 sub-branches (NN%)` field
-  is the count of cells the in-process auto-merger has folded into the
-  shared shard table, which stays at 0 throughout any campaign using
-  `SOLVE_SKIP_AUTOMERGE=1` (the canonical-pipeline pattern). The reliable
+  counts restored completions plus newly exhausted branches — also a progress
+  counter, printed whether or not automerge is enabled (`SOLVE_SKIP_AUTOMERGE=1`, the canonical-pipeline pattern). The reliable
   progress measure is **the filesystem itself**: each scanned cell writes
   a `sub_*.dfs_state` checkpoint regardless of whether it found
   solutions, so:
@@ -1140,9 +1140,9 @@ specific symptom that motivated it.
    The original archive script's pattern was
    `\( -name 'sub_*.bin' -o -name 'sub_*.dfs_state' -o -name 'sub_*.budget' \)`.
    At canonical scale solve.c also produces `sub_*.bin.budget` and
-   `sub_*.bin.provenance.json` per cell — 65,281 files each, 130,562
-   total — silently excluded from the archive. The follow-up pass had to
-   re-do them.
+   `sub_*.bin.provenance.json` per cell — 65,281 files each. The `sub_*.budget` pattern
+   already matches the `.bin.budget` sidecars, so only the provenance JSON (65,281 files) was
+   silently excluded. The follow-up pass had to re-do them.
    **Rule:** the canonical archive find pattern is
    `\( -name 'sub_*.bin' -o -name 'sub_*.dfs_state' -o
    -name 'sub_*.bin.budget' -o -name 'sub_*.bin.provenance.json' \)`.
@@ -1178,7 +1178,7 @@ specific symptom that motivated it.
    it; that entry carries its own marker and the two retired forms are
    registered as `RP-a8eb3931` and `RP-dd27f0bf`. The handoff sentence above
    is preserved as the record of how the site was carried forward rather than
-   lost.]**]** D64 (128 GB, 38% cache) was where the
+   lost.]**]** D64 (128 GB, RAM ≤38% of the file — these RAM-to-file ratios are upper bounds on usable cache) was where the
    original §[10] code ran for 24h+ without finishing — but that was a
    pre-rewrite issue, not a sizing issue per se. **D128 (256 GB, 76%
    cache)** finished a full --analyze on the 560T canonical in
@@ -1208,8 +1208,8 @@ specific symptom that motivated it.
    but the extra RAM is what's actually doing the work.
    **Rule:** size analyze VM at **D128als_v7 Standard** for 560T+ canonicals.
    Wall: **3 h 47 m per analyze run** on D128, measured, not
-   projected. Down-sizing to D64 or D32 still saves nothing net once wall
-   time is accounted for, and D32 hits a "this won't fit" regime once the
+   projected. Down-sizing to D64 or D32 was not measured on comparable runs, so no
+   net saving either way is claimed; D32 hits a "this won't fit" regime once the
    file exceeds ~5× cache size. For 1120T extension
    (file ~540 GB projected): D128's 256 GB cache still fits 47% of the
    file — analyze remains feasible there.
@@ -1318,7 +1318,7 @@ specific symptom that motivated it.
       `build.sha`, `shard_manifest.txt`
     - `EXTENSION_RECIPE.txt` (operational recipe per §3 — frozen at archive
       time; lives in the archive, not just the live repo)
-    - `parent_canonical.txt` (lineage anchor — `this_canonical_sha`,
+    - `parent_canonical.txt` (lineage anchor, recorded for provenance — not read by the solver — `this_canonical_sha`,
       `this_canonical_scale`, `parent_canonical_sha`, `parent_canonical_scale`;
       `ROOT` for fresh enums, `<sha> <scale>` for extensions. Convention
       baked into `phase_b_recover_and_archive_supervise.sh` 2026-06-11
@@ -1368,9 +1368,9 @@ specific symptom that motivated it.
     I/O competition for the same disk. Cost: one extra D64 hour
     in exchange, saved: 4-5 h of analyze wall on D64 + lower
     Spot-eviction risk.
-    **Rule:** the canonical post-merge pattern is **two D64 Standard
+    **Rule:** the canonical post-merge pattern is **two Standard
     VMs**, each with its own disk: archiving on solver-data,
-    analyze on Premium SSD. Don't try to bundle both on one VM unless
+    analyze on Premium SSD, the analyze VM sized per rule 8 (D128als_v7 for 560T+; the D64 run above predates that rule). Don't try to bundle both on one VM unless
     operator explicitly authorizes for cost reasons.
 
 14. **`solve --analyze` section design at canonical scale: one pass over
@@ -1413,7 +1413,7 @@ specific symptom that motivated it.
     --analyze must emit per-1% progress to stderr using the shared
     `ANALYZE_EMIT_PROGRESS` macro at the top of `solve.c`. The macro
     auto-detects `omp_in_parallel()` × `omp_get_num_threads()` for
-    accurate display under static OpenMP scheduling. Stdout (the
+    accurate display under static OpenMP scheduling (a rule not yet met everywhere: at this commit §[10] and §[20] report unscaled thread-zero counters on global intervals, so their per-1% lines are understated or missing). Stdout (the
     canonical analyze output) is never touched — sha-neutral by
     construction.
 
@@ -1449,8 +1449,8 @@ a third party can reproduce any canonical as follows:
    The merge is **sha-invariant to `SOLVE_MERGE_THREADS`**: serial (default `=1`) and parallel
    (`>1`) both produce the byte-identical canonical — validated at 1T and, on 2026-07-01, at **560T**
    (threads=16 external merge reproduced `9a968fa2…`). At canonical scale the Phase-2 k-way step opens
-   all sorted chunks at once (a 1 GB-chunk 560T merge makes ~1,308); `solve` auto-raises `RLIMIT_NOFILE`
-   at merge start so this can't hit "Too many open files" (override via `SOLVE_MERGE_NOFILE` /
+   all sorted chunks at once (a 1 GB-chunk 560T merge makes ~1,308); later builds of `solve` auto-raise `RLIMIT_NOFILE`
+   to the hard limit at merge start — the `2b01b15` build did not — so with a hard limit above the chunk count this can't hit "Too many open files" (override via `SOLVE_MERGE_NOFILE` /
    `SOLVE_SKIP_NOFILE_RAISE`; see SOLVE_C_CLI.md).
 6. Compute `gzip -dc solutions.bin | sha256sum` and compare to the published sha. (Since #169
    `solutions.bin` is written **gzip-framed by default**; every canonical sha is computed on the

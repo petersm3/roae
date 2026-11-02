@@ -22,7 +22,7 @@ and even agreeing with King Wen at a few chosen boundaries is rare in it (TR-4).
 valid records into groups of 24 that no test invariant under those symmetries can tell apart (TR-5). Four rules proposed for
 the sequence in published studies cannot all hold at once, in their strict zero-exception forms, in any ordering of the superspace, so
 each such ordering, King Wen's included, trades some of them off (TR-1). Counted exactly over the superspace rather than sampled, pair
-positions away from the two end slots sit close to the even share, the end slots far from it, and King Wen's placements are typical (V1, a negative result, TR-12 §12.5); the mix of
+positions away from the two end slots sit close to the even share, the end slots far from it, and King Wen's per-slot placements away from the end slots are typical (joint typicality is not tested; V1, a negative result, TR-12 §12.5); the mix of
 transition sizes stays nearly level along the walk (V2, TR-12 §2 and §12.6), with three-line joins
 the most common kind at every step (V5, TR-12 §2); no plotted property shows a
 clear trend along the index on a 1,000-point lattice (V3, TR-12 §2); and King Wen's own walk has an
@@ -83,11 +83,11 @@ show with a drat-trim-verified SAT certificate.
 [![Four-row comparison table of four conflicting rules: King Wen has 2 misses, breaks or violations on each of the first three rules and satisfies the fourth, the trigram configuration; the grand unified precursor has 0 on the first three and violates the fourth.](../reports/figures/fig_tr1_rules_tradeoff.png)](../reports/figures/fig_tr1_rules_tradeoff.svg)
 
 **In plain terms.** This table compares King Wen's order with the "grand unified precursor", an ordering that differs
-from King Wen in three places, on four rules taken from published studies of the sequence. King Wen
+from King Wen in three pair slots (six hexagram positions), on four rules taken from published studies of the sequence. King Wen
 misses each of the first three rules by two and keeps the fourth exactly, while the precursor keeps
 the first three perfectly and breaks the fourth. A computer-checked proof shows that no ordering
 obeying four of the project's five core rules (all but the one called C3) can keep all four of these
-rules at once, so some trade-off is forced.
+rules, in their strict zero-exception forms, at once, so some trade-off is forced.
 
 Full description, provenance and review history: [viz_tr1_rules_tradeoff.md](viz_tr1_rules_tradeoff.md) · Report: [TR-1 §Figure](../reports/TR1_EIGHT_CENTURIES_MEASURED.md#figure), also in [TR-2 §Figure](../reports/TR2_THE_RULES_CONFLICT.md#figure)
 
@@ -177,7 +177,7 @@ Full description, provenance and review history: [viz_kc_spectrum.md](viz_kc_spe
 **In plain terms.** This picture follows only King Wen's own ordering, not the whole population. After each of its 31
 free choices, the top panel shows how many allowed orderings (those obeying four of the five core
 rules, all but the one called C3) still begin the same way, a count that falls from a 38-digit number
-to exactly one; the shaded bars show the range for the other choices that were open at that step. The
+to exactly one; the shaded bars show the range over all admissible choices at that step, King Wen's own included. The
 bottom panel shows how surprising each of King Wen's choices is, measured in bits, where one bit is
 the surprise of a fair coin toss.
 
@@ -236,7 +236,7 @@ Full description, provenance and review history: [viz_tr7_circular_cycle.md](viz
 
 The enumerated slices that the scale figure plots came from long, interruptible cloud runs. TR-3 is
 about running them so that a run that is stopped and resumed still reproduces its result byte for
-byte.
+byte (within the tested toolchain class, TR-3 §"Scope of the reproducibility claim").
 
 ### TR-3 — the first 560T campaign's timeline
 
@@ -255,7 +255,7 @@ Full description, provenance and review history: [viz_tr3_campaign_timeline.md](
 - **One committed generator.** All twelve figures are drawn by [`report_figures.py`](report_figures.py).
   Each number a figure draws is read from a committed table, whose sha256 prefix the figure prints in
   its footer (V1–V5 and the scale figure); or typed from the report it illustrates with a source
-  comment and asserted before drawing (TR-1, TR-3, TR-4); or computed from `solve.py`'s King Wen
+  comment and asserted before drawing (TR-1; TR-3's derived interval only; TR-4's values are typed, not asserted); or computed from `solve.py`'s King Wen
   sequence (TR-5, TR-6, TR-7). The V1–V5 renderers read tables and do no analysis.
 - **Byte-identical re-render.** Under the pinned toolchain, matplotlib 3.11.0 and numpy 2.4.4, the
   documented command reproduced all twelve committed PNGs byte for byte on 2026-09-29 (CX-233), as it

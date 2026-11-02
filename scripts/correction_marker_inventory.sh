@@ -396,7 +396,7 @@ REVIEWED = {
         ('1', 'reviewed:sentence-already-gives-the-5000-trial-modes'),
     ('documentation/GUIDE.md', 'c398db7af695'):  # re-keyed 2026-10-17, push group G4 (line edited; verdict re-read, stands)
         ('1', 'reviewed:paragraph-already-gives-the-optimality-characterization'),
-    ('documentation/GUIDE.md', '74800e488dba'):
+    ('documentation/GUIDE.md', '28719d8be772'):  # re-keyed 2026-10-29, push group FV2-A (line edited; verdict re-read, stands)
         ('1', 'reviewed:sentence-already-states-the-sampler-scoped-rate-bound'),
     ('documentation/GUIDE.md', '8359ad050331'):
         ('1', 'reviewed:entry-already-states-the-attainment-quantifier'),
@@ -553,7 +553,7 @@ REVIEWED = {
         ('1', 'reviewed:paragraph-above-already-puts-the-range-test-first'),
     ('documentation/ROAE_PY_CLI.md', '1a9d70c8317f'):
         ('1', 'reviewed:following-text-already-states-the-Wilson-bound-rule'),
-    ('documentation/ROAE_PY_CLI.md', '3d637f9508dd'):
+    ('documentation/ROAE_PY_CLI.md', 'ea4057a94fd9'):  # re-keyed 2026-10-29, push group FV2-A (line edited; verdict re-read, stands)
         ('1', 'reviewed:row-already-lists-the-validated-fields'),
     ('documentation/ROAE_PY_CLI.md', '56e82d36e5cb'):
         ('1', 'reviewed:paragraph-already-says-negative-seeds-are-refused'),
@@ -629,7 +629,7 @@ REVIEWED = {
         ('1', 'reviewed:sentence-already-says-within-its-node-budget'),
     ('documentation/SOLVE.md', 'dcf25802774b'):
         ('1', 'reviewed:paragraph-already-says-the-scale-is-not-measured;re-read-2026-10-17-after-CX-404-scoped-the-identifying-set-per-dataset'),
-    ('documentation/SOLVE.md', '7ce3f3cce019'):
+    ('documentation/SOLVE.md', '7d60c9d3d5e3'):  # re-keyed 2026-10-29, push group FV2-A (line edited; verdict re-read, stands)
         ('1', 'reviewed:sentence-already-counts-9-boundaries'),
     ('documentation/SOLVE.md', '87e1c1e30461'):
         ('1', 'reviewed:proof-already-separates-containment-and-attainment'),
@@ -756,7 +756,7 @@ REVIEWED = {
         ('1', 'reviewed:dated-label;item-already-reads-2-of-4'),
     ('documentation/SOLVE_SUMMARY.md', '3c5b8586e07b'):
         ('1', 'reviewed:table-text-already-re-derived-from-the-logs'),
-    ('documentation/SOLVE_SUMMARY.md', '5296f1d53f8a'):
+    ('documentation/SOLVE_SUMMARY.md', 'd11bb25a2b20'):  # re-keyed 2026-10-29, push group FV2-A (line edited; verdict re-read, stands)
         ('1', 'reviewed:paragraph-already-says-the-scale-is-not-measured'),
     ('documentation/SOLVE_SUMMARY.md', '725c72fe2a77'):
         ('1', 'reviewed:paragraph-already-gives-the-same-and-reverse-order-couples'),
@@ -792,7 +792,7 @@ REVIEWED = {
         ('1', 'reviewed:block-already-says-the-compiler-is-in-main'),
     ('documentation/SPECIFICATION.md', '7e3976fa3206'):
         ('1', 'reviewed:bullet-already-reads-stays-5'),
-    ('documentation/SPECIFICATION.md', '922970cbbcad'):  # re-keyed 2026-10-17, push group G4 (line edited; verdict re-read, stands)
+    ('documentation/SPECIFICATION.md', 'dfc6fbf17025'):  # re-keyed 2026-10-29, push group FV2-A (line edited; verdict re-read, stands)
         ('1', 'reviewed:bullet-already-attributes-growth-to-node-budget'),
     ('documentation/SPECIFICATION.md', 'e98c37bebecb'):
         ('1', 'reviewed:bullet-already-gives-the-measured-pair-counts'),
@@ -1076,7 +1076,7 @@ REVIEWED = {
         ('1', 'reviewed:text-already-separates-Python-and-Lean-timing'),
     ('reports/TR8_REORDERING_REVISITED.md', '18d9e6d088a8'):
         ('1', 'reviewed:text-already-says-only-one-rarity-is-estimator-independent'),
-    ('reports/TR8_REORDERING_REVISITED.md', '804bba4e185c'):
+    ('reports/TR8_REORDERING_REVISITED.md', 'b7b41f516c13'):  # re-keyed 2026-10-29, push group FV2-A (line edited; verdict re-read, stands)
         ('1', 'reviewed:sentence-already-reads-correctly'),
     ('reports/TR8_REORDERING_REVISITED.md', '9ed5548a0e40'):
         ('1', 'reviewed:passage-already-separates-the-two-quantities'),
@@ -1317,7 +1317,7 @@ REVIEWED = {
         ('1', 'reviewed:sentence-now-says-only-the-KW-facing-integration-never-ran'),
     ('documentation/SOLVE_SUMMARY.md', '7a4bbd08af7b'):
         ('1', 'reviewed:sentence-already-gives-5-at-canonical-depth;re-read-2026-10-17-after-the-current-values-replaced-the-withdrawn-figure'),
-    ('documentation/SPECIFICATION.md', 'b048ca33f3d6'):
+    ('documentation/SPECIFICATION.md', 'd87d46404e82'):  # re-keyed 2026-10-29, push group FV2-A (line edited; verdict re-read, stands)
         ('1', 'reviewed:sentence-now-names-the-tail-statistic-and-the-command-interval'),
     ('reports/FULL31_EXACT_AGGREGATES.md', 'a27023c370e2'):
         ('1', 'reviewed:sentence-now-separates-the-engine-rungs-from-the-n16-recount'),

@@ -1,7 +1,7 @@
 # F1 exact-count attack via free-S4 orbit quotient (#215) — WORKING LOG (started 2026-07-04)
 
-> **Reproduce:** `python3 f1_orbit_dp.py` from this directory (raw output preserved beside it as
-> `f1_exact.out`, progress in `f1_exact.progress.log`). Stated explicitly 2026-08-16 — this is a
+> **Reproduce:** `python3 f1_orbit_dp.py` from this directory runs the reduced-scale validations (9/12/13 pairs) and the Burnside sizing;
+> `f1_exact.out` and `f1_exact.progress.log` beside it are the C engine's full-31 outputs (`./solve --f1-exact-c1c2c4`). Stated explicitly 2026-08-16 — this is a
 > WORKING LOG, and its figures are working figures; the instrument shipped with it but the file
 > named no way to run it.
 

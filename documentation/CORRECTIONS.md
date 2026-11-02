@@ -37307,3 +37307,225 @@ without a fault hook that would break the verifier's independence, so `TestBatch
 the guards are present and the old unchecked pattern is gone — alongside the positive control that a healthy IE
 pass still completes. Developed with AI assistance (Claude, Anthropic): claude-fable-5-1 (pinned), push group
 FV2-V; sites found by Codex (gpt-6-astra), final review.
+
+## CX-36C-A — the front page's twin, ceiling, exactness and precedent sentences said more than their sources (README.md)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), final review, F11-001#1, AIF-003#1, F07-001#1/#2/#3/#4, F08-001#25 and
+F10-006#4; adjudicated by Fable (FV2 slice 1). Push group FV2-A.
+
+**What was published, and what it says now.**
+- "Every valid ordering has exactly 23 record-level twins that no hexagram relabeling can distinguish" is scoped: every
+  C1–C5-valid ordering, and no S₄-invariant criterion; C6–C7, which pin King Wen's own values, do separate them.
+- `equivariance_ceiling` was "kernel-checked" without its scope. It is kernel-checked for natural-number weights; the
+  rescaling to rational weights and the probability reading are prose steps (lean/README).
+- "The test is of the literature's rules *as stated*" now says the rules are tested as this project formalised them, and
+  names the two departures (C2 read linearly, the gender rule with no exception).
+- "King Wen's own 22-pair prefix" now names the prefix: the forced opening pair plus the next 22, 23 pairs fixed and 9 free.
+- "Every two-instrument exact quantity in the suite is C3-free" is scoped to full-scale quantities; the C3-inclusive exact
+  counts are prefix-scoped (the 16,504, C and Python agreeing).
+- The precedent sentence also sets aside the closed-form counts of independent-choice families (8!×8!, 7!×7!).
+- "AI-assistance headers in each source file" now names the six main source files that carry them.
+
+**Tests.** `TestBatchFV2A.test_root_readme`. Fails on the uncured file.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-A; the defects were found by Codex
+(gpt-6-astra), final review.
+
+## CX-36C-B — the campaign methodology misnamed two progress counters, the shard-copy pattern's gap, and several guarantees (documentation/CAMPAIGN_METHODOLOGY.md)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), final review, F12-010#1/#2/#4/#6/#7/#8/#9/#10/#11/#12/#13/#14/#15/#16;
+adjudicated by Fable (FV2 slice 1). Push group FV2-A.
+
+**What was published, and what it says now.**
+- The `BUDGETED` announcement number is the atomic processed-branch counter, not a cell index; the status line's
+  `sub-branches` field counts restored completions plus newly exhausted branches and is printed whether or not automerge
+  is on. It was described as the auto-merger's fold count, stuck at 0 under `SOLVE_SKIP_AUTOMERGE=1`.
+- The old `find` pattern's `sub_*.budget` already matched the `.bin.budget` sidecars, so only the 65,281 provenance JSON
+  files were missed, not 130,562 files.
+- RAM-to-file ratios (38%, 76%) are labelled upper bounds on usable cache; the "down-sizing saves nothing net" conclusion
+  is withdrawn as unmeasured on comparable runs.
+- `parent_canonical.txt` is recorded for provenance and is not read by the solver.
+- Rule 13's "two D64 Standard VMs" now sizes the analyze VM per rule 8 (D128als_v7 for 560T+).
+- The per-1% analyze-progress rule is marked not yet met in §[10] and §[20].
+- The `RLIMIT_NOFILE` auto-raise is in later builds, not the `2b01b15` build, and holds only with a hard limit above the
+  chunk count.
+- The sha depends on the *effective* per-cell budget; an explicit per-cell override can make a changed global limit
+  irrelevant.
+- The restore step gunzips each extracted member to the solver's filename; the cold-cache probe is 64 iterations per
+  worker on at most 32 workers, not 100 iterations; extension preserves pair identities per cell (masked-identity
+  containment), not a byte-identical prefix; the record-count formula uses the logical (decompressed) size; and the
+  2026-06-09 witness ran `verify.py --jobs 64`, not `--jobs 16`.
+
+**Tests.** `TestBatchFV2A.test_campaign_methodology`. Fails on the uncured file.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-A; the defects were found by Codex
+(gpt-6-astra), final review.
+
+## CX-36C-C — the narrative pages overstated uniqueness, priority and several measured figures (documentation/CRITIQUE.md, CLAIMS_DECIDED.md, GUIDE.md, PROJECT_OVERVIEW.md, SOLVE_SUMMARY.md, MCKENNA.md)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), final review, F11-020#1/#2/#3/#7/#9, F11-016#10, F11-008#2/#3, F07-006#1,
+F03-H01#32, F09-H04#1/#2/#3, F03-H05#14, F08-019#3/#4, F06-012#4, F08-021#7, F08-003#8/#9/#13, F07-013#2/#8,
+F08-002#23 and F03-008#6/#7/#12; adjudicated by Fable (FV2 slice 1). Push group FV2-A.
+
+**What was published, and what it says now.**
+- CRITIQUE: satisfying C1, C2 and C3 at once was "uniquely King Wen across all tested unconditional families"; it is observed for King Wen only
+  among the sampled or exhausted members, and King Wen's relabeling twins also satisfy it. The refuted Galton–Watson
+  model leaves path-correlated pruning the leading hypothesis, not a demonstrated cause. The 57.96% Latin-square rate is
+  a distribution over all 40,320 row permutations, of which the 144 Hamiltonian paths are one class. The thesis
+  paragraph's "does not manufacture off-home discriminators" is scoped to the three orderings tested. The forbidden
+  four-class Bayes factor is the one for King Wen; the synthetic calibration's class factors are instrument outputs. The
+  frozen F4′ registration gains a dated note withdrawing the Zheng Qiao credit for the trigram-clustering axis (the 18:18 credit was corrected 2026-07-30).
+- CLAIMS_DECIDED: the "defects" mapping is marked the project's own (TR-8 §1), and Davis's array is measured against the
+  frozen 91-observable bar, with METHODS' current family (≥ 1,446, bar ≤ 3.5×10⁻⁵) stated beside it.
+- GUIDE: "ships no hexagram names" is scoped to program output and datasets (CITATIONS quotes names in source passages);
+  the 28-analysis Bonferroni denominator is the section count; the chance test behind "0 of 10,000" is run by
+  `--constraints`, not `--pairs`; the summary table's percentiles are from an unrecorded run; the Markov figure is an
+  upper-tail share; and the three-property combination's specificity is relative to the tested families, not to King Wen.
+- PROJECT_OVERVIEW: canonical runs take hours (10T) to days (560T); the percentiles are from an unrecorded run.
+- SOLVE_SUMMARY: the ~20.6-bit statement cost is labelled underived; the 9-of-10 extraction figure notes that extraction
+  guarantees only target membership.
+- MCKENNA: McKenna's pairing condition admits pairs C1 refuses; the Markov figure is an upper-tail share, and "6 is
+  always followed by 2" is not true of King Wen (2 four times, 3 three times, 4 once); Watkins's finding is the "half
+  twist", the other construction choices are this page's summary.
+- The legacy-narrative notes of SOLVE_SUMMARY, PROJECT_OVERVIEW, MCKENNA and SOLVE.md no longer ask the reader to report
+  discrepancies.
+
+**Tests.** `TestBatchFV2A.test_narrative_pages`. Fails on the uncured files.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-A; the defects were found by Codex
+(gpt-6-astra), final review.
+
+## CX-36C-D — SOLVE, SPECIFICATION, SEARCH_SPACE_SIZE, TRIGRAM_STRUCTURE and PARITY_ALTERNATION stated figures, scopes and requirements more firmly than the code or the data (documentation/SOLVE.md, SPECIFICATION.md, SEARCH_SPACE_SIZE.md, TRIGRAM_STRUCTURE.md, PARITY_ALTERNATION.md)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), final review, F12-023#2/#3/#4/#5/#6/#7/#8/#9/#10/#13, F11-021#1/#2/#3/#4,
+F09-A01#14, F07-007#2/#4/#5/#6/#7/#8, F01-008#2/#4 and F08-012#6; adjudicated by Fable (FV2 slice 1). Push group FV2-A.
+
+**What was published, and what it says now.**
+- SOLVE: ~28.9 of ~32 oriented choices per step; 46–49 of 64 transition types; the default `--differential` run omits C3
+  (`--differential-apply-c3` adds it); boundary masks pin pairs, not orientations; edit distance is counted in differing
+  pair positions (the nearest five are single transpositions); the feature-combination result is about the enumerated
+  slice; the 100T/560T boundary minima are greedy and {25, 27}'s necessity across all minimum sets is open; the slot 24–32
+  histogram is King Wen's own; and the requirements read Python 3.10+, Linux, zlib, `bash` and `gzip`, with search
+  memory per worker (a 528 MiB starting table each).
+- SPECIFICATION: v4's artifacts are exact for C1∩C2∩C4∩C5; the d2 10T C6+C7 survivor count is attributed to its analyze
+  log; and the C3 tie-share gap mixes conditioning with budget truncation.
+- SEARCH_SPACE_SIZE: the 79 s timing and the pinned-walk table carry their unrecorded thread counts; the eighth boundary's
+  gain rests on an estimate with no published receipt; the greedy extension used 10× the per-run budget plus selection
+  sweeps, not ~100×; the early run sat ≈2–4σ low, not ≈2σ; and the yield correlation's input is untracked.
+- TRIGRAM_STRUCTURE: `nuc_partner_descent` is stated as the conditional identity it is (the pairing does not descend to
+  nuclear images), and the Lean command runs from `lean/`.
+- PARITY_ALTERNATION: the O(1) prune is a design note with no shipped implementation.
+
+**Tests.** `TestBatchFV2A.test_solve_spec_and_space_pages`. Fails on the uncured files.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-A; the defects were found by Codex
+(gpt-6-astra), final review.
+
+## CX-36C-E — the reader's guide, escrow, rebuild, reproduce, roae.py and ladder-format pages described commands and files that behave otherwise (documentation/README.md, PREREGISTRATION_ESCROW.md, REBUILD_FROM_SPEC.md, REPRODUCE.md, ROAE_PY_CLI.md, GT_LADDER_FORMAT.md)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), final review, F07-013#3/#4/#5, F08-021#3, F02-007#5, F12-015#1/#2/#3/#4,
+F09-H01#2/#7/#23, F09-H05#20, F09-H04#16/#17/#18/#20, F02-002#3/#4, F12-012#1/#2/#3/#9 and F12-014#4; adjudicated by
+Fable (FV2 slice 1). Push group FV2-A.
+
+**What was published, and what it says now.**
+- documentation/README: CRITIQUE's reading time is ~70 min (17,566 ÷ 250), not ~59; the escrow page holds sixteen frozen
+  files and the TR-8 addendum, not ten; the class-A questions were published before their answers were extracted, not
+  before the answers existed.
+- PREREGISTRATION_ESCROW: a dated note says the 2026-08-22 TR-8 row also preceded its measurement, so A1 is the first row
+  published before its run by design.
+- REBUILD_FROM_SPEC: the selftest child sets ten variables, including `SOLVE_HASH_LOG2=20` and min(4, online CPUs)
+  threads; the representative sweep covered an examined prefix of the artifact; the normalising post-pass is on the
+  public tag `v4-repr-fc-legc-20260813`, not on main; and a zero-record artifact is rejected.
+- REPRODUCE: `verify.c --ie-count` is named as a ladder-free full-31 route; the `ERROR 134` anecdote is an address-space
+  cap, with its workaround.
+- ROAE_PY_CLI: the circularity audit is a manual check; `trials` is recorded but not compared on load; the escrow hash is
+  checked against `git show 5ad06afa:…`, the escrowed bytes, not the redacted working copy; `--gs-batches` is refused at
+  10,000 or more, so the seed streams cannot overlap; the trigram matrices rule out the chi-square approximation, not
+  every test; and `--complements` is not byte-identical across seeds (21.7 vs 21.6).
+- GT_LADDER_FORMAT: exhaustive recurrence verification is the only pin on *every* entry; selected entries have been
+  checked independently.
+
+**Tests.** `TestBatchFV2A.test_reader_and_cli_pages`. Fails on the uncured files.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-A; the defects were found by Codex
+(gpt-6-astra), final review.
+
+## CX-36C-F — TR-3, TR-5, TR-6, TR-7 and TR-8 stated scopes, commands and priorities more firmly than their records (reports/TR3_REPRODUCIBLE_ENUMERATION.md, TR5_SYMMETRY.md, TR6_PARITY_SKELETON.md, TR7_CIRCULAR_READING.md, TR8_REORDERING_REVISITED.md)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), final review, F11-011#1/#2/#3/#4/#5/#7, F08-010#7, F11-012#1/#2/#3,
+F08-011#12, F11-013#1, F11-014#1/#2/#3/#6, F08-013#3/#10, F06-012#7, F08-014#1, F11-015#2/#3 and F02-H02#14; adjudicated
+by Fable (FV2 slice 1). Push group FV2-A.
+
+**What was published, and what it says now.** Each change is listed in its report's revision row: TR-3 v1.21, TR-5
+v2.26, TR-6 v1.17, TR-7 v2.14, TR-8 v1.26. In brief: the two 560T runs agree on the decompressed record stream; the
+resume defect's regression tests and the relaunch policy are stated as run; the twins are indistinguishable by
+relabeling-invariant criteria only, and their absence from the slice is consistent with, not shown to be, a
+search-orientation effect; the pair classes are popcount parity; TR-7's estimator commands carry their thread count and
+the r6 overlap is described accurately; and TR-8's priority claims carry "to our knowledge", with Chan's earlier
+random-baseline comparisons credited.
+
+**Tests.** `TestBatchFV2A.test_reports_tr3_to_tr8`. Fails on the uncured files.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-A; the defects were found by Codex
+(gpt-6-astra), final review.
+
+## CX-36C-G — TR-9 and TR-11 stated several bounds, robustness claims and provenance sentences beyond what they show (reports/TR9_PRICING_THE_CONSTRAINTS.md, TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), final review, F07-015#1/#2/#4/#5/#6/#7, F08-016#6/#9/#12/#16/#18,
+F02-005#3/#4/#5, F11-016#2/#3/#5/#6/#7/#9, F02-H01#21/#25/#26/#28, F11-003#1/#2/#3/#4/#5/#6, F07-003#1, F01-005#1,
+F08-003#35 and F06-003#5; adjudicated by Fable (FV2 slice 1). Push group FV2-A.
+
+**What was published, and what it says now.** Each change is listed in TR-9 v1.38 and TR-11 v1.39. In brief: TR-9's
+Schulz verdict holds across the stated 10–15-bit bracket (net −1.5 to +3.5), not "±5 bits either way"; ~20.6 is one of
+three underived cost figures; C2's break-even holds under the declared codes; the C2 re-draw is 0.011% off; the F4′
+freeze is operator-attested; and the battery's null is about that battery. TR-11's executive summary now reads
+"budget-limited enumeration", which its v1.37 row already said it did; the C2 redraw is outside one SE and inside the 95%
+interval; the Rung-B integers appear in `evidence/f1/` as reference constants; capping-exactness is cited with its
+hypotheses; and the plain-DP cross-check runs for n ≤ 16 only.
+
+**Tests.** `TestBatchFV2A.test_reports_tr9_tr11`. Fails on the uncured files.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-A; the defects were found by Codex
+(gpt-6-astra), final review.
+
+## CX-36C-H — evidence notes overstated what their runs show (reports/evidence/c8screen/README.md, f1/F1_ORBIT_QUOTIENT_2026_07.md, f11/RESULTS.md, f11halfb/README.md, f11halfb/RESULTS.md, knuth_ladder/README.md, q374_se_replicates/README.md, r11/README.md)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), final review, F02-006#5, F04-005#17, F07-003#2, F11-003#6,
+F02-012#3/#4/#5/#6/#8/#9/#10/#11/#12, F03-005#7/#8/#10, F02-011#1, F02-010#1 and F11-020#10; adjudicated by Fable (FV2
+slice 1). Push group FV2-A.
+
+**What was published, and what it says now.**
+- c8screen: the untestable members' operative p ≥ 3.6×10⁻³ is their attainable minimum, and some (`C-M[099]`) sit in
+  extreme tails; "in the bulk of their laws" is withdrawn. `SHA256SUMS` carries the README's new digest.
+- f1: `f1_orbit_dp.py` runs the reduced-scale validations; `f1_exact.out` is the C engine's full-31 output.
+- f11 RESULTS: edit events have weight-preserving inverses, not involutions; the bridge Z variant lowers L_tend
+  (conservative against M_tend); the sensitivity table's configurations were declared at computation time; a disclosed
+  deviation says both likelihoods score the exact received sequence; the p_c grid spans about 1.3 decades; and RUN D's
+  k ≤ 2 enumeration covers adjacent swaps only.
+- f11halfb: the grand-strict set is M_corr's precursor set; recovery rises steeply (0/277, 56/63, 59/61, 599/599) rather
+  than being a step function.
+- knuth_ladder: the recorded `solve.c` digest matches no public commit.
+- q374: `rotinv below` is out of band (0.693) as the complement of a starved mass.
+- r11: the builder numerator and the completion simulation ran inside the synthetic calibration.
+
+**Tests.** `TestBatchFV2A.test_evidence_notes`. Fails on the uncured files.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-A; the defects were found by Codex
+(gpt-6-astra), final review.
+
+## CX-36C-I — figure pages described their inputs and gates more broadly than the generator does (viz/README.md, viz/viz_kc_field.md, viz/viz_kc_spectrum.md, viz/viz_tr4_boundary_information.md)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), final review, F11-009#3/#4/#5/#6/#7/#9, F12-022#4, F07-012#4 and
+F07-011#2/#3; adjudicated by Fable (FV2 slice 1). Push group FV2-A.
+
+**What was published, and what it says now.** The King Wen walk's bars span all admissible choices, King Wen's own
+included; TR-3's byte-for-byte claim is within the tested toolchain class; King Wen's per-slot placements away from the
+end slots are typical (joint typicality untested); `report_figures.py` asserts TR-1's values and TR-3's derived interval
+only; the four rules are in their strict zero-exception forms; the precursor differs in three pair slots (six hexagram
+positions); the raw pair frame has `gates.vertical_raw_eq_N`, report-only by default; the T5 SUPER extrema come from an
+unpublished historical sample; and the S(k) points come from TR-4 draws with no published receipt or thread count.
+
+**Tests.** `TestBatchFV2A.test_viz_pages`. Fails on the uncured files.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-A; the defects were found by Codex
+(gpt-6-astra), final review.

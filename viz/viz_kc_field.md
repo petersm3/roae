@@ -338,7 +338,7 @@ Printed by the engine into `gates` in the atlas, and re-checkable from the TSV:
 | raw marginal row sums == N (all layers) | `gates.raw_marginal_sums_eq_N` (`"not-emitted"` without `--kc-raw` — and since 2026-09-12 `solve.py atlas_load` REFUSES that string rather than accepting it beside `fails: 0`, Q-560) |
 | per-layer class row sum == N | `gates.class_row_sums_eq_N` (2026-09-08; the class frame, not the frame this figure plots) |
 | per-layer quotient marginal row sum == N | `gates.quotient_marginal_sums_eq_N` (2026-09-08) — the quotient frame this figure must not be fed from, above; the gate is a total, so it is blind to mass moved between slots |
-| `Σ_k cls[k][d]` == `b0[d] · N` | `gates.class_column_sums_eq_b0_N` (2026-09-08) — the only gate in the set that sees a mass-preserving rearrangement, and it does so in the CLASS frame only; the raw pair frame this figure plots has no such column gate |
+| `Σ_k cls[k][d]` == `b0[d] · N` | `gates.class_column_sums_eq_b0_N` (2026-09-08) — the only gate in the set that sees a mass-preserving rearrangement, and it does so in the CLASS frame only; in the raw pair frame this figure plots, `gates.vertical_raw_eq_N` checks each free pair's mass across layers against N (and 0 for excluded pairs) when raw marginals are enabled, report-only by default |
 | branch masses sum == N | `gates.branch_masses_sum_eq_N` |
 | n=9 exhaustive brute-force cross-check of the whole extractor | `solve --kc-scan-selftest` |
 | **reader-side:** every column of `p` sums to 1.0 | `awk -F'\t' 'NR>1{s[$1]+=$5} END{for (k in s) print k, s[k]}' reports/tr12/scan/v1_field.tsv` |

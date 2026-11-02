@@ -29,8 +29,8 @@ outcome, as drafted by the verdict review (gate P4, Claude Fable 5.1) and used h
 > frozen rule more than 5 % untestable members makes the family verdict **UNINFORMATIVE** rather than NULL, and that is the verdict
 > recorded: the instrument did not resolve the family, and no claim is made. This limit is a property of the family's composition
 > and bar, not of the run length — a larger run would not change it under N0 — and is recorded as a design lesson: a family-wise cap must
-> be priced against each member's minimum attainable p before freeze. King Wen's values on all 669 untestable members lie in the
-> bulk of their estimated laws (operative p ≥ 3.6×10⁻³), stated as description only. The registration, instrument, verdict script
+> be priced against each member's minimum attainable p before freeze. King Wen's values on all 669 untestable members have operative
+> two-sided p ≥ 3.6×10⁻³, the minimum these members can attain; some (`C-M[099]`) sit in extreme tails — untestable means the bar is unreachable, not that the value is central — stated as description only. The registration, instrument, verdict script
 > and unfiltered run outputs are published with this note.
 
 **The registration's own sentence for this outcome.** §8.4 prescribes, for `UNINFORMATIVE`, the

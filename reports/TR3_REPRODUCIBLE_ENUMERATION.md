@@ -15,7 +15,7 @@ This is the engineering report: how a computation budgeted at 560 trillion searc
 the project doesn't control, given a matching toolchain class (see the qualifier below). The proof is
 demonstrated, not promised: the entire computation
 was run twice from scratch, weeks apart, on rented cloud machines that were forcibly interrupted twelve
-times in total, and both runs produced the identical result to the last byte — at roughly 15–20% of normal
+times in total, and both runs produced the identical record stream to the last byte (the first wrote raw, the second gzip-framed output; identity is of the decompressed bytes) — at roughly 15–20% of normal
 cloud cost by using interruptible "Spot" capacity. The methods (checksum anchoring, self-testing gates,
 crash-safe checkpoints, re-derive-don't-patch) transfer to any long-running computation, far beyond this
 project. The report also documents the failures honestly, including the one that destroyed a data disk.
@@ -25,7 +25,7 @@ We describe the engineering that makes a 560-trillion-node combinatorial enumera
 scientific object*: a 10.5-billion-record artifact whose byte-exact sha256 has been derived twice from
 scratch, on different preemptible ("Spot") cloud fleets, through a combined twelve evictions — at roughly
 15–20% of on-demand compute cost. The methods are general: byte-level anchoring via a partition-invariance
-theorem; a self-test gate binding every source change to a canonical baseline; per-thread checkpointing
+theorem; a self-test gate binding every pushed source change (from a clone with the project's hooks installed) to a canonical baseline; per-thread checkpointing
 with deterministic eviction-resume; defect handling by from-scratch re-derivation rather than patching;
 and an empirical observation of independent interest — in our region/SKU, over the first campaign's
 week, Spot reclamation behaved as scheduled (weekday mornings, five-for-five in a 37-minute window,
@@ -225,7 +225,7 @@ no throughput measurement supports; and the citation above was pinned by line nu
 gone stale, so it is now given by section.
 
 The defect worth dwelling on is the **eviction-resume bug**. It was found by targeted testing rather
-than observed in production, reproduced deterministically with a kill-mid-walk regression test (the resume gate ships as `./solve --selftest-resume`), and
+than observed in production, reproduced deterministically with a regression test (the budget-extension resume gate `./solve --selftest-resume`, and the SIGTERM-mid-walk subtest of `python3 solve.py --extended-selftest`), and
 fixed. That is ordinary engineering. What followed is the part we consider the heart of the discipline:
 because the defect *could* have corrupted the published 560T artifact, and because "could have" is not a
 state a scientific record may rest in, the entire campaign was **re-run from scratch on the fixed
@@ -260,9 +260,9 @@ observed region and SKU a Friday-evening launch *may* reduce weekend exposure an
 *may* walk into consecutive morning reclamations; the pattern did not replicate in the re-run, so do
 not schedule against it and do not plan a campaign that only completes if it holds.
 
-The resulting policy is a **75-minute backoff plus a weekday-morning deferral**: after an eviction, wait,
-and if the relaunch would land inside the reclamation window, defer to the far side of it rather than
-feeding a restart storm. The deferral is not free — it converts compute time into wall-clock time — and
+The resulting policy is a **weekday-daytime deferral plus a 75-minute backoff**: an eviction between 06:00 and 18:00 PT
+on a weekday defers the relaunch to 18:01 PT that day (operator availability and the reclamation window); any other
+eviction relaunches after a flat 75-minute wait. The deferral is not free — it converts compute time into wall-clock time — and
 the campaign timeline figure below shows exactly that trade, with deferred-downtime blocks running to
 the 18:01 PT relaunch. It is the right trade when a restart costs more than the wait.
 
@@ -291,8 +291,8 @@ outright, pre-existing disks are identified by **UUID** rather than device path,
 confirmed by a **marker file** before being treated as the expected disk. The artifact was recoverable
 only because of §1's inversion — the sha, not the bytes, was the record.
 
-**`ARG_MAX` silently truncating file counts.** Shell globs over shard directories stop working somewhere
-past ~30,000 files, and they fail by returning a wrong answer rather than an error. Counting shards with
+**`ARG_MAX` turning a file count into 0.** Shell globs over shard directories stop working somewhere
+past ~30,000 files: the shell refuses to exec (`Argument list too long`, status 126) and a counting pipeline prints 0 — a wrong answer with a masked error unless `pipefail` is set. Counting shards with
 `find DIR -name 'sub_*.dfs_state' | wc -l` instead of `ls DIR/sub_*.dfs_state | wc -l` is not stylistic preference; it is the difference between a correct
 and a quietly incorrect completeness check at scale.
 
@@ -350,7 +350,7 @@ exactly as published (copy them verbatim — do *not* re-derive the per-cell bud
 # 1. enumerate (D128als_v7 Spot westus3 was used; 128 threads assumed by the resume paths)
 SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=560000000000000 SOLVE_PER_SUB_BRANCH_LIMIT=3536157207 \
 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=128 \
-SOLVE_SKIP_AUTOMERGE=1 ./solve            # shards to disk; after an eviction, re-run this same command in the same directory: each completed cell is skipped (its .dfs_state is written when it reaches its budget); a cell that was in progress is re-walked
+SOLVE_SKIP_AUTOMERGE=1 ./solve            # shards to disk; after an eviction, re-run this same command in the same directory with `SOLVE_SKIP_IOPS_CHECK=1` added (the cold-cache IOPS probe otherwise refuses with exit 31; the disk was validated at first launch): each completed cell is skipped (its .dfs_state is written when it reaches its budget); a cell that was in progress is re-walked
 
 # 2. merge separately, on a Standard (non-preemptible) VM — mid-merge eviction loses the work (external-merge settings: runs/20260419_100T_d3_d128westus3/README.md)
 ./solve --merge
@@ -422,4 +422,5 @@ parameters](../documentation/CANONICAL_HASHES.md#reproducibility-parameters).
 | v1.17 | 2026-09-28 | **The campaign timeline states the weekend interval it plots (Q-895, Q-889; wording and figure only — no timestamp, eviction or duration changed).** The figure's weekend note and §Figure's caption gave the weekend "~54 h" of clean runway, an interval that matches nothing plotted: Fri 18:01 → Mon 00:00, the defer-policy window, is 54.0 h, and the run finished Sun 20:33 PT, 50.5 h after the Fri 18:01 restart. The caption now names the policy window and the 50.5 h; the figure's note reads "Fri 18:01 → finish: 50.5 h uninterrupted" (asserted from the plotted times) and sits below the bar, and the deferred-downtime legend entry says the resume bars are reconstructed from the 18:01 PT policy. |
 | v1.18 | 2026-10-01 | **The cover's reproduction promise is rescoped (Codex v3 review, finding V3B-08 #22 against TR-5, triaged by Fable; backlog Q-759).** The banner said every MEASURED result carries a reproduction command, while the reports themselves flag results that have none. It now says each one carries a command or says at the claim that it has none, which is what the reports index already said. GATE 9 holds the banner byte-identical across all twelve reports, so the same edit is made in each. Wording only; no figure, count or theorem changed. |
 | v1.19 | 2026-10-17 | **Three scope fixes (Codex's final review, gpt-6-astra; triaged by Fable; push group G4; CAL-015#24/#27, F11-011#2/#4).** The reproducibility contract and the partition-invariance theorem carry the abstract-merge-model clause (the implementation bridges B1–B4 are assumed); the eviction recipe and §3 say a completed cell is skipped and an in-progress cell is re-walked, since the `.dfs_state` is written at budget exhaustion; the re-derivation sentence says the region variation is the 10T campaign's. No sha, count or verdict changes. See CORRECTIONS.md CX-35T-K and CX-35T-J. |
-| v1.20 *(current)* | 2026-11-01 | **The ARM witness re-dated (Codex's final review, gpt-6-astra; push group FV2-H; F11-011#1, F06-006#7).** §Scope called the ARM path for `0c0fe37c…` a 2026-05-21 rebuild on gcc 13.3.0. The 2026-05-21 ARM run reproduced the v2 sha `2cc966e4…`; the `0c0fe37c…` ARM path is Tier 4 of HISTORY.md's 2026-05-02 roster, whose compiler version is not in the public record, so the sentence names the architecture only. The path count (eight) is unchanged. No sha, count or verdict changes. See CORRECTIONS.md CX-36J-G. |
+| v1.20 | 2026-11-01 | **The ARM witness re-dated (Codex's final review, gpt-6-astra; push group FV2-H; F11-011#1, F06-006#7).** §Scope called the ARM path for `0c0fe37c…` a 2026-05-21 rebuild on gcc 13.3.0. The 2026-05-21 ARM run reproduced the v2 sha `2cc966e4…`; the `0c0fe37c…` ARM path is Tier 4 of HISTORY.md's 2026-05-02 roster, whose compiler version is not in the public record, so the sentence names the architecture only. The path count (eight) is unchanged. No sha, count or verdict changes. See CORRECTIONS.md CX-36J-G. |
+| v1.21 *(current)* | 2026-11-02 | **Six statements say what the record shows (Codex's final review, gpt-6-astra; triaged by Fable; push group FV2-A, CX-36C-F; F11-011#1/#2/#3/#4/#5/#7, F08-010#7).** The two 560T runs agree on the decompressed record stream (one wrote raw, the other gzip-framed output); the resume defect's regression tests are named for what each exercises (`--selftest-resume` is the budget-extension gate; the SIGTERM-mid-walk subtest is `solve.py --extended-selftest`); the relaunch policy is stated as run (weekday-daytime deferral to 18:01 PT, else a flat 75-minute wait); the self-test gate binds pushed changes from a clone with the hooks installed; the `ARG_MAX` failure is a refused exec that a counting pipeline turns into 0; and the relaunch recipe adds `SOLVE_SKIP_IOPS_CHECK=1`. No count, sha or verdict changed |

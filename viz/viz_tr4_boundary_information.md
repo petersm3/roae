@@ -21,7 +21,7 @@ The vertical axis is S(k), on a log scale: the fraction of the full C1–C5 popu
 King Wen on its first k boundaries, taken in the greedy identifying order {4, 27, 25, 21, 1} of the
 560T slice. The horizontal axis is k.
 
-- **Red points:** the four estimated values (pinned Knuth estimates, relative error at most 10%),
+- **Red points:** the four estimated values (pinned Knuth estimates, relative error at most 10%, typed from TR-4, whose draws have no published output receipt and no recorded thread count — [SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md)),
   each annotated with its surviving-orderings count.
 - **Blue dashed segment:** the rate inferred from k = 1–4 alone, roughly ×10³ per boundary, drawn to
   k = 8 and labelled as superseded by the later measured decline. It is not a measurement.

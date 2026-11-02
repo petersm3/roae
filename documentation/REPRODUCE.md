@@ -180,10 +180,10 @@ distributable.
 For scale, all 20 `*.bin` files of the n=19 f-ladder (88,311,188 bytes) are about **0.003 %** of the
 n=31 f-ladder. Even n=21's 430.6 MB is about 0.013 %. Every rung on this page, taken together, is
 tiny next to the real object. It gives you **the same engine, run end to end, on questions small
-enough to check exactly**, not the full-31 answer.
+enough to check exactly**, not the full-31 answer. A ladder-free full-31 route does exist: `verify.c --ie-count` recomputes |C1∩C2∩C4∩C5| by inclusion–exclusion without the ladders ([TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §10(vi); resource needs in [VERIFY.md](VERIFY.md)); it is not run on this page.
 
 **The expensive part to reproduce is the proofs, not these catalogs.**
 `reports/certificates/verify_all.sh` needs **≥ 12 GB of free RAM**. The Lean phase peaks at about
 9.6 GB on `Automorphism.lean`. A cold external-reviewer pass on a 4 GB host hit `ERROR 134` on all
-13 Lean files. The script's own header gives the requirements, and
+13 Lean files (an address-space cap, not RAM: [VERIFY.md](VERIFY.md) §Q-347; `LEAN_NUM_THREADS=1 lake env lean <file>` is the workaround). The script's own header gives the requirements, and
 [lean/README.md](../lean/README.md) gives the measured per-file table.

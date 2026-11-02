@@ -82,7 +82,7 @@ McKenna's interpretive frame, not an attested property of the received artifact.
    corroboration at the d3 560T canonical (10,525,271,997 records, sha 9a968fa2…): 100.000000% odd wrap —
    necessarily, since [`solve --verify`](../documentation/SOLVE_C_CLI.md#--verify) enforces the C4+C5 hypotheses; the theorem holds deductively, the
    enumeration validates the implementation.
-3. **McKenna's 3:1 is forced, not designed.** His "perfect ratio of three to one" (16 odd of 64 circular
+3. **McKenna's 3:1 is forced by C4 + C5.** His "perfect ratio of three to one" (16 odd of 64 circular
    transitions, 25.00% exact) is the circular reading of the wrap-parity theorem plus C5's 15 odd transitions of 63 (linear C5;
    the odd wrap makes it 16 of 64 — corrected 2026-10-17, CX-35T-J, from "C5's 16-odd-of-64 count"). Every C4+C5-valid ordering has it. McKenna discovered the ratio empirically before its proof was
    articulated here — one of his most accurate quantitative claims, and stronger than he may have realized:
@@ -131,7 +131,7 @@ McKenna's interpretive frame, not an attested property of the received artifact.
    `base ^ ((i+1)·0x9E3779B97F4A7C15)` — by thread index alone. The 32-thread primary and the 64-thread
    rerun therefore replay the same first 312.5×10⁶ draws on each of threads 0–31, so **10×10⁹ of each
    run's 20×10⁹ probes are literally the same probes**. The 0.05-percentage-point agreement is
-   arithmetic, not evidence; it bounds nothing. A genuine run-to-run scatter requires reruns under
+   not a measurement of run-to-run scatter — half the probes are shared, so the runs are not independent replicates, though the unshared halves could still have disagreed. A genuine run-to-run scatter requires reruns under
    distinct `SOLVE_KNUTH_SEED` values, quoting the emitted `se=` values; that is open. The 5-wrap orderings that
    no budgeted slice has ever contained are between a fifth and a sixth of the full space; circular C2
    would cut the space by ×1.21.
@@ -167,7 +167,7 @@ McKenna's interpretive frame, not an attested property of the received artifact.
   always correct; stdout/comment only, selftest sha unchanged)
 - Wrap-d5 witness: `python3 sat.py --witness wrap-d5` → the explicit 64-hexagram sequence in
   [documentation/CIRCULAR_KING_WEN.md](../documentation/CIRCULAR_KING_WEN.md), C1–C5-valid, wrap d = 5
-- Full-space wrap masses: `SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000` (2×10¹⁰ probes,
+- Full-space wrap masses: `SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000` (prefix the artifact's `SOLVE_THREADS` — the thread count selects the sample, [METHODS](METHODS.md) reproduction rule; 2×10¹⁰ probes,
   the budget behind the published 17.5/65.2/17.4% figures; the scorer has printed per-class `se=`
   since 2026-08-28; the archived artifacts predate the field, so the ± comes instead from
   **two fresh seed-distinct replicates** — `SOLVE_KNUTH_SEED=20260904` and `=20260905`,
@@ -255,7 +255,7 @@ Checked on the wrap-2 member listed in that section's Verification Guide: 16 odd
 
 The sequence's two endpoint pairs are individually distinguished: the pure pair {Qian, Kun} that opens
 it (C4) and the alternating pair {Jiji, Weiji} that closes it — [Cook 2006](../documentation/CITATIONS.md#cook2006)'s
-"pure opens, mixed closes," measured linearly as the final-pair anchor (7.84% of C1–C5 mass; ⚠ *2026-09-25, Codex v3 review, V3B-10#12: the thread-pinned, seed-distinct pair in [evidence/wrap_mass_reseed/](evidence/wrap_mass_reseed/) prints `R-C1 final-pair-anchor` as 0.078420 and 0.078374, each with se ≈ 7.1×10⁻⁵;*
+"pure opens, mixed closes" (a paraphrase of Cook 2006's reading of the endpoint pairs; page not pinned in CITATIONS.md), measured linearly as the final-pair anchor (7.84% of C1–C5 mass; ⚠ *2026-09-25, Codex v3 review, V3B-10#12: the thread-pinned, seed-distinct pair in [evidence/wrap_mass_reseed/](evidence/wrap_mass_reseed/) prints `R-C1 final-pair-anchor` as 0.078420 and 0.078374, each with se ≈ 7.1×10⁻⁵;*
 [LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md)). They are
 also the only *intrinsically* extremal pairs: the unique pair of run-length-6 (constant) hexagrams and
 the unique pair of run-length-1 (strictly alternating) hexagrams. Under McKenna's circular reading the
@@ -409,11 +409,11 @@ corrections welcome via [CITATIONS.md](../documentation/CITATIONS.md)).*
   ingredients `partner_preserves_parity` and `parity_split_32_32` are kernel-`decide` theorems in
   the same file ([TR-6](TR6_PARITY_SKELETON.md)).
 - Circular anchor adjacency R-C1c + A₂ slot histogram:
-  `SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000` (KW gate: slot2 = 0, slot32 = 1,
+  `SOLVE_THREADS=64 SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000` (the thread count selects the sample; KW gate: slot2 = 0, slot32 = 1,
   adjacent = 1; d5-witness negative control = 0; the run's slot-32 mass must reproduce
   R-C1 ≈ 7.84% — measured run: `evidence/r6/rc1c_primary.out`, adjacent = 0.130472).
 - Circular-space size, all four classes (v2.6 added the w = 2 and w = 4 classes):
-  - Command: `SOLVE_KNUTH_C5_BUDGET="<L>" SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth <P>`.
+  - Command: `SOLVE_THREADS=64 SOLVE_KNUTH_C5_BUDGET="<L>" SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth <P>` (64 threads, the artifacts' value — the thread count selects the sample).
   - Read each class's own bin on the `[score] wrap-bin` lines (`documentation/SOLVE_C_CLI.md`
     §`SOLVE_KNUTH_SCORE`):
 
@@ -428,8 +428,8 @@ corrections welcome via [CITATIONS.md](../documentation/CITATIONS.md)).*
     `evidence/r6/mprime_walk.out`.
   - The v2.6 census is in [evidence/circular_census/](evidence/circular_census/). Its README gives
     the 60 chunks of 10⁹ probes at 64 threads and every seed, and
-    the shell script `bash reports/evidence/circular_census/pool.sh` re-derives the table above from
-    the chunk outputs.
+    the shell script `bash reports/evidence/circular_census/pool.sh` re-derives the M′, M₂ and M₄ terms from
+    the chunk outputs; the linear-walk term and its uncertainty are entered as the published constants.
   - Controls: M₂ and M₄ put exactly zero mass in every odd bin; M′ and the linear walk put exactly
     zero in every even bin.
 - Wrap-2 member of C_circ (Codex, target V3A-093; executed by Fable). It checks in seconds with the
@@ -463,4 +463,5 @@ corrections welcome via [CITATIONS.md](../documentation/CITATIONS.md)).*
 | v2.10 | 2026-09-28 | **The wrap annotation is split into King Wen's fact and the theorem (Q-900; Codex VIZ H2-11; figure and wording only).** One label said both "d = 3" and "as the wrap-parity theorem forces". The edge now carries King Wen's own wrap, d = 3 (3 of the 6 lines change), and a line under the ring states the theorem with its premise: for every ordering satisfying C4 and C5 the wrap distance is odd. §Figure's alt-text and caption say the same. |
 | v2.11 | 2026-10-01 | **The cover's reproduction promise is rescoped (Codex v3 review, finding V3B-08 #22 against TR-5, triaged by Fable; backlog Q-759).** The banner said every MEASURED result carries a reproduction command, while the reports themselves flag results that have none. It now says each one carries a command or says at the claim that it has none, which is what the reports index already said. GATE 9 holds the banner byte-identical across all twelve reports, so the same edit is made in each. Wording only; no figure, count or theorem changed. |
 | v2.12 | 2026-10-17 | The execution-lane note says `scripts/exec_lane.sh` executes every command it classifies as runnable, not every documented command (the lane never runs its OPS, placeholder or fragment classes; Codex's final review, gpt-6-astra, CAL-009#62, CAL-010#97; triaged by Fable; fast-track batch FT2b-2). No figure changes. See CORRECTIONS.md (fast-track batches FT2b-2..4). |
-| v2.13 *(current)* | 2026-10-17 | **Four wording fixes (Codex's final review, gpt-6-astra; triaged by Fable; push group G4; F08-013#3, F11-014#5/#7/#8/#10).** The executive summary names the 17.4% population (the linear C1–C5 space, by orientation-explicit mass); §3 says C5 has 15 odd transitions of 63 and the odd wrap makes 16 of 64; the abstract says the masses pool two runs of 2×10¹⁰ probes; the Lean expectation is the module's `#print axioms` reports, not silence. No figure changes. See CORRECTIONS.md CX-35T-J. |
+| v2.13 | 2026-10-17 | **Four wording fixes (Codex's final review, gpt-6-astra; triaged by Fable; push group G4; F08-013#3, F11-014#5/#7/#8/#10).** The executive summary names the 17.4% population (the linear C1–C5 space, by orientation-explicit mass); §3 says C5 has 15 odd transitions of 63 and the odd wrap makes 16 of 64; the abstract says the masses pool two runs of 2×10¹⁰ probes; the Lean expectation is the module's `#print axioms` reports, not silence. No figure changes. See CORRECTIONS.md CX-35T-J. |
+| v2.14 *(current)* | 2026-10-29 | **Six fixes (Codex's final review, gpt-6-astra; triaged by Fable; push group FV2-A, CX-36C-F; F11-014#1/#2/#3/#6, F08-013#3/#10, F06-012#7).** The overlapping r6 rerun's agreement is described as not a measurement of scatter (half the probes are shared) rather than as bounding nothing; "pure opens, mixed closes" is marked a paraphrase of Cook 2006 with no page pinned; the estimator commands carry their thread count (`SOLVE_THREADS=64`, the artifacts' value) or say it selects the sample; `pool.sh` is said to re-derive the M′, M₂ and M₄ terms only; and the 3:1 heading reads "forced by C4 + C5". No count or verdict changed |

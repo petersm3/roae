@@ -26,7 +26,7 @@ remain entirely possible.
 **What this does — and does not — mean.** Four scope notes worth carrying from the start:
 
 - **It does not say the sequence is random, or that nobody designed it.** The test is of the
-  literature's rules *as stated*. An arranger may have followed considerations nobody wrote down;
+  literature's rules as this project formalised them (where a formalisation departs from its source — C2 read linearly, the gender rule with no exception — TR-1 and CITATIONS say so). An arranger may have followed considerations nobody wrote down;
   this project measures only what the stated rules force.
 - **Who defined the seven rules is mixed — and that matters.** Two are classical: the pair
   structure (implicit in the early commentaries, stated explicitly by Kong Yingda in the 7th
@@ -38,8 +38,8 @@ remain entirely possible.
   adjacency constraints are its own adjacencies. Rules of that kind describe the target rather than
   predict it, and they are priced as description — not as explanation — everywhere in this
   repository ([METHODS](reports/METHODS.md) §"Data-like vs principled constraints").
-- **The enumeration is budgeted, not exhaustive.** The space of valid orderings is far too large to
-  list in full; the explicit listings cover defined, reproducible slices of it, and every
+- **The enumeration is budgeted, not exhaustive.** The space of valid orderings is far too large to list in full. The explicit listings are sha-anchored **enumeration slices** of the C1–C5 space, named by their total search budget in tree nodes — 10T, 11.2T, 100T and, the deepest, **560T**: 3.5×10⁹ nodes in each of 158,364 search cells, recording 10,525,271,997 distinct canonical orderings, re-derived byte-identically from scratch ([CANONICAL_HASHES](documentation/CANONICAL_HASHES.md); [TR-3](reports/TR3_REPRODUCIBLE_ENUMERATION.md)).
+  A slice is a lower bound on the space, not a sample of it — in like units the compiled C1C2C4C5 superspace sits 19.7–23.9 decades above the 560T count ([TR-12 §"What this document is"](reports/TR12_QUERY_PROGRAM.md#what-this-document-is-and-what-it-is-not)) — and the headline counts on this page are exact ([TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)) or probe-estimated ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md)), not read off a slice. Where a result is measured *within* a slice — the per-slice identifying-boundary counts (TR-4; [BOUNDARY_MINIMUM](documentation/BOUNDARY_MINIMUM.md)), the within-slice absences TR-5 and TR-7 report — the text says "560T slice", and every
   uniqueness statement in this repository is scoped to those slices, never to the full space, and even there it needs identifying boundaries beyond C1–C7 (TR-4).
 - **The direction is not new — the measurement is.** Earlier scholars had already argued that no
   known rule fixes the sequence; this project's contribution is measuring it (attribution below).
@@ -63,7 +63,7 @@ count ([METHODS](reports/METHODS.md) §"Canonical quantities") — satisfy the f
 inventory. That figure is a Knuth random-probe **estimate**, 95% CI [5.13, 5.29]×10³¹ — a statistical
 estimate, not a proven cardinality — but the verdict needs only that the count is not 1, and the CI's
 *lower* bound is 5.13×10³¹, so no plausible estimator error touches it. The conclusion is also
-corroborated **exactly, with no estimator involved**: inside King Wen's own 22-pair prefix, exact
+corroborated **exactly, with no estimator involved**: inside King Wen's own prefix — the forced opening pair plus the next 22, 23 pairs fixed and 9 free — exact
 counting finds **16,504** *oriented* C1–C5 completions of which exactly **8** satisfy C6–C7 — and
 **all eight carry King Wen's own pair ordering**, the other seven being orientation variants of it
 ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md) §4). So the exact corroboration is at the **oriented**
@@ -75,16 +75,16 @@ runs the other way: C6–C7 leave King Wen's alone among the 899 distinct pair o
 never singled out in the full space. Read against the
 literature, this is **a measured confirmation of prior under-determination claims, and the magnitude
 is a single-instrument estimate**: the direction was asserted qualitatively before this project
-measured it (see the prior negatives below), and the C1–C7 figure comes from `solve.c`'s estimator alone — every two-instrument exact quantity in the suite is
+measured it (see the prior negatives below), and the C1–C7 figure comes from `solve.c`'s estimator alone — every *full-scale* two-instrument exact quantity in the suite is
 C3-free ([TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)), including C1–C7 **with C3 dropped**, exact
-at 516,880,238,445,773,965,371,923,491,676,160 ≈ 5.16880×10³². C3 is the only constraint without an exact full-scale count; the
+at 516,880,238,445,773,965,371,923,491,676,160 ≈ 5.16880×10³²; the C3-inclusive exact counts are prefix-scoped (the 16,504 above, C and Python agreeing). C3 is the only constraint without an exact full-scale count; the
 instrument exists (C3 = 16 + 8·G, a Lean theorem; `solve --f1-c3-hist --with-c5`) and the run was priced and declined, not found impossible
 ([METHODS](reports/METHODS.md) §"Canonical quantities"). Neither label doubts the number: the estimator is externally
 validated at all three full-scale anchors where exact ground truth exists, inside its stated envelope each time ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md) §"Estimator
 calibration"), and the C6–C7 verdict is corroborated exactly at small scope (the 8 oriented
 survivors of 16,504 above). What no prior author did is the measurement **at combinatorial scale, over
 constraint-defined spaces** — exhaustive searches over small curated families of candidate
-orders do exist in the literature, and are not what this sentence excludes.
+orders do exist in the literature — as do closed-form counts of independent-choice families (8!×8!, 7!×7!; [CITATIONS](documentation/CITATIONS.md), Chen Zhuangwei) — and neither is what this sentence excludes.
 
 **Whose hypothesis this was.** The name "Uniqueness Conjecture" is **this project's own coinage**. To
 our knowledge no author asserted in so many words that the C1–C7 inventory pins down the sequence,
@@ -181,7 +181,7 @@ C1–C5, with C6–C7 added only where the text says so.
 
 | Tool | Role |
 |---|---|
-| **[solve.c](solve.c)** | The enumerator. Multi-threaded C; produces byte-reproducible enumeration slices anchored by sha256 ([CANONICAL_HASHES](documentation/CANONICAL_HASHES.md)); also an unbiased estimator of the full space. Deepest artifact: 10.5 billion orderings, derived twice byte-identically on preemptible cloud. |
+| **[solve.c](solve.c)** | The enumerator. Multi-threaded C; produces byte-reproducible enumeration slices anchored by sha256 ([CANONICAL_HASHES](documentation/CANONICAL_HASHES.md)); also an unbiased estimator of the full space. Deepest artifact: the 560T slice, 10,525,271,997 canonical orderings, derived twice byte-identically ([TR-3](reports/TR3_REPRODUCIBLE_ENUMERATION.md)). |
 | **[solve.py](solve.py)** | The independent ground truth. Every constraint implemented a second time, in Python, and cross-checked against the C. |
 | **[sat.py](sat.py)** | The decision layer. Encodes exact questions ("does an ordering with property X exist?") for a SAT solver; UNSAT answers carry independently checkable [DRAT certificates](reports/certificates/README.md) — the rule-conflict ones scoped to the C1∩C2∩C4∩C5-valid space, the rigidity certificate a graph-automorphism statement, the two `noY` proofs cardinality-only; the two CC-N4 equivalence decisions are recorded solver decisions with no certificate (TR-2 §2). |
 | **[roae.py](roae.py)** | The exploratory analysis suite: 28 analyses of the sequence — most with null-model comparisons, several descriptive-only, and [CRITIQUE.md](documentation/CRITIQUE.md) names which are which ([example output](example/)). |
@@ -217,7 +217,7 @@ Headlines only — each links to its full treatment (technical reports in [repor
   ~1 in 5×10⁷ — an order-of-magnitude figure at that sampling depth, with the most specific
   configurations rare largely by specification rather than principle; see METHODS and TR-1's data-like
   caveat. [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md)
-- **Every valid ordering has exactly 23 record-level twins that no hexagram relabeling can distinguish** (the symmetry group acts
+- **Every C1–C5-valid ordering has exactly 23 record-level twins that no hexagram relabeling — and no S₄-invariant criterion — can distinguish** (C6–C7, which pin King Wen's own values, are not invariant and do separate them; the symmetry group acts
   freely), and exactly **15 parity-class alternations** (proven two independent ways — the
   prose argument and the Lean 4 kernel — with a SAT/DRAT corroboration that mechanizes the counting
   step under the alternation–distance bridge). [TR-5](reports/TR5_SYMMETRY.md), [TR-6](reports/TR6_PARITY_SKELETON.md)
@@ -225,11 +225,11 @@ Headlines only — each links to its full treatment (technical reports in [repor
   G-invariant score (the theorem's hypothesis) — a score built from G-invariant structural primitives (Hamming
   distance, complement, reversal, the values 0/63, …) — gives King Wen's record and each of its 23 twins equal probability — so it can place at most **1 in
   24** of its mass on King Wen, never more (`equivariance_ceiling`, kernel-checked in
-  [lean/KingWen.lean](lean/KingWen.lean)). The bound is Curie's principle (symmetry of causes ⇒ symmetry of
+  [lean/KingWen.lean](lean/KingWen.lean) for natural-number weights; the rescaling to rational weights and the probability reading are prose steps, lean/README §The equivariance ceiling). The bound is Curie's principle (symmetry of causes ⇒ symmetry of
   effects), not new — the contribution is the King-Wen instantiation and its machine-check. [lean/README §The equivariance ceiling](lean/README.md), [lean/KingWen.lean](lean/KingWen.lean)
 - **McKenna's "ninth six" is forced.** The 1975 observation that exactly one **between-pair** transition flips
   all six lines holds in **every** valid ordering — machine-proven: the between-pair transition budget
-  is a theorem of the constraints, so the 10.5-billion-record measurement becomes a corollary. (The
+  is a theorem of the constraints, so the measurement across all 10,525,271,997 records of the 560T slice becomes a corollary. (The
   *position* of that transition remains ordering-dependent.) [TRIGRAM_STRUCTURE](documentation/TRIGRAM_STRUCTURE.md)
 - **The pairing is optimal among comp/rev matchings.** The classical pair structure is the unique Hamming-cost-minimizing
   complement/reversal (comp/rev) matching ([Radisic 2026](documentation/CITATIONS.md#radisic2026) —
@@ -237,7 +237,7 @@ Headlines only — each links to its full treatment (technical reports in [repor
   [lean/HammingOptimalMatching.lean](lean/HammingOptimalMatching.lean). [CITATIONS](documentation/CITATIONS.md)
 - **The circular reading has a price.** Read as a cycle (McKenna's construction), the sequence needs
   one more rule. Orderings violating that rule carry 17.4% of the linear C1–C5 space's orientation-explicit mass, yet
-  none of the 10.5 billion enumerated records violates it; those records are orientation-deduplicated, a
+  none of the 10,525,271,997 records of the 560T slice violates it — an absence within that slice only; those records are orientation-deduplicated, a
   different population that TR-7 does not compare with the first. (The
   17.4% is a 2×10¹⁰-probe sampled estimate, which a second archived run matches to within 0.05 percentage
   points. That run is a partially overlapping replicate that shares half its probes, not an independent
@@ -413,7 +413,7 @@ This does not exclude nonlinear structure or structure missed by the lattice.
 
 **The scale figure.** The two series count **different spaces**, and neither is a fraction of the
 other: each point is a node-budgeted slice of C1–C5 whose record count is a lower bound, and the line
-is the exact cardinality of the C1C2C4C5-SUPERSPACE. Points count canonical pair orderings with orientation masked; N counts orientation-explicit sequences. The plotted ratio is 29.0 decades; comparing pair orderings with pair orderings gives a gap of 19.7–23.9 decades.
+is the exact cardinality of the C1C2C4C5-SUPERSPACE. Points count canonical pair orderings with orientation masked; N counts orientation-explicit sequences. The three points are three of the enumeration slices defined near the top of this page (§"What this does — and does not — mean"): 11.2T, 100T and 560T; the deepest, 560T, is the slice every "within the slice" statement on this page refers to. The plotted ratio is 29.0 decades; comparing pair orderings with pair orderings gives a gap of 19.7–23.9 decades.
 If the power law fitted to these three runs continues, reaching even the like-unit bracket would require approximately 6.4×10³⁸–1.1×10⁴⁵ nodes per cell, making enumeration infeasible under that extrapolation.
 [TR-12 §"What this document is, and what it is not"](reports/TR12_QUERY_PROGRAM.md#what-this-document-is-and-what-it-is-not) ·
 [SVG](reports/figures/viz_scale.svg) · [spec](viz/viz_scale.md)
@@ -460,7 +460,7 @@ that floor is reached if no later boundary gains more than the eighth measured o
 [TR-4 §Figure](reports/TR4_SIZE_OF_THE_SPACE.md#figure) ·
 [SVG](reports/figures/fig_tr4_boundary_information.svg)
 
-The first 560T campaign's timeline is in [TR-3 §Figure](reports/TR3_REPRODUCIBLE_ENUMERATION.md#figure)
+The timeline of the first 560T slice's enumeration campaign (the deepest run) is in [TR-3 §Figure](reports/TR3_REPRODUCIBLE_ENUMERATION.md#figure)
 ([SVG](reports/figures/fig_tr3_campaign_timeline.svg)).
 
 ## References
@@ -491,4 +491,4 @@ The links below are reader orientation only:
 * [Terence McKenna: Novelty theory and Timewave Zero](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero) — Wikipedia (see [MCKENNA.md](documentation/MCKENNA.md); full citation in CITATIONS.md)
 
 ## Built with
-[Claude Code](https://claude.ai/code) (Anthropic) — see AI-assistance headers in each source file.
+[Claude Code](https://claude.ai/code) (Anthropic) — see the AI-assistance headers in the main source files (solve.c, solve.py, verify.c, verify.py, sat.py, roae.py).

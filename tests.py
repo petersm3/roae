@@ -38117,11 +38117,11 @@ class TestQ968NumberLexer(unittest.TestCase):
          [(S0, 'replace', 'base=0x0000000078c3d520', 'base=1001'), (S1, 'replace', 'base=0x0000000078c3d521', 'base=1001'),
           (TR3, 'append', SEEDCLAIM)]),
         ('A09#22', 'index-fidelity', 'documentation/README.md',
-         [('documentation/README.md', 'replace', '(~24 min', '(1 min')],
-         [('documentation/README.md', 'replace', '(~24 min', '(~1 min')]),
+         [('documentation/README.md', 'replace', '(~29 min', '(1 min')],
+         [('documentation/README.md', 'replace', '(~29 min', '(~1 min')]),
         ('A09#22-approx', 'index-fidelity', 'documentation/README.md',
-         [('documentation/README.md', 'replace', '(~24 min', '(\u22481 min')],
-         [('documentation/README.md', 'replace', '(~24 min', '(~1 min')]),
+         [('documentation/README.md', 'replace', '(~29 min', '(\u22481 min')],
+         [('documentation/README.md', 'replace', '(~29 min', '(~1 min')]),
         ('A08#21-ten', 'printed-quotient', G,
          [(G, 'append', '\nThe split is 7.84 / 6.52 = \u00d710.\n')],
          [(G, 'append', '\nThe split is 7.84 / 6.52 = \u00d79.\n')]),
@@ -47476,7 +47476,7 @@ class TestBatchFT2b1(unittest.TestCase):
 
     # --- CX-387 (F11-009#2/#3, F11-010#3): showcase and guide sentences ----------------------------
     F_SE = ("each with a relative standard\nerror of at most ten percent,", "each within about ten\npercent,")
-    F_V1 = ("sampled, pair\npositions away from the two end slots sit close to the even share, the end slots far from it, and King Wen's placements are typical (V1,",
+    F_V1 = ("sampled, pair\npositions away from the two end slots sit close to the even share, the end slots far from it, and King Wen's per-slot placements away from the end slots are typical (joint typicality is not tested; V1,",
             "sampled, King Wen's\npair positions sit close to the even share (V1,")
     F_CG = ("recomputed one ingredient of the symmetry bookkeeping (the stored representative-set counts) at every layer",
             "recomputed the symmetry bookkeeping at every layer")
@@ -48948,7 +48948,7 @@ class TestBatchG4(unittest.TestCase):
                   "[Li Shangxin 2007](documentation/CITATIONS.md#uniqueness-conjecture)",
                   "[DRAT certificates](reports/certificates/README.md) — the rule-conflict ones scoped to the C1∩C2∩C4∩C5-valid space",
                   "**Citing:** cite `main` at the commit sha you read", "Of the 28-analysis exploratory battery",
-                  "23 record-level twins that no hexagram relabeling can distinguish", "±0.00049 bits at 95%", "Every other branch this project published is now retired")
+                  "23 record-level twins that no hexagram relabeling — and no S₄-invariant criterion — can distinguish", "±0.00049 bits at 95%", "Every other branch this project published is now retired")
         q = src.index("do the rules, taken together, actually determine the order?")
         f = src.index("**The finding.** The seven rules we tested do not.")
         self.assertNotIn("(How old, precisely:", src[q:f], "F1: the provenance paragraph no longer separates question and answer")
@@ -55218,7 +55218,7 @@ class TestBatchG6(unittest.TestCase):
         self.assertIn("At 11.2T the registry lists **eight** independent build/host", t3, "precondition")
         self.assertNotIn("one of them is a 2026-05-21 ARM Cobalt Neoverse-N2 rebuild", t3)
         self.assertIn("an ARM Cobalt Neoverse-N2 build (Tier 4 of the 2026-05-02 roster", t3)
-        self.assertRegex(t3, r"\| v1\.20 \*\(current\)\* \| 2026-11-01 \|")
+        self.assertRegex(t3, r"\| v1\.20 (\*\(current\)\* )?\| 2026-11-01 \|")   # the current row until FV2-A's v1.21 row followed it
         self.assertEqual(t3.count("*(current)*"), 1)
 
     def test_g6_retraction_registry_notes(self):
@@ -57647,6 +57647,201 @@ class TestBatchFV2V(unittest.TestCase):
         rc, o = self._v("--ie-count", "--ie-spec", "3.0,3.1,3.2@0", "--ie-threads", "2")
         self.assertEqual(rc, 0, "a healthy IE pass must still pass:\n" + o[-300:])
         self.assertNotIn("IE_PASS=INCOMPLETE", o)
+
+
+class TestBatchFV2A(unittest.TestCase):
+    """Push group FV2-A (CX-36C-A..CX-36C-I): public-prose corrections from Fable's adjudication of Codex's verified
+    final-review findings (FV2 slice 1), in the 38 files no other staged batch touches.
+
+    Each test holds a representative cured sentence per file (and, where the tree can measure it, the fact it rests on,
+    asserted first as a precondition). On the parent tree (0df730cb) the preconditions hold and the text assertions fail."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _f(self, rel):
+        return " ".join(self._r(rel).split())
+
+    def _has(self, rel, *frags):
+        flat = self._f(rel)
+        for fr in frags:
+            self.assertIn(" ".join(fr.split()), flat, "%s lacks: %s" % (rel, fr[:100]))
+
+    def _lacks(self, rel, *frags):
+        flat = self._f(rel)
+        for fr in frags:
+            self.assertNotIn(" ".join(fr.split()), flat, "%s still carries: %s" % (rel, fr[:100]))
+
+    # ---- CX-36C-A ---------------------------------------------------------------------------------------------------
+    def test_root_readme(self):
+        for src in ("solve.c", "solve.py", "verify.c", "verify.py", "sat.py", "roae.py"):
+            self.assertIn("Claude", self._r(src), "precondition: %s carries an AI-assistance header" % src)
+        self._has("README.md",
+                  "Every C1–C5-valid ordering has exactly 23 record-level twins that no hexagram relabeling — and no S₄-invariant criterion — can distinguish",
+                  "for natural-number weights; the rescaling to rational weights and the probability reading are prose steps",
+                  "literature's rules as this project formalised them",
+                  "the forced opening pair plus the next 22, 23 pairs fixed and 9 free",
+                  "the C3-inclusive exact counts are prefix-scoped",
+                  "closed-form counts of independent-choice families (8!×8!, 7!×7!",
+                  "AI-assistance headers in the main source files (solve.c, solve.py, verify.c, verify.py, sat.py, roae.py)")
+        self._lacks("README.md", "see AI-assistance headers in each source file", "inside King Wen's own 22-pair prefix")
+
+    # ---- CX-36C-B ---------------------------------------------------------------------------------------------------
+    def test_campaign_methodology(self):
+        d = "documentation/CAMPAIGN_METHODOLOGY.md"
+        self._has(d, "carry the atomic processed-branch counter (a progress count, not a cell index)",
+                  "only the provenance JSON (65,281 files) was silently excluded",
+                  "not read by the solver", "the analyze VM sized per rule 8",
+                  "the `2b01b15` build did not", "*effective* per-cell budgets differ",
+                  "(64 iterations > per worker, at most 32 workers)", "pair identity from the source canonical",
+                  "`(logical size − 32) ÷ 32`", "| `verify.py --jobs 64` | PASS (2026-06-09)")
+        self._lacks(d, "is the count of cells the in-process auto-merger has folded", "130,562 total",
+                    "The 100-iteration concurrent", "**byte-identically as a prefix per cell**",
+                    "still saves nothing net once wall")
+
+    # ---- CX-36C-C ---------------------------------------------------------------------------------------------------
+    def test_narrative_pages(self):
+        import importlib.util, collections
+        spec = importlib.util.spec_from_file_location("_fv2a_verify", os.path.join(self.ROOT, "verify.py"))
+        v = importlib.util.module_from_spec(spec); spec.loader.exec_module(v)
+        dd = [bin(a ^ b).count("1") for a, b in zip(v.KW, v.KW[1:])]
+        succ = collections.Counter(dd[i + 1] for i in range(len(dd) - 1) if dd[i] == 6)
+        self.assertEqual(dict(succ), {2: 4, 3: 3, 4: 1}, "precondition: King Wen's successors of a 6")
+        self._has("documentation/CRITIQUE.md",
+                  "observed for King Wen only, among the sampled or exhausted members of the tested unconditional families",
+                  "remains the leading hypothesis for the zero-yield census and the yield spread, not a demonstrated mechanism",
+                  "over all 40,320 row permutations (the 144 Hamiltonian paths",
+                  "did not manufacture off-home discriminators on the three orderings tested",
+                  "the Zheng Qiao credit for the trigram-clustering axis is withdrawn",
+                  "No King Wen result exists and none will be produced")
+        self._has("documentation/CLAIMS_DECIDED.md", "is this project's mapping, not theirs — TR-8 §1",
+                  "under METHODS' current counting the family is ≥ 1,446")
+        self._has("documentation/GUIDE.md", "Program output and datasets carry **no hexagram names**",
+                  "is run by `--constraints`; `--pairs` only classifies the 32 pairs",
+                  "Percentiles are from an unrecorded historical run",
+                  "| Markov transitions (43% of random orderings at least as concentrated — upper tail) |",
+                  "so its specificity is relative to those families, not to King Wen")
+        self._lacks("documentation/GUIDE.md", "The genuinely King-Wen-specific property is the combination")
+        self._has("documentation/PROJECT_OVERVIEW.md", "hours (10T) to days (560T", "Percentiles here are from an unrecorded run")
+        self._has("documentation/SOLVE_SUMMARY.md", "a figure DESCRIPTION_LENGTH.md labels underived",
+                  "the extraction guarantees target membership")
+        self._has("documentation/MCKENNA.md", "not even true of King Wen, where a 6 is followed by 2 four times",
+                  "McKenna's pairing condition is also broader than C1", "the \"half twist\" step in folding")
+        for rel in ("documentation/SOLVE_SUMMARY.md", "documentation/PROJECT_OVERVIEW.md", "documentation/MCKENNA.md",
+                    "documentation/SOLVE.md"):
+            self._lacks(rel, "please report it")
+
+    # ---- CX-36C-D ---------------------------------------------------------------------------------------------------
+    def test_solve_spec_and_space_pages(self):
+        self.assertIn('"SOLVE_HASH_LOG2=20 SOLVE_THREADS=%d SOLVE_NODE_LIMIT=100000000 "', self._r("solve.c"),
+                      "precondition: the selftest child's environment")
+        self._has("documentation/SOLVE.md", "~28.9 valid oriented choices (out of ~32 available oriented choices)",
+                  "C3 is applied only with `--differential-apply-c3`", "the masks pin the pair, not its orientation",
+                  "a single transposition each (5 solutions)", "present in every greedy minimum found",
+                  "King Wen's own transition histogram for pair-slots 24-32", "Python 3.10+",
+                  "the fsync/`syncfs` durability path is Linux-only", "Search-phase memory is per worker")
+        self._lacks("documentation/SOLVE.md", "Memory is ~35 MB regardless of run time", "Python 3.6+")
+        self._has("documentation/SPECIFICATION.md", "C1∩C2∩C4∩C5 scope, of which",
+                  "13,595 C6+C7 survivors of 286,357,503", "mixes C2/C5 conditioning with budget truncation")
+        self._has("documentation/SEARCH_SPACE_SIZE.md", "thread count not recorded, so this is a scale indication",
+                  "used 10× the per-run probe budget (2×10¹⁰)", "≈2–4σ below the definitive value",
+                  "for which no output receipt is published", "the yield column comes from the untracked 560T shard manifest")
+        self._has("documentation/TRIGRAM_STRUCTURE.md", "the pairing does not descend to nuclear images",
+                  "(cd lean && exec lean TrigramTheorems.lean)")
+        self._has("documentation/PARITY_ALTERNATION.md", "no implementation ships — the prune is a design note")
+
+    # ---- CX-36C-E ---------------------------------------------------------------------------------------------------
+    def test_reader_and_cli_pages(self):
+        self.assertIn("refused for seed-stream", self._r("roae.py"), "precondition: --gs-batches is refused at the gap")
+        self.assertEqual(round(17759 / 250), 71, "precondition: CRITIQUE's reading time")
+        self._has("documentation/README.md", "(~71 min; 17,759 words", "sha256 escrow of sixteen frozen pre-registration files",
+                  "published **before** their answers are extracted from the finished ladders")
+        self._has("documentation/PREREGISTRATION_ESCROW.md", "so A1 is the first row published before its run *by design*")
+        self._has("documentation/REBUILD_FROM_SPEC.md", "followed by ten explicit", "SOLVE_HASH_LOG2=20 SOLVE_THREADS=$((",
+                  "the sweep stopped early; INCOMPUTABLE=0 over the examined records",
+                  "exists on the public tag `v4-repr-fc-legc-20260813`, not on main",
+                  'if record_count == 0: raise ValueError("artifact declares zero records")')
+        self._has("documentation/REPRODUCE.md", "A ladder-free full-31 route does exist: `verify.c --ie-count`",
+                  "(an address-space cap, not RAM")
+        self._has("documentation/ROAE_PY_CLI.md", "no shipped command performs that audit",
+                  "`trials` is recorded but not compared",
+                  "git show 5ad06afa:documentation/PREREG_H1_H3_TEST_2026_07_26.md | sha256sum",
+                  "`--gs-batches` is refused at 10,000 or more", "chi-square goodness-of-fit approximation does not apply",
+                  "(21.7 vs 21.6 for seeds 1 and 9)")
+        self._lacks("documentation/ROAE_PY_CLI.md", "`--gs-batches` has no upper limit", "goodness-of-fit test has power")
+        self._has("documentation/GT_LADDER_FORMAT.md", "**The only pin on *every* individual entry**")
+
+    # ---- CX-36C-F ---------------------------------------------------------------------------------------------------
+    def test_reports_tr3_to_tr8(self):
+        self._has("reports/TR3_REPRODUCIBLE_ENUMERATION.md", "identity is of the decompressed bytes",
+                  "the SIGTERM-mid-walk subtest of `python3 solve.py --extended-selftest`",
+                  "**weekday-daytime deferral plus a 75-minute backoff**", "from a clone with the project's hooks installed",
+                  "(`Argument list too long`, status 126)", "with `SOLVE_SKIP_IOPS_CHECK=1` added", "| v1.21 *(current)* |")
+        self._has("reports/TR5_SYMMETRY.md", "no criterion invariant under hexagram relabeling can distinguish",
+                  "consistent with a search-orientation effect", "by extrapolation — a verified subset still yields lower bounds",
+                  "apparently independently", "| v2.26 *(current)* |")
+        self._has("reports/TR6_PARITY_SKELETON.md", "an even or an odd number of solid lines (popcount parity)",
+                  "| v1.17 *(current)* |")
+        self._has("reports/TR7_CIRCULAR_READING.md", "not a measurement of run-to-run scatter",
+                  "page not pinned in CITATIONS.md", "`SOLVE_THREADS=64 SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000`",
+                  "re-derives the M′, M₂ and M₄ terms", "3. **McKenna's 3:1 is forced by C4 + C5.**", "| v2.14 *(current)* |")
+        self._has("reports/TR8_REORDERING_REVISITED.md", "theirs was, to our knowledge, the first proposal",
+                  "drew one published reply that we have located", "went unmeasured against constraint-defined populations",
+                  "conditional on the frozen n = 91 ledger, and no other family is registered for it", "| v1.26 *(current)* |")
+
+    # ---- CX-36C-G ---------------------------------------------------------------------------------------------------
+    def test_reports_tr9_tr11(self):
+        self.assertAlmostEqual(13.47 - 15, -1.53, places=2); self.assertAlmostEqual(13.47 - 20, -6.53, places=2)
+        t9 = "reports/TR9_PRICING_THE_CONSTRAINTS.md"
+        self._has(t9, "over all 1,000 valid decoys (651 of 1,000 below)", "one of three cost figures in this ledger",
+                  "under the ledger's declared coding conventions", "among those classified as *principled*",
+                  "log₂(2·|C1∩C2∩C4|) = 140.1 bits", "fixed without reference to which member is the target",
+                  "holds across the stated 10–15-bit bracket (net −1.5 to +3.5 bits)", "reproduces it to 0.011%",
+                  "the escrow digest was published 2026-09-04, after the run", "no rule in this battery",
+                  "the control counts C4-opened orderings", "| v1.38 *(current)* |")
+        self._lacks(t9, "that tolerates ±5 bits either way", "it is the only cost figure in this ledger")
+        t11 = "reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md"
+        self.assertIn("    24: 7477248378538061907099648,", self._r("reports/evidence/f1/f3_rung_b0_cleanroom.py"),
+                      "precondition: the cleanroom script carries the Rung-B integers")
+        self._has(t11, "an exact count from a budget-limited enumeration", "(v1 outputs; the v2 lineage is a separate artifact set",
+                  "appear in it only as the `PUBLISHED` reference constants", "outside one standard error (±0.01%) and inside the 95% interval",
+                  "exact under the hypotheses of `capping_exact`", "The plain-DP comparison is run for n ≤ 16 only",
+                  "| v1.39 *(current)* |", "*Technical report — **v1.39** (2026-10-29;")
+        self._lacks(t11, "an exact count from an exhaustive enumeration")
+
+    # ---- CX-36C-H ---------------------------------------------------------------------------------------------------
+    def test_evidence_notes(self):
+        import hashlib
+        with open(os.path.join(self.ROOT, "reports/evidence/c8screen/README.md"), "rb") as fh:
+            h = hashlib.sha256(fh.read()).hexdigest()
+        self.assertIn("%s  README.md" % h, self._r("reports/evidence/c8screen/SHA256SUMS"), "SHA256SUMS carries the README")
+        self._has("reports/evidence/c8screen/README.md", "the minimum these members can attain; some (`C-M[099]`) sit in extreme tails")
+        self._has("reports/evidence/f1/F1_ORBIT_QUOTIENT_2026_07.md", "are the C engine's full-31 outputs (`./solve --f1-exact-c1c2c4`)")
+        r = "reports/evidence/f11/RESULTS.md"
+        self._has(r, "events are not involutions in general", "lowers L_tend, i.e. conservative against M_tend",
+                  "the 24 configurations were declared at computation time", "Deviation from the frozen form",
+                  "×18 or about 1.3 decades", "RUN D's k ≤ 2 adjacent-swap enumeration")
+        self._lacks(r, "Events are involutions, so", "**Full pre-committed sensitivity table**")
+        self._has("reports/evidence/f11halfb/README.md", "M_corr's precursor set (its output support is wider)")
+        self._has("reports/evidence/f11halfb/RESULTS.md", "Recovery rises steeply: 0/277 at V=0")
+        self._lacks("reports/evidence/f11halfb/RESULTS.md", "it is a step function")
+        self._has("reports/evidence/knuth_ladder/README.md", "this digest matches no public commit's `solve.c`")
+        self._has("reports/evidence/q374_se_replicates/README.md", "except `rotinv below` (0.693)")
+        self._has("reports/evidence/r11/README.md", "ran inside the synthetic calibration; the KW-facing integration")
+
+    # ---- CX-36C-I ---------------------------------------------------------------------------------------------------
+    def test_viz_pages(self):
+        self.assertIn('"vertical_raw_eq_N"', self._r("solve.py"), "precondition: the raw column gate exists")
+        self._has("viz/README.md", "the range over all admissible choices at that step, King Wen's own included",
+                  "within the tested toolchain class", "(joint typicality is not tested;",
+                  "TR-4's values are typed, not asserted", "in their strict zero-exception forms",
+                  "three pair slots (six hexagram positions)")
+        self._has("viz/viz_kc_field.md", "`gates.vertical_raw_eq_N` checks each free pair's mass across layers")
+        self._has("viz/viz_kc_spectrum.md", "a historical T5 SUPER sample; the sample and its extrema receipt are not published")
+        self._has("viz/viz_tr4_boundary_information.md", "typed from TR-4, whose draws have no published output receipt")
 
 
 if __name__ == "__main__":

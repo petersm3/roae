@@ -98,8 +98,8 @@ With 8 possible trigrams in each position, there are 8 x 8 = 64 possible hexagra
 
 ### Why you will not find hexagram names here
 
-This corpus ships **no hexagram names** — no 卦名, no romanisation of them, and no English
-titles. Where a name would normally appear you get the position number, the Unicode glyph, the
+Program output and datasets carry **no hexagram names** — no 卦名, no romanisation of them, and no English
+titles; the prose uses a name only to quote a source ([CITATIONS.md](CITATIONS.md)) or to point at a particular pair (the (Qian, Kun) opening, the boundary-25/27 pairs in [SOLVE.md](SOLVE.md) and [SPECIFICATION.md](SPECIFICATION.md), TR-7's endpoint pairs). Where a name would normally appear you get the position number, the Unicode glyph, the
 six bits, and a **structural** description built from the two trigrams: hexagram 1 is
 `Heaven over Heaven`, not the English title a published translation gives it. The *trigram*
 names (Qian, Kun, Li, Dui …) do appear,
@@ -153,7 +153,7 @@ Whether "low" or "high" is interesting depends on the metric. For entropy (disor
 
 ### Multiple comparisons
 
-The program runs 28 different analyses. Even with purely random data, you'd expect about 1.4 of those to appear "significant" at the 5% level just by chance. The program uses [Bonferroni correction](https://en.wikipedia.org/wiki/Bonferroni_correction) to account for this: a finding must reach p < 0.0018 (not just p < 0.05) to be considered significant after correction.
+The program runs 28 different analyses (the section count — 29 minus the theorem-backed `--parity` — not a count of independent null tests). Even with purely random data, you'd expect about 1.4 of those to appear "significant" at the 5% level just by chance. The program uses [Bonferroni correction](https://en.wikipedia.org/wiki/Bonferroni_correction) to account for this: a finding must reach p < 0.0018 (not just p < 0.05) to be considered significant after correction.
 
 ### Glossary
 
@@ -173,7 +173,7 @@ Terms used in the program output:
 
 ### --pairs (Reverse vs. Inverse pair analysis)
 
-This section checks each of the 32 consecutive pairs and classifies them as reverse, inverse, or neither. The key result: all 32 are one or the other. The program tests how often this happens by chance — the answer is effectively never (0 out of 10,000 random permutations).
+This section checks each of the 32 consecutive pairs and classifies them as reverse, inverse, or neither. The key result: all 32 are one or the other. The chance test (0 of 10,000 random permutations, `roae.py --constraints --seed 42`) is run by `--constraints`; `--pairs` only classifies the 32 pairs.
 
 **What it means:** In the sequence, every hexagram sits next to its mirror image or its complement, without exception — a property zero of 10,000 random permutations reproduce. This is the strongest finding in the entire program.
 
@@ -209,6 +209,8 @@ Each hexagram has a complement — the hexagram you get by toggling every line. 
 
 ## Summary of findings
 
+Percentiles are from an unrecorded historical run; seeded re-runs (`--seed 42`) land within a few points.
+
 | Finding | Strength | Survives correction? |
 |---------|----------|---------------------|
 | Perfect pair structure (all 32 pairs) | Very strong | Yes |
@@ -217,14 +219,14 @@ Each hexagram has a complement — the hexagram you get by toggling every line. 
 | No 5-line transitions (~1 in 550) | Moderate | Marginal |
 | Entropy (≈12th percentile) | Weak | No |
 | No detectable periodicity | Null result | N/A |
-| Markov transitions (43rd percentile) | Not significant | No |
+| Markov transitions (43% of random orderings at least as concentrated — upper tail) | Not significant | No |
 | Path length, pair-constrained (29th percentile) | Not significant | No |
 | Palindromes, pair-constrained (49th percentile) | Not significant | No |
 | Canon split (12th percentile) | Not significant | No |
 | Recurrence rate (72nd percentile) | Not significant | No |
 | Neighborhood clustering (12th percentile) | Not significant | No |
 
-The pair structure is genuinely extraordinary — zero of ~2.76 billion permutations tested across 6 structured and unstructured null-model families satisfy C1 (see [CRITIQUE.md](CRITIQUE.md) for details). Complement distance is also uncommon, though far less extreme (roughly the lowest 8-12% depending on the reference population — 8.1% exact under the bare pair-constrained C1&C4 null, and ≈12% by the ledger at the all-other-constraints C1+C2+C4+C5 scope; the long-published "3.9% sampled" figure at that scope is **flagged 2026-08-01**, see [SOLVE.md](SOLVE.md) §Rule 3 — either way not in the same class as C1's 0-in-2.76B); notably, none of 10⁵ sampled random 6-bit Gray codes (explicitly optimized for adjacency) reached KW's 776 total complement distance or lower — a **sampler-scoped rate bound** (≤ 3×10⁻⁵ on that sampler's rate; the sampler is non-uniform and 10⁵ covers ~10⁻¹⁷ of the ~10²² Gray codes). The minimum observed, 832, is a sample statistic, not a family bound: it shows the family minimum is ≤ 832 and does not exclude a Gray code with C3 ≤ 776. *(Corrected 2026-08-30: this asserted a family-level minimum — that no random Gray code improves on 776 — which the 2026-08-28 correction at [CRITIQUE.md](CRITIQUE.md) §Known limitations withdrew in favour of the rate bound.)* The no-5-line-transition property is real and **shared with Jing Fang 8 Palaces** (read as one 64-term sequence in its transmitted palace order; 2 of 4 tested comparison orderings satisfy it; corrected 2026-07-05 — the authentic Mawangdui order has exactly one 5-line transition at a trigram-octet seam, per Shaughnessy 2022 Table 11.2; an earlier erroneous array scored zero and the former "3 of 4 / classical design principle" claim is withdrawn). The genuinely King-Wen-specific property is the combination (C1 + C2 + C3 together); C3's threshold of 776 is KW's own extracted value, so its "specificity" is definitional rather than a finding (wording corrected 2026-07-22). *(Aggregate corrected 2026-08-30: this paragraph carried the pre-upgrade roster total, stale since the random family went 10⁸ → 10⁹. The six unconditional families in [CRITIQUE.md](CRITIQUE.md)'s table now total 134,217,728 de Bruijn + 1,625,702,400 Latin-square + 10⁹ random + 720 lexicographic + 256 Gray-orbit + 10⁵ random-Gray = 2,760,021,104. The dated aggregate in [HISTORY.md](HISTORY.md) is a correct record of the then-current roster and stays.)*
+The pair structure is genuinely extraordinary — zero of ~2.76 billion permutations tested across 6 structured and unstructured null-model families satisfy C1 (see [CRITIQUE.md](CRITIQUE.md) for details). Complement distance is also uncommon, though far less extreme (roughly the lowest 8-12% depending on the reference population — 8.1% exact under the bare pair-constrained C1&C4 null, and ≈12% by the ledger at the all-other-constraints C1+C2+C4+C5 scope; the long-published "3.9% sampled" figure at that scope is **flagged 2026-08-01**, see [SOLVE.md](SOLVE.md) §Rule 3 — either way not in the same class as C1's 0-in-2.76B); notably, none of 10⁵ sampled random 6-bit Gray codes (explicitly optimized for adjacency) reached KW's 776 total complement distance or lower — a **sampler-scoped rate bound** (≤ 3×10⁻⁵ on that sampler's rate; the sampler is non-uniform and 10⁵ covers ~10⁻¹⁷ of the ~10²² Gray codes). The minimum observed, 832, is a sample statistic, not a family bound: it shows the family minimum is ≤ 832 and does not exclude a Gray code with C3 ≤ 776. *(Corrected 2026-08-30: this asserted a family-level minimum — that no random Gray code improves on 776 — which the 2026-08-28 correction at [CRITIQUE.md](CRITIQUE.md) §Known limitations withdrew in favour of the rate bound.)* The no-5-line-transition property is real and **shared with Jing Fang 8 Palaces** (read as one 64-term sequence in its transmitted palace order; 2 of 4 tested comparison orderings satisfy it; corrected 2026-07-05 — the authentic Mawangdui order has exactly one 5-line transition at a trigram-octet seam, per Shaughnessy 2022 Table 11.2; an earlier erroneous array scored zero and the former "3 of 4 / classical design principle" claim is withdrawn). Among the tested unconditional families none reaches C1, hence none reaches the combination (C1 + C2 + C3 together); within the pair-constrained family the combination is common (the enumeration itself lists billions), so its specificity is relative to those families, not to King Wen. C3's threshold of 776 is KW's own extracted value, so its "specificity" is definitional rather than a finding (wording corrected 2026-07-22). *(Aggregate corrected 2026-08-30: this paragraph carried the pre-upgrade roster total, stale since the random family went 10⁸ → 10⁹. The six unconditional families in [CRITIQUE.md](CRITIQUE.md)'s table now total 134,217,728 de Bruijn + 1,625,702,400 Latin-square + 10⁹ random + 720 lexicographic + 256 Gray-orbit + 10⁵ random-Gray = 2,760,021,104. The dated aggregate in [HISTORY.md](HISTORY.md) is a correct record of the then-current roster and stays.)*
 
 The constraint solver (`solve.c`) goes further: 5 rules narrow 10^89 possibilities to an estimated ≈1.33×10³⁸ valid orderings (the counts below are *budget slices* of that space, not the space itself). Most of that funnel is elementary rather than surprising: roughly **44 of the ~51 orders of magnitude come from C1 alone** (the pair-structure skeleton, 64! → 32!·2³²), and only about 7 from the constrained measurement (C2–C5). Canonical counts:
 - **d3 560T partition: 10,525,271,997** (sha `9a968fa2…`, 2026-06-08, CANONICAL-verified 2026-06-30, **current deepest**)

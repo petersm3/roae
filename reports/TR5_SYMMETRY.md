@@ -13,8 +13,8 @@ Methods, environment pinning, statistics conventions, and artifact access: see [
 Some transformations — relabeling every hexagram by the same line-permutation (flipping all of them is excluded by the oriented C4 — §1) —
 turn one valid ordering into another. This report works out the complete set of such *relabeling*
 symmetries (a group of 48 — complete over all 64! hexagram relabelings, §1) and proves the striking
-consequence: **every valid ordering, King Wen included, has exactly 23 record-level "twins" that no hexagram
-relabeling can distinguish**. Whether some hexagram relabeling outside G preserves the solution set as a
+consequence: **every valid ordering, King Wen included, has exactly 23 record-level "twins" that no criterion invariant
+under hexagram relabeling can distinguish**. Whether some hexagram relabeling outside G preserves the solution set as a
 whole without preserving each predicate separately is open
 (per-predicate completeness is proved; §1 scope note).
 None of King Wen's twins appear in the
@@ -44,7 +44,7 @@ rigid; its data was correct but measured budget/dedup artifacts, not solution-se
 bisection of the 560T canonical then delivered the concrete demonstration: King Wen is present, **all 23
 of its twins are absent** — proving membership set-theoretically while showing budgeted presence reflects
 the search's frame of reference. The methodological lesson is the report's spine: budgeted-slice
-statistics cannot decide set-level properties.
+statistics cannot decide set-level properties by extrapolation — a verified subset still yields lower bounds and counterexamples.
 
 *Novelty status: we are not aware of a prior statement of this symmetry group for the King Wen constraint
 system; prior-art corrections are welcomed via CITATIONS.md. This scoping is informed, not ignorant, of
@@ -56,7 +56,7 @@ much deeper than the modern literature: [Wu Cheng 吳澄 (c. 1300)](../documenta
 already gives the **complete ⟨complement, reversal⟩ orbit decomposition of all 64** — 「二十對」, 12 of
 size 4 and 8 of size 2 — with [Lai Zhide (c. 1600)](../documentation/CITATIONS.md#laizhide),
 [Jiao Xun (c. 1813)](../documentation/CITATIONS.md#jiaoxun) and
-[Cui Shu (c. 1800)](../documentation/CITATIONS.md#cuishu) reaching parts of it independently.
+[Cui Shu (c. 1800)](../documentation/CITATIONS.md#cuishu) reaching parts of it, apparently independently ([CITATIONS.md](../documentation/CITATIONS.md): access cannot be excluded).
 **None of that is claimed here.** All are groups acting on
 **hexagrams**; this report's group is the automorphism group of the C1–C5 **constraint-predicate
 family** acting on bit positions, inducing an action on whole orderings — a different group on a
@@ -189,13 +189,13 @@ different object (see CITATIONS.md §"(Z/2)⁶ hexagram algebra … priority ced
    zero. (To our knowledge first stated here; corrections welcome via CITATIONS.md.)
 5. **The twins-absent-from-560T demonstration.** Measured 2026-07-02 by direct bisection of the 560T
    canonical: **King Wen is present; all 23 twins are absent.** Their membership in the full solution set
-   is proven — their absence from the budgeted set is a search-orientation effect: the enumeration's
+   is proven — their absence from the budgeted set is consistent with a search-orientation effect (King Wen's half shown, the twins' half inferred — note below): the enumeration's
    variable order is derived from King Wen, so KW lies on the early DFS path of its cell while each relabeled twin lies in a different
    depth-3 cell, at a rank inside that cell that is not measured (the note below). ⚠ *2026-09-25, Codex v3 review, V3B-08#16: King Wen's half is shown ([TR-4](TR4_SIZE_OF_THE_SPACE.md) §6: it is the first C3-valid leaf of its cell). The twins' half is inferred, not measured: `python3 -c "import verify as v;k=v._sigma_record_keys();print(len(k),sum(s==sorted(s) for _,s in k.values()),max(next(i for i in range(32) if s[i]!=i) for _,s in k.values() if s!=sorted(s)))"` prints `24 1 2`, i.e. King Wen's is the only ascending pair order of the 24 and every twin leaves ascending order within its first two free slots: every twin lies in a different depth-3 cell from King Wen (first divergence at index ≤ 2); its rank inside its own cell is not measured. (Corrected 2026-10-17, CX-35T-C: this said "so no twin is the first leaf of its cell", which a first divergence at index ≤ 2 does not show.)* Presence in a budgeted canonical therefore reflects the
    search's frame of reference, not a mathematical property of the ordering — the strongest concrete
    illustration yet of [SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md) §"Is finding King Wen early … an artifact of our setup?".
 6. **Methodological lesson and consequences.** Budgeted-slice statistics cannot decide set-level
-   properties: the 2026-04-25 negative was a category error (budget/dedup artifacts read as solution-set
+   properties by extrapolation (a verified subset still yields lower bounds and counterexamples): the 2026-04-25 negative was a category error (budget/dedup artifacts read as solution-set
    asymmetry), and the twins demonstration is the same error's mirror image made vivid. Corrected
    takeaways: (a) an orbit-reduction of enumeration cost (÷ up to 48 raw / 24 effective) is available in
    principle — the design (enumerate representatives, relabel + re-canonicalize) is specified but not
@@ -308,4 +308,5 @@ the time was corrected in v2.12) a "22-pair prefix". Both are correct under diff
 | v2.22 | 2026-09-29 | **The opening sentence no longer lists complementing every hexagram as a symmetry, and the DIV-24 gate is no longer attributed to the record-level Lean theorems (an adversarial review by Codex (gpt-6-astra) of the Lean, SAT and DRAT surface, triaged by Fable; CX-232).** The oriented C4 excludes it, as §1 and `c4ok_breaks_under_comp` already say. §3's trust note named the four `twenty_four_dvd_*` theorems as the ones behind the DIV-24 gate; they prove the record-level statement, and the gate on the published sequence counts rests on this report's paper-proved free order-48 action. Wording only. |
 | v2.23 | 2026-10-01 | **The cover's reproduction promise is rescoped (Codex v3 review, finding V3B-08 #22 against TR-5, triaged by Fable; backlog Q-759).** The banner said every MEASURED result carries a reproduction command, while the reports themselves flag results that have none. It now says each one carries a command or says at the claim that it has none, which is what the reports index already said. GATE 9 holds the banner byte-identical across all twelve reports, so the same edit is made in each. Wording only; no figure, count or theorem changed. This performs the suite-wide sweep that v2.14 (b) queued instead of editing the banner in this report alone. |
 | v2.24 | 2026-10-17 | **Stale absence claims removed and four scopes restored (Codex's final review, gpt-6-astra; triaged by Fable; push group G4; F01-003#2/#3/#4/#8, CAL-008, CAL-025, OPN-001, CRZ-011#5, F11-012#6/#8).** §3(iii) no longer says the orbit-CV aggregation is prose-only or that a 1.1 MB table awaits publication; the executive summary's open question is the one SYMMETRY_SEARCH states (a relabeling outside G preserving the solution set as a whole) and the 23 twins are record-level; §5 says a twin lies in a different depth-3 cell, not that it is never its cell's first leaf; the ≈3×10⁻²³ bound is withdrawn (31! is a record ceiling, not a floor); the funnel carries the CNF-versus-meaning clause; the twins-bisect bullet names its shipped command; §4's level note names a record-level exact count; the Lean expectation is the module's `#print axioms` reports, not silence. No theorem or count changes. See CORRECTIONS.md CX-35T-C. |
-| v2.25 *(current)* | 2026-10-22 | **One sentence put back to its own note (Codex's fix-verification pass, gpt-6-astra; triaged by Fable; push group FV1; FV-G4-C2#4).** §5 no longer calls each relabeled twin "a late leaf of its own cell": it lies in a different depth-3 cell, at a rank inside that cell that is not measured, as the note beside it says. No figure changes. See CORRECTIONS.md CX-35Y-H. |
+| v2.25 | 2026-10-22 | **One sentence put back to its own note (Codex's fix-verification pass, gpt-6-astra; triaged by Fable; push group FV1; FV-G4-C2#4).** §5 no longer calls each relabeled twin "a late leaf of its own cell": it lies in a different depth-3 cell, at a rank inside that cell that is not measured, as the note beside it says. No figure changes. See CORRECTIONS.md CX-35Y-H. |
+| v2.26 *(current)* | 2026-10-29 | **Four scopes stated (Codex's final review, gpt-6-astra; triaged by Fable; push group FV2-A, CX-36C-F; F11-012#1/#2/#3, F08-011#12).** The 23 twins are indistinguishable by every criterion invariant under hexagram relabeling (slot agreement with King Wen does tell them apart); their absence from the 560T slice is consistent with a search-orientation effect (King Wen's half shown, the twins' half inferred); budgeted-slice statistics cannot decide set-level properties by extrapolation, though a verified subset still gives lower bounds and counterexamples; and Lai Zhide, Jiao Xun and Cui Shu reached the orbit decomposition apparently independently (access cannot be excluded). No count, theorem or verdict changed |

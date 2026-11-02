@@ -11978,3 +11978,21 @@ Q-686=DONE
   archived table prints `Q696_COVERAGE=PASS`, and the reduced counts read as before. `TestBatchFV2V` builds the
   verifier from this tree and from the base and holds each cure against both. Developed with AI assistance (Claude,
   Anthropic): claude-fable-5-1 (pinned); sites found by Codex (gpt-6-astra), final review.
+
+## 2026-10-29 — push group FV2-A
+
+- **Public-prose corrections from Fable's adjudication of Codex's verified findings (FV2 slice 1), CX-36C-A to CX-36C-I.**
+  Codex (gpt-6-astra) ran the final review and a verification pass over it; Fable adjudicated every `*.md` finding at the
+  pinned tree. This group applies 143 of its 150 rows, in 38 files no other staged batch touches: the root
+  README, CAMPAIGN_METHODOLOGY, the narrative pages (CRITIQUE, CLAIMS_DECIDED, GUIDE, PROJECT_OVERVIEW, SOLVE_SUMMARY,
+  MCKENNA), SOLVE, SPECIFICATION, SEARCH_SPACE_SIZE, TRIGRAM_STRUCTURE, PARITY_ALTERNATION, the reader's guide, escrow,
+  rebuild, reproduce, roae.py and ladder-format pages, TR-3, TR-5, TR-6, TR-7, TR-8, TR-9 and TR-11, eight evidence
+  notes and four figure pages. The sentences now say what their sources, code and runs show: scopes stated
+  (relabeling-invariant criteria, C1∩C2∩C4∩C5, the enumerated slice, greedy minima), commands that run as written
+  (thread counts, the escrowed bytes at `5ad06afa`, `--gs-batches`'s enforced limit), and priority claims hedged.
+- Held for the operator: three frozen pre-registration files whose digests are published and pinned
+  (PREREG_CLASSA_QUERY_SET, PREREG_H1_H3_TEST, the c8screen amendment) and the Q-OY1/Q-992 registration; an
+  annotation inside any of them would change a published digest. Two rows were not applied (one already on the page,
+  one whose proposed note the commit history does not support).
+- No measured value, canonical sha, certificate or verdict changed. `TestBatchFV2A` holds a cured sentence per file and
+  fails on the uncured tree. TR-3 v1.21, TR-5 v2.26, TR-6 v1.17, TR-7 v2.14, TR-8 v1.26, TR-9 v1.38, TR-11 v1.39.

@@ -75,7 +75,7 @@ the linear sequence's endpoint popcounts differ in parity ⇒ odd wrap distance,
 2. **An O(1) exact prefix prune.** During enumeration, track alternations used and the remaining class
    counts; the prefix is viable only if the remaining sequence can realize exactly the residual alternation
    deficit (a two-sided interval check: with e even and o odd pairs left and current end class known, the
-   achievable alternation range is computable in constant time). The prune is *exact* (derived from the
+   achievable alternation range is computable in constant time; the achievable-switch interval is not written out here and no implementation ships — the prune is a design note). The prune is *exact* (derived from the
    theorem, no false negatives) and cannot fire before the tenth pair: exhaustively over class
    prefixes, nothing is rejectable through 9 pairs, and only a small fraction is rejectable at the tenth.
 3. **Sha-lineage caveat.** An exact prune preserves the full solution set, but wherever it *fires* it

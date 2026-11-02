@@ -105,8 +105,8 @@ Hamming-isometric, so suffix counts and subtree sizes are preserved.
   they are the **wrong shape** — they constrain the values *collectively*, and a
   rank consumes them *individually*.
 
-  **The only known pin on individual entries** is exhaustive entry-level
-  verification of the recurrence — this specification's own "strongest check",
+  **The only pin on *every* individual entry** is exhaustive entry-level
+  verification of the recurrence (selected entries have been checked independently — [VERIFY.md](VERIFY.md)) — this specification's own "strongest check",
   run for every mask of every layer — which costs roughly a second Stage-F pass.
   **Not undertaken (operator decision, 2026-09-02):** it is on no published
   claim's critical path, and this note is published in its place. If a future

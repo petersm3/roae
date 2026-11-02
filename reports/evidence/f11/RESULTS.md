@@ -40,7 +40,7 @@
 model prior (50:50), and Jeffreys decision bands (BF > 10 substantial, > 100 strong —
 [Jeffreys 1961](../../../documentation/CITATIONS.md#jeffreys1961); a frozen project convention, not
 Jeffreys' published table, see §5) are as frozen;
-nothing in this document was altered after seeing the numbers except the numbers themselves. Per the
+nothing in this document was altered after seeing the numbers except the numbers themselves. Deviation from the frozen form, disclosed 2026-10-29: both likelihoods are evaluated on the exact received sequence rather than the registration's summary events. Per the
 pre-registered commitment, the FULL sensitivity table is published regardless of direction.
 
 Developed with AI assistance (Claude, Anthropic). Rule attribution: [Moore 1989](../../../documentation/CITATIONS.md#moore1989) (*The Trigrams of Han*,
@@ -55,7 +55,7 @@ corruption mechanism [Rutt 1996](../../../documentation/CITATIONS.md#rutt1996) (
 **Headline (both frozen corruption-location variants, primary configuration):
 BF(corruption/tendency) ≈ 6.6×10³ (variant U, uniform edit location) and ≈ 7.9×10³
 (variant A, bamboo-adjacent-biased). Both exceed the frozen BF > 100 "strong" band.
-Full sensitivity range across every pre-committed configuration: 1.4×10³ – 2.7×10⁴.
+Full sensitivity range across every declared configuration: 1.4×10³ – 2.7×10⁴.
 Under the frozen 50:50 model prior, posterior P(M_corr | data) ≈ 0.9998.**
 
 ## 0. Honest note on the grids
@@ -64,8 +64,8 @@ The frozen pre-registration declares the model forms, the 50:50 model prior, the
 corruption-location variants, and the Jeffreys bands explicitly, but records the priors as
 "p_c ∈ {grid}, λ-prior {grid}" — symbolic placeholders; no numeric grid appears in the frozen
 document or anywhere else in the repo (checked: git history of the prereg, PROOF_PROGRAM, FOOTHOLDS,
-all *.md). The grids used here are therefore DECLARED at computation time, chosen wide (both spanning
-~2 orders of magnitude, uniform weights) so that the per-gridpoint sensitivity table — which the
+all *.md). The grids used here are therefore DECLARED at computation time, chosen wide (p_c spanning 0.05–0.9, ×18 or about 1.3 decades;
+λ spanning 0.1–10, two decades; uniform weights) so that the per-gridpoint sensitivity table — which the
 pre-registration commits to publishing in full — is the real deliverable, and any grid re-weighting a
 reader prefers can be applied from the table alone:
 
@@ -89,7 +89,7 @@ Moore-parity violations = 2, Moore-rhythm breaks = 2, Schulz-gender violations =
 | # | Ingredient | Value | Status | Source / evidence |
 |---|---|---|---|---|
 | 1 | KW violation profile (2,2,2), V=6 | exact | REUSED (re-asserted) | solve.py checkers; sat.py import gates; `f11_events.py` asserts |
-| 2 | Minimal repair = 3 slot-edits (grand-strict) | exact | REUSED | SAT + DRAT ([LITERATURE_RULES_POPULATION_TESTS.md](../../../documentation/LITERATURE_RULES_POPULATION_TESTS.md) §results 5–7); independently REPRODUCED by the k≤2 exhaustive event enumeration in RUN D (0 hits) |
+| 2 | Minimal repair = 3 slot-edits (grand-strict) | exact | REUSED | SAT + DRAT ([LITERATURE_RULES_POPULATION_TESTS.md](../../../documentation/LITERATURE_RULES_POPULATION_TESTS.md) §results 5–7); consistent with RUN D's k ≤ 2 adjacent-swap enumeration (0 hits in its restricted family); the unrestricted minimum distance 3 rests on the SAT/DRAT result |
 | 3 | \|C1–C5\| space, **raw / orientation-explicit** (printed as `N_can`) | **1.328702e38** raw (2e10 probes, relerr 0.03%, 95%CI [1.3280e38, 1.3294e38]) — matches the published raw anchor 1.3287×10³⁸ ([SEARCH_SPACE_SIZE.md](../../../documentation/SEARCH_SPACE_SIZE.md)); RUN C2 independent: 1.328327e38 raw. ⚠ **[LABEL CORRECTED 2026-09-01 — this cell read "canonical space N_can". In this corpus *canonical* means orientation-DEDUPLICATED, a count of pair orderings whose ceiling is 31! ≈ 8.2228×10³³; 1.328702e38 exceeds that ceiling by ~16,159× and cannot be a canonical count. The VALUE is right and nothing downstream moves — it is the raw orientation-explicit estimate (raw ceiling 31!·2³¹ ≈ 1.77×10⁴³), it equals the published raw anchor, and every f11 mass that consumes it is a fraction of the same population, so no ratio in §4 changes. What was wrong is the label, inherited from the estimator's own printed `leaves_canonical_C1C5` line. The symbol `N_can` is kept because it is what `compute_f11_bf.py` prints (line 171); read it as *raw*. The orientation-deduplicated count of this space is NOT this figure — the previously published ≈3.3×10³⁷ estimate for it was withdrawn 2026-08-24 for exceeding the same 31! ceiling.]** | RE-MEASURED (same-run consistency) | c208/c211 scoreboard; `f11_runA.out` |
 | 4 | Moore-joint strict size N_mj | **1.16583e29** (5e9 probes, relerr 2.98%) — +3.5% vs the 1.1266e29 anchor (inside ±4.7%); RUN C independent: 1.091306e29 (−3.1%) | RE-MEASURED | c208 strict walk; `f11_runB.out` |
 | 5 | Triple-strict ("grand-strict") size N_gs | **3.57e25** primary (RUN C: 1.091306e29 × 3.27e-4); **1.03e25** cross (RUN B (0,0,0) cell: 1.16583e29 × 8.8277e-5). ×3.5 disagreement (rare-cell estimator noise); BOTH carried through the sensitivity table; the LARGER (corruption-conservative) is primary | **DERIVED** — see honest note below the table: the planned in-walk gender-strict prune output did not ship; N_gs comes from the gender-0-violation fraction *within* the delivered Moore-joint walks | `f11_runC.out` (scoreboard), `f11_runB.out` (hist plane); prereg anticipated: "the triple-strict size is measurable" |
@@ -130,7 +130,7 @@ orientation flips, the geometric k and the adjacency weighting below are this wo
 operationalization. Displaced slats may additionally be inverted. Slot 0 (pair 0 = 63,0) is fixed
 by canonical form; edits act on slots 1–31. The slot-edit count k = number of slots whose
 (pair, orientation) content changed — exactly sat.py's near-k metric, so the SAT distance results
-apply verbatim. Events are involutions, so P(received = KW) enumerates KW-anchored events E with
+apply verbatim. Each event has a distinct, weight-preserving inverse (events are not involutions in general), so P(received = KW) enumerates KW-anchored events E with
 E(KW) ∈ grand-strict:
 
     L_corr(p_c) = [ Σ_k Geom(k; p_c) · Σ_{E: |E|=k, E(KW)∈GS} P(E | k, variant) ] / (N_gs · D)
@@ -159,13 +159,13 @@ Gibbs form P(S) ∝ exp(−λ·V(S)) over the C1–C5 space of §2 row 3 (raw / 
 Z(λ) from the measured joint histogram (ingredient 7), with the rare low-V region — beyond sampling
 reach of the unconditioned run — supplied by the dedicated conditional runs (ingredients 5, 6, 8, 9).
 Three Z variants reported: `hist` (RUN A only), `aug` (strict planes + N_gs added), `bridge`
-(log-linear interpolation across still-unobserved total-V levels; upper-Z / tendency-favorable).
+(log-linear interpolation across still-unobserved total-V levels; upper-Z; lowers L_tend, i.e. conservative against M_tend).
 
 Computation-time outcomes on the Z variants (disclosed): ingredient 9's (v1,v2,0) plane was not
 delivered, so `aug` = RUN A histogram + RUN B (0,0,v3) plane (rescaled by N_mj) + the N_gs cell at
 (0,0,0). Because the RUN B plane covers every total-V level 0..24 and RUN A covers 2..49, `aug` has
 NO unobserved interior total-V level, so `bridge` degenerates to exactly `aug` (0 levels filled) —
-it is retained in the table for completeness of the pre-committed variant list. `hist` (which lacks
+it is retained in the table for completeness of the declared variant list. `hist` (which lacks
 V = 0, 1 entirely and so UNDERSTATES Z) is the most tendency-favorable variant and functions as the
 conservative column. Note also that both models evaluate the likelihood of the EXACT received
 sequence (§1), so the M_tend numerator is exp(−λ·6) with no cell-count factor; RUN A's direct
@@ -190,7 +190,7 @@ RUN B), N_gender-only ≈ 1.3e32.
 
 Under the frozen 50:50 model prior, posterior odds = BF; P(M_corr | data) ≈ 0.99985 (variant U).
 
-**Full pre-committed sensitivity table** (every configuration; BF = corruption/tendency):
+**Full sensitivity table** (publication in full was pre-committed; the 24 configurations were declared at computation time, §0) (every configuration; BF = corruption/tendency):
 
 | N_gs source | Z variant | location | conditioned | BF | log10 BF |
 |---|---|---|---|---|---|
@@ -368,7 +368,7 @@ rather than directly counted (see the honest note under §2), and the RUN C2 (v1
 
 The pre-registration's freeze condition was publish-whatever-it-says. What it says: **the
 evidence favors corruption over tendency, strongly, in both frozen corruption-location variants
-and in every cell of the pre-committed sensitivity space.** BF ≈ 6.6×10³ (variant U) and
+and in every cell of the declared sensitivity space.** BF ≈ 6.6×10³ (variant U) and
 ≈ 7.9×10³ (variant A) at the primary configuration; never below 1.4×10³ in any marginalized
 configuration; direction never flips at any single prior gridpoint (worst corner 3.3, still
 above 1). This is not an equivocal result and it is reported as such — but its scope must be

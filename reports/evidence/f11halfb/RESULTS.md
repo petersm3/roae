@@ -167,7 +167,7 @@ noise, not bad luck.
 | 13+ | 471/471 | 1.000 | [0.992, 1.000] |
 
 **At V >= 5, M_tend self-recovers 599/599 — perfectly, with no exceptions.** At V=0 it recovers
-**0 of 277**, upper CI bound 0.014. This is not a gradient; it is a step function.
+**0 of 277**, upper CI bound 0.014. Recovery rises steeply: 0/277 at V=0, 56/63 and 59/61 at V=1–4, 599/599 at V ≥ 5.
 
 ## What this does and does not license
 

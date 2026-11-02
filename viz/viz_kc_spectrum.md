@@ -253,7 +253,7 @@ range would have flagged correct data. Upward: the note itself says values above
 so 776 cannot be the ceiling. Downward: 424 is the minimum seen in one *enumerated slice*, not a
 bound on SUPER — the published structural floor is **C3 = 112** at `G = 12`
 ([`reports/certificates/c3_positional_witnesses.txt`](../reports/certificates/c3_positional_witnesses.txt)),
-and `solve.py`'s own T5 SUPER sample spans **352…1648**. **No hard range is asserted in its place:**
+and `solve.py`'s own T5 SUPER sample spans **352…1648** (a historical T5 SUPER sample; the sample and its extrema receipt are not published). **No hard range is asserted in its place:**
 the true supremum over SUPER is not published, and substituting a second guessed interval would
 repeat the defect. Treat `c3_total` as unbounded-above for acceptance purposes and check it against
 `C3 = 16 + 8·G` instead, which is exact and kernel-checked.

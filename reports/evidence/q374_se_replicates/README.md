@@ -70,7 +70,7 @@ asymhalf      above  8.059899e-01    3.387e-03  4.867e-03    1.437 in-band
 ```
 
 ## Reading
-* **Every mass with ≳10 hits per replicate is in-band.** The seven `at=` masses the METHODS
+* **Every mass with ≳10 hits per replicate is in-band except `rotinv below` (0.693): the complement of a starved mass inherits its starvation.** The seven `at=` masses the METHODS
   sentence names: termruns 0.75, compmirror 0.92, trigarray 0.91, palnbr 1.02, rotinv 0.69,
   pureplace 1.56, asymhalf 1.44 — six of seven inside [0.71, 1.70]. `leaves_canonical`: printed
   relerr 1.25% vs replicate relSD 0.91%, ratio 1.38, in-band (the field is an oriented total under a

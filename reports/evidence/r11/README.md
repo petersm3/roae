@@ -186,8 +186,8 @@ calibration with its pre-registered confusability veto HAS since been run — se
 update at the top of this file and the artifacts in this directory
 (`calibration_report.txt`, `draws.json`, `scores.json`, `hits.json`, `pcomplete.json`,
 `gates.json`) — and it **failed its own gate**, so the comparison stops there by rule.
-The greedy-builder numerator, the completion simulation, and the KW-facing integration
-were and remain **not** run. No verdict, Bayes factor, or
+The greedy-builder numerator and the completion simulation ran inside the synthetic calibration; the KW-facing integration
+was and remains **not** run. No verdict, Bayes factor, or
 posterior for the four-class comparison exists or is published anywhere. When (and if)
 a verdict is computed, the full frozen design, every gate outcome, and every marginal
 likelihood land in this directory whatever their direction, per the standing

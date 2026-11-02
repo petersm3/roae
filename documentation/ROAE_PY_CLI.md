@@ -42,8 +42,8 @@ it computes 29 different descriptive measures of the King Wen
 sequence's structure and, **where a null comparison is meaningful**,
 compares the measure to an appropriate null model. Several sections are
 descriptive-only and carry no null and no significance test — the
-trigram transition matrices (~1 expected observation per cell, so no
-goodness-of-fit test has power), windowed entropy, and the Gray-code
+trigram transition matrices (~1 expected observation per cell, so the
+chi-square goodness-of-fit approximation does not apply and none is run), windowed entropy, and the Gray-code
 ratio; and the 64×64 Hamming matrix is a property of the 6-bit encoding,
 identical under any ordering, so no null over orderings applies to it at
 all. See [CRITIQUE.md](CRITIQUE.md) and the REPRODUCIBILITY section
@@ -275,7 +275,7 @@ real work.
 
 The verdict line is either `NULL — no survivor within the declared
 grammar at depth <= 2` or `ATTENTION — survivor or zero-hit shortlist
-present; run the circularity audit before any claim`. `ATTENTION` fires
+present; run the circularity audit before any claim` — no shipped command performs that audit: it is a manual check, applying the detection-floor bar against the `[E] DETECTION FLOOR:` line before any claim. `ATTENTION` fires
 whenever the pre-selection survivor list **or** the zero-hit shortlist
 is non-empty, so it too is a pre-selection signal. The JSON
 `verdict` and `survivors` fields carry no pre-selection marker; read
@@ -294,7 +294,7 @@ Parameters (all shared machinery flags are prefixed `--gs-`):
 | `--gs-workers N` | Worker processes (default 0 = all cores). |
 | `--gs-batches N` | Number of checkpointable rarity batches (default 100). |
 | `--gs-json PATH` | JSON report path (default `u2_report.json`): pre-registration record, per-phase tallies, MDL ledger, verdict. |
-| `--gs-checkpoint PATH` | JSONL rarity checkpoint (default `u2_checkpoint.jsonl`). Completed batches are skipped on re-run. Every field that selects the sample is written into each row and checked on load: `batch`/`n`/`trials`/`ncand`/`cands`/`seed`/`batches`/`nsamp`/`want`/`hits`. A row that mismatches any of them is REFUSED and counted in the `IGNORED` report, never silently reused. *(Precision, measured 2026-09-21: the row carries all ten keys, but the ones **compared** on load are the six that select the sample — `seed`, `ncand`, `cands`, `batches`, `nsamp` and `want` (`_ck_ident` plus the per-batch `want` check in `roae.py`); `batch` is the lookup key and `n`/`trials`/`hits` are the payload the resume reuses. A checkpoint with `hits`, `trials` and `n` hand-edited resumed as "3 batches already complete" — nothing on load can validate a payload except by recomputing it. A changed `--seed` is refused as documented: `[D] checkpoint: IGNORED 3 row(s) — mismatched cands,seed`.)* ⚠ **[CORRECTED 2026-09-20 — this read "The candidate count (`ncand`) is the only field validated on load … records no seed, sample count, probe size or batch count … is silently reused". That described a state two fixes ago. `seed`, `batches` and `nsamp` were already written and validated; Q-646 adds `cands`, a digest of WHICH candidates were rarity-tested and in what order, because `ncand` is a COUNT and not an IDENTITY — two runs with equal candidate counts but different candidates were merged BY POSITION, misattributing hits while every identity check passed.]** **Rows written before 2026-09-20 carry no `cands` key and are therefore refused: an existing checkpoint will restart rather than resume, which is the safe outcome, not a fault.** Delete the checkpoint file when changing any run parameter. |
+| `--gs-checkpoint PATH` | JSONL rarity checkpoint (default `u2_checkpoint.jsonl`). Completed batches are skipped on re-run. Every row carries `batch`/`n`/`trials`/`ncand`/`cands`/`seed`/`batches`/`nsamp`/`want`/`hits`; the fields that select the sample are checked on load (`trials` is recorded but not compared, and `hits` is the reused payload — detail below). A row that mismatches any of them is REFUSED and counted in the `IGNORED` report, never silently reused. *(Precision, measured 2026-09-21: the row carries all ten keys, but the ones **compared** on load are the six that select the sample — `seed`, `ncand`, `cands`, `batches`, `nsamp` and `want` (`_ck_ident` plus the per-batch `want` check in `roae.py`); `batch` is the lookup key and `n`/`trials`/`hits` are the payload the resume reuses. A checkpoint with `hits`, `trials` and `n` hand-edited resumed as "3 batches already complete" — nothing on load can validate a payload except by recomputing it. A changed `--seed` is refused as documented: `[D] checkpoint: IGNORED 3 row(s) — mismatched cands,seed`.)* ⚠ **[CORRECTED 2026-09-20 — this read "The candidate count (`ncand`) is the only field validated on load … records no seed, sample count, probe size or batch count … is silently reused". That described a state two fixes ago. `seed`, `batches` and `nsamp` were already written and validated; Q-646 adds `cands`, a digest of WHICH candidates were rarity-tested and in what order, because `ncand` is a COUNT and not an IDENTITY — two runs with equal candidate counts but different candidates were merged BY POSITION, misattributing hits while every identity check passed.]** **Rows written before 2026-09-20 carry no `cands` key and are therefore refused: an existing checkpoint will restart rather than resume, which is the safe outcome, not a fault.** Delete the checkpoint file when changing any run parameter. |
 
 `--seed` sets the base seed; when omitted, this mode (unlike the
 Monte-Carlo analysis sections) defaults to the fixed pre-registered seed
@@ -321,16 +321,16 @@ file **is published**, as
 could not:
 
 ```bash
-sha256sum documentation/PREREG_H1_H3_TEST_2026_07_26.md
+git show 5ad06afa:documentation/PREREG_H1_H3_TEST_2026_07_26.md | sha256sum
 # ab09648ce5adc8bcd86255e23fc8eb58004730e7a2998b69469df130c7da3687
-wc -c < documentation/PREREG_H1_H3_TEST_2026_07_26.md
+git show 5ad06afa:documentation/PREREG_H1_H3_TEST_2026_07_26.md | wc -c
 # 29896
 ```
 
 Both are the values
 [PREREGISTRATION_ESCROW.md](PREREGISTRATION_ESCROW.md) published on
-**2026-08-22**, before the file was disclosed. So the document you are
-reading is byte-identical to the escrowed one, and "implements the
+**2026-08-22**, before the file was disclosed. So the file as committed at `5ad06afa` — the escrowed bytes — is byte-identical
+to the escrowed one (it was redacted afterwards, and the working-tree copy hashes differently), and "implements the
 frozen spec verbatim" is now a claim you can audit against the spec
 itself instead of an operator attestation you have to take on trust.
 That conversion — attested to checkable — is the whole of what the
@@ -372,12 +372,12 @@ about functionals, and should not be read as "no code path touches KW
 before the freeze".
 
 The evaluation stream (seed+30000+b, `--gs-samples` samples) is disjoint
-from the threshold stream and from U2's streams **so long as
-`--gs-batches` stays below 10,000**, the fixed gap between the two seed
-offsets. Separation is an offset convention, not an enforced bound, and
-`--gs-batches` has no upper limit: at `--gs-batches 20000`, threshold
-batch 10000+k and evaluation batch k are seeded identically and draw the
-same samples. Keep `--gs-batches` far below 10,000 (the default is 100).
+from the threshold stream and from U2's streams: the two offsets are 10,000
+apart and `--gs-batches` is refused at 10,000 or more (exit 2, "refused
+for seed-stream disjointness (limit 9999)"), so the streams cannot
+overlap. (This paragraph said until 2026-10-29 that the bound was an
+offset convention with no enforced limit; `roae.py` enforces it.)
+The default is 100.
 
 ⚠ **[CORRECTED 2026-09-25 (Q-758, Codex V3A-042#3; the zero-hit rule was
 ruled the same day by a Fable pre-publication review) — a zero-hit test is
@@ -678,11 +678,11 @@ it is the one section that builds a private `random.Random` instead
   - Measured: `--seed 1` vs `--seed 2` gives different output for
     `--palindromes`, `--canons`, `--entropy`, `--path`, `--markov`,
     `--mutual-info`, `--neighborhoods` and `--recurrence`.
-  - `--complements` is the exception at present: its 10,000-shuffle
-    null concentrates enough that the one-decimal printed summary is
-    byte-identical across seeds. That is **empirical concentration at
-    the current print precision, not determinism** — one added decimal
-    or a smaller trial count would break it silently. Treat it as
+  - `--complements` is the near-exception at present: its 10,000-shuffle
+    null concentrates enough that its one-decimal summary moves only in
+    the last digit across seeds (21.7 vs 21.6 for seeds 1 and 9). That is
+    **empirical concentration, not determinism** — the printed summary is
+    not byte-identical across seeds. Treat it as
     randomized.
 - **Monte Carlo under a hard-coded internal seed (1 section).**
   `--trigrams` builds its pair-preserving permutation nulls from

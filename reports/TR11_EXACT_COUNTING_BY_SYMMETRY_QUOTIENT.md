@@ -1,5 +1,5 @@
 # TR-11 — Exact Counting by Symmetry Quotient: The Orbit-DP, a 42-Digit Integer, and the Exactness Program
-*Technical report — **v1.38** (2026-10-22; the cover line read v1.25 while the history had reached v1.30 — the [Revision history](#revision-history) is authoritative for what each version changed, including v1.25's §6 footprint refill and v1.30's footprint-awk selector.).*
+*Technical report — **v1.39** (2026-10-29; the cover line read v1.25 while the history had reached v1.30 — the [Revision history](#revision-history) is authoritative for what each version changed, including v1.25's §6 footprint refill and v1.30's footprint-awk selector.).*
 *Technical report — not peer-reviewed. Every MEASURED result carries a reproduction command, or says at
 the claim that it has none; every proof cited as machine-checked names its certificate or Lean theorem;
 claims of scope, attribution and interpretation are argued, not verified. One caveat is structural, and
@@ -11,7 +11,7 @@ Methods, environment pinning, statistics conventions, and artifact access: see [
 
 ## Executive summary
 
-Almost every large number in this project is one of two kinds: an exact count from an exhaustive
+Almost every large number in this project is one of two kinds: an exact count from a budget-limited
 enumeration (which can only ever cover a slice of the space), or a statistical estimate with an error
 bar. This report documents the instrument that produced the suite's first number of a third kind: an
 **exact count at full scale**. The number of hexagram orderings that keep the classical pairing, start
@@ -325,7 +325,7 @@ Luo's question.*
    is unaffected either way — see [F1C5_LAYER_FORMAT.md](../documentation/F1C5_LAYER_FORMAT.md) §Checkpoint and
    resume semantics.) Exactness is invariant across modes: per-entry arithmetic is the shared
    `f1c5_gather_entries` kernel that the in-RAM path calls, so totals *and* layer files match
-   byte-for-byte. Tuning knobs: `SOLVE_F1_OOC_READ_MB` / `SOLVE_F1_OOC_SCRATCH_MB` /
+   byte-for-byte (v1 outputs; the v2 lineage is a separate artifact set with its own hashes). Tuning knobs: `SOLVE_F1_OOC_READ_MB` / `SOLVE_F1_OOC_SCRATCH_MB` /
    `SOLVE_F1_OOC_GAP_KB`, with per-layer `[f1c5-ooc]` telemetry (bytes read/written, MB/s, RSS). **The
    reproducibility claim this establishes**: the full exact |C1∩C2∩C4∩C5| count runs end-to-end on
    commodity hardware — **~64 GB of RAM plus ~4 TB of disk** *(status corrected 2026-08-01: this read
@@ -360,8 +360,8 @@ Luo's question.*
      VM.) **Records — stated exactly (corrected 2026-09-02).** This line used to cite
      [`evidence/f1/`](evidence/f1/) as publishing these run outputs. It does not hold them: that
      directory holds the |C1∩C2∩C4| headline result, its progress log and the Python prototypes (the
-     Verification Guide's separate pointer to it is the accurate one), and none of the four integers
-     above appears anywhere in it. The records are retained **privately and are not published**, and
+     Verification Guide's separate pointer to it is the accurate one), and the four integers
+     above appear in it only as the `PUBLISHED` reference constants of `f3_rung_b0_cleanroom.py` (lines 70-73), which that clean-room script re-derives and checks against. The records are retained **privately and are not published**, and
      are enumerated here so an auditor knows what exists: the 24-pair out-of-core session log with its
      `f1c5_manifest.txt` (per-layer telemetry, peak RSS 13.4 GB, terminal total matching the 24-pair
      integer digit-for-digit); the 2026-07-08 retool battery's Phase-1 lines carrying the 24/27/28-pair
@@ -488,7 +488,7 @@ Luo's question.*
    C5-layer count (formerly estimator-based at 1.0971×10³⁹) is now **computed exactly** (§9, landed
    2026-07-16, 1.097051×10³⁹) and is carried as exact downstream; everything below it (the C3 layer
    and the flagship) stays estimator-based.
-   (iii) The absolute calibration points are two full-scale anchors (§4's C2 count and §9's C5 count, each inside its estimate's stated envelope); they are strong evidence the stated
+   (iii) The absolute calibration points are two full-scale anchors (§4's C2 count — whose redraw differs by 0.0108%, outside one standard error (±0.01%) and inside the 95% interval; the original discrepancy is recorded, not resolved — and §9's C5 count, inside its estimate's stated envelope); they are strong evidence the stated
    envelopes are honest, not a proof that other estimates are exact. (iv) **The FH-1 §2 proofs have now been
    reviewed (2026-07-21) and found sound** (an AI review the project commissioned, not third-party scrutiny — METHODS.md §"Authorship independence"), and the no-further-collapse Proposition and its
    capping corollary are additionally **machine-checked in Lean** (`no_live_lumping`,
@@ -499,7 +499,7 @@ Luo's question.*
    residual equivalence-classing among live states, not every conceivable storage encoding (§5, amended);
    and the Proposition is **not load-bearing for the landed integer** — the production DP merges no live
    states at all (residuals are injectively packed), so the count's correctness rests on the
-   already-machine-checked capping-exactness alone, and a hole in the Proposition could only ever have
+   already-machine-checked capping-exactness alone (exact under the hypotheses of `capping_exact`, lean/PruneExactness.lean — the sum invariant and pointwise Bmax-validity, both enforced by the kernel's prefix check; see also `no_live_lumping` and `cap_never_merges_live`), and a hole in the Proposition could only ever have
    cost a memory optimization, never a digit. (The companion caveat in earlier drafts —
    that §5's memory projections were estimates, not measurements — is discharged: §6 replaced them with
    measurements: at 12 B/entry the peak pair falls inside the projected band, and what ran over — layer 15's entries against its combinatorial-bound estimate — is documented in §5/§6.)
@@ -564,7 +564,7 @@ Luo's question.*
   mod 24 (one line in any big-integer language; = 0).
 - Internal cross-check gates: `./solve --f1-exact-c1c2c4 --f1-subset U1` (also U2, U3, or generic
   `"L.I,L.I,...[@START]"`) — runs the orbit-DP and a plain layered DP side by side; totals and
-  per-layer masses must print PASS.
+  per-layer masses must print PASS. The plain-DP comparison is run for n ≤ 16 only; larger instances are reported SKIPPED (no plain DP), so the equality is checked at small n and relied on structurally above that.
 - C5-tracked extension + staged memory measurement: `./solve --f1-exact-c1c2c4c5 --f1-pairs N`
   (N ∈ {3,4,6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28,31}; per-layer stderr reports
   states/entries/bytes/peak). Sizes not in that set are rejected: a rung must be a union of whole
@@ -832,4 +832,5 @@ likewise classical systems methodology — no novelty is claimed for it.
 | v1.35 | 2026-10-17 | **Six restatements put back to their records (Codex's final review, gpt-6-astra; F11-003#2/#6/#7/#8/#10/#11, F07-003#2/#7/#8/#11, CAL-003#152/#154/#166; triaged by Fable; fast-track batch FT2b-2).** §5's storage projection was not exceeded: at 12 B/entry the peak pair is ≈1.93 TB, inside 1.2–2.0 TB, and what ran over was layer 15's entries against its combinatorial-bound estimate. The 2026-07-21 review is named as an AI review the project commissioned. Resume adopts a marker-attested layer on the out-of-core v2 path since 2026-08-06; the landing run's twelve intra-layer resumes kept committed work. The plain recursion has been run to n = 19. `--f1-pairs` omits nine unpublished sizes plus the full 31. No figure changes. See CORRECTIONS.md (fast-track batches FT2b-2..4). |
 | v1.36 | 2026-10-17 | **The calibration recipe gains its stack prerequisite (Codex's final review, gpt-6-astra; triaged by Fable; push group G4; F08-005#8).** The 10⁷-probe `SOLVE_KNUTH_RELAX_C5` recipe now starts with `ulimit -s 16384`, which the estimator requires. No figure changes. See CORRECTIONS.md CX-35T-J. |
 | v1.37 | 2026-10-18 | **The DP's companion modality is named for what it is (Codex's final review, gpt-6-astra; push group G5a; F06-012#6).** The executive summary called the enumeration TR-3 describes "exhaustive"; it is budget-limited, which is why its counts are exact lower bounds. It now reads "budget-limited enumeration". No count, theorem or exactness claim changed |
-| v1.38 *(current)* | 2026-10-22 | **The C1∩C2∩C4 anchor's envelope claim made consistent with its caveat (Codex's fix-verification pass, gpt-6-astra; triaged by Fable; push group FV1; FV-FT2A-C3#6).** The executive summary and the calibration bullet no longer say the exact value falls inside the estimate's ±0.01 % envelope: it lies 0.0055 % from the four-figure estimate, one-SE containment of the original draw is unresolved, and the archived re-draw, 0.0108 % above the exact value, lies within its own 95 % CI. No figure changes. See CORRECTIONS.md CX-35Y-F. |
+| v1.38 | 2026-10-22 | **The C1∩C2∩C4 anchor's envelope claim made consistent with its caveat (Codex's fix-verification pass, gpt-6-astra; triaged by Fable; push group FV1; FV-FT2A-C3#6).** The executive summary and the calibration bullet no longer say the exact value falls inside the estimate's ±0.01 % envelope: it lies 0.0055 % from the four-figure estimate, one-SE containment of the original draw is unresolved, and the archived re-draw, 0.0108 % above the exact value, lies within its own 95 % CI. No figure changes. See CORRECTIONS.md CX-35Y-F. |
+| v1.39 *(current)* | 2026-10-29 | **Six fixes (Codex's final review, gpt-6-astra; triaged by Fable; push group FV2-A, CX-36C-G; F11-003#1/#2/#3/#4/#5/#6, F07-003#1, F01-005#1, F08-003#35, F06-003#5).** The executive summary now reads "budget-limited enumeration", as v1.37's row said it did; the mode-invariance byte-identity is scoped to v1 outputs; the four Rung-B integers are said to appear in `evidence/f1/` as the clean-room script's reference constants; §4's C2 redraw is stated as 0.0108% off (outside one SE, inside the 95% interval); capping-exactness is cited with its hypotheses; and the plain-DP cross-check is said to run for n ≤ 16 only. No count, theorem or exactness claim changed |

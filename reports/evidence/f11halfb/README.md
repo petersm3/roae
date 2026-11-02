@@ -16,7 +16,7 @@ A nested **n=1000** extension (same seed — the original 100 draws are bit-iden
 estimates the rate at **0.714, Wilson 95% CI [0.685, 0.741]**, an interval that still straddles the
 bar. The failure is **concentrated in one stratum**: at **V=0** the models are provably
 confusable (**0/277**, upper bound 1.4%), because a V=0 tendency draw lands inside the grand-strict
-set that is M_corr's own support; nine further failures sit at V=1–4 (56/63, 59/61); at **V≥5** there
+set, M_corr's precursor set (its output support is wider); nine further failures sit at V=1–4 (56/63, 59/61); at **V≥5** there
 are none (**599/599**). The received sequence has **V=6**, in the V=5–7 stratum, where self-recovery
 is 51/51.
 
