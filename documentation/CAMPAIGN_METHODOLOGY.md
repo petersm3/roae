@@ -819,7 +819,7 @@ byte-identical reproduction**: the ARM Cobalt witness (2026-05-21, Neoverse-N2,
 gcc 13.3.0 `-mcpu=native`, ARM binary `e5cfc6cd…`) reproduced the 11.2 T
 canonical `0c0fe37c…` **byte-identically** — see
 [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Cross-build + cross-architecture
-witnesses", whose row for that run records exactly that, and the v2 11.2 T
+witnesses", whose row for that run records exactly that ⚠ *(Note 2026-11-01, CX-36J-G: that row no longer records this. The 2026-05-21 ARM run with binary `e5cfc6cd…` is the v2 G2 witness of `2cc966e4…`; the `0c0fe37c…` ARM path is the Tier 4 row of HISTORY.md's 8-path roster, binary id not in the public record. The cross-architecture byte-identity claim stands on that Tier 4 path.)*, and the v2 11.2 T
 details, which repeat it.
 
 ⚠ **[CORRECTED 2026-09-01 — this read "sha-stability has been demonstrated

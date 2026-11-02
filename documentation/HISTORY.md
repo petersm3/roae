@@ -11886,3 +11886,33 @@ Q-686=DONE
   proposed reads the wrong status, measured).
 - No theorem statement, certificate, CNF, count, sha or verdict changed. `TestBatchFV2L` holds each cure, every test
   red on the parent through the parent's own text. The Lean build (legs A–D) is executed by the worker chain, not here.
+
+## 2026-11-01 — push group FV2-H: dated corrections to published figures, the held G6 leaderboard and registry items, and errata to four frozen pre-registrations
+
+- **Figures re-derived from their own pages (CX-36J-A to CX-36J-F).** Codex (gpt-6-astra) found them in its
+  fix-verification round and Fable's slice triage held them as published figures; the operator released verified,
+  sourced corrections on 2026-10-29, to ship dated with the old value kept beside the new one. PERFORMANCE_HISTORY's
+  AVX-512 delta is +0.37% (was −0.37%), the #71 lookahead tables are 512 bytes (was 2,048), the THP stdev ratio is
+  3.06 (variance ratio ≈ 9.4; was "3× higher variance") and the NUMA footprint is 32 GB per node (was 64). SOLVE.md:
+  six of the eight extremal features are C5 identities (was seven; max run length is not), the 4-subset counts are 4
+  at d2 10T and 8 at d3 10T, and the two Latin traversal families are disjoint (4,385,723,504 permutations in all).
+  The r11 audit reads −0.11% (was +0.11%), the 100T merge wrote 104 chunks (60,533 is the input-file count), TR-12's
+  per-layer exchangeability bound is 0.04151 (the layer-4 maximum is 0.0415012), and CANONICAL_HASHES' coverage fraction for 560T now goes with
+  the withdrawn estimate it was computed from ([CORRECTIONS CX-36J-F](CORRECTIONS.md)). This file's Campaign D entry gives α = 0.72–0.77, "sub-linear";
+  from that entry's own growth factors the exponent is 1.19–1.33, super-linear — recorded in CX-36J-E, since this
+  file is append-only.
+- **The items held from push group G6 (CX-35X-I, CX-36J-G).** The leaderboard's KW-match column is read from §[21]
+  of the archive it cites, with the 32 old values kept in its note; King Wen's position-2 share is 0.7% (384,788 of
+  53,060,303; was 0.2%); the ~23× scaling is retired. The v2 uplift is +4.84% (was +4.83%), PARTITION_STABILITY's
+  10T budget is 63,145,664 (was 63,146,557), and the ARM witness row is the Tier 4 path of the 8-path roster (the
+  2026-05-21 ARM run was the v2 sha's witness); TR-3 and CAMPAIGN_METHODOLOGY follow. The eight-path count is
+  unchanged.
+- **Frozen pre-registrations (CX-36J-H).** The H1/H3, class-A, c8screen Amendment 1 and qoy1/Q-992 registrations are
+  not edited; each has a dated errata page, linked from the documentation index: T4's bar is 10.077 (printed 10.06),
+  the H1/H3 cross-check gate compares a C3-applied statistic with a population without C3, the class-A atlas and
+  profile exist, five Fu Xi members are defined, and `EXPLAINED_BY_EXISTING` is not entailment.
+- **Riders.** The hexagram tables' comments say they match OEIS A102241 (bit 0 = bottom), and a test re-derives all
+  64 values from the trigrams (CX-36J-I); TR-4's 56-branch marker names a public record instead of an unpublished
+  audit (CX-36J-J, Q-183 part 1).
+- No canonical sha, record count, certificate, token or verdict changed. `TestBatchFV2H` holds each correction and
+  fails on the parent.

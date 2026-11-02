@@ -110,6 +110,26 @@ EXCLUDE = re.compile(r'(^|/)(CORRECTIONS|HISTORY)\.md$')
 # reported on stderr (the line changed, so its verdict must be re-read), never silently applied.
 # Values are (class, review) and the review is one token (no spaces, no tab): what was decided.
 REVIEWED = {
+    ('documentation/CITATIONS.md', '441a9b35a8ce'):
+        ('1', 'reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
+    ('documentation/PARTITION_STABILITY_BOUNDARIES.md', '2435473d9c8c'):
+        ('1', 'reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
+    ('documentation/PERFORMANCE_HISTORY.md', '8f0215edb575'):
+        ('1', 'reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
+    ('documentation/PERFORMANCE_HISTORY.md', '48dca795956e'):
+        ('1', 'reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
+    ('documentation/PERFORMANCE_HISTORY.md', 'f560492aad78'):
+        ('1', 'reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
+    ('documentation/PERFORMANCE_HISTORY.md', 'c7ce73c0ffbd'):
+        ('1', 'reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
+    ('documentation/SOLVE.md', 'eae2169faef6'):
+        ('1', 'reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
+    ('documentation/SOLVE.md', '59fd3abf40bf'):
+        ('1', 'reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
+    ('reports/TR12_QUERY_PROGRAM.md', 'ecd34b2fee0c'):  # re-keyed 2026-11-02, FV2-H (was 9e4550568aa2; Fable FIX-3 reworded the line; verdict re-read, stands)
+        ('1', 'reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
+    ('runs/20260419_100T_d3_d128westus3/README.md', '1703e96e2580'):
+        ('1', 'reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
     # tranche 1 (2026-09-26, the f11halfb evidence family). The marker at
     # reports/evidence/f11halfb/README.md:21@5a3b2917 was class 1 and has moved to the ledger, so it
     # is no longer a row here.

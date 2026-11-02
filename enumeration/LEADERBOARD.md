@@ -7,7 +7,7 @@
 > **Second novel finding (2026-04-20 100T baseline; updated 2026-06-11 with full 560T [`--analyze`](../documentation/SOLVE_C_CLI.md#--analyze); corrected 2026-07-04):** the **boundary-minimum is monotone non-decreasing in scale: 4 → 5 → 5 across 10T → 100T → 560T**. At d2 10T and d3 10T, 4-boundary subsets uniquely identify KW. At d3 100T, NO 4-subset worked; greedy-optimal was a 5-set **{1, 4, 21, 25, 27}**. At d3 560T (current deepest), **the greedy minimum stays 5 with the identical set {4, 27, 25, 21, 1}** (boundary 4 alone eliminates 99.999% of non-KW; 27 → 481 survivors; 25 → 14; 21 → 1; boundary 1 eliminates the last impostor, rec#330177707 — KW with the position-2/3 pair blocks swapped). The working-4-subset count (§[8]) drops to **0** at 560T, vs 4 at 742M and 8 at 11.2T — at canonical depth no 4-tuple of boundaries jointly reduces survivors to ≤ 1, consistent with the greedy minimum of 5. *(Cross-era caveats, added 2026-07-04: the "8" is log-verified at d3 10T, and the 11.2T attribution awaits confirmation from the archived 11.2T analyze log; the 742M "4" was computed under the pre-format-v1 "survivors ≤ 4" convention — 4 orientation variants per ordering — vs the canonical-era "≤ 1", so the series is directionally sound but not convention-identical.)* *(The 2026-06-11 version of this note reported "drops back to 4 at 560T, non-monotone" — a survivor-counting error that stopped at 1 remaining non-KW survivor instead of 0; see [BOUNDARY_MINIMUM.md](../documentation/BOUNDARY_MINIMUM.md).)* Boundaries {25, 27} remain in the greedy minimum across every partition tested. §[9] result: `{25, 27}` is one of the ten lowest-OVERLAP boundary pairs (ratio 0.007, 560T; that analyze log is not tracked): the records that keep King Wen's pairs at boundary 25 rarely also keep them at boundary 27, so the two act as complementary filters — which is why both sit in the greedy-ordered minimum set. ⚠ **[CORRECTED 2026-09-25 — this called `{25, 27}` one of the most informationally independent boundary pairs (the original joined those two words with a hyphen) and said that explained why they keep appearing. §[9]'s ratio is joint(b1, b2) / min(single(b1), single(b2)) over the records that match King Wen at each boundary (`solve.c` §[9] "Boundary redundancy"). That is an overlap coefficient, not an independence measure: for independent events it equals the LARGER of the two single rates. The 0.007 was not re-measured; the tracked 100T log (`runs/20260419_100T_d3_d128westus3/analyze_output.log.gz`) gives `b=25, b'=27  joint=198676  min_single=23257842  ratio=0.009`, the highest of that run's ten lowest-overlap pairs. Same defect as the CRITIQUE.md line corrected by CX-131.]** §[10] top pairwise MI at 560T: pos 12 ↔ 13 = 1.3417 bits (cascade-region 11–20 dominates the top-10). §[18] boundary 4 alone yields 45.14 bits of conditional-entropy information gain against a 77.81-bit baseline that is the SUM of per-position marginal entropies. ⚠ **`77.81` is a SUM OF PER-POSITION MARGINALS — `sum_p H(pair at p)`, as `solve.c:46159-46160` states — NOT a total or joint entropy.** The joint entropy over these records is bounded by log₂(10,525,271,997) = **33.29 bits**, so 77.81 exceeds its own ceiling by 2.34× and boundary 4's 45.14 exceeds it by 1.36×. The numbers are correct; the earlier wording called it a *total*, and called boundary 4's share more than half of one — both describing a quantity this is not. Corrected 2026-09-07. See [PROJECT_OVERVIEW.md](../documentation/PROJECT_OVERVIEW.md) §"560T canonical results" + [HISTORY.md](../documentation/HISTORY.md) "June 10-11, 2026" entry for the full §[1]–§[28] dump.
 >
 > **Single-branch deep-walk pilot (2026-04-29):** `22_0_30_1_20_0` at d3 100T per-task-cap = 40 G:
-> **664,086,250 canonical orderings** in this *single* depth-3 sub-branch (sha `52c8d308257d3b75041d0743b4b02a37360fe6567fec7c1c07ed49d8d22a29b9`, 20.0 GB). Distinct from the d3 100T full-canonical (`915abf30…`, 3.43 B across all 158,364 branches) — this is *one* branch with a higher per-cell budget. The 100T canonical's per-branch budget reported `22_0_30_1_20_0` as a "yield-16 laggard"; this pilot with 100T concentrated on the single branch found ~50,000,000× more solutions, demonstrating the canonical's per-branch yield labels are scope-bounded by per-branch budget rather than branch yield. 0 of 2,380 walked (p4, o4, p5, o5) cells naturally exhausted under the 40 G per-cell cap. See HISTORY.md §April 28-29 for full details.
+> **664,086,250 canonical orderings** in this *single* depth-3 sub-branch (sha `52c8d308257d3b75041d0743b4b02a37360fe6567fec7c1c07ed49d8d22a29b9`, 20.0 GB). Distinct from the d3 100T full-canonical (`915abf30…`, 3.43 B across all 158,364 branches) — this is *one* branch with a higher per-cell budget. The 100T canonical's per-branch budget reported `22_0_30_1_20_0` as a "yield-16 laggard"; this pilot with 100T concentrated on the single branch found ~50,000,000× more solutions, demonstrating the canonical's per-branch yield labels are scope-bounded by per-branch budget rather than branch yield. 0 of 2,380 walked (p4, o4, p5, o5) cells naturally exhausted under the 40 G per-cell cap. See HISTORY.md §April 28-29 for full details. ⚠ *(Note 2026-11-01: from this paragraph's own operands, 664,086,250 × 32 bytes is 21.25 GB (19.79 GiB) of logical record payload, and 664,086,250 / 16 is ≈4.2 × 10⁷, so "~50,000,000×" overstates the multiplier by about a fifth. Codex F07-009#21; CX-35X-I.)*
 >
 > **5.6T regression-test verification (2026-04-30):** the [`--double-regression-test`](../documentation/SOLVE_C_CLI.md#--double-regression-test) mode produced sha **`c34390c00a2a871d78f49dd419779c0f649ed8271387c424ac4d36e0f3910dbd`** (467,483,137 canonical orderings, 14.96 GB) across 4 verification paths: full-enum layer 1, full-enum layer 2 (deterministic re-run), `--merge-layers` of both full-enum layers, AND `--merge-layers` of 56 first-level `--branch p1 o1` reconstruction layers. All four shas match. This empirically confirms partition invariance at depth-3 with controlled per-sub-branch budget (`SOLVE_PER_SUB_BRANCH_LIMIT=35361572`, = 5.6T / 158,364 sub-branches), AND verifies layered-merge correctness via `--merge-layers`. The verification surfaced and fixed a depth-2 bug in `--branch` (commit `cdd8575`). Prior 2026-04-29 attempts were INCONCLUSIVE due to that bug. See [PARTITION_INVARIANCE.md](../documentation/PARTITION_INVARIANCE.md) §1 and [HISTORY.md](../documentation/HISTORY.md) §"April 29, 2026" for the full retrospective. *(Note: this `c34390c0…` / 467,483,137 5.6T sha was later deprecated and superseded by the modern-code re-derivation `f66920c1…` / 467,484,167 records (+1,030, likely lost to imperfect resume on pre-fix code); the values here are preserved as recorded — see [CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) §"d3 5.6T".)*
 
@@ -45,40 +45,40 @@ enumeration has found so far.
 
 | Position | King Wen pair | KW match % | Pairs observed | Entropy (bits) | Character |
 |:--------:|---------------|:----------:|:--------------:|:--------------:|-----------|
-| 1 | ䷀䷁ #1 / #2 | 100.0% | 1 | 0.0000 | Fully determined |
-| 2 | ䷂䷃ #3 / #4 | 0.2% | 28 | 3.8326 | Branch-dependent (varies widely) |
-| 3 | ䷄䷅ #5 / #6 | 0.2% | 31 | 4.1242 | Highest freedom |
-| 4 | ䷆䷇ #7 / #8 | 0.5% | 3 | 0.2803 | Cascade region (heavily constrained) |
-| 5 | ䷈䷉ #9 / #10 | 0.9% | 3 | 0.4273 | Cascade region |
-| 6 | ䷊䷋ #11 / #12 | 0.9% | 3 | 0.6047 | Cascade region |
-| 7 | ䷌䷍ #13 / #14 | 3.4% | 3 | 0.7175 | Cascade region |
-| 8 | ䷎䷏ #15 / #16 | 3.4% | 3 | 0.9173 | Cascade region |
-| 9 | ䷐䷑ #17 / #18 | 4.1% | 3 | 1.0060 | Cascade region |
-| 10 | ䷒䷓ #19 / #20 | 5.2% | 3 | 1.1099 | Cascade region |
-| 11 | ䷔䷕ #21 / #22 | 5.2% | 3 | 1.1320 | Cascade region |
-| 12 | ䷖䷗ #23 / #24 | 5.2% | 3 | 1.1328 | Cascade region |
-| 13 | ䷘䷙ #25 / #26 | 5.2% | 3 | 1.1289 | Cascade region |
-| 14 | ䷚䷛ #27 / #28 | 5.2% | 4 | 1.1201 | Cascade region |
-| 15 | ䷜䷝ #29 / #30 | 7.3% | 3 | 1.2385 | Cascade region |
-| 16 | ䷞䷟ #31 / #32 | 11.2% | 4 | 1.3373 | Cascade region |
-| 17 | ䷠䷡ #33 / #34 | 11.2% | 3 | 1.2586 | Cascade region |
-| 18 | ䷢䷣ #35 / #36 | 12.9% | 3 | 1.3102 | Cascade region |
-| 19 | ䷤䷥ #37 / #38 | 49.4% | 3 | 1.5392 | Cascade region |
-| 20 | ䷦䷧ #39 / #40 | 51.8% | 3 | 1.3786 | Cascade region |
-| 21 | ䷨䷩ #41 / #42 | 16.4% | 12 | 1.7148 | Progressively free |
-| 22 | ䷪䷫ #43 / #44 | 11.0% | 14 | 3.4777 | Progressively free |
-| 23 | ䷬䷭ #45 / #46 | 12.5% | 14 | 3.6132 | Progressively free |
-| 24 | ䷮䷯ #47 / #48 | 10.7% | 14 | 3.6354 | Progressively free |
-| 25 | ䷰䷱ #49 / #50 | 5.7% | 14 | 3.6450 | Progressively free |
-| 26 | ䷲䷳ #51 / #52 | 9.4% | 14 | 3.6313 | Progressively free |
-| 27 | ䷴䷵ #53 / #54 | 7.7% | 14 | 3.6099 | Progressively free |
-| 28 | ䷶䷷ #55 / #56 | 8.9% | 14 | 3.5905 | Progressively free |
-| 29 | ䷸䷹ #57 / #58 | 11.3% | 14 | 3.5625 | Progressively free |
-| 30 | ䷺䷻ #59 / #60 | 9.6% | 14 | 3.5456 | Progressively free |
-| 31 | ䷼䷽ #61 / #62 | 18.4% | 14 | 3.4863 | Progressively free |
-| 32 | ䷾䷿ #63 / #64 | 21.3% | 7 | 2.6639 | Progressively free |
+| 1 | ䷀䷁ #1 / #2 | 100.00% | 1 | 0.0000 | Fully determined |
+| 2 | ䷂䷃ #3 / #4 | 1.90% | 28 | 3.8326 | Branch-dependent (varies widely) |
+| 3 | ䷄䷅ #5 / #6 | 1.71% | 31 | 4.1242 | Highest freedom |
+| 4 | ䷆䷇ #7 / #8 | 0.02% | 3 | 0.2803 | Cascade region (heavily constrained) |
+| 5 | ䷈䷉ #9 / #10 | 0.08% | 3 | 0.4273 | Cascade region |
+| 6 | ䷊䷋ #11 / #12 | 0.12% | 3 | 0.6047 | Cascade region |
+| 7 | ䷌䷍ #13 / #14 | 0.64% | 3 | 0.7175 | Cascade region |
+| 8 | ䷎䷏ #15 / #16 | 0.88% | 3 | 0.9173 | Cascade region |
+| 9 | ䷐䷑ #17 / #18 | 1.37% | 3 | 1.0060 | Cascade region |
+| 10 | ䷒䷓ #19 / #20 | 2.24% | 3 | 1.1099 | Cascade region |
+| 11 | ䷔䷕ #21 / #22 | 2.24% | 3 | 1.1320 | Cascade region |
+| 12 | ䷖䷗ #23 / #24 | 2.25% | 3 | 1.1328 | Cascade region |
+| 13 | ䷘䷙ #25 / #26 | 2.27% | 3 | 1.1289 | Cascade region |
+| 14 | ䷚䷛ #27 / #28 | 2.27% | 4 | 1.1201 | Cascade region |
+| 15 | ䷜䷝ #29 / #30 | 5.65% | 3 | 1.2385 | Cascade region |
+| 16 | ䷞䷟ #31 / #32 | 9.58% | 4 | 1.3373 | Cascade region |
+| 17 | ䷠䷡ #33 / #34 | 9.59% | 3 | 1.2586 | Cascade region |
+| 18 | ䷢䷣ #35 / #36 | 12.61% | 3 | 1.3102 | Cascade region |
+| 19 | ䷤䷥ #37 / #38 | 40.96% | 3 | 1.5392 | Cascade region |
+| 20 | ䷦䷧ #39 / #40 | 41.10% | 3 | 1.3786 | Cascade region |
+| 21 | ䷨䷩ #41 / #42 | 43.03% | 12 | 1.7148 | Progressively free |
+| 22 | ䷪䷫ #43 / #44 | 12.97% | 14 | 3.4777 | Progressively free |
+| 23 | ䷬䷭ #45 / #46 | 12.92% | 14 | 3.6132 | Progressively free |
+| 24 | ䷮䷯ #47 / #48 | 10.34% | 14 | 3.6354 | Progressively free |
+| 25 | ䷰䷱ #49 / #50 | 6.81% | 14 | 3.6450 | Progressively free |
+| 26 | ䷲䷳ #51 / #52 | 10.07% | 14 | 3.6313 | Progressively free |
+| 27 | ䷴䷵ #53 / #54 | 7.26% | 14 | 3.6099 | Progressively free |
+| 28 | ䷶䷷ #55 / #56 | 9.91% | 14 | 3.5905 | Progressively free |
+| 29 | ䷸䷹ #57 / #58 | 11.36% | 14 | 3.5625 | Progressively free |
+| 30 | ䷺䷻ #59 / #60 | 10.30% | 14 | 3.5456 | Progressively free |
+| 31 | ䷼䷽ #61 / #62 | 15.40% | 14 | 3.4863 | Progressively free |
+| 32 | ䷾䷿ #63 / #64 | 21.43% | 7 | 2.6639 | Progressively free |
 
-*KW match % = how often King Wen's pair appears at this position across ALL valid*
+*KW match % = how often King Wen's pair appears at this position across ALL valid* ⚠ **[NOTE 2026-11-01 — the KW match % column is now read from §[21] of `analyze_sec25fix_742M.txt` (the starred King Wen pair at each position, two decimals); 31 of its 32 entries previously matched no row of that table and had no identified producer. Codex (gpt-6-astra) F07-009#4; [CORRECTIONS.md](../documentation/CORRECTIONS.md) CX-35X-I. The column as published before this note read, positions 1-32: 100.0, 0.2, 0.2, 0.5, 0.9, 0.9, 3.4, 3.4, 4.1, 5.2, 5.2, 5.2, 5.2, 5.2, 7.3, 11.2, 11.2, 12.9, 49.4, 51.8, 16.4, 11.0, 12.5, 10.7, 5.7, 9.4, 7.7, 8.9, 11.3, 9.6, 18.4, 21.3 (per cent; position 1 was the one entry that matched).]**
 *orderings (all branches combined). Pairs observed and entropy values in this table were*
 *🔴 **Corrected 2026-09-07.** The Pairs-observed and Entropy columns are now read directly from §[2] of `analyze_sec25fix_742M.txt`, the artifact this note already named as their source. They previously did not match it: **29 of 32 rows disagreed**, including position 2 at 16 pairs against the artifact's 28 and a blank entropy against 3.8326, and position 14 at 3 pairs against 4. The note disclosed the numbers as STALE; the sharper problem was that they did not come from the dataset they cited. ⚠ The **KW match %** column is NOT in §[2] and its provenance is separately unverified — it is left as recorded.*
 *originally computed from the bug-era 742M dataset; they have NOT been refreshed to the*
@@ -118,22 +118,22 @@ The edit distance distribution (number of pair positions differing from King Wen
 | Positions different | Count | Notes |
 |:-------------------:|------:|-------|
 | 0 | 4 | King Wen itself (orient variants) |
-| 1 | 0 | No valid ordering is 1 swap from KW |
-| 2 | 44 | Closest alternatives — single pair-swaps in positions 21-32 |
+| 1 | 0 | No valid ordering differs from KW at exactly one position (a single pair swap changes two) |
+| 2 | 44 | Closest alternatives — each a single pair swap (two positions); 40 of the 44 sit in positions 21–32, two swap positions 2 and 3 (§[24]) |
 | 3 | **50** | *(was published as 6 — that was the §[24] top-50 catalog's cutoff, not a count)* |
 | 4+ | 742,043,205 | Bulk of solutions |
 
 **Note, corrected 2026-09-07:** distances 0–3 above are now the exact counts from `analyze_sec25fix_742M.txt` **§[28]**, the full edit-distance histogram. The earlier table drew them from **§[24]**, a nearest-neighbour catalog capped at the top 50 — so its distance-3 entry was a **cutoff artifact (6), not a count (50)**. ⚠ The earlier note also said the full distribution *had not been computed at 742M scale*; it had, and it sits in the very file the table cites. §[28] gives all 31 occupied distances (0, then 2–31; **distance 1 is empty**), totalling 742,043,303, with the mode at **distance 30 — 154,591,438 records, 20.83%**. (The earlier table showing counts summing to ~5.9B was from the pre-bugfix 31.6M era and is no longer valid.)
 
 Most valid orderings look **nothing like** King Wen. King Wen is not
-"typical" among valid orderings; it sits at one extreme.
+"typical" among valid orderings; it sits at one extreme. ⚠ **[NOTE 2026-11-01 — this histogram measures distance *from King Wen*, so King Wen sits at zero by construction; any reference ordering would sit at the same extreme of its own histogram. The table shows that most valid orderings are far from King Wen; it does not show King Wen is atypical. Codex (gpt-6-astra) F07-009#7; CX-35X-I.]**
 
 ## Which pairs can appear at position 2?
 
 Position 2 is the first "free" position. **16 different pairs were found to follow
 hexagram 1 / hexagram 2 in this dataset at this budget** — a count of what the search
 reached, not of what the space permits; see the scope qualifier below the table. King Wen's choice (䷂䷃ #3 / #4) appears in only
-0.2% of valid orderings. Some choices at position 2 produce millions of downstream
+0.7% of the valid orderings in the table below (384,788 of 53,060,303; corrected 2026-11-01: was "0.2% of valid orderings", a figure the table does not give; CX-35X-I). Some choices at position 2 produce millions of downstream
 valid orderings; others produce zero.
 
 | Position 2 pair | Valid orderings found | Share | Notes |
@@ -169,7 +169,7 @@ valid orderings; others produce zero.
 
 *Counts are lower bounds from the pre-bugfix 10T run (which undercounted by ~23x due to the*
 *sub-branch filename collision bug). The relative ordering and dead-branch classification*
-*are believed correct, but absolute counts should be scaled by ~23x for the 742M dataset.*
+*are retired (2026-11-01, CX-35X-I; this line said they "are believed correct" and that the counts should be scaled "by ~23x for the 742M dataset"): §[11] of `analyze_sec25fix_742M.txt` gives all 12 "dead" pairs positive counts, and no single factor such as ~23× reproduces §[11]'s per-pair counts or their order — read these as that older run's counts only (Codex F07-009#5).*
 *"Estimated dead" means zero valid orderings were found **at position 2 in this dataset** — not proven exhaustively, and **not dead in general**.*
 
 *🔴 **Scope qualifier added 2026-09-07, re-mapped 2026-09-24.** The label was unqualified and reads as globally dead. It is not: **all 12 pairs marked dead here carry positive record counts as first-level (position-2) branches** in §[11] of `analyze_sec25fix_742M.txt`, whose pair index is 0-based (§[21]: position 1 is `p0`, King Wen's position-2 pair #3/#4 is `p1`), so pair i is hexagrams #(2i+1)/#(2i+2). Their §[11] counts: #19/#20 (pair 9) **1,582,919**, #21/#22 (10) 17,091,148, #23/#24 (11) 14,069,410, #25/#26 (12) 9,612,043, #31/#32 (15) 7,500,582, #37/#38 (18) 2,988,554, #39/#40 (19) 3,376,702, #41/#42 (20) 9,921,059, #51/#52 (25) 599,015, #55/#56 (27) 157,945, #57/#58 (28) 963,560, #59/#60 (29) 131,478. §[11]'s zero set is **{4, 6, 21}** = **#9/#10, #13/#14, #43/#44** — exactly the three pairs the table above does not list at all — so the two slices do not disagree about any pair the table shows as live. The dead labels come from the pre-bugfix 10T run the table was built from (see its caption); the 742M archive finds every one of them at position 2. ⚠ **[CORRECTED 2026-09-24 (Q-753) — the 2026-09-07 wording of this qualifier read §[11] as if its pair index were 1-based. It therefore attached the wrong hexagrams to every pair number it cited, counted 11 rather than 12 of the dead-marked pairs as positive, placed the zero set at three different pairs, and reported a disagreement between the two slices over a pair (#7/#8, in fact pair 3 with 21,808,514 §[11] records) that does not exist. The branch table further down this page already used 0-based numbering (branch 3 = #7/#8, branch 9 = #19/#20). Adjudicated by Fable (Codex V3A-063#2); re-derived from §[11] and §[21].]***
@@ -204,7 +204,7 @@ interacts very differently with different position-2 pairs.
     {21, 22}).
   - **Implication**: the broader "one-of-{2,3} ∪ one-of-{21,22}" phrasing is d2-specific.
     Only {25, 27} mandatory status is stable across partition depths.
-- **Whether the "estimated dead" branches are truly dead.** They produced zero valid
+- **Whether the "estimated dead" branches are truly dead.** They produced zero valid ⚠ **[NOTE 2026-11-01 — answered for the 742M archive: §[11] gives every one of the 12 pairs a positive first-level count (see the qualifier under the position-2 table), and the dead-branch classification is retired. CX-35X-I.]**
   orderings in partial exploration, but exhaustive proof requires completing them. Four branches
   previously classified as dead were reclassified as live in the 10T run.
 - **The structure of the cascade and back-half regions.** The earlier framing that "position 2
@@ -254,7 +254,7 @@ is never lost.
 
 ## Status
 
-> **Note:** the 10T figures in this table are the **2026-04-18 run** (`f7b8c4fb…`), which the branch/sub-branch breakdowns below derive from. The current **active** d3 10T canonical is `b85c8871…` / **706,427,594** (a 2026-05-13 modern-code re-derivation, +4,607 records vs the 2026-04-18 undercount) — see [`../documentation/CANONICAL_HASHES.md`](../documentation/CANONICAL_HASHES.md).
+> **Note:** the 10T figures in this table are the **2026-04-18 run** (`f7b8c4fb…`), which the metric table directly below reports. ⚠ *(Note 2026-11-01: the branch and sub-branch breakdowns further down do **not** derive from this run — they come from the earlier 56-branch regime (~178.6 B nodes per branch; [HISTORY.md](../documentation/HISTORY.md) April 2026 entries), as the sentence above the branch table says; their producing command and receipt are not archived. Codex F07-008#4, F07-009#8; CX-35X-I.)* The current **active** d3 10T canonical is `b85c8871…` / **706,427,594** (a 2026-05-13 modern-code re-derivation, +4,607 records vs the 2026-04-18 undercount) — see [`../documentation/CANONICAL_HASHES.md`](../documentation/CANONICAL_HASHES.md).
 
 | Metric | d3 10T canonical (2026-04-18) | d2 10T canonical (2026-04-18) |
 |--------|---|---|
@@ -1364,3 +1364,11 @@ See [solve.c](../solve.c) source for full documentation.
 ---
 
 *Revision 2026-07-04 (primary-evidence sweep): the d3 100T record count cited in this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-pass "correction" divided the file size by 32 without subtracting the 32-byte header; the sha256 anchor `915abf30…` is unaffected. See [CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md) §d3 100T.*
+
+---
+
+*Dated notes 2026-11-01 (Codex, gpt-6-astra, final review; [CORRECTIONS.md](../documentation/CORRECTIONS.md) CX-35X-I).*
+
+*(1) The second novel-finding note near the top of this page points to [HISTORY.md](../documentation/HISTORY.md) "for the full §[1]–§[28] dump". The HISTORY entry publishes selected findings only; the full 560T `--analyze` log is not tracked (the 560T run README says so). Two of the selected findings it restates — an overlap coefficient called independence, and a sum of per-position marginal entropies called total entropy — are the readings this page withdrew; HISTORY.md is append-only, so CX-35X-J records the correction there (F07-009#14, F07-009#15).*
+
+*(2) The per-branch "Nodes explored", "C3-valid" and "Stored" counters in the branch table and the branch details have no archived producing command, commit or receipt; they are transcribed from the earlier 56-branch regime and are not reproducible from this repository. The doc-gate allowlist entries that exempt them now say so (F07-009#8, F07-007#19, F07-014#2).*

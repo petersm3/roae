@@ -47242,9 +47242,9 @@ class TestBatchFT2b1(unittest.TestCase):
         ("could be answered (Q10 joined on 2026-07-31 in §11, Q10(b) is still undefined, and V5's new-pair category was pinned on 2026-09-23): the exact definition,",
          "could be answered: the exact definition,"),
         ("(§0–§10, 2026-07-17; §11's Q10, 2026-07-31) fixes for each query", "(§0–§11, 2026-07-17) fixes for each query"),
-        ("At every layer the residual C5 budget sits within TV\n**0.0415** of the exchangeable null — a bound per layer, not on the whole spending order (§12.6).",
+        ("At every layer the residual C5 budget sits within TV\n**0.04151** of the exchangeable null (the token's 0.0415 is the exact 0.0415012 to four decimals) *(corrected 2026-11-01: was \"0.0415\", CX-36J-D)* — a bound per layer, not on the whole spending order (§12.6).",
          "The order in which the C5 budget is spent sits within TV\n**0.0415** of the exchangeable null (§12.6)."),
-        ("and at every layer the residual C5 budget lies within TV 0.0415 of the exchangeable null (per layer, not over the whole path), measured",
+        ("and at every layer the residual C5 budget lies within TV 0.04151 of the exchangeable null (per layer, not over the whole path; corrected 2026-11-01: was \"0.0415\", the layer-4 maximum being 0.0415012, CX-36J-D), measured",
          "and the C5 budget path lies within TV 0.0415 of the exchangeable null, measured"),
         ("| residual budget vs exchangeable null, max TV over layers (a per-layer bound, not one on the path) |",
          "| budget path vs exchangeable null, max TV |"),
@@ -47259,7 +47259,7 @@ class TestBatchFT2b1(unittest.TestCase):
     def _framing_problems(self, tr12):
         t = self._body(tr12)
         for pre in ("## 11. Novelty-refresh addendum (2026-07-31)", "the question is undefined under both",
-                    "pinned 2026-09-23 as w = popcount", "the total-variation distance is ≤ **0.0415** at every layer",
+                    "pinned 2026-09-23 as w = popcount", "the total-variation distance is ≤ **0.04151** at every layer",
                     "V4's line is King Wen's one walk", "V3 is a 1,000-point REL lattice",
                     "§12.7's cost figures are derived", "**cannot show that it does not**"):
             self.assertIn(pre, t, "precondition: TR-12 states the source fact: %s" % pre)
@@ -47269,7 +47269,7 @@ class TestBatchFT2b1(unittest.TestCase):
                "stationary across the walk and does not distinguish King Wen")
         probs = ["still says: " + b for b in bad if b in t]
         for need in ("nine query families (Q1–Q9)", "Q10 joined on 2026-07-31", "a bound per layer, not on the whole spending order",
-                     "(per layer, not over the whole path)", "three population-exact fields", "§12.10's C3 attribution is an inference",
+                     "(per layer, not over the whole path", "three population-exact fields", "§12.10's C3 attribution is an inference",
                      "is not shown to distinguish King Wen"):
             if need not in t:
                 probs.append("lacks: " + need)
@@ -54636,7 +54636,7 @@ def _g6_import(name):
 
 class TestBatchG6(unittest.TestCase):
     """Push group G6: fast-track FT3c (C/Python engine and verifier hardening, sha-neutral; CX-35X-A..G)
-    and FT3h (ledger and run-record hygiene; CX-35X-H, J..N). Every FT3c test drives the binary (or the
+    and FT3h (ledger and run-record hygiene; CX-35X-H..N). Every FT3c test drives the binary (or the
     Python verifier) built from THIS tree's sources and names the defect it reproduces on 0df730cb;
     a test that can only read source text says so in its docstring ("structural"). Developed with AI
     assistance (Claude, Anthropic): claude-opus-5-5, from Codex (gpt-6-astra) final-review findings
@@ -55122,7 +55122,7 @@ class TestBatchG6(unittest.TestCase):
         dp = self._src("reports/evidence/f1/f1_orbit_dp.py")
         self.assertIn("sys.exit(0 if all_ok else 1)", dp)
 
-    # ==== FT3h (ledger / history hygiene; CX-35X-H, CX-35X-J..N) ========================================
+    # ==== FT3h (ledger / history hygiene; CX-35X-H..CX-35X-N) ==========================================
     # Each test measures its precondition from the tree first (an archived log line, a record count, a
     # solver source line, an append-only ledger sentence that must still be there) and then holds the
     # cured text to it. On 0df730cb every precondition holds and the text assertion fails, which is the
@@ -55176,11 +55176,26 @@ class TestBatchG6(unittest.TestCase):
         self.assertEqual(got, want)
 
     def test_g6_canonical_hashes_notes(self):
+        hist = self._g6h_f("documentation/HISTORY.md")
+        self.assertIn("G2 ARM cross-arch validation: PASS", hist, "precondition: HISTORY's G2 entry")
+        self.assertIn("2cc966e48399841ebb0c9ca67300f15bb578cc5481ed04fca5faffcb38ad6c4d", hist)
+        self.assertIn("| Tier 4 | ARM Cobalt cross-arch | `0c0fe37c…` |", self._g6h_r("documentation/HISTORY.md"))
         ch = self._g6h_r("documentation/CANONICAL_HASHES.md")
         rows = re.search(r"^\*\*Cross-build \+ cross-architecture witnesses.*?^\*\*Independence criterion", ch, re.M | re.S)
         self.assertIsNotNone(rows)
         table = [l for l in rows.group(0).splitlines() if l.startswith("| 2026")]
         self.assertEqual(len(table), 8, "the eight-path count is unchanged")
+        arm = [l for l in table if "ARM" in l.split("|")[1]]
+        self.assertEqual(len(arm), 1)
+        self.assertTrue(arm[0].startswith("| 2026-05-02 (Tier 4, ARM Cobalt) |"), arm[0][:80])
+        self.assertNotIn("v3+v3.1 ARM binary", arm[0].split("|")[2])
+        # 4.84%: recompute from the registry's own record counts
+        v1 = int(re.search(r"^### d3 11\.2T.*?^- \*\*Records:\*\* ([\d,]+)", ch, re.M | re.S).group(1).replace(",", ""))
+        v2 = int(re.search(r"\| d3 11\.2T \(v2\) \| `2cc966e4[0-9a-f]+` \| ([\d,]+) \|", ch).group(1).replace(",", ""))
+        pct = "%.2f%%" % (100.0 * (v2 - v1) / v1)
+        self.assertEqual(pct, "4.84%", "precondition: the recomputed uplift")
+        self.assertNotIn("(+4.83%)", ch)
+        self.assertNotIn("+36,748,712 records (+4.83%", ch)
         # stack: the solver warns below 8 MiB and --merge refuses below 64 MiB
         src = self._g6h_r("solve.c")
         self.assertIn("long long need_kb = 8192;   /* production: 8 MB */", src)
@@ -55195,6 +55210,14 @@ class TestBatchG6(unittest.TestCase):
                      "there is no remaining old-versus-new difference for the clause to describe",
                      "the share is not a share of the 10,525,271,997 unique records"):
             self.assertIn(" ".join(frag.split()), flat, frag)
+
+    def test_g6_tr3_arm_witness(self):
+        t3 = self._g6h_f("reports/TR3_REPRODUCIBLE_ENUMERATION.md")
+        self.assertIn("At 11.2T the registry lists **eight** independent build/host", t3, "precondition")
+        self.assertNotIn("one of them is a 2026-05-21 ARM Cobalt Neoverse-N2 rebuild", t3)
+        self.assertIn("an ARM Cobalt Neoverse-N2 build (Tier 4 of the 2026-05-02 roster", t3)
+        self.assertRegex(t3, r"\| v1\.20 \*\(current\)\* \| 2026-11-01 \|")
+        self.assertEqual(t3.count("*(current)*"), 1)
 
     def test_g6_retraction_registry_notes(self):
         import hashlib
@@ -55219,6 +55242,39 @@ class TestBatchG6(unittest.TestCase):
         rf = self._g6h_r("documentation/RETRACTED_FIGURES.tsv")
         self.assertNotIn("PRODUCES the image, never the image", rf)
         self.assertIn("the residual\n#      is the tracked .png assets", rf)
+
+    # ---- CX-35X-I ------------------------------------------------------------------------------------
+    def test_g6_leaderboard_kw_column(self):
+        arch = self._g6h_r("enumeration/analyze_sec25fix_742M.txt")
+        self.assertIn("[21] Per-position pair frequency table (32 positions × 32 pairs)", arch, "precondition")
+        kw = {int(p): s for p, s in re.findall(r"^\s*pos\s+(\d+) \(\s*\d+ distinct\):.*?p\d+=([\d.]+)%\*", arch, re.M)}
+        self.assertEqual(sorted(kw), list(range(1, 33)), "precondition: §[21] stars King Wen at every position")
+        lb = self._g6h_r("enumeration/LEADERBOARD.md")
+        col = {int(p): v for p, v in re.findall(r"^\| (\d+) \| \S+ #\d+ / #\d+ \| ([\d.]+)% \|", lb, re.M)}
+        self.assertEqual(sorted(col), list(range(1, 33)))
+        bad = [p for p in col if float(col[p]) != float(kw[p])]
+        self.assertEqual(bad, [], "KW match %% disagrees with §[21] at positions %s" % bad)
+
+    def test_g6_leaderboard_legacy_notes(self):
+        lb = self._g6h_r("enumeration/LEADERBOARD.md")
+        rows = re.findall(r"^\| ䷀*\S+ #(\d+)/#\d+ \| ([\d,]+) \| [\d.—%]+ \|", lb, re.M)
+        counts = {int(h): int(c.replace(",", "")) for h, c in rows}
+        tot = sum(counts.values())
+        self.assertEqual(tot, 53060303, "precondition: the position-2 table total")
+        share = "%.1f%%" % (100.0 * counts[3] / tot)
+        self.assertEqual(share, "0.7%")
+        flat = " ".join(lb.split())
+        self.assertNotIn("absolute counts should be scaled by ~23x", flat)
+        self.assertNotIn("| No valid ordering is 1 swap from KW |", lb)
+        self.assertNotIn("single pair-swaps in positions 21-32", lb)
+        for frag in ("0.7% of the valid orderings in the table below (384,788 of 53,060,303",
+                     "King Wen sits at zero by construction", "the dead-branch classification is retired",
+                     "do **not** derive from this run", "21.25 GB (19.79 GiB)",
+                     "the full 560T `--analyze` log is not tracked"):
+            self.assertIn(" ".join(frag.split()), flat, frag)
+        allow = self._g6h_r("documentation/DOC_GATE_NUMBER_ALLOWLIST.txt")
+        self.assertIn("12:1785714292", allow, "precondition: the exempted key is still allowlisted")
+        self.assertIn("TRANSCRIBED, PRODUCER NOT ARCHIVED", allow)
 
     # ---- CX-35X-J ------------------------------------------------------------------------------------
     def test_g6_history_corrections_recorded(self):
@@ -55306,6 +55362,14 @@ class TestBatchG6(unittest.TestCase):
         er = self._g6h_f("enumeration/README.md")
         self.assertNotIn("full stdout of the April-15 10T", er)
         self.assertIn("The four files document two runs", er)
+
+    def test_g6_psb_budget_provenance(self):
+        log = self._g6h_gz("runs/20260418_10T_d3_fresh/enum_output.log.gz")
+        m = re.search(r"Per-sub-branch node limit: (\d+)", log)
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(1), "63145664", "precondition: the analysed run's budget")
+        psb = self._g6h_f("documentation/PARTITION_STABILITY_BOUNDARIES.md")
+        self.assertIn("stepping 63,145,664 → 631,456,644 → 3,536,157,207", psb)
 
     # ---- CX-35X-L ------------------------------------------------------------------------------------
     def test_g6_branches_explained(self):
@@ -55835,6 +55899,311 @@ class TestBatchFV2L(unittest.TestCase):
                          "BASE passed with a filter that did not run; this is not the pre-fix text")
 
 # end class TestBatchFV2L (push group FV2-L, CX-36D-*)
+
+
+class TestBatchFV2H(unittest.TestCase):
+    """Push group FV2-H (2026-11-01): published figures re-derived from their own pages and shipped as
+    DATED corrections that keep the old value (CX-36J-A..F), the items held from G6 (CX-35X-I, CX-36J-G),
+    errata pages for four frozen pre-registrations (CX-36J-H), the A102241 wording with a re-derivation of
+    the 64-value table (CX-36J-I) and TR-4's audit pointer (CX-36J-J; Q-183 part 1). Sites found by Codex
+    (gpt-6-astra) and triaged by Fable. Each test measures its precondition from the tree, then runs the same
+    check on the tree (must pass) and on the public parent BASE read with `git show` (must fail), so a check
+    that cannot tell the two apart fails. Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    BASE = "4d9cc323073fb3660f03ee41618f3eb7d9a2aec4"  # public G7; FV2-H's target files are unchanged from it to FV2-H's parent
+
+    def _read(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _base(self, rel, missing_ok=False):
+        r = subprocess.run(["git", "-C", self.ROOT, "show", self.BASE + ":" + rel], capture_output=True, text=True)
+        if r.returncode != 0 or not r.stdout:
+            if missing_ok:
+                return None
+            self.fail("git show %s:%s failed, so the red arm measured nothing: %s" % (self.BASE, rel, r.stderr[-300:]))
+        return r.stdout
+
+    @staticmethod
+    def _flat(t):
+        return " ".join(t.split())
+
+    def _discriminates(self, check, rel, missing_ok=False):
+        """check(text) -> list of problems. Green on the tree, red on BASE."""
+        self.assertEqual(check(self._read(rel)), [], rel)
+        old = self._base(rel, missing_ok)
+        if old is not None:
+            self.assertNotEqual(check(old), [], "the check is not red on the parent for " + rel)
+
+    @staticmethod
+    def _needs(t, need=(), never=()):
+        f = " ".join(t.split())
+        return (["lacks: " + n for n in need if " ".join(n.split()) not in f] +
+                ["still says: " + n for n in never if " ".join(n.split()) in f])
+
+    # ---- CX-36J-A ----------------------------------------------------------------------------------
+    def test_fv2h_performance_history(self):
+        rel = "documentation/PERFORMANCE_HISTORY.md"
+        t = self._read(rel)
+        m = re.search(r"AVX2 mean ([\d.]+)s, AVX-512 mean ([\d.]+)s", t)
+        self.assertIsNotNone(m, "precondition: the paired means")
+        self.assertEqual("%+.2f%%" % (100 * (float(m.group(2)) - float(m.group(1))) / float(m.group(1))), "+0.37%")
+        sd = re.findall(r"^\| THP=(?:always|never) \| 5 \| [\d,]+ \| [\d,]+ \| ([\d,]+) \|", t, re.M)
+        self.assertEqual(len(sd), 2, "precondition: the D8 stdev column")
+        a, b = (int(x.replace(",", "")) for x in sd)
+        self.assertEqual(("%.2f" % (a / b), "%.2f" % ((a / b) ** 2)), ("3.06", "9.39"))
+        src = subprocess.run(["git", "-C", self.ROOT, "show", "438d297:solve.c"], capture_output=True, text=True).stdout
+        self.assertIn("static pair_mask_t c2_compat_a[64];", src, "precondition: the table the page names")
+        self.assertIn("static pair_mask_t c2_compat_b[64];", src)
+        self.assertIn("typedef uint32_t pair_mask_t;", src)
+        self.assertEqual(2 * 64 * 4, 512)
+        self.assertIn("The thread allocates its 512 MB hash table", t, "precondition: per-thread table")
+        self.assertEqual(64 * 512 // 1024, 32)
+        self._discriminates(lambda x: self._needs(x, need=(
+            "enum_wall: **+0.37% (statistically zero, well within noise)** *(corrected 2026-11-01: was \"−0.37%\"",
+            "2 × 64 × 4 = 512 bytes", "was \"64 × 32 = 2,048 bytes table",
+            "about 3× the standard deviation (13,415 / 4,377 = 3.06; the variance ratio is ≈ 9.4)",
+            "essentially 32 GB hash on node 0 + 32 GB on node 1", "was \"64 GB hash on node 0 + 64 GB on node 1\""),
+            never=("enum_wall: **−0.37%", "THP=always has 3× higher variance", "essentially 64 GB hash on node 0")), rel)
+
+    # ---- CX-36J-B ----------------------------------------------------------------------------------
+    @staticmethod
+    def _max_run(s):
+        d = [bin(x ^ y).count("1") for x, y in zip(s, s[1:])]
+        best = r = 1
+        for i in range(1, len(d)):
+            r = r + 1 if d[i] == d[i - 1] else 1
+            best = max(best, r)
+        return best
+
+    def test_fv2h_solve_md(self):
+        sys.path.insert(0, self.ROOT)
+        import solve
+        kw = list(solve.binary_hexagrams)
+        self.assertTrue(solve._tg_valid_c15(kw), "precondition: the validator accepts King Wen")
+        pairs = [kw[2 * i:2 * i + 2] for i in range(32)]
+        pairs[1], pairs[24] = pairs[24], pairs[1][::-1]     # slots 2 and 25 exchanged, the pair placed in slot 25 reversed
+        alt = [h for p in pairs for h in p]
+        self.assertNotEqual(alt, kw)
+        self.assertTrue(solve._tg_valid_c15(alt), "the swapped ordering satisfies C1-C5")
+        self.assertEqual((self._max_run(kw), self._max_run(alt)), (3, 4), "max run length is not a C5 identity")
+        rel = "documentation/SOLVE.md"
+        t = self._read(rel)
+        self.assertRegex(t, r"- \*\*d2 10T\*\*: 4 working unordered 4-subsets", "precondition")
+        self.assertRegex(t, r"- \*\*d3 10T\*\*: 8 working unordered 4-subsets", "precondition")
+        cell = {}
+        for h in range(64):
+            cell.setdefault((h >> 3, h & 7), []).append(h)
+        self.assertEqual(max(len(v) for v in cell.values()), 1, "no two hexagrams share both trigrams")
+        self.assertEqual(2760021104 + 40320 * 40320, 4385723504)
+        self._discriminates(lambda x: self._needs(x, need=(
+            "**6 of the 8 are trivially forced by Rule 6", "was \"7 of the 8 are trivially forced\"",
+            "has max run length 4 against King Wen's 3",
+            "**4 at d2 10T, 8 at d3 10T, 0 at d3 100T, 0 at d3 560T**", "was \"4 at d2/d3 10T\"",
+            "2,760,021,104 + 1,625,702,400 = **4,385,723,504**"),
+            never=("**7 of the 8 are trivially forced", "**4 at d2/d3 10T")), rel)
+
+    # ---- CX-36J-C ----------------------------------------------------------------------------------
+    def test_fv2h_run_records(self):
+        import gzip
+        rows = [l.split("\t") for l in self._read("reports/evidence/r11/exact_audit.tsv").splitlines()]
+        row = [r for r in rows if len(r) > 4 and r[3] == "253232"]
+        self.assertEqual(len(row), 1, "precondition: the audited subtree")
+        pct = 100 * (float(row[0][4]) - 253232) / 253232
+        self.assertEqual("%.2f" % pct, "-0.11")
+        self._discriminates(lambda x: self._needs(x, need=("(est 2.5297×10⁵, −0.11%, 0.7σ; corrected 2026-11-01: was \"+0.11%\"",),
+                                                  never=("(est 2.5297×10⁵, +0.11%",)), "reports/evidence/r11/PHASE2_README.md")
+        with gzip.open(os.path.join(self.ROOT, "runs/20260419_100T_d3_d128westus3/enum_output.log.gz"), "rt",
+                       errors="replace") as fh:
+            log = fh.read()
+        self.assertIn("  104 sorted chunks created", log, "precondition")
+        self.assertRegex(log, r"Input files:\s+60533")
+        self.assertEqual(-(-13832832979 // 134217728), 104)
+        self._discriminates(lambda x: self._needs(x, need=("- **Merge chunks produced**: 104, from 60,533 input shard files",
+                                                           "was \"60,533\", the input-file count"),
+                                                  never=("- **Merge chunks produced**: 60,533 (",)),
+                            "runs/20260419_100T_d3_d128westus3/README.md")
+
+    # ---- CX-36J-D ----------------------------------------------------------------------------------
+    def test_fv2h_tr12_tv_bound(self):
+        import json
+        from fractions import Fraction
+        from math import comb
+        with open(os.path.join(self.ROOT, "runs/20260906_kc_ladders_n31/atlas_n31.json"), encoding="utf-8") as fh:
+            a = json.load(fh)
+        lay = a["layers"][4]
+        self.assertEqual(int(lay["k"]), 4, "precondition: layer index")
+        b0, n = (2, 8, 13, 7, 1), 31
+        rad = [1]
+        for d in range(4):
+            rad.append(rad[-1] * (b0[d] + 1))
+        rm = {int(k[1:]): int(v) for k, v in lay["rid_mass"].items()}
+        N = sum(rm.values())
+        s = qo = Fraction(0)
+        for r, v in rm.items():
+            dg = [(r // rad[d]) % (b0[d] + 1) for d in range(5)]
+            self.assertEqual(sum(dg), 4)
+            qn = 1
+            for d in range(5):
+                qn *= comb(b0[d], dg[d])
+            q = Fraction(qn, comb(n, 4))
+            s += abs(Fraction(v, N) - q)
+            qo += q
+        tv = (s + 1 - qo) / 2
+        self.assertGreater(tv, Fraction(415, 10000), "the layer-4 maximum exceeds 0.0415")
+        self.assertLess(tv, Fraction(4151, 100000))
+        self.assertEqual("%.4f" % tv, "0.0415", "the token's rounding is unchanged")
+        self.assertEqual("%.7f" % tv, "0.0415012")
+        self._discriminates(lambda x: self._needs(x, need=(
+            "sits within TV **0.04151** of the exchangeable null", "within TV 0.04151 of the exchangeable null",
+            "the total-variation distance is ≤ **0.04151** at every layer", "= 0.04150117 (to eight decimals)",
+            "| v1.36 *(current)* | 2026-11-01 |"),
+            never=("sits within TV **0.0415** of", "lies within TV 0.0415 of", "is ≤ **0.0415** at every layer")) +
+            ([] if len(re.findall(r"(?m)^\| v[\d.]+ \*\(current\)\* \|", x)) == 1 else ["current rows"]), "reports/TR12_QUERY_PROGRAM.md")
+        self._discriminates(lambda x: self._needs(x, need=("within 0.04151 total variation",), never=("within 0.0415 total variation",)),
+                            "reports/CAPSTONE_GUIDE.md")
+
+    # ---- CX-36J-E ----------------------------------------------------------------------------------
+    def test_fv2h_campaign_d_exponent(self):
+        import math
+        h = self._read("documentation/HISTORY.md")
+        m = re.search(r"growth factors ([\d,]+)× to ([\d,]+)× vs the 100T-aggregate yield", h)
+        self.assertIsNotNone(m, "precondition: Campaign D's growth factors")
+        self.assertIn("Power-law fit gives α = 0.72-0.77", h, "precondition: the published interval, kept (append-only)")
+        self.assertEqual(100 * 10 ** 12 // 158364, 631456644)
+        lo, hi = (math.log(int(g.replace(",", ""))) / math.log(1e12 / 631456644) for g in m.groups())
+        self.assertEqual(("%.2f" % lo, "%.2f" % hi), ("1.19", "1.33"))
+        self.assertTrue(self._read("documentation/CORRECTIONS.md").startswith(self._base("documentation/CORRECTIONS.md")),
+                        "CORRECTIONS.md is append-only")
+        self.assertTrue(h.startswith(self._base("documentation/HISTORY.md")), "HISTORY.md is append-only")
+
+        def chk(x):
+            e = re.search(r"^## CX-36J-E — .*?(?=^## )", x + "\n## ", re.M | re.S)
+            return ["no CX-36J-E"] if e is None else self._needs(e.group(0), need=("**1.19**", "**1.33**", "*super*-linear"))
+        self._discriminates(chk, "documentation/CORRECTIONS.md")
+
+    # ---- CX-36J-F ----------------------------------------------------------------------------------
+    def test_fv2h_canonical_coverage(self):
+        import math
+        f = 10525271997 / math.factorial(31)
+        self.assertEqual(("%.2e" % f, "%.2e" % (1 / f)), ("1.28e-24", "7.81e+23"))
+        self._discriminates(lambda x: self._needs(x, need=(
+            "CORRECTED 2026-11-01 — the withdrawal above also takes this line's \"≈1 part in 10²⁷ of the space\"",
+            "≈ 1.28×10⁻²⁴", "at least 1 part in 7.81×10²³")), "documentation/CANONICAL_HASHES.md")
+
+    # ---- CX-35X-I, CX-36J-G ------------------------------------------------------------------------
+    def test_fv2h_g6h_release(self):
+        old = self._base("enumeration/LEADERBOARD.md")
+        col = re.findall(r"^\| \d+ \| \S+ #\d+ / #\d+ \| ([\d.]+)% \|", old, re.M)
+        self.assertEqual(len(col), 32, "precondition: the published column")
+        listed = ", ".join(col)
+        self._discriminates(lambda x: self._needs(x, need=(
+            "The column as published before this note read, positions 1-32: " + listed,
+            "corrected 2026-11-01: was \"0.2% of valid orderings\"", "\"by ~23x for the 742M dataset\"")),
+            "enumeration/LEADERBOARD.md")
+        ch = self._read("documentation/CANONICAL_HASHES.md")
+        self._discriminates(lambda x: self._needs(x, need=(
+            "11.2T (+4.84%; corrected 2026-11-01: was +4.83%", "(+4.84%; corrected 2026-11-01: was +4.83%; 36,748,712 / 759,608,573 = 4.838%",
+            "this row was dated 2026-05-21 and gave a v3+v3.1 ARM binary `e5cfc6cd…`")), "documentation/CANONICAL_HASHES.md")
+        self.assertEqual(ch.count("corrected 2026-11-01: was +4.83%"), 2)
+        self._discriminates(lambda x: self._needs(x, need=("stepping 63,145,664 → 631,456,644", "corrected 2026-11-01: was 63,146,557")),
+                            "documentation/PARTITION_STABILITY_BOUNDARIES.md")
+        self._discriminates(lambda x: self._needs(x, need=("Note 2026-11-01, CX-36J-G: that row no longer records this.",
+                                                           "binary id not in the public record")),
+                            "documentation/CAMPAIGN_METHODOLOGY.md")
+        cor = self._read("documentation/CORRECTIONS.md")
+        for hdr in ("## CX-35X-I — ", "## CX-36J-G — "):
+            self.assertEqual(cor.count(hdr), 1, hdr)
+        self.assertEqual(self._base("documentation/CORRECTIONS.md").count("## CX-35X-I — "), 0, "precondition: CX-35X-I is new")
+
+    # ---- CX-36J-H ----------------------------------------------------------------------------------
+    ERRATA = {
+        "documentation/ERRATA_PREREG_H1_H3_TEST_2026_07_26_2026_11_01.md": "documentation/PREREG_H1_H3_TEST_2026_07_26.md",
+        "documentation/ERRATA_PREREG_CLASSA_QUERY_SET_2026_11_01.md": "documentation/PREREG_CLASSA_QUERY_SET.md",
+        "documentation/ERRATA_PREREG_C8SCREEN_AMENDMENT_1_2026_11_01.md": "reports/evidence/c8screen/PREREGISTRATION_AMENDMENT_1.md",
+        "documentation/ERRATA_PREREG_QOY1_Q992_2026_11_01.md": "reports/evidence/qoy1_q992/PREREGISTRATION.md",
+    }
+
+    def test_fv2h_prereg_errata(self):
+        import hashlib
+        import math
+        for page, frozen in self.ERRATA.items():
+            with open(os.path.join(self.ROOT, frozen), "rb") as fh:
+                raw = fh.read()
+            self.assertEqual(raw.decode("utf-8"), self._base(frozen), "the frozen file is unchanged: " + frozen)
+            self.assertTrue(os.path.exists(os.path.join(self.ROOT, page)), page)
+            self.assertIsNone(self._base(page, missing_ok=True), "precondition: the page is new")
+            m = re.search(r"sha256 `([0-9a-f]{64})`", self._read(page))
+            self.assertIsNotNone(m, page)
+            self.assertEqual(m.group(1), hashlib.sha256(raw).hexdigest(), "the page names the frozen file's digest")
+        self.assertEqual("%.3f" % math.log2(270), "8.077")
+        printed, fixed = 10 ** 6 * 2 ** -10.06, 10 ** 6 * 2 ** -(math.log2(270) + 2)
+        self.assertEqual((math.floor(fixed) + 1, math.floor(printed)), (926, 936))
+        src = self._read("solve.c")
+        i = src.index("if (knuth_score_f4p) score_f4p(seq, W, a);")
+        self.assertGreater(i, src.rindex("if (compute_comp_dist_x64(seq) <= kw_comp_dist_x64) {", 0, i),
+                           "structural: score_f4p is reached only through the C3 test")
+        h13 = self._read("documentation/ERRATA_PREREG_H1_H3_TEST_2026_07_26_2026_11_01.md")
+        self.assertEqual(self._needs(h13, need=("log₂ 270 = **8.0768**", "**10.077**", "from 926 to 936",
+                                                "omits C3", "resolvable as a point estimate")), [])
+        self._discriminates(lambda x: self._needs(x, need=tuple("](%s)" % os.path.basename(p) for p in self.ERRATA)),
+                            "documentation/README.md")
+
+    # ---- CX-36J-I ----------------------------------------------------------------------------------
+    TRI = {"qian": 0b111, "dui": 0b011, "li": 0b101, "zhen": 0b001, "xun": 0b110, "kan": 0b010, "gen": 0b100, "kun": 0b000}
+    KW_UL = ("qian qian", "kun kun", "kan zhen", "gen kan", "kan qian", "qian kan", "kun kan", "kan kun",
+             "xun qian", "qian dui", "kun qian", "qian kun", "qian li", "li qian", "kun gen", "zhen kun",
+             "dui zhen", "gen xun", "kun dui", "xun kun", "li zhen", "gen li", "gen kun", "kun zhen",
+             "qian zhen", "gen qian", "gen zhen", "dui xun", "kan kan", "li li", "dui gen", "zhen xun",
+             "qian gen", "zhen qian", "li kun", "kun li", "xun li", "li dui", "kan gen", "zhen kan",
+             "gen dui", "xun zhen", "dui qian", "qian xun", "dui kun", "kun xun", "dui kan", "kan xun",
+             "dui li", "li xun", "zhen zhen", "gen gen", "xun gen", "zhen dui", "zhen li", "li gen",
+             "xun xun", "dui dui", "xun kan", "kan dui", "xun dui", "zhen gen", "kan li", "li kan")
+
+    def _derived(self):
+        # a trigram's lines bottom to top are bits 0..2; the upper trigram is bits 3..5
+        out = []
+        for ul in self.KW_UL:
+            u, l = ul.split()
+            out.append(self.TRI[u] << 3 | self.TRI[l])
+        return out
+
+    @staticmethod
+    def _table(src):
+        m = re.search(r"^binary_hexagrams = \[(.*?)^\]", src, re.M | re.S)
+        return None if m is None else [int(x, 2) for x in re.findall(r"0b([01]{6})", m.group(1))]
+
+    def test_fv2h_a102241_rederive(self):
+        want = self._derived()
+        self.assertEqual(len(want), 64)
+        self.assertEqual(sorted(want), list(range(64)), "the derivation is a permutation of the 64 hexagrams")
+        for rel in ("roae.py", "solve.py"):
+            got = self._table(self._read(rel))
+            self.assertEqual(got, want, rel)
+            mutant = list(got)
+            mutant[2], mutant[3] = mutant[3], mutant[2]
+            self.assertNotEqual(mutant, want, "positive control: a swapped pair is caught")
+
+    def test_fv2h_a102241_wording(self):
+        for rel in ("roae.py", "solve.py"):
+            self._discriminates(lambda x: self._needs(x, need=("Matches OEIS A102241 (convention: bit 0 = bottom)",),
+                                                      never=("Source: https://oeis.org/A102241",)), rel)
+        self._discriminates(lambda x: self._needs(x, need=("match it (convention: bit 0 = bottom)",),
+                                                  never=("- **[A102241](https://oeis.org/A102241)** — King Wen binary encoding of the 64 hexagrams. Used as the source",)),
+                            "documentation/CITATIONS.md")
+
+    # ---- CX-36J-J ----------------------------------------------------------------------------------
+    def test_fv2h_tr4_pointer(self):
+        rel = "reports/TR4_SIZE_OF_THE_SPACE.md"
+        t = self._read(rel)
+        self.assertRegex(t, r"(?m)^\| v1\.22 \|", "precondition: the v1.22 row it names")
+        self.assertRegex(t, r"(?m)^\| v1\.25 \|", "precondition: the v1.25 row it names")
+        self.assertIn("## 2026-09-02 — TR-4: a withdrawn cross-check still live in the body", self._read("documentation/CORRECTIONS.md"), "precondition")
+        self.assertIn("Codex V2-F06 #1", self._read("documentation/RETRACTED_PHRASES.tsv"), "precondition")
+        self._discriminates(lambda x: self._needs(x, need=(
+            "audit. The three-rung ladder validation stands.]** ⚠ *(Pointer corrected 2026-11-01, CX-36J-J:",
+            "| v1.47 *(current)* | 2026-11-01 |")) + ([] if len(re.findall(r"(?m)^\| v[\d.]+ \*\(current\)\* \|", x)) == 1 else ["current rows"]), rel)
 
 
 if __name__ == "__main__":

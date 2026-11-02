@@ -103,7 +103,7 @@ the **15 of 56 branches** whose fixed prefix violates a strict predicate and poo
 - **Exact-count audits** (`exact_audit.tsv`, `battery.log`): 24 deep-prefix subtrees
   (depths 20/22/24 × 8 seeds), Knuth estimate vs brute-force `exact_count`. Three subtrees
   are non-empty and reproduced by the estimator machinery to ≤0.11%: 253,232
-  (est 2.5297×10⁵, +0.11%, 0.7σ); 75,971,424 (est 7.5958×10⁷, −0.02%, 1.0σ); 1,106,032
+  (est 2.5297×10⁵, −0.11%, 0.7σ; corrected 2026-11-01: was "+0.11%" — `exact_audit.tsv` gives est 252,965.7 against exact 253,232, (252,965.7 − 253,232) / 253,232 = −0.105%; Codex F02-012#13, CX-36J-C); 75,971,424 (est 7.5958×10⁷, −0.02%, 1.0σ); 1,106,032
   (est 1.1063×10⁶, +0.03%, 2.4σ). **Scope precision:** the audits ran *without* the strict
   prunes (they validate the estimator machinery — probe weighting, CI construction, prefix
   handling, the canonical/C3 filter — against brute force, not the Moore/gender strict

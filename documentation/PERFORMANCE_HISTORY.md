@@ -363,7 +363,7 @@ Three sites in the DFS hot path are vectorizable to AVX-512: complement-distance
 - output sha: byte-identical (sha-preservation gate trivially passed since both builds run the same vectorized code; the only differences are register-allocation noise)
 
 ### Delta vs baseline (scalar / AVX2-only at same commit, 1T)
-- enum_wall: **−0.37% (statistically zero, well within noise)**
+- enum_wall: **+0.37% (statistically zero, well within noise)** *(corrected 2026-11-01: was "−0.37%". From the means above, (434.6 − 433.0) / 433.0 = +0.37%: the AVX-512 build was 0.37% slower than the AVX2 baseline, not faster, and the difference is noise either way. Codex F12-016#14; [CORRECTIONS.md](CORRECTIONS.md) CX-36J-A.)*
 - sha changed: no
 
 ### Sha gate
@@ -435,7 +435,7 @@ Precompute a 64-entry `c2_compat[hex]` mask. After placing hex h, AND the remain
 - result: PASS (this was the consolation prize — the prune was correct, just slow)
 
 ### Notes
-**The instructive loss entry.** Hypothesis was that the cheap AND-with-mask op would dominate; reality was that the precomputed `c2_compat[hex]` table thrashed the L1d cache (64 × 32 = 2,048 bytes table competing with the hash table on every inner iteration), and the branch predictor was already optimally handling the without-lookahead case via the C2-failed-and-iterate pattern. Lesson: micro-architectural simulation isn't a substitute for paired bench at scale.
+**The instructive loss entry.** Hypothesis was that the cheap AND-with-mask op would dominate; reality was that the precomputed `c2_compat[hex]` table thrashed the L1d cache (two 64-entry `uint32_t` tables, `c2_compat_a` and `c2_compat_b`: 2 × 64 × 4 = 512 bytes, consulted on every inner iteration) *(corrected 2026-11-01: was "64 × 32 = 2,048 bytes table competing with the hash table on every inner iteration"; `solve.c` at `438d297` declares `static pair_mask_t c2_compat_a[64]` and `c2_compat_b[64]` with `typedef uint32_t pair_mask_t`. The L1d-thrash mechanism was never measured and remains a hypothesis; the measured fact is the −10.7% paired bench above. Codex F12-016#5; [CORRECTIONS.md](CORRECTIONS.md) CX-36J-A.)*, and the branch predictor was already optimally handling the without-lookahead case via the C2-failed-and-iterate pattern. Lesson: micro-architectural simulation isn't a substitute for paired bench at scale.
 
 Commit `9d00c48` reverts `438d297`. Both commits are kept in the lineage so the bench can be reproduced. Task #71 is marked `[NO-SHIP]`.
 
@@ -860,7 +860,7 @@ Transparent huge pages (THP) reduce TLB pressure on memory-bandwidth-bound workl
 | THP=always | 5 | 56,431 | 58,691 | 13,415 | 43,601 | 80,531 |
 | THP=never | 5 | 43,819 | 46,299 | 4,377 | 42,816 | 51,916 |
 
-**Median Δ = +22.3% (THP=never faster).** THP=always has 3× higher variance with an 80s outlier — classic THP defragmentation noise on a small memory footprint with limited slack.
+**Median Δ = +22.3% (THP=never faster).** THP=always has about 3× the standard deviation (13,415 / 4,377 = 3.06; the variance ratio is ≈ 9.4) *(corrected 2026-11-01: was "3× higher variance"; 3.06 is the ratio of the stdev column above, and the variance ratio is 3.06² ≈ 9.39. Codex F12-016#13; [CORRECTIONS.md](CORRECTIONS.md) CX-36J-A.)* with an 80s outlier — classic THP defragmentation noise on a small memory footprint with limited slack.
 
 ### Result — D128 100B (canonical-equivalent, 128-core, 64 GB total hash)
 
@@ -984,7 +984,7 @@ solve.c's allocation pattern is "thread-per-core, allocate one large hash table 
 3. On first write to a page, the kernel allocates the physical page on the NUMA node of the CURRENT thread.
 4. Since the thread is on (typically) one node throughout its lifetime, all of its memory ends up on that local node.
 
-With 128 threads spread evenly across 64+64 cores, the default-policy distribution is essentially 64 GB hash on node 0 + 64 GB on node 1 — the same balanced distribution that `--interleave=all` would force. So explicit interleaving has no benefit; the default is already NUMA-local.
+With 128 threads spread evenly across 64+64 cores, the default-policy distribution is essentially 32 GB hash on node 0 + 32 GB on node 1 (64 GB in all, as this entry's heading says) *(corrected 2026-11-01: was "64 GB hash on node 0 + 64 GB on node 1"; 64 threads per node × 512 MB = 32 GB per node, 128 × 512 MB = 64 GB in all. Codex F12-016#12; [CORRECTIONS.md](CORRECTIONS.md) CX-36J-A.)* — the same balanced distribution that `--interleave=all` would force. So explicit interleaving has no benefit; the default is already NUMA-local.
 
 **Workloads where `--interleave=all` would help** typically have:
 - Frequent thread migration across NUMA nodes (e.g., dynamic work queues), OR

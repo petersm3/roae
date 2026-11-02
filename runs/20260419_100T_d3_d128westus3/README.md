@@ -19,7 +19,7 @@ the 100T sha depends only on solver + inputs, not subsequent doc edits).
 
 - **Solutions.bin size**: 109,836,777,536 bytes (102.3 GB)
 - **Pre-dedup records processed**: 13,832,832,979
-- **Merge chunks produced**: 60,533 (external merge via P40 Premium SSD scratch)
+- **Merge chunks produced**: 104, from 60,533 input shard files (external merge via P40 Premium SSD scratch) *(corrected 2026-11-01: was "60,533", the input-file count; `enum_output.log.gz` says `104 sorted chunks created`, and 13,832,832,979 records / 134,217,728 per chunk rounds up to 104. See the note on merge chunks below. Codex F07-010#7, F12-020#10; [CORRECTIONS.md](../../documentation/CORRECTIONS.md) CX-36J-C.)*
 - **Distinct from 10T sha** `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e` because 100T has a different `SOLVE_NODE_LIMIT` parameter. **DEPRECATION NOTE (added 2026-08-01):** that 10T d3 sha, and the 706,422,987 count derived from it, were **deprecated 2026-05-13** as a pre-resume-fix *undercount* (incomplete by 4,607 records lost via imperfect resume); the current 10T d3 canonical is `b85c887128ce9881229741380a799c4e1608335df438cedc3da9e087fd94dbbc` / 706,427,594 records — see [CANONICAL_HASHES.md](../../documentation/CANONICAL_HASHES.md) §Deprecated. Every 10T figure in this file (including the ~4.86x ratio below) is computed from the deprecated undercount and is left as-published for the historical record. The 100T sha, count and analysis in this file are unaffected. Both were valid canonical references at their respective budgets at archive time (per [PARTITION_INVARIANCE.md](../../documentation/PARTITION_INVARIANCE.md), sha is a function of solver + inputs).
 
 ## Relationship to 10T canonical

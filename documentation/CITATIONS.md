@@ -2044,7 +2044,7 @@ certified-counting checks rest on this stack.)*
 ## Integer Sequences (OEIS)
 
 <a id="oeis-a102241"></a>
-- **[A102241](https://oeis.org/A102241)** — King Wen binary encoding of the 64 hexagrams. Used as the source of ROAE's `binary_hexagrams` constants in `roae.py`.
+- **[A102241](https://oeis.org/A102241)** — King Wen binary encoding of the 64 hexagrams. ROAE's `binary_hexagrams` constants in `roae.py` and `solve.py` match it (convention: bit 0 = bottom); `tests.py` re-derives all 64 from the trigram definitions and the King Wen order. *(Corrected 2026-11-01: this read "Used as the source of ROAE's `binary_hexagrams` constants in `roae.py`"; CX-36J-I.)*
 
 ---
 

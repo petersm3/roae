@@ -81,7 +81,7 @@ unicode_hexagrams = [
 
 # Each hexagram encoded as a 6-bit integer where each bit represents one line:
 # 1 = solid (yang), 0 = broken (yin). Bit 0 is the bottom line, bit 5 the top.
-# Values follow the King Wen sequence. Source: https://oeis.org/A102241
+# Values follow the King Wen sequence. Matches OEIS A102241 (convention: bit 0 = bottom)
 binary_hexagrams = [
     0b111111, 0b000000, 0b010001, 0b100010,  # ䷀ ䷁ ䷂ ䷃
     0b010111, 0b111010, 0b000010, 0b010000,  # ䷄ ䷅ ䷆ ䷇

@@ -754,8 +754,9 @@ orderings, which depend on how the steps relate to each other, stay open.
   total variation of uniform (**measured**). King Wen's own pair at its own slot has probability
   between 0.0299 and 0.0337 at every interior slot (**measured**), near the uniform 1/31 ≈ 0.0323.
   These are slot-by-slot comparisons; the joint pattern of placements has not been tested.
-- At each layer, the distribution of the remaining jump budget is within 0.0415 total variation of
-  what you get by shuffling the 31 jump sizes uniformly at random (**measured**). We have not
+- At each layer, the distribution of the remaining jump budget is within 0.04151 total variation of
+  what you get by shuffling the 31 jump sizes uniformly at random (**measured**; corrected 2026-11-01: was "0.0415",
+  the largest layer's exact value being 0.0415012, CX-36J-D). We have not
   tested whether this closeness is unusual.
 - Two checks compare the atlas with numbers the project published from a different instrument, and
   both print `FAIL`, by about twelve times their tolerance (**measured**). The populations differ by C3: the atlas

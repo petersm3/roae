@@ -36642,3 +36642,317 @@ tree reports `filter_rc=2` and the parent reports `PASS constants=1`).
 
 Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, push group FV2-L; the defect was found by Codex
 (gpt-6-astra), fix-verification round, F05-020#4.
+
+## CX-36J-A — PERFORMANCE_HISTORY.md: a slowdown printed as a speedup, a table size four times too large, a standard-deviation ratio called a variance ratio, and a per-node hash footprint doubled (documentation/PERFORMANCE_HISTORY.md; tests.py)
+
+**2026-11-01.** **Source.** Codex (gpt-6-astra), fix-verification round, F12-016#14, F12-016#5, F12-016#13 and
+F12-016#12; Fable's slice triage (rows D336, D337, D343, D344, tagged as published figures and held for the
+operator; released for dated correction 2026-10-29); push group FV2-H. Each figure is re-derived from numbers on the
+same page (or, for the table size, the commit the page names), and each site now carries the corrected value with
+a dated note that keeps the old one.
+
+**What was published, and what it says now.**
+- AVX-512 v8 retry, delta vs baseline: "enum_wall: −0.37%". The page's own means are 433.0 s (AVX2) and 434.6 s
+  (AVX-512): (434.6 − 433.0) / 433.0 = **+0.37%**, a slowdown within noise. Now "+0.37%".
+- Task #71 (one-step C2 lookahead), the instructive loss: "64 × 32 = 2,048 bytes table". At `438d297`, `solve.c`
+  declares `static pair_mask_t c2_compat_a[64]` and `c2_compat_b[64]` with `typedef uint32_t pair_mask_t`:
+  2 × 64 × 4 = **512 bytes**. Now 512 bytes, with the note that the L1d-thrash mechanism was never measured and
+  remains a hypothesis (the measured fact is the −10.7% paired bench).
+- THP bench, D8 1B: "THP=always has 3× higher variance". The table's stdev column gives 13,415 / 4,377 = **3.06**,
+  a ratio of standard deviations; the variance ratio is 3.06² ≈ **9.39**. Now "about 3× the standard deviation
+  (variance ratio ≈ 9.4)".
+- NUMA bench, "Why null": "64 GB hash on node 0 + 64 GB on node 1". 128 threads × 512 MB = 64 GB in all (the
+  entry's heading), so 64 threads per node × 512 MB = **32 GB** per node. Now "32 GB … + 32 GB … (64 GB in all)".
+
+No sha, record count or verdict changes; every bench verdict on the page is unchanged.
+
+**Tests.** `TestBatchFV2H.test_fv2h_performance_history` recomputes each value from the page's own operands (the two
+means, the stdev column, the thread count and per-thread table size) and from `git show 438d297:solve.c`, then
+requires the corrected value and the dated note; red on the parent, which prints the old values.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-H; the sites were found by Codex
+(gpt-6-astra), fix-verification round, F12-016#14, F12-016#5, F12-016#13, F12-016#12.
+
+## CX-36J-B — SOLVE.md: max run length listed as a C5 identity, one 4-subset count given for two partitions, and the two Latin traversal families called one population (documentation/SOLVE.md; tests.py)
+
+**2026-11-01.** **Source.** Codex (gpt-6-astra), fix-verification round, F12-023#1, F12-023#11 and F12-023#12;
+Fable's slice triage (rows D402, D403, D409); push group FV2-H.
+
+**What was published, and what it says now.**
+- §Differential analysis: "7 of the 8 are trivially forced by Rule 6 (C5)", with max run length among them. Max
+  run length is the longest run of equal consecutive Hamming distances, which C5's histogram does not fix: King Wen
+  with pair slots 2 and 25 exchanged (the pair placed in slot 25 reversed) satisfies C1–C5 (`solve.py`'s
+  `_tg_valid_c15`: C1, C4, the C5 multiset, C3 ≤ 776) and has max run length **4**, against King Wen's 3. Now
+  "6 of the 8 are trivially forced"; max run length was constant across that 10⁹-node slice but is not forced.
+- Boundary-minimum paragraph: "4 at d2/d3 10T". The page's own bullets give **4** working 4-subsets at d2 10T and
+  **8** at d3 10T. Now "4 at d2 10T, 8 at d3 10T".
+- Structured-permutation nulls: the roster said the Latin column×row row "re-traverses the same 8!×8! population"
+  as row×column. A row-first sequence's first eight entries share an upper trigram and a column-first sequence's
+  share a lower trigram; no eight distinct hexagrams share both, so the two families are disjoint. A dated note now
+  says so and gives the sum, 2,760,021,104 + 1,625,702,400 = **4,385,723,504** permutations tested in the
+  unconditional families, zero satisfying C1. The six-family roster total 2,760,021,104 and its sibling sites
+  (CRITIQUE.md, GUIDE.md, PROJECT_OVERVIEW.md, SOLVE_SUMMARY.md), which count the six families, stay true and are
+  unchanged.
+
+No sha, record count or verdict changes.
+
+**Tests.** `TestBatchFV2H.test_fv2h_solve_md` builds the swapped ordering, requires `_tg_valid_c15` to accept it
+and its max run length to be 4 (King Wen's 3), checks the d2/d3 bullets give 4 and 8, checks no hexagram sequence
+can be both row-first and column-first, and requires the corrected sentences; red on the parent.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-H; the sites were found by Codex
+(gpt-6-astra), fix-verification round, F12-023#1, F12-023#11, F12-023#12.
+
+## CX-36J-C — two run records: an exact-count audit's sign, and a merge-chunk count that was the input-file count (reports/evidence/r11/PHASE2_README.md; runs/20260419_100T_d3_d128westus3/README.md; tests.py)
+
+**2026-11-01.** **Source.** Codex (gpt-6-astra), F02-012#13, F07-010#7 and F12-020#10; Fable's slice triage (rows
+D865, D905); push group FV2-H.
+
+**What was published, and what it says now.**
+- r11 PHASE2_README, exact-count audits: the 253,232 subtree's estimate was printed "+0.11%". `exact_audit.tsv`
+  gives est 252,965.7 against exact 253,232: (252,965.7 − 253,232) / 253,232 = **−0.105%**. Now "−0.11%". The
+  "≤0.11%" magnitude in the same sentence is unchanged.
+- 100T d3 run README, summary list: "Merge chunks produced: 60,533". `enum_output.log.gz` has `104 sorted chunks
+  created` and `Input files: 60533`; 13,832,832,979 records / 134,217,728 per chunk rounds up to 104. Now "104,
+  from 60,533 input shard files". CX-35X-K added the explanatory note lower on the same page; the summary line
+  itself now carries the value.
+
+No sha, record count or verdict changes.
+
+**Tests.** `TestBatchFV2H.test_fv2h_run_records` reads the audit row from `exact_audit.tsv` and the chunk lines from
+`enum_output.log.gz`, recomputes both, and requires the corrected lines; red on the parent.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-H; the sites were found by Codex
+(gpt-6-astra), F02-012#13, F07-010#7, F12-020#10.
+
+## CX-36J-D — TR-12 §12.6: "within total variation 0.0415 at every layer", where the layer-4 maximum is 0.0415012 (reports/TR12_QUERY_PROGRAM.md; reports/CAPSTONE_GUIDE.md; tests.py)
+
+**2026-11-01.** **Source.** Codex (gpt-6-astra), F07-004#6 (an exact-rational recomputation); Fable's slice triage
+(row D630, which asked for one instrument run before the figure moved); push group FV2-H.
+
+**What was published, and what it says now.** TR-12's abstract, its summary paragraph and §12.6, and the capstone
+guide, said the residual C5 budget lies within total variation **0.0415** of the exchangeable null at every layer
+("≤ 0.0415" in §12.6). The instrument computes the statistic in exact rationals and prints it to four decimals.
+Run on the committed atlas `runs/20260906_kc_ladders_n31/atlas_n31.json` with the token printing its own
+`max(tv_hyper)` exactly, the maximum is at k = 4 and equals
+1121676961526360448677589295423047 / 27027598732681779457028289005338315 = **0.04150117 (to eight decimals)**, above
+0.0415 at the sixth decimal (its fifth significant figure). An independent recomputation from the atlas's `rid_mass`
+layer 4 and the multivariate-hypergeometric
+law gives the same rational. The four sites now read **0.04151** (0.0415012 exact), each with a dated note keeping
+"0.0415". The token `EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS=0.0415` is the same number rounded and is unchanged, as
+are the sites that quote it as a rounded value. HISTORY.md's 2026-10-17 echo ("§12.6's TV 0.0415 is a per-layer bound") is append-only and is corrected
+here. TR-12 v1.36.
+
+No sha, token, count or verdict changes.
+
+**Tests.** `TestBatchFV2H.test_fv2h_tr12_tv_bound` recomputes layer 4's total variation from the atlas in exact
+rationals, requires it to exceed 0.0415 and to round to the token's 0.0415, and requires every "within … 0.0415"
+bound to be gone and the 0.04151 sites present; red on the parent.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-H; the defect was found by Codex
+(gpt-6-astra), F07-004#6.
+
+## CX-36J-E — HISTORY.md, Campaign D: the power-law exponent is 1.19–1.33, not 0.72–0.77, and it is super-linear (documentation/HISTORY.md, recorded here; tests.py)
+
+**2026-11-01.** **Source.** Codex (gpt-6-astra), F07-010#5; Fable's slice triage (row D269); push group FV2-H.
+HISTORY.md is append-only, so its entries are not edited; this entry is the correction, and the 2026-11-01 HISTORY
+section points here.
+
+**What was published, and what it says now.** HISTORY.md's Campaign D paragraph (the 2026-04 calibration of the ten
+yield-1,116 branches) and its closed-items list give "α = 0.72–0.77" and call it *sub-linear*. From the paragraph's
+own numbers — growth factors 6,319× to 17,476× when the per-branch budget went from the 100T aggregate share,
+100 × 10¹² / 158,364 = 631,456,644 nodes, to 10¹² — the exponent is α = ln(growth) / ln(10¹² / 631,456,644):
+ln 6,319 / ln 1,583.6 = **1.19** to ln 17,476 / ln 1,583.6 = **1.33**. Both are above 1, so the reading is
+*super*-linear; the 0.72–0.77 interval and the "sub-linear" label are withdrawn, and so is the "α-inversion"
+against the yield-16 laggards' 4.23 drawn from them. The endpoint comparison is confounded by traversal order (the
+two budgets walk different parts of each tree). The budget-artifact finding — "yield = 1,116" was an artifact of
+the aggregate budget, not a structural class — is unchanged.
+
+**Tests.** `TestBatchFV2H.test_fv2h_campaign_d_exponent` reads the growth factors from HISTORY.md, recomputes the
+two exponents, and requires this entry to state them; red on the parent, which has no entry.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-H; the defect was found by Codex
+(gpt-6-astra), F07-010#5.
+
+## CX-36J-F — CANONICAL_HASHES.md: "≈1 part in 10²⁷" outlived the withdrawal of the figure it was computed from (documentation/CANONICAL_HASHES.md; tests.py)
+
+**2026-11-01.** **Source.** Codex (gpt-6-astra), F07-009#12; Fable's slice triage (row D50); push group FV2-H.
+
+**What was published, and what it says now.** The 560T campaign paragraph says 560T's 10.5 B records are "≈1 part in
+10²⁷ of the space", a figure computed from the distinct-canonical estimate that the same line withdrew on
+2026-08-24. A dated note after that withdrawal now extends it to the 10²⁷ and states the two bounds the ledger
+already gives: against the 31! ≈ 8.2228×10³³ ceiling, 10,525,271,997 / 8.2228×10³³ ≈ **1.28×10⁻²⁴** (at least 1 part
+in 7.81×10²³ of the distinct C1–C5 pair orderings, at most 31! of them); raw against raw, at least 1 part in 3.03×10²⁷
+(the 2026-08-24 entry, which the 2026-09-02 entry relabelled a bound, not an approximate equality).
+
+No sha, record count or verdict changes.
+
+**Tests.** `TestBatchFV2H.test_fv2h_canonical_coverage` recomputes 10,525,271,997 / 31! and requires the note; red
+on the parent.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-H; the defect was found by Codex
+(gpt-6-astra), F07-009#12.
+
+## CX-35X-I — the leaderboard's KW-match column matched no row of the archive it cites, its dead-branch scaling did not reproduce the archive, and its legacy notes overstated three readings; two allowlisted counter families had no producer (enumeration/LEADERBOARD.md; documentation/DOC_GATE_NUMBER_ALLOWLIST.txt; tests.py)
+
+**2026-11-01.** **Source.** Codex (gpt-6-astra), final review, F07-009#4, F07-009#5, F07-009#6, F07-009#7,
+F07-009#8, F07-009#14, F07-009#21, F07-008#4, F07-007#19 and F07-014#2; triaged by Fable (fast-track batch
+FT3h). Built in push group G6, held there for the operator, released 2026-10-29 and shipped in push group FV2-H
+with Fable's FIX-2 (the old column kept in the note).
+
+**What was published, and what it says now.**
+- The per-position table's "KW match %" column disagreed with §[21] of `enumeration/analyze_sec25fix_742M.txt`,
+  the per-position pair-frequency table of the archive the page cites, in 31 of 32 rows. The column is now read
+  from §[21] (the starred King Wen pair at each position), and the note under the table keeps the 32 values it
+  replaced (100.0, 0.2, 0.2, 0.5, … 18.4, 21.3; position 19 read 49.4 and is 40.96, position 21 read 16.4 and is
+  43.03); the Pairs-observed and Entropy columns were re-read
+  from the same archive on 2026-09-07. The position-2 paragraph gave King Wen's share as a figure its own table
+  does not give, 0.2%; it now reads 0.7% (384,788 of 53,060,303, the KW row over the table's total).
+- The position-2 table's caption said its counts should be scaled by a single factor (~23×) for the 742M dataset and
+  that the dead-branch classification was believed correct. No single factor reproduces §[11]'s per-pair
+  counts or their order, and §[11] gives all 12 "dead" pairs positive counts; the classification is retired at
+  the caption and in "What remains unknown".
+- The edit-distance table's notes said no ordering is "1 swap" from King Wen and that the distance-2 orderings
+  are swaps in positions 21–32. A single pair swap changes two positions; two of the 44 distance-2 orderings
+  swap positions 2 and 3 (§[24]).
+- "King Wen … sits at one extreme" was inferred from a histogram of distance *from King Wen*, where King Wen
+  sits at zero by construction. A note says the table shows most orderings are far from King Wen, not that
+  King Wen is atypical.
+- The status note attributed the branch and sub-branch breakdowns to the 2026-04-18 run; they come from the
+  earlier 56-branch regime and have no archived producing command or receipt. The note and a dated block at the
+  foot of the page say so, and the allowlist entries that exempt those two counter families now read
+  "transcribed, producer not archived".
+- The single-branch pilot paragraph: 664,086,250 × 32 bytes is 21.25 GB (19.79 GiB) of record payload, and
+  664,086,250 / 16 is about 4.2 × 10⁷, so the stated multiplier overstated by about a fifth. A note gives both.
+- The page sent readers to HISTORY.md "for the full §[1]–§[28] dump"; HISTORY.md publishes selected findings,
+  and the full 560T `--analyze` log is not tracked. The dated block says so; the two readings HISTORY.md repeats
+  there are corrected in CX-35X-J.
+
+No sha, record count or canonical value changes; the leaderboard's figures come from a superseded dataset and
+are labelled as such.
+
+**Tests.** `TestBatchG6.test_g6_leaderboard_kw_column` parses §[21] of the archive and requires every row of the
+column to equal it; `test_g6_leaderboard_legacy_notes` holds the other sites, recomputing the position-2 share
+from the table. Both fail on the uncured page.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push groups G6 and FV2-H; sites found by Codex
+(gpt-6-astra), final review, F07-009#4, F07-009#5, F07-009#6, F07-009#7, F07-009#8, F07-009#14, F07-009#21,
+F07-008#4, F07-007#19, F07-014#2.
+
+## CX-36J-G — the items held from CX-35X-H and CX-35X-K: an ARM witness row that described a different run, a v2 uplift rounded down, and a per-cell budget taken from the wrong 10T dataset (documentation/CANONICAL_HASHES.md; reports/TR3_REPRODUCIBLE_ENUMERATION.md; documentation/CAMPAIGN_METHODOLOGY.md; documentation/PARTITION_STABILITY_BOUNDARIES.md; tests.py)
+
+**2026-11-01.** **Source.** Codex (gpt-6-astra), final review, F06-006#7, F07-009#9, F11-011#1, F07-009#20 and
+F12-017#1; triaged by Fable (fast-track batch FT3h). Built in push group G6 as parts of CX-35X-H and CX-35X-K, held
+there for the operator because each changes a published value, released 2026-10-29, and shipped in push group FV2-H
+with Fable's FIX-4. CX-35X-H and CX-35X-K are published and append-only, so they are not edited; this entry records
+what they would have said. Every changed site keeps its old value in a dated note.
+
+**What was published, and what it says now.**
+- **The ARM row (CANONICAL_HASHES.md, the 11.2T cross-build and cross-architecture witness table).** Old: "2026-05-21
+  (ARM Cobalt) | v3+v3.1 ARM binary `e5cfc6cd…` | D96ps_v6 + D32ps_v6 Cobalt Neoverse-N2, gcc 13.3.0
+  `-mcpu=native` | `0c0fe37c…` byte-identical". That date and host pair belong to the v2 G2 run (HISTORY.md, May 21
+  entry), which reproduced the v2 sha `2cc966e4…`, not `0c0fe37c…`, with the ARM binary `e5cfc6cd…` the row named
+  (recorded in the v2 11.2T details; HISTORY.md's `c435e8af…` is the binary of the May 20 attempt 1, killed at 91.3%)
+  — the row's error was the lineage and the output sha, not the binary id; the v3 ARM witness
+  was dropped on 2026-05-24. New: "2026-05-02 (Tier 4, ARM Cobalt) | v1 modern, ARM build (binary id not in the
+  public record) | Cobalt Neoverse-N2 | `0c0fe37c…` byte-identical", the Tier 4 path of HISTORY.md's 8-path roster.
+  The path count, eight, is unchanged; the cross-architecture byte-identity claim now rests on the Tier 4 path.
+- **TR-3 §Scope.** Old: "one of them is a 2026-05-21 ARM Cobalt Neoverse-N2 rebuild on gcc 13.3.0 — a different
+  architecture *and* a different compiler from every other row". New: "an ARM Cobalt Neoverse-N2 build (Tier 4 of the
+  2026-05-02 roster …) — a different architecture from every other row"; the Tier 4 compiler version is not in the
+  public record. TR-3 v1.20.
+- **CAMPAIGN_METHODOLOGY.md §7** cited the registry row for the `e5cfc6cd…` ARM run reproducing `0c0fe37c…`. A dated
+  note (Fable's FIX-4) now says the row no longer records this and names the Tier 4 path. CX-35X-H listed this
+  sentence "for the next documentation pass"; this is that pass. DEVELOPMENT.md's "an ARM Neoverse-N2 `-mcpu=native`
+  build" and its CX-35X-A note are not changed; `-mcpu=native` is the flag HISTORY.md records for the project's ARM
+  builds (the April 27 10T run, the May 20-21 G2 run), and the Tier 4 run's own flags, like its binary id, are not in
+  the public record.
+- **v2 uplift at 11.2T (CANONICAL_HASHES.md, two sites).** Old: "+4.83%". 36,748,712 / 759,608,573 = 4.838%, which
+  rounds to **+4.84%**. Both sites now say +4.84% with a dated note keeping +4.83%.
+- **PARTITION_STABILITY_BOUNDARIES.md, the budget ladder.** Old: "stepping 63,146,557 → 631,456,644 →
+  3,536,157,207". The 10T dataset the page analyses, `f7b8c4fb…`, ran with the auto-divided budget its own
+  `enum_output.log.gz` records, `Per-sub-branch node limit: 63145664`; 63,146,557 is the explicit per-cell budget of
+  the replacement canonical `b85c8871…`, which the page did not analyse. Now "stepping **63,145,664** → …", with a
+  dated note keeping 63,146,557. The ledger already said "the auto-divide is **63,145,664**" in an earlier entry.
+
+No canonical sha, record count, certificate or verdict changes; the eight-path count is unchanged.
+
+**Tests.** `TestBatchG6.test_g6_canonical_hashes_notes` now also requires HISTORY's G2 entry and Tier 4 row
+(precondition), the re-dated ARM row and the recomputed 4.84%; `test_g6_tr3_arm_witness` holds TR-3's §Scope and the
+v1.20 row; `test_g6_psb_budget_provenance` reads the 10T log's budget; `TestBatchFV2H.test_fv2h_g6h_release` holds the
+old values in the dated notes, FIX-4, and this entry. Each fails on the parent.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push groups G6 and FV2-H; the sites were found by
+Codex (gpt-6-astra), final review, F06-006#7, F07-009#9, F11-011#1, F07-009#20, F12-017#1; FIX-4 by Fable.
+
+## CX-36J-H — four frozen pre-registrations carried errors that cannot be fixed in place; each now has a dated errata page and is unchanged (documentation/ERRATA_PREREG_H1_H3_TEST_2026_07_26_2026_11_01.md; documentation/ERRATA_PREREG_CLASSA_QUERY_SET_2026_11_01.md; documentation/ERRATA_PREREG_C8SCREEN_AMENDMENT_1_2026_11_01.md; documentation/ERRATA_PREREG_QOY1_Q992_2026_11_01.md; documentation/README.md; tests.py)
+
+**2026-11-01.** **Source.** Codex (gpt-6-astra), fix-verification round, F02-H04#2, F02-H04#5, F02-H04#7, F02-002#1,
+F02-H04#1, F02-005#6, F02-004#4 and F02-001#3; Fable's slice triage (rows D353, D352, D354, D351, D831, D861); push
+group FV2-H. The registrations' digests are published and test-pinned, so none of the four files is edited; each
+errata page names the frozen file's sha256, states the error, and gives the corrected statement. The documentation
+index links all four.
+
+**What the registrations say, and what the errata say.**
+- **PREREG_H1_H3_TEST_2026_07_26.md.** (1) T4's L(C) is printed as the sum of rounded entries, 8.06, and its bar as
+  10.06; log₂(6·5·3·3) = log₂ 270 = **8.077**, bar **10.077**. A T4 hit count from 926 to 936 of 10⁶ would pass
+  under the printed bar and fail under the corrected one. No verdict was ever issued (Q-641); the G4 note on this
+  row (CX-35T-F's T4 bullet) gave the bar as 10.08, the same value to two decimals. (2) The §3.5 gate's F4′
+  reference is accumulated only over C3-passing leaves (`score_f4p` sits inside `solve.c`'s C3 test), while the
+  sampler's population omits C3, so a gate FAIL would not by itself show a sampler defect. (3) §6.5's "any
+  pass/fail is resolvable" holds for the point estimate, the registered rule; near a bar the interval can straddle it.
+- **PREREG_CLASSA_QUERY_SET.md.** It says the n=31 scan atlas "has never been built" and no full-31 `--kc-profile`
+  over King Wen "has ever been performed". Both exist (`runs/20260906_kc_ladders_n31/atlas_n31.json`;
+  `reports/evidence/tr12/banked_n31_20260922/a2_q3_profile.txt`), so rows that read them are pre-known checks.
+- **c8screen PREREGISTRATION_AMENDMENT_1.md.** "Every positional member is NA on every control" is contradicted two
+  lines later: on Fu Xi, `C-D[083]`, `C-D[115]`, `C-D[127]`, `T-CM[pure]` and `T-DISP[pure]` are defined. The pinned
+  counts 54 / 54 / 49 are the operative statement.
+- **qoy1_q992 PREREGISTRATION.md.** §9 reads `EXPLAINED_BY_EXISTING` as entailment by C1–C5. It is a statistical
+  class (typical under N1); entailment language is reserved for `FORCED`.
+
+No frozen file, digest, verdict or count changes.
+
+**Tests.** `TestBatchFV2H.test_fv2h_prereg_errata` requires each frozen file's sha256 to equal the digest its errata
+page names, recomputes log₂ 270 and the hit-count window, checks the C3 gate around `score_f4p` in `solve.c`, and
+requires the four pages and their index links; red on the parent, which has none of the pages.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-H; the errors were found by Codex
+(gpt-6-astra), fix-verification round, F02-H04#2, F02-H04#5, F02-H04#7, F02-002#1, F02-H04#1, F02-005#6,
+F02-004#4, F02-001#3.
+
+## CX-36J-I — the hexagram table's comments named OEIS A102241 as its source; the table matches A102241 and is now re-derived from the trigrams by a test (roae.py; solve.py; viz/report_figures.py; documentation/CITATIONS.md; tests.py)
+
+**2026-11-01.** **Source.** The operator's decision of 2026-10-30 (option b) on the A102241 item that G7 held;
+push group FV2-H.
+
+**What was published, and what it says now.** `roae.py` and `solve.py` introduced the 64-entry `binary_hexagrams`
+table with "Source: https://oeis.org/A102241", `viz/report_figures.py` repeated "Source OEIS A102241", and
+CITATIONS.md said A102241 was "used as the source of ROAE's `binary_hexagrams` constants". Each now says the table
+**matches** OEIS A102241 (convention: bit 0 = bottom), and CITATIONS.md says a test re-derives it. The values are
+unchanged.
+
+**Tests.** `TestBatchFV2H.test_fv2h_a102241_rederive` builds all 64 values from the eight trigrams' line patterns
+(bottom line = bit 0) and the traditional upper/lower trigram of each King Wen hexagram, and requires both tables to
+equal them; `test_fv2h_a102241_wording` requires the new comments and no "Source" wording; red on the parent.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-H.
+
+## CX-36J-J — TR-4's 56-branch marker pointed at an unpublished audit (reports/TR4_SIZE_OF_THE_SPACE.md; tests.py)
+
+**2026-11-01.** **Source.** Q-183, part 1; Fable's resolution (edit A, applied with this entry's id and the landing
+date; its ledger pointer, written as §"TR-4 v1.25", is re-pointed to the 2026-09-02 TR-4 entry — the ledger has no
+such heading — and the v1.47 row's sentence on the n=13 branch-mass check is deferred with edit B, which is not in
+this batch); push group FV2-H.
+
+**What was published, and what it says now.** TR-4's abstract marker on the 56-branch cross-sum ends "see the T04 row
+of the untraced-claims audit". That audit is a working document of the project and is not published. An appended
+annotation now names the public record of the same withdrawal: TR-4's v1.22 and v1.25 rows, this ledger's 2026-09-02
+TR-4 entry (recorded as TR-4 v1.25), and the 2026-09-02 row in RETRACTED_PHRASES.tsv. Nothing in the marker is removed. TR-4 v1.47.
+
+No figure changes.
+
+**Tests.** `TestBatchFV2H.test_fv2h_tr4_pointer` requires the annotation, the v1.47 row as the only current row, and
+that each public pointer it names exists; red on the parent.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-H; resolution by Fable
+(claude-fable-5-1).

@@ -29,7 +29,7 @@ import time
 # --- Hexagram data (King Wen order) ---
 
 # Each hexagram as a 6-bit integer: 1=solid (yang), 0=broken (yin).
-# Bit 0 = bottom line, bit 5 = top. Source: https://oeis.org/A102241. The same bottom-line-as-low-bit numbering is also described, independently, in Ouyang 1993 p. 188 (屯 = 010001₂ = 17); Suenaga 2012 uses the same yin=0/yang=1 six-bit vectors, written bottom line first (CITATIONS.md #ouyang1993, #suenaga2012; Leibniz 1703 for the binary reading, #leibniz1703).
+# Bit 0 = bottom line, bit 5 = top. Matches OEIS A102241 (convention: bit 0 = bottom). The same bottom-line-as-low-bit numbering is also described, independently, in Ouyang 1993 p. 188 (屯 = 010001₂ = 17); Suenaga 2012 uses the same yin=0/yang=1 six-bit vectors, written bottom line first (CITATIONS.md #ouyang1993, #suenaga2012; Leibniz 1703 for the binary reading, #leibniz1703).
 binary_hexagrams = [
     0b111111, 0b000000, 0b010001, 0b100010, 0b010111, 0b111010, 0b000010, 0b010000,
     0b110111, 0b111011, 0b000111, 0b111000, 0b111101, 0b101111, 0b000100, 0b001000,

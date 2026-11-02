@@ -1240,7 +1240,7 @@ def fig_viz_scale():
 # ---------------------------------------------------------------------------
 def fig_viz_narrative_n1_object():
     # Bit convention (solve.py:32, restated verify.py): bit 0 = bottom line,
-    # bit 5 = top; 1 = solid (yang), 0 = broken (yin). Source OEIS A102241.
+    # bit 5 = top; 1 = solid (yang), 0 = broken (yin). Matches OEIS A102241 (convention: bit 0 = bottom).
     seq = list(binary_hexagrams)
     _require(len(seq) == 64 and sorted(seq) == list(range(64)), \
         "the sequence must be a permutation of all 64 hexagrams")

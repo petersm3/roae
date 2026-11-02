@@ -62,10 +62,13 @@ documentation/CANONICAL_HASHES.md	66	marker	CORRECTED	1	-	reviewed:paragraph-abo
 documentation/CANONICAL_HASHES.md	71	ledger-link	CORRECTION	n/a	-	not-a-marker	b27d2543be32
 documentation/CANONICAL_HASHES.md	99	marker	CORRECTED	2	-	reviewed:the-sentences-it-withdraws-still-follow-it	60b8f7a9c810
 documentation/CANONICAL_HASHES.md	115	ledger-link	CORRECTION	n/a	-	not-a-marker	bc6f38db509d
-documentation/CANONICAL_HASHES.md	117	marker	WITHDRAWN	3	CITATION LINE GATE,GATE 26,GATE 27,GATE 2c	gate-anchored	6554902380e1
+documentation/CANONICAL_HASHES.md	117	ledger-link	CORRECTION	n/a	-	not-a-marker	460465d50937
+documentation/CANONICAL_HASHES.md	117	marker	CORRECTED	3	CITATION LINE GATE,GATE 26,GATE 27,GATE 2c	gate-anchored	460465d50937
+documentation/CANONICAL_HASHES.md	117	marker	WITHDRAWN	3	CITATION LINE GATE,GATE 26,GATE 27,GATE 2c	gate-anchored	460465d50937
 documentation/CANONICAL_HASHES.md	123	marker	CORRECTED	1	-	reviewed:cell-already-separates-the-King-Wen-observation-from-the-verdict	7ed5382810ab
 documentation/CANONICAL_HASHES.md	143	marker	Corrected	1	-	reviewed:row-already-gives-2026-04-20-and-edccb16	63d88d44cf05
 documentation/CANONICAL_HASHES.md	183	marker	CORRECTED	2	-	reviewed:row-still-asserts-the-1T-drift-it-withdraws	11fd7b6f2df8
+documentation/CANONICAL_HASHES.md	185	ledger-link	CORRECTION	n/a	-	not-a-marker	4341b46e55ca
 documentation/CANONICAL_HASHES.md	200	ledger-link	CORRECTION	n/a	-	not-a-marker	1325a269bbe5
 documentation/CANONICAL_HASHES.md	202	ledger-link	CORRECTION	n/a	-	not-a-marker	b2334245885b
 documentation/CANONICAL_HASHES.md	202	ledger-link	RETRACTED	n/a	-	not-a-marker	b2334245885b
@@ -125,6 +128,7 @@ documentation/CITATIONS.md	1703	marker	CORRECTED	1	-	reviewed:entries-above-alre
 documentation/CITATIONS.md	1828	ledger-link	CORRECTION	n/a	-	not-a-marker	86a2b580a24c
 documentation/CITATIONS.md	1837	ledger-link	CORRECTION	n/a	-	not-a-marker	82a7e893f3e6
 documentation/CITATIONS.md	1903	marker	CORRECTED	1	-	reviewed:entry-already-drops-the-edition-label	903fed00def5
+documentation/CITATIONS.md	2047	marker	Corrected	1	-	reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	441a9b35a8ce
 documentation/CITATIONS.md	2056	marker	Corrected	1	-	reviewed:list-already-omits-the-nonexistent-file	bc2854ad3918
 documentation/CITATIONS.md	2064	marker	CORRECTED	1	-	reviewed:item-already-states-toolchain-scope-and-budget-condition	8837789bd77d
 documentation/CITATIONS.md	2167	marker	CORRECTED	1	-	reviewed:entry-already-drops-the-edition-label	a53ab4f07e27
@@ -223,6 +227,10 @@ documentation/DISTRIBUTIONAL_ANALYSIS.md	507	marker	CORRECTED	1	-	reviewed:bulle
 documentation/DISTRIBUTIONAL_ANALYSIS.md	573	marker	CORRECTED	1	-	reviewed:sentence-already-says-C1-only-null-and-labels-each-figure	fd149d8d377b
 documentation/DISTRIBUTIONAL_ANALYSIS.md	586	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	48bcced84ddc
 documentation/DISTRIBUTIONAL_ANALYSIS.md	597	marker	CORRECTED	1	-	reviewed:sentence-already-states-failure-to-reject	3fccde89e11b
+documentation/ERRATA_PREREG_C8SCREEN_AMENDMENT_1_2026_11_01.md	6	ledger-link	CORRECTION	n/a	-	not-a-marker	d9d950d5952b
+documentation/ERRATA_PREREG_CLASSA_QUERY_SET_2026_11_01.md	7	ledger-link	CORRECTION	n/a	-	not-a-marker	5112144afcc9
+documentation/ERRATA_PREREG_H1_H3_TEST_2026_07_26_2026_11_01.md	8	ledger-link	CORRECTION	n/a	-	not-a-marker	5112144afcc9
+documentation/ERRATA_PREREG_QOY1_Q992_2026_11_01.md	7	ledger-link	CORRECTION	n/a	-	not-a-marker	eb702aa53903
 documentation/F1C5_LAYER_FORMAT.md	105	marker	CORRECTED	1	-	reviewed:text-already-reads-3.29-TB-measured;moving-it-means-rewrapping-lines-105-112	801779b51687
 documentation/GT_LADDER_FORMAT.md	156	marker	CORRECTED	1	-	reviewed:clause-already-gives-8.27-TB-and-2.5x-f	d70c66d8204d
 documentation/GT_LADDER_FORMAT.md	163	marker	Corrected	1	-	reviewed:text-already-says-incomparable-with-the-reachable-set	2abe8201815f
@@ -305,7 +313,8 @@ documentation/PARITY_ALTERNATION.md	94	marker	Corrected	1	-	reviewed:item-alread
 documentation/PARITY_ALTERNATION.md	96	ledger-link	RETRACTED	n/a	-	not-a-marker	d0b066a41998
 documentation/PARTITION_INVARIANCE.md	94	marker	CORRECTED	1	-	reviewed:consequence-already-reads-identical-record-sets	303730ca7ac0
 documentation/PARTITION_STABILITY_BOUNDARIES.md	5	ledger-link	CORRECTION	n/a	-	not-a-marker	0e25dd1c67d7
-documentation/PARTITION_STABILITY_BOUNDARIES.md	26	ledger-link	CORRECTION	n/a	-	not-a-marker	3254357da7f3
+documentation/PARTITION_STABILITY_BOUNDARIES.md	26	ledger-link	CORRECTION	n/a	-	not-a-marker	2435473d9c8c
+documentation/PARTITION_STABILITY_BOUNDARIES.md	26	marker	Corrected	1	-	reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	2435473d9c8c
 documentation/PARTITION_STABILITY_BOUNDARIES.md	52	ledger-link	CORRECTION	n/a	-	not-a-marker	8994f6c50536
 documentation/PARTITION_STABILITY_BOUNDARIES.md	52	marker	CORRECTED	1	-	reviewed:table-already-lists-the-8-working-sets	8994f6c50536
 documentation/PARTITION_STABILITY_BOUNDARIES.md	60	marker	Corrected	1	-	reviewed:paragraph-already-reads-monotone-and-stable	8af9abd8ef6a
@@ -320,6 +329,14 @@ documentation/PASS1_TRAJECTORY_DETERMINISM.md	67	marker	CORRECTED	1	-	reviewed:s
 documentation/PASS1_TRAJECTORY_DETERMINISM.md	81	marker	CORRECTED	1	-	reviewed:item-already-says-not-a-basis-for-projection	8f7805de5217
 documentation/PASS1_TRAJECTORY_DETERMINISM.md	103	marker	CORRECTED	1	-	reviewed:paragraph-above-already-gives-the-manual-procedure	e9766e71f678
 documentation/PERFORMANCE_HISTORY.md	230	marker	CORRECTED	2	-	reviewed:bullet-above-still-lists-King-Wen-beside-the-gated-checks	7b2509beaa95
+documentation/PERFORMANCE_HISTORY.md	366	ledger-link	CORRECTION	n/a	-	not-a-marker	8f0215edb575
+documentation/PERFORMANCE_HISTORY.md	366	marker	Corrected	1	-	reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	8f0215edb575
+documentation/PERFORMANCE_HISTORY.md	438	ledger-link	CORRECTION	n/a	-	not-a-marker	48dca795956e
+documentation/PERFORMANCE_HISTORY.md	438	marker	Corrected	1	-	reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	48dca795956e
+documentation/PERFORMANCE_HISTORY.md	863	ledger-link	CORRECTION	n/a	-	not-a-marker	f560492aad78
+documentation/PERFORMANCE_HISTORY.md	863	marker	Corrected	1	-	reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	f560492aad78
+documentation/PERFORMANCE_HISTORY.md	987	ledger-link	CORRECTION	n/a	-	not-a-marker	c7ce73c0ffbd
+documentation/PERFORMANCE_HISTORY.md	987	marker	Corrected	1	-	reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	c7ce73c0ffbd
 documentation/PERFORMANCE_HISTORY.md	1189	marker	Corrected	2	-	reviewed:bullet-above-still-says-checkpoint-is-the-sole-resume-input	e459f31d3a93
 documentation/PERFORMANCE_HISTORY.md	1426	marker	Corrected	2	-	reviewed:bullet-above-still-carries-the-withdrawn-5.6T-days-derivation	75cfed7a5f0e
 documentation/PREREGISTRATION_ESCROW.md	367	ledger-link	CORRECTION	n/a	-	not-a-marker	e8c644cef239
@@ -416,11 +433,15 @@ documentation/SOLVE.md	183	marker	Corrected	1	-	reviewed:paragraph-already-scope
 documentation/SOLVE.md	212	marker	CORRECTED	1	-	reviewed:paragraph-already-gives-the-tie-aware-nulls	bc06215af301
 documentation/SOLVE.md	212	marker	Corrected	1	-	reviewed:paragraph-already-gives-the-tie-aware-nulls	bc06215af301
 documentation/SOLVE.md	234	marker	Corrected	1	-	reviewed:passage-already-gives-169-and-127-bits	4b0ce207ff97
+documentation/SOLVE.md	265	ledger-link	CORRECTION	n/a	-	not-a-marker	eae2169faef6
+documentation/SOLVE.md	265	marker	Corrected	1	-	reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	eae2169faef6
 documentation/SOLVE.md	267	marker	Corrected	1	-	reviewed:dated-label;following-text-proves-the-C5-identity	fc27fdfd642e
 documentation/SOLVE.md	271	marker	Corrected	1	-	reviewed:item-already-gives-12.1%-ledger-and-12.09%-direct-estimate	5f0ddf10cb02
 documentation/SOLVE.md	279	marker	Corrected	1	-	reviewed:paragraph-already-gives-12.1%-ledger-and-12.09%-direct-estimate	78ad22311840
 documentation/SOLVE.md	304	marker	CORRECTED	1	-	reviewed:paragraph-already-gives-the-measured-pair-counts	083326300fa5
-documentation/SOLVE.md	329	marker	Correction	3	CITATION LINE GATE,GATE 2c	gate-anchored	f529f48d4faa
+documentation/SOLVE.md	329	ledger-link	CORRECTION	n/a	-	not-a-marker	2dd9b258de02
+documentation/SOLVE.md	329	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	2dd9b258de02
+documentation/SOLVE.md	329	marker	Correction	3	CITATION LINE GATE,GATE 2c	gate-anchored	2dd9b258de02
 documentation/SOLVE.md	334	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	55d219e805bd
 documentation/SOLVE.md	343	marker	CORRECTED	1	-	reviewed:list-already-opens-with-boundary-4	33c9d32a013c
 documentation/SOLVE.md	365	marker	Corrected	1	-	reviewed:bullet-already-gives-the-1-in-10-tie-share	f68f5f29f9dc
@@ -441,6 +462,8 @@ documentation/SOLVE.md	665	marker	CORRECTED	1	-	reviewed:subsection-already-says
 documentation/SOLVE.md	695	marker	Corrected	1	-	reviewed:sentence-already-counts-9-boundaries	7ce3f3cce019
 documentation/SOLVE.md	703	marker	Corrected	1	-	reviewed:paragraph-already-says-the-scale-is-not-measured;re-read-2026-10-17-after-CX-404-scoped-the-identifying-set-per-dataset	dcf25802774b
 documentation/SOLVE.md	715	marker	Corrected	1	-	reviewed:row-already-reads-KW-plus-Jing-Fang	30acb2a34949
+documentation/SOLVE.md	719	ledger-link	CORRECTION	n/a	-	not-a-marker	59fd3abf40bf
+documentation/SOLVE.md	719	marker	Corrected	1	-	reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	59fd3abf40bf
 documentation/SOLVE.md	723	marker	Corrected	1	-	reviewed:paragraph-already-gives-the-one-Mawangdui-5-transition	b0090bbf58c0
 documentation/SOLVE.md	725	marker	CORRECTED	1	-	reviewed:paragraph-already-closes-the-Costas-question	469f1664eeb1
 documentation/SOLVE.md	774	marker	Corrected	1	-	reviewed:sentence-already-says-within-its-node-budget	72382011ced3
@@ -570,9 +593,11 @@ documentation/VERIFY.md	1283	ledger-link	CORRECTION	n/a	-	not-a-marker	643fc4077
 documentation/VERIFY.md	1342	ledger-link	CORRECTION	n/a	-	not-a-marker	5323f5a21fba
 documentation/VERIFY.md	1428	marker	Corrected	2	-	reviewed:paragraph-above-still-says-the-witness-row-does-not-exist	4b56db87bbf7
 enumeration/LEADERBOARD.md	7	marker	CORRECTED	1	-	reviewed:sentence-already-calls-it-an-overlap-ratio	cc2f320eeea0
+enumeration/LEADERBOARD.md	81	ledger-link	CORRECTION	n/a	-	not-a-marker	b81099d87ee1
 enumeration/LEADERBOARD.md	102	marker	CORRECTED	1	-	reviewed:paragraph-already-reads-from-the-742M-archive	2cb7abe5c0a2
 enumeration/LEADERBOARD.md	175	marker	CORRECTED	1	-	reviewed:qualifier-already-uses-0-based-pair-numbers	8ff0ea958479
 enumeration/LEADERBOARD.md	192	marker	WITHDRAWN	3	GATE 26,GATE 27	reanchored:GATE-26=ledger-anchor+GATE-27=ledger-anchor	653e853d6ca7
+enumeration/LEADERBOARD.md	1370	ledger-link	CORRECTION	n/a	-	not-a-marker	7a0b5e747282
 enumeration/README.md	34	ledger-link	CORRECTION	n/a	-	not-a-marker	2b79b481f0a0
 enumeration/README.md	47	ledger-link	CORRECTION	n/a	-	not-a-marker	02571355da1f
 lean/README.md	25	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	c905d50c57f8
@@ -635,6 +660,7 @@ reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	825	changelog	CORRECTION	kee
 reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	828	changelog	now reads	keep	-	revision-row	97583c22fb13
 reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	834	changelog	now reads	keep	-	revision-row	3aa7edcec799
 reports/TR12_QUERY_PROGRAM.md	23	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	a4b968ed7849
+reports/TR12_QUERY_PROGRAM.md	43	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	6bacba7328b3
 reports/TR12_QUERY_PROGRAM.md	57	marker	Corrected	1	-	reviewed:sentence-already-says-witnesses-are-pinned	d1990517891c
 reports/TR12_QUERY_PROGRAM.md	212	marker	Corrected	1	-	reviewed:sentence-already-says-the-directory-is-tracked	180fe56529dc
 reports/TR12_QUERY_PROGRAM.md	231	marker	Corrected	1	-	reviewed:text-already-names-the-real-files	5cde45e31b0f
@@ -676,6 +702,8 @@ reports/TR12_QUERY_PROGRAM.md	2178	marker	Corrected	1	-	reviewed:sentence-alread
 reports/TR12_QUERY_PROGRAM.md	2196	marker	Corrected	1	-	reviewed:text-already-says-the-file-is-distributed	655061a87291
 reports/TR12_QUERY_PROGRAM.md	2286	marker	Corrected	1	-	reviewed:scope-already-states-the-one-sided-relation	a5ce32451652
 reports/TR12_QUERY_PROGRAM.md	2396	marker	Corrected	1	-	reviewed:text-already-separates-all-slots-and-interior	747e86000ac1
+reports/TR12_QUERY_PROGRAM.md	2420	ledger-link	CORRECTION	n/a	-	not-a-marker	ecd34b2fee0c
+reports/TR12_QUERY_PROGRAM.md	2420	marker	Corrected	1	-	reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	ecd34b2fee0c
 reports/TR12_QUERY_PROGRAM.md	2496	ledger-link	CORRECTION	n/a	-	not-a-marker	48d2f8a91dbc
 reports/TR12_QUERY_PROGRAM.md	2630	marker	Corrected	1	-	reviewed:text-already-says-solve.c-differs	1c6c27f1c56a
 reports/TR12_QUERY_PROGRAM.md	2657	ledger-link	CORRECTION	n/a	-	not-a-marker	bf86a36d3823
@@ -692,6 +720,7 @@ reports/TR12_QUERY_PROGRAM.md	2836	changelog	CORRECTION	keep	-	revision-row	9218
 reports/TR12_QUERY_PROGRAM.md	2836	changelog	now reads	keep	-	revision-row	9218f33c3c9c
 reports/TR12_QUERY_PROGRAM.md	2839	changelog	now reads	keep	-	revision-row	402a228da8c2
 reports/TR12_QUERY_PROGRAM.md	2841	changelog	CORRECTION	keep	-	revision-row	c4a3eddbc375
+reports/TR12_QUERY_PROGRAM.md	2857	changelog	now reads	keep	-	revision-row	e42e610fe5de
 reports/TR1_EIGHT_CENTURIES_MEASURED.md	55	narration	now reads	1	-	reviewed:ordinary-present-tense-prose;not-a-correction-note	44b4c27eab96
 reports/TR1_EIGHT_CENTURIES_MEASURED.md	96	marker	Corrected	1	-	reviewed:caveat-already-says-the-fraction-is-weighted	e5524bd1cd03
 reports/TR1_EIGHT_CENTURIES_MEASURED.md	141	marker	Corrected	1	-	reviewed:entry-already-prices-against-the-measured-6.52-percent	c60b3819912d
@@ -745,6 +774,8 @@ reports/TR3_REPRODUCIBLE_ENUMERATION.md	201	marker	Corrected	1	-	reviewed:senten
 reports/TR3_REPRODUCIBLE_ENUMERATION.md	370	marker	CORRECTED	1	-	reviewed:code-comment-above-already-says-reported-not-enforced	c8ebf3cacb0b
 reports/TR3_REPRODUCIBLE_ENUMERATION.md	414	changelog	now reads	keep	-	revision-row	a4785b23bf10
 reports/TR4_SIZE_OF_THE_SPACE.md	36	marker	WITHDRAWN	2	-	reviewed:the-withdrawn-3.3e37-figure-is-still-printed-in-the-sentence-above	98d091511a86
+reports/TR4_SIZE_OF_THE_SPACE.md	40	ledger-link	CORRECTION	n/a	-	not-a-marker	33c2b273d593
+reports/TR4_SIZE_OF_THE_SPACE.md	40	ledger-link	RETRACTED	n/a	-	not-a-marker	33c2b273d593
 reports/TR4_SIZE_OF_THE_SPACE.md	42	marker	WITHDRAWN	2	-	reviewed:the-distinct-vs-raw-pairing-it-withdraws-is-still-in-the-sentence-above	871aa1b5f28c
 reports/TR4_SIZE_OF_THE_SPACE.md	62	ledger-link	CORRECTION	n/a	-	not-a-marker	f404aabc97e5
 reports/TR4_SIZE_OF_THE_SPACE.md	72	ledger-link	CORRECTION	n/a	-	not-a-marker	67a50cb0e341
@@ -840,6 +871,8 @@ reports/evidence/w0d_lower_bound/README.md	86	marker	Corrected	1	-	reviewed:text
 reviewer/README.md	42	ledger-link	CORRECTION	n/a	-	not-a-marker	9967306c5a2a
 runs/20260418_10T_d3_fresh/README.md	26	ledger-link	CORRECTION	n/a	-	not-a-marker	915ffbb0a62c
 runs/20260418_10T_d3_v1/README.md	26	ledger-link	CORRECTION	n/a	-	not-a-marker	915ffbb0a62c
+runs/20260419_100T_d3_d128westus3/README.md	22	ledger-link	CORRECTION	n/a	-	not-a-marker	1703e96e2580
+runs/20260419_100T_d3_d128westus3/README.md	22	marker	Corrected	1	-	reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	1703e96e2580
 runs/20260419_100T_d3_d128westus3/README.md	65	marker	Corrected	1	-	reviewed:dated-label;row-already-says-not-present	f7f41ce12530
 runs/20260419_100T_d3_d128westus3/README.md	117	marker	Corrected	1	-	reviewed:bullet-already-cites-the-git-ls-files-listing	d7c195a0b90a
 runs/20260419_100T_d3_d128westus3/README.md	155	ledger-link	CORRECTION	n/a	-	not-a-marker	915ffbb0a62c
