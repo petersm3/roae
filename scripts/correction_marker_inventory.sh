@@ -563,6 +563,8 @@ REVIEWED = {
         ('1', 'reviewed:following-text-already-states-one-file-per-role'),
     ('documentation/SAT_CLI.md', 'a6342c40e3e4'):
         ('2', 'reviewed:the-stale-2026-09-01-caveat-it-supersedes-is-still-above-it'),
+    ('documentation/SAT_CLI.md', 'd51d9aa40437'):
+        ('1', 'reviewed:Q54-dated-correction;sentence-already-gives-the-eighteen-size-domain'),
     ('documentation/SEARCH_SPACE_SIZE.md', '01b0b7690f9a'):
         ('1', 'reviewed:text-already-says-all-eight-share-King-Wens-pair-ordering'),
     ('documentation/SEARCH_SPACE_SIZE.md', '046d3091ca0b'):

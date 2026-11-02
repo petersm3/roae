@@ -11938,3 +11938,16 @@ Q-686=DONE
   held for the operator: the `--kc-scan` raw default above n = 13 and the t-certificate operands (a golden).
 - No canonical sha, count, golden or verdict changed (`--selftest` 403f7202…, `--selftest-resume` b3862357…).
   `TestBatchFV2E1` holds each cure; all 33 tests fail on 0df730cb.
+
+## 2026-11-02 — push group Q54: sat.py's reduced-instance table synced to solve.c's eighteen rungs
+
+- **The table (CX-36K).** `sat.py`'s `F1C5_UNIONS` held nine of the eighteen group-closed orbit unions `solve.c`'s
+  `f1c5_unions[]` has carried since 2026-08-09, and refused `--f1-pairs 10` and `12` with a message that printed the
+  nine as the whole domain; a 2026-09-03 note read that message as "no certifiable rung between 9 and 13". The dict
+  now equals the C table, row for row; the nine added rows are re-derived from `solve.c`'s stated convention and the
+  nine historical rows are pinned literally; the refusal prints the domain from the table.
+- **Checked, not recalled.** At n = 3, 4, 6, 7, 10 and 12 `sat.py`'s pair list and budget equal `solve`'s, `solve`'s
+  DP total MATCHes `verify --ie-count`, and at n ≤ 7 the Python DP agrees. No count is published at the new rungs.
+- No canonical sha, count, golden or verdict changed; `solve.c` is untouched. The n=9 certificate input is
+  byte-identical (`instance.cnf` 71,429 B, sha256 `800fde57…`). `TestBatchQ54` holds the cure; three of its four
+  tests fail on 512d2d34's sat.py, the fourth is the n=9 invariance pin.

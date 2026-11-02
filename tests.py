@@ -640,7 +640,7 @@ class TestSatInputGuards(unittest.TestCase):
     raised: `certify_count` can also exit with the missing-tools message
     (_CERTIFY_TOOLS_MSG), so a bare assertRaises would pass on a host without d4
     while proving nothing about the guard. Verified 2026-09-19 that the --keep
-    guard fires BEFORE any tool use (sat.py:2377 precedes the d4 call at :2405),
+    guard fires BEFORE any tool use (sat.py:2404 precedes the d4 call at :2432),
     so these are green on a host with no SAT toolchain installed."""
 
     def test_keep_dir_uncreatable_is_refused_before_the_work(self):
@@ -57017,6 +57017,211 @@ class TestBatchFV2E1(unittest.TestCase):
         self.assertIn("Minimum C3 observed:", out)
 
 # end class TestBatchFV2E1 (push group FV2-E1, CX-36I-A..CX-36I-D)
+
+
+class TestBatchQ54(unittest.TestCase):
+    """Push group Q54 (CX-36K): sat.py's F1C5_UNIONS equals solve.c's 18-row f1c5_unions[] table.
+    Until 2026-11-02 the dict held nine rows under a comment saying it was verbatim from the C table, and
+    the refusal for any other N printed those nine as if they were the whole domain; backlog row Q-54
+    (2026-09-03) read that message as a theorem ("no certifiable rung between 9 and 13") and closed the
+    option it names. test_q54_table_equals_solve_c_and_is_derived and test_q54_refusal_prints_the_table_domain
+    FAIL with the sat.py of 512d2d34 (public main, whose table is the nine-row one; the parent of this group changes only a comment line of sat.py) and pass on this tree; test_q54_new_rungs_agree_with_solve_and_verify
+    fails there because sat.subset_pairlist(10) refuses; test_q54_n9_certificate_input_unchanged passes on both,
+    by design: it is the invariance pin for the published n=9 certificate (SAT_CLI.md's instance.cnf sha).
+    No count literal is pinned for the new rungs: TR-11 4b records that they have no published count, and
+    backlog row Q-1051 publishes the n=12 count only with its certificate; here the three instruments
+    (solve.c DP, verify.c inclusion-exclusion, the Python DP of TestSatC5Subset at n <= 7) are required to agree
+    with each other and with sat.py's pair list and budget, live. Developed with AI assistance (Claude,
+    Anthropic): claude-fable-5-1."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    ORBIT_ROWS = ("3.0", "3.1", "3.2", "4.0", "6.0", "6.1", "6.2")      # solve.c's stated row order
+    ORBIT_SIZES = (3, 3, 3, 4, 6, 6, 6)
+    # the nine rows sat.py carried until 2026-11-02; TR-11 4b's validation unions, which solve.c says
+    # "must not be re-pointed at a different union of the same size"
+    HISTORICAL = {9: "3.0,3.1,3.2@0", 13: "3.0,4.0,6.2@0", 16: "4.0,6.0,6.1@0", 18: "6.0,6.1,6.2@0",
+                  19: "3.0,4.0,6.0,6.1@0", 24: "3.0,3.1,6.0,6.1,6.2@0", 25: "3.0,4.0,6.0,6.1,6.2@0",
+                  27: "3.0,3.1,3.2,6.0,6.1,6.2@0", 28: "3.0,3.1,4.0,6.0,6.1,6.2@0"}
+    ADDED = (3, 4, 6, 7, 10, 12, 15, 21, 22)                             # added to solve.c 2026-08-09
+    DOMAIN = "3,4,6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28"
+    N9_CNF_SHA = "800fde577c86e99ed611ebc6088c49a083169b8c6ffeb510df1a965946335f16"   # SAT_CLI.md NOTES
+    N9_CNF_BYTES = 71429
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = os.path.realpath(tempfile.mkdtemp(prefix="q54_"))
+        cls.sbin = os.path.join(cls.tmp, "solve_q54")
+        cls.vbin = os.path.join(cls.tmp, "verify_q54")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin,
+                            os.path.join(cls.ROOT, "solve.c"), "-lm", "-lz"],
+                           capture_output=True, text=True, timeout=1800)
+        cls.sok = r.returncode == 0 and os.path.exists(cls.sbin)
+        cls.serr = "gcc rc %d: %s" % (r.returncode, r.stderr[-2000:])
+        r = subprocess.run(["gcc", "-O1", "-o", cls.vbin, os.path.join(cls.ROOT, "verify.c"),
+                            "-lz", "-lpthread", "-lm"], capture_output=True, text=True, timeout=600)
+        cls.vok = r.returncode == 0 and os.path.exists(cls.vbin)
+        cls.verr = "gcc rc %d: %s" % (r.returncode, r.stderr[-2000:])
+
+    @classmethod
+    def tearDownClass(cls):
+        t = getattr(cls, "tmp", None)
+        if t and os.path.basename(t).startswith("q54_"):
+            shutil.rmtree(t, ignore_errors=True)
+
+    @classmethod
+    def _c_table(cls):
+        """The rows of solve.c's f1c5_unions[] initializer, in file order, as (n, spec) pairs."""
+        with open(os.path.join(cls.ROOT, "solve.c"), encoding="utf-8") as fh:
+            src = fh.read()
+        m = re.search(r"f1c5_unions\[\]\s*=\s*\{(.*?)\n\};", src, re.S)
+        if m is None:
+            raise AssertionError("solve.c no longer defines f1c5_unions[]; the sync target is gone")
+        rows = re.findall(r'\{\s*(\d+),\s*"([^"]+)"\s*\}', m.group(1))
+        return [(int(n), spec) for n, spec in rows]
+
+    @classmethod
+    def _lex_first(cls, n):
+        """The lexicographically smallest index tuple over ORBIT_ROWS whose sizes sum to n (solve.c:
+        "greedily prefer earlier rows", so (0,1) = 3.0,3.1 beats (4,) = 6.0 at n=6), or None."""
+        hits = [idx for k in range(1, len(cls.ORBIT_ROWS) + 1)
+                for idx in itertools.combinations(range(len(cls.ORBIT_ROWS)), k)
+                if sum(cls.ORBIT_SIZES[i] for i in idx) == n]
+        return min(hits) if hits else None
+
+    @classmethod
+    def _lex_first_spec(cls, n):
+        idx = cls._lex_first(n)
+        return None if idx is None else ",".join(cls.ORBIT_ROWS[i] for i in idx) + "@0"
+
+    def _sat(self, *args):
+        r = subprocess.run([sys.executable, os.path.join(self.ROOT, "sat.py")] + list(args),
+                           capture_output=True, text=True, timeout=600, cwd=self.ROOT)
+        return r.returncode, r.stdout, r.stderr
+
+    def test_q54_table_equals_solve_c_and_is_derived(self):
+        """sat.F1C5_UNIONS == solve.c f1c5_unions[] (rows and order), the domain is exactly the subset sums
+        of the orbit sizes below 31, the nine historical rows are unchanged, and the nine 2026-08-09 rows
+        are the lexicographically first unions of their size (solve.c's stated convention). RED on
+        512d2d34's sat.py: nine rows there."""
+        rows = self._c_table()
+        C = dict(rows)
+        self.assertEqual(len(rows), 18, "solve.c's table has %d rows, not 18" % len(rows))
+        self.assertEqual(len(C), 18, "a size appears twice in solve.c's table")
+        self.assertEqual(sat.F1C5_UNIONS, C,
+                         "sat.py's F1C5_UNIONS differs from solve.c's f1c5_unions[]: missing %s, extra %s"
+                         % (sorted(set(C) - set(sat.F1C5_UNIONS)), sorted(set(sat.F1C5_UNIONS) - set(C))))
+        self.assertEqual(list(sat.F1C5_UNIONS), [n for n, _ in rows], "row order differs from solve.c")
+        # derivation of the domain from the orbit structure sat.py itself computes
+        self.assertEqual(tuple(sorted(len(o) for o in sat.PAIR_ORBITS)), self.ORBIT_SIZES)
+        realizable = set()
+        for k in range(1, 8):
+            for idx in itertools.combinations(range(7), k):
+                realizable.add(sum(self.ORBIT_SIZES[i] for i in idx))
+        self.assertEqual(sorted(set(range(1, 32)) - realizable), [1, 2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 30])
+        self.assertEqual(set(C), realizable - {31}, "the table must hold one union per realizable size below 31")
+        self.assertEqual(sorted(C), [int(x) for x in self.DOMAIN.split(",")])
+        # the historical rows are pinned literally, the added rows are re-derived
+        for n, spec in self.HISTORICAL.items():
+            self.assertEqual(C[n], spec, "historical validation union n=%d was re-pointed" % n)
+        self.assertEqual(sorted(set(C) - set(self.HISTORICAL)), sorted(self.ADDED))
+        for n in self.ADDED:
+            self.assertEqual(C[n], self._lex_first_spec(n), "n=%d is not the lexicographically first union" % n)
+        self.assertNotEqual(C[13], self._lex_first_spec(13),
+                            "n=13 is a historical union and is not lexicographically first; if it were, the "
+                            "derivation above would be vacuous")
+        # every row parses through sat.py's own parser to n distinct pairs forming whole orbits at start 0
+        for n in C:
+            pl, start = sat.subset_pairlist(n)
+            self.assertEqual((len(pl), len(set(pl)), start), (n, n, 0), "n=%d" % n)
+            self.assertNotIn(0, pl, "pair 0 is fixed and never in a union")
+            for o in sat.PAIR_ORBITS:
+                self.assertIn(len(set(o) & set(pl)), (0, len(o)), "n=%d is not a union of whole orbits" % n)
+        # the help text and the probe comment name the same domain, and the stale nine-set literal is gone
+        with open(os.path.join(self.ROOT, "sat.py"), encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertNotIn("{9,13,16,18,19,24,25,27,28}", src, "the nine-size literal survives in sat.py")
+        self.assertIn("N in {3,4,6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28}, solve.c f1c5_unions[]", src)
+        self.assertIn("(N in {" + self.DOMAIN + "})", src)
+
+    def test_q54_refusal_prints_the_table_domain(self):
+        """A non-rung N (5, 11, 31) is refused with the whole 18-size domain; 10 and 12 now build, with the
+        instance sizes the n=12 certification consumes (vars=550/7834 and 924/13816, measured 2026-09-03 from
+        a scratch-patched copy and again on this tree). RED on 512d2d34's sat.py: 10 and 12 were refused there and the
+        message listed nine sizes."""
+        for n in (5, 11, 31):
+            rc, out, err = self._sat("--emit-cnf", "f1c5", "/dev/null", "--f1-pairs", str(n))
+            self.assertEqual(rc, 1, "n=%d: rc %d\n%s%s" % (n, rc, out, err))
+            self.assertIn("--f1-pairs %d: no group-closed orbit union of that size" % n, err)
+            self.assertIn("have " + self.DOMAIN, err)
+            self.assertNotIn("has more", err, "the message must not point at a table it does not hold")
+        for n, sizes in ((10, "vars=550 clauses=7834"), (12, "vars=924 clauses=13816")):
+            rc, out, err = self._sat("--emit-cnf", "f1c5", "/dev/null", "--f1-pairs", str(n))
+            self.assertEqual(rc, 0, "n=%d: rc %d\n%s%s" % (n, rc, out, err))
+            self.assertIn(sizes, out)
+        rc, out, err = self._sat("--emit-cnf", "f1c5", "/dev/null", "--f1-pairs", "12")
+        self.assertIn("pl=[3, 7, 11, 4, 6, 21, 1, 9, 17, 19, 22, 25] start_exit=0 B0(d1,2,3,4,6)=[1, 8, 1, 2, 0]", out)
+
+    def test_q54_new_rungs_agree_with_solve_and_verify(self):
+        """At every rung this group adds that the orchestrator can count in under a second (3, 4, 6, 7, 10,
+        12), solve's printed pair list, start and B0 equal sat.py's; verify.c's inclusion-exclusion count
+        MATCHes solve's DP count for that union; and at n <= 7 the Python DP of TestSatC5Subset gives the
+        same number. A deliberately wrong --ie-expect FAILs (the control). No count literal here (docstring).
+        RED on 512d2d34's sat.py: sat.subset_pairlist(10) raises SystemExit there."""
+        self.assertTrue(self.sok, "solve.c did not build, so nothing was verified: " + self.serr)
+        self.assertTrue(self.vok, "verify.c did not build, so nothing was verified: " + self.verr)
+        env = dict(os.environ, OMP_NUM_THREADS="2", SOLVE_THREADS="2")
+        for n in (3, 4, 6, 7, 10, 12):
+            pl, start = sat.subset_pairlist(n)
+            b0 = sat.derive_b0(pl, start)
+            r = subprocess.run([self.sbin, "--f1-exact-c1c2c4c5", "--f1-pairs", str(n)],
+                               capture_output=True, text=True, timeout=600, env=env)
+            self.assertEqual(r.returncode, 0, "n=%d: solve rc %d: %s" % (n, r.returncode, (r.stdout + r.stderr)[-600:]))
+            m = re.search(r"F1C5 SUBSET n=(\d+) pairs \[([\d,]+)\] start_exit=(\d+) B0=\(([\d,]+)\)", r.stdout + r.stderr)
+            self.assertIsNotNone(m, "n=%d: solve did not print its subset line: %s" % (n, (r.stdout + r.stderr)[-600:]))
+            self.assertEqual(int(m.group(1)), n)
+            self.assertEqual([int(x) for x in m.group(2).split(",")], pl, "n=%d: pair list differs from sat.py's" % n)
+            self.assertEqual(int(m.group(3)), start)
+            self.assertEqual([int(x) for x in m.group(4).split(",")], [b0[d] for d in (1, 2, 3, 4, 6)],
+                             "n=%d: B0 differs from sat.py's" % n)
+            t = re.search(r"orbit-quotient C5-DP total = (\d+)", r.stdout + r.stderr)
+            self.assertIsNotNone(t, "n=%d: no DP total line" % n)
+            total = int(t.group(1))
+            self.assertGreater(total, 0)
+            if n <= 7:
+                self.assertEqual(TestSatC5Subset._ref_count(pl, start, b0), total,
+                                 "n=%d: the Python DP disagrees with solve's DP" % n)
+            spec = sat.F1C5_UNIONS[n]
+            v = subprocess.run([self.vbin, "--ie-count", "--ie-spec", spec, "--ie-expect", str(total), "--ie-threads", "2"],
+                               capture_output=True, text=True, timeout=600)
+            self.assertEqual(v.returncode, 0, "n=%d: verify rc %d: %s" % (n, v.returncode, (v.stdout + v.stderr)[-600:]))
+            self.assertIn("vs expected %d : MATCH" % total, v.stdout + v.stderr)
+        v = subprocess.run([self.vbin, "--ie-count", "--ie-spec", sat.F1C5_UNIONS[3], "--ie-expect", "49", "--ie-threads", "2"],
+                           capture_output=True, text=True, timeout=600)
+        self.assertNotEqual(v.returncode, 0, "control: --ie-expect 49 at n=3 must fail")
+        self.assertIn("FAILURE", v.stdout + v.stderr)
+
+    def test_q54_n9_certificate_input_unchanged(self):
+        """The CNF --certify-count f1c5 --f1-pairs 9 writes (label 'target=f1c5 --f1-pairs 9 (C1&C2&C4&C5)') is
+        byte-for-byte the instance.cnf SAT_CLI.md identifies by sha256 and size; SAT_CLI.md still carries that
+        sha; and the n=9 pair list, start and B0 are those of the published certificate. Passes on 512d2d34's sat.py
+        too: this is the invariance pin, not the defect pin."""
+        cnf, ctx = sat.build_subset(9)
+        pl, start = sat.subset_pairlist(9)
+        self.assertEqual((pl, start), ([3, 7, 11, 4, 6, 21, 13, 14, 30], 0))
+        self.assertEqual(ctx["b0"], {1: 2, 2: 5, 3: 0, 4: 2, 6: 0})
+        p = os.path.join(self.tmp, "instance.cnf")
+        cnf.write(p, "target=f1c5 --f1-pairs 9 (C1&C2&C4&C5)")
+        with open(p, "rb") as fh:
+            data = fh.read()
+        self.assertEqual(len(data), self.N9_CNF_BYTES)
+        self.assertEqual(hashlib.sha256(data).hexdigest(), self.N9_CNF_SHA,
+                         "the n=9 certificate input changed; SAT_CLI.md's published hashes no longer identify this tree's instance")
+        with open(os.path.join(self.ROOT, "documentation", "SAT_CLI.md"), encoding="utf-8") as fh:
+            doc = fh.read()
+        self.assertIn(self.N9_CNF_SHA, doc)
+        self.assertIn("`instance.cnf` (71,429 B)", doc)
+
+# end class TestBatchQ54 (push group Q54, CX-36K)
 
 
 if __name__ == "__main__":

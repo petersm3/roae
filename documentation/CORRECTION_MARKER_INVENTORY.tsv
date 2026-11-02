@@ -402,6 +402,7 @@ documentation/ROAE_PY_CLI.md	382	marker	CORRECTED	1	-	reviewed:following-text-al
 documentation/ROAE_PY_CLI.md	823	marker	CORRECTED	1	-	reviewed:following-text-already-states-one-file-per-role	bff6cf9f9f63
 documentation/SAT_CLI.md	84	ledger-link	CORRECTION	n/a	-	not-a-marker	134457b932e4
 documentation/SAT_CLI.md	99	marker	SUPERSEDED	2	-	reviewed:the-stale-2026-09-01-caveat-it-supersedes-is-still-above-it	a6342c40e3e4
+documentation/SAT_CLI.md	322	marker	Corrected	1	-	reviewed:Q54-dated-correction;sentence-already-gives-the-eighteen-size-domain	d51d9aa40437
 documentation/SEARCH_SPACE_SIZE.md	3	marker	WITHDRAWN	3	GATE 27	reanchored:GATE-27=ledger-anchor	d2005eee5ef3
 documentation/SEARCH_SPACE_SIZE.md	11	ledger-link	CORRECTION	n/a	-	not-a-marker	442325e3cae4
 documentation/SEARCH_SPACE_SIZE.md	35	ledger-link	CORRECTION	n/a	-	not-a-marker	5d0062947151

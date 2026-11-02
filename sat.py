@@ -75,7 +75,7 @@ Subcommands:
                                 caller — sat.py never invokes solve.c).
 Modifiers:
   --f1-pairs N                  build the REDUCED C1&C2&C4&C5 instance for the group-closed
-                                N-pair orbit union (N in {9,13,16,18,19,24,25,27,28}) — the
+                                N-pair orbit union (N in {3,4,6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28}, solve.c f1c5_unions[]) — the
                                 object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts. Applies
                                 to --emit-cnf, --decode and --certify-count; the C5 budget B0 is
                                 derived per subset (deterministic-DFS, solve.c f1c5 semantics).
@@ -1537,7 +1537,7 @@ def build(target, with_c3=False, c3_max=None, c3_min=None, not_kw=False):
 # Small-n subset instances — the C1&C2&C4&C5 certified-count probe (TASK #225).
 # ----------------------------------------------------------------------------
 # Emits the *reduced* C1&C2&C4&C5 CNF for a group-closed N-pair orbit union
-# (N in {9,13,16,18,19,24,25,27,28}), i.e. the exact object that
+# (N in {3,4,6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28}), i.e. the exact object that
 # `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts. This is the missing piece
 # that unblocks the small-n end-to-end certificate probe (TASK_225 §6.4): a
 # checkable — not merely re-runnable — count at a scale where a proof-emitting
@@ -1601,11 +1601,33 @@ PAIR_ORBITS = sorted(_orbmap.values(), key=lambda o: (len(o), o))  # == solve.c 
 if not (sorted(len(o) for o in PAIR_ORBITS) == [3, 3, 3, 4, 6, 6, 6]):
     raise AssertionError("pair-orbit sizes broke")
 
-# group-closed orbit-union specs, verbatim from solve.c f1c5_unions[]
+# group-closed orbit-union specs, verbatim from solve.c f1c5_unions[] (18 rows, same order).
+# tests.py TestBatchQ54 parses that C table and requires this dict to equal it. Until 2026-11-02
+# this dict held only the nine historical validation unions (9..28 minus 10,12,15,21,22) while the
+# C table had carried 18 rows since 2026-08-09; the refusal message then listed the nine as if
+# complete, which is how a 2026-09-03 note came to say no rung exists between 9 and 13 (CX-36K).
+# The nine rows added to solve.c on 2026-08-09 follow its stated convention: the orbit rows in
+# the order 3.0,3.1,3.2,4.0,6.0,6.1,6.2, taking the lexicographically first index subset whose
+# sizes sum to n (TestBatchQ54 re-derives them). The historical nine are load-bearing (TR-11 4b)
+# and are NOT lexicographically first (e.g. 13 is 3.0,4.0,6.2, not 3.0,4.0,6.0).
 F1C5_UNIONS = {
-    9:  "3.0,3.1,3.2@0",       13: "3.0,4.0,6.2@0",       16: "4.0,6.0,6.1@0",
-    18: "6.0,6.1,6.2@0",       19: "3.0,4.0,6.0,6.1@0",   24: "3.0,3.1,6.0,6.1,6.2@0",
-    25: "3.0,4.0,6.0,6.1,6.2@0", 27: "3.0,3.1,3.2,6.0,6.1,6.2@0",
+    3:  "3.0@0",
+    4:  "4.0@0",
+    6:  "3.0,3.1@0",
+    7:  "3.0,4.0@0",
+    9:  "3.0,3.1,3.2@0",
+    10: "3.0,3.1,4.0@0",
+    12: "3.0,3.1,6.0@0",
+    13: "3.0,4.0,6.2@0",
+    15: "3.0,3.1,3.2,6.0@0",
+    16: "4.0,6.0,6.1@0",
+    18: "6.0,6.1,6.2@0",
+    19: "3.0,4.0,6.0,6.1@0",
+    21: "3.0,3.1,3.2,6.0,6.1@0",
+    22: "3.0,3.1,4.0,6.0,6.1@0",
+    24: "3.0,3.1,6.0,6.1,6.2@0",
+    25: "3.0,4.0,6.0,6.1,6.2@0",
+    27: "3.0,3.1,3.2,6.0,6.1,6.2@0",
     28: "3.0,3.1,4.0,6.0,6.1,6.2@0",
 }
 def _orbit_by(size, idx):
@@ -1621,8 +1643,13 @@ def subset_pairlist(npairs):
     pairs — matches solve.c f1_parse_subset (orbit-append order, NOT sorted)."""
     spec = F1C5_UNIONS.get(npairs)
     if spec is None:
-        raise SystemExit("--f1-pairs %r: not in this port's F1C5_UNIONS table (solve.c's f1c5 union table has more, e.g. n = 10: 3.0,3.1,4.0@0); have %s"
-                         % (npairs, ",".join(map(str, sorted(F1C5_UNIONS)))))
+        # The domain is printed from the table, never typed: the 31 free pairs fall into orbits
+        # of sizes 3,3,3,4,6,6,6, so a reduced rung is a subset sum of those (1,2,5,8,11,14,17,
+        # 20,23,26,29,30 are unrealizable) and 31 is the full system, which this port does not
+        # reduce. Until 2026-11-02 this message named a nine-row subset of solve.c's table.
+        raise SystemExit("--f1-pairs %r: no group-closed orbit union of that size (the pair-orbit "
+                         "sizes are 3,3,3,4,6,6,6; 31 is the full system, not a reduced instance); "
+                         "have %s" % (npairs, ",".join(map(str, sorted(F1C5_UNIONS)))))
     # Q-311: `spec.index("@")` raises ValueError and `int(...)` raises on a non-numeric
     # suffix -- both bare tracebacks, the same shape as the four CLI integer flags fixed
     # earlier today. A spec is operator-typed, so it gets the same courtesy.

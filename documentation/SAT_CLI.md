@@ -316,8 +316,15 @@ python3 sat.py --emit-cnf f1c5 n13.cnf --f1-pairs 13
 ```
 
 Emits the **reduced** C1∩C2∩C4∩C5 instance for the group-closed N-pair orbit
-union (`N ∈ {9,13,16,18,19,24,25,27,28}`) — exactly the object that
-`solve --f1-exact-c1c2c4c5 --f1-pairs N` counts. The C5 budget `B0` (the target
+union (`N ∈ {3,4,6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28}`, the 18 rows of
+`solve.c`'s `f1c5_unions[]`: one union of whole pair-orbits per realizable size
+below 31, the orbit sizes being 3,3,3,4,6,6,6) — exactly the object that
+`solve --f1-exact-c1c2c4c5 --f1-pairs N` counts. ⚠ *(Corrected 2026-11-02,
+CX-36K: until then `sat.py`'s table held nine of the eighteen rows —
+9,13,16,18,19,24,25,27,28 — and this page and the refusal message presented
+those nine as the whole domain; 10 and 12 were refused although `solve.c` had
+accepted them since 2026-08-09. `tests.py` `TestBatchQ54` now requires the
+`sat.py` table to equal the C table.)* The C5 budget `B0` (the target
 boundary distance-class multiset) is derived per subset from `solve.py`
 semantics via the deterministic first-completion DFS (a port of `solve.c`'s
 `f1c5_derive_b0`/`f1c5_b0_dfs`); the print line reports the pair list,
@@ -334,9 +341,12 @@ C3 and literature-rule targets have no reduced form. Until then the handlers
 never read `TARGET` under this flag: measured 2026-09-21 at `5219dc43`,
 `--emit-cnf nonsense-target n13.cnf --f1-pairs 13` exited 0 and wrote a CNF
 byte-identical (same sha256) to the `f1c5` one — the pre-2026-09-03
-silent-drop class, on a positional. An `N` outside the nine group-closed
-unions is refused with the list (`--f1-pairs 10: no group-closed orbit union;
-have 9,13,16,18,19,24,25,27,28`).
+silent-drop class, on a positional. An `N` that is not a subset sum of the
+orbit sizes (1,2,5,8,11,14,17,20,23,26,29,30), or 31, is refused with the
+domain printed from the table (`--f1-pairs 11: no group-closed orbit union of
+that size (the pair-orbit sizes are 3,3,3,4,6,6,6; 31 is the full system, not a
+reduced instance); have 3,4,6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28`;
+before 2026-11-02 the example here was `--f1-pairs 10`, which is a rung).
 
 ### --witness TARGET
 
@@ -630,7 +640,7 @@ temp directory.
 | `--c3-max N` | Include C3 and set the maximum total complement distance to `N` (implies `--with-c3`). Values below the structural minimum C3 = 112 (2·8 self-complementary pairs + 8·12 complement couples at slot distance ≥ 1) are refused with a non-zero exit: no C1 layout attains them, and the unary ladder cannot represent such a bound. Consumes the following token as the integer bound. Since 2026-09-03 the `--decode` window label and the `--witness` acceptance test both honour `N` (until then both fell back to a literal `c3 ≤ 776` unless `--c3-min` was also given — measured 2026-09-01 on a C3 = 792 witness under `--c3-max 800`, reported `fail C3`). |
 | `--c3-min N` | Encode C3 ≥ `N` (the ≥ side of the unary couple-distance ladder). Does **not** imply the ≤ 776 ceiling — combine with `--c3-max` to window C3 exactly. Unlike the relaxed one-directional ≤ encoding, the ≥ side is exact (two-sided X↔Y binding plus spurious-true-distance-lit kill clauses), so a model's ladder value equals the decoded ordering's true couple-distance sum. Used by the C3 positional certificates (above-ceiling witness `--c3-min 784`, i.e. G ≥ 96; the G = 95 tie witness via `--c3-min 776 --c3-max 776`; and the `kw-pin --c3-min 777` KW-exactness UNSAT gate). Consumes the following token as the integer bound. |
 | `--not-kw` | Exclude every ordering whose pair-slot **layout** matches King Wen's (slot s = pair s for all s) — KW itself and all its within-pair orientation variants. Since the excluded set contains KW, any witness is ≠ KW, and stronger: it places at least one pair in a non-KW slot (G is orientation-blind, so an orientation-only variant would tie G trivially). |
-| `--f1-pairs N` | Build the reduced C1∩C2∩C4∩C5 instance for the group-closed N-pair orbit union (`N ∈ {9,13,16,18,19,24,25,27,28}`) instead of the full-31 system — the object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts. Applies to `--emit-cnf`, `--decode` and `--certify-count` (not `--witness`). `TARGET` must be `f1c5` (any other is refused since 2026-09-21; it was silently ignored before — see §`--emit-cnf … --f1-pairs N`). The C5 budget `B0` is derived per subset. Refuses combination with `--with-c3`/`--c3-max`/`--c3-min`/`--not-kw`: the subset instances encode C1&C2&C4&C5 only (before 2026-08-27 those flags were silently ignored here). Consumes the following token as the integer `N`. |
+| `--f1-pairs N` | Build the reduced C1∩C2∩C4∩C5 instance for the group-closed N-pair orbit union (`N ∈ {3,4,6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28}`, `solve.c`'s `f1c5_unions[]`; nine of these were missing from `sat.py`'s table until 2026-11-02, CX-36K) instead of the full-31 system — the object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts. Applies to `--emit-cnf`, `--decode` and `--certify-count` (not `--witness`). `TARGET` must be `f1c5` (any other is refused since 2026-09-21; it was silently ignored before — see §`--emit-cnf … --f1-pairs N`). The C5 budget `B0` is derived per subset. Refuses combination with `--with-c3`/`--c3-max`/`--c3-min`/`--not-kw`: the subset instances encode C1&C2&C4&C5 only (before 2026-08-27 those flags were silently ignored here). Consumes the following token as the integer `N`. |
 | `--expect N` | (`--certify-count` only) Assert the certified count equals `N` (the caller-supplied native reference count); prints `PASS`/`FAIL` and exits non-zero on `FAIL`. Consumes the following token as the integer `N`. |
 | `--keep DIR` | (`--certify-count` only) Preserve the `instance.cnf`/`.nnf`/`.cpog` artifacts in `DIR` (created if needed) instead of a removed temporary directory. Consumes the following token as the directory path. |
 

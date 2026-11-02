@@ -37125,3 +37125,54 @@ an unreadable provenance history is kept, not replaced), D1474 (above).
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-E1; the defects were found by Codex
 (gpt-6-astra), fix-verification round, F04-008#12, F04-003#22.
+
+## CX-36K — sat.py's reduced-instance table held nine of solve.c's eighteen rungs and refused the rest as if they did not exist (sat.py; documentation/SAT_CLI.md; tests.py; scripts/doc_gates.d/90_claim_artifacts.sh)
+
+**2026-11-02.** **Source.** Backlog row Q-54 (2026-09-03), which measured `sat.py`'s refusal of `--f1-pairs 10` and
+`12` and read it as "there is no certifiable rung between n=9 and n=13"; its premise was falsified the same day and
+the defect was recorded then, uncured until now. Push group Q54, the prerequisite of the certified n=12 count
+(Q-1051). Found and cured by Fable.
+
+**What the code did, and what it does now.**
+- **The table (`sat.py` `F1C5_UNIONS`).** The dict carried nine rows (9, 13, 16, 18, 19, 24, 25, 27, 28) under a
+  comment saying they were verbatim from `solve.c`'s `f1c5_unions[]`, which has held eighteen rows since 2026-08-09
+  (3, 4, 6, 7, 10, 12, 15, 21, 22 added). The refusal for any other `N` printed the nine as the whole domain, with a
+  parenthetical that the C table "has more". The dict now holds the eighteen rows in the C table's order. The nine
+  added rows are not copied on trust: `solve.c` states its convention (rows in the order 3.0, 3.1, 3.2, 4.0, 6.0, 6.1,
+  6.2, earlier rows preferred), and the test re-derives each of them as the lexicographically smallest index tuple
+  of orbit rows whose sizes sum to `n`; the nine historical rows, which TR-11 4b's counts depend on and which that
+  convention does not reproduce (13 is `3.0,4.0,6.2`, not `3.0,4.0,6.0`), are pinned literally. The domain is the set
+  of subset sums of the orbit sizes {3,3,3,4,6,6,6} below 31 — eighteen sizes; 1, 2, 5, 8, 11, 14, 17, 20, 23, 26, 29
+  and 30 are not realizable — and the test computes it from the orbit structure `sat.py` derives at import.
+- **The refusal.** `--f1-pairs 11` (and 5, 31) now says `no group-closed orbit union of that size (the pair-orbit sizes
+  are 3,3,3,4,6,6,6; 31 is the full system, not a reduced instance); have 3,4,…,28`, the list printed from the
+  table. The help text and the probe comment name the same eighteen sizes.
+- **Measured on this tree.** `--emit-cnf f1c5 … --f1-pairs 12` builds `vars=924 clauses=13816`, pair list
+  `[3,7,11,4,6,21,1,9,17,19,22,25]`, `start_exit=0`, `B0=(1,8,1,2,0)`, identical to `solve --f1-exact-c1c2c4c5
+  --f1-pairs 12`'s printed subset line; `--f1-pairs 10` builds `vars=550 clauses=7834`. At every rung the
+  orchestrator can count in under a second (3, 4, 6, 7, 10, 12) `solve`'s DP total MATCHes `verify --ie-count` for
+  the same union, and at n ≤ 7 the independent Python DP of `TestSatC5Subset` gives the same number. No count is
+  published here: TR-11 4b's note that these rungs have no published count stands, and the n=12 count is to be
+  published with its certificate.
+- **Nothing changed at n=9.** The CNF `--certify-count f1c5 --f1-pairs 9` writes is byte-identical before and after
+  (71,429 B, sha256 `800fde57…` as SAT_CLI.md identifies it); the pair list and `B0` are unchanged; the certified
+  count 26,112 and its certificate are untouched. `--selftest` and `--selftest-resume` are not involved (`solve.c`
+  is not edited).
+- **Documentation.** SAT_CLI.md's three statements of the nine-size domain now give the eighteen with a dated note;
+  its refusal example (`--f1-pairs 10`, a rung) is replaced by `--f1-pairs 11`. CX-98 §1 (2026-09-25) said "`sat.py`
+  and SAT_CLI.md list nine sizes. That list is `sat.py`'s own `F1C5_UNIONS` domain and is correct for `sat.py`";
+  that was true of the code as it then was and false of the table's own comment, and it is superseded on that point
+  from 2026-11-02. CX-98 stands as written.
+- **Line citations moved by this edit, re-pointed by content** (`citation_line_gate.sh --all-files --all-targets`
+  PASS): `tests.py:643` cited `sat.py:2377` / `:2405` (the `--keep` guard and the d4 call), now `sat.py:2404` /
+  `:2432`; `scripts/doc_gates.d/90_claim_artifacts.sh:27` cited `SAT_CLI.md:439` (the `OUT.cnf.drat` template line),
+  now `SAT_CLI.md:449`. The help-text edit was made line-neutral so `SAT_CLI.md:102`'s `sat.py:255` still lands.
+
+**Tests.** `TestBatchQ54`: `test_q54_table_equals_solve_c_and_is_derived` (parses `solve.c`'s initializer, requires
+equality, order, the subset-sum domain, the literal historical rows, the re-derived added rows, and that every row
+parses to `n` distinct pairs forming whole orbits), `test_q54_refusal_prints_the_table_domain`,
+`test_q54_new_rungs_agree_with_solve_and_verify` (builds `solve` and `verify`; a wrong `--ie-expect` is the control),
+`test_q54_n9_certificate_input_unchanged` (the invariance pin: passes on the base tree too, by design). The first
+three fail with this `tests.py` over the `sat.py` of 512d2d34 (measured: `failures=2, errors=1`).
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, push group Q54.
