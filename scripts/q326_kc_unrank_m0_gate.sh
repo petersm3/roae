@@ -75,10 +75,17 @@ legs(){ # legs <solve>  -> prints L1=.. L2=.. L3=.. L4=..
   # the binary's OWN status, taken from a bare run -- never from a pipeline, where it would be
   # grep's status instead.
   "$S" --kc-unrank "$WORK/f" 0 --kc-record --kc-c3-max 0 >/dev/null 2>&1; rc=$?
-  a=$("$S" --kc-unrank "$WORK/f" 0 --kc-record --kc-c3-max 0 2>/dev/null | grep '^record')
-  b=$("$S" --kc-unrank "$WORK/f" 0 --kc-record --kc-c3-max 0 2>/dev/null | grep '^record')
+  # FV2-G3b (CX-36G-C; Codex F05-014#7; FV2 D1205): L2/L3 read the WHOLE stdout of the m=0 run, not its `^record`
+  # lines -- a leaked `repr` line, or an extra line that varies run to run, was invisible to both.
+  # L2: the transcript (provenance trailer aside) is exactly the unranked walk and the m=0 record line.
+  # L3: two runs print byte-identical transcripts, trailer included (it carries no timestamp).
+  local body
+  a=$("$S" --kc-unrank "$WORK/f" 0 --kc-record --kc-c3-max 0 2>/dev/null)
+  b=$("$S" --kc-unrank "$WORK/f" 0 --kc-record --kc-c3-max 0 2>/dev/null)
+  body=$(grep -v '^#provenance' <<<"$a")
   [ "$rc" = 1 ]                                                  && echo "L1=OK" || echo "L1=BAD(rc=$rc)"
-  [ "$a" = "record	m=0	(class has no valid orientation completion)" ] \
+  [ "$(grep -c . <<<"$body")" = 2 ] && grep -qxE '[0-9]+(,[0-9]+){17}' <<<"$(sed -n 1p <<<"$body")" \
+    && [ "$(sed -n 2p <<<"$body")" = "record	m=0	(class has no valid orientation completion)" ] \
                                                                  && echo "L2=OK" || echo "L2=BAD"
   [ -n "$a" ] && [ "$a" = "$b" ]                                 && echo "L3=OK" || echo "L3=BAD"
   # L4 reads the producer's STATUS and the WHOLE record (Codex, gpt-6-astra, F05-014#5): a positive

@@ -69,7 +69,13 @@ rows=$(printf '%s\n' "$pairs" | cut -f1 | grep . | sort -u)
 infra(){ echo "  [FAIL] $* -- nothing was reconciled"; echo "TR12_GOLDEN_SET=FAIL"; exit 1; }
 goldens=$(find "$EXP" -maxdepth 1 -type f -name '*.txt' ! -name '_*' -printf '%f\n' | sed 's/\.txt$//' | sort -u) \
   || infra "could not list the goldens under $EXP"
-manifest=$(awk 'NF==2 && $1 ~ /^[0-9a-f]+$/ && $2 ~ /\.txt$/ {sub(/\.txt$/, "", $2); print $2}' "$EXP/_MANIFEST.txt" | sort -u) \
+# FV2-G3b (CX-36G-B; Codex F05-012#16; FV2 D1246): a digest row is 64 hex digits (either case) and a .txt name; any
+# other non-comment, non-blank line is a MALFORMED manifest row, not one to drop -- an uppercase digest
+# used to vanish here, and its golden read as unmanifested or escaped the manifest-missing check.
+malformed=$(awk '/^[[:space:]]*(#|$)/ {next} !(NF==2 && length($1)==64 && $1 ~ /^[0-9a-fA-F]+$/ && $2 ~ /\.txt$/) {print NR": "$0}' "$EXP/_MANIFEST.txt") \
+  || infra "could not read $EXP/_MANIFEST.txt"
+[ -z "$malformed" ] || infra "$EXP/_MANIFEST.txt carries malformed row(s): $(printf '%s' "$malformed" | head -3 | tr '\n' ' ')"
+manifest=$(awk 'NF==2 && length($1)==64 && $1 ~ /^[0-9a-fA-F]+$/ && $2 ~ /\.txt$/ {sub(/\.txt$/, "", $2); print $2}' "$EXP/_MANIFEST.txt" | sort -u) \
   || infra "could not read $EXP/_MANIFEST.txt"
 # Pinned NOT RUN means the pin's VALUE says so -- SKIP or PENDING (Codex, gpt-6-astra, F05-012#16):
 # a token pinned `=PASS`, `=FAIL` or empty is a row that runs, and a missing golden for it is a FAIL.

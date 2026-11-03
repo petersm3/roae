@@ -167,9 +167,18 @@ def _l19():
             return False
     return True
 leg("L19", _l19)
+# L20  FV2-G3b (CX-36G-D; Codex F05-014#9; FV2 D1214): a VALID certificate of a different SCOPE prices nothing. Every
+# fixture above matched the atlas's scope, so the consumer's `scope.n` comparison could go unseen. The
+# same certificate scoped to the atlas's own n=9 is the positive control: it must price (kills m8).
+def _l20():
+    v9, r9 = emit(w("scope9.json", cert(scope={"n": 9})))
+    v31, r31 = emit(w("scope31.json", cert(scope={"n": 31})))
+    return (v9 == "PASS" and r9.get("10", (None, ""))[1] == "EXHAUSTIBLE"
+            and v31 != "PASS" and not any(c in ("EXHAUSTIBLE", "INFEASIBLE") for _x, c in r31.values()))
+leg("L20", _l20)
 PY
 
-NLEGS=20
+NLEGS=21
 # The runner's own exit status is printed as legs_rc and required to be 0 (Codex, gpt-6-astra,
 # F05-014#8): verdict-shaped lines followed by an abnormal exit (2, 124, 137, 143) were a
 # baseline PASS, and a mutant whose runner died after printing its BAD text counted as killed.
@@ -177,7 +186,7 @@ legs(){ python3 "$WORK/legs.py" "$1" 2>/dev/null; echo "legs_rc=$?"; }
 
 BASE=$(legs solve.py)
 grep -qx 'legs_rc=0' <<<"$BASE" || fail "the baseline leg runner exited $(sed -n 's/^legs_rc=//p' <<<"$BASE") -- its verdict lines are not a completed measurement"
-# 20 since G5a (L19); 19 since 2026-09-24 (Q-772): L1, L1b, L2-L18. A count that lags its population is a check that
+# 21 since FV2-G3b (L20); 20 since G5a (L19); 19 since 2026-09-24 (Q-772): L1, L1b, L2-L18. A count that lags its population is a check that
 # has stopped counting, so the pin moves in the same change as the legs.
 [ "$(printf '%s\n' "$BASE" | grep -c '^L[0-9a-z]*=')" = "$NLEGS" ] \
   || fail "baseline produced $(printf '%s\n' "$BASE" | grep -c '^L[0-9a-z]*=') leg verdicts, not $NLEGS -- the gate measured nothing"
@@ -226,6 +235,9 @@ elif edit == "m7_consumer_default_map":
            '            xa_map, xa_refusal = {"factor": _F(1), "kind": "exact", "residual": 0, "formula": "m",\n'
            '                "law": "m", "sha256": "0" * 64, "path": "m", "provenance": {}, "engine_git": "m",\n'
            '                "measured_n": [], "verdict_line": "m", "scope_n": None}, None\n')
+elif edit == "m8_scope_ignored":
+    old = '                and xa_map["scope_n"] != n:\n'
+    new = '                and False:\n'
 elif edit == "m6_prefix_match":
     old = '    m = re.fullmatch(r"([0-9]{1,%d})/([0-9]{1,%d})"'
     new = '    m = re.match(r"([0-9]{1,%d})/([0-9]{1,%d})"'
@@ -271,7 +283,7 @@ for m in M0_accept_all:accept_all:L1b M0b_refuse_all:refuse_all:L1 \
          m1_factor_ignored:m1_factor_ignored:L15 m2_kind_ignored:m2_kind_ignored:L16 \
          m3_checks_removed:m3_checks_removed:L17 m4_recursive_find:m4_recursive_find:L18 \
          m5_sha_unverified:m5_sha_unverified:L1 m6_prefix_match:m6_prefix_match:L17 \
-         m7_consumer_default_map:m7_consumer_default_map:L19; do
+         m7_consumer_default_map:m7_consumer_default_map:L19 m8_scope_ignored:m8_scope_ignored:L20; do
   IFS=: read -r mname medit mleg <<<"$m"
   mutate "$mname" "$medit" "$mleg"
   case $? in
@@ -280,6 +292,6 @@ for m in M0_accept_all:accept_all:L1b M0b_refuse_all:refuse_all:L1 \
     *) echo "Q433_XA_CERT=ERROR"; exit 2 ;;
   esac
 done
-[ "$K" = 9 ] || fail "evaluated $K mutants, expected 9"
-echo "  [gate] baseline PASS on $NLEGS legs; $K/9 mutants killed"
+[ "$K" = 10 ] || fail "evaluated $K mutants, expected 10"
+echo "  [gate] baseline PASS on $NLEGS legs; $K/10 mutants killed"
 echo "Q433_XA_CERT=PASS"

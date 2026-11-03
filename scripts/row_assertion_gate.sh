@@ -160,7 +160,26 @@ BEGIN { SQ=sprintf("%c", 39) }
 function reset(   i){
     drv=0; pub=0; loop=0; nfail=0; nrcprop=0; valguard=0; emitted=0
     delete failvar; delete failkind; delete exited; delete guard; delete valvars; delete isbr
-    depth=0; sdepth=0; delete sopen
+    depth=0; sdepth=0; delete sopen; delete rcg; delete valsd; closeline=0
+}
+# FV2-G3b (CX-36G-D; Codex F05-008#7; FV2 D1228): close the subshell levels a line ends, innermost first, AFTER the
+# line'"'"'s own failures are recorded -- so a failure on the closing line of a discarded subshell is
+# discarded with it, and each level is judged by what follows ITS `)` (two closes on one line used to
+# pop one level and read the masking clause off the end of the line).
+function closesub(s,   t, i, c, bal, rest, k){
+    t=s; gsub(/\\./,"",t); gsub(SQ "[^" SQ "]*" SQ,"",t); gsub(/"[^"]*"/,"",t)
+    bal=0
+    for (i=1; i<=length(t); i++) {
+        c=substr(t,i,1)
+        if (c == "(") bal++
+        else if (c == ")") {
+            if (bal > 0) { bal--; continue }
+            if (sdepth <= 0) continue
+            rest=substr(t,i+1)
+            if (rest ~ /^[ \t]*\|\|[ \t]*(true|:)([ \t;)]|$)/) for (k=sopen[sdepth]; k<=nfail; k++) failkind[k]="discarded"
+            sdepth--
+        }
+    }
 }
 # parenthesis balance of a canonical line, outside single and double quotes: + opens, - closes
 function pbal(s,   t){
@@ -225,7 +244,9 @@ inb && L ~ /^[ \t]*row_end(_val)?([ \t;]|$)/ {
         if (v != "" && (v in exited)) { asserted=1; why="exit $" v; break }
         if (v != "" && index(rcarg, v) > 0) { asserted=1; why="row_end rc " rcarg; break }
     }
-    if (!asserted && kind == "row_end_val" && valarg != "" && (valarg in valvars)) { asserted=1; why="value-carried (ERROR/FAIL literal raised under a guard)" }
+    # FV2-G3b (CX-36G-D; Codex F05-008#8; FV2 D1226): a value raised inside a subshell does not reach a row_end_val
+    # in the shell around it -- only assignments at a subshell depth <= this call'"'"'s count.
+    if (!asserted && kind == "row_end_val" && valarg != "" && (valarg in valvars) && valsd[valarg] <= sdepth) { asserted=1; why="value-carried (ERROR/FAIL literal raised under a guard)" }
     if (!asserted) {
         if (nfail > 0) why="a check is written but nothing exits its flag"
         else if (nrcprop > 0) why="rc-propagated only: the producer ran, nothing checked what it printed"
@@ -258,24 +279,27 @@ inb {
         e=l; sub(/.*exit +/,"",e); gsub(/[^A-Za-z0-9_]/," ",e); m=split(e,E," ")
         for (j=1;j<=m;j++) if (E[j] ~ /^[A-Za-z_]/) exited[E[j]]=1
     }
-    if (l ~ /^if /)        { depth++; isbr[depth]=0; guard[depth]= (testish(l) && !rcprop(l)) ? 1 : 0 }
+    if (l ~ /^if /)        { depth++; isbr[depth]=0; guard[depth]= (testish(l) && !rcprop(l)) ? 1 : 0; rcg[depth]= (depth>1 ? rcg[depth-1] : 0) }
     else if (l ~ /^elif /) { if (depth>0) guard[depth]= (testish(l) && !rcprop(l)) ? 1 : 0 }
     else if (l ~ /^fi([ \t;)]|$)/) { if (depth>0 && !isbr[depth]) depth-- }
     # Q-970: the canonical form puts a `cond || { ...; fails=1; }` group on its own lines, so a
     # `{` opened by a guarded `||`/`&&` is a guard level like `if` (a plain `{` inherits the guard of the level around it).
     else if (l ~ /\{ *$/) { depth++; isbr[depth]=1
-        guard[depth] = (l ~ /(\|\||&&) *\{ *$/ && testish(l) && !rcprop(l)) ? 1 : (depth>1 ? guard[depth-1] : 0) }
+        guard[depth] = (l ~ /(\|\||&&) *\{ *$/ && testish(l) && !rcprop(l)) ? 1 : (depth>1 ? guard[depth-1] : 0)
+        # FV2-G3b (CX-36G-D; Codex F05-008#6; FV2 D1227): a group opened by a PRODUCER-STATUS handler
+        # (`"$SOLVE" ... || {`) is rc plumbing, and so is every exit inside it -- it is not a check of
+        # what the producer printed. Nested levels inherit it.
+        rcg[depth] = (l ~ /(\|\||&&) *\{ *$/ && rcprop(l) && !testish(l)) ? 1 : (depth>1 ? rcg[depth-1] : 0) }
     else if (l ~ /^\}/) { if (depth>0 && isbr[depth]) depth-- }
     # --- subshells whose status is discarded (Q-970, A02#8) ---------------------------------
     if (ob && b > 0) { sdepth++; sopen[sdepth]=nfail+1 }
-    else if (b < 0 && sdepth > 0) {
-        if (l ~ /\) *\|\| *(true|:) *;?$/) for (k=sopen[sdepth]; k<=nfail; k++) failkind[k]="discarded"
-        sdepth--
-    }
+    else if (b < 0 && sdepth > 0) closeline=1    # closed by closesub() below, after this line'"'"'s failures
     # --- failure paths ----------------------------------------------------------------------
+    skipval=0
     if (failish(l)) {
-        if (lo ~ /\(.*exit +[1-9].*\) *\|\| *(true|:)/) { nrcprop++; next }     # ( ... exit N ) || true
-        if (rcprop(l) && !testish(l)) nrcprop++                               # Q-970 A02#7: an exit too
+        if (lo ~ /\(.*exit +[1-9].*\) *\|\| *(true|:)/) { nrcprop++; skipval=1 }  # ( ... exit N ) || true
+        else if (rcprop(l) && !testish(l)) nrcprop++                          # Q-970 A02#7: an exit too
+        else if (depth>0 && rcg[depth] && !testish(l)) nrcprop++              # D1227: inside a producer-status handler
         else if (testish(l) || (depth>0 && guard[depth]) || directexit(l)) {
             if (directexit(l) && !(testish(l) || (depth>0 && guard[depth]))) {
                 # an unguarded `exit 1` at the tail of a subshell is a failure path only if some
@@ -289,9 +313,15 @@ inb {
             }
         } else nrcprop++
     }
-    if (l ~ /[A-Za-z_][A-Za-z0-9_]*="?(ERROR|FAIL)/ && (testish(l) || (depth>0 && guard[depth]))) {
+    if (!skipval && l ~ /[A-Za-z_][A-Za-z0-9_]*="?(ERROR|FAIL)/ && (testish(l) || (depth>0 && guard[depth]))) {
         valguard=1; v=l; sub(/="?(ERROR|FAIL).*/,"",v); sub(/.*[^A-Za-z0-9_]/,"",v); valvars[v]=1
+        # D1226: the subshell depth of this assignment -- the enclosing levels, plus one when it sits
+        # inside a `( ... )` opened earlier on this same line.
+        sd=sdepth
+        if (match(lo, /[A-Za-z_][A-Za-z0-9_]*="?(ERROR|FAIL)/) && !(ob && b > 0) && pbal(substr(lo, 1, RSTART-1)) > 0) sd++
+        if (!(v in valsd) || sd < valsd[v]) valsd[v]=sd
     }
+    if (closeline) { closesub(lo); closeline=0 }
     next
 }
 END{
@@ -382,15 +412,21 @@ run_gate(){   # run_gate BATTERY STRICT ; prints the report, sets globals, retur
         done <<< "$ex"
     fi
 
-    local reds
-    reds=$(printf '%s\n' "$out" | awk -F'\t' '$5=="DRIVER" && $6=="UNASSERTED"{print $2"\t"$3"\t"$4"\t"$7"\t"$8}')
+    local reds ndu exn=0
+    # FV2-G3b (CX-36G-D; Codex F05-008#9; FV2 D1229): the red-list extraction's status is read, and what the loop
+    # below classifies must account for every DRIVER/UNASSERTED row of the analysis -- an awk that failed
+    # without output gave an empty red list, NEW=0 and PASS over an UNASSERTED driver.
+    reds=$(printf '%s\n' "$out" | awk -F'\t' '$5=="DRIVER" && $6=="UNASSERTED"{print $2"\t"$3"\t"$4"\t"$7"\t"$8}') \
+      || { echo "ROW_ASSERTION_ERROR=analyzer-failed"; echo "ROW_ASSERTION=ERROR"; return 2; }
+    ndu=$(printf '%s\n' "$out" | grep -c $'^ROW\t[^\t]*\t[^\t]*\t[^\t]*\tDRIVER\tUNASSERTED\t')
     local newlist=""
     while IFS=$'\t' read -r rid rtok rln rsub rwhy; do
         [ -n "${rid:-}" ] || continue
-        if [ "$strict" -eq 0 ] && printf '%s\n' "$ex" | awk -F'\t' -v i="$rid" '$1==i{f=1} END{exit f?0:1}'; then continue; fi
+        if [ "$strict" -eq 0 ] && printf '%s\n' "$ex" | awk -F'\t' -v i="$rid" '$1==i{f=1} END{exit f?0:1}'; then exn=$((exn+1)); continue; fi
         newlist="${newlist}UNASSERTED	$rid	$rtok	$rln	$rsub	$rwhy"$'\n'
         newn=$((newn+1))
     done <<< "$reds"
+    [ $((newn + exn)) -eq "${ndu:-0}" ] || { echo "ROW_ASSERTION_ERROR=red-list-incomplete ($newn new + $exn exempt != $ndu DRIVER/UNASSERTED rows)"; echo "ROW_ASSERTION=ERROR"; return 2; }
 
     if [ "$LIST" -eq 1 ] || [ "$newn" -gt 0 ] || [ "$stale" -gt 0 ] || [ "$unknown" -gt 0 ]; then
         printf '%s\n' "$out" | grep '^ROW	'

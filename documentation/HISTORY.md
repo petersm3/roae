@@ -12029,3 +12029,18 @@ Q-686=DONE
   PASS on this tree, and the only generated file that moved is CORRECTIONS_INVENTORY.tsv (dates of five rows).
   `TestBatchFV2G3a` holds each cure against the planted defect. Developed with AI assistance (Claude,
   Anthropic): claude-fable-5-1 (pinned); sites found by Codex (gpt-6-astra), final review.
+
+## 2026-10-29 — push group FV2-G3b: gate scripts from the FV2 adjudication of Codex's final review
+
+- **The gate-script rows kc_writer_devfull to xa_exact_verdict and the push path (CX-36G-A to CX-36G-E).** Codex
+  (gpt-6-astra) ran the final review and Fable adjudicated it (FV2). The reproduction gate now requires each
+  prerequisite gate's own verdict token, not only its exit status, and its fingerprint covers the executable bit, so
+  the stamp is re-minted. The golden, mint-state and output-path gates bind what they compare (a bucket count to its
+  label, King Wen's rank to its own record, a token set to its block's exit status). The engine-subject gates read
+  their builds, scans, hashes and counts; the zero-entry manifest gate's first mutant compiles again (it had not since
+  G6) and two legs plant a manifest for a shard on disk. The battery-row and consumer gates gain the fixtures that
+  see the regressions Codex named: downward denominators, the production certificate set, an anchor per boundary, a
+  certificate of another scope. On the push path the pre-commit registry gate compares blobs, the pre-push
+  inventory leg bounds a new ref by what the destination holds, and the verdict recorder reads its count's status.
+- No canonical sha, count, certificate or verdict changed. `TestBatchFV2G3b` holds each cure and fails on the
+  uncured tree.

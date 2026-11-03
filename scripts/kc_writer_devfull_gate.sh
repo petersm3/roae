@@ -26,6 +26,16 @@
 # coverage, which is the same defect shape the file exists to catch. If a TENTH destination is added
 # to solve.c, add a probe here and raise the floor at the bottom; the floor is the thing that makes
 # the omission loud rather than silent.
+# FV2-G3b (CX-36G-C; Codex F05-018#2; FV2 D1147): that "complete set" was not complete -- --kc-dead-census --kc-out and
+# --kc-witness-walks --kc-out are path destinations too, and are probed now (eleven, floor 11). So the
+# claim is the ENUMERATED list above plus those two, not "every KC writer": --kc-midjoin writes into a
+# DIRECTORY through tmp + rename (mj_write_atomic), which /dev/full cannot stand in for, and is not
+# probed here.
+# FV2-G3b (CX-36G-C; Codex F09-A02#14; F05-018#3; FV2 D1150 / D1151): /dev/full is preflighted (a write to it must fail with
+# ENOSPC, else an open() failure would satisfy the red leg); the red leg requires EXACTLY ONE verdict
+# line for the writer and that it is the FAIL token, the green leg requires the OK token and no FAIL
+# token; the three writers with no token are held to their write-failure diagnostic instead
+# (`write to /dev/full failed`), which an open() failure does not print.
 #
 # Verdict, whole line, grep -qx-able:  KC_WRITER_DEVFULL_GATE=PASS|FAIL|ERROR
 # ERROR is NOT a pass. A gate that could not build the engine or the ladders measured nothing, and
@@ -69,20 +79,34 @@ F=$WORK/f; G=$WORK/g; T=$WORK/t; mkdir -p "$F" "$G" "$T"
 # gate reports FAIL -- it does not quietly skip, which is the failure mode this file exists to stop.
 W="1,32,16,2,8,4,55,59,62,31,47,61,45,18,51,12,33,30"
 
+# /dev/full must BE /dev/full: a write to it fails with ENOSPC. Where it is absent or unwritable every
+# red leg would pass on an open() failure without exercising the write/close error handling.
+_pf=$( { printf x > /dev/full; } 2>&1 ); _pfrc=$?
+[ "$_pfrc" -ne 0 ] && grep -q 'No space left on device' <<<"$_pf" \
+  || die "/dev/full does not fail writes with ENOSPC here (rc $_pfrc: ${_pf:-no message}) -- the red legs would measure open(), not write"
+
 # ---- one writer, both directions ---------------------------------------------------------------
 # probe NAME FAILTOKEN -- cmd...   ; %OUT% is replaced by the destination
 probe(){
+  # probe NAME TOKEN -- CMD...   TOKEN is KEY=FAIL (the writer's verdict line; green must print KEY=OK),
+  # KEY=FAIL|WORD (green prints KEY=WORD), or re:ERE (a diagnostic line the red leg must print, for a
+  # writer with no token).
   local name="$1" tok="$2"; shift 3
-  local red green rc out
+  local red green rc out key="" nk okw=OK
   checks=$((checks+1))
+  case "$tok" in *=FAIL\|*) okw=${tok#*|}; tok=${tok%%|*} ;; esac
+  case "$tok" in re:*) ;; *=FAIL) key=${tok%=FAIL} ;; *) die "probe $name: token '$tok' is neither KEY=FAIL nor re:ERE" ;; esac
   # RED: destination cannot be written
   local -a cmd=(); for a in "$@"; do cmd+=("${a//%OUT%//dev/full}"); done
   out=$("${cmd[@]}" 2>&1); rc=$?
   if [ "$rc" -eq 0 ]; then
     say "[FAIL] $name: exit 0 writing to /dev/full — it reported success for an artifact that does not exist"
     fails=$((fails+1)); red=0
-  elif [ -n "$tok" ] && ! grep -qx "$tok" <<<"$out"; then
-    say "[FAIL] $name: nonzero exit but no whole-line $tok — a wrapper grepping tokens still reads it as clean"
+  elif [ -n "$key" ] && { nk=$(grep -c "^$key=" <<<"$out"); [ "$nk" != 1 ] || ! grep -qx "$tok" <<<"$out"; }; then
+    say "[FAIL] $name: nonzero exit but not exactly one $key= line reading $tok ($nk line(s)) — a wrapper grepping tokens can read it as clean"
+    fails=$((fails+1)); red=0
+  elif [ -z "$key" ] && ! grep -qE -- "${tok#re:}" <<<"$out"; then
+    say "[FAIL] $name: nonzero exit but no write-failure diagnostic /${tok#re:}/ — an open() failure is not the write path"
     fails=$((fails+1)); red=0
   else
     red=1
@@ -98,6 +122,9 @@ probe(){
   elif [ ! -s "$dst" ]; then
     say "[FAIL] $name: exit 0 to a real file but the file is empty"
     fails=$((fails+1)); green=0
+  elif [ -n "$key" ] && { ! grep -qx "$key=$okw" <<<"$out" || grep -qx "$tok" <<<"$out"; }; then
+    say "[FAIL] $name: exit 0 to a real file but not $key=$okw without $tok"
+    fails=$((fails+1)); green=0
   else
     green=1
   fi
@@ -108,9 +135,9 @@ echo "== KC artifact writers: does a failed write reach the caller? =="
 probe scan_atlas   'KC_SCAN=FAIL'       -- "$SOLVE" --kc-scan "$F" "$G" %OUT% --kc-tdir "$T" --kc-raw
 probe scan_chunk   'KC_SCAN_CHUNK=FAIL' -- "$SOLVE" --kc-scan "$F" "$G" %OUT% --kc-tdir "$T" --kc-raw --kc-layers 0 4
 probe profile_tsv  'KC_PROFILE=FAIL'    -- "$SOLVE" --kc-profile "$F" "$G" "$W" --kc-tsv %OUT%
-probe t_cert       ''                   -- "$SOLVE" --kc-t-cert %OUT%
-probe o3_cert      ''                   -- "$SOLVE" --kc-o3-cert "$F" "$G" "$W" --kc-cert-out %OUT%
-probe arr_cert     ''                   -- "$SOLVE" --check-arrangement KW --cert-out %OUT%
+probe t_cert       're:^ERROR: \[kc-t-cert\] write to /dev/full failed'          -- "$SOLVE" --kc-t-cert %OUT%
+probe o3_cert      're:^ERROR: \[kc-o3-cert\] write to /dev/full failed'         -- "$SOLVE" --kc-o3-cert "$F" "$G" "$W" --kc-cert-out %OUT%
+probe arr_cert     're:^ERROR: \[check-arrangement\] write to /dev/full failed'  -- "$SOLVE" --check-arrangement KW --cert-out %OUT%
 
 # 🔴 F-5 round 3 §5 E (2026-09-11): the two KC certificate writers this list did NOT cover.
 # The header above says "every KC writer"; measured on 2026-09-09 the probe list attested seven of
@@ -129,14 +156,16 @@ probe arr_cert     ''                   -- "$SOLVE" --check-arrangement KW --cer
 OBIN=$WORK/oracle_empty.bin
 { printf 'ROAE'; printf '\x01'; head -c 1 /dev/zero; printf '\x57\x7e'; head -c 24 /dev/zero; } >"$OBIN"
 [ "$(wc -c <"$OBIN")" = 32 ] || die "could not build the 32-byte oracle TEST container (got $(wc -c <"$OBIN") bytes)"
-probe oracle_cert  'KC_ORACLE=FAIL'     -- "$SOLVE" --kc-oracle "$F" "$OBIN" --kc-cert-out %OUT%
+probe oracle_cert  'KC_ORACLE=FAIL|PASS' -- "$SOLVE" --kc-oracle "$F" "$OBIN" --kc-cert-out %OUT%
 probe extremal_json 'KC_EXTREMAL=FAIL'  -- "$SOLVE" --kc-extremal dclass:1 "$F" max --kc-json %OUT%
 
 # The merge was the ONE writer fixed in 2026-09-04, and is now routed through the same helper as the
 # rest. It is here as the control that the shared helper did not regress the site that already worked.
 C0=$WORK/c0.json; C1=$WORK/c1.json
-"$SOLVE" --kc-scan "$F" "$G" "$C0" --kc-tdir "$T" --kc-layers 0 4 >/dev/null 2>&1
-"$SOLVE" --kc-scan "$F" "$G" "$C1" --kc-tdir "$T" --kc-layers 4 9 >/dev/null 2>&1
+# FV2-G3b (CX-36G-C; Codex F05-018#4; FV2 D1148): each setup scan's own status is read; a scan that failed after
+# writing a partial chunk must not feed the merge control.
+"$SOLVE" --kc-scan "$F" "$G" "$C0" --kc-tdir "$T" --kc-layers 0 4 >/dev/null 2>&1 || die "setup scan (layers 0-4) failed -- the merge control did not run"
+"$SOLVE" --kc-scan "$F" "$G" "$C1" --kc-tdir "$T" --kc-layers 4 9 >/dev/null 2>&1 || die "setup scan (layers 4-9) failed -- the merge control did not run"
 if [ -s "$C0" ] && [ -s "$C1" ]; then
   probe scan_merge 'KC_SCAN_MERGE=FAIL' -- "$SOLVE" --kc-scan-merge "$F" "$G" %OUT% "$C0" "$C1" --kc-tdir "$T"
 else
@@ -145,7 +174,13 @@ fi
 
 # 🔴 A CHECK THAT MEASURED NOTHING MUST ERROR. If the probe list were emptied, or every probe
 # skipped, `fails` would be 0 and this would otherwise report PASS.
-[ "$checks" -ge 9 ] || die "only $checks writer(s) probed, expected at least 9 — this measured almost nothing"
+# D1147: the census and witness-walk writers (a whole-atlas scan feeds the witness walks).
+AT=$WORK/atlas.json
+"$SOLVE" --kc-scan "$F" "$G" "$AT" --kc-tdir "$T" --kc-raw >/dev/null 2>&1 || die "setup scan (atlas for --kc-witness-walks) failed"
+probe dead_census   'KC_DEAD_CENSUS=FAIL'   -- "$SOLVE" --kc-dead-census "$F" "$G" --kc-out %OUT%
+probe witness_walks 'KC_WITNESS_WALKS=FAIL' -- "$SOLVE" --kc-witness-walks "$F" "$G" "$AT" --kc-out %OUT%
+
+[ "$checks" -ge 11 ] || die "only $checks writer(s) probed, expected at least 11 — this measured almost nothing"
 
 echo "KC_WRITER_DEVFULL_CHECKS=$checks"
 echo "KC_WRITER_DEVFULL_FAILS=$fails"

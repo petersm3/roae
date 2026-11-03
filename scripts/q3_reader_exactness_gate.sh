@@ -136,9 +136,14 @@ open(out,'w').write('\n'.join(rows)+'\n')
 PY
 }
 N1=$(python3 -c "print($N+1)")
+NM1=$(python3 -c "print($N-1)")
 mktrace "$WORK/t_ctrl.tsv"   0 0 "" ""
 mktrace "$WORK/t_plus1.tsv"  1 0 "" ""
 mktrace "$WORK/t_plus20.tsv" 100000000000000000000 0 "" ""
+# FV2-G3b (CX-36G-D; Codex F05-012#6; FV2 D1206): the DECREASED denominators too (g_parent follows p_den in mktrace),
+# so a one-sided comparison (`>` for `!=`) that rejects only an increase is seen.
+mktrace "$WORK/t_minus1.tsv"  -1 0 "" ""
+mktrace "$WORK/t_minus20.tsv" -100000000000000000000 0 "" ""
 mktrace "$WORK/t_gbad.tsv"   0 1 "" ""
 mktrace "$WORK/t_sci.tsv"    0 0 "1.0970512787891818e+39" "1.0970512787891818e+39"
 # g(s_26) = 51 against the published 52: telescoping-valid, canonical, one cell wrong (V3A-041#3).
@@ -168,14 +173,20 @@ run(){ # run <prog> <trace> <N> <NP>  -> prints rc; stdout in $WORK/last.out
 # while adding leg 8, whose "exactly one failure" assertion counted the summary line as a second
 # failure. The same shape as the defect this gate exists to pin: a check that cannot say no.
 nfails(){ awk -F'\t' '$1=="READER_FAIL"' "$WORK/last.out" | wc -l; }
+# FV2-G3b (CX-36G-D; Codex F05-012#7; FV2 D1207): `rc` is NOT local -- after a failing verdict it holds the status of
+# the run that failed its leg, so mutant() can tell a semantic kill (rc 0 or 1) from a crash (rc >= 2).
 verdict(){ # verdict <prog> ; 0 iff every leg behaves
-  local p="$1" rc
+  local p="$1"
   rc=$(run "$p" "$WORK/t_ctrl.tsv"   "$N" 31); [ "$rc" = 0 ] && grep -qx $'READER_FAILS\t0' "$WORK/last.out" || { echo "    leg 1 (control) rc=$rc"; return 1; }
   rc=$(run "$p" "$WORK/t_plus1.tsv"  "$N" 31); [ "$rc" = 1 ] && [ "$(nfails)" -ge 1 ]                      || { echo "    leg 2 (+1) rc=$rc: accepted a broken identity"; return 1; }
   rc=$(run "$p" "$WORK/t_plus20.tsv" "$N" 31); [ "$rc" = 1 ] && [ "$(nfails)" -ge 1 ]                      || { echo "    leg 3 (+1e20) rc=$rc: accepted a broken identity"; return 1; }
   rc=$(run "$p" "$WORK/t_gbad.tsv"   "$N" 31); [ "$rc" = 1 ] && [ "$(nfails)" -ge 1 ]                      || { echo "    leg 4 (g off by one) rc=$rc"; return 1; }
   rc=$(run "$p" "$WORK/t_ctrl.tsv" "$N1" 31)         # N+1: a canonical integer one ulp-of-integers away
   [ "$rc" = 1 ] && [ "$(nfails)" -ge 1 ] || { echo "    leg 5 (N+1 passed as N) rc=$rc"; return 1; }
+  # Legs 17-19 (FV2-G3b, D1206): the same three perturbations DOWNWARD.
+  rc=$(run "$p" "$WORK/t_minus1.tsv"  "$N" 31); [ "$rc" = 1 ] && [ "$(nfails)" -ge 1 ]                     || { echo "    leg 17 (-1) rc=$rc: accepted a decreased denominator"; return 1; }
+  rc=$(run "$p" "$WORK/t_minus20.tsv" "$N" 31); [ "$rc" = 1 ] && [ "$(nfails)" -ge 1 ]                     || { echo "    leg 18 (-1e20) rc=$rc: accepted a decreased denominator"; return 1; }
+  rc=$(run "$p" "$WORK/t_ctrl.tsv" "$NM1" 31); [ "$rc" = 1 ] && [ "$(nfails)" -ge 1 ]                      || { echo "    leg 19 (N-1 passed as N) rc=$rc"; return 1; }
   rc=$(run "$p" "$WORK/t_sci.tsv"    "$N" 31); [ "$rc" = 1 ] && grep -q 'non-canonical' "$WORK/last.out"   || { echo "    leg 6 (non-canonical equal strings) rc=$rc"; return 1; }
   rc=$(run "$p" "$GOLD_PROFILE" 26112 9); [ "$rc" = 0 ] && cmp -s "$WORK/last.out" "$GOLD_READER"          || { echo "    leg 7 (n=9 golden) rc=$rc or transcript drifted from $GOLD_READER"; return 1; }
   # Leg 8. EXACTLY ONE READER_FAIL, naming g(s_26): the trace is telescoping-valid and canonical, so
@@ -217,7 +228,7 @@ verdict(){ # verdict <prog> ; 0 iff every leg behaves
   return 0
 }
 
-verdict "$WORK/reader.awk" || fail "baseline: the committed reader does not behave on one of the sixteen legs (see above)"
+verdict "$WORK/reader.awk" || fail "baseline: the committed reader does not behave on one of the nineteen legs (see above)"
 
 # Mutants. Each is a sed rewrite of the extracted programme and MUST turn a leg red. A sed that
 # does not change the programme is itself a failure: it would be a mutant identical to the baseline.
@@ -232,8 +243,11 @@ mutant(){ # mutant <id> <sed-expr>
   cmp -s "$m" "$WORK/reader.awk" && fail "mutant $id did not apply ($expr) -- anchors inside the programme moved?"
   crc=$(run "$m" "$WORK/t_ctrl.tsv" "$N" 31)
   [ "$crc" = 0 ] && grep -qx $'READER_FAILS\t0' "$WORK/last.out" || fail "mutant $id does not run on the control trace (rc $crc) -- that is a broken mutant, not a semantic kill"
-  if verdict "$m" >/dev/null 2>&1; then fail "mutant $id SURVIVED ($expr) -- this gate cannot detect that regression"; fi
-  echo "  [gate] mutant $id killed"
+  if verdict "$m" >"$WORK/v_$id.out" 2>&1; then fail "mutant $id SURVIVED ($expr) -- this gate cannot detect that regression"; fi
+  # D1207: killed by a SEMANTIC leg -- the failing run exited 0 (accepted a broken identity) or 1 (the
+  # wrong failure), not 2+ (a crash, a signal, an interpreter error), which says nothing about the check.
+  case "$rc" in 0|1) ;; *) sed 's/^/  /' "$WORK/v_$id.out"; fail "mutant $id CRASHED (rc $rc) in the leg above -- a crash is not a semantic kill" ;; esac
+  echo "  [gate] mutant $id killed ($(sed -n 's/^ *\(leg [0-9]*\).*/\1/p' "$WORK/v_$id.out" | head -1))"
 }
 mutant M1_strnum_original_defect 's/pn\[k\]=\$11 ""; pd\[k\]=\$12 ""/pn[k]=$11; pd[k]=$12/'
 mutant M2_no_canonical_guard     's/return (s ~ /return (1 || s ~ /'
@@ -256,5 +270,8 @@ mutant M10_only_anchor_26        's/split("22:690176 24:5624 26:52", ANCH, " ")/
 mutant M11_no_step_count         's/if (k != NP+0) {/if (0) {/'
 mutant M12_link_2_only           's/for (i=2;i<=k;i++) if (pd\[i\] != pn\[i-1\])/for (i=2;i<=2;i++) if (pd[i] != pn[i-1])/'
 mutant M13_g_parent_is_p_den     's/gp\[k\]=\$10 ""/gp[k]=$12 ""/'
-echo "  [gate] baseline PASS on 16 legs; 13/13 mutants killed"
+# M14/M15 (FV2-G3b, D1206): the one-sided comparisons, killed only by the downward legs 17-19.
+mutant M14_link_one_sided        's/for (i=2;i<=k;i++) if (pd\[i\] != pn\[i-1\])/for (i=2;i<=k;i++) if (pd[i] > pn[i-1])/'
+mutant M15_N_one_sided           's/if (pd\[1\] != NS)/if (pd[1] < NS)/'
+echo "  [gate] baseline PASS on 19 legs; 15/15 mutants killed"
 echo "Q3_READER_EXACT_GATE=PASS"

@@ -255,6 +255,36 @@ else
   r FAIL "leg 11: verdict_super=MAYBE gave rc=$rc without naming it -- an unreadable verdict reads as a non-member"
 fi
 
-printf 'Q7RANKS_PARSE_LEGS=11\n'
+# ---- LEG 12 (FV2-G3b, CX-36G-D; Codex F05-016#12; FV2 D1215): the PRODUCTION certificate set, all six --------------
+# Every leg above hands the row at most two certificates, so a row that stopped after the second (a
+# `break`, a `head -2` on the glob) was never seen. The battery hands it six: KW, the three historical
+# OUT arrangements and the two pinned SAT witnesses, with Q7_PINNED_WITNESSES naming the two. All six
+# must be read, the three IN ones ranked, KW at 0 and each witness's serial printed.
+W100=$("$W/solve" --kc-o3-unrank "$W/f" "$W/g" 100 2>/dev/null | grep -E '^[0-9]+(,[0-9]+)+$' | head -1)
+if [ -n "$W16" ] && [ -n "$W100" ]; then
+  d6="$W/run6"; rm -rf "$d6"; mkdir -p "$d6/art" "$d6/work"
+  mk(){ printf '{"label": "%s", "verdict_super": "%s", "arrangement": "63,0,%s"}' "$2" "$3" "$4" > "$d6/art/$1"; }
+  mk q7_kw.json KW IN "$W0"
+  mk q7_fuxi.json fuxi OUT "$W16"; mk q7_mawangdui.json mawangdui OUT "$W16"; mk q7_jingfang.json jingfang OUT "$W16"
+  mk q7_moore-strict.json moore-strict IN "$W16"; mk q7_grand-strict.json grand-strict IN "$W100"
+  o12=$( set +u
+         row_begin(){ :; }; row_end(){ ROWRC=$2; }
+         SOLVE="$W/solve"; FDIR="$W/f"; GDIR="$W/g"; ARTDIR="$d6/art"; WORK="$d6/work"
+         ANCHOR="$W0"; N_PAIRS=31; RAW="$d6/raw"; : > "$RAW"; Q7_PINNED_WITNESSES="moore-strict grand-strict"
+         . "$W/block.sh" >/dev/null 2>&1
+         cat "$RAW"; exit "${ROWRC:-99}" ); rc=$?
+  nh=$(grep -c '^### q7_' <<<"$o12")
+  if [ "$rc" -eq 0 ] && [ "$nh" = 6 ] && grep -qx $'q7_ranks_counts\tprocessed=6\tranked=3' <<<"$o12" \
+     && grep -q $'^witness_serial\tmoore-strict\trank3=16244\t' <<<"$o12" && grep -q $'^witness_serial\tgrand-strict\trank3=100\t' <<<"$o12" \
+     && grep -qx $'rank3\t0' <<<"$o12"; then
+    r ok "leg 12: the production set of six certificates is read in full -- KW ranked 0, both pinned witnesses serialised"
+  else
+    r FAIL "leg 12: on the production set of six certificates rc=$rc, $nh certificate header(s), counts '$(grep '^q7_ranks_counts' <<<"$o12" | tr '\t' ' ')' -- the row does not read every certificate"
+  fi
+else
+  r FAIL "leg 12: could not unrank 16244 / 100 for the witness walks"
+fi
+
+printf 'Q7RANKS_PARSE_LEGS=12\n'
 [ "$fail" -eq 0 ] && echo "Q7RANKS_PARSE=PASS" || echo "Q7RANKS_PARSE=FAIL"
 exit "$fail"

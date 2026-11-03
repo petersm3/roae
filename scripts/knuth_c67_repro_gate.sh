@@ -130,7 +130,9 @@ for b in blocks:
             continue
         fig = None
         for nxt in lines[i+1:i+3]:
-            fm = re.match(r'^#\s*tree_nodes\s+([0-9]+)', nxt.strip())
+            # FV2-G3b (CX-36G-C; Codex F05-013#4; FV2 D1152): the figure is a whole number -- "1169.5" or "11690x" is
+            # not read as its integer prefix.
+            fm = re.match(r'^#\s*tree_nodes\s+([0-9]+)(?:\s|$)', nxt.strip())
             if fm:
                 fig = fm.group(1); break
         cases.append((m.group(1) or '', fig or 'MISSING'))

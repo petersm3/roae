@@ -199,6 +199,39 @@ grade("fixture C (exact rate division)", "EXHAUSTIBLE", rowC, callC,
       "The effective rate is being computed in binary64 before the cost is divided by it.  "
       "Keep `x_rate` a Fraction; `rate` is the display copy.")
 
+# ---- FIXTURES N / T / H (FV2-G3b, CX-36G-D; Codex F05-018#17; FV2 D1305) ----------------
+# A, B, W and C bound the cost, $/hour, work-factor and rate-division anchors; nodes/sec, the budget
+# and the hedge had no boundary of their own, so rounding ONE of them through binary64 changed no
+# graded verdict. Each fixture below is an exact tie that binary64 pushes OVER the budget (the gap
+# direction is chosen per anchor: 0.3 and 1.1 round the wrong way for a rate, a budget's half-unit
+# rounds down onto 2^100), so only the typed decimal reads EXHAUSTIBLE.
+NODES_N = 1080 * BUDGET                     # nodes/sec typed 0.3: cost = nodes / 0.3 / 3600 = BUDGET
+if not (Fraction(NODES_N) / Fraction("0.3") / 3600 == BUDGET):
+    raise SystemExit("FIXTURE PRECONDITION FAILED: fixture N is not a tie")
+if not (Fraction(NODES_N) / Fraction(0.3) / 3600 > BUDGET):
+    raise SystemExit("FIXTURE PRECONDITION FAILED: fixture N has no gap")
+rowN, callN, mdN = price(NODES_N, "0.3", "1", str(BUDGET))
+grade("fixture N (typed decimal nodes/sec anchor)", "EXHAUSTIBLE", rowN, callN,
+      "nodes/sec is being round-tripped through binary64 before it is priced.")
+BUDGET_T = str(BUDGET) + ".5"               # 19+ significant digits; binary64 rounds it to 2^100
+NODES_T = 3600 * BUDGET + 1800              # cost = nodes / 3600 = BUDGET + 1/2 = the typed budget
+if not (Fraction(NODES_T, 3600) == Fraction(BUDGET_T)):
+    raise SystemExit("FIXTURE PRECONDITION FAILED: fixture T is not a tie")
+if not (Fraction(NODES_T, 3600) > Fraction(float(BUDGET_T))):
+    raise SystemExit("FIXTURE PRECONDITION FAILED: fixture T has no gap")
+rowT, callT, mdT = price(NODES_T, "1", "1", BUDGET_T)
+grade("fixture T (typed decimal budget anchor)", "EXHAUSTIBLE", rowT, callT,
+      "The budget is being round-tripped through binary64 before it is compared.")
+BUDGET_H = 11 * 2**96                       # a multiple of 11, so the tie below is an integer row
+NODES_H = 36000 * 2**96                     # hedge typed 1.1: slow-end cost = nodes * 1.1 / 3600 = BUDGET_H
+if not (Fraction(NODES_H) * Fraction("1.1") / 3600 == BUDGET_H):
+    raise SystemExit("FIXTURE PRECONDITION FAILED: fixture H is not a tie")
+if not (Fraction(NODES_H) * Fraction(1.1) / 3600 > BUDGET_H):
+    raise SystemExit("FIXTURE PRECONDITION FAILED: fixture H has no gap")
+rowH, callH, mdH = price(NODES_H, "1", "1", str(BUDGET_H), hedge="1.1")
+grade("fixture H (typed decimal hedge anchor)", "EXHAUSTIBLE", rowH, callH,
+      "The hedge is being round-tripped through binary64 before the slow end of the band is priced.")
+
 # ---- LEG 2b: the t-unit -> SOLVE_NODE_LIMIT refusal must actually refuse ----
 # B17. Pricing t-units as production-DFS nodes is a scientific verdict resting on a map that
 # NOTHING certifies -- `solve --kc-t-cert` says so in its own JSON. Before the guard, three flags
@@ -369,6 +402,21 @@ _cost = eval(compile(ast.Expression(_cli[0]), "solve.py", "eval"), dict(vars(sol
 rowB3, callB3, _md3 = price(NODES_B, "1", "0.1", str(BUDGET), cost_override=_cost)
 grade("leg 3b (the CLI's own cost dictionary, fixture B)", "EXHAUSTIBLE", rowB3, callB3,
       "The CLI converts an anchor after parsing; keep the _ExactAnchor objects as parsed.")
+# LEG 3c (FV2-G3b, CX-36G-D; Codex F05-018#18; FV2 D1306): the same CLI dictionary for EVERY other anchor -- leg 3b
+# only routes $/hour, so a conversion of xa_work_factor (or nodes/sec, the budget, the hedge) inside
+# that dictionary was unseen. Each is priced on the fixture that only its typed decimal reads EXHAUSTIBLE.
+for _lbl, _over, _fx in (("work factor, fixture W", dict(xa_work_factor="0.1"), (NODES_W, "1", "1", str(BUDGET), "1", "0.1")),
+                         ("nodes/sec, fixture N", dict(xa_nodes_per_sec="0.3"), (NODES_N, "0.3", "1", str(BUDGET), "1", "1")),
+                         ("budget, fixture T", dict(xa_budget_usd=BUDGET_T), (NODES_T, "1", "1", BUDGET_T, "1", "1")),
+                         ("hedge, fixture H", dict(xa_hedge="1.1"), (NODES_H, "1", "1", str(BUDGET_H), "1.1", "1"))):
+    _kw = dict(xa_nodes_per_sec="1", xa_usd_per_hour="1", xa_budget_usd=_fx[3], xa_hedge="1", xa_work_factor="1")
+    _kw.update(_over)
+    _a3 = types.SimpleNamespace(xa_budget_hours=None, xa_anchor_note="xa gate leg 3c", xa_node_mapping_cert=_CERT,
+                                **{k: solve._ExactAnchor(v) for k, v in _kw.items()})
+    _c3 = eval(compile(ast.Expression(_cli[0]), "solve.py", "eval"), dict(vars(solve)), {"args": _a3})
+    _r3, _cl3, _m3 = price(_fx[0], _fx[1], _fx[2], _fx[3], hedge=_fx[4], wf=_fx[5], cost_override=_c3)
+    grade("leg 3c (the CLI's own cost dictionary, %s)" % _lbl, "EXHAUSTIBLE", _r3, _cl3,
+          "The CLI converts this anchor after parsing; keep the _ExactAnchor objects as parsed.")
 if solve._xa_exact(solve._ExactAnchor("0.1")) != Fraction(1, 10):
     print("  [FAIL] _ExactAnchor('0.1') does not price as 1/10.")
     rc = 1

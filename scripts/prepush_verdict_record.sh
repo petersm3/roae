@@ -252,7 +252,10 @@ if [ "$MODE" = write ]; then
     _tpy=$(git -C "$top" show HEAD:tests.py 2>/dev/null) \
       || err "write: HEAD lists tests.py but it cannot be read, so the TESTS floor is unknown"
   fi
-  tfloor=$(printf '%s\n' "$_tpy" | grep -cE '^    def test_') || true
+  # FV2-G3b (CX-36G-E; Codex F05-003#1; FV2 D1192): grep's own status is read -- 0 (some) or 1 (none) is a count; any
+  # other status is a count that did not happen, which `|| true` turned into 0 and then a floor of 1.
+  tfloor=$(printf '%s\n' "$_tpy" | grep -cE '^    def test_'); _tfrc=$?
+  [ "$_tfrc" -le 1 ] || err "write: counting the test methods of HEAD:tests.py failed (grep rc $_tfrc), so the TESTS floor is unknown"
   case "$tfloor" in ''|*[!0-9]*) tfloor=0 ;; esac
   if [ -n "$_tls" ]; then
     [ "$tfloor" -ge 1 ] || err "write: HEAD:tests.py has no test methods, so the TESTS floor has no population"

@@ -300,8 +300,8 @@ comment_membership_check(){
   local all code declared only
   all=$(derived_inputs); code=$(derived_inputs code)
   declared=$(printf '%s\n' $CORE $DECLARED $REFERENCED_NOT_INPUTS | sort -u)
-  only=$(comm -23 <(printf '%s\n' "$all" | sort -u) \
-                  <( { printf '%s\n' "$code"; printf '%s\n' "$declared"; } | sort -u)) || { echo "  [FAIL] comment-membership: comm could not compare the member sets (F05-008#12) -- an empty difference is not a match"; return 1; }; only=$(printf '%s\n' "$only" | grep -v '^$')
+  local _cmA _cmB; _cmA=$(mktemp) && _cmB=$(mktemp) || { echo "  [FAIL] comment-membership: mktemp failed"; return 1; }; printf '%s\n' "$all" | sort -u > "$_cmA" && { printf '%s\n' "$code"; printf '%s\n' "$declared"; } | sort -u > "$_cmB" || { rm -f "$_cmA" "$_cmB"; echo "  [FAIL] comment-membership: a sort of the member sets failed -- an empty set is not a match"; return 1; }   # FV2-G3b (CX-36G-A; Codex F05-008#11; FV2 D1296): the two sets land in files and each sort's status is read (a failing sort in a process substitution fed comm an empty stream, read as "no comment-only member")
+  only=$(comm -23 "$_cmA" "$_cmB") || { rm -f "$_cmA" "$_cmB"; echo "  [FAIL] comment-membership: comm could not compare the member sets (F05-008#12) -- an empty difference is not a match"; return 1; }; rm -f "$_cmA" "$_cmB"; only=$(printf '%s\n' "$only" | grep -v '^$')
   if [ -n "$only" ]; then
     echo "  [FAIL] these fingerprint members are reached ONLY through comment text, so rewording a"
     echo "         comment would drop them from the fingerprint with nothing going red (Q-613):"
@@ -336,10 +336,10 @@ not_input_read_check(){   # Q-983 (batch 42; Codex gpt-6-astra, Q964-D08#2): the
   for p in $REFERENCED_NOT_INPUTS; do
     b=$(basename "$p")
     for f in $srcs; do
-      [ -f "$f" ] || continue
-      hit=$(sed -e '/^REFERENCED_NOT_INPUTS=/d' -e 's/^[[:space:]]*#.*//' -e 's/[[:space:]]#.*$//' "$f" 2>/dev/null \
+      [ -f "$f" ] || continue   # FV2-G3b (CX-36G-A; Codex F05-008#10; FV2 D1297): continuations are joined first (`cat \` + newline + path is one line) and every wrapper word may carry options (`command -p cat FILE`)
+      hit=$(sed -e ':a' -e '/\\$/{N;s/\\\n//;ba' -e '}' -e '/^REFERENCED_NOT_INPUTS=/d' -e 's/^[[:space:]]*#.*//' -e 's/[[:space:]]#.*$//' "$f" 2>/dev/null \
         | grep -nF "$b" \
-        | grep -E '^[0-9]+:(.*([|;&({`]|\$\())?[[:space:]]*((if|elif|while|until|then|do|else|!|time|command|exec|builtin|nohup|xargs([[:space:]]+-[^[:space:]]+)*|nice([[:space:]]+-n[[:space:]]*-?[0-9]+)?|ionice([[:space:]]+-[^[:space:]]+)*|stdbuf([[:space:]]+-[^[:space:]]+)*|env([[:space:]]+-[^[:space:]]+)*([[:space:]]+[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*)*|[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*|timeout([[:space:]]+-[^[:space:]]+)*[[:space:]]+[0-9.]+[smhd]?)[[:space:]]+)*(cat|grep|egrep|fgrep|sed|awk|head|tail|cut|wc|diff|cmp|sort|sha256sum|sha1sum|md5sum|cksum|source|\.|mapfile|readarray)([[:space:]]|$)|(^|[^A-Za-z_.])(open|Path)\(|\.read_(text|bytes)\(|(^|[^<])<[[:space:]]*["$./A-Za-z]' \
+        | grep -E '^[0-9]+:(.*([|;&({`]|\$\())?[[:space:]]*((if|elif|while|until|then|do|else|!|time|command|exec|builtin|nohup|xargs([[:space:]]+-[^[:space:]]+)*|nice([[:space:]]+-n[[:space:]]*-?[0-9]+)?|ionice([[:space:]]+-[^[:space:]]+)*|stdbuf([[:space:]]+-[^[:space:]]+)*|env([[:space:]]+-[^[:space:]]+)*([[:space:]]+[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*)*|[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*|timeout([[:space:]]+-[^[:space:]]+)*[[:space:]]+[0-9.]+[smhd]?)([[:space:]]+-[^[:space:]]+)*[[:space:]]+)*(cat|grep|egrep|fgrep|sed|awk|head|tail|cut|wc|diff|cmp|sort|sha256sum|sha1sum|md5sum|cksum|source|\.|mapfile|readarray)([[:space:]]|$)|(^|[^A-Za-z_.])(open|Path)\(|\.read_(text|bytes)\(|(^|[^<])<[[:space:]]*["$./A-Za-z]' \
         | head -1)
       if [ -n "$hit" ]; then
         echo "  [FAIL] $f READS $p, which REFERENCED_NOT_INPUTS keeps out of the fingerprint (Q-695):"
@@ -355,7 +355,7 @@ not_input_read_check(){   # Q-983 (batch 42; Codex gpt-6-astra, Q964-D08#2): the
 fingerprint(){   # Q-963 (batch 48): a member that cannot be hashed makes this FAIL (awk exit 1 under pipefail); the digest of a readable tree is unchanged
   { fingerprint_files | xargs sha256sum 2>/dev/null || echo '!FP-READ-FAILED'
     find scripts/tr12_expected -type f ! -name '_GATE_STAMP.txt' -print0 2>/dev/null \
-      | sort -z | xargs -0 sha256sum 2>/dev/null || echo '!FP-READ-FAILED'
+      | sort -z | xargs -0 sha256sum 2>/dev/null || echo '!FP-READ-FAILED'; for _fpm in $(fingerprint_files); do [ -x "$_fpm" ] && printf '+x %s\n' "$_fpm"; done; :   # FV2-G3b (CX-36G-A; Codex F05-016#11; FV2 D1298): each member's owner +x bit (what git records) is hashed too; `chmod -x` used to leave the digest byte-identical
   } | awk '/^!FP-READ-FAILED$/ {bad=1} {print} END {exit bad}' | sha256sum | cut -d' ' -f1
 }
 
@@ -541,15 +541,15 @@ expected_manifest > "$EXP_PRE"
 #   it; if the seed is wrong the gate fails LOUDLY with the diff, which is the safe side.
 #   `--selftest-skip-pin` exercises the comparison on synthetic files, no battery needed.
 SKIPPIN=scripts/tr12_expected/n9/_EXPECTED_SKIPS.txt   # Q-983 (Codex Q964-D08#3): below, a <TOKEN>_REASON line is dropped by its KEY, not by `_REASON=` anywhere (that hid TR12_D=SKIP:failed_REASON=missing)
-observed_skips(){ # $1 = VERDICTS.txt -> sorted TOKEN=VALUE lines, one per skipped/pending row
-  grep -E '^TR12_[A-Z0-9_]+=(SKIP|PENDING)[:A-Za-z0-9_.-]*$' "$1" 2>/dev/null | grep -vE '^TR12_[A-Z0-9_]*_REASON=' | sort -u
-}; malformed_skips(){ { grep -E '^[[:space:]]*TR12_[^=]*=[[:space:]]*(SKIP|PENDING)' "$1" 2>/dev/null | grep -vE '^[[:space:]]*TR12_[A-Z0-9_]*_REASON='; grep -vE '^[[:space:]]*(#|$)' "$2"; } | grep -vxE 'TR12_[A-Z0-9_]+=(SKIP|PENDING)[:A-Za-z0-9_.-]*' | sort -u; }  # Q-969 (A13#8): observed_skips reads only WELL-FORMED values, so `TR12_X=SKIP:failed check` was invisible and the set still matched; $1 VERDICTS + $2 pin -> every skip/pending-shaped line that is NOT well-formed (one line, so no cited line below moves)
+observed_skips(){ # $1 = VERDICTS.txt -> sorted TOKEN=VALUE lines, one per skipped/pending row   FV2-G3b (CX-36G-A; Codex F05-008#12; FV2 D1300): a read error (grep rc > 1) is rc 2 here, not an empty set
+  local _o _r; _o=$(grep -E '^TR12_[A-Z0-9_]+=(SKIP|PENDING)[:A-Za-z0-9_.-]*$' "$1"); _r=$?; [ "$_r" -le 1 ] || return 2; printf '%s\n' "$_o" | grep -vE '^TR12_[A-Z0-9_]*_REASON=|^$' | sort -u; local _ps=("${PIPESTATUS[@]}"); [ "${_ps[1]}" -le 1 ] && [ "${_ps[2]}" -eq 0 ]
+}; malformed_skips(){ local _a _b _r; _a=$(grep -E '^[[:space:]]*TR12_[^=]*=[[:space:]]*(SKIP|PENDING)' "$1"); _r=$?; [ "$_r" -le 1 ] || return 2; _b=$(grep -vE '^[[:space:]]*(#|$)' "$2"); _r=$?; [ "$_r" -le 1 ] || return 2; { printf '%s\n' "$_a" | grep -vE '^[[:space:]]*TR12_[A-Z0-9_]*_REASON='; printf '%s\n' "$_b"; } | grep -v '^$' | grep -vxE 'TR12_[A-Z0-9_]+=(SKIP|PENDING)[:A-Za-z0-9_.-]*' | sort -u; local _ps=("${PIPESTATUS[@]}"); [ "${_ps[1]}" -le 1 ] && [ "${_ps[2]}" -le 1 ] && [ "${_ps[3]}" -eq 0 ]; }  # Q-969 (A13#8): observed_skips reads only WELL-FORMED values, so `TR12_X=SKIP:failed check` was invisible and the set still matched; $1 VERDICTS + $2 pin -> every skip/pending-shaped line that is NOT well-formed (one line, so no cited line below moves)
 skip_pin_compare(){ # $1 = VERDICTS.txt  $2 = pin file ; prints findings; rc 0 same / 1 differs / 2 cannot
   local v="$1" pin="$2" obs exp new gone
   [ -r "$v" ]   || { echo "  [FAIL] skip pin: VERDICTS file unreadable: $v"; return 2; }
   [ -r "$pin" ] || { echo "  [FAIL] skip pin: no pinned skip set at $pin — run scripts/tr12_repro_gate.sh --stamp on a quiet box; an UNPINNED skip set cannot be certified"; return 2; }
-  obs=$(observed_skips "$v"); exp=$(grep -vE '^[[:space:]]*(#|$)' "$pin" | sort -u)
-  [ -n "$exp" ] || { echo "  [FAIL] skip pin: $pin has zero rows — an empty pin certifies nothing; re-stamp"; return 2; }; local mal; mal=$(malformed_skips "$v" "$pin"); [ -z "$mal" ] || { echo "  [FAIL] skip pin: malformed skip/pending line(s), not TR12_<ROW>=SKIP|PENDING:<code>:"; printf '%s\n' "$mal" | sed 's/^/           /'; return 1; }
+  obs=$(observed_skips "$v") || { echo "  [FAIL] skip pin: could not read $v (grep error) -- an unread file is not an empty skip set"; return 2; }; exp=$(grep -vE '^[[:space:]]*(#|$)' "$pin" | sort -u)
+  [ -n "$exp" ] || { echo "  [FAIL] skip pin: $pin has zero rows — an empty pin certifies nothing; re-stamp"; return 2; }; local mal; mal=$(malformed_skips "$v" "$pin") || { echo "  [FAIL] skip pin: could not scan $v / $pin for malformed lines (grep error)"; return 2; }; [ -z "$mal" ] || { echo "  [FAIL] skip pin: malformed skip/pending line(s), not TR12_<ROW>=SKIP|PENDING:<code>:"; printf '%s\n' "$mal" | sed 's/^/           /'; return 1; }
   new=$(comm -23 <(printf '%s\n' "$obs") <(printf '%s\n' "$exp")) || { echo "  [FAIL] skip pin: comm could not compare the skip sets -- Q-963 (an empty diff is not a match)"; return 2; }
   gone=$(comm -13 <(printf '%s\n' "$obs") <(printf '%s\n' "$exp")) || { echo "  [FAIL] skip pin: comm could not compare the skip sets -- Q-963"; return 2; }
   if [ -z "$new" ] && [ -z "$gone" ]; then
@@ -652,13 +652,13 @@ if ! ( eval "${BUILD/-o solve/-o $WORK/solve}" ) >"$WORK/build.log" 2>&1; then
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi
 echo "  [ok] published build line builds"
-
+require_child(){ local tok=$1 want=$2 out orc n; shift 2; out=$("$@" 2>&1); orc=$?; printf '%s\n' "$out"; n=$(grep -c "^$tok=" <<<"$out"); [ "$orc" -eq 0 ] && [ "$n" = 1 ] && grep -qx "$tok=$want" <<<"$out" && return 0; echo "  [verdict] $tok: rc $orc, $n $tok= line(s) -- not a clean $tok=$want"; return 1; }   # FV2-G3b (CX-36G-A; Codex F05-017#15; FV2 D1302): each prerequisite leg below was accepted on its exit status alone, so an emptied child (`: > scripts/a5_orbit_membership_gate.sh`), or one printing its FAIL token at rc 0, passed. Now rc 0 AND exactly one TOKEN= line AND it is TOKEN=<want>, verdict_ok()'s rule; the child's output is replayed so "(see message above)" still points at it
 # D5-01 leg (2026-09-05). THIS GATE ONLY EVER RUNS --n9, so it can never exercise the full-31 path
 # on its own -- and the full-31 path is precisely where a2_q1c was guaranteed to FAIL after burning
 # 3-5 h. Wiring the skip guard's own red/green gate in here is the only way an n=9 pre-push check
 # protects a full-31 run. Fails the whole gate: a broken or moved guard means the next full-31
 # battery is a scheduled 3-5 h failure.
-if ! bash ./scripts/d5_01_q1c_skip_gate.sh; then
+if ! require_child D5_01_Q1C_SKIP_GATE PASS bash ./scripts/d5_01_q1c_skip_gate.sh; then
   echo "  [FAIL] the a2_q1c full-31 skip guard is broken or has moved (see message above)"
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi
@@ -670,7 +670,7 @@ fi
 # the EMPTY direction it will take at n=31 would otherwise be published untested. Fails the whole
 # gate: a null that cannot fail is an assertion wearing a token's clothes, which is the exact
 # defect these two rows were built to remove.
-if ! bash ./scripts/n3_measured_nulls_gate.sh; then
+if ! require_child N3_MEASURED_NULLS_GATE PASS bash ./scripts/n3_measured_nulls_gate.sh; then
   echo "  [FAIL] the Q1c / Q10a measured-null producers can no longer fail, or have moved (see message above)"
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi
@@ -678,14 +678,14 @@ fi
 # MQ1A-3 leg (2026-09-05). Same reasoning: the a2_q3_reader row is exact at n=9 (N < 2^53) and was
 # a 53-bit comparison at full-31, so an n=9 battery can never see that defect. The reader's own
 # full-31-magnitude red/green gate runs here instead (0.2 s). Fails the whole gate.
-if ! bash ./scripts/q3_reader_exactness_gate.sh; then
+if ! require_child Q3_READER_EXACT_GATE PASS bash ./scripts/q3_reader_exactness_gate.sh; then
   echo "  [FAIL] the a2_q3_reader exact-identity row can no longer fail at full-31 magnitude (see message above)"
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi
 
 # Q-422 (Codex MQ1 §2c / MQ1A finding 2): the consumer's derived columns -- the ones V1 plots --
 # must be gated by the brute-force recount and shown able to fail. Reuses the binary built above.
-if ! Q422_SOLVE="$WORK/solve" bash ./scripts/q422_ratio_columns_gate.sh; then
+if ! require_child Q422_RATIO_COLUMNS_GATE PASS env Q422_SOLVE="$WORK/solve" bash ./scripts/q422_ratio_columns_gate.sh; then
   echo "  [FAIL] scripts/q422_ratio_columns_gate.sh did not PASS: the derived-ratio columns are no longer gated by the recount, or a mutant survived (see message above)"
   echo "TR12_REPRO_GATE=FAIL"; exit 1
 fi
@@ -694,7 +694,7 @@ fi
 # the mod24_ok column, plus the fault that isolates it from the mod-24 gate. Wired here on the day
 # it was written -- an unwired gate is a gate that never runs, which is the same defect it exists
 # to catch (cf. bcf2a9bc, which wired a gate that had zero invokers).
-if ! Q314_SOLVE="$WORK/solve" bash ./scripts/q314_mod48_gate.sh; then
+if ! require_child Q314_MOD48 PASS env Q314_SOLVE="$WORK/solve" bash ./scripts/q314_mod48_gate.sh; then
   echo "  [FAIL] scripts/q314_mod48_gate.sh did not PASS: 48-divisibility is no longer gated, or the"
   echo "         q10-mod48 fault no longer isolates it from the mod-24 gate"
   echo "TR12_REPRO_GATE=FAIL"; exit 1
@@ -707,7 +707,7 @@ fi
 # vectors got back a POSITIVE multiplicity and a repr line under a #provenance trailer stamping
 # the ratified convention. Baseline reuses this gate's binary; the 4 mutants are rebuilt inside,
 # because a handed-in binary cannot carry a mutation. ~2m50s.
-if ! Q326_QS_SOLVE="$WORK/solve" bash ./scripts/q326_kc_query_surface_gate.sh; then
+if ! require_child Q326_QUERY_SURFACE PASS env Q326_QS_SOLVE="$WORK/solve" bash ./scripts/q326_kc_query_surface_gate.sh; then
   echo "  [FAIL] scripts/q326_kc_query_surface_gate.sh did not PASS: the --kc-* query surface no"
   echo "         longer refuses options it cannot honour, or a walk that is not a permutation"
   echo "TR12_REPRO_GATE=FAIL"; exit 1
@@ -718,7 +718,7 @@ fi
 # 2026-09-04 and the other six were left. This gate is red on the pre-fix engine with exactly those
 # six named and the merge [ok] -- it reproduces the partial fix as a visible pattern -- and green on
 # the fixed one. ~40s including its own n=9 build.
-if ! SOLVE="$WORK/solve" bash ./scripts/kc_writer_devfull_gate.sh; then
+if ! require_child KC_WRITER_DEVFULL_GATE PASS env SOLVE="$WORK/solve" bash ./scripts/kc_writer_devfull_gate.sh; then
   echo "  [FAIL] scripts/kc_writer_devfull_gate.sh did not PASS: a KC writer reports success for an"
   echo "         artifact it could not write, or a writer that should work no longer does."
   echo "TR12_REPRO_GATE=FAIL"; exit 1
@@ -728,7 +728,7 @@ fi
 # gate, so the ONLY coverage of atlas_orbit_columns / atlas_orbit_membership -- which have 0
 # references in tests.py and run only at n == 31 -- never executed. A5 is therefore a path whose
 # first real run would have followed a 7-33 day scan, with a safety net nobody switched on.
-if ! bash ./scripts/a5_orbit_membership_gate.sh; then
+if ! require_child A5_ORBIT_MEMBERSHIP OK bash ./scripts/a5_orbit_membership_gate.sh; then
   echo "  [FAIL] scripts/a5_orbit_membership_gate.sh did not PASS: the A-5 orbit field no longer"
   echo "         detects a swap between two orbits of the same size, which atlas_orbit_columns"
   echo "         alone is blind to."
@@ -738,7 +738,7 @@ fi
 # Q-433 sibling: the XA-c/d pricing path refused without a W0-D mapping certificate, but the
 # refusal only tested that a PATH STRING was supplied -- the file was never opened, so
 # `--xa-node-mapping-cert /nope.json` unblocked a scientific verdict. Pure-python gate, <1s.
-if ! bash ./scripts/q433_xa_cert_gate.sh; then
+if ! require_child Q433_XA_CERT PASS bash ./scripts/q433_xa_cert_gate.sh; then
   echo "  [FAIL] scripts/q433_xa_cert_gate.sh did not PASS: the XA node-mapping certificate is"
   echo "         no longer validated, or a mutant that accepts any path survived"
   echo "TR12_REPRO_GATE=FAIL"; exit 1
@@ -753,7 +753,7 @@ fi
 # Blocking, like every other leg here: it is GREEN today (measured 3.0 s on the orchestrator), so
 # wiring it blocks nothing that exists, and both defects are silent-corruption of a published
 # statistic. Pure python, no ladder data, no binary — it does NOT use "$WORK/solve".
-if ! bash ./scripts/tr8_merge_pool_integrity_gate.sh; then
+if ! require_child TR8_MERGE_POOL_INTEGRITY PASS bash ./scripts/tr8_merge_pool_integrity_gate.sh; then
   echo "  [FAIL] scripts/tr8_merge_pool_integrity_gate.sh did not PASS: --tr8-dof-merge no longer"
   echo "         refuses an undeclared extra shard, or a bank.json mutated since the shards were"
   echo "         drawn, or the three-way control stopped merging cleanly (see message above)"
@@ -765,7 +765,7 @@ fi
 # stack, indexing partner[64] with bytes up to 255, shipped under rc = 0 with a #provenance trailer
 # stamping it conformant. Reachable at n=9 in under a second via `--kc-c3-max 0`. Wired the day it
 # was written; the mutants are rebuilt here because a handed-in binary cannot carry a mutation.
-if ! Q326_SOLVE="$WORK/solve" bash ./scripts/q326_kc_unrank_m0_gate.sh; then
+if ! require_child Q326_UNRANK_M0 PASS env Q326_SOLVE="$WORK/solve" bash ./scripts/q326_kc_unrank_m0_gate.sh; then
   echo "  [FAIL] scripts/q326_kc_unrank_m0_gate.sh did not PASS: the m == 0 guard on the unrank"
   echo "         record path is gone, or a mutant that still prints uninitialised repr survived"
   echo "TR12_REPRO_GATE=FAIL"; exit 1
@@ -788,8 +788,8 @@ fi
 # CX-93 (2026-09-25): d5_04 now EXECUTES the extracted witness row against a real binary; it takes
 # this gate's already-built one via Q7WIT_SOLVE rather than compiling solve.c a second time.
 for leg in scripts/d5_02_q8_chi2_gallery_gate.sh scripts/d5_03_ls_w0_exact_gate.sh \
-           scripts/d5_04_q7_witnesses_gate.sh scripts/d5_08_q6_q10a_shell_gate.sh; do
-  if ! Q7WIT_SOLVE="$WORK/solve" bash "./$leg"; then
+           scripts/d5_04_q7_witnesses_gate.sh scripts/d5_08_q6_q10a_shell_gate.sh; do _tok=$(basename "$leg" .sh); _tok=${_tok^^}   # the leg's token: d5_02_q8_chi2_gallery_gate -> D5_02_Q8_CHI2_GALLERY_GATE
+  if ! require_child "$_tok" PASS env Q7WIT_SOLVE="$WORK/solve" bash "./$leg"; then
     echo "  [FAIL] $leg did not PASS (see message above)"
     echo "TR12_REPRO_GATE=FAIL"; exit 1
   fi
@@ -841,7 +841,7 @@ fi
 skip_pin_write(){ # $1 = VERDICTS.txt  $2 = pin file ; rc 0 written / 1 refused (empty set) / 2 cannot
   local v="$1" pin="$2" obs tmp
   [ -r "$v" ] || { echo "  [FAIL] skip pin: VERDICTS file unreadable: $v"; return 2; }
-  obs=$(observed_skips "$v")
+  obs=$(observed_skips "$v") || { echo "  [FAIL] skip pin: could not read $v (grep error); no pin written"; return 2; }
   if [ -z "$obs" ]; then
     echo "  [FAIL] skip pin: this run skipped ZERO rows; a zero-row pin is one skip_pin_compare rejects,"
     echo "         so none is written and $pin is left as it was."

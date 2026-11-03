@@ -81,9 +81,14 @@ build_verified(){ # build_verified <src> <tag> -> $WORK/b_<tag>/bin
   d="$WORK/b_$tag"
   rm -rf "$d"; mkdir -p "$d" || return 2
   cp "$src" "$d/solve.c" || return 2
-  ( cd "$d" && eval "nice -n 10 ${BUILD/-o solve/-o $d/bin}" ) >"$WORK/build_$tag.log" 2>&1
+  # FV2-G3b (CX-36G-C; Codex F05-018#7; FV2 D1162): the compiler's status is read -- a link step that wrote a binary
+  # and then failed is a failed build, not a verified one.
+  ( cd "$d" && eval "nice -n 10 ${BUILD/-o solve/-o $d/bin}" ) >"$WORK/build_$tag.log" 2>&1 \
+    || { echo "  [ERROR] $tag: the build line exited non-zero (see $WORK/build_$tag.log)"; return 2; }
   [ -x "$d/bin" ] || { echo "  [ERROR] $tag: compile produced no binary (see $WORK/build_$tag.log)"; return 2; }
   want=$(sha256sum "$src" | cut -d' ' -f1)
+  # FV2-G3b (CX-36G-C; Codex F09-A03#1; FV2 D1163): an empty `want` makes `grep -F -e ""` match every file.
+  [[ "$want" =~ ^[0-9a-f]{64}$ ]] || { echo "  [ERROR] $tag: could not hash $src (got '$want')"; return 2; }
   # Not a pipeline: grep's own status IS the answer, so there is no producer to SIGPIPE.
   grep -a -F -q -e "$want" "$d/bin" || {
     echo "  [ERROR] $tag: binary does not carry SOURCE_SHA=$want -- it compiled a DIFFERENT file"
@@ -213,8 +218,40 @@ legs(){ # legs <bin> <tag> -> one token per line: L1=.. L2A=.. L2B=..
     MARKED)  echo "L2B=BAD(wrong manifest accepted)" ;;
     *)       echo "L2B=NOMEASURE($PROBE_V)" ;;
   esac
+
+  # --- L2C / L2D / L3 (FV2-G3b, CX-36G-C; Codex F05-018#6; F05-018#5; FV2 D1160 / D1161) ---------------------------------
+  # L2B's only wrong manifest names a shard that does not exist, so a verifier that checked PRESENCE
+  # and nothing else passed it. L2C (an existing shard, wrong size) and L2D (right size, wrong digest)
+  # must be refused too; and L3 is the positive control that was missing: a CORRECT manifest for the
+  # shard on disk, no resume state, must be accepted -- a verifier that refuses every non-empty
+  # manifest read GUARD on L2A and L2B and passed.
+  local leg sz sha
+  for leg in L2C L2D L3; do
+    d="$WORK/${leg}_$tag"; rm -rf "$d"; mkdir -p "$d"
+    head -c 4096 /dev/zero | tr '\0' 'x' > "$d/sub_99_0_98_1.bin"
+    sz=4096; sha=$(sha256sum < "$d/sub_99_0_98_1.bin" | cut -d' ' -f1)
+    [[ "$sha" =~ ^[0-9a-f]{64}$ ]] || { echo "$leg=NOMEASURE(sha256sum)"; continue; }
+    case "$leg" in
+      L2C) sz=4097 ;;
+      L2D) sha=$(printf '%s' "$sha" | tr '0-9a-f' '1-9a-f0') ;;
+    esac
+    printf 'sub_99_0_98_1.bin\t%s\t%s\n' "$sz" "$sha" > "$d/shard_manifest.txt"
+    run_bg "$d" "$S" p.log
+    await "$RB_PID" "$d/p.log" "$GATE_CLEARED"
+    hardkill "$RB_PID"
+    case "$leg:$PROBE_V" in
+      L3:MARKED)   echo "L3=VALID" ;;
+      L3:REFUSED)  echo "L3=BAD(a correct manifest was refused)" ;;
+      L2C:REFUSED) echo "L2C=GUARD" ;;
+      L2C:MARKED)  echo "L2C=BAD(wrong size accepted)" ;;
+      L2D:REFUSED) echo "L2D=GUARD" ;;
+      L2D:MARKED)  echo "L2D=BAD(wrong digest accepted)" ;;
+      *)           echo "$leg=NOMEASURE($PROBE_V)" ;;
+    esac
+  done
 }
 
+NLEGS=6   # L1 L2A L2B L2C L2D L3
 count_legs(){ printf '%s\n' "$1" | grep -c -E '^L[0-9A-Z]+='; }   # grep -c reads to EOF: no SIGPIPE
 
 # --- baseline: the committed source -------------------------------------------------------
@@ -259,14 +296,14 @@ BASE=$(legs "$SOLVE" base)
 # NEVER `legs ... | grep -q`: under pipefail grep -q exits at the first match and SIGPIPEs the
 # producer, so the pipeline reports 141 and a match reads as NO match, inverting every verdict.
 # Capture first, match the captured string second.
-[ "$(count_legs "$BASE")" = 3 ] || fail "baseline produced $(count_legs "$BASE") leg verdicts, not 3 -- nothing was measured"
+[ "$(count_legs "$BASE")" = "$NLEGS" ] || fail "baseline produced $(count_legs "$BASE") leg verdicts, not $NLEGS -- nothing was measured"
 printf '%s\n' "$BASE" | sed 's/^/  [gate] baseline /'
 case "$BASE" in *NOMEASURE*) fail "baseline: a leg measured nothing" ;; esac
 case "$BASE" in *L1=BRICKED*|*=BAD*)
   echo "  [FAIL] baseline: the committed solve.c does not hold the invariant"
   echo "MANIFEST_ZERO_ENTRY=FAIL"; exit 1 ;;
 esac
-echo "  [gate] baseline holds all 3 legs"
+echo "  [gate] baseline holds all $NLEGS legs"
 
 # --- mutants ------------------------------------------------------------------------------
 cat > "$WORK/m1.py" <<'PY'
@@ -275,8 +312,11 @@ import sys
 s = open(sys.argv[1], encoding='utf-8').read()
 a = s.index('''             "' _ | LC_ALL=C sort > %s",''')
 b = s.index('\n    return 0;\n}\n', a) + len('\n    return 0;\n}\n')
-open(sys.argv[2], 'w', encoding='utf-8').write(s[:a] + '''             "' _ | LC_ALL=C sort > %s.tmp && mv %s.tmp %s",
-             threads, tool, tool, manifest_path, manifest_path, manifest_path);
+# FV2-G3b (CX-36G-C): since G6 (F04-002#13) the emitter's snprintf is the condition of an `if` and its
+# paths are quoted by g6_q(); the old replacement left that `if (` unclosed, M1 no longer compiled, and
+# the gate read ERROR. The replacement now closes the same `if` (g6_q's ring holds 4, three are used).
+open(sys.argv[2], 'w', encoding='utf-8').write(s[:a] + '''             "' _ | LC_ALL=C sort > %s && mv %s %s",
+             threads, tool, tool, g6_q(tmp_path), g6_q(tmp_path), g6_q(manifest_path)) >= (int)sizeof(cmd)) return 30;
     int rc = system(cmd);
     if (rc != 0) return 30;
     return 0;
@@ -293,6 +333,23 @@ open(sys.argv[2], 'w', encoding='utf-8').write(
     s[:j] + '        return 0;   /* MUTANT M2: tolerant verifier */\n'
           + s[j + len('        return 22;\n'):])
 PY
+cat > "$WORK/m3.py" <<'PY'
+# M3 (FV2-G3b, D1160): the verifier stops comparing digests -- presence and size only.
+import sys
+s = open(sys.argv[1], encoding='utf-8').read()
+a = '"if [ \\"$got\\" != \\"$sha\\" ]; then "'
+if s.count(a) != 1:
+    raise SystemExit("M3 anchor drift: %d matches" % s.count(a))
+open(sys.argv[2], 'w', encoding='utf-8').write(s.replace(a, '"if false; then "'))
+PY
+cat > "$WORK/m4.py" <<'PY'
+# M4 (FV2-G3b, D1161): a verifier that refuses EVERY non-empty manifest on a fresh start.
+import sys
+s = open(sys.argv[1], encoding='utf-8').read()
+k = s.index('auto-verify-manifest PASS: %d entries checked')
+j = s.rindex('    if (rc == 0) {', 0, k)
+open(sys.argv[2], 'w', encoding='utf-8').write(s[:j] + '    if (rc == 0 && 0) {   /* MUTANT M4 */' + s[j + len('    if (rc == 0) {'):])
+PY
 
 mutate(){ # mutate <name> <script> <src-in> <killed-by-glob> -> 0 KILLED, 1 SURVIVED, 2 unmeasurable
   local name="$1" py="$2" src="$3" want="$4" out
@@ -300,7 +357,7 @@ mutate(){ # mutate <name> <script> <src-in> <killed-by-glob> -> 0 KILLED, 1 SURV
   cmp -s "$src" "$WORK/m_$name.c" && { echo "  [ERROR] mutant $name did not change the source"; return 2; }
   build_verified "$WORK/m_$name.c" "$name" || return 2
   out=$(legs "$WORK/b_$name/bin" "$name")
-  [ "$(count_legs "$out")" = 3 ] || { echo "  [ERROR] mutant $name produced $(count_legs "$out") leg verdicts, not 3"; return 2; }
+  [ "$(count_legs "$out")" = "$NLEGS" ] || { echo "  [ERROR] mutant $name produced $(count_legs "$out") leg verdicts, not $NLEGS"; return 2; }
   printf '%s\n' "$out" | sed "s/^/  [gate] mutant $name /"
   case "$out" in *NOMEASURE*) echo "  [ERROR] mutant $name: a leg measured nothing"; return 2 ;; esac
   case "$out" in $want) echo "  [gate] mutant $name killed"; return 0 ;; esac
@@ -315,6 +372,11 @@ case $? in 0) ;; 1) RC=1 ;; *) fail "mutant m1 could not be measured" ;; esac
 python3 "$WORK/m1.py" solve.c "$WORK/seed_m2.c" || fail "m1 patch failed while seeding m2"
 mutate m2 "$WORK/m2.py" "$WORK/seed_m2.c" '*L2A=BAD*'
 case $? in 0) ;; 1) RC=1 ;; *) fail "mutant m2 could not be measured" ;; esac
+
+mutate m3 "$WORK/m3.py" solve.c '*L2D=BAD*'
+case $? in 0) ;; 1) RC=1 ;; *) fail "mutant m3 could not be measured" ;; esac
+mutate m4 "$WORK/m4.py" solve.c '*L3=BAD*'
+case $? in 0) ;; 1) RC=1 ;; *) fail "mutant m4 could not be measured" ;; esac
 
 if [ "$RC" = 0 ]; then echo "MANIFEST_ZERO_ENTRY=PASS"; exit 0; fi
 echo "MANIFEST_ZERO_ENTRY=FAIL"; exit 1

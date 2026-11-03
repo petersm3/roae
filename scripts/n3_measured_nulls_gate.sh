@@ -135,6 +135,14 @@ grep -q '"class_rank": "0"' "$WORK/fx/w0_computable.json" || fail "fixture w0_co
 sed 's#"m": 64,#"m": 64,\n  "class_rank" : "0",#'                "$WORK/fx/w0.json" > "$WORK/fx/w0_computable_sp.json"
 grep -q '"class_rank" : "0"' "$WORK/fx/w0_computable_sp.json" || fail "fixture w0_computable_sp.json did not grow the spaced field"
 grep -q '"orient_idx": 5,'  "$WORK/fx/w0_decomp.json"     || fail "fixture w0_decomp.json was not edited"
+# FV2-G3b (CX-36G-D; Codex F05-019#7; FV2 D1166): COMPUTABLE was reached only through `class_rank`, so the producer's
+# other recognised rank fields (orbit_rank first among them) could be dropped from its list unseen.
+# One fixture per field; the list here is pinned, so a field the producer stops recognising fails.
+N3_RANK_FIELDS="orbit_rank orbit_index orbit_rank3 class_rank3 kw_orbit_rank record_rank"
+for k in $N3_RANK_FIELDS; do
+  sed "s#\"m\": 64,#\"m\": 64,\\n  \"$k\": \"0\",#" "$WORK/fx/w0.json" > "$WORK/fx/w0_$k.json"
+  grep -q "\"$k\": \"0\"" "$WORK/fx/w0_$k.json" || fail "fixture w0_$k.json did not grow the field it exists to carry"
+done
 
 # ================================================================================================
 # THE EXPECTED SET.  case | producer | args | the whole-line token that MUST come back.
@@ -179,6 +187,10 @@ check_all(){ # -> 0 iff every case returns its pinned token
   [ "$got" = "TR12_Q10A_KWRANK=COMPUTABLE:cert-supplies-class_rank" ] || { $VERBOSE && echo "  [case] q10a-computable -> ${got:-<none>}"; ok=1; }
   got=$(run_case q10a-computable-sp q10a_kwrank_measure "$WORK/fx/w0_computable_sp.json")
   [ "$got" = "TR12_Q10A_KWRANK=COMPUTABLE:cert-supplies-class_rank" ] || { $VERBOSE && echo "  [case] q10a-computable (spaced colon) -> ${got:-<none>}"; ok=1; }
+  for k in $N3_RANK_FIELDS; do
+    got=$(run_case "q10a-computable-$k" q10a_kwrank_measure "$WORK/fx/w0_$k.json")
+    [ "$got" = "TR12_Q10A_KWRANK=COMPUTABLE:cert-supplies-$k" ] || { $VERBOSE && echo "  [case] q10a-computable ($k) -> ${got:-<none>}"; ok=1; }
+  done
   # (10) the certificate stops saying "NOT computed" -> ERROR, not a silent EMPTY.
   got=$(run_case q10a-note q10a_kwrank_measure "$WORK/fx/w0_note.json")
   [ "$got" = "TR12_Q10A_KWRANK=ERROR:class-rank-note-changed" ] || { $VERBOSE && echo "  [case] q10a-note -> ${got:-<none>}"; ok=1; }
@@ -193,8 +205,8 @@ check_all(){ # -> 0 iff every case returns its pinned token
 }
 
 VERBOSE=true
-check_all || fail "baseline: the producers do not reproduce all twelve pinned verdicts (above)"
-echo "  [gate] baseline: 12/12 pinned verdicts reproduced (2 EMPTY, 2 refusals, 1 COMPUTABLE, 7 ERROR)"
+check_all || fail "baseline: the producers do not reproduce all nineteen pinned verdicts (above)"
+echo "  [gate] baseline: 19/19 pinned verdicts reproduced (2 EMPTY, 2 refusals, 8 COMPUTABLE, 7 ERROR)"
 VERBOSE=false
 
 # ================================================================================================
@@ -215,6 +227,7 @@ for m in \
   's#if \[ "\$sum" != "\$r" \]; then#if false; then#' \
   's#if \[ "\$r" = "0" \]; then#if [ "$r" != "0" ]; then#' \
   's# || \[ "\${prev:-}" != "NONE" \]; then#; then#' \
+  's#class_rank orbit_rank orbit_index#class_rank orbit_index#' \
   ; do
   i=$((i+1)); cp "$BASE" "$WORK/base.keep"
   mutate "$m" || fail "mutant $i could not be applied"

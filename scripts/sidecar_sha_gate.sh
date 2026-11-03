@@ -88,9 +88,23 @@ fi
 
 echo "== LEG 2: where an artifact exists, its sidecar equals the INDEPENDENT logical sha =="
 checked=0
-for bin in solutions.bin ${SIDECAR_EXTRA_BINS:-}; do
+# SIDECAR_EXTRA_BINS: further artifacts to check, ONE PATH PER LINE. FV2-G3b (CX-36G-C; Codex F05-014#12; FV2 D1233):
+# the list used to be word-split, so a path with a space became two absent names that were skipped
+# without a word (the checked count just fell by one). It is read newline-separated now, and a path the
+# operator LISTED whose artifact or sidecar is absent is a FAIL, not a skip -- only the default
+# solutions.bin (untracked, often absent) may be absent quietly.
+EXTRA=()
+if [ -n "${SIDECAR_EXTRA_BINS:-}" ]; then mapfile -t EXTRA <<<"$SIDECAR_EXTRA_BINS"; fi
+for bin in solutions.bin "${EXTRA[@]}"; do
+  [ -n "$bin" ] || continue
   side="${bin%.bin}.sha256"
-  [ -f "$bin" ] && [ -f "$side" ] || continue
+  if ! [ -f "$bin" ] || ! [ -f "$side" ]; then
+    if [ "$bin" != solutions.bin ]; then
+      echo "  [FAIL] SIDECAR_EXTRA_BINS lists '$bin', but $( [ -f "$bin" ] || printf 'the artifact'; [ -f "$bin" ] || [ -f "$side" ] || printf ' and '; [ -f "$side" ] || printf 'its sidecar %s' "$side") is absent -- a listed path is checked, never skipped"
+      rc=1
+    fi
+    continue
+  fi
   checked=$((checked+1))
   # Both digests must EXIST, and the hashing pipeline must succeed end to end (Codex, gpt-6-astra,
   # F09-A01#15 / F05-014#10): with no sha256sum, an empty sidecar compared "" = "" and read OK, and a

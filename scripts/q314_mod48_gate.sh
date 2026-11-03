@@ -212,7 +212,18 @@ fi
 # prints each query verdict its run wrote as FAIL ("[atlas-consumer] query verdict K=V written by this run ..."); those
 # are the consumer's verdicts, not selftest gates, so they are outside this check.
 OTHER=$(grep 'FAIL' "$WORK/nw.out" | grep -v 'V2-B0' | grep -v '^ATLAS_CONSUMER=' | grep -v '^\[atlas-consumer\] query verdict ')
-if [ -n "$OTHER" ]; then
+# FV2-G3b (CX-36G-D; Codex F05-013#10; FV2 D1199): the ABSENCE of other FAIL lines is not isolation if the other
+# gates did not run. Each named pre-existing comparison gate must have RUN and printed PASS on this
+# fault run; a consumer that dropped one of them used to read "V2-B0 is the ONLY thing that sees this".
+V2SUM="V2: every layer's distance-class masses sum to N_total"
+NOTRAN=""
+for g in "$XA24" "$XA48" "$V248" "$V116" "$V2SUM"; do
+  [ "$(gstat "$WORK/nw.out" "$g")" = PASS ] || NOTRAN="$NOTRAN|$g -> $(gstat "$WORK/nw.out" "$g")"
+done
+if [ -n "$NOTRAN" ]; then
+  echo "  [FAIL] leg 6: a pre-existing comparison gate did not RUN and PASS on the fault run, so isolation is not shown:"
+  printf '%s\n' "${NOTRAN#|}" | tr '|' '\n' | sed 's/^/         /'; bad=1
+elif [ -n "$OTHER" ]; then
   echo "  [FAIL] leg 6: a pre-existing gate ALSO fired on v2-class-swap without walks, so the"
   echo "         V2-B0 legs do not isolate the fault:"; printf '%s\n' "$OTHER" | sed 's/^/         /'; bad=1
 else

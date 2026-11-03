@@ -104,8 +104,23 @@ run_block(){ # run_block OUTFILE N_PAIRS SCAN_OK NFAIL [MINTED_ROW...]
         cat "$BLOCK"
     } > "$runner"
     : > "$out"
-    ( bash "$runner" ) >/dev/null 2>&1
+    # FV2-G3b (CX-36G-B; Codex F05-018#13; FV2 D1249): the block's exit status is part of the outcome. A runner that
+    # printed its tokens and then died (set -u on an unbound name, a signal) used to satisfy every
+    # has() leg; each leg now requires the status the battery's own exit gives (0 PASS, 1 FAIL).
+    ( bash "$runner" ) >/dev/null 2>&1; RB_RC=$?
     return 0
+}
+# want_rc LEG EXPECTED: an unexpected block status is ERROR (the harness did not measure the leg).
+want_rc(){ [ "$RB_RC" -eq "$2" ] || err "leg $1: the extracted block exited $RB_RC, expected $2 -- tokens from a block that died are not a measurement"; }
+# FV2-G3b (CX-36G-B; Codex F05-018#14, F05-018#15; FV2 D1250): the aggregate tokens of each leg are an EXACT set -- one line each,
+# no extras -- so `TR12_REPRO=FAIL` beside `TR12_REPRO=PASS`, or `QUERY_PROGRAM=PASS` beside
+# `TR12_REPRO=FAIL`, is a FAIL of that leg rather than a pass on the presence of the expected line.
+exact_aggs(){ # exact_aggs LEG FILE TOKEN...
+    local leg="$1" f="$2" got want; shift 2
+    got=$(grep -E '^(TR12_REPRO|TR12_REPRO_GOLDEN_STATE|QUERY_PROGRAM|QUERY_DRYRUN)=' "$f" | LC_ALL=C sort)
+    want=$(printf '%s\n' "$@" | LC_ALL=C sort)
+    if [ "$got" = "$want" ]; then ok "leg $leg: the aggregate tokens are exactly {$(printf '%s ' "$@")}"
+    else bad "leg $leg: the aggregate tokens are not exactly {$(printf '%s ' "$@")}:"; show "$f"; fi
 }
 
 has(){  grep -qx "$2" "$1"; }           # whole-line, never output shape
@@ -115,7 +130,8 @@ show(){ sed 's/^/        /' "$1"; }
 # This is also the POSITIVE CONTROL for legs 2 and 3: it proves the harness can produce a bare
 # `TR12_REPRO=PASS`, so leg 2's "must NOT contain it" is a real measurement and not a broken
 # harness that emits nothing at all.
-V1="$WORK/v_diffed.txt"; run_block "$V1" 31 1 0
+V1="$WORK/v_diffed.txt"; run_block "$V1" 31 1 0; want_rc 1 0
+exact_aggs 1 "$V1" 'TR12_REPRO=PASS' 'TR12_REPRO_GOLDEN_STATE=DIFFED' 'QUERY_PROGRAM=PASS'
 if has "$V1" 'TR12_REPRO=PASS' && has "$V1" 'TR12_REPRO_GOLDEN_STATE=DIFFED' && has "$V1" 'QUERY_PROGRAM=PASS'; then
     ok "n=31, 0 minted -> TR12_REPRO=PASS + GOLDEN_STATE=DIFFED + QUERY_PROGRAM=PASS (control: a bare PASS IS reachable)"
 else
@@ -125,7 +141,8 @@ fi
 # ---- LEG 2: n=31, 3 rows minted — THE DEFECT THIS GATE EXISTS FOR ------------------------------
 # The load-bearing assertion is the NEGATIVE one: a whole-line `TR12_REPRO=PASS` must NOT be
 # present. Before the 2026-09-13 fix it WAS, identically to leg 1, and that is the red.
-V2="$WORK/v_minted.txt"; run_block "$V2" 31 1 0 r_alpha r_beta r_gamma
+V2="$WORK/v_minted.txt"; run_block "$V2" 31 1 0 r_alpha r_beta r_gamma; want_rc 2 0
+exact_aggs 2 "$V2" 'TR12_REPRO=PASS:MINTED-3' 'TR12_REPRO_GOLDEN_STATE=MINTED-UNVERIFIED' 'QUERY_PROGRAM=PASS:MINTED-3'
 if has "$V2" 'TR12_REPRO=PASS'; then
     bad "n=31 with 3 MINTED rows still emits a whole-line TR12_REPRO=PASS — a minted run is
          indistinguishable from a diffed one, which is the entire defect:"; show "$V2"
@@ -145,7 +162,8 @@ else bad "expected a whole-line QUERY_PROGRAM=PASS:MINTED-3:"; show "$V2"; fi
 # ---- LEG 3: n=9 REGRESSION — goldens exist, nothing is minted, nothing may change --------------
 # The n=9 path is what tr12_repro_gate.sh, query_program_rehearse_n9.sh and c305_k1w5_remote.sh
 # all grep whole-line. If this leg ever goes red, those three break.
-V3="$WORK/v_n9.txt"; run_block "$V3" 9 1 0
+V3="$WORK/v_n9.txt"; run_block "$V3" 9 1 0; want_rc 3 0
+exact_aggs 3 "$V3" 'TR12_REPRO=PASS' 'TR12_REPRO_GOLDEN_STATE=DIFFED' 'QUERY_DRYRUN=PASS'
 if has "$V3" 'TR12_REPRO=PASS' && has "$V3" 'QUERY_DRYRUN=PASS' && has "$V3" 'TR12_REPRO_GOLDEN_STATE=DIFFED'; then
     ok "n=9, 0 minted -> TR12_REPRO=PASS + QUERY_DRYRUN=PASS unchanged (the existing consumers keep working)"
 else
@@ -153,12 +171,41 @@ else
 fi
 
 # ---- LEG 4: the FAIL path is untouched and is never qualified ----------------------------------
-V4="$WORK/v_fail.txt"; run_block "$V4" 31 1 1 r_alpha
+V4="$WORK/v_fail.txt"; run_block "$V4" 31 1 1 r_alpha; want_rc 4 1
+exact_aggs 4 "$V4" 'TR12_REPRO=FAIL'
 if has "$V4" 'TR12_REPRO=FAIL' && ! grep -q '^TR12_REPRO=PASS' "$V4"; then
     ok "a failing battery still emits a bare TR12_REPRO=FAIL, minted rows or not"
 else
     bad "the FAIL path changed; FAIL must never carry a mint qualifier:"; show "$V4"
 fi
+
+# ---- LEG 5: MINTED is POPULATED by the battery's own row finalisers --------------------------------
+# FV2-G3b (CX-36G-B; Codex F05-018#16; FV2 D1251): legs 1-4 inject MINTED, so they certify the token qualification
+# GIVEN MINTED and nothing about how MINTED is filled; deleting the `MINTED+=(...)` bookkeeping left
+# this gate green while minted runs would print DIFFED. Here the battery's own tok_record, row_end and
+# row_end_val run one row each with no expected block and MINT_MISSING=1, and the verdict block that
+# follows must read PASS:MINTED-2 from the MINTED they built.
+FNS="$WORK/fns.sh"
+for fn in tok_record row_end row_end_val; do
+    awk -v n="$fn" '$0 ~ "^"n"\\(\\)[[:space:]]*\\{" {f=1} f{print} f && /^}$/ {exit}' "$BATTERY" >> "$FNS"
+    grep -q "^$fn()" "$FNS" || err "the battery defines no $fn() -- the row finalisers this leg runs are absent"
+done
+V5="$WORK/v_rowmint.txt"; R5="$WORK/r5"; mkdir -p "$R5/raw" "$R5/got" "$R5/diff" "$R5/expect"
+{
+    printf 'set -u\nsay(){ :; }\nnorm(){ cat; }\nexpected_block_for(){ :; }\n'
+    printf 'VERD=%q\nLOG=/dev/null\n' "$V5"
+    printf '%s=%q\n' EXPECTDIR "$R5/expect" GOTDIR "$R5/got" DIFFDIR "$R5/diff" RAWDIR "$R5/raw"
+    printf '%s=%s\n' N_PAIRS 31 SCAN_OK 1 NFAIL 0 NPASS 0 NROWS 0 REGEN 0 MINT_MISSING 1   # generated SOURCE, not tokens (see run_block)
+    printf 'declare -a TOKORDER=() FAILED=() MINTED=()\ndeclare -A TOKSTATE=() TOKROWS=()\n'
+    cat "$FNS"
+    printf 'ROW_ID=r_one; RAW="$RAWDIR/r_one.txt"; echo one > "$RAW"; row_end TR12_ONE 0\n'
+    printf 'ROW_ID=r_two; RAW="$RAWDIR/r_two.txt"; echo two > "$RAW"; row_end_val TR12_TWO 0 PASS\n'
+    printf '%s=0   # the manifest writer is not this leg%ss subject (as in legs 1-4)\n' MINT_MISSING "'"
+    cat "$BLOCK"
+} > "$WORK/runner5.sh"
+: > "$V5"; ( bash "$WORK/runner5.sh" ) >"$WORK/runner5.log" 2>&1; RB_RC=$?
+[ "$RB_RC" -eq 0 ] || sed "s/^/        /" "$WORK/runner5.log"; want_rc 5 0
+exact_aggs 5 "$V5" 'TR12_REPRO=PASS:MINTED-2' 'TR12_REPRO_GOLDEN_STATE=MINTED-UNVERIFIED' 'QUERY_PROGRAM=PASS:MINTED-2'
 
 if [ "$nfail" -eq 0 ]; then echo "TR12_MINT_STATE=PASS"; exit 0; fi
 echo "  $nfail leg(s) failed"

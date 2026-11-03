@@ -136,8 +136,10 @@ consumer(){ # consumer <dir-with-solve.py> <keepdir> [extra args...] -> rc; stdo
       --atlas-q3-trace "$WORK/q3_profile.txt" --atlas-keep "$keep" "$@" ) > "$WORK/last.out" 2>&1
   echo $?
 }
+# FV2-G3b (CX-36G-D; Codex F05-012#11; FV2 D1210): `rc` is NOT local -- after a failing verdict it holds the status of
+# the consumer run behind the failing leg, which mutant() reads to tell a semantic kill from a crash.
 verdict(){ # verdict <dir> ; 0 iff every leg behaves; explains on stderr-of-gate otherwise
-  local d="$1" rc nf np
+  local d="$1" nf np
   # leg 1
   rc=$(consumer "$d" "$WORK/keep1")
   [ "$rc" = 0 ] && grep -qx 'ATLAS_CONSUMER=PASS' "$WORK/last.out" || { echo "    leg 1 (plain) rc=$rc: $(grep -E '^ATLAS_CONSUMER=|Traceback|Error' "$WORK/last.out" | head -2 | tr '\n' ' ')"; return 1; }
@@ -145,6 +147,35 @@ verdict(){ # verdict <dir> ; 0 iff every leg behaves; explains on stderr-of-gate
   # leg 3 (from leg 1's tables)
   local cell; cell=$(awk -F'\t' '$1==0 && $2==1 {print $4}' "$WORK/keep1/scan/v2_river.tsv" 2>/dev/null)
   [ "$cell" = "0.54411764705882353" ] || { echo "    leg 3: v2_river k=0 d=1 p='$cell', expected 0.54411764705882353 (14208/26112)"; return 1; }
+  # leg 4 (FV2-G3b, CX-36G-D; Codex F05-012#10; FV2 D1211): V5's p_cond, re-derived HERE from leg 1's own table --
+  # every row's p_cond against mass / (that layer's flow = the sum of its cross-tab masses), exact
+  # rationals, to the 17 significant digits the column carries. Independent of the consumer's recount,
+  # so a regression that corrupts the V5 emitter AND drops V5 from that recount is still seen.
+  local v5msg
+  v5msg=$(python3 - "$WORK/keep1/scan/v5_grammar.tsv" <<'PY'
+import sys
+from fractions import Fraction
+from decimal import Decimal
+rows = [l.rstrip("\n").split("\t") for l in open(sys.argv[1], encoding="utf-8")]
+h, rows = rows[0], rows[1:]
+ix = {c: i for i, c in enumerate(h)}
+flow = {}
+for r in rows:
+    if int(r[ix["w"]]) >= 0:
+        flow[r[ix["k"]]] = flow.get(r[ix["k"]], 0) + int(r[ix["mass"]])
+bad = []
+for r in rows:
+    k, m, p = r[ix["k"]], int(r[ix["mass"]]), r[ix["p_cond"]]
+    want = Fraction(m, flow[k])
+    got = Fraction(Decimal(p))
+    if (m == 0 and p != "0") or (m and abs(got - want) > want / 10 ** 16):
+        bad.append("k=%s d=%s w=%s p_cond=%s mass/flow=%d/%d" % (k, r[ix["d"]], r[ix["w"]], p, m, flow[k]))
+if not rows or not flow or min(flow.values()) <= 0:
+    print("no V5 rows or a non-positive layer flow"); sys.exit(1)
+if bad:
+    print("%d V5 p_cond cell(s) are not mass/flow, first %s" % (len(bad), bad[0])); sys.exit(1)
+PY
+) || { echo "    leg 4: ${v5msg:-the V5 p_cond re-derivation could not run}"; return 1; }
   # leg 2
   rc=$(consumer "$d" "$WORK/keep2" --atlas-fault ratio-zero)
   [ "$rc" = 1 ] && grep -qx 'ATLAS_CONSUMER=FAIL' "$WORK/last.out" || { echo "    leg 2 (ratio-zero) rc=$rc: the consumer did not FAIL on zeroed ratios: $(grep -E '^ATLAS_CONSUMER=|error:' "$WORK/last.out" | head -1)"; return 1; }
@@ -176,7 +207,7 @@ brute force: V1 p == marginal/N to 17 correct digits (the column V1 plots)
 brute force: V2 p, V5 p_cond, Q6 p re-rendered from the recount
 brute force: XA and V2-branch share == solutions/N re-rendered from the recount
 Q422_FAIL_IDS
-verdict "$WORK/base" || fail "baseline: the consumer under test does not behave on one of the three legs (see above)"
+verdict "$WORK/base" || fail "baseline: the consumer under test does not behave on one of the four legs (see above)"
 
 # ---- mutants: each is a sed rewrite of a COPY and MUST turn a leg red ---------------------------
 mutant(){ # mutant <id> <sed-expr>
@@ -187,11 +218,20 @@ mutant(){ # mutant <id> <sed-expr>
   mkdir -p "$m"; sed -e "$expr" "$WORK/base/solve.py" > "$m/solve.py" || fail "mutant $id: sed failed (rc $?) -- the mutant was not built"
   [ -s "$m/solve.py" ] && python3 -m py_compile "$m/solve.py" 2>/dev/null || fail "mutant $id: the mutant solve.py is empty or does not compile -- it was not built"
   cmp -s "$m/solve.py" "$WORK/base/solve.py" && fail "mutant $id did not apply ($expr) -- anchors inside solve.py moved?"
-  if why=$(verdict "$m" 2>&1); then fail "mutant $id SURVIVED ($expr) -- this gate cannot detect that regression"; fi
-  if grep -q 'Traceback (most recent call last)' "$WORK/last.out" || grep -qE 'rc=(12[4-9]|13[0-9]|14[0-3])\b' <<<"$why"; then
-    fail "mutant $id crashed or was interrupted ($(head -1 <<<"$why")) -- that is not a semantic kill"
+  if verdict "$m" > "$WORK/why_$id" 2>&1; then fail "mutant $id SURVIVED ($expr) -- this gate cannot detect that regression"; fi
+  why=$(cat "$WORK/why_$id")
+  # D1210: a kill is SEMANTIC only if the consumer run behind the failing leg exited 0 or 1 (its two
+  # documented ends) without a traceback. A signal above 15 (rc 144-255), an argparse/usage error
+  # (rc 2), or any other status is a crash, not a verdict -- it used to read as a kill unless it fell
+  # in 124-143.
+  if grep -q 'Traceback (most recent call last)' "$WORK/last.out" || { [ "$rc" != 0 ] && [ "$rc" != 1 ]; }; then
+    fail "mutant $id crashed or was interrupted (consumer rc $rc; $(head -1 <<<"$why")) -- that is not a semantic kill"
   fi
-  echo "  [gate] mutant $id killed"
+  # A named leg, when given: the mutant must be killed by THAT leg, not by an earlier one.
+  if [ -n "${3:-}" ] && ! grep -qE "^    $3([ :(]|\$)" <<<"$why"; then
+    fail "mutant $id was killed by '$(head -1 <<<"$why" | sed 's/^ *//')', not by $3 -- $3 is not shown able to fail"
+  fi
+  echo "  [gate] mutant $id killed${3:+ (by $3)}"
 }
 mutant M1_atlas_f_zero          's/^def _atlas_f(x):$/def _atlas_f(x):\n    return "0"/'
 mutant M2_nine_digits           's/^            ctx.prec = _ATLAS_SIG$/            ctx.prec = 9/'
@@ -199,5 +239,9 @@ mutant M3_via_binary64          's/^        return format(d, ".%dg" % _ATLAS_SIG
 mutant M4_v1_wrong_denominator  's/^            rows.append((k, k + 2, p, m, _atlas_f(_atlas_ratio(m, N)),$/            rows.append((k, k + 2, p, m, _atlas_f(_atlas_ratio(m, 2 * N)),/'
 mutant M5_oracle_vacuous        's/^    sig = _ATLAS_SIG$/    return True\n    sig = _ATLAS_SIG/'
 mutant M6_oracle_shape_only     's/^    mant, _, ex = text.replace("E", "e").partition("e")$/    return True\n    mant, _, ex = text.replace("E", "e").partition("e")/'
-echo "  [gate] baseline PASS on 3 legs; 6/6 mutants killed"
+# M7 (FV2-G3b, D1211): the V5 emitter's denominator doubled AND V5 dropped from both of the consumer's
+# own ratio checks (the brute-force recount and the TR12_RATIO_COLUMNS judge) -- the regression that
+# left M1-M6 killed and the baseline green. Only leg 4 can see it.
+mutant M7_v5_emitter_and_recount 's/^                rows.append((k, d, w, m, _atlas_f(_atlas_ratio(m, flow)), kw_d\[k\], kw_w\[k\]))$/                rows.append((k, d, w, m, _atlas_f(_atlas_ratio(m, 2 * flow)), kw_d[k], kw_w[k]))/; s/^                   \[("v5", r\["k"\], r\["d"\], r\["p_cond"\]) for r in v5$/                   [("v5", r["k"], r["d"], r["p_cond"]) for r in v5[:0]/; s/^            for r in v5:$/            for r in v5[:0]:/' "leg 4"
+echo "  [gate] baseline PASS on 4 legs; 7/7 mutants killed"
 echo "Q422_RATIO_COLUMNS_GATE=PASS"

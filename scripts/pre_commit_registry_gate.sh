@@ -276,7 +276,14 @@ for f in $WATCHED; do
   if [ -e "$f" ] || [ -L "$f" ]; then _wt=1; else _wt=0; fi
   if [ "$_ix" != "$_wt" ]; then DIRTY="$DIRTY $f"; continue; fi
   [ "$_ix" = 1 ] || continue
-  if ! git diff --quiet -- ":(literal)$f" 2>/dev/null; then DIRTY="$DIRTY $f"; fi
+  if ! git diff --quiet -- ":(literal)$f" 2>/dev/null; then DIRTY="$DIRTY $f"; continue; fi
+  # FV2-G3b (CX-36G-E; Codex F05-019#9; FV2 D1177), the G5c hunk of pre_commit_generated_gate.sh (F05-016#6) ported to
+  # its sibling: `git diff --quiet` honours assume-unchanged and skip-worktree, so it does not prove the
+  # index and the work tree hold the same bytes. The blobs are compared directly.
+  _ib=$(git ls-files -s -- ":(literal)$f" 2>/dev/null | awk 'NR==1 {print $2}')
+  if [ -L "$f" ]; then _wb=$(printf '%s' "$(readlink -- "$f")" | git hash-object --stdin 2>/dev/null)
+  else _wb=$(git hash-object -- "$f" 2>/dev/null); fi
+  if [ -z "$_ib" ] || [ -z "$_wb" ] || [ "$_ib" != "$_wb" ]; then DIRTY="$DIRTY $f"; fi
 done
 if [ -n "$DIRTY" ]; then
   echo "pre-commit: REFUSING — these paths differ between the index and the working tree:"

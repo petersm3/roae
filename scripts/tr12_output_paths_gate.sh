@@ -175,6 +175,11 @@ def produced(name):
 
 SKIP = {"documentation/CORRECTIONS.md", "documentation/HISTORY.md"}
 PATHISH = re.compile(r"^[\w./-]+$")      # Q-970: Unicode letters and digits, not ASCII only (see `written`)
+import unicodedata
+def pathish(tok):
+    """FV2-G3b (CX-36G-B; Codex F05-005#19; FV2 D1265): PATHISH plus the combining marks (Mn, Mc) that Python's \\w
+    excludes -- `docs/cafe\u0301.md` (a decomposed accent) used to be skipped as not a path at all."""
+    return bool(tok) and all(PATHISH.match(ch) or unicodedata.category(ch) in ("Mn", "Mc") for ch in tok)
 # Q-985 (batch 42; Codex gpt-6-astra, Q964-D08#5): spans come from md_code_spans (CommonMark, the shared
 # lexer). `([^`\n]+)` paired an escaped backtick with the next span's opener and lost that span.
 checked = 0
@@ -200,23 +205,39 @@ for f in sorted(t for t in tracked if t.endswith(".md") and t not in SKIP):
     # (a "# Current usage" after it stayed exempt to end of file). Any heading form counts.
     hlev = {b["start"]: (b["level"], b["text"]) for b in blks if b["kind"] == "heading"}
     in_rev = False
+    # FV2-G3b (CX-36G-B; Codex F05-005#18; FV2 D1266): spans are paired over a PARAGRAPH, not one physical line -- a code
+    # span wrapped across two lines used to leave a lone backtick on each, so the next line paired its
+    # closer with the following span's opener and the path in that span was never seen. A paragraph is a
+    # run of consecutive text lines; a blank line, a code/fence line, a heading (scanned alone) and a
+    # table row (scanned alone: spans never cross cells) end it. A line break inside a span reads as a
+    # space, as CommonMark renders it.
+    segs, cur = [], []
     for i, line in enumerate(lines, 1):
-        if kinds[i - 1] in ("code", "fence"):
+        if kinds[i - 1] in ("code", "fence") or not line.strip():
+            if cur: segs.append(cur); cur = []
             continue
-        if i in hlev and hlev[i][0] <= 2:
-            in_rev = hlev[i][0] == 2 and hlev[i][1].strip().lower() == "revision history"
+        if i in hlev or line.lstrip().startswith("|"):
+            if cur: segs.append(cur); cur = []
+            segs.append([i]); continue
+        cur.append(i)
+    if cur: segs.append(cur)
+    for seg in segs:
+        if seg[0] in hlev and hlev[seg[0]][0] <= 2:
+            in_rev = hlev[seg[0]][0] == 2 and hlev[seg[0]][1].strip().lower() == "revision history"
         if in_rev:
             continue
-        for a, b in md_code_spans(line):
-            tok = line[a:b].strip("`").strip()
+        text = "\n".join(lines[k - 1] for k in seg)
+        for a, b in md_code_spans(text):
+            i = seg[text.count("\n", 0, a)]
+            tok = text[a:b].strip("`").replace("\n", " ").strip()
             if tok.startswith(LEGACY[1]):
-                if not PATHISH.match(tok):
+                if not pathish(tok):
                     continue
                 checked += 1
                 if not tracked_path(tok):
                     fails.append("%s:%d `%s` is not tracked" % (f, i, tok))
             elif tok.startswith(LEGACY[0]):
-                if not PATHISH.match(tok):
+                if not pathish(tok):
                     continue
                 checked += 1
                 hist = f.startswith(HISTORICAL_PREFIXES) or (f, tok) in hist_spans
@@ -231,7 +252,7 @@ for f in sorted(t for t in tracked if t.endswith(".md") and t not in SKIP):
                     fails.append("%s:%d `%s` (historical; now `%s`) is not tracked" % (f, i, tok, mapped))
             elif tok.startswith("<artifact-root>/"):
                 name = tok[len("<artifact-root>/"):]
-                if not name or not PATHISH.match(name):
+                if not name or not pathish(name):
                     continue
                 checked += 1
                 if any(name == n for n, _ in NO_PRODUCER):

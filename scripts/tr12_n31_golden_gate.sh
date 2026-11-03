@@ -314,6 +314,8 @@ while read -r h nm; do
   mf="$DIR/$nm"
   if [ ! -f "$mf" ]; then bad "Tier 0: _MANIFEST.txt hashes $nm, which is not in the set"; nhbad=$((nhbad+1)); continue; fi
   got=$(sha256sum < "$mf" | cut -d' ' -f1)
+  # FV2-G3b (CX-36G-B; Codex F09-A03#2; FV2 D1254): an unhashable golden is ERROR (could not measure), not MISMATCH.
+  [ ${#got} -eq 64 ] || { err "Tier 0: could not hash $nm (sha256sum gave '${got}') -- an unread golden is not an edited one"; nhbad=$((nhbad+1)); continue; }
   [ "$got" = "$h" ] || { bad "Tier 0: $nm has been edited since minting (sha $got, manifest $h)"; nhbad=$((nhbad+1)); }
 done <<< "$(grep -E '^[[:space:]]*[0-9a-f]{64}[[:space:]]+[^[:space:]]+[[:space:]]*$' "$DIR/_MANIFEST.txt" | awk '{print $1, $2}')"
 if [ "$nh" -eq 0 ]; then
@@ -428,7 +430,11 @@ fi
 if gfile a1_q8_chi2; then f=$GF
   want_field a1_q8_chi2 "$f" chi2 "$Q8_CHI2" "the 2026-08-07 T4 gallery chi2"
   bk=$(awk '$1 ~ /^[0-9]+$/ && NF==2 {printf "%s%s", (c++?",":""), $2} END{print ""}' "$f")
-  if [ "$bk" = "$Q8_BUCKETS" ]; then ok "a1_q8_chi2: the 16 bucket counts are the banked vector"
+  # FV2-G3b (CX-36G-B; Codex F05-013#18; FV2 D1257): the counts are bound to their labels -- the label column must be
+  # exactly 0..15, once each and in order, or a golden with labels 0,0,0,... passed on its counts alone.
+  bl=$(awk '$1 ~ /^[0-9]+$/ && NF==2 {printf "%s%s", (c++?",":""), $1} END{print ""}' "$f")
+  if [ "$bl" != "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15" ]; then bad "a1_q8_chi2: bucket labels [$bl] are not 0..15 once each, in order"
+  elif [ "$bk" = "$Q8_BUCKETS" ]; then ok "a1_q8_chi2: the 16 bucket counts are the banked vector"
   else bad "a1_q8_chi2: bucket counts [$bk] != banked [$Q8_BUCKETS]"; fi
   want_grep a1_q8_chi2 "$f" '^Q8_CHI2_GALLERY[[:space:]]+PASS$' "the row's own chi2 gate reads PASS"
 fi
@@ -523,7 +529,15 @@ if gfile a2_q7_ranks; then f=$GF
   # reported TR12_N31_GOLDEN=MISMATCH, and the only way to satisfy this line was for the row to
   # have FAILED. That is B1(r5) in a THIRD location, found by sweeping the sibling sentence rather
   # than the symptom. Keyed on the FIELD, like the row and like :564/:2029.
-  want_field a2_q7_ranks "$f" rank3 0                                "rank_O3(KW) = 0, the labeling theorem"
+  # FV2-G3b (CX-36G-B; Codex F05-013#19; FV2 D1260): the rank is read from KW's OWN record -- its `### ... label=KW ...`
+  # header to the next `### ` header -- and that record must carry exactly one rank3 line, reading 0.
+  # A file-wide first `rank3` could belong to another witness, or be one of two in KW's record.
+  _kwn=$(grep -cE 'label=KW[[:space:]]+verdict_super=IN' "$f")
+  _kwr=$(awk '/label=KW[[:space:]]+verdict_super=IN/ {inkw=1; next} /^### / {inkw=0} inkw && $1=="rank3" {print $2}' "$f")
+  if [ "$_kwn" != 1 ]; then bad "a2_q7_ranks: $_kwn KW record header(s) in the golden; exactly one is required"
+  elif [ "$(printf '%s\n' "$_kwr" | grep -c .)" != 1 ]; then bad "a2_q7_ranks: KW's record carries $(printf '%s\n' "$_kwr" | grep -c .) rank3 line(s); exactly one is required"
+  elif [ "$_kwr" != 0 ]; then bad "a2_q7_ranks: rank_O3(KW) = $_kwr in KW's own record, pinned 0"
+  else ok "a2_q7_ranks: rank_O3(KW) = 0, the labeling theorem (rank3 = 0 in KW's own record)"; fi
   deny_grep  a2_q7_ranks "$f" '^Q7RANKS_FAIL'                        "no Q7RANKS_FAIL in the golden"
 fi
 

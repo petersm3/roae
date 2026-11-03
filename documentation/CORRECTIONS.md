@@ -37699,3 +37699,140 @@ F09-A01#13; triaged and built by the Fable lane (batch FV2-G3a); push group FV2-
 requires `[TIMEOUT]` and `REVIEWER_PACKAGE=ERROR` within the test's own timeout, checks `--files` for both
 documents, and runs the portability gate under a failing `gcc`. Developed with AI assistance (Claude,
 Anthropic): claude-fable-5-1 (pinned), push group FV2-G3a; sites found by Codex (gpt-6-astra), final review.
+
+## CX-36G-A — the reproduction gate accepted a prerequisite gate on its exit status alone, and four of its own checks could read a failed tool as a clean result (scripts/tr12_repro_gate.sh; tests.py)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), final review, F05-017#15, F05-008#10, F05-008#11, F05-008#12 and
+F05-016#11; triaged by Fable (the FV2 adjudication). Push group FV2-G3b.
+
+**What was wrong, and what it does now.**
+- The prerequisite legs (d5_01, n3, q3, q422, q314, the q326 query surface, the KC writers, A-5, q433, tr8, the q326
+  unrank and the four D5 gates) were each accepted when the child exited 0. An emptied child script, one that printed
+  its FAIL token and exited 0, or one that printed PASS beside FAIL passed the leg. Each leg now goes through
+  `require_child`: rc 0, exactly one `TOKEN=` line, and that line is the child's PASS (A-5's OK) token, the rule the
+  a2/xa legs already used.
+- The comment-membership check compared two process-substitution `sort` outputs whose status nothing read; a failing
+  sort gave an empty set and "no comment-only member". The sets are now written to files and each sort is checked.
+- The excluded-file read check did not join backslash continuations and did not allow options after a wrapper word,
+  so `cat \` + newline + path, or `command -p cat path`, read an excluded file unseen. Both are seen now.
+- The fingerprint hashed contents only, so `chmod -x` on a member left it unchanged. The owner-executable bit of each
+  member is now part of the digest, so the stamp is re-minted in this change.
+- The skip-pin comparison discarded grep's status, so a read error during the malformed-line scan hid a malformed
+  line. A grep error is now rc 2 (could not compare).
+
+**Tests.** `TestBatchFV2G3b.test_d1302_*`, `test_d1296_*`, `test_d1297_*`, `test_d1298_*` and `test_d1300_*`. Each
+fails on the uncured gate.
+
+## CX-36G-B — the golden, mint-state and output-path gates certified records they had not bound together (scripts/tr12_n31_golden_gate.sh; scripts/tr12_golden_set_gate.sh; scripts/tr12_mint_state_gate.sh; scripts/tr12_output_paths_gate.sh; documentation/DEVELOPMENT.md; tests.py)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), final review, F09-A03#2, F05-013#18, F05-013#19, F05-012#16,
+F05-018#13 to F05-018#16, F05-005#18 and F05-005#19; triaged by Fable (the FV2 adjudication). Push group FV2-G3b.
+
+**What was wrong, and what it does now.**
+- The n=31 golden gate counted a golden sha256sum could not read as "edited since minting" (MISMATCH); it is now an
+  ERROR. Its Q8 check compared the 16 bucket counts without their labels, so labels 0,0,0,... passed; the labels must
+  now be 0..15 once each, in order. Its King Wen rank was read from the first `rank3` line in the file, which could
+  belong to another witness; it is now read from KW's own record, which must carry exactly one `rank3` line, 0.
+- The golden-set gate dropped a manifest row whose digest was not lowercase hex. Uppercase hex is read, and any other
+  non-comment row is reported as malformed. The uncured verdict was already FAIL in the case Codex described; the
+  manifest-missing golden is now named as such.
+- The mint-state gate ran the extracted verdict block and ignored its exit status, accepted the expected tokens
+  beside contradicting ones, and injected `MINTED` itself. Each leg now requires the block's status (0 PASS, 1 FAIL,
+  else ERROR) and an exact set of aggregate tokens, and a fifth leg runs the battery's own `row_end` and
+  `row_end_val` with no expected block, so `MINTED` must be filled by the battery.
+- The output-path gate skipped a path written with a combining mark, and paired code spans per physical line, so a
+  span wrapped across two lines hid the path in the span after it. Combining marks are path characters now, and spans
+  are paired over a paragraph. The real tree's result is unchanged (127 spans, PASS).
+
+**Tests.** `TestBatchFV2G3b.test_d1254_*`, `test_d1257_*`, `test_d1260_*`, `test_d1246_*`,
+`test_d1249_d1250_d1251_*` and `test_d1265_d1266_*`. Each fails on the uncured gates.
+
+## CX-36G-C — engine-subject gates read a failed build, scan, hash or count as a pass, and one had not compiled its first mutant since G6 (scripts/kc_writer_devfull_gate.sh; scripts/manifest_zero_entry_gate.sh; scripts/knuth_c67_repro_gate.sh; scripts/q326_kc_unrank_m0_gate.sh; scripts/sidecar_sha_gate.sh; scripts/reproduce_digests_gate.sh; documentation/DEVELOPMENT.md; tests.py)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), final review, F05-018#2, F05-018#3, F05-018#4, F09-A02#14,
+F05-018#5, F05-018#6, F05-018#7, F09-A03#1, F05-013#4, F05-014#7, F05-014#12, F05-006#11 and F04-022#11; triaged by
+Fable (the FV2 adjudication). Push group FV2-G3b. The M1 item below was found while curing F05-018#7.
+
+**What was wrong, and what it does now.**
+- The KC writer gate probed nine writers and its header called them the complete set; `--kc-dead-census --kc-out`
+  and `--kc-witness-walks --kc-out` are probed now (eleven, floor eleven), and the header names the list and says
+  `--kc-midjoin` (a directory destination) is not probed. The merge control's two setup scans are checked. `/dev/full`
+  is preflighted (a write must fail with ENOSPC). The red leg requires exactly one verdict line and that it is the
+  FAIL token; the three writers with no token must print their write-failure diagnostic, which an open() failure does
+  not; the green leg requires the OK token and no FAIL token.
+- The zero-entry manifest gate's only wrong non-empty manifest named an absent shard, and nothing planted a valid one.
+  Three legs now plant a manifest for a shard on disk: the wrong size and the wrong digest must be refused, and the
+  correct row must be accepted; mutants M3 and M4 show both directions can fail. The build line's status and the
+  source hash are checked. Its mutant M1 had not compiled since G6 made the emitter's `snprintf` the condition of an
+  `if`, so the gate read ERROR on the shipped tree; the patch now closes that `if`, and all four mutants are killed.
+- The Knuth recipe check read `1169.5` as 1169; the documented figure must be a whole number.
+- The q326 m=0 legs compared only `^record` lines, so a leaked `repr` line or an extra line that varies between runs
+  passed; they compare the whole transcript.
+- The sidecar gate word-split `SIDECAR_EXTRA_BINS`, so a path with a space was skipped; the list is one path per line,
+  and a listed path that is absent is a FAIL.
+- The REPRODUCE.md digest gate counted lines carrying the total label, so one line with two totals passed as one; it
+  counts the labels. Its rung scratch directories are removed on every exit, including a signal.
+
+**Tests.** `TestBatchFV2G3b.test_d1147_d1148_d1150_d1151_*`, `test_d1160_d1161_*`, `test_d1162_d1163_*`,
+`test_manifest_gate_mutants_still_compile`, `test_d1152_*`, `test_d1205_*`, `test_d1233_*`, `test_d1222_*` and
+`test_d1224_*`. Each fails on the uncured gates.
+
+## CX-36G-D — battery-row and consumer gates whose fixtures could not see the regression they name (scripts/n3_measured_nulls_gate.sh; scripts/q2_witness_gate.sh; scripts/q314_mod48_gate.sh; scripts/q3_reader_exactness_gate.sh; scripts/q422_ratio_columns_gate.sh; scripts/q433_xa_cert_gate.sh; scripts/q7ranks_parse_gate.sh; scripts/xa_exact_verdict_gate.sh; scripts/row_assertion_gate.sh; documentation/DEVELOPMENT.md; tests.py)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), final review, F05-019#7, F05-018#9 to F05-018#12, F05-013#10,
+F05-012#6, F05-012#7, F05-012#10, F05-012#11, F05-014#9, F05-016#12, F05-018#17, F05-018#18 and F05-008#6 to
+F05-008#9; triaged by Fable (the FV2 adjudication). Push group FV2-G3b.
+
+**What was wrong, and what it does now.**
+- n3: COMPUTABLE was reached only through `class_rank`; one fixture per other rank field the producer recognises,
+  and a mutant that drops `orbit_rank` from its list.
+- q2: legs 11-13 drive the row itself: two walks fail and name the multiplicity, a walk just above the row's own
+  `C3MAX` fails through the row, and `a1_q2d`'s timeout fires; the timeout census counts `declare -i` and the like.
+- q314: isolation is claimed only when each named comparison gate RAN and passed on the fault run. The uncured
+  verdict was already FAIL in the planted case (the consumer's closure changes its token); the claim line was wrong.
+- q3: three downward fixtures (the denominator decreased, N-1) and two one-sided mutants; a mutant that crashes
+  (rc 2 or more) is no longer counted as killed.
+- q422: a fourth leg re-derives V5's `p_cond` in exact rationals, and mutant M7 (the V5 emitter corrupted and V5
+  dropped from both of the consumer's ratio checks) is killed by it alone; a consumer run that ends by a signal or
+  with rc 2 is a crash, not a kill.
+- q433: L20, a valid certificate of another scope prices nothing, with a positive control and mutant m8.
+- q7ranks: leg 12 hands the row the production set of six certificates.
+- xa: fixtures N, T and H bound the nodes/sec, budget and hedge anchors, and leg 3c routes every anchor through the
+  CLI's own cost dictionary.
+- row_assertion: a verdict value raised only inside a subshell no longer reaches `row_end_val`; an exit inside a
+  producer-status handler is rc plumbing; a failure on the closing line of a discarded subshell is discarded with it;
+  the red-list extraction's status is read and must account for every DRIVER/UNASSERTED row. The real battery's
+  analysis is byte-identical before and after.
+
+**Tests.** `TestBatchFV2G3b.test_d1166_*`, `test_d1193_d1194_d1195_d1197_*`, `test_d1199_*`, `test_d1206_*`,
+`test_d1207_*`, `test_d1210_*`, `test_d1211_*`, `test_d1214_*`, `test_d1215_*`, `test_d1305_d1306_*`,
+`test_d1226_d1227_d1228_*` and `test_d1229_*`; `TestQ699Q3ReaderRefusesZeroAndChecksTerminal` pins the new counts.
+Each new test fails on the uncured gates. Three existing tests move with the gates: `TestBatchG5c`'s scripted q314
+consumer now prints the comparison gates on its no-walks fault run, as the real consumer does;
+`TestLaneHPGrepQStraceSplitPerTaskDoc` counts the three here-strings legs 11-13 add; and `TestQ982Q983Q985Batch42`'s
+mutant re-anchors on the label-counting line.
+
+## CX-36G-E — the commit and push path: an assume-unchanged file, a stale tracking ref and a failed count (scripts/pre_commit_registry_gate.sh; scripts/pre_push_gate.sh; scripts/prepush_verdict_record.sh; tests.py)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), final review, F05-019#9, F05-008#5 and F05-003#1; triaged by Fable
+(the FV2 adjudication). Push group FV2-G3b.
+
+**What was wrong, and what it does now.**
+- The pre-commit registry gate compared the index and the work tree with `git diff --quiet`, which honours
+  assume-unchanged; it now compares the blobs, as G5c made its sibling do.
+- For a new ref pushed to a named remote, the pre-push corrections-inventory leg bounded the range by this clone's
+  tracking refs, which can name a commit the destination no longer holds. It now asks the destination
+  (`git ls-remote`), and when the destination cannot be listed or holds nothing this clone has, the leg fails rather
+  than fall back to another remote's history. Pushes to an existing ref (the remote sha is given) and pushes with no
+  remote name are unchanged.
+- The verdict recorder's TESTS floor accepted whatever a failing `grep -c` printed; a grep error is now an ERROR.
+
+**Tests.** `TestBatchFV2G3b.test_d1177_*`, `test_d1188_*` and `test_d1192_*`. Each fails on the uncured scripts.
+`TestQ956PrepushRecordBindsItsLogs`'s floor mutant re-anchors on the checked count. (This batch also made two bare
+`assert` guards in `TestBatchD1` explicit raises; the published D1 commit already carries that form, so the
+integrated tree keeps D1's.)
+
+No canonical sha, record count, certificate or verdict changed in CX-36G-A to CX-36G-E.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-G3b; the defects were found by Codex
+(gpt-6-astra), final review.

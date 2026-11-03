@@ -10378,7 +10378,7 @@ class TestQ699Q3ReaderRefusesZeroAndChecksTerminal(unittest.TestCase):
                            capture_output=True, text=True, cwd=here)
         lines = r.stdout.splitlines()
         self.assertIn("Q3_READER_EXACT_GATE=PASS", lines, r.stdout + r.stderr)
-        self.assertIn("  [gate] baseline PASS on 16 legs; 13/13 mutants killed", lines)   # G5a: legs 12-16, M10-M13
+        self.assertIn("  [gate] baseline PASS on 19 legs; 15/15 mutants killed", lines)   # G5a: legs 12-16, M10-M13; FV2-G3b: legs 17-19, M14-M15
         self.assertEqual(0, r.returncode)
 
 
@@ -21822,7 +21822,7 @@ int main(int argc, char **argv) {
                 self.assertEqual(texts[owner[0]].count(new), 1)
                 hits = scan(texts[owner[0]].replace(new, old, 1))
                 self.assertEqual([h[1] for h in hits], [old])
-        self.assertEqual(sum(t.count("<<<\"$out\"") for t in texts.values()), 10)
+        self.assertEqual(sum(t.count("<<<\"$out\"") for t in texts.values()), 13)   # FV2-G3b: q2_witness legs 11-13 add three
         for g in self.GATES:
             r = subprocess.run(["bash", "-n", os.path.join(self.ROOT, g)], capture_output=True, text=True, timeout=60)
             self.assertEqual(r.returncode, 0, "%s: %s" % (g, r.stderr))
@@ -37026,8 +37026,8 @@ class TestQ956PrepushRecordBindsItsLogs(unittest.TestCase):
         rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tail=cases["ran0"]), helper=mut)
         self.assertEqual(w.returncode, 0, "mutant killed: the floor was what refused Ran 0\n" + w.stdout)
         # MUTANT: the floor counted from nothing (1): a one-test run of a three-test tree passes.
-        mut2 = self._mutant_helper(d, '''  tfloor=$(printf '%s\\n' "$_tpy" | grep -cE '^    def test_') || true''',   # anchor moved by F05-003#1 (G3): one checked read
-                                   '''  tfloor=1''')
+        mut2 = self._mutant_helper(d, '''  tfloor=$(printf '%s\\n' "$_tpy" | grep -cE '^    def test_'); _tfrc=$?''',   # anchor moved by F05-003#1 (G3), then by FV2-G3b (grep's status read)
+                                   '''  tfloor=1; _tfrc=0''')
         rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tail=cases["short"]), helper=mut2)
         self.assertEqual(w.returncode, 0, "mutant killed: the tree-derived floor was what refused Ran 2 of 3\n" + w.stdout)
         # MUTANT: the skip limit removed.
@@ -40853,7 +40853,7 @@ class TestQ982Q983Q985Batch42(unittest.TestCase):
 
     def test_q983_w_mutant_numeric_only_extraction(self):
         src = self._src(self.RD)
-        a = src.index("    local ntot\n    ntot=$(grep -c 'orbit-quotient C5-DP total =' <<<\"$R_OUT\" || true)")
+        a = src.index("    local ntot\n    ntot=$(grep -o 'orbit-quotient C5-DP total =' <<<\"$R_OUT\" | wc -l)")   # FV2-G3b: counts labels, not lines
         b = src.index('    [ "$R_DIG" = "$dg" ] || bad=', a)
         old = ("    tot=$(printf '%s\\n' \"$R_OUT\" | sed -nE 's/.*orbit-quotient C5-DP total = ([0-9]+).*/\\1/p')\n"
                "    local bad=\"\"\n"
@@ -52221,7 +52221,8 @@ class TestBatchG5c(unittest.TestCase):
                    "V248": "V2-48: every distance-class cell divisible by 48",
                    "V116": "V1-16: every RAW per-pair cell divisible by 16",
                    "B0A": "V2-B0: every distance class's column sums to a whole multiple of N_total",
-                   "B0B": "V2-B0: the C5 boundary budget sums to n (one boundary per layer, per walk)"}
+                   "B0B": "V2-B0: the C5 boundary budget sums to n (one boundary per layer, per walk)",
+                   "V2SUM": "V2: every layer's distance-class masses sum to N_total"}   # FV2-G3b (CX-36G-D)
 
     def _q314_run(self, tweak=None):
         """Run the real q314 gate with a fake engine and a scripted consumer (python3 on PATH answers the
@@ -52239,7 +52240,10 @@ class TestBatchG5c(unittest.TestCase):
         t = {"clean": [clean, 0], "q10-mod48": [flip("XA48"), 1], "v2-mod48": [flip("V248"), 1],
              "v1-mod16": [flip("V116"), 1],
              "nw_clean": [g("B0A", "PASS") + g("B0B", "PASS") + "ATLAS_CONSUMER=SKIP:no-brute-force-walks\n", 1],
-             "nw_v2-class-swap": [g("B0A", "FAIL", "d=1:rem=21120") + g("B0B", "FAIL", "sum B0 = 8, n = 9") + "ATLAS_CONSUMER=FAIL\n", 1]}
+             # FV2-G3b (CX-36G-D): the real consumer prints the comparison gates on a no-walks run too, and
+             # leg 6 now requires them to have RUN and passed before it claims isolation
+             "nw_v2-class-swap": ["".join(g(k, "PASS") for k in ("XA24", "XA48", "V248", "V116", "V2SUM"))
+                                  + g("B0A", "FAIL", "d=1:rem=21120") + g("B0B", "FAIL", "sum B0 = 8, n = 9") + "ATLAS_CONSUMER=FAIL\n", 1]}
         if tweak:
             tweak(t, g)
         td = os.path.join(d, "t")
@@ -58362,6 +58366,1030 @@ class TestBatchFV2G3a(unittest.TestCase):
         self.assertIn("error: planted", r.stdout, "the compiler diagnostic is shown")
         self.assertNotIn("ATLAS_PATH_PORTABLE=FAIL", r.stdout)
 # end class TestBatchFV2G3a (push group FV2-G3a, CX-36F-A..CX-36F-D)
+
+
+class TestBatchFV2G3b(unittest.TestCase):
+    """Push group FV2-G3b: the gate-script rows (kc_writer_devfull .. xa_exact_verdict, the pre-push path) of the
+    FV2 adjudication of Codex's final review (gpt-6-astra), triaged by Fable. CX-36G-A onward; each test names
+    the Codex finding id (Dnnnn) it closes.
+
+    Each gate test plants the defect Codex described (an emptied child gate that exits 0, a failing `sort` or
+    `grep`, a continuation-split read, a mode change, a mislabelled bucket, a rank bound to the wrong record,
+    a battery block that dies after printing its tokens, a contradicting token, an assume-unchanged index
+    entry, ...), asserts that the plant reached the site (a shim logged its call, a positive control passes),
+    and requires the cured gate to go red. On the uncured scripts each plant passes, so the test fails for
+    that reason (measured on 4d9cc323 before the cures landed)."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="fv2g3b_")
+        cls.n = 0
+
+    @classmethod
+    def tearDownClass(cls):
+        subprocess.run(["chmod", "-R", "u+rwX", cls.tmp], capture_output=True)
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    # ---- helpers ------------------------------------------------------------------------------------
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _d(self):
+        type(self).n += 1
+        d = os.path.join(self.tmp, "c%d" % self.n)
+        os.makedirs(d)
+        return d
+
+    def _wr(self, path, text, mode=0o644):
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.chmod(path, mode)
+
+    def _env(self, **extra):
+        e = dict(os.environ)
+        for k in list(e):
+            if k.startswith("GIT_") or k.startswith("DOC_GATE"):
+                e.pop(k)
+        e.update(GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t", GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+        e.update(extra)
+        return e
+
+    def _bash(self, script, cwd=None, path_prefix=None, timeout=300, **env):
+        e = self._env(**env)
+        if path_prefix:
+            e["PATH"] = path_prefix + os.pathsep + e["PATH"]
+        return subprocess.run(["bash", "-c", script], cwd=cwd or self.ROOT, capture_output=True, text=True,
+                              env=e, timeout=timeout)
+
+    def _shim(self, d, tool, argre, rc=2, out=""):
+        """A `tool` on PATH that, when its argv matches the ERE argre, prints `out`, logs the call to
+        <d>/shim.log and exits rc; any other call runs the real tool."""
+        real = shutil.which(tool)
+        self.assertTrue(real, "precondition: %s exists" % tool)
+        sd = os.path.join(d, "shim")
+        log = os.path.join(d, "shim.log")
+        body = ("#!/bin/bash\n_re=%s\nif [[ \"$*\" =~ $_re ]]; then echo \"%s $*\" >> %s; printf %%s %s; exit %d; fi\n"
+                "exec %s \"$@\"\n" % (shlex.quote(argre), tool, shlex.quote(log), shlex.quote(out), rc,
+                                        shlex.quote(real)))
+        self._wr(os.path.join(sd, tool), body, 0o755)
+        return sd
+
+    def _shimlog(self, d):
+        p = os.path.join(d, "shim.log")
+        if not os.path.exists(p):
+            return ""
+        with open(p, encoding="utf-8") as fh:
+            return fh.read()
+
+    def _fn(self, text, name):
+        """The definition of shell function `name`: from `name(){` to the first line that is `}`."""
+        lines = text.split("\n")
+        st = [i for i, l in enumerate(lines) if re.match(r"^%s\(\)\s*\{" % re.escape(name), l)]
+        self.assertEqual(len(st), 1, "precondition: %s() is defined exactly once" % name)
+        if lines[st[0]].rstrip().endswith("}"):
+            return lines[st[0]] + "\n"
+        j = next(k for k in range(st[0] + 1, len(lines)) if lines[k] == "}")
+        return "\n".join(lines[st[0]:j + 1]) + "\n"
+
+    def _between(self, text, start, end, inclusive=True):
+        """The text from the first line containing `start` to the next line containing `end`."""
+        lines = text.split("\n")
+        i = next(k for k, l in enumerate(lines) if start in l)
+        j = next(k for k in range(i + 1, len(lines)) if end in lines[k])
+        return "\n".join(lines[i:j + 1 if inclusive else j]) + "\n"
+
+    def _git(self, d, *args, check=True):
+        r = subprocess.run(["git", "-C", d] + list(args), capture_output=True, text=True, env=self._env())
+        if check:
+            self.assertEqual(r.returncode, 0, "git %s: %s" % (" ".join(args), r.stderr))
+        return r
+
+    # FV2G3B-METHODS-BEGIN
+    # ================================================================================================
+    # tr12_golden_set_gate.sh (D1246) -- a scratch golden root
+    # ================================================================================================
+    def test_d1246_uppercase_manifest_digest_is_not_dropped(self):
+        """D1246: `$1 ~ /^[0-9a-f]+$/` dropped an uppercase-hex manifest row silently, so with its golden also
+        deleted the manifest-missing check never saw it. The uncured verdict was already FAIL (row-no-golden);
+        the defect is the misclassification, so the cured gate must read the row and name it manifest-missing."""
+        def root(edit=None):
+            d = self._d()
+            os.makedirs(os.path.join(d, "scripts"))
+            shutil.copy(os.path.join(self.ROOT, "scripts", "tr12_repro.sh"), os.path.join(d, "scripts", "tr12_repro.sh"))
+            n9 = os.path.join(d, "scripts", "tr12_expected", "n9")
+            shutil.copytree(os.path.join(self.ROOT, "scripts", "tr12_expected", "n9"), n9)
+            if edit:
+                edit(n9)
+            return d
+        gate = "bash %s" % shlex.quote(os.path.join(self.ROOT, "scripts", "tr12_golden_set_gate.sh"))
+        r = self._bash(gate, TR12_GOLDEN_ROOT=root())
+        self.assertIn("TR12_GOLDEN_SET=PASS", r.stdout, "positive control: the scratch copy passes:\n" + r.stdout[-800:])
+
+        def upper(n9):
+            m = os.path.join(n9, "_MANIFEST.txt")
+            with open(m, encoding="utf-8") as fh:
+                lines = fh.read().splitlines(True)
+            i = next(k for k, l in enumerate(lines) if l.rstrip().endswith("  a2_q2.txt"))
+            h = lines[i].split()[0]
+            lines[i] = lines[i].replace(h, h.upper())
+            self.assertNotEqual(h, h.upper(), "precondition: the digest has hex letters")
+            self._wr(m, "".join(lines))
+            os.remove(os.path.join(n9, "a2_q2.txt"))
+        r = self._bash(gate, TR12_GOLDEN_ROOT=root(upper))
+        self.assertNotIn("TR12_GOLDEN_SET=PASS", r.stdout, "an uppercase manifest row was dropped:\n" + r.stdout[-800:])
+        self.assertIn("manifest-missing: _MANIFEST.txt lists a2_q2.txt", r.stdout, "the uppercase manifest row was dropped:\n" + r.stdout[-800:])
+        # and a row that is not a digest row at all is named malformed, not dropped
+        def short(n9):
+            with open(os.path.join(n9, "_MANIFEST.txt"), "a", encoding="utf-8") as fh:
+                fh.write("  deadbeef  a1_x.txt\n")
+        r = self._bash(gate, TR12_GOLDEN_ROOT=root(short))
+        self.assertIn("malformed row(s)", r.stdout, "a short-digest manifest row was dropped silently:\n" + r.stdout[-800:])
+
+    # ================================================================================================
+    # kc_writer_devfull_gate.sh (D1147, D1148, D1150, D1151) -- the real gate over a stub engine
+    # ================================================================================================
+    _KCW_STUB = r'''#!/bin/bash
+# stub KC engine: honest writers unless a PLANT_* variable names this command
+cmd=$1; out=""; key=""; okw=OK; tag=${cmd#--}
+case "$cmd" in --kc-build|--kc-g-build) mkdir -p "$2"; exit 0 ;; --kc-t-build) mkdir -p "$3"; exit 0 ;; esac
+prev=""; for a in "$@"; do case "$prev" in --kc-cert-out|--kc-tsv|--kc-json|--kc-out|--cert-out) out=$a ;; esac; prev=$a; done
+case "$cmd" in
+  --kc-scan) out=$4; key=KC_SCAN; case " $* " in *" --kc-layers "*) key=KC_SCAN_CHUNK ;; esac ;;
+  --kc-scan-merge) out=$4; key=KC_SCAN_MERGE ;;
+  --kc-t-cert) out=$2 ;;
+  --kc-profile) key=KC_PROFILE ;; --kc-extremal) key=KC_EXTREMAL ;; --kc-oracle) key=KC_ORACLE; okw=PASS ;;
+  --kc-dead-census) key=KC_DEAD_CENSUS ;; --kc-witness-walks) key=KC_WITNESS_WALKS ;;
+esac
+if [ "$cmd" = --kc-scan ] && [ "${PLANT_SCANFAIL-}" = 1 ] && [ "$out" != /dev/full ] && [[ " $* " == *" --kc-layers 4 9 "* ]]; then
+  echo '{"partial":' > "$out"; exit 1
+fi
+if [ "$out" = /dev/full ]; then
+  [ "${PLANT_SILENT-}" = "$cmd" ] && { [ -n "$key" ] && echo "$key=$okw"; exit 0; }
+  [ "${PLANT_OPEN-}" = "$cmd" ] && { echo "ERROR: [$tag] cannot write /dev/full" >&2; exit 2; }
+  echo "ERROR: [$tag] write to /dev/full failed: No space left on device" >&2
+  [ -n "$key" ] && echo "$key=FAIL"
+  [ "${PLANT_BOTH-}" = "$cmd" ] && echo "$key=OK"
+  exit 1
+fi
+[ -n "$out" ] || { echo "stub: no destination in: $*" >&2; exit 9; }
+echo "artifact" > "$out"
+[ -n "$key" ] && echo "$key=$okw"
+exit 0
+'''
+
+    def _kcw(self, **plant):
+        d = self._d()
+        stub = os.path.join(d, "solve")
+        self._wr(stub, self._KCW_STUB, 0o755)
+        return self._bash("bash scripts/kc_writer_devfull_gate.sh", SOLVE=stub, KC_WRITER_DEVFULL_ALLOW_STALE="1", **plant)
+
+    def test_d1147_d1148_d1150_d1151_kc_writer_plants(self):
+        """D1147: --kc-dead-census and --kc-witness-walks were not probed. D1148: the merge control's setup scans
+        were read on `-s` alone. D1150: a tokenless writer's red leg accepted any non-zero exit, so an open()
+        failure stood in for the write path. D1151: the red leg accepted a FAIL token beside an OK token."""
+        r = self._kcw()
+        self.assertEqual(r.stdout.strip().splitlines()[-1], "KC_WRITER_DEVFULL_GATE=PASS",
+                         "positive control: the honest stub passes:\n%s" % (r.stdout + r.stderr)[-1500:])
+        for name, plant in (("D1147-dead-census-silent", {"PLANT_SILENT": "--kc-dead-census"}),
+                            ("D1147-witness-walks-silent", {"PLANT_SILENT": "--kc-witness-walks"}),
+                            ("D1148-setup-scan-fails", {"PLANT_SCANFAIL": "1"}),
+                            ("D1150-open-failure", {"PLANT_OPEN": "--kc-t-cert"}),
+                            ("D1151-fail-and-ok", {"PLANT_BOTH": "--kc-scan"})):
+            with self.subTest(plant=name):
+                r = self._kcw(**plant)
+                self.assertIn("scan_atlas", r.stdout, "precondition: the probes ran:\n%s" % (r.stdout + r.stderr)[-800:])
+                self.assertNotEqual(r.stdout.strip().splitlines()[-1], "KC_WRITER_DEVFULL_GATE=PASS",
+                                    "%s passed:\n%s" % (name, r.stdout[-1500:]))
+                self.assertNotEqual(r.returncode, 0)
+
+    # ================================================================================================
+    # knuth_c67_repro_gate.sh (D1152)
+    # ================================================================================================
+    def test_d1152_knuth_figure_is_a_whole_number(self):
+        """D1152: `^#\\s*tree_nodes\\s+([0-9]+)` had no end anchor, so a documented 1169.5 read as 1169."""
+        g = self._r("scripts/knuth_c67_repro_gate.sh")
+        spec = self._between(g, 'PREFIX=""', "SPEC=$(printf")
+        ext = self._between(g, 'python3 - "$d" <<\'PY\'', "print(' '.join(best))").split("\n", 1)[1]
+        d = self._d()
+        py = os.path.join(d, "ext.py")
+        self._wr(py, ext)
+        doc = self._r("documentation/SEARCH_SPACE_SIZE.md")
+        self.assertIn("#   tree_nodes 1169   leaves", doc, "precondition: the documented figure line")
+
+        def run(text):
+            p = os.path.join(d, "doc%d.md" % len(text))
+            self._wr(p, text)
+            return self._bash('%s\nKC67_SPEC="$SPEC" python3 %s %s' % (spec, shlex.quote(py), shlex.quote(p))).stdout.strip()
+        self.assertEqual(run(doc), "", "positive control: the shipped document parses to the spec")
+        for bad in ("1169.5", "11690x"):
+            with self.subTest(figure=bad):
+                self.assertIn("cases-differ", run(doc.replace("#   tree_nodes 1169   leaves", "#   tree_nodes %s   leaves" % bad)),
+                              "a documented %s was read as 1169" % bad)
+
+    # ================================================================================================
+    # tr12_mint_state_gate.sh (D1249, D1250, D1251): a battery copy carrying each plant
+    # ================================================================================================
+    def _mint(self, edit):
+        bat = self._r("scripts/tr12_repro.sh")
+        new = edit(bat)
+        self.assertNotEqual(new, bat, "precondition: the plant changed the battery")
+        d = self._d()
+        p = os.path.join(d, "tr12_repro.sh")
+        self._wr(p, new, 0o755)
+        return self._bash("bash scripts/tr12_mint_state_gate.sh --battery %s" % shlex.quote(p))
+
+    def test_d1249_d1250_d1251_mint_state_plants(self):
+        """D1249: a block that printed its tokens and then exited 3 passed. D1250: a contradicting aggregate
+        token beside the expected one passed. D1251: deleting the MINTED+=() bookkeeping in the row finalisers
+        left the gate green (legs 1-4 inject MINTED)."""
+        r = self._bash("bash scripts/tr12_mint_state_gate.sh")
+        self.assertEqual(r.stdout.strip().splitlines()[-1], "TR12_MINT_STATE=PASS", "positive control:\n%s" % r.stdout)
+        begin = "# >>> TR12_MINT_STATE_BLOCK_BEGIN"
+
+        def in_block(bat, old, new):
+            i = bat.index(begin)
+            j = bat.index(old, i)
+            return bat[:j] + new + bat[j + len(old):]
+        plants = {
+            "D1249-dies-after-tokens": lambda b: in_block(b, "    exit 0\nelse\n", "    exit 3\nelse\n"),
+            "D1250-contradicting-token": lambda b: in_block(b, "    printf 'TR12_REPRO=%s\\n' \"$PASSTOK\" >> \"$VERD\" || VWF=1",
+                                                            "    printf 'TR12_REPRO=FAIL\\n' >> \"$VERD\"; printf 'TR12_REPRO=%s\\n' \"$PASSTOK\" >> \"$VERD\" || VWF=1"),
+            "D1251-no-minted-bookkeeping": lambda b: b.replace('MINTED+=("$ROW_ID"); ', ""),
+        }
+        for name, edit in plants.items():
+            with self.subTest(plant=name):
+                r = self._mint(edit)
+                last = (r.stdout.strip().splitlines() or [""])[-1]
+                self.assertIn("extracted", r.stdout, "precondition: the planted battery's block was extracted")
+                self.assertNotEqual(last, "TR12_MINT_STATE=PASS", "%s passed:\n%s" % (name, r.stdout[-1500:]))
+                self.assertNotEqual(r.returncode, 0)
+
+    # ================================================================================================
+    # manifest_zero_entry_gate.sh (D1160, D1161, D1162, D1163)
+    # ================================================================================================
+    _MZE_FAKE = r'''#!/bin/bash
+# a fake engine: verifies shard_manifest.txt per FAKE_MODE, then prints the snapshotting marker and idles
+if [ -f shard_manifest.txt ]; then
+  [ -s shard_manifest.txt ] || exit 22
+  [ "$FAKE_MODE" = rejectall ] && exit 22
+  while IFS=$'\t' read -r n sz sha; do
+    [ -f "$n" ] || exit 22
+    if [ "$FAKE_MODE" = good ]; then
+      [ "$(stat -c%s "$n")" = "$sz" ] || exit 22
+      [ "$(sha256sum < "$n" | cut -d' ' -f1)" = "$sha" ] || exit 22
+    fi
+  done < shard_manifest.txt
+fi
+echo "[hardening] auto-emit-manifest: snapshotting shard state to shard_manifest.txt" >&2
+echo "[hardening] auto-emit-manifest: wrote 0 entries" >&2
+sleep 20
+'''
+
+    def _mze_legs(self, mode):
+        g = self._r("scripts/manifest_zero_entry_gate.sh")
+        fns = "".join(self._fn(g, f) for f in ("run_bg", "await", "hardkill", "legs"))
+        consts = "\n".join(l for l in g.split("\n") if re.match(r"^(GATE_CLEARED|EMIT_SETTLED|SETTLE_POLLS)=", l))
+        wrong = self._between(g, "WRONG_LINE=$(printf", "'0000000000")
+        d = self._d()
+        fake = os.path.join(d, "fake_solve")
+        self._wr(fake, self._MZE_FAKE, 0o755)
+        prog = "set -uo pipefail\nWORK=%s\nWINDOW_S=20\n%s\n%s%s\nlegs %s t\n" % (shlex.quote(d), consts, wrong, fns, shlex.quote(fake))
+        return self._bash(prog, timeout=300, FAKE_MODE=mode).stdout
+
+    def test_d1160_d1161_manifest_legs_see_size_digest_and_valid(self):
+        """D1160: the only wrong non-empty manifest named an absent shard, so a presence-only verifier passed.
+        D1161: no leg planted a VALID manifest, so a verifier refusing every non-empty manifest passed."""
+        good = self._mze_legs("good")
+        self.assertIn("L1=CLEAN", good, "positive control: the fake engine passes L1:\n" + good)
+        self.assertIn("L2B=GUARD", good)
+        self.assertNotIn("BAD", good, "positive control: a correct verifier has no BAD leg:\n" + good)
+        self.assertNotIn("NOMEASURE", good)
+        pres = self._mze_legs("presence")
+        self.assertIn("L2B=GUARD", pres, "precondition: a presence-only verifier passes the absent-shard leg")
+        self.assertRegex(pres, r"(?m)^L2[CD]=BAD", "a presence-only verifier passed every leg:\n" + pres)
+        rej = self._mze_legs("rejectall")
+        self.assertIn("L2A=GUARD", rej, "precondition: a refuse-all verifier passes L2A")
+        self.assertRegex(rej, r"(?m)^L3=BAD", "a verifier refusing every non-empty manifest passed every leg:\n" + rej)
+
+    def test_d1162_d1163_build_verified_reads_build_and_hash_status(self):
+        """D1162: a build line that wrote a binary and then exited 1 was verified. D1163: an empty SOURCE_SHA
+        (sha256sum failed) made `grep -F -e ""` match any image."""
+        g = self._r("scripts/manifest_zero_entry_gate.sh")
+        fn = self._fn(g, "build_verified")
+        d = self._d()
+        src = os.path.join(d, "src.c")
+        self._wr(src, "int main(void){return 0;}\n")
+        want = hashlib.sha256(b"int main(void){return 0;}\n").hexdigest()
+        cc = os.path.join(d, "fakecc")
+        self._wr(cc, "#!/bin/bash\nprintf '#!/bin/sh\\n# %s\\n' \"$FAKE_SHA\" > \"$2\"; chmod +x \"$2\"; exit ${FAKE_RC:-0}\n", 0o755)
+        prog = "WORK=%s\nBUILD=%s\n%sbuild_verified %s t; echo RC=$?\n" % (shlex.quote(d), shlex.quote(cc + " -o solve"), fn, shlex.quote(src))
+        r = self._bash(prog, FAKE_SHA=want)
+        self.assertIn("RC=0", r.stdout, "positive control: a good build verifies:\n" + r.stdout + r.stderr)
+        with self.subTest(plant="D1162-build-exit-1"):
+            r = self._bash(prog, FAKE_SHA=want, FAKE_RC="1")
+            self.assertIn("RC=2", r.stdout, "a build line that exited 1 after linking was verified:\n" + r.stdout)
+        with self.subTest(plant="D1163-empty-sha"):
+            sd = self._shim(d, "sha256sum", r"src\.c", rc=1)
+            r = self._bash(prog, path_prefix=sd, FAKE_SHA="no-sha-here")
+            self.assertIn("src.c", self._shimlog(d), "precondition: the failing sha256sum was reached")
+            self.assertIn("RC=2", r.stdout, "an empty SOURCE_SHA verified an image that carries no sha:\n" + r.stdout)
+
+    def test_manifest_gate_mutants_still_compile(self):
+        """CX-36G-C (found while curing D1162): since G6 the emitter's snprintf is the condition of an `if`, and
+        M1's replacement left it unclosed, so M1 no longer compiled and the gate read ERROR on the shipped tree.
+        Every mutant patch must apply and the result must pass `gcc -fsyntax-only`."""
+        g = self._r("scripts/manifest_zero_entry_gate.sh")
+        d = self._d()
+        names = re.findall(r'^cat > "\$WORK/(m[0-9])\.py" <<\'PY\'$', g, re.M)
+        self.assertIn("m1", names, "precondition: the gate carries mutant patch scripts")
+        for m in names:
+            with self.subTest(mutant=m):
+                body = self._between(g, 'cat > "$WORK/%s.py"' % m, "PY", inclusive=False).split("\n", 1)[1]
+                py = os.path.join(d, m + ".py")
+                self._wr(py, body)
+                src = os.path.join(self.ROOT, "solve.c")
+                if m == "m2":
+                    seed = os.path.join(d, "seed_m2.c")
+                    m1 = os.path.join(d, "m1.py")
+                    self.assertTrue(os.path.exists(m1), "precondition: m1 precedes m2")
+                    subprocess.run(["python3", m1, src, seed], check=True)
+                    src = seed
+                out = os.path.join(d, m + ".c")
+                r = subprocess.run(["python3", py, src, out], capture_output=True, text=True)
+                self.assertEqual(r.returncode, 0, "%s patch failed: %s" % (m, r.stderr[-400:]))
+                r = subprocess.run(["gcc", "-fsyntax-only", "-fopenmp", "-DSOURCE_SHA=\"x\"", "-DGIT_HASH=\"x\"",
+                                    "-DGIT_BRANCH=\"x\"", out], capture_output=True, text=True, timeout=600)
+                self.assertEqual(r.returncode, 0, "%s does not compile:\n%s" % (m, "\n".join(l for l in r.stderr.splitlines() if "error" in l)[:800]))
+
+    # ================================================================================================
+    # n3_measured_nulls_gate.sh (D1166) -- the gate in an overlay whose battery stops recognising a field
+    # ================================================================================================
+    def _overlay(self, files):
+        d = self._d()
+        for rel, text in files.items():
+            self._wr(os.path.join(d, rel), text, 0o755 if rel.endswith(".sh") else 0o644)
+        return d
+
+    def test_d1166_every_recognised_rank_field_reaches_computable(self):
+        """D1166: COMPUTABLE was tested through `class_rank` only, so the producer could stop recognising
+        `orbit_rank` (or any other listed rank field) and the gate stayed green."""
+        gate = self._r("scripts/n3_measured_nulls_gate.sh")
+        bat = self._r("scripts/tr12_repro.sh")
+        lst = 'local forbidden="class_rank orbit_rank orbit_index'
+        self.assertEqual(bat.count(lst), 1, "precondition: the producer's recognised-field list")
+        r = self._bash("bash scripts/n3_measured_nulls_gate.sh", cwd=self._overlay(
+            {"scripts/n3_measured_nulls_gate.sh": gate, "scripts/tr12_repro.sh": bat}))
+        self.assertIn("N3_MEASURED_NULLS_GATE=PASS", r.stdout, "positive control: the overlay passes:\n%s" % r.stdout[-1200:])
+        for k in ("orbit_rank", "record_rank"):
+            with self.subTest(field=k):
+                m = bat.replace(lst, lst.replace(" " + k, "") if k == "orbit_rank" else lst)
+                if k == "record_rank":
+                    m = bat.replace(" record_rank\"\n    _n3_q10a_err", "\"\n    _n3_q10a_err", 1)
+                self.assertNotEqual(m, bat, "precondition: %s was removed from the producer's list" % k)
+                r = self._bash("bash scripts/n3_measured_nulls_gate.sh", cwd=self._overlay(
+                    {"scripts/n3_measured_nulls_gate.sh": gate, "scripts/tr12_repro.sh": m}))
+                self.assertIn("baseline", r.stdout, "precondition: the producers were extracted and run")
+                self.assertNotIn("N3_MEASURED_NULLS_GATE=PASS", r.stdout, "the producer dropped %s unseen" % k)
+
+    # ================================================================================================
+    # tr12_n31_golden_gate.sh (D1254, D1257, D1260) -- on TestBatchG5c's synthetic passing n=31 set
+    # ================================================================================================
+    N31 = "1097051278789181790036112071176579186688"
+
+    def _n31(self, files=None, extra=None):
+        base, pins = TestBatchG5c._n31_set(self)
+        return base, pins, (TestBatchG5c._n31_run(self, files if files is not None else base, pins, extra=extra))
+
+    def test_d1254_unhashable_golden_is_error_not_mismatch(self):
+        """D1254: a golden sha256sum cannot read was counted "edited since minting" (MISMATCH)."""
+        files, pins, r = self._n31()
+        self.assertIn("TR12_N31_GOLDEN=OK", r.stdout, "precondition: the synthetic set passes:\n%s" % r.stdout[-2000:])
+        r = TestBatchG5c._n31_run(self, files, pins, extra=lambda g: os.chmod(os.path.join(g, "a2_q2.txt"), 0))
+        self.assertIn("a2_q2.txt", r.stdout, "precondition: the unreadable golden reached Tier 0")
+        self.assertNotIn("a2_q2.txt has been edited since minting", r.stdout, "an unread golden read as an edited one")
+        self.assertIn("could not hash a2_q2.txt", r.stdout)
+
+    def test_d1257_q8_bucket_labels_are_bound_to_counts(self):
+        """D1257: the bucket vector was built from the counts alone, so labels 0,0,0,... passed."""
+        files, pins, r = self._n31()
+        self.assertIn("a1_q8_chi2: the 16 bucket counts are the banked vector", r.stdout, "positive control")
+        bad = dict(files)
+        bad["a1_q8_chi2.txt"] = files["a1_q8_chi2.txt"].replace("\n4\t75\n", "\n3\t75\n")
+        self.assertNotEqual(bad["a1_q8_chi2.txt"], files["a1_q8_chi2.txt"], "precondition: the label was duplicated")
+        r = TestBatchG5c._n31_run(self, bad, pins)
+        self.assertNotIn("a1_q8_chi2: the 16 bucket counts are the banked vector", r.stdout, "a duplicated label passed")
+        self.assertNotIn("TR12_N31_GOLDEN=OK", r.stdout)
+
+    def test_d1260_kw_rank_is_read_from_kw_own_record(self):
+        """D1260: the KW header and `rank3 0` were checked independently, so a rank3 0 from another record passed."""
+        files, pins, r = self._n31()
+        self.assertIn("rank_O3(KW) = 0", r.stdout, "positive control: the synthetic KW record passes")
+        for name, body in (("other-record", "### q7_moore-strict.json label=moore\tverdict_super=IN\nrank3\t0\n"
+                                            "### q7_kw.json label=KW\tverdict_super=IN\nrank3\t7\n"),
+                           ("two-in-kw", "### q7_kw.json label=KW\tverdict_super=IN\nrank3\t0\nrank3\t7\n")):
+            with self.subTest(plant=name):
+                bad = dict(files)
+                bad["a2_q7_ranks.txt"] = body
+                r = TestBatchG5c._n31_run(self, bad, pins)
+                self.assertIn("a2_q7_ranks", r.stdout, "precondition: the row was checked")
+                self.assertNotIn("TR12_N31_GOLDEN=OK", r.stdout, "%s passed:\n%s" % (name, r.stdout[-2000:]))
+
+    # ================================================================================================
+    # tr12_output_paths_gate.sh (D1265, D1266) -- the gate's own planted repository
+    # ================================================================================================
+    def _outpaths(self, extra):
+        g = self._r("scripts/tr12_output_paths_gate.sh")
+        d = os.path.join(self._d(), "repo")
+        prog = "%s%s\nplant %s\n" % (self._fn(g, "plant"), self._fn(g, "commit"), shlex.quote(d))
+        r = self._bash(prog)
+        self.assertTrue(os.path.isdir(os.path.join(d, ".git")), "precondition: the planted repository: " + r.stderr[-400:])
+        if extra:
+            with open(os.path.join(d, "viz", "spec.md"), "a", encoding="utf-8") as fh:
+                fh.write(extra)
+            self._bash("%scommit %s\n" % (self._fn(g, "commit"), shlex.quote(d)))
+        return self._bash("bash scripts/tr12_output_paths_gate.sh --root %s" % shlex.quote(d)).stdout
+
+    def test_d1265_d1266_output_paths_plants(self):
+        """D1265: a path written with a combining mark (`e` + U+0301) was not path-ish and was skipped.
+        D1266: a code span wrapped across two lines unbalanced the next line's backtick pairing, so the
+        path in the following span was never checked."""
+        self.assertIn("TR12_OUTPUT_PATHS=PASS", self._outpaths(""), "positive control: the planted repository passes")
+        out = self._outpaths("ok `reports/tr12/q3_profile_kw.tsv` here\n")
+        self.assertIn("TR12_OUTPUT_PATHS=PASS", out, "positive control: a tracked path passes:\n" + out)
+        self.assertIn("TR12_OUTPUT_PATHS=FAIL", self._outpaths("see `reports/tr12/nope.tsv`\n"),
+                      "positive control: an untracked path on one line is found")
+        for name, extra in (("D1265-combining-mark", "see `reports/tr12/café.tsv`\n"),
+                            ("D1266-wrapped-span", "a span `that wraps\nacross lines` and `reports/tr12/nope.tsv` after it\n")):
+            with self.subTest(plant=name):
+                out = self._outpaths(extra)
+                self.assertIn("TR12_OUTPUT_PATHS_CHECKED=", out, "precondition: the gate scanned")
+                self.assertIn("TR12_OUTPUT_PATHS=FAIL", out, "%s was not checked:\n%s" % (name, out[-800:]))
+
+    # ================================================================================================
+    # pre_commit_registry_gate.sh (D1177)
+    # ================================================================================================
+    def _repo(self, files):
+        d = self._d()
+        self._git(d, "init", "-q")
+        for rel, text in files.items():
+            self._wr(os.path.join(d, rel), text)
+        self._git(d, "add", "-A")
+        self._git(d, "commit", "-qm", "base")
+        return d
+
+    def test_d1177_registry_gate_compares_blobs_not_git_diff(self):
+        """D1177: `git diff --quiet` honours assume-unchanged, so an index blob that differs from the working
+        file read clean and the gates scanned bytes the commit does not contain (G5c cured the sibling only)."""
+        def fixture():
+            d = self._repo({"scripts/pre_commit_registry_gate.sh": self._r("scripts/pre_commit_registry_gate.sh"),
+                            "documentation/RETRACTED_PHRASES.tsv": "a\tb\n", "README.md": "x\n"})
+            self._wr(os.path.join(d, "documentation", "RETRACTED_FIGURES.tsv"), "f\tg\n")
+            self._git(d, "add", "documentation/RETRACTED_FIGURES.tsv")
+            return d
+        d = fixture()
+        self._wr(os.path.join(d, "documentation", "RETRACTED_PHRASES.tsv"), "a\tEDITED\n")
+        r = self._bash("bash scripts/pre_commit_registry_gate.sh 2>&1", cwd=d)
+        self.assertIn("PRECOMMIT_REGISTRY=REFUSED-DIRTY", r.stdout, "positive control: a plain unstaged edit is refused")
+        d = fixture()
+        self._git(d, "update-index", "--assume-unchanged", "documentation/RETRACTED_PHRASES.tsv")
+        self._wr(os.path.join(d, "documentation", "RETRACTED_PHRASES.tsv"), "a\tEDITED\n")
+        self.assertEqual(self._git(d, "diff", "--quiet", "--", "documentation/RETRACTED_PHRASES.tsv", check=False).returncode, 0,
+                         "precondition: git diff --quiet reads the assume-unchanged edit as clean")
+        r = self._bash("bash scripts/pre_commit_registry_gate.sh 2>&1", cwd=d)
+        self.assertIn("registry/ledger files touched", r.stdout, "precondition: the staged registry file triggered the gate")
+        self.assertIn("PRECOMMIT_REGISTRY=REFUSED-DIRTY", r.stdout, "the assume-unchanged edit was not refused:\n%s" % r.stdout[-800:])
+
+    # ================================================================================================
+    # pre_push_gate.sh (D1188) -- TestQ994Q995Batch47's hook fixture, with the remote NAME passed
+    # ================================================================================================
+    def test_d1188_a_rewound_destination_bounds_the_range_by_what_it_holds(self):
+        """D1188: for a new ref the corrections-inventory leg bounded the pushed range by this clone's
+        tracking refs, which can name a commit the destination no longer holds (a remote force-rewound
+        since the last fetch); a STALE commit published only there was excluded from the check."""
+        Q = TestQ994Q995Batch47
+        Q.setUpClass()
+        try:
+            q = Q("test_q994_hook_blocks_the_stand_in_tree_and_passes_the_regenerated_one")
+            fx = q._hook_fixture()
+            repo, bare = fx["repo"], os.path.join(fx["d"], "origin.git")
+            # origin holds bx (the stale tree on the real parent); c2 is a clean child of it
+            q._git(repo, "push", "-q", "-f", "origin", "%s:refs/heads/master" % fx["bx"])
+            q._git(repo, "fetch", "-q", "origin")
+            q._git(repo, "checkout", "-q", "--detach", fx["bx"])
+            with open(os.path.join(repo, "documentation", "NOTES.md"), "a", encoding="utf-8") as fh:
+                fh.write("- batch 3 item: corrected the third figure in table D\n")
+            q._regen(repo)
+            q._git(repo, "add", "-A")
+            q._git(repo, "commit", "-qm", "Batch 3: corrections")
+            c2 = q._git(repo, "rev-parse", "HEAD")
+            self.assertEqual(q._git(repo, "rev-parse", "refs/remotes/origin/master"), fx["bx"], "precondition: tracking ref = bx")
+
+            def hook():
+                e = q._env(HK_MARK=os.path.join(fx["d"], "mark_%d.log" % random.randrange(1 << 30)), TMPDIR=fx["d"])
+                for k in ("ROAE_PREPUSH_RECORD", "ROAE_PRIVATE_DIR", "ROAE_REVIEW_QUEUE", "CITGATE_BASE"):
+                    e.pop(k, None)
+                return subprocess.run(["bash", os.path.join(repo, q.HOOK), "origin", bare], cwd=repo,
+                                      input="refs/heads/x %s refs/heads/b3new %s\n" % (c2, "0" * 40),
+                                      capture_output=True, text=True, env=e, timeout=900)
+            r = hook()
+            out = r.stdout.splitlines()
+            self.assertIn("PREPUSH_LEG_CORRECTIONS_INVENTORY=PASS", out, "positive control: origin holds bx, c2 is clean:\n" + r.stdout[-3000:])
+            # origin is rewound to the real parent; this clone has not fetched, so its tracking ref still says bx
+            subprocess.run(["git", "-C", bare, "update-ref", "refs/heads/master", fx["p"]], check=True, capture_output=True)
+            self.assertEqual(q._git(repo, "rev-parse", "refs/remotes/origin/master"), fx["bx"], "precondition: the tracking ref is stale")
+            r = hook()
+            out = r.stdout.splitlines()
+            self.assertIn("PREPUSH_LEG_CORRECTIONS_INVENTORY=FAIL", out,
+                          "bx, which the destination no longer holds, was excluded from the range:\n" + r.stdout[-3000:])
+            self.assertTrue(any("is not current at commit %s" % fx["bx"][:12] in l for l in out), r.stdout[-3000:])
+            self.assertNotEqual(r.returncode, 0)
+        finally:
+            Q.tearDownClass()
+
+    # ================================================================================================
+    # prepush_verdict_record.sh (D1192)
+    # ================================================================================================
+    def test_d1192_tests_floor_count_reads_grep_status(self):
+        """D1192: `grep -c ... || true` accepted whatever a FAILING count printed, so a grep that read part of
+        HEAD:tests.py and died (here: printed 1, exit 2) lowered the TESTS floor to 1."""
+        g = self._r("scripts/prepush_verdict_record.sh")
+        blk = self._between(g, '  _tls=$(git -C "$top" ls-tree HEAD -- tests.py', "    tfloor=1")
+        blk += "  fi\n"
+        d = self._d()
+        self._git(d, "init", "-q")
+        self._wr(os.path.join(d, "tests.py"), "".join("    def test_%d(self):\n        pass\n" % i for i in range(5)))
+        self._git(d, "add", "-A")
+        self._git(d, "commit", "-qm", "t")
+        prog = 'err(){ echo "ERR: $*"; exit 2; }\ntop=%s\n%secho "TFLOOR=$tfloor"\n' % (shlex.quote(d), blk)
+        r = self._bash(prog)
+        self.assertIn("TFLOOR=5", r.stdout, "positive control: the floor is the method count:\n" + r.stdout + r.stderr)
+        sd = self._shim(d, "grep", r"def test_", rc=2, out="1\n")
+        r = self._bash(prog, path_prefix=sd)
+        self.assertIn("def test_", self._shimlog(d), "precondition: the counting grep was the one that failed")
+        self.assertNotIn("TFLOOR=1", r.stdout, "a failed count lowered the TESTS floor to 1:\n" + r.stdout)
+        self.assertIn("ERR:", r.stdout)
+
+    # ================================================================================================
+    # q2_witness_gate.sh (D1193, D1194, D1195, D1197) -- the real gate over planted battery copies
+    # ================================================================================================
+    def test_d1193_d1194_d1195_d1197_q2_witness_plants(self):
+        """D1193: no fixture supplied two walks, so the helper's multiplicity rejection could go. D1194: leg 4
+        called the helper directly, so a ROW passing a looser threshold was never exercised. D1195: only q2c's
+        timeout was fired. D1197: `declare -i Q2_ENUM_TIMEOUT=0` escaped the assignment census."""
+        bat = self._r("scripts/tr12_repro.sh")
+        r = self._bash("bash scripts/q2_witness_gate.sh", timeout=900)
+        self.assertEqual(r.stdout.strip().splitlines()[-1], "Q2_WITNESS=PASS", "positive control:\n%s" % r.stdout[-1500:])
+        mult = self._between(bat, '    if [ "${nw:-0}" -gt 1 ]; then', "        return 1")
+        mult += "    fi\n"
+        call = '      kc_first_last_witness Q2C "$WORK/q2c_probe.out" || erc=1'
+        tmo = '      timeout "$Q2_ENUM_TIMEOUT" "$SOLVE" --kc-enum-desc'
+        dflt = [l for l in bat.split("\n") if l.startswith('Q2_ENUM_TIMEOUT="${TR12_Q2_ENUM_TIMEOUT:-')]
+        self.assertEqual(len(dflt), 1, "precondition: the battery's one timeout default")
+        plants = {"D1193-no-multiplicity-check": (mult, ""),
+                  "D1194-row-loosens-threshold": (call, call.replace("kc_first_last", "C3MAX=$((C3MAX+1)) kc_first_last")),
+                  "D1195-q2d-unbounded": (tmo, '      "$SOLVE" --kc-enum-desc'),
+                  "D1197-declare-i-zero": (dflt[0] + "\n", dflt[0] + "\ndeclare -i Q2_ENUM_TIMEOUT=0\n")}
+        d = self._d()
+        for name, (old, new) in plants.items():
+            with self.subTest(plant=name):
+                self.assertEqual(bat.count(old), 1, "precondition: %s's site is unique" % name)
+                p = os.path.join(d, name + ".sh")
+                self._wr(p, bat.replace(old, new), 0o755)
+                r = self._bash("bash scripts/q2_witness_gate.sh", timeout=900, BATTERY=p)
+                self.assertIn("leg 1: extracted", r.stdout, "precondition: the planted battery was extracted")
+                self.assertNotEqual(r.stdout.strip().splitlines()[-1], "Q2_WITNESS=PASS", "%s passed:\n%s" % (name, r.stdout[-1500:]))
+
+    # ================================================================================================
+    # q3_reader_exactness_gate.sh (D1206, D1207) -- the gate's own harness, cut before its mutant list
+    # ================================================================================================
+    def _q3_harness(self, tail):
+        g = self._r("scripts/q3_reader_exactness_gate.sh")
+        cd = 'cd "$(dirname "$0")/.." || { echo "Q3_READER_EXACT_GATE=FAIL"; exit 40; }'
+        self.assertEqual(g.count(cd), 1, "precondition: the gate's cd line")
+        cut = g.index("\nmutant M1_strnum_original_defect")
+        return self._bash(g[:cut].replace(cd, "cd %s || exit 40" % shlex.quote(self.ROOT)) + "\n" + tail)
+
+    def test_d1206_downward_denominators_kill_a_one_sided_reader(self):
+        """D1206: every fixture perturbed the denominator UPWARD, so a reader whose link check is one-sided
+        (`>` for `!=`) rejected every fixture as required and certified a decreased denominator as 1/N."""
+        r = self._q3_harness('echo "BASELINE-OK"\n'
+                             "sed 's/for (i=2;i<=k;i++) if (pd\\[i\\] != pn\\[i-1\\])/for (i=2;i<=k;i++) if (pd[i] > pn[i-1])/' "
+                             '"$WORK/reader.awk" > "$WORK/os.awk"\ncmp -s "$WORK/os.awk" "$WORK/reader.awk" && echo NOT-APPLIED\n'
+                             'if verdict "$WORK/os.awk" >/dev/null 2>&1; then echo SURVIVED; else echo KILLED; fi\n')
+        self.assertIn("BASELINE-OK", r.stdout, "positive control: the shipped reader passes every leg:\n" + r.stdout[-800:])
+        self.assertNotIn("NOT-APPLIED", r.stdout, "precondition: the one-sided rewrite applied")
+        self.assertIn("KILLED", r.stdout, "a one-sided link comparison survived every leg")
+
+    def test_d1207_a_crashing_mutant_is_not_a_kill(self):
+        """D1207: a mutant that passed the control run and then exited 3 on a fault trace was counted as
+        killed, because verdict() returns non-zero for any reason."""
+        r = self._q3_harness("mutant MX_exit_always_0 's/exit (fails?1:0)/exit 0/'\necho CONTROL-KILLED\n"
+                             "mutant MY_crash_on_fail 's/exit (fails?1:0)/exit (fails?3:0)/'\necho AFTER-CRASH\n")
+        self.assertIn("CONTROL-KILLED", r.stdout, "positive control: a semantic mutant is killed:\n" + r.stdout[-800:])
+        self.assertNotIn("AFTER-CRASH", r.stdout, "a crashing mutant was counted as killed:\n" + r.stdout[-800:])
+        self.assertIn("Q3_READER_EXACT_GATE=FAIL", r.stdout)
+
+    # ================================================================================================
+    # q314_mod48_gate.sh (D1199) -- an overlay whose consumer dropped the XA-24 gate
+    # ================================================================================================
+    @classmethod
+    def _built_solve(cls):
+        """One n-independent engine built from this tree's solve.c with its SOURCE_SHA, shared by the tests."""
+        if getattr(cls, "_solve_bin", None):
+            return cls._solve_bin
+        d = os.path.join(cls.tmp, "solve_build")
+        os.makedirs(d, exist_ok=True)
+        src = os.path.join(cls.ROOT, "solve.c")
+        with open(src, "rb") as fh:
+            sha = hashlib.sha256(fh.read()).hexdigest()
+        out = os.path.join(d, "solve")
+        r = subprocess.run(["gcc", "-O2", "-pthread", "-fopenmp", '-DSOURCE_SHA="%s"' % sha, "-o", out, src, "-lm", "-lz"],
+                           capture_output=True, text=True, timeout=900)
+        if r.returncode != 0:
+            raise AssertionError(r.stderr[-800:])
+        cls._solve_bin = out
+        return out
+
+    def _symlink_overlay(self, replace):
+        """A tree whose every top-level entry links to this one, except the files in `replace` ({rel: text})."""
+        d = self._d()
+        for e in os.listdir(self.ROOT):
+            if e in replace or e == ".git":
+                continue
+            os.symlink(os.path.join(self.ROOT, e), os.path.join(d, e))
+        for rel, text in replace.items():
+            self._wr(os.path.join(d, rel), text)
+        return d
+
+    def test_d1199_q314_isolation_needs_the_other_gates_to_have_run(self):
+        """D1199: leg 6 read isolation from the ABSENCE of other FAIL lines. A consumer that stops running the
+        XA-24 / XA-48 gates on a no-walks run (no gate line and no NOT-RUN line) still got the line "V2-B0 is
+        the ONLY thing that sees this fault". The uncured verdict was already FAIL here (the consumer's own
+        closure changes ATLAS_CONSUMER, which legs 5/6 read), so the defect is the false isolation claim; the
+        cured leg requires each named comparison gate to have RUN and PASSed before making it."""
+        sb = self._built_solve()
+        py = self._r("solve.py")
+        site = '    if needs(q10):\n        gate("XA-24", "pre",'
+        self.assertEqual(py.count(site), 1, "precondition: the XA-24 gate call")
+        r = self._bash("bash scripts/q314_mod48_gate.sh", cwd=self._symlink_overlay({"solve.py": py}), Q314_SOLVE=sb)
+        self.assertEqual(r.stdout.strip().splitlines()[-1], "Q314_MOD48=PASS", "positive control:\n%s" % r.stdout[-1500:])
+        self.assertIn("V2-B0 is the ONLY thing that sees this fault", r.stdout, "positive control: the claim is reachable")
+        r = self._bash("bash scripts/q314_mod48_gate.sh", Q314_SOLVE=sb, cwd=self._symlink_overlay(
+            {"solve.py": py.replace(site, '    if "--atlas-walks" not in sys.argv:\n        pass\n    elif needs(q10):\n        gate("XA-24", "pre",')}))
+        self.assertIn("leg 6:", r.stdout, "precondition: leg 6 ran")
+        self.assertNotIn("XA-24: N_total", "\n".join(l for l in r.stdout.splitlines() if "ALSO fired" in l),
+                         "precondition: no XA-24 line fired")
+        self.assertNotIn("V2-B0 is the ONLY thing that sees this fault", r.stdout, "isolation claimed with XA-24/XA-48 not run")
+        self.assertNotEqual(r.returncode, 0)
+
+    # ================================================================================================
+    # q326_kc_unrank_m0_gate.sh (D1205) -- legs() over stub engines
+    # ================================================================================================
+    _Q326_STUB = r'''#!/bin/bash
+# stub --kc-unrank: m=0 under --kc-c3-max 0 (rc 1), a positive record otherwise
+W=33,30,62,31,55,59,8,4,16,2,32,1,61,47,45,18,51,12
+echo "$W"
+if [[ " $* " == *" --kc-c3-max 0 "* ]]; then
+  [ "${PLANT-}" = repr ] && printf 'repr\t%s\n' "$W"
+  [ "${PLANT-}" = vary ] && echo "scratch $RANDOM$RANDOM"
+  printf 'record\tm=0\t(class has no valid orientation completion)\n'
+  printf '#provenance\tengine=stub\n'; exit 1
+fi
+printf 'record\tm=32\t%s\n#provenance\tengine=stub\n' "$W"; exit 0
+'''
+
+    def test_d1205_unrank_m0_reads_the_whole_transcript(self):
+        """D1205: L2/L3 filtered the m=0 transcripts to `^record` lines, so a leaked repr line or an extra line
+        that varies between two runs passed both."""
+        fn = self._fn(self._r("scripts/q326_kc_unrank_m0_gate.sh"), "legs")
+        d = self._d()
+        stub = os.path.join(d, "solve")
+        self._wr(stub, self._Q326_STUB, 0o755)
+        prog = "WORK=%s\n%slegs %s\n" % (shlex.quote(d), fn, shlex.quote(stub))
+        out = self._bash(prog).stdout
+        self.assertEqual(out.split(), ["L1=OK", "L2=OK", "L3=OK", "L4=OK"], "positive control: the honest stub passes:\n" + out)
+        for plant, leg in (("repr", "L2=BAD"), ("vary", "L3=BAD")):
+            with self.subTest(plant=plant):
+                out = self._bash(prog, PLANT=plant).stdout
+                self.assertIn("L1=OK", out, "precondition: the m=0 run was measured")
+                self.assertIn(leg, out, "the %s plant passed:\n%s" % (plant, out))
+
+    # ================================================================================================
+    # q422_ratio_columns_gate.sh (D1210, D1211) -- the gate's own harness, cut before its mutant list
+    # ================================================================================================
+    def _q422_harness(self, tail):
+        """The gate's text up to its first mutant, plus `tail`, run with $0 = the gate's own path."""
+        g = self._r("scripts/q422_ratio_columns_gate.sh")
+        cut = g.index("\nmutant M1_atlas_f_zero")
+        e = self._env(Q422_SOLVE=self._built_solve())
+        return subprocess.run(["bash", "-c", g[:cut] + "\n" + tail, os.path.join(self.ROOT, "scripts", "q422_ratio_columns_gate.sh")],
+                              cwd=self.ROOT, capture_output=True, text=True, env=e, timeout=900)
+
+    def test_d1210_a_crashed_consumer_is_not_a_kill(self):
+        """D1210: only rc 124-143 and tracebacks counted as crashes, so a consumer killed by a signal above
+        15 (rc 152) or exiting 2 without output counted as a semantic kill."""
+        for name, body in (("signal-24", "    import os; os.kill(os.getpid(), 24)"), ("exit-2", "    import sys; sys.exit(2)")):
+            with self.subTest(crash=name):
+                r = self._q422_harness(
+                    "mutant M1_atlas_f_zero 's/^def _atlas_f(x):$/def _atlas_f(x):\\n    return \"0\"/'\necho CONTROL-KILLED\n"
+                    "mutant MX_crash 's/^def _atlas_f(x):$/def _atlas_f(x):\\n%s/'\necho AFTER-CRASH\n" % body)
+                self.assertIn("CONTROL-KILLED", r.stdout, "positive control: a semantic mutant is killed:\n" + r.stdout[-800:])
+                self.assertNotIn("AFTER-CRASH", r.stdout, "a %s consumer was counted as killed:\n%s" % (name, r.stdout[-800:]))
+
+    def test_d1211_v5_emitter_and_recount_together_are_seen(self):
+        """D1211: no mutant corrupted the V5 p_cond emitter alone, so doubling its denominator while dropping V5
+        from the consumer's own ratio checks left every leg green."""
+        expr = ("s/^                rows.append((k, d, w, m, _atlas_f(_atlas_ratio(m, flow)), kw_d\\[k\\], kw_w\\[k\\]))$/"
+                "                rows.append((k, d, w, m, _atlas_f(_atlas_ratio(m, 2 * flow)), kw_d[k], kw_w[k]))/; "
+                "s/^                   \\[(\"v5\", r\\[\"k\"\\], r\\[\"d\"\\], r\\[\"p_cond\"\\]) for r in v5$/"
+                "                   [(\"v5\", r[\"k\"], r[\"d\"], r[\"p_cond\"]) for r in v5[:0]/; "
+                "s/^            for r in v5:$/            for r in v5[:0]:/")
+        r = self._q422_harness("echo BASELINE-OK\nmutant MZ_v5 %s\necho V5-KILLED\n" % shlex.quote(expr))
+        self.assertIn("BASELINE-OK", r.stdout, "positive control: the baseline passes:\n" + r.stdout[-800:])
+        self.assertNotIn("did not apply", r.stdout, "precondition: the mutant applied")
+        self.assertIn("V5-KILLED", r.stdout, "the V5 emitter + recount regression survived:\n" + r.stdout[-800:])
+
+    # ================================================================================================
+    # q433_xa_cert_gate.sh (D1214) -- an overlay whose consumer ignores the certificate's scope
+    # ================================================================================================
+    def test_d1214_a_certificate_of_another_scope_prices_nothing(self):
+        """D1214: every fixture matched the atlas's scope, so deleting the consumer's `scope.n` comparison
+        (an n=31 certificate pricing an n=9 atlas) left the gate green."""
+        py = self._r("solve.py")
+        site = '                and xa_map["scope_n"] != n:\n'
+        self.assertEqual(py.count(site), 1, "precondition: the consumer's scope comparison")
+        r = self._bash("bash scripts/q433_xa_cert_gate.sh", cwd=self._symlink_overlay({"solve.py": py}))
+        self.assertEqual(r.stdout.strip().splitlines()[-1], "Q433_XA_CERT=PASS", "positive control:\n" + r.stdout[-1000:])
+        r = self._bash("bash scripts/q433_xa_cert_gate.sh", cwd=self._symlink_overlay(
+            {"solve.py": py.replace(site, "                and False:\n")}))
+        self.assertRegex(r.stdout, r"(?m)^  \[(gate|FAIL)\] baseline", "precondition: the baseline legs ran")
+        self.assertNotEqual(r.stdout.strip().splitlines()[-1], "Q433_XA_CERT=PASS", "the scope check was deleted unseen:\n" + r.stdout[-1000:])
+
+    # ================================================================================================
+    # q7ranks_parse_gate.sh (D1215) -- a battery whose row stops after the second certificate
+    # ================================================================================================
+    def test_d1215_the_row_reads_all_six_production_certificates(self):
+        """D1215: every leg handed the row at most two certificates, so `break` after the second was unseen."""
+        bat = self._r("scripts/tr12_repro.sh")
+        site = '          [ -f "$j" ] || continue; processed=$((processed+1))'
+        self.assertEqual(bat.count(site), 1, "precondition: the certificate loop")
+        r = self._bash("bash scripts/q7ranks_parse_gate.sh", timeout=900)
+        self.assertEqual(r.stdout.strip().splitlines()[-1], "Q7RANKS_PARSE=PASS", "positive control:\n" + r.stdout[-1200:])
+        d = self._d()
+        p = os.path.join(d, "tr12_repro.sh")
+        self._wr(p, bat.replace(site, '          [ "$processed" -ge 2 ] && break; ' + site.lstrip()), 0o755)
+        r = self._bash("bash scripts/q7ranks_parse_gate.sh", timeout=900, BATTERY=p)
+        self.assertIn("extracted", r.stdout, "precondition: the planted row was extracted")
+        self.assertIn("[ok] leg 2:", r.stdout, "precondition: the two-certificate legs still pass on the plant")
+        self.assertNotEqual(r.stdout.strip().splitlines()[-1], "Q7RANKS_PARSE=PASS", "a row that stops after two certificates passed:\n" + r.stdout[-1200:])
+
+    # ================================================================================================
+    # row_assertion_gate.sh (D1226, D1227, D1228, D1229) -- fixture batteries through --battery
+    # ================================================================================================
+    _RA_HEAD = 'row_begin c_v\n(\n  echo "k\tv"\n  while read -r l; do echo "$l"; done < "$A"\n'
+
+    def _ra(self, body, path_prefix=None):
+        d = self._d()
+        p = os.path.join(d, "bat.sh")
+        self._wr(p, body)
+        r = self._bash("bash scripts/row_assertion_gate.sh --battery %s --list" % shlex.quote(p), path_prefix=path_prefix)
+        return r.stdout
+
+    def test_d1226_d1227_d1228_row_assertion_plants(self):
+        """D1226: a verdict value raised only inside `( )` counted as reaching row_end_val. D1227: an exit inside a
+        producer-status handler (`"$SOLVE" ... || { ...; exit 1; }`) counted as a content assertion. D1228: a
+        failure on the closing line of a `( ... ) || true` subshell survived the discard."""
+        H = self._RA_HEAD
+        cases = {
+            "D1226-value-in-subshell": (H + ') >>"$RAW" 2>&1; rc=$?\nV=PASS\n( [ -s "$RAW" ] || V=ERROR )\nrow_end_val TR12_V $rc "$V"\n',
+                                        H + ') >>"$RAW" 2>&1; rc=$?\nV=PASS\n[ -s "$RAW" ] || V=ERROR\nrow_end_val TR12_V $rc "$V"\n'),
+            "D1227-braced-rc-handler": (H + '  "$SOLVE" --kc-x "$F" > "$W/x.out" || { echo "X_FAIL\trc"; exit 1; }\n) >>"$RAW" 2>&1; rc=$?\nrow_end TR12_V $rc\n',
+                                        H + '  "$SOLVE" --kc-x "$F" > "$W/x.out" || { echo "X_FAIL\trc"; exit 1; }\n'
+                                            "  grep -q '^OK$' \"$W/x.out\" || { echo \"X_FAIL\tno OK\"; exit 1; }\n) >>\"$RAW\" 2>&1; rc=$?\nrow_end TR12_V $rc\n"),
+            "D1228-closing-line-discard": (H + '  (\n    n=$(grep -c . "$A")\n    [ "$n" -eq "$N_PAIRS" ] || exit 1 ) || true\n) >>"$RAW" 2>&1; rc=$?\nrow_end TR12_V $rc\n',
+                                           H + '  (\n    n=$(grep -c . "$A")\n    [ "$n" -eq "$N_PAIRS" ] || exit 1 )\n) >>"$RAW" 2>&1; rc=$?\nrow_end TR12_V $rc\n'),
+        }
+        for name, (bad, good) in cases.items():
+            with self.subTest(plant=name):
+                out = self._ra(good)
+                self.assertIn("ROW_ASSERTION=PASS", out, "positive control (%s): the asserting twin passes:\n%s" % (name, out))
+                out = self._ra(bad)
+                self.assertRegex(out, r"(?m)^ROW\tc_v\t", "precondition: the plant parsed as a row")
+                self.assertIn("\tDRIVER\t", out, "precondition: the plant is a driver row")
+                self.assertNotIn("ROW_ASSERTION=PASS", out, "%s read as ASSERTED:\n%s" % (name, out))
+
+    def test_d1229_a_failed_red_list_extraction_is_error(self):
+        """D1229: `reds=$(... | awk ...)` was unchecked, so an awk that failed gave an empty red list and PASS
+        over a DRIVER/UNASSERTED row."""
+        body = self._RA_HEAD + ') >>"$RAW" 2>&1; rc=$?\nrow_end TR12_V $rc\n'
+        out = self._ra(body)
+        self.assertIn("ROW_ASSERTION=FAIL", out, "positive control: the unasserted driver fails:\n" + out)
+        d = self._d()
+        sd = self._shim(d, "awk", r'UNASSERTED"\{print', rc=2)
+        out = self._ra(body, path_prefix=sd)
+        self.assertIn("UNASSERTED", self._shimlog(d), "precondition: the red-list awk was the one that failed")
+        self.assertNotIn("ROW_ASSERTION=PASS", out, "a failed red-list extraction read as nothing new:\n" + out)
+        self.assertIn("ROW_ASSERTION=ERROR", out)
+
+    # ================================================================================================
+    # reproduce_digests_gate.sh (D1222, D1224)
+    # ================================================================================================
+    def test_d1222_two_totals_on_one_line_are_two_totals(self):
+        """D1222: `grep -c` counted LINES carrying the total label and the greedy sed took the last label on
+        the line, so one line printing two totals passed as one correct total."""
+        g = self._r("scripts/reproduce_digests_gate.sh")
+        blk = self._between(g, "    local ntot", 'elif [ -n "$tot" ]')
+        prog = "f(){\n%s  echo \"ntot=$ntot tot=$tot bad=$bad\"\n}\nR_OUT=$OUT; total=26112; f\n" % blk
+        r = self._bash(prog, OUT="orbit-quotient C5-DP total = 26112\n")
+        self.assertIn("ntot=1 tot=26112 bad=", r.stdout, "positive control: one total is read:\n" + r.stdout + r.stderr)
+        self.assertTrue(r.stdout.strip().endswith("bad="), "positive control: one total is not flagged")
+        r = self._bash(prog, OUT="orbit-quotient C5-DP total = 5 ... orbit-quotient C5-DP total = 26112\n")
+        self.assertIn("ntot=2", r.stdout, "two totals on one line counted as one:\n" + r.stdout)
+        self.assertIn("totals=2-lines", r.stdout)
+
+    def test_d1224_rung_scratch_is_removed_on_a_signal(self):
+        """D1224: the rung scratch directory was removed on the normal path only; a TERM mid-rung left it."""
+        g = self._r("scripts/reproduce_digests_gate.sh")
+        lines = g.split("\n")
+        i = next(k for k, l in enumerate(lines) if l.startswith("  work=$(mktemp -d"))
+        mk = lines[i] + "\n" + (lines[i + 1] + "\n" if lines[i + 1].startswith("  RUNDIRS+=") else "")
+        pre = "\n".join(l for l in lines if l == "RUNDIRS=()") + "\n" + self._fn(g, "cleanup")
+        d = self._d()
+        prog = ("TMPDIR=%s; BDIR=''\n%s\ntrap cleanup EXIT\nrun(){\n%s  echo \"WORK=$work\"; kill -TERM $$; sleep 5\n}\nrun\n"
+                % (shlex.quote(d), pre, mk))
+        r = self._bash(prog)
+        work = r.stdout.strip().split("WORK=")[-1]
+        self.assertTrue(work.startswith(d), "precondition: the rung scratch was created under TMPDIR: %r" % r.stdout)
+        self.assertIn(r.returncode, (143, -15), "precondition: the harness died of the TERM")
+        self.assertFalse(os.path.exists(work), "a TERM mid-rung left the rung scratch directory behind")
+
+    # ================================================================================================
+    # sidecar_sha_gate.sh (D1233)
+    # ================================================================================================
+    def test_d1233_extra_bins_with_a_space_are_checked(self):
+        """D1233: SIDECAR_EXTRA_BINS was word-split, so a path with a space became two absent names that were
+        skipped, and a mismatched sidecar there read OK."""
+        d = os.path.join(self._d(), "a b")
+        os.makedirs(d)
+        b = os.path.join(d, "x.bin")
+        with open(b, "wb") as fh:
+            fh.write(b"payload\n")
+        good = hashlib.sha256(b"payload\n").hexdigest()
+        self._wr(os.path.join(d, "x.sha256"), good + "  x.bin\n")
+        r = self._bash("bash scripts/sidecar_sha_gate.sh", SIDECAR_EXTRA_BINS=b)
+        self.assertIn("SIDECAR_SHA_GATE=OK", r.stdout, "positive control: a matching sidecar passes:\n" + r.stdout[-800:])
+        self._wr(os.path.join(d, "x.sha256"), "0" * 64 + "  x.bin\n")
+        r = self._bash("bash scripts/sidecar_sha_gate.sh", SIDECAR_EXTRA_BINS=b)
+        self.assertIn("== LEG 2", r.stdout, "precondition: LEG 2 ran")
+        self.assertNotIn("SIDECAR_SHA_GATE=OK", r.stdout, "a mismatched sidecar at a spaced path read OK:\n" + r.stdout[-800:])
+        r = self._bash("bash scripts/sidecar_sha_gate.sh", SIDECAR_EXTRA_BINS=os.path.join(d, "absent.bin"))
+        self.assertNotIn("SIDECAR_SHA_GATE=OK", r.stdout, "a listed path that does not exist was skipped:\n" + r.stdout[-800:])
+
+    # ================================================================================================
+    # tr12_repro_gate.sh (D1302, D1296, D1297, D1298, D1300)
+    # ================================================================================================
+    _TRG_TOKENS = {"d5_01_q1c_skip": "D5_01_Q1C_SKIP_GATE=PASS", "n3_measured_nulls": "N3_MEASURED_NULLS_GATE=PASS",
+                   "q3_reader_exactness": "Q3_READER_EXACT_GATE=PASS", "q422_ratio_columns": "Q422_RATIO_COLUMNS_GATE=PASS",
+                   "q314_mod48": "Q314_MOD48=PASS", "q326_kc_query_surface": "Q326_QUERY_SURFACE=PASS",
+                   "kc_writer_devfull": "KC_WRITER_DEVFULL_GATE=PASS", "a5_orbit_membership": "A5_ORBIT_MEMBERSHIP=OK",
+                   "q433_xa_cert": "Q433_XA_CERT=PASS", "tr8_merge_pool_integrity": "TR8_MERGE_POOL_INTEGRITY=PASS",
+                   "q326_kc_unrank_m0": "Q326_UNRANK_M0=PASS", "d5_02_q8_chi2_gallery": "D5_02_Q8_CHI2_GALLERY_GATE=PASS",
+                   "d5_03_ls_w0_exact": "D5_03_LS_W0_EXACT_GATE=PASS", "d5_04_q7_witnesses": "D5_04_Q7_WITNESSES_GATE=PASS",
+                   "d5_08_q6_q10a_shell": "D5_08_Q6_Q10A_SHELL_GATE=PASS"}
+
+    def _trg_legs(self, plant):
+        """Run tr12_repro_gate.sh's prerequisite-leg region (after the build, before the a2/xa verdict_ok legs)
+        in a scratch tree whose child gates are stubs printing their own PASS token; `plant` maps a stem to the
+        stub body that replaces it."""
+        region = self._between(self._r("scripts/tr12_repro_gate.sh"), '[ok] published build line builds', 'verdict_ok(){',
+                               inclusive=False)
+        for stem in self._TRG_TOKENS:
+            self.assertIn("scripts/%s_gate.sh" % stem, region, "precondition: the region runs %s" % stem)
+        d = self._d()
+        log = os.path.join(d, "calls.log")
+        for stem, tok in self._TRG_TOKENS.items():
+            body = plant.get(stem, "echo '  [ok] stub'\necho %s\n" % tok)
+            self._wr(os.path.join(d, "scripts", "%s_gate.sh" % stem), "echo %s >> %s\n%s" % (stem, shlex.quote(log), body))
+        prog = "set -uo pipefail\nWORK=%s\n%s\necho REGION-DONE\n" % (shlex.quote(d), region)
+        r = self._bash(prog, cwd=d)
+        calls = ""
+        if os.path.exists(log):
+            with open(log, encoding="utf-8") as fh:
+                calls = fh.read()
+        return r, calls
+
+    def test_d1302_prerequisite_legs_need_their_verdict_token(self):
+        """D1302: the eleven-plus prerequisite gates were accepted on exit status alone, so an emptied child
+        (`: > scripts/a5_orbit_membership_gate.sh`) or one that prints its FAIL token and exits 0 passed."""
+        r, calls = self._trg_legs({})
+        self.assertIn("REGION-DONE", r.stdout, "positive control: all-PASS stubs pass the region:\n%s" % r.stdout[-1500:])
+        self.assertEqual(len(calls.split()), len(self._TRG_TOKENS), "positive control: every stub ran")
+        for name, plant in (("empty", {"a5_orbit_membership": ""}),
+                            ("fail-token-rc0", {"q433_xa_cert": "echo Q433_XA_CERT=FAIL\n"}),
+                            ("pass-and-fail", {"kc_writer_devfull": "echo KC_WRITER_DEVFULL_GATE=PASS\necho KC_WRITER_DEVFULL_GATE=FAIL\n"}),
+                            ("d5-loop-empty", {"d5_04_q7_witnesses": ""})):
+            with self.subTest(plant=name):
+                r, calls = self._trg_legs(plant)
+                stem = next(iter(plant))
+                self.assertIn(stem, calls.split(), "precondition: the planted stub %s ran" % stem)
+                self.assertNotIn("REGION-DONE", r.stdout, "%s: the leg was accepted:\n%s" % (name, r.stdout[-1500:]))
+                self.assertIn("TR12_REPRO_GATE=FAIL", r.stdout)
+
+    def test_d1296_comment_membership_sort_failure_is_not_a_match(self):
+        """D1296: a failing `sort -u` producer fed comm an empty stream, read as "no comment-only member"."""
+        fn = self._fn(self._r("scripts/tr12_repro_gate.sh"), "comment_membership_check")
+        pre = ("set -uo pipefail\nCORE=; DECLARED=; REFERENCED_NOT_INPUTS=\n"
+               "derived_inputs(){ if [ \"${1:-}\" = code ]; then echo a.sh; else printf 'a.sh\\nb.sh\\n'; fi; }\n%s" % fn)
+        r = self._bash(pre + "comment_membership_check; echo RC=$?")
+        self.assertIn("RC=1", r.stdout, "positive control: b.sh (comment-only) is named:\n%s" % r.stdout)
+        self.assertIn("b.sh", r.stdout)
+        d = self._d()
+        log = os.path.join(d, "sort.log")
+        r = self._bash(pre + "sort(){ echo called >> %s; return 3; }\ncomment_membership_check; echo RC=$?" % shlex.quote(log))
+        self.assertTrue(os.path.exists(log), "precondition: the failing sort was reached")
+        self.assertIn("RC=1", r.stdout, "a failing sort read as no comment-only member:\n%s" % r.stdout)
+
+    def test_d1297_not_input_read_sees_continuations_and_wrapper_options(self):
+        """D1297: `cat \\` + newline + path, and `command -p cat path`, read an excluded file unseen."""
+        fn = self._fn(self._r("scripts/tr12_repro_gate.sh"), "not_input_read_check")
+        d = self._d()
+        member = os.path.join(d, "member.sh")
+        pre = ("set -uo pipefail\nCORE=; DECLARED=; REFERENCED_NOT_INPUTS=excl/secret_fv2g3b.txt\n"
+               "derived_inputs(){ echo %s; }\n%s" % (shlex.quote(member), fn))
+        for name, body, want in (("control-one-line", "cat excl/secret_fv2g3b.txt\n", "RC=1"),
+                                 ("control-clean", "echo excl/secret_fv2g3b.txt is not read\n", "RC=0"),
+                                 ("continuation", "cat \\\n  excl/secret_fv2g3b.txt\n", "RC=1"),
+                                 ("wrapper-option", "command -p cat excl/secret_fv2g3b.txt\n", "RC=1")):
+            with self.subTest(case=name):
+                self._wr(member, "#!/bin/bash\n" + body)
+                r = self._bash(pre + "not_input_read_check; echo RC=$?")
+                self.assertIn(want, r.stdout, "%s:\n%s" % (name, r.stdout + r.stderr))
+
+    def test_d1298_fingerprint_sees_the_executable_bit(self):
+        """D1298: `chmod -x` on a member left the fingerprint byte-identical."""
+        fn = self._fn(self._r("scripts/tr12_repro_gate.sh"), "fingerprint")
+        d = self._d()
+        self._wr(os.path.join(d, "m.sh"), "#!/bin/bash\necho hi\n", 0o755)
+        prog = "set -uo pipefail\nfingerprint_files(){ echo m.sh; }\n%sfingerprint\n" % fn
+        a = self._bash(prog, cwd=d).stdout.strip()
+        os.chmod(os.path.join(d, "m.sh"), 0o644)
+        b = self._bash(prog, cwd=d).stdout.strip()
+        self.assertRegex(a, r"^[0-9a-f]{64}$", "precondition: the fingerprint is a digest")
+        self.assertNotEqual(a, b, "chmod -x left the fingerprint unchanged")
+        os.chmod(os.path.join(d, "m.sh"), 0o755)
+        self.assertEqual(a, self._bash(prog, cwd=d).stdout.strip(), "positive control: same tree, same digest")
+
+    def test_d1300_skip_pin_read_error_is_not_an_empty_set(self):
+        """D1300: the malformed-skip scan discarded grep's status, so a read error hid a malformed line."""
+        txt = self._r("scripts/tr12_repro_gate.sh")
+        block = self._between(txt, "observed_skips(){", 'if [ "$MODE" = "--selftest-skip-pin" ]', inclusive=False)
+        d = self._d()
+        v, pin = os.path.join(d, "v"), os.path.join(d, "pin")
+        self._wr(v, "TR12_A=PASS\nTR12_B=SKIP:doc-only\nTR12_X=SKIP:failed check\nTR12_REPRO=PASS\n")
+        self._wr(pin, "# pin\nTR12_B=SKIP:doc-only\n")
+        prog = "set -uo pipefail\n%s\nskip_pin_compare %s %s; echo RC=$?\n" % (block, shlex.quote(v), shlex.quote(pin))
+        r = self._bash(prog)
+        self.assertIn("RC=1", r.stdout, "positive control: the malformed line is found:\n%s" % r.stdout)
+        self.assertIn("TR12_X=SKIP:failed check", r.stdout)
+        sd = self._shim(d, "grep", r"\[\^=\]", rc=2)
+        r = self._bash(prog, path_prefix=sd)
+        self.assertIn("[^=]", self._shimlog(d), "precondition: the malformed-scan grep was the one that failed")
+        self.assertNotIn("RC=0", r.stdout, "a grep read error was read as no malformed line:\n%s" % r.stdout)
+        self.assertIn("RC=2", r.stdout)
+
+    # ================================================================================================
+    # xa_exact_verdict_gate.sh (D1305, D1306) -- overlays whose consumer rounds one anchor through binary64
+    # ================================================================================================
+    def test_d1305_d1306_every_anchor_has_its_own_boundary(self):
+        """D1305: nodes/sec, the budget and the hedge had no boundary fixture, so `float()` on any ONE of them
+        in the consumer changed no graded verdict. D1306: leg 3b routed only $/hour through the CLI's own cost
+        dictionary, so a float() of args.xa_work_factor there was unseen."""
+        py = self._r("solve.py")
+        r = self._bash("bash scripts/xa_exact_verdict_gate.sh", cwd=self._symlink_overlay({"solve.py": py}))
+        self.assertIn("XA_EXACT_VERDICT=OK", r.stdout, "positive control:\n" + r.stdout[-1000:])
+        plants = {
+            "D1305-nodes-per-sec": ('            x_nps = _xa_exact(cost["nodes_per_sec"])\n',
+                                    '            x_nps = Fraction(float(cost["nodes_per_sec"]))\n'),
+            "D1305-budget": ('            x_bud = _xa_exact(cost["budget_hours"] if in_hours else cost["budget_usd"])\n',
+                             '            x_bud = Fraction(float(cost["budget_hours"] if in_hours else cost["budget_usd"]))\n'),
+            "D1305-hedge": ('            x_hedge = _xa_exact(cost["hedge"])\n', '            x_hedge = Fraction(float(cost["hedge"]))\n'),
+            "D1306-cli-work-factor": ('                "work_factor": args.xa_work_factor,\n',
+                                      '                "work_factor": solve_float_anchor(args.xa_work_factor),\n'),
+        }
+        # the CLI plant: the anchor's exact value becomes its binary64 value (what a float() conversion does)
+        shim = ("\ndef solve_float_anchor(v):\n    if v is None:\n        return v\n    x = _ExactAnchor(repr(float(v)))\n"
+                "    x.exact = _Fraction(float(v))\n    return x\n")
+        for name, (old, new) in plants.items():
+            with self.subTest(plant=name):
+                self.assertEqual(py.count(old), 1, "precondition: %s's site is unique" % name)
+                m = py.replace(old, new) + (shim if "cli" in name else "")
+                r = self._bash("bash scripts/xa_exact_verdict_gate.sh", cwd=self._symlink_overlay({"solve.py": m}))
+                self.assertIn("fixture A (exact arithmetic)", r.stdout, "precondition: the gate priced its fixtures:\n" + r.stdout[-600:])
+                self.assertNotIn("XA_EXACT_VERDICT=OK", r.stdout, "%s survived:\n%s" % (name, r.stdout[-1000:]))
 
 
 if __name__ == "__main__":

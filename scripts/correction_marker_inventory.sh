@@ -360,7 +360,7 @@ REVIEWED = {
     # re-keyed CX-321 (was 3692591963d4): only line-number cites on the line moved; re-read, same verdict.
     # re-keyed G5c (was 101ff3a81dd7): only line-number cites on the line moved (the re-pinned tr12_repro.sh
     # citations); re-read, same verdict.
-    ('documentation/DEVELOPMENT.md', 'b08605ff1e95'):
+    ('documentation/DEVELOPMENT.md', 'cdb2a142c870'):  # re-keyed 2026-11-02, push group FV2-G3b (was b08605ff1e95; the Q7RANKS_PARSE row now counts leg 12; verdict re-read, stands)
         ('1', 'reviewed:ordinary-present-tense-prose;not-a-correction-note'),
     ('documentation/DISTRIBUTIONAL_ANALYSIS.md', '0a25a691f691'):
         ('1', 'reviewed:bullet-already-credits-C5'),

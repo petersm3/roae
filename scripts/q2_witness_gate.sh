@@ -56,6 +56,10 @@
 #   5 membership: a well-formed non-member walk must FAIL and name --kc-member
 #   6 a1_q2d carries the same requirement (C3MAX=0 -> FAIL)
 #   7 the wall-clock bound is wired and loud (TR12_Q2_ENUM_TIMEOUT)
+#   8 one helper definition; 9 a1_q2d publishes at the real threshold; 10 the battery's own timeout
+#  11 two walks through the row -> FAIL naming the multiplicity (FV2-G3b, Codex F05-018#12; FV2 D1193)
+#  12 the ROW's threshold: a walk just above the row's C3MAX, through the row -> FAIL (D1194)
+#  13 a1_q2d's wall-clock bound fires too (D1195)
 # =============================================================================
 set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -95,11 +99,11 @@ r ok "leg 1: extracted the helper and both rows from $BATTERY ($(grep -c . "$W/h
 
 # Run an EXTRACTED row against the real binary. row_begin/row_end are stubbed; the helper and
 # the row body are the battery's own text.
-run_row(){ # $1 = q2c|q2d, $2 = C3MAX, $3 = timeout ; echoes row output, returns the row's rc
-  local which=$1 c3=$2 tmo=$3 d="$W/run.$$"; rm -rf "$d"; mkdir -p "$d/work"
+run_row(){ # $1 = q2c|q2d, $2 = C3MAX, $3 = timeout [, $4 = engine, default the real one]; echoes row output, returns the row's rc
+  local which=$1 c3=$2 tmo=$3 eng=${4:-$W/solve} d="$W/run.$$"; rm -rf "$d"; mkdir -p "$d/work"
   ( set +u
     row_begin(){ :; }; row_end(){ ROWRC=$2; }
-    SOLVE="$W/solve"; FDIR="$W/f"; GDIR="$W/g"; WORK="$d/work"
+    SOLVE="$eng"; FDIR="$W/f"; GDIR="$W/g"; WORK="$d/work"
     N_PAIRS=9; C3MAX="$c3"; Q2_ENUM_TIMEOUT="$tmo"; RAW="$d/raw"; : > "$RAW"
     . "$W/helper.sh"
     . "$W/$which.sh" >/dev/null 2>&1
@@ -229,7 +233,9 @@ tmo=$(sed -n 's/^Q2_ENUM_TIMEOUT="\${TR12_Q2_ENUM_TIMEOUT:-\([0-9][0-9]*\)}"/\1/
 # G5a (Codex F05-018#6): the FIRST matching assignment is not the effective one -- a later
 # `Q2_ENUM_TIMEOUT=0` (or a battery-side `TR12_Q2_ENUM_TIMEOUT=0`) disabled the bound unseen. The
 # default must be the battery's ONLY assignment to either name.
-nasg=$(grep -cE '^[[:space:]]*((export|local|readonly|declare)[[:space:]]+)?(TR12_)?Q2_ENUM_TIMEOUT=|[;&|({][[:space:]]*(TR12_)?Q2_ENUM_TIMEOUT=' "$BATTERY")
+# FV2-G3b (CX-36G-D; Codex F05-018#9; FV2 D1197): an option between the keyword and the name (`declare -i`, `export -n`,
+# `typeset -x`) is still an assignment.
+nasg=$(grep -cE '^[[:space:]]*((export|local|readonly|declare|typeset)([[:space:]]+-[A-Za-z]+)*[[:space:]]+)?(TR12_)?Q2_ENUM_TIMEOUT=|[;&|({][[:space:]]*(TR12_)?Q2_ENUM_TIMEOUT=' "$BATTERY")
 if [ "$nasg" != 1 ]; then
   r FAIL "leg 10: the battery assigns Q2_ENUM_TIMEOUT / TR12_Q2_ENUM_TIMEOUT $nasg times -- only the one default may set it, or the effective bound is not the one read here"
 elif [ -n "$tmo" ] && [ "$tmo" -gt 0 ] 2>/dev/null; then
@@ -238,6 +244,50 @@ else
   r FAIL "leg 10: the battery's TR12_Q2_ENUM_TIMEOUT default is '${tmo:-<unparseable>}' -- 0 or absent means NO timeout, and no other leg here reads the battery's own value"
 fi
 
-printf 'Q2_WITNESS_LEGS=11\n'
+# ---- LEGS 11-13 (FV2-G3b, CX-36G-D; Codex F05-018#12; F05-018#10; F05-018#11; FV2 D1193 / D1194 / D1195) -----------------------------
+# Two wrapper engines around the real binary. `dup` repeats the walk line the enumeration printed;
+# `loose` enumerates at the universe's own threshold (31) whatever --kc-c3-max the row asked for, so
+# the only walk it hands back has cd above a lower row threshold. Everything else is the real engine.
+for mode in dup loose; do
+  cat > "$W/solve_$mode" <<EOF
+#!/bin/bash
+case "\$1" in --kc-enum|--kc-enum-desc)
+  args=("\$@")
+  if [ $mode = loose ]; then for i in "\${!args[@]}"; do [ "\${args[\$i]}" = --kc-c3-max ] && args[\$((i+1))]=31; done; fi
+  out=\$("$W/solve" "\${args[@]}" 2>&1); rc=\$?; printf '%s\n' "\$out"
+  [ $mode = dup ] && grep -E '^[0-9]+(,[0-9]+)+\$' <<<"\$out" | head -1
+  exit \$rc ;;
+esac
+exec "$W/solve" "\$@"
+EOF
+  chmod +x "$W/solve_$mode"
+done
+out=$(run_row q2c 31 600 "$W/solve_dup"); rc=$?
+if [ "$rc" -ne 0 ] && grep -q 'Q2C_FAIL	the enumeration emitted 2 walk lines' <<<"$out"; then
+  r ok "leg 11: two walks through the a1_q2c row fail and the multiplicity is named"
+else
+  r FAIL "leg 11: an enumeration that printed two walks gave rc=$rc without naming them -- the row would publish both and check one"
+  printf '%s\n' "$out" | sed 's/^/        /' | head -3
+fi
+if [ -n "${CD:-}" ] && [ "${CD:-0}" -ge 1 ] 2>/dev/null; then
+  out=$(run_row q2c $((CD - 1)) 600 "$W/solve_loose"); rc=$?
+  if [ "$rc" -ne 0 ] && grep -q "cd=$CD exceeds this row's own C3MAX=$((CD - 1))" <<<"$out"; then
+    r ok "leg 12: through the ROW, a cd=$CD walk fails against the row's C3MAX=$((CD - 1)) -- the threshold the row hands the helper is its own"
+  else
+    r FAIL "leg 12: through the row, a cd=$CD walk at C3MAX=$((CD - 1)) gave rc=$rc -- the row hands the helper a looser threshold than it enumerated under"
+    printf '%s\n' "$out" | sed 's/^/        /' | head -3
+  fi
+else
+  r FAIL "leg 12: no real cd from leg 4 (cd='${CD:-<none>}') -- the row's threshold is untested here"
+fi
+out=$(run_row q2d 31 0.001); rc=$?
+if [ "$rc" -ne 0 ] && grep -q 'Q2D_FAIL	--kc-enum-desc did not finish within' <<<"$out"; then
+  r ok "leg 13: a1_q2d's wall-clock bound fires and names TR12_Q2_ENUM_TIMEOUT"
+else
+  r FAIL "leg 13: a 1 ms budget gave a1_q2d rc=$rc with no timeout token -- its enumeration is unbounded"
+  printf '%s\n' "$out" | sed 's/^/        /' | head -3
+fi
+
+printf 'Q2_WITNESS_LEGS=13\n'
 [ "$fail" -eq 0 ] && echo "Q2_WITNESS=PASS" || echo "Q2_WITNESS=FAIL"
 exit "$fail"

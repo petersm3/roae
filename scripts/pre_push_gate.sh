@@ -1197,14 +1197,34 @@ for sha in $SHAS; do
   # read the same history.
   _L_CORRECTIONS_INVENTORY=FAIL
   _ci_bases=""; for _b in ${PUBREF[$sha]:-}; do _ci_bases="$_ci_bases $_b"; done
+  # FV2-G3b (CX-36G-E; Codex F05-008#5; FV2 D1188): with a remote NAME and no PUBREF (a new ref), the bases are what
+  # the DESTINATION holds now -- `git ls-remote <remote>`, kept where this clone has the commit -- not
+  # this clone's tracking refs, which can point at a commit the destination no longer holds (a remote
+  # that was force-rewound since the last fetch), so a commit published only there was excluded from
+  # the check. This narrows nothing: when the destination cannot be listed, or holds nothing this clone
+  # has (fetch first), or holds nothing at all, the range cannot be bounded and the leg FAILS -- the
+  # fallback to every remote-tracking ref (another remote's history) is no longer taken for a NAMED
+  # remote. A push with no remote name (a direct run, the record producer's tag push) is unchanged.
+  _ci_named=0; _ci_nwhy=""
   if [ -z "$_ci_bases" ] && [ -n "${1:-}" ] && git -C "$ROOT" config --get "remote.$1.url" >/dev/null 2>&1; then
-    _ci_bases=$(git -C "$ROOT" for-each-ref --format='%(objectname)' "refs/remotes/$1/" 2>/dev/null | paste -sd' ')
+    _ci_named=1
+    if _ci_ls=$(GIT_TERMINAL_PROMPT=0 timeout 120 git -C "$ROOT" ls-remote -- "$1" 2>/dev/null); then
+      for _b in $(printf '%s\n' "$_ci_ls" | awk 'NF >= 2 {print $1}' | sort -u); do
+        git -C "$ROOT" cat-file -e "$_b^{commit}" 2>/dev/null && _ci_bases="$_ci_bases $_b"
+      done
+      if [ -z "$(printf '%s\n' "$_ci_ls" | awk 'NF >= 2' | head -1)" ]; then _ci_nwhy="the destination $1 holds no refs, so every commit of the push is new and the range cannot be bounded"
+      elif [ -z "${_ci_bases// /}" ]; then _ci_nwhy="the destination $1 holds no commit this clone has (fetch it first), so the pushed range cannot be bounded"; fi
+    else
+      _ci_nwhy="git ls-remote $1 failed, so what the destination holds -- the pushed range -- cannot be bounded"
+    fi
   fi
   # No remote name (a direct run, or the record producer's tag push with an all-zero base): every
   # remote-tracking ref of this clone. A commit on one was published somewhere, and gated when it was.
-  [ -n "${_ci_bases// /}" ] || _ci_bases=$(git -C "$ROOT" for-each-ref --format='%(objectname)' refs/remotes/ 2>/dev/null | paste -sd' ')
+  [ -n "${_ci_bases// /}" ] || [ "$_ci_named" = 1 ] || _ci_bases=$(git -C "$ROOT" for-each-ref --format='%(objectname)' refs/remotes/ 2>/dev/null | paste -sd' ')
   _ci_list=""; _ci_ok=1; _ci_why=""
-  if [ -z "${_ci_bases// /}" ]; then
+  if [ -n "$_ci_nwhy" ]; then
+    _ci_ok=0; _ci_why=$_ci_nwhy
+  elif [ -z "${_ci_bases// /}" ]; then
     _ci_ok=0; _ci_why="the pushed range cannot be bounded (no remote sha for this ref and no remote-tracking refs in this clone)"
   elif ! _ci_list=$(git -C "$ROOT" rev-list --reverse "$sha" --not $_ci_bases 2>/dev/null); then
     _ci_ok=0; _ci_why="git rev-list over the pushed range failed"

@@ -201,6 +201,7 @@ check_page(){
   case "$cmd_t$dig_t" in *[\;\$\<\>\`\\]*)
     RES=ERROR; CAUSE=unsafe-command; echo "  [ERROR] the page's commands contain a shell metacharacter this gate will not execute"; return ;; esac
   work=$(mktemp -d "${TMPDIR:-/tmp}/reprodig_run.XXXXXX") || { RES=ERROR; CAUSE=no-scratch; return; }
+  RUNDIRS+=("$work")   # FV2-G3b (CX-36G-C; Codex F04-022#11; FV2 D1224): removed by the EXIT trap too, not only on the normal path
   ln -s "$bin" "$work/solve"
   # Clear every inherited SOLVE_* so the only settings are the ones the page's command sets.
   local UNSET=() v
@@ -246,8 +247,10 @@ check_page(){
     # Q-983 (batch 42; Codex gpt-6-astra, Q964-D09#5): "exactly one" counts every LINE carrying the
     # label, whatever follows it, and the value must be a bare integer token. The extraction kept only
     # `= [0-9]+`, so a `total = -1` line was not counted and `26112.5` was read as 26112.
+    # FV2-G3b (CX-36G-C; Codex F05-006#11; FV2 D1222): count the LABELS, not the lines carrying one -- one line with
+    # two totals ("total = 5 ... total = 26112") was one line, and the greedy sed took the last.
     local ntot
-    ntot=$(grep -c 'orbit-quotient C5-DP total =' <<<"$R_OUT" || true)
+    ntot=$(grep -o 'orbit-quotient C5-DP total =' <<<"$R_OUT" | wc -l)
     tot=$(printf '%s\n' "$R_OUT" | sed -nE 's/.*orbit-quotient C5-DP total = *([^[:space:]]*).*/\1/p')
     local bad=""
     if [ "${ntot:-0}" -gt 1 ]; then bad="$bad totals=${ntot}-lines(page 1)"; tot=""
@@ -312,7 +315,8 @@ check_page(){
 
 # ---- build with the page's build line ------------------------------------------------------------
 BDIR=""
-cleanup(){ [ -n "$BDIR" ] && rm -rf "$BDIR"; }
+RUNDIRS=()
+cleanup(){ [ -n "$BDIR" ] && rm -rf "$BDIR"; [ "${#RUNDIRS[@]}" -eq 0 ] || rm -rf "${RUNDIRS[@]}"; }
 trap cleanup EXIT
 build_from(){  # $1 page -> sets BIN, or exits ERROR
   local x b
