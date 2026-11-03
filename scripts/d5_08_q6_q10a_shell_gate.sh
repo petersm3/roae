@@ -45,7 +45,7 @@
 #                 "11<TAB>T-CENSUS-MISMATCH", Q10A_SIDECARS_MISSING 1, the other 31 rows filled, exit 1
 #          leg 9  as leg 7, t sidecar k=5's census entries column sums to n_entries+1 (masks column untouched, Q-904) -> "5<TAB>T-CENSUS-MISMATCH", exit 1
 #          leg 10 as leg 7, t sidecar k=20 tagged v1 -> "20<TAB>T-CENSUS-MISMATCH", exit 1
-# plus mutants per row (5 for c_q6, 12 for c_q10a), each of which must turn a leg red.
+# plus mutants per row (5 for c_q6, 14 for c_q10a), each of which must turn a leg red.
 #
 # KNOWN LIMITATION, stated rather than papered over. (i) Extraction anchors on the literal lines
 # `ratio9(){`, `row_begin c_q6` ... `row_end TR12_Q6 $rc`, `row_begin c_q10a` ... `row_end TR12_Q10A
@@ -72,6 +72,45 @@ fail(){ echo "  [gate] $*"; echo "D5_08_Q6_Q10A_SHELL_GATE=FAIL"; exit 40; }
 [ -f "$GOLD_Q6" ] && [ -f "$GOLD_PROFILE" ] || fail "missing the n=9 golden c_q6 / a2_q3_profile blocks"
 command -v bc >/dev/null 2>&1 || fail "bc is not on PATH (the rows need it)"
 
+# ---- leg 0 (FV2-G3a; Codex gpt-6-astra F05-017#5): the DISPATCH. The rows are extracted and run on their
+# own below, so a production change that stops dispatching them (a wrong `if`, a skip at n=31) was invisible
+# here. Group C cannot be executed by this harness (it needs the f ladder and the atlas), so the dispatch is
+# pinned STRUCTURALLY, on bash's own parse: the whole script is wrapped in a function and `declare -f`
+# re-prints it with one indentation level per compound command (heredocs, awk and python bodies are strings
+# to the parser, so they cannot fool it the way a first-word scan can). Both rows must then sit exactly one
+# level inside the `else` arm of the Group C guard, whose condition is pinned verbatim and whose then-arm
+# skip list names both rows. Wrapping a row in `if false; then ... fi`, moving it, or adding a clause to
+# the guard fails this leg.
+{ echo 'f_d508_wrap(){'; cat "$SRC"; echo '}'; echo 'declare -f f_d508_wrap'; } > "$WORK/wrap.sh"
+bash "$WORK/wrap.sh" > "$WORK/pretty.txt" 2>"$WORK/pretty.err" || fail "leg 0: bash could not parse $SRC wrapped as a function ($(head -c 200 "$WORK/pretty.err"))"
+[ -s "$WORK/pretty.txt" ] || fail "leg 0: the parsed form of $SRC is empty"
+python3 - "$WORK/pretty.txt" <<'PY' || fail "leg 0: the c_q6 / c_q10a dispatch is not the pinned Group C guard (see above)"
+import re, sys
+L = open(sys.argv[1], encoding='utf-8').read().split('\n')
+GUARD = 'if [ "$SCAN_OK" -eq 0 ] || [ ! -s "$ATLAS" ]; then'
+ind = lambda l: len(l) - len(l.lstrip(' '))
+ok = True
+guards = [i for i, l in enumerate(L) if l.strip() == GUARD]
+hit = None
+for g in guards:
+    I = ind(L[g]); j = g + 1; then_arm = []
+    while j < len(L) and not (ind(L[j]) == I and L[j].strip() in ('else', 'fi', 'fi;')): then_arm.append(L[j]); j += 1
+    if j < len(L) and L[j].strip() == 'else' and any('"c_q6:TR12_Q6"' in t and '"c_q10a:TR12_Q10A"' in t for t in then_arm):
+        hit = (g, I, j); break
+if hit is None:
+    print("    leg 0: no Group C guard whose then-arm skip list names both c_q6:TR12_Q6 and c_q10a:TR12_Q10A, followed by an else arm"); sys.exit(1)
+g, I, e = hit
+k = e + 1; rows = {}
+while k < len(L) and ind(L[k]) > I:
+    for row in ('c_q6', 'c_q10a'):
+        if L[k].strip() in ('row_begin %s;' % row, 'row_begin %s' % row): rows[row] = ind(L[k])
+    k += 1
+for row in ('c_q6', 'c_q10a'):
+    if row not in rows: print("    leg 0: row_begin %s is not inside the else arm of the Group C guard (parsed line %d)" % (row, g + 1)); ok = False
+    elif rows[row] != I + 4: print("    leg 0: row_begin %s sits %d level(s) below the guard's else arm, not 1 -- it is under another compound command" % (row, (rows[row] - I) // 4)); ok = False
+sys.exit(0 if ok else 1)
+PY
+echo "  [gate] leg 0: c_q6 and c_q10a are dispatched at the top level of the pinned Group C guard's else arm, and its skip list names both"
 python3 - "$SRC" "$WORK/ratio9.sh" "$WORK/q6.row" "$WORK/q10a.row" <<'PY' || fail "could not extract ratio9 / c_q6 / c_q10a from $SRC (anchors moved?)"
 import sys
 s=open(sys.argv[1],encoding='utf-8').read()
@@ -190,7 +229,7 @@ def t_sidecar(path,k,nm,ne,census,ver=2,hist=[[0,1]]):
         f.write('  "mass_total": "%d",\n  "frame": "canonical-quotient(orbit-unweighted;G-equivariant)",\n' % (1000+k))
         f.write('  "branching": {"min": 0, "max": 9, "mean": 1.5, "hist": %s},\n' % json.dumps(hist,separators=(',',':')))
         f.write('  "orbit_size_census": %s\n}\n' % json.dumps(census,separators=(',',':')))
-def q10_tworld(name, bad_ne=None, bad_sum=None, v1t=None):
+def q10_tworld(name, bad_ne=None, bad_sum=None, v1t=None, bad_size=None, bad_hist=None):
     q10_world(name, ver=1, tw=True); d=W+'/'+name; os.makedirs(d+'/t',exist_ok=True)
     exp=[]
     for k in range(32):
@@ -201,10 +240,16 @@ def q10_tworld(name, bad_ne=None, bad_sum=None, v1t=None):
         # the state-set equality clause can catch it (mutant M7); bad_sum: headers equal f's, census does
         # not sum to them, so ONLY the census-sum clause can catch it (mutant M9)
         if bad_sum==k: census=[[c[0],c[1],c[2]+(1 if i==0 else 0)] for i,c in enumerate(census)]    # n_entries column sums to ne+1 (Q-904: the masks column is left alone so the orbit-size check cannot also catch it)
-        t_sidecar('%s/t/t_layer_stats_%02d.json' % (d,k),k,nm,tne,census,1 if v1t==k else 2,hist)
+        # FV2-G3a (Codex F05-017#4): bad_size -- the first row's SIZE key moved (1 -> 3): both column sums are
+        # intact, so ONLY the size-weighted clause (sum(size*n_masks) = C(31,k)) can catch it (mutant M13);
+        # bad_hist -- t's branching histogram differs from f's with everything else equal (mutant M14)
+        if bad_size==k: census=[[c[0]+(2 if i==0 else 0),c[1],c[2]] for i,c in enumerate(census)]
+        thist = [[0,k],[2,3*k+2]] if bad_hist==k else hist
+        t_sidecar('%s/t/t_layer_stats_%02d.json' % (d,k),k,nm,tne,census,1 if v1t==k else 2,thist)
         exp.append('%d\t%d\t%d\t%d\t%s\t%s' % (k,nm,ne,mt,json.dumps(census,separators=(',',':')),json.dumps(hist,separators=(',',':'))))
     open(d+'/expect.tsv','w').write('\n'.join(exp)+'\n')
 q10_tworld('q10L7'); q10_tworld('q10L8',bad_ne=11); q10_tworld('q10L9',bad_sum=5); q10_tworld('q10L10',v1t=20)
+q10_tworld('q10L11',bad_size=8); q10_tworld('q10L12',bad_hist=13)
 PY
 
 verdict_q6(){ # verdict_q6 <harness>
@@ -229,7 +274,8 @@ verdict_q10(){ # verdict_q10 <harness>
   rc=$(run "$h" "$WORK/q10L1/atlas.json" "$WORK/q10L1/f" "$WORK/q10L1/art" 31 "$N")
   [ "$rc" = 0 ] && grep -E '^[0-9]+	[0-9]+	[0-9]+	[0-9]+	\[' "$WORK/last.out" | cmp -s - "$WORK/q10L1/expect.tsv" \
     && [ "$(grep -c '^N_div_24	' "$WORK/last.out")" = 1 ] && grep -qx $'Q10A_LAYER_MOD24_FAILS\t0' "$WORK/last.out" \
-    || { echo "    c_q10a leg 1 (32 sidecars, v2 layout) rc=$rc or the transcription differs from the json-module reading"; return 1; }
+    && [ "$(awk -F'\t' '$1=="N_div_24"{print $2; exit}' "$WORK/last.out")" = "$(echo "$N / 24" | bc)" ] && [ "$(echo "$N % 24" | bc)" = 0 ] \
+    || { echo "    c_q10a leg 1 (32 sidecars, v2 layout) rc=$rc or the transcription differs from the json-module reading, or N_div_24 is not exactly N/24 with 24 | N (FV2-G3a, Codex F05-017#3)"; return 1; }
   rc=$(run "$h" "$WORK/q10L2/atlas.json" "$WORK/q10L2/f" "$WORK/q10L2/art" 31 "$N")
   [ "$rc" = 1 ] && grep -qx $'Q10A_LAYER_MOD24_FAILS\t1' "$WORK/last.out" || { echo "    c_q10a leg 2 (flow not divisible by 24) rc=$rc"; return 1; }
   rc=$(run "$h" "$WORK/q10L3/atlas.json" "$WORK/q10L3/f" "$WORK/q10L3/art" 31 "$N")
@@ -259,6 +305,13 @@ verdict_q10(){ # verdict_q10 <harness>
   rc=$(run "$h" "$WORK/q10L10/atlas.json" "$WORK/q10L10/f" "$WORK/q10L10/art" 31 "$N" "$WORK/q10L10/t")
   [ "$rc" = 1 ] && grep -q $'^20\tT-CENSUS-MISMATCH\t' "$WORK/last.out" \
     || { echo "    c_q10a leg 10 (t sidecar k=20 tagged v1) rc=$rc: a t sidecar of the wrong schema was accepted"; return 1; }
+  # legs 12-13 (FV2-G3a; Codex F05-017#4): the size-weighted census identity alone, and the branching histogram alone
+  rc=$(run "$h" "$WORK/q10L11/atlas.json" "$WORK/q10L11/f" "$WORK/q10L11/art" 31 "$N" "$WORK/q10L11/t")
+  [ "$rc" = 1 ] && grep -q $'^8\tT-CENSUS-MISMATCH\t' "$WORK/last.out" \
+    || { echo "    c_q10a leg 12 (t census size-weighted mask count != C(31,8) at k=8, raw sums intact) rc=$rc: an orbit-size column with a moved key was accepted"; return 1; }
+  rc=$(run "$h" "$WORK/q10L12/atlas.json" "$WORK/q10L12/f" "$WORK/q10L12/art" 31 "$N" "$WORK/q10L12/t")
+  [ "$rc" = 1 ] && grep -q $'^13\tT-CENSUS-MISMATCH\t' "$WORK/last.out" \
+    || { echo "    c_q10a leg 13 (t branching histogram != f's at k=13) rc=$rc: a census from a sidecar whose histogram disagrees with f's was accepted"; return 1; }
   # leg 11 (F05-017#4): the committed-shape sidecars with an ABSENT atlas must fail the row
   rc=$(run "$h" "$WORK/no_such_atlas.json" "$WORK/q10L1/f" "$WORK/q10L1/art" 31 "$N")
   [ "$rc" = 1 ] && grep -q '^Q10A_FAIL	0 atlas layer' "$WORK/last.out" \
@@ -267,7 +320,7 @@ verdict_q10(){ # verdict_q10 <harness>
 }
 
 mk "$WORK/q6.sh" "$WORK/q6.row";   verdict_q6 "$WORK/q6.sh"   || fail "baseline c_q6: the committed row does not behave on one of its five legs (see above)"
-mk "$WORK/q10.sh" "$WORK/q10a.row"; verdict_q10 "$WORK/q10.sh" || fail "baseline c_q10a: the committed row does not behave on one of its eleven legs (see above)"
+mk "$WORK/q10.sh" "$WORK/q10a.row"; verdict_q10 "$WORK/q10.sh" || fail "baseline c_q10a: the committed row does not behave on one of its thirteen legs (see above)"
 
 mutant(){ # mutant <q6|q10> <id> <sed-expr>
   local which="$1" id="$2" expr="$3" src m
@@ -279,8 +332,14 @@ mutant(){ # mutant <q6|q10> <id> <sed-expr>
   cmp -s "$m" "$src" && fail "mutant $which/$id did not apply ($expr) -- anchors inside the row moved?"
   mk "$WORK/m_${which}_$id.sh" "$m" || fail "mutant $which/$id: the harness was not written"
   bash -n "$WORK/m_${which}_$id.sh" 2>/dev/null || fail "mutant $which/$id: the harness does not parse -- a syntax error is not a semantic kill"
-  if [ "$which" = q6 ]; then verdict_q6 "$WORK/m_${which}_$id.sh" >/dev/null 2>&1 && fail "mutant $which/$id SURVIVED ($expr)"
-  else verdict_q10 "$WORK/m_${which}_$id.sh" >/dev/null 2>&1 && fail "mutant $which/$id SURVIVED ($expr)"; fi
+  # FV2-G3a (Codex gpt-6-astra F05-017#6): a mutant counts as killed only when a LEG rejects it on its merits.
+  # A harness that crashed or was killed (the first failing leg's rc >= 126) is not a semantic kill.
+  local vout vrc crc
+  if [ "$which" = q6 ]; then vout=$(verdict_q6 "$WORK/m_${which}_$id.sh" 2>&1); vrc=$?
+  else vout=$(verdict_q10 "$WORK/m_${which}_$id.sh" 2>&1); vrc=$?; fi
+  [ "$vrc" -ne 0 ] || fail "mutant $which/$id SURVIVED ($expr)"
+  crc=$(printf '%s\n' "$vout" | grep -oE 'rc=[0-9]+' | head -1 | cut -d= -f2)
+  if [ -n "$crc" ] && [ "$crc" -ge 126 ]; then fail "mutant $which/$id CRASHED (rc $crc: a kill or a missing command), which is not a semantic kill ($expr)"; fi
   echo "  [gate] mutant $which/$id killed"
 }
 mutant q6  M1_strict_less_excludes_own_class 's/"\$m <= \$am"/"$m < $am"/'
@@ -300,5 +359,8 @@ mutant q10 M10_t_fallback_never_taken         's/\[ -n "\$TDIR" \] \&\& tc=/fals
 mutant q10 M11_t_schema_not_checked           's/\[ "\$tsv" = 2 \] \&\& //'
 mutant q6  M5_layer_count_unchecked           's/\[ "\$i" -eq "\$N_PAIRS" \] || { echo "Q6_FAIL/[ -n x ] || { echo "Q6_FAIL/'
 mutant q10 M12_layer_count_unchecked          's/\[ "\$i" -eq "\$N_PAIRS" \] || { echo "Q10A_FAIL/[ -n x ] || { echo "Q10A_FAIL/'
-echo "  [gate] baseline PASS on 5+11 legs; 17/17 mutants killed"
+# M13/M14 (FV2-G3a; Codex F05-017#4): the size-weighted census identity and the histogram equality, each dropped alone
+mutant q10 M13_size_weighted_census_dropped   's/ \&\& \[ "\$osm" = "\$csub" \]//'
+mutant q10 M14_branching_hist_equality_dropped 's/ \&\& \[ -n "\$tbh" \] \&\& \[ "\$tbh" = "\$bh" \]//'
+echo "  [gate] baseline PASS on 1+5+13 legs; 19/19 mutants killed"
 echo "D5_08_Q6_Q10A_SHELL_GATE=PASS"

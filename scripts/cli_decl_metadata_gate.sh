@@ -239,7 +239,16 @@ def split_cells(line):
             cells.append(cur); cur = ""; i += 1; continue
         cur += s[i]; i += 1
     cells.append(cur)
-    return [c for c in cells[1:-1]] if len(cells) >= 2 else []
+    # FV2-G3a (Codex gpt-6-astra F05-012#4): only an EMPTY outer cell is the pipe's artefact. A row
+    # without a trailing `|` kept its last cell inside cells[-1], and `cells[1:-1]` dropped it, so a
+    # default stated there was never compared.
+    if len(cells) < 2:
+        return []
+    if cells[0].strip() == "":
+        cells = cells[1:]
+    if cells and cells[-1].strip() == "":
+        cells = cells[:-1]
+    return cells
 
 def parse_grammar(seg):
     """seg: grammar text starting at a flag. Returns [(flag, lo, hi, [choice-sets], [concrete])]."""
@@ -279,6 +288,10 @@ def parse_grammar(seg):
         if core.endswith("..."):
             cur[2] = INF
             core = core[:-3]
+        # FV2-G3a (Codex gpt-6-astra F05-012#3): a shell-quoted example value (`--mode "fast"`) is the value
+        # without its quotes; str.split() kept them, so the choice check compared `"fast"` and missed.
+        if len(core) >= 2 and core[0] == core[-1] and core[0] in "\"'":
+            core = core[1:-1]
         if "|" in core:
             cur[3].append([x.strip("<>[]`") for x in core.split("|") if x.strip("<>[]`")])
         else:
@@ -325,12 +338,20 @@ def judge_default(flag, ds, value, backticked):
         return "prose", None
     if backticked and not is_literal_expr(value):
         return "prose", None
+    # FV2-G3a (Codex gpt-6-astra F12-009#11): the flag's OWN default and const come first; a POSITIONAL's
+    # default is admitted only when the flag states no literal default of its own (None, a bool for a
+    # store_true/false, or an unresolvable expression) -- VERIFY.md states verify.py's `path` default
+    # inside flag rows, and that stays accepted; a wrong flag default that happens to equal some
+    # positional's default no longer does.
     vals = []
     for d in ds:
         vals.append(d["default"])
         if d["nargs"] == "?" and d["const"] is not None:
             vals.append(d["const"])
-        vals += d["pos_defaults"]
+    own_literal = any(isinstance(v, (int, float, Decimal, str)) and not isinstance(v, bool) for v in vals)
+    if not own_literal:
+        for d in ds:
+            vals += d["pos_defaults"]
     if all(isinstance(v, Unresolved) for v in vals):
         return "unresolved", None
     dnum = to_num(value)

@@ -20,8 +20,10 @@ cd "$(dirname "$0")/.." || exit 2
 SOLVE=${SOLVE:-}
 if [ -z "$SOLVE" ]; then
   SOLVE=$(mktemp -d)/solve
-  gcc -O2 -pthread -fopenmp -DGIT_HASH='"gate"' -o "$SOLVE" solve.c -lm -lz 2>/dev/null \
-    || { echo "  [FAIL] cannot build solve.c -- this gate measured NOTHING"; echo "ATLAS_PATH_PORTABLE=FAIL"; exit 2; }
+  # FV2-G3a (Codex gpt-6-astra F09-A01#13): a build that fails compared nothing -- that is ERROR by this
+  # file's own contract (above), not FAIL; the compiler diagnostic is shown instead of discarded.
+  gcc -O2 -pthread -fopenmp -DGIT_HASH='"gate"' -o "$SOLVE" solve.c -lm -lz 2>"$SOLVE.cc.err" \
+    || { echo "  [ERROR] cannot build solve.c -- this gate measured NOTHING"; tail -5 "$SOLVE.cc.err" | sed 's/^/        /'; echo "ATLAS_PATH_PORTABLE=ERROR"; exit 2; }
 else
   # 🔴 EXECUTABLE IS NOT CURRENT -- and this arm did not even check THAT. The build arm above
   # compiles the committed solve.c seconds before use and is safe by construction; $SOLVE is a bare

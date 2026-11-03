@@ -59,12 +59,19 @@ if [ "${1-}" = --selftest ]; then
   T=$(mktemp -d) || { echo "HISTORY_CURRENCY_SELFTEST=FAIL"; exit 1; }
   trap 'rm -rf "$T"' EXIT
   today=$(date +%F) fails=0
+  r3from=$(date -d "$(date +%Y-%m-01) -1 month" +%F)   # the first of last month, outside the CASES array: a quoted $(...) inside a record is a bare-split hazard (Q-525)
   CASES=( "P1|PASS|## $today — a plain ISO heading"
           "S1|PASS|## 🛑 $today: a symbol-led heading"
           "S2|PASS|## ⚠️ $today — a symbol with a variation selector"
           "W1|FAIL|## Infrastructure ($today)"
           "W2|FAIL|## Recovered $today — a word-led heading"
-          "O1|FAIL|## 🛑 2001-01-01: a symbol-led heading for another day" )
+          "O1|FAIL|## 🛑 2001-01-01: a symbol-led heading for another day"
+          "R1|PASS|## $(date -d yesterday +%F)/$(date +%m-%d) — a range ending today"
+          "R2|FAIL|## $(date -d '2 days ago' +%F)/$(date -d yesterday +%m-%d) — a range ending yesterday"
+          "R3|PASS|## $r3from/$(date +%m-%d) — a cross-month range covering today"
+          "R4|FAIL|## $(date -d tomorrow +%F)/$(date -d '2 days' +%m-%d) — a range starting tomorrow" )
+  # R1-R4 (FV2-G3a; Codex gpt-6-astra F05-017#9): the range arithmetic at the covered-days loop was untested;
+  # a regression that shrinks or extends coverage past an endpoint (MU4 below) passed the table.
   verdict() {  # verdict GATE_SCRIPT HEADING -> prints the HISTORY_CURRENCY value
     local r; r=$(mktemp -d "$T/r.XXXXXX") || return 1
     mkdir -p "$r/scripts" "$r/documentation" && cp "$1" "$r/scripts/history_currency_gate.sh"
@@ -106,6 +113,19 @@ MUT
     if table "$T/$id.sh" quiet; then echo "  [FAIL] $id: the mutant grammar agrees with every case -- the table cannot see it"; fails=$((fails+1))
     else echo "  [ok]   $id: the mutant grammar is caught"; fi
   done
+  # MU4 (FV2-G3a): the range's last day dropped (`cur <= end` -> `cur < end`); caught by R1 and R3
+  python3 - "$SELF" "$T/MU4.sh" <<'MUT' || { echo "  [FAIL] MU4: could not build the mutant"; fails=$((fails+1)); }
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+needle = "    while cur " + "<= end:"          # assembled, so this builder's own text is not a second match
+if s.count(needle) != 1:
+    sys.exit(1)
+open(sys.argv[2], "w", encoding="utf-8").write(s.replace(needle, "    while cur " + "< end:"))
+MUT
+  if [ -s "$T/MU4.sh" ]; then
+    if table "$T/MU4.sh" quiet; then echo "  [FAIL] MU4: a range whose last day is dropped agrees with every case -- the table cannot see it"; fails=$((fails+1))
+    else echo "  [ok]   MU4: the range endpoint mutant is caught"; fi
+  fi
   if [ "$fails" -eq 0 ]; then echo "HISTORY_CURRENCY_SELFTEST=PASS"; exit 0; fi
   echo "HISTORY_CURRENCY_SELFTEST=FAIL"; exit 1
 fi

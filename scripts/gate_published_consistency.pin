@@ -12,7 +12,11 @@
 #      freeze) and [EXPECTED-Q1|Q9|XA] x3 (filled by the n=31 battery's expected-output blocks,
 #      which do not exist until that run happens).
 #      2026-09-24: measured 4 on the combined queue-run tree (was 5); re-pinned in the same commit.
-G1=4
+#      2026-10-29 (push group FV2-G3a; Codex gpt-6-astra F06-012#5): the four were TR12_QUERY_PROGRAM.md:1598
+#      (three names quoted inside one code span by a dated correction note) and :2832 (a v1.11 revision
+#      row) -- none an unfilled placeholder. G1 now skips code spans and dated rows; measured 0 on
+#      4d9cc323, re-pinned in the same commit. A real placeholder can no longer hide behind the four.
+G1=0
 # G2 — published --estimate-knuth commands with no thread pin.
 #      10: NOT fixable by adding a number. Measured 2026-09-06: 45 files under reports/evidence/
 #      carry a threads= header, so the counts exist, but the mapping from a PUBLISHED FIGURE to the
@@ -23,7 +27,13 @@ G1=4
 #      2026-09-24: measured 9 on the combined batch-6 tree (was 10); re-pinned in the same commit.
 #      2026-10-17: measured 8 (fast-track batch FT2b-2: CLAIM_TO_ARTIFACT.md row 10 now carries SOLVE_THREADS=32,
 #      the thread count its archived run records; Codex final review F11-008#5); re-pinned in the same commit.
-G2=8
+#      2026-10-29 (push group FV2-G3a; Codex gpt-6-astra F06-012#6): measured 6 on 4d9cc323 (the six
+#      TR7/r11/TR1/LRPT --estimate-knuth commands without SOLVE_THREADS); the pin had sat at 8 since
+#      2026-10-17 and admitted two new misses silently. Re-pinned in the same commit.
+#      2026-11-02 (FV2-G3a rebased onto push group FV2-A): measured 4 -- FV2-A's TR-7 edits give the two
+#      TR-7 commands their SOLVE_THREADS; the four left are r11/README.md:164, TR1:526 and LRPT:39/:151.
+#      Re-pinned in the same commit.
+G2=4
 # G3 — published disclosures that have gone stale. Shaped to fire when the artifact EXISTS.
 G3=0
 # G4 — corrections that name a propagation target which does not carry the correction id.
@@ -34,7 +44,22 @@ G3=0
 #      2026-10-03 (Q-967): CX-28's first target is the ROOT README.md. Its Documents line links
 #      ../README.md, which G4 resolved to documentation/README.md until Q-967; neither carries CX-28,
 #      so the count is unchanged at 8.
-G4=8
+#      2026-10-29 (push group FV2-G3a; Codex gpt-6-astra F06-012#8): the eight are pinned BY NAME below
+#      (G4_EXEMPT=<CX>|<target>|<reason>), not as a count: a count pin let a NEW miss hide behind a
+#      pinned one cured in the same change. G4 counts the misses NOT named here; a named row that no
+#      longer misses is reported for removal. CX-28: README.md and reports/README.md ARE the sites the
+#      entry says it corrected and still carry no marker -- a documentation-lane edit, pending; TR-4 is
+#      a context link (the entry says TR-4 "itself already carried both halves"). CX-33: editorial
+#      decision pending on all five, as recorded 2026-09-06.
+G4=0
+G4_EXEMPT=CX-28|README.md|known-open: the README site the entry says it corrected carries no CX-28 marker; a doc-lane edit is pending
+G4_EXEMPT=CX-28|reports/README.md|known-open: the reports/README.md site the entry says it corrected carries no CX-28 marker; a doc-lane edit is pending
+G4_EXEMPT=CX-28|reports/TR4_SIZE_OF_THE_SPACE.md|context link, not a target: the entry records that TR-4 already carried both halves
+G4_EXEMPT=CX-33|lean/README.md|editorial decision pending since 2026-09-06: whether CX-33 applies to this file or the Documents list overreached
+G4_EXEMPT=CX-33|documentation/SPECIFICATION.md|editorial decision pending since 2026-09-06: whether CX-33 applies to this file or the Documents list overreached
+G4_EXEMPT=CX-33|documentation/SYMMETRY_SEARCH.md|editorial decision pending since 2026-09-06: whether CX-33 applies to this file or the Documents list overreached
+G4_EXEMPT=CX-33|documentation/TRIGRAM_STRUCTURE.md|editorial decision pending since 2026-09-06: whether CX-33 applies to this file or the Documents list overreached
+G4_EXEMPT=CX-33|reports/METHODS.md|editorial decision pending since 2026-09-06: whether CX-33 applies to this file or the Documents list overreached
 # G5 — LEADERBOARD's edit-distance table vs section [28] of the artifact it cites. Fixed 2026-09-07.
 G5=0
 # G6 — per-cell tree sizes labelled canonical above the 28! ceiling. Fixed 2026-09-07.

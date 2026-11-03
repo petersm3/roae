@@ -581,7 +581,7 @@ def cites(line, citer, prev=(), quiet=False):
             return " " + (rel if rel in tracked_set else m.group(1)) + ":"
         line = MDLINK.sub(_mdl, line)
         line = BTFILE.sub(lambda m: " " + m.group(1) + ":", line)   # so is a backticked name, `x.out`:14
-    out, cur, seen, pinned = [], None, False, False
+    out, cur, seen, pinned = [], None, False, False; out_pos = []
     # (F05-011#7) `git show <rev>:<path>` on a line pins THAT path's citations on the line to <rev>,
     # and no other target's: a live citation into another file on the same line is still judged.
     _shown = set()
@@ -649,7 +649,7 @@ def cites(line, citer, prev=(), quiet=False):
                 + re.sub(_glued, '', line[m.end():m.end() + 40]))
         if REVPIN.search(_win):
             excluded["rev-pin"] += 1; pinned = m.group("file") is not None; continue
-        out.append((cur, lo, hi, m.group(0).strip()))
+        out.append((cur, lo, hi, m.group(0).strip())); out_pos.append(m.start())
         if m.group("file") is None and not re.search(r'[\w\-]\.[A-Za-z]{1,5}:\d', line[:m.start()]):
             implied_n[cur == citer] += 1
             if os.environ.get("CITGATE_PINROWS") == "1" and not quiet:   # audit trail: which file each bare :N was read as
@@ -658,6 +658,21 @@ def cites(line, citer, prev=(), quiet=False):
         for cls, rx in LINE_EXCL:
             if cls == "rev-pin":
                 continue         # judged per citation above
+            if cls == "codex-id":
+                # (FV2-G3a; Codex gpt-6-astra F05-011#4) scoped to the citation the match CONTAINS: a
+                # `Codex v3 solve.c:12:` id on a line used to drop every other citation of that line
+                # from validation, so a stale `solve.c:999` beside it was never checked. dated-row stays
+                # line-wide: it is a property of the row, not of one citation.
+                # the id's citation may continue with glued ranges (`solve.c:10395-10461/:27118-:27381`):
+                # the excluded span runs to the end of that digit/dash/colon/separator run.
+                spans = [(mm.start(), mm.end() + len(re.match(r'[\d\-\u2013:/,; ]*', line[mm.end():]).group(0)))
+                         for mm in rx.finditer(line)]
+                keep = [k for k, p in enumerate(out_pos) if not any(a <= p <= b for a, b in spans)]
+                excluded[cls] += len(out) - len(keep)
+                out = [out[k] for k in keep]; out_pos = [out_pos[k] for k in keep]
+                if not out:
+                    return []
+                continue
             if rx.search(line):
                 excluded[cls] += len(out); return []
     return out
@@ -1485,7 +1500,7 @@ print(hashlib.sha256(body.encode("utf-8", "replace")).hexdigest()[:12])' "$1" "$
   # citation of line 10 for `ARTDIR` lands under the +-2 window by chance only.
   mk_h3 '# ins 1\n# ins 2\n'; printf "$T3" 8 >"$R3/reg.tsv"
   printf "$D3E"'\nThe `ARTDIR` echo is at helper.sh:%s.\n' 7 8 10 >"$R3/doc3.md"; G3 add -A; G3 commit -q -m rar
-  n9=$(verdict_all "$R3" HEAD "" "" 1 "")                       # common word, 1 line off -> FAIL
+  n9=$(verdict_all "$R3" HEAD "" "" 1 ""); n9o=$(cat "$OUT")    # common word, 1 line off -> FAIL, by the RARITY rule
   # Since Q-572 went blocking (batch 32) the content rule catches the same landing with the .sh rarity
   # rule OFF, so N10 is FAIL with a NEWWEAK line, and N10b pins exactly that landing to show the rarity
   # rule itself is off (the blind-spot measurement, with the content rule's verdict set aside).
@@ -1494,6 +1509,10 @@ print(hashlib.sha256(body.encode("utf-8", "replace")).hexdigest()[:12])' "$1" "$
   n10b=$(CITGATE_SH_TIGHT=0 verdict_all "$R3" HEAD "" "" 1 "" "$CP3")   # the pre-rule window -> PASS (the blind spot)
   printf "$D3E"'\nThe `ARTDIR` echo is at helper.sh:%s.\n' 7 8 9 >"$R3/doc3.md"; G3 add -A; G3 commit -q -m rar2
   n11=$(verdict_all "$R3" HEAD "" "" 1 "")                      # on the cited line -> PASS
+  # N12 (FV2-G3a; Codex F05-011#4): the SAME stale landing as N9, with a `Codex v1 helper.sh:9:` id earlier on
+  # the line. The id excludes its own citation only; the stale one beside it must still be reported.
+  printf "$D3E"'\nCodex v1 helper.sh:%s: noted; the `ARTDIR` echo is at helper.sh:%s.\n' 7 8 9 10 >"$R3/doc3.md"; G3 add -A; G3 commit -q -m codexid
+  n12=$(verdict_all "$R3" HEAD "" "" 1 ""); n12o=$(cat "$OUT")  # codex-id beside a stale citation -> FAIL
   [ "$n0" = PASS ] || { echo "  [gate] leg N0 (clean) gave $n0, want PASS"; rc=1; }
   [ "$n1" = FAIL ] || { echo "  [gate] leg N1 (edited citing line, number left behind) gave $n1, want FAIL"; rc=1; }
   grep -qxF "$(printf 'REPIN doc3.md:%d helper.sh:%d [helper.sh] was 5 -> map 7; leg B: no anchor' 1 5)" <<<"$n1o" \
@@ -1513,10 +1532,17 @@ print(hashlib.sha256(body.encode("utf-8", "replace")).hexdigest()[:12])' "$1" "$
   [ "$n8" = FAIL ] || { echo "  [gate] leg N8 (pinned citation's target content changed) gave $n8, want FAIL"; rc=1; }
   grep -q 'PINNED CONTENT CHANGED' <<<"$n8o" || { echo "  [gate] leg N8 did not say PINNED CONTENT CHANGED"; rc=1; }
   [ "$n9" = FAIL ] || { echo "  [gate] leg N9 (.sh common anchor one line off) gave $n9, want FAIL"; rc=1; }
+  # FV2-G3a (Codex gpt-6-astra F05-011#12): N9 must FAIL by the RARITY rule itself -- the stale line for that
+  # landing and NO content-weak line. With the .sh rarity clause gone the same fixture still FAILs, through the
+  # Q-572 content rule (NEWWEAK, which is N10's leg), so the verdict alone could not tell the rule it names.
+  grep -q '^NEW doc3.md:5 helper.sh:10 \[helper.sh\] names ARTDIR' <<<"$n9o" || { echo "  [gate] leg N9 did not report the rarity-rule stale landing (NEW doc3.md:5 helper.sh:10)"; rc=1; }
+  grep -q '^NEWWEAK ' <<<"$n9o" && { echo "  [gate] leg N9 failed through the content rule (NEWWEAK), not the rarity rule"; rc=1; }
   [ "$n10" = FAIL ] || { echo "  [gate] leg N10 (same, rarity rule off: the Q-572 content rule) gave $n10, want FAIL"; rc=1; }
   grep -q '^NEWWEAK doc3.md:5 helper.sh:10 ' <<<"$n10o" || { echo "  [gate] leg N10 did not report the content-weak landing"; rc=1; }
   [ "$n10b" = PASS ] || { echo "  [gate] leg N10b (same, rarity rule off, landing content-pinned) gave $n10b, want PASS"; rc=1; }
   [ "$n11" = PASS ] || { echo "  [gate] leg N11 (.sh common anchor on the cited line) gave $n11, want PASS"; rc=1; }
+  [ "$n12" = FAIL ] || { echo "  [gate] leg N12 (a stale citation beside a codex-id citation on one line) gave $n12, want FAIL -- the id excluded the whole line"; rc=1; }
+  grep -q '^NEW doc3.md:5 helper.sh:10 ' <<<"$n12o" || { echo "  [gate] leg N12 did not report the stale citation beside the codex id"; rc=1; }
   # Q-572 CONTENT RULE (blocking since batch 32). Fixture solve.c: `n_records` on lines 2, 3, 5, 6, 7
   # (COMMON: more than RARE lines), line 3 a printf that only passes it, line 6 the bounding `while`.
   # The citing sentence claims the read loop is bounded by it, so line 6 is right, line 4 is the
@@ -1545,7 +1571,7 @@ print(hashlib.sha256(body.encode("utf-8", "replace")).hexdigest()[:12])' "$1" "$
   grep -q '^WEAKGONE ' <<<"$q5o" || { echo "  [gate] leg Q5 did not report the unmatched content pin"; rc=1; }
   [ "$q6" = FAIL ] || { echo "  [gate] leg Q6 (content pin, cited content changed) gave $q6, want FAIL"; rc=1; }
   [ "$rc" = 0 ] && echo "  [ok] red-test content rule (Q-572): Q1=PASS Q2=FAIL(off-by-two, alone) Q3=FAIL(print arg) Q4=PASS(pinned) Q5=FAIL(pin unmatched) Q6=FAIL(pinned content changed)"
-  if [ "$rc" = 0 ]; then echo "  [ok] red-test A2/tsv/hash/rarity: N0=PASS N1=FAIL(repin-restale, A2 alone) N2=PASS N3=FAIL N4=PASS(attested) N4b=PASS N5=FAIL(attested content changed, alone) N6=FAIL(.tsv) N7=PASS N8=FAIL(pinned content changed) N9=FAIL N10=FAIL(rule off, content rule) N10b=PASS(rule off, content-pinned) N11=PASS"
+  if [ "$rc" = 0 ]; then echo "  [ok] red-test A2/tsv/hash/rarity: N0=PASS N1=FAIL(repin-restale, A2 alone) N2=PASS N3=FAIL N4=PASS(attested) N4b=PASS N5=FAIL(attested content changed, alone) N6=FAIL(.tsv) N7=PASS N8=FAIL(pinned content changed) N9=FAIL N10=FAIL(rule off, content rule) N10b=PASS(rule off, content-pinned) N11=PASS N12=FAIL(codex-id scoped to its own citation)"
                          echo "CITATION_LINE_GATE=PASS"; exit 0
   else echo "CITATION_LINE_GATE=FAIL"; exit 40; fi
 fi

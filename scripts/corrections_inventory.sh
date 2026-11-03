@@ -375,11 +375,28 @@ classify() {
                 (match(rest, /^[^A-Za-z0-9]*[A-Za-z]+, 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]/) && RLENGTH <= 24)) {
               bound = substr(rest, RLENGTH - 9, 10); break
             }
-            head = substr(text, 1, tpos - 1); bo = 0; bdt = ""
-            while (match(substr(head, bo + 1), /\[[A-Za-z]+ 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]/)) {
-              bdt = substr(head, bo + RSTART + RLENGTH - 10, 10); bo += RSTART + RLENGTH - 1; bend = bo
+            # FV2-G3a (Codex gpt-6-astra F06-002#1): the enclosing marker is `[Word date ...` OR `(Word date ...`,
+            # and it is still open at the token when its OWN bracket depth has not returned to zero -- a
+            # nested Markdown link `[x](y)` inside the marker closes nothing (the first `]` used to end it,
+            # so the CITATIONS.md:108 marker "[CORRECTED 2026-09-01 -- ... [SOLVE.md](SOLVE.md) ..." bound
+            # to the first date of the line instead). The last such opener before the token is the candidate.
+            # A `[` opener takes any word (the ledger marker shape, as before); a `(` opener only one of the
+            # correction words scripts/correction_marker_inventory.sh admits for its parenthesised form (Q-935):
+            # corrected, correction, superseded, withdrawn, retracted -- "(measured 2026-09-02", "(since
+            # 2026-08-21" and "(Updated 2026-10-11" are notes, not markers, and must not re-date a row.
+            head = substr(text, 1, tpos - 1); bo = 0; bdt = ""; bopen = ""
+            while (match(substr(head, bo + 1), /[[(][A-Za-z]+ 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]/)) {
+              oword = tolower(substr(head, bo + RSTART + 1, RLENGTH - 12)); ochar = substr(head, bo + RSTART, 1)
+              if (ochar == "[" || oword ~ /^(corrected|correction|superseded|withdrawn|retracted)$/) {
+                bdt = substr(head, bo + RSTART + RLENGTH - 10, 10); bopen = ochar; bend = bo + RSTART + RLENGTH - 1
+              }
+              bo += RSTART + RLENGTH - 1
             }
-            if (bdt != "" && index(substr(head, bend + 1), "]") == 0) { bound = bdt; break }
+            if (bdt != "") {
+              bclose = (bopen == "[") ? "]" : ")"; depth = 1; rest2 = substr(head, bend + 1)
+              for (ci = 1; ci <= length(rest2) && depth > 0; ci++) { ch = substr(rest2, ci, 1); if (ch == bopen) depth++; else if (ch == bclose) depth-- }
+              if (depth > 0) { bound = bdt; break }
+            }
             scan = substr(scan, adv); off += adv - 1
           }
           if (bound != "") dt = bound
@@ -677,7 +694,7 @@ selftest() {
       rc=1
     fi
     rm -f "$rreg" "$rin" "$rl"
-  }
+  } || { echo "  [FAIL] case 15: mktemp failed, so the case did not run (FV2-G3a, Codex F05-006#1)"; rc=1; }
 
   # (16) the REAL registry on REAL bytes, through sweep() itself, so the wiring is tested and not a
   #      copy of it. Precondition: the real git source carries a registered figure (else this leg
@@ -700,7 +717,7 @@ selftest() {
       rc=1
     fi
     rm -f "$gsrc" "$glist" "$gout"
-  }
+  } || { echo "  [FAIL] case 16: mktemp failed, so the case did not run (FV2-G3a, Codex F05-006#1)"; rc=1; }
 
   # (17) a registry that cannot be read fails the sweep; it does not publish unredacted rows.
   local nrc
@@ -734,7 +751,7 @@ selftest() {
       rc=1
     fi
     rm -f "$sout" "$smap"
-  }
+  } || { echo "  [FAIL] case 18: mktemp failed, so the case did not run (FV2-G3a, Codex F05-006#1)"; rc=1; }
 
   # (19) CX-230 (2026-09-29): EVERY dollar figure in the published text column takes COST_MARK, on a
   #      synthetic git row (so this test restates no real figure) whose SUBJECT carries five money

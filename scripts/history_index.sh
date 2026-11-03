@@ -6,8 +6,10 @@
 # WHY. HISTORY.md is APPEND-ONLY: a section stays where it was first written and is never moved or
 # reworded. Some sections were written after later-dated ones (a recovered entry appended at the
 # end, a date range whose first day precedes the section above it), so reading the file top to
-# bottom is not reading it in date order, and nothing in the file says so. Moving the sections
-# would break append-only. This index leaves the file alone and gives the date order beside it.
+# bottom is not reading it in date order. HISTORY.md:11399-11407 discloses those reversals; this
+# index gives the date order beside the file so a reader need not reconstruct it (FV2-G3a, Codex
+# gpt-6-astra F06-011#3: this comment used to say "nothing in the file says so"). Moving the
+# sections would break append-only. This index leaves the file alone.
 #
 # HOW DATES ARE READ. Only H2 headings (`## `) are indexed. Each is placed in the first tier that
 # matches, in this order:
@@ -138,7 +140,10 @@ pm = re.findall(r"re\.finditer\(r'([^']+)', doc, re\.M\)", gate)
 if len(pm) != 1:
     err("found %d heading pattern(s) in %s where exactly 1 is expected; the ISO grammar is read "
         "from there so the two cannot disagree" % (len(pm), cur))
-ISO = re.compile(pm[0])
+try:
+    ISO = re.compile(pm[0])
+except re.error as e:   # FV2-G3a (Codex gpt-6-astra F06-011#2): a malformed extracted pattern is ERROR rc 2, not a traceback
+    err("the heading pattern read from %s does not compile (%s)" % (cur, e))
 MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august",
           "september", "october", "november", "december"]
 PROSE = re.compile(r"^[^\w]*?(%s)\s+(\d{1,2})\b.*?\b((?:19|20)\d{2})\b" % "|".join(MONTHS), re.I)
@@ -155,6 +160,33 @@ def slug(t):
 
 def lineno(pos):
     return doc.count("\n", 0, pos) + 1
+
+# FV2-G3a (Codex gpt-6-astra F04-021#12): a heading-shaped line inside a fenced block or an HTML comment is
+# an example, not a section -- GATE 4's heading rule (md_parse) does not see it, so indexing it gave it an
+# anchor no renderer creates. The same blanking scripts/history_currency_gate.sh applies (line count
+# kept, so every line number below is the file's own) runs before the heading and `##` scans.
+_out, _fence, _cmt = [], None, False
+for _l in doc.split('\n'):
+    _keep = _l
+    if _fence is None and not _cmt:
+        _fm = re.match(r'^\s{0,3}(`{3,}|~{3,})', _l)
+        if _fm:
+            _fence = _fm.group(1); _keep = ''
+        elif '<!--' in _l:
+            _pre, _rest = _l.split('<!--', 1)
+            _keep = _pre
+            if '-->' not in _rest:
+                _cmt = True
+    elif _fence is not None:
+        if re.match(r'^\s{0,3}' + re.escape(_fence[0]) + '{%d,}[ \t]*$' % len(_fence), _l):
+            _fence = None
+        _keep = ''
+    else:
+        _keep = ''
+        if '-->' in _l:
+            _cmt = False; _keep = _l.split('-->', 1)[1]
+    _out.append(_keep)
+doc = '\n'.join(_out)
 
 seen, anchor_at = collections.Counter(), {}
 for m in HEAD.finditer(doc):

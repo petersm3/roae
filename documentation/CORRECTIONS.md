@@ -37529,3 +37529,173 @@ unpublished historical sample; and the S(k) points come from TR-4 draws with no 
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-A; the defects were found by Codex
 (gpt-6-astra), final review.
+
+## CX-36F-A — the published-consistency gate could pass over what it exists to catch: a failed grep read as "no match", a G4 link with a title or a tab-indented continuation was skipped, a count pin let a new miss hide behind a cured one, G1's four pinned hits were quoted names and a revision row, a quoted or prefixed constant probe passed the vacuity filter, awk's status was discarded, and the G2 pin sat two above its measurement (scripts/gate_published_consistency.sh; scripts/gate_published_consistency.pin; tests.py)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), final review, F05-005#16, F05-005#14, F05-005#15, F06-012#8,
+F06-012#5, F05-005#13, F05-005#17 and F06-012#6; triaged and built by the Fable lane (batch FV2-G3a); push group
+FV2-G3a.
+
+**What the gate did, and what it does now.** No published figure moves and the verdict on the real tree is
+unchanged: `PUBLISHED_CONSISTENCY=PASS-AT-PIN`, with the same known-open defects standing. Each change makes
+the gate FALSE on a planted defect it used to accept.
+- **G8, G9, G10, G12, G13, G14, G15** branched on `grep -q` two ways, so a grep that FAILED (rc 2: an
+  unreadable file, a directory, a bad regex) took the "no match" branch and printed `[ok]` wherever the
+  absence of a match is the pass. Every such grep now runs once through `gpc_q`, which returns three values,
+  and rc 2 is `[FAIL] … measured NOTHING`.
+- **G4** read a link's target as everything inside `(...)`, so `[x](../README.md "lead")` failed `isfile()`
+  and was skipped; it measured indentation in literal spaces, so a tab-indented continuation of a
+  **Documents:** item after a blank line ended the field unseen; and an `.md` destination that resolves to no
+  file was a skip, not a finding. The destination is now the first token of the target, tabs expand to the
+  CommonMark 4-column stop, and an unresolved `.md` link is reported.
+- **G4's pin** was a count (8). A count let a NEW miss hide behind a pinned one cured in the same change. The
+  eight known-open misses are now pinned BY NAME (`G4_EXEMPT=<CX>|<target>|<reason>` rows; CX-28 ×3, CX-33
+  ×5, each with its reason recorded in the pin file), `G4=0` counts the misses not named there, a named row
+  that no longer misses is reported for removal, and the named pins keep the verdict at PASS-AT-PIN and are
+  listed on the OUTSTANDING line, so the named pin never reads as a stronger claim than the count did.
+- **G1** counted four hits that were not unfilled placeholders — three names quoted inside one code span by a
+  dated correction note (TR12_QUERY_PROGRAM.md:1598) and a `[REPRO-TAG]` on a v1.11 revision row (:2832) —
+  and the pin of 4 would have absorbed four real ones. G1 now skips code spans and dated rows; measured 0 at
+  4d9cc323, re-pinned `G1=0`.
+- **G3's vacuity filter** read the probe's first word after stripping `!({` and blanks, so `"false"`,
+  `'false'`, `command false`, `env false`, `exec false`, `sh -c false` and `bash -c false` were run and read
+  as "still true" (a probe that can never fire). Quotes and those prefixes are stripped before the word is
+  read. Hardening: no row of DISCLOSURE_CHECKS.tsv has that shape.
+- **G19** discarded awk's status; awk on a file it cannot read still runs END and prints a well-formed `0`.
+  A failed awk now leaves `ERR`, which the integer check refuses.
+- **G2's pin** said 8 and the tree measured 6 since 2026-10-17 (the gate printed "TIGHTEN THE PIN" on every
+  run); re-pinned with a dated note. Above push group FV2-A, whose TR-7 edits give two more commands their
+  `SOLVE_THREADS`, the tree measures 4, and the pin is `G2=4`.
+
+**Tests.** `TestBatchFV2G3a` plants each defect in an overlay or a scratch copy and requires the cured gate to
+go red on it: a directory as each leg's file, a titled link, a tab-indented continuation, a ninth miss beside a
+cured pinned one, a real placeholder beside the four former hits, three false-shaped probes, an awk shim; and
+asserts the real tree's pins and verdict. Developed with AI assistance (Claude, Anthropic): claude-fable-5-1
+(pinned), push group FV2-G3a; sites found by Codex (gpt-6-astra), final review.
+
+## CX-36F-B — gate selftests and fixtures that could not see the rule they name: a leg satisfied through a different rule, a fixture that never exercised the combined bound, mutants that survived, a status that was never forwarded, a stale binary accepted on +x, a dispatch no extraction harness could reach, a token assembled from two variables, and a doc cell the checker dropped (scripts/citation_line_gate.sh, a2_slot_verdict_gate.sh, d5_01_q1c_skip_gate.sh, d5_02_q8_chi2_gallery_gate.sh, d5_03_ls_w0_exact_gate.sh, d5_04_q7_witnesses_gate.sh, d5_08_q6_q10a_shell_gate.sh, failopen_closure_gate.sh, history_currency_gate.sh, cli_decl_metadata_gate.sh, group_c_n9_rehearsal_gate.sh; tests.py)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), final review, F05-011#12, F05-011#4, F05-017#1, F05-016#1,
+F05-019#3, F05-013#2, F05-014#2, F05-014#4, F05-017#3, F05-017#4, F05-017#5, F05-017#6, F05-008#2,
+F05-017#9, F05-012#3, F05-012#4, F12-009#11 and F05-009#16; triaged and built by the Fable lane (batch
+FV2-G3a); push group FV2-G3a.
+
+**What each gate could not see, and what it sees now.** Every gate still passes on the real tree; each change
+is a leg, fixture or mutant that is green here and was measured red (or absent) on the uncured gate.
+- **citation_line_gate.sh.** Leg N9 asserted only `FAIL` for the common-anchor-one-line-off fixture; with the
+  `.sh` rarity clause gone the same fixture still FAILs through the Q-572 content rule (N10's leg), so the
+  selftest could not tell the rule it names. N9 now requires the rarity rule's own stale line and refuses a
+  content-weak line. And a `Codex v3 solve.c:12:` id excluded EVERY citation on its line, so a stale
+  `solve.c:999` beside it was never checked; the exclusion is scoped to the citation the id contains (leg
+  N12). The `--all-files` counts are unchanged. Three citations the old exclusion swallowed are now checked and
+  land (CITATIONS.md:108, CRITIQUE.md:60, TR12_QUERY_PROGRAM.md:1597), so the marker inventory reads those rows as
+  gate-anchored; their three `REVIEWED` entries in correction_marker_inventory.sh matched no unanchored line and
+  are removed.
+- **a2_slot_verdict_gate.sh.** No fixture had every slot inside its own tolerance with the combined R-C1c
+  deviation outside the bound, so deleting the combined check left the gate green. Fixture 5 (slot 2 = 5.35%,
+  slot 32 = 8.00%) does.
+- **d5_01_q1c_skip_gate.sh.** The stub sampler always exited 1 and the `row_end_val` stub dropped the row's
+  rc, so replacing `rc=$?` with `rc=0` in the a2_q1c row passed all four contracts. The stub now answers
+  `--kc-sample` and `--kc-o3-rank`, the contract has five cases (the sampler exiting 1 must record
+  `FAIL:nonzero-exit(1)`, exiting 0 must record PASS), and a sixth mutant drops the forwarded status.
+  `D5_01_SRC` was added so a test can point the gate at a planted copy.
+- **d5_02_q8_chi2_gallery_gate.sh.** The near-bar fixture (χ² 38.56) sits above both 3770/100 and 3770/99, so
+  the multiplier mutation 100 → 99 survived. Fixture `near2` (χ² 37.984) sits between them (leg 10, mutant M7).
+- **d5_03_ls_w0_exact_gate.sh.** The M2/M3/M4 `sed` rewrites carried no status check: a failed sed left an
+  empty output that "differed" from the source, `owners()` read 0 on it, and the mutant counted as killed.
+  Each requires sed's status and a non-empty output.
+- **d5_04_q7_witnesses_gate.sh.** `Q7WIT_SOLVE` was accepted on `-x` alone; a handed-in binary must now carry
+  this solve.c's `SOURCE_SHA` (`Q7WIT_ALLOW_STALE=1` to override, deliberately). And the rows were extracted
+  without their enclosing dispatch, so a production change that stopped dispatching the witness row was
+  invisible; leg 2b runs the production `if … row … elif … else row_skip fi` block with its dependencies
+  present and requires the row to execute.
+- **d5_08_q6_q10a_shell_gate.sh.** Leg 0 pins the c_q6/c_q10a dispatch on bash's own parse (the script wrapped
+  in a function and re-printed by `declare -f`): both rows must sit one level inside the `else` arm of the
+  pinned Group C guard whose skip list names them. The `N_div_24` line's VALUE is compared with `N / 24` and
+  `24 | N` is required (it checked only that one such line exists). Fixtures q10L11 (a census whose
+  size-weighted mask count is off with its raw sums intact) and q10L12 (a histogram that differs from f's)
+  with mutants M13/M14 cover the two guards no fixture exercised. And a mutant counts as killed only when a
+  leg rejects it on its merits: a harness that crashed or was killed (rc ≥ 126) is reported, not credited.
+- **failopen_closure_gate.sh.** The stated blind spot — a token assembled from two variables, or printed by a
+  helper — is closed for the shapes it named: `echo "$tok=$v"` with `v=PASS` elsewhere, and a Python
+  f-string `print(f"{tok}=PASS")`, are now candidates and are run against the empty world. Measured over
+  `scripts/` at 4d9cc323: neither adds a real script to the population; two selftest fixtures prove both shapes
+  are graded OPEN.
+- **history_currency_gate.sh.** No selftest case carried a date range, so the range arithmetic was untested
+  and `cur <= end` → `cur < end` passed the table. Cases R1-R4 (a range ending today, ending yesterday, a
+  cross-month range covering today, a range starting tomorrow) and mutant MU4.
+- **cli_decl_metadata_gate.sh.** `cells[1:-1]` dropped a table row's last cell when the row had no trailing
+  `|`, so a default stated there was never compared; a shell-quoted example value (`--mode "nope"`) kept its
+  quotes and missed the choice check; and a flag's documented default was compared against a pool that
+  included every positional's default, so a wrong flag default equal to some positional's passed. Only an
+  empty outer cell is dropped, matching outer quotes are stripped, and a positional's default is admitted
+  only when the flag states no literal default of its own (VERIFY.md's `path` rows still pass).
+- **group_c_n9_rehearsal_gate.sh.** The sed extraction's status was unchecked and a region that lost its tail
+  still carried the `def atlas_queries` anchor, so the guard-count ratchet ran over a truncated region. The
+  status is checked and the region must end at `def atlas_selftest(`.
+
+**Tests.** `TestBatchFV2G3a` runs each gate on the planted copy (`D5_01_SRC`, `D5_02_SRC`, `D5_04_SRC`,
+`D5_08_SRC`, an overlay, a shim or a fixture tree) and requires the red verdict by its named leg or mutant,
+with the unplanted run as the positive control where the gate is not otherwise run. Developed with AI
+assistance (Claude, Anthropic): claude-fable-5-1 (pinned), push group FV2-G3a; sites found by Codex
+(gpt-6-astra), final review.
+
+## CX-36F-C — the inventories, the history index and the claim-ledger checker: a nested link closed a correction marker early and mis-dated an inventory row, an unreadable Markdown file left the marker inventory silently smaller, a failed mktemp skipped three selftest cases, a fenced example heading was indexed under a phantom anchor, a malformed pattern was a traceback, and `etc. **This` did not end a sentence (scripts/corrections_inventory.sh, correction_marker_inventory.sh, history_index.sh, claim_ledger.sh; documentation/CORRECTIONS_INVENTORY.tsv; tests.py)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), final review, F06-002#1, F05-006#1, F06-002#11, F06-002#8,
+F06-002#9, F04-021#12, F06-011#2, F06-011#3 and F05-007#1; triaged and built by the Fable lane (batch
+FV2-G3a); push group FV2-G3a.
+
+- **corrections_inventory.sh** bound a correction's date to the bracketed marker enclosing the token, but
+  ended that marker at the first `]`, so a nested Markdown link inside it closed it early and the row fell
+  back to the first date on the line. CITATIONS.md:108's `[CORRECTED 2026-09-01 — … [SOLVE.md](SOLVE.md) …]`
+  was dated 2026-04-20 (the line's "added 2026-04-20"). The scan now counts bracket depth, and admits a
+  parenthesised marker whose word is one of the five the marker inventory admits (corrected, correction,
+  superseded, withdrawn, retracted) — "(measured 2026-09-02" and "(since 2026-08-21" are notes, not markers.
+  CORRECTIONS_INVENTORY.tsv, a generated registry, was regenerated: five rows take the date of the marker
+  that encloses their token (CITATIONS.md:108 → 2026-09-01, GUIDE.md:208 → 2026-09-01, SOLVE_SUMMARY.md:290 →
+  2026-09-02, TR9:363 → 2026-09-25, CANONICAL_HASHES.md:200 → 2026-10-22); no id changes (the date is not
+  part of the id). Its selftest's three `mktemp && mktemp && { … }` chains skipped their case when a mktemp
+  failed, leaving rc untouched; each now records `[FAIL] case N: mktemp failed`.
+- **correction_marker_inventory.sh** `continue`d past an unreadable or undecodable Markdown file, so a list or
+  attribute run completed on a smaller corpus with rc 0; it is now `CORRECTION_MARKER_INVENTORY=ERROR
+  unreadable <file>`, exit 2. And `--list` (unmeasured) reported every REVIEWED key as "matches no unanchored
+  marker line" because `used` is empty by construction there; the warning is emitted only when measured.
+- **history_index.sh** scanned the raw text for headings, so a `## 2026-01-01` example inside a fenced block
+  was indexed and given an anchor no renderer creates (GATE 4's heading rule does not see it). The
+  fence/comment blanking of history_currency_gate.sh now runs first, line numbers kept. A pattern extracted
+  from the currency gate that does not compile is `HISTORY_INDEX=ERROR` rc 2, not a traceback. The header
+  comment no longer says "nothing in the file says so" about HISTORY.md's reversals: HISTORY.md:11399-11407
+  discloses them.
+- **claim_ledger.sh** ended a sentence at `etc.` only when a capital followed directly, so `etc. **This` and
+  `etc. "This` let the next sentence's premise qualify the preceding conditional claim. Formatting marks and
+  opening quotes are skipped before the capital is tested (selftest case M17d).
+
+**Tests.** `TestBatchFV2G3a` reads the regenerated row for CITATIONS.md:108 against the marker on that line,
+fails the second no-arg mktemp of the inventory selftest through a counting shim, lists a scratch repository
+with one unreadable file, indexes a HISTORY copy carrying a fenced example heading, feeds a non-compiling
+pattern to the index, and runs the checker's own `sentence_of` on the planted paragraph. Developed with AI
+assistance (Claude, Anthropic): claude-fable-5-1 (pinned), push group FV2-G3a; sites found by Codex
+(gpt-6-astra), final review.
+
+## CX-36F-D — the reviewer package self-check could hang on a step that ignores TERM and omitted two documents its bundled REPRODUCE.md links, and the atlas path-portability gate reported a failed build as FAIL (reviewer/selfcheck.sh; reviewer/README.md; scripts/atlas_path_portability_gate.sh; tests.py)
+
+**2026-10-29.** **Source.** Codex (gpt-6-astra), final review, F04-022#9, F09-H03#23, F05-020#9 and
+F09-A01#13; triaged and built by the Fable lane (batch FV2-G3a); push group FV2-G3a.
+
+- **reviewer/selfcheck.sh** ran each step under `timeout` without `-k`, so a step that ignores SIGTERM ran
+  past its budget and no TIMEOUT verdict was produced (measured: the uncured script hangs on
+  `trap "" TERM; sleep`). KILL now follows after `SELFCHECK_KILL_AFTER` seconds (default 30) and an exit of
+  137 after the whole budget elapsed is classified `[TIMEOUT]`; the selftest carries that case. VERIFY.md and
+  CANONICAL_HASHES.md, which the bundled REPRODUCE.md links, are package files (PKG_FILES; the manifest and
+  the bundle read the same list; reviewer/README.md lists the fifteen). One sibling was already cured: F05-020#9 (the manifest validated against the
+  checkout and the copies run unvalidated) was closed by push group G5c (CX-35W, F05-020#5), which binds every
+  scratch copy to the manifest digest before step 1; nothing further was changed for it.
+- **atlas_path_portability_gate.sh** printed `ATLAS_PATH_PORTABLE=FAIL` when solve.c did not build, though
+  nothing was compared and the file's own contract makes an unestablished subject ERROR. It is
+  `ATLAS_PATH_PORTABLE=ERROR` (exit 2 as before) and the compiler diagnostic is shown.
+
+**Tests.** `TestBatchFV2G3a` runs a one-step page whose step ignores TERM under a one-second budget and
+requires `[TIMEOUT]` and `REVIEWER_PACKAGE=ERROR` within the test's own timeout, checks `--files` for both
+documents, and runs the portability gate under a failing `gcc`. Developed with AI assistance (Claude,
+Anthropic): claude-fable-5-1 (pinned), push group FV2-G3a; sites found by Codex (gpt-6-astra), final review.

@@ -83,6 +83,9 @@ elif mode=='t4':
 elif mode=='near':  # G5a (Codex F05-019#2): chi2 = 38.56, just above the 37.70 bar (t4 sits below it)
     counts=[110,59,59,59,59,59,59,59,60,60,60,60,60,59,59,59]
     for b,c in enumerate(counts): ranks+= [ (b*N)//16 + j for j in range(c) ]
+elif mode=='near2': # FV2-G3a (Codex F05-019#3): chi2 = 37.984, between the 37.70 bar (3770/100) and 38.08 (3770/99)
+    counts=[107,44,60,60,60,60,60,61,61,61,61,61,61,61,61,61]
+    for b,c in enumerate(counts): ranks+= [ (b*N)//16 + j for j in range(c) ]
 elif mode=='one':   ranks=[7]*1000
 elif mode=='overN': ranks=[(i*N)//1000 for i in range(999)]+[N]
 elif mode=='empty': ranks=[]
@@ -106,7 +109,7 @@ k=len(ranks); S=sum(c*c for c in h)
 print("%d/%d" % (16*S-k*k, k))
 PY
 }
-for m in grid edge t4 near one overN empty neg; do d="$WORK/g_$m"; mkdir -p "$d"; mkgal "$d/q8_super.tsv" "$m"; done
+for m in grid edge t4 near near2 one overN empty neg; do d="$WORK/g_$m"; mkdir -p "$d"; mkgal "$d/q8_super.tsv" "$m"; done
 mkdir -p "$WORK/g_n9"; cp "$GOLD_GALLERY" "$WORK/g_n9/q8_super.tsv"
 
 run(){ # run <harness> <galdir> <N> <k> -> rc; stdout in $WORK/last.out
@@ -128,6 +131,11 @@ verdict(){ # verdict <harness>; 0 iff every leg behaves
   rc=$(run "$h" "$WORK/g_near" "$N" 1000)
   [ "$rc" = 1 ] && grep -qx $'chi2\t38.560' "$WORK/last.out" && grep -q '^Q8_CHI2_GALLERY.FINDING' "$WORK/last.out" \
     || { echo "    leg 8 (chi2 38.56, just over the 37.70 bar) rc=$rc: the bar is not where the prereg puts it"; return 1; }
+  # leg 10 (FV2-G3a; Codex F05-019#3): chi2 37.984 sits between 3770/100 and 3770/99, so a multiplier
+  # mutation 100 -> 99 (bar 38.08) passes it while the near fixture (38.56) still fails; only this leg sees it
+  rc=$(run "$h" "$WORK/g_near2" "$N" 1000)
+  [ "$rc" = 1 ] && grep -qx $'chi2\t37.984' "$WORK/last.out" && grep -q '^Q8_CHI2_GALLERY.FINDING' "$WORK/last.out" \
+    || { echo "    leg 10 (chi2 37.984, between 37.70 and 3770/99 = 38.08) rc=$rc: the bar's multiplier is not exactly 100"; return 1; }
   rc=$(run "$h" "$WORK/g_one" "$N" 1000)
   [ "$rc" = 1 ] && grep -q '^Q8_CHI2_GALLERY.FINDING' "$WORK/last.out" \
     || { echo "    leg 4 (all in one bucket) rc=$rc: accepted a non-uniform gallery"; return 1; }
@@ -185,5 +193,7 @@ mutant M4_no_range_check 's/b<0 || b>15/b<0/; s/\[ "\$CSUM" = "\$k" \]/true/'
 mutant M5_wrong_numerator 's/16\*\$S - \$k\*\$k/15*$S - $k*$k/'
 # M6n: the malformed-draw and requested-count guards both dropped (F05-019#3)
 mutant M6n_malformed_draws_dropped 's/\[ "\$nmal" -eq 0 \]/true/; s/\[ "\$k" = "\$Q8K" \]/true/'
-echo "  [gate] baseline PASS on 9 legs; 7/7 mutants killed"
+# M7 (FV2-G3a; Codex F05-019#3): the bar's multiplier 100 -> 99 (bar 38.08); killed by leg 10 alone
+mutant M7_bar_multiplier_99 's/100\*\$NUM < 3770\*\$k/99*$NUM < 3770*$k/'
+echo "  [gate] baseline PASS on 10 legs; 8/8 mutants killed"
 echo "D5_02_Q8_CHI2_GALLERY_GATE=PASS"

@@ -286,8 +286,6 @@ REVIEWED = {
     # class-1 verdict is no longer applied and the key is removed rather than left to warn.
     ('documentation/CITATIONS.md', 'bc2854ad3918'):
         ('1', 'reviewed:list-already-omits-the-nonexistent-file'),
-    ('documentation/CITATIONS.md', 'c179c688913d'):
-        ('1', 'reviewed:sentence-already-says-KW-sits-at-the-C3-ceiling'),
     # G5c: CITATIONS.md c3aa04002a63 (line 403) and TR12_QUERY_PROGRAM.md 2c1d251a6490 (line 892) are now class 3
     # (the stricter citation gate and the claim ledger's percentage check see their removal), so their class-1
     # keys are removed rather than left to warn; so are the four DISTRIBUTIONAL_ANALYSIS.md / SOLVE_C_CLI.md
@@ -916,8 +914,6 @@ REVIEWED = {
         ('1', 'reviewed:scope-already-states-the-one-sided-relation'),
     ('reports/TR12_QUERY_PROGRAM.md', '715e5a15829e'):
         ('1', 'reviewed:bullet-already-lists-what-f-alone-answers'),
-    ('reports/TR12_QUERY_PROGRAM.md', '725e799b65d4'):
-        ('1', 'reviewed:step-already-names-the-per-row-files'),
     ('reports/TR12_QUERY_PROGRAM.md', '747e86000ac1'):
         ('1', 'reviewed:text-already-separates-all-slots-and-interior'),
     ('reports/TR12_QUERY_PROGRAM.md', '787d37353231'):
@@ -1164,8 +1160,6 @@ REVIEWED = {
     # re-keyed batch 46 (was 597d3234e446; CX-340, Q-993): the solve.c cite became the span 46159-46160; re-read, same verdict.
     ('documentation/CRITIQUE.md', 'fdeca61f4d29'):
         ('1', 'reviewed:update-already-states-minimum-5-and-the-overlap-reading-of-ratio-0.007'),
-    ('documentation/CRITIQUE.md', 'ff409f27a01f'):
-        ('1', 'reviewed:sentence-already-states-the-rate-bound-scoped-to-its-sampler;no-minimum-claim-left'),
     ('documentation/CRITIQUE.md', '14f8e15eb91d'):
         ('1', 'reviewed:paragraph-already-closes-order-64-Costas-by-construction-and-C1'),
     ('documentation/CRITIQUE.md', '7af2bf88c662'):
@@ -1425,7 +1419,9 @@ def inventory():
     rows = []
     for f in md_files():
         try: text = open(f, encoding='utf-8').read()
-        except (OSError, UnicodeDecodeError): continue
+        except (OSError, UnicodeDecodeError) as e:
+            # FV2-G3a (Codex gpt-6-astra F06-002#8): an unreadable or undecodable file is not a smaller corpus
+            print('CORRECTION_MARKER_INVENTORY=ERROR unreadable %s: %s' % (f, e), file=sys.stderr); sys.exit(2)
         lines = text.split('\n')
         seen = {}
         for (b, e, kind, tok, closed, tp) in spans(text):
@@ -1713,7 +1709,8 @@ def emit(rows, measured):
         if r['kind'] == 'marker' and not r['closed']: rev += ';span-unclosed'
         print('\t'.join([r['file'], str(r['line']), r['kind'], r['token'], cls, legs or '-', rev, r['sha']]))
     for k in sorted(k for k in set(REVIEWED) - used if not k[1].startswith('pop:')):
-        print('REVIEWED key matches no unanchored marker line (re-read it): %s %s' % k, file=sys.stderr)
+        # FV2-G3a (Codex gpt-6-astra F06-002#9): in an unmeasured enumeration `used` is empty by construction
+        if measured: print('REVIEWED key matches no unanchored marker line (re-read it): %s %s' % k, file=sys.stderr)
     for k in sorted(set(STAYS3) - used3):
         if measured: print('STAYS3 key matches no class-3 row with those legs (re-read it): %s %s' % k, file=sys.stderr)
 

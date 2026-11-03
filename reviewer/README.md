@@ -157,10 +157,10 @@ ships the method and the exact aggregates, never a sample of the data.
 | smaller problems you can rebuild | rungs n = 9, 13, 16, 18, 19, as commands (steps 3 to 9) | this page |
 | the limits of these checks | what the package cannot show | the section above |
 
-The package is these 13 files. `bash reviewer/make_package.sh` bundles exactly these into one
+The package is these 15 files. `bash reviewer/make_package.sh` bundles exactly these into one
 `.tar.gz` and adds `reviewer/MANIFEST.sha256` and `reviewer/PACKAGE_VERSION` (the version and the
 source commit); it refuses to build a release from files that differ from that commit. The
-self-check requires the manifest, requires it to list exactly these 13 files and
+self-check requires the manifest, requires it to list exactly these 15 files and
 `PACKAGE_VERSION`, each once, and checks every file against it before step 1; it then prints
 `PACKAGE_MANIFEST=OK`. A directory with no manifest fails. The one exception is a repository
 checkout, which has none: there, run `bash reviewer/selfcheck.sh --source-checkout`, which prints
@@ -176,6 +176,8 @@ checkout, which has none: there, run `bash reviewer/selfcheck.sh --source-checko
 | `verify.py` | an independent verifier in Python; shares no code with either |
 | `documentation/SPECIFICATION.md` | the formal definitions of the rules |
 | `documentation/REPRODUCE.md` | commands and expected files |
+| `documentation/VERIFY.md` | what each verifier mode checks, and how it is read; REPRODUCE.md links it |
+| `documentation/CANONICAL_HASHES.md` | the digests REPRODUCE.md's sanity row names; REPRODUCE.md links it |
 | `reports/FULL31_EXACT_AGGREGATES.md` | the reported full-run table |
 | `scripts/reproduce_digests_gate.sh` | runs REPRODUCE.md's own commands and compares its digests |
 | `runs/20260716_f1c5_c1c2c4c5_d128westus3/run.out` | the published log of the full-31 run (51,190 bytes) |
@@ -240,7 +242,7 @@ input. Or run them all at once:
 bash reviewer/selfcheck.sh          # ends with REVIEWER_PACKAGE=PASS
 ```
 
-The self-check copies the 13 package files, and nothing else, into a fresh scratch directory, runs
+The self-check copies the 15 package files, and nothing else, into a fresh scratch directory, runs
 each step there exactly as written below with `bash -o pipefail` and no inherited `SOLVE_*`
 setting, and compares the output with the `expect:` lines. Files you made by hand are never used or
 changed. It reads the steps from this page, so the page and the check cannot drift apart, and it

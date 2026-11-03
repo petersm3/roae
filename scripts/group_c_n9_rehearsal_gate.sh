@@ -203,7 +203,12 @@ check_cov TR12_A5_ORBIT_MEMB  atlas_orbit_membership     scripts/a5_orbit_member
 # found. Under `set -o pipefail` grep -q exits at its first match and SIGPIPEs sed, pipefail takes
 # sed's 141, and A MATCH REPORTS AS NO MATCH -- so the check written to prevent a false zero
 # produced a false ERROR on a perfectly good tree. Same shape the repo already carries a rule for.
-sed -n '/^_ATLAS_SELECTORS/,/^def atlas_selftest/p' "$ROOT/solve.py" > "$WORK/consumer_region.py"
+sed -n '/^_ATLAS_SELECTORS/,/^def atlas_selftest/p' "$ROOT/solve.py" > "$WORK/consumer_region.py" \
+  || die "the sed extraction of the atlas-consumer region failed (rc $?) -- the ratchet would measure nothing"
+# FV2-G3a (Codex gpt-6-astra F05-009#16): a partial extraction that kept the `def atlas_queries` anchor but
+# lost the tail would run the ratchet over a truncated region; the region must END at its closing anchor.
+case "$(tail -1 "$WORK/consumer_region.py")" in "def atlas_selftest("*) ;;
+  *) die "the extracted atlas-consumer region does not end at 'def atlas_selftest(' (got '$(tail -1 "$WORK/consumer_region.py" | cut -c1-60)') -- a truncated region is not the region" ;; esac
 grep -c 'def atlas_queries' "$WORK/consumer_region.py" >/dev/null 2>&1 || true
 _nq=$(gcount 'def atlas_queries' "$WORK/consumer_region.py") || die "could not read the extracted atlas-consumer region -- the ratchet would measure nothing"
 if [ "$_nq" -eq 0 ]; then

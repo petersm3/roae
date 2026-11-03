@@ -562,8 +562,10 @@ def sentence_of(lines, lno, start):
         if i == lno - 1:
             off = len(para) + start
         para += lines[i] + " "
+    # FV2-G3a (Codex gpt-6-astra F05-007#1): the capital that ends "etc." may sit behind a formatting mark
+    # or an opening quote (`etc. **This`, `etc. "This`); those are skipped before the isupper() test.
     cuts = [0] + [m.end() for m in SENT_END.finditer(para) if not ABBREV.search(para[:m.end()].rstrip())
-                  or (ETC_END.search(para[:m.end()].rstrip()) and para[m.end():m.end() + 1].isupper())] + [len(para)]
+                  or (ETC_END.search(para[:m.end()].rstrip()) and para[m.end():].lstrip('*_`"\u201c\u2018\'([')[:1].isupper())] + [len(para)]
     for s, e in zip(cuts, cuts[1:]):
         if s <= off < e:
             return para[s:e]
@@ -823,6 +825,9 @@ def selftest(ledger_path, text, cache):
            tr_with(eline, "0.0415", "0.0415. here we cannot attribute by measurement."))
     expect("M17c twin: an abbreviation is not a sentence end", t4, "PASS", "SELFTEST_PLANTED", True,
            tr_with(eline, "0.0415", "0.0415 (cf. cannot attribute by measurement)"))
+    # M17d (FV2-G3a, Codex F05-007#1): "etc." ends the sentence when the capital follows a formatting mark
+    expect("M17d premise in a following sentence that opens with **Capital after etc.", t4, "FAIL", "SELFTEST_PLANTED", False,
+           tr_with(eline, "0.0415", "0.0415, etc. **This** sentence cannot attribute by measurement."))
     # M12: EVERY row's evidence discriminates. A consistent wrong figure -- the same perturbed value
     # in the ledger AND on the published line -- passes S and P by construction, so only E can
     # catch it; every row must go FALSE, and on E.

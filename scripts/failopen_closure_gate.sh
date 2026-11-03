@@ -86,6 +86,18 @@ SRCTOK='[A-Z][A-Z0-9_]{2,}=(OK|PASS|CLEAN|FAIL|ERROR|SKIP|BLOCKED|REFUSED)\b'  #
 # admitted two log lines, `KC_MIDN_MAX_N=$MAXN` and `SKU=${SKU:-...}`, and was narrowed to the
 # argument start). NOT SEEN, stated: a token assembled from two variables, or printed by a helper.
 SRCDYN="(echo|printf)[[:space:]]+(-[a-zA-Z]+[[:space:]]+)*['\"]?[A-Z][A-Z0-9_]{2,}=(%[-0-9.]*[sdq]|\\\$\\{?[A-Za-z_])"
+# FV2-G3a (Codex gpt-6-astra F05-008#2): the stated blind spot above is closed for the shapes it named. A
+# script is also gate-shaped when (SRCDYN2) an echo/printf argument starts with a VARIABLE-named key
+# (`echo "$TOK=$v"`, `printf '%s=%s' "$tok" PASS`), or (PYDYN) a Python f-string prints `{tok}=`; each
+# the shell shape still needs a verdict word as a literal in the file (VWORD, or the assignment shape VWORD2
+# `v=PASS`), and the f-string shape carries its verdict word or an expansion inside the pattern. MEASURED
+# 2026-10-29 over scripts/ at 4d9cc323: neither adds a script to the real population; two selftest
+# fixtures (plant_twovars.sh, plant_pyf.py) prove both shapes are seen and graded OPEN.
+SRCDYN2="(echo|printf)[[:space:]]+(-[a-zA-Z]+[[:space:]]+)*['\"]?(\\\$\\{?[A-Za-z_][A-Za-z0-9_]*\\}?|%[-0-9.]*s)=|(echo|printf)[[:space:]]+(-[a-zA-Z]+[[:space:]]+)*['\"]?%s=[^'\"]*['\"][[:space:]]+['\"]?\\\$"
+PYDYN="print\\(f['\"][^'\"]*\\{[A-Za-z_][A-Za-z0-9_.]*\\}=(OK|PASS|CLEAN|\\{)"
+# the assignment shape `v=PASS` (a lower-case or mixed variable holding the verdict word): VWORD deliberately
+# refuses a word right after `=`, which is exactly where a two-variable token keeps it
+VWORD2="(^|[^A-Za-z0-9_])[A-Za-z_][A-Za-z0-9_]*=['\"]?(OK|PASS|CLEAN)['\"]?([^A-Za-z0-9_]|$)"
 VWORD='(^|[^A-Za-z0-9_=])(OK|PASS|CLEAN)([^A-Za-z0-9_]|$)'
 ABSRE='/home/[a-z]+/github/|/mnt/[a-z]'                            # a hard-coded absolute repo/mount path: the skeleton cannot isolate it
 UNRUNRE='\baz +(vm|storage|disk|network|login|account|group|snapshot)\b|\bssh +[^ ]|\bazcopy\b|\bgit +(commit|push)\b|\bcrontab +-|\bnohup\b|\bsetsid\b|\bsudo\b|\bmkfs\b|\bshutdown\b|\breboot\b'
@@ -172,6 +184,8 @@ gate(){
     [ -r "$f" ] || { printf '  [ERROR ] %-44s cannot be read, so whether it is a gate is unknown\n' "$(basename "$f")"; err=1; continue; }
     [ "$(noncomment "$f" | grep -cE "$SRCTOK")" -gt 0 ] \
       || { [ "$(noncomment "$f" | grep -cE "$SRCDYN")" -gt 0 ] && [ "$(noncomment "$f" | grep -cE "$VWORD")" -gt 0 ]; } \
+      || { [ "$(noncomment "$f" | grep -cE "$SRCDYN2")" -gt 0 ] && [ "$(noncomment "$f" | grep -cE "$VWORD|$VWORD2")" -gt 0 ]; } \
+      || [ "$(noncomment "$f" | grep -cE "$PYDYN")" -gt 0 ] \
       || continue   # only gate-shaped scripts (a FAIL-only gate can still exit 0); grep -c, see run_one
     name=$(basename "$f")
     # Self-exclusion, stated: this file carries the UNRUN regex as a literal and would match it;
@@ -245,6 +259,10 @@ if [ "$SELFTEST" -eq 1 ]; then
 az vm delete -n x; echo "PLANT_UNRUN=OK"'
   mk plant_allowed.sh   'echo "PLANT_ALLOWED=PASS"; exit 0'
   mk plant_py_open.py   'print("PLANT_PY=PASS")'
+  # F05-008#2: a token assembled from two variables, and one printed through a Python f-string
+  mk plant_twovars.sh   'v=PASS; tok=PLANT_TWOVARS; echo "$tok=$v"; exit 0'
+  mk plant_pyf.py       'tok = "PLANT_PYF"
+print(f"{tok}=PASS")'
   mk plant_comment.sh   '# az vm delete in a COMMENT must not make this unrun
 [ -r target.txt ] || { echo "PLANT_COMMENT=ERROR"; exit 2; }; echo "PLANT_COMMENT=OK"'
   mk plant_notoken.sh   'echo hello; exit 0'
@@ -269,6 +287,8 @@ print("PLANT_CLOSED3=PASS")'
   chk "FAILOPEN_CLOSURE=FAIL token, whole line"     'grep -qx "FAILOPEN_CLOSURE=FAIL" <<<"$out"'
   chk "the unconditional OK is OPEN"                'grep -qE "^\s*\[OPEN  \] +plant_open.sh" <<<"$out"'
   chk "the python OK is OPEN"                       'grep -qE "^\s*\[OPEN  \] +plant_py_open.py" <<<"$out"'
+  chk "a token assembled from two variables is OPEN" 'grep -qE "^\s*\[OPEN  \] +plant_twovars.sh" <<<"$out"'
+  chk "a python f-string token is OPEN"             'grep -qE "^\s*\[OPEN  \] +plant_pyf.py" <<<"$out"'
   chk "exit-0-with-SKIP is RC0"                     'grep -qE "^\s*\[RC0   \] +plant_rc0.sh" <<<"$out"'
   # Q-954 (c): each CLOSED check names the rc its fixture's refusal branch exits with. "closed"
   # alone is also what a fixture that cannot parse (python SyntaxError rc 1, bash rc 2) gets.
@@ -283,8 +303,8 @@ print("PLANT_CLOSED3=PASS")'
   chk "az in a COMMENT does not make a script unrun (closed, rc 2)" 'grep -qE "^\s*\[closed\] +plant_comment.sh +rc=2, .*last token: PLANT_COMMENT=ERROR\)" <<<"$out"'
   chk "allowlisted self-contained script is allowed" 'grep -qE "^\s*\[allow \] +plant_allowed.sh" <<<"$out"'
   chk "a script with no verdict token is not in the population" '! grep -q plant_notoken <<<"$out"'
-  chk "counts: OPEN=2 RC0=1 ALLOWED=1 UNRUN=2 (az + abspath)" 'grep -qx "FAILOPEN_CLOSURE_OPEN=2" <<<"$out" && grep -qx "FAILOPEN_CLOSURE_RC0=1" <<<"$out" && grep -qx "FAILOPEN_CLOSURE_ALLOWED=1" <<<"$out" && grep -qx "FAILOPEN_CLOSURE_UNRUN=2" <<<"$out"'
-  rm -f "$T/scripts/plant_open.sh" "$T/scripts/plant_rc0.sh" "$T/scripts/plant_py_open.py"
+  chk "counts: OPEN=4 RC0=1 ALLOWED=1 UNRUN=2 (az + abspath)" 'grep -qx "FAILOPEN_CLOSURE_OPEN=4" <<<"$out" && grep -qx "FAILOPEN_CLOSURE_RC0=1" <<<"$out" && grep -qx "FAILOPEN_CLOSURE_ALLOWED=1" <<<"$out" && grep -qx "FAILOPEN_CLOSURE_UNRUN=2" <<<"$out"'
+  rm -f "$T/scripts/plant_open.sh" "$T/scripts/plant_rc0.sh" "$T/scripts/plant_py_open.py" "$T/scripts/plant_twovars.sh" "$T/scripts/plant_pyf.py"
   out=$(gate "$T" "$T/allow"); rc=$?
   chk "with the open fixtures removed -> OK (rc 0)"  '[ "$rc" -eq 0 ] && grep -qx "FAILOPEN_CLOSURE=OK" <<<"$out"'
   # Q-650: a PLANTED LAUNCHER FAILURE. The tree is in its OK state here, so anything but OK is

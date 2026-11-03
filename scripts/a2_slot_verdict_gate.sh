@@ -161,6 +161,13 @@ grade("fixture 2 (mirror: 5.20% on slot 3, 3.84% on slot 2)", atlas(0.0384, 0.05
 grade("fixture 3 (slot 32 perturbed to 6.00%)", atlas(0.0520, 0.0384, slot32_pct=0.0600),
       "FAIL", "The final-layer index is not being read, or is not being compared.")
 
+# FIXTURE 5 -- the COMBINED bound alone (FV2-G3a; Codex gpt-6-astra F05-017#1). Slot 2 and slot 32 each
+# sit 0.0015 inside their own 0.002 tolerance, but their sum is 0.003 off the published R-C1c anchor
+# adjacency. Fixtures 1-3 never exercise the combined check, so deleting it left the gate green.
+grade("fixture 5 (slot 2 = 5.35%, slot 32 = 8.00%: each within tolerance, their sum not)",
+      atlas(0.0535, 0.0384, slot32_pct=0.0800), "FAIL",
+      "The combined R-C1c (slot32 + slot2) deviation is not being compared against its own bound.")
+
 # FIXTURE 4 -- an incomplete ladder.  layers[-1] is slot 32 only when the ladder is complete;
 # a short atlas must SKIP loudly, never silently grade some other slot against slot 32.
 st4, d4 = solve.atlas_a2_slot_check(

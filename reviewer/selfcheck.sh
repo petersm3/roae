@@ -75,6 +75,8 @@ PKG_FILES=(
   verify.c
   verify.py
   documentation/REPRODUCE.md
+  documentation/VERIFY.md
+  documentation/CANONICAL_HASHES.md
   documentation/SPECIFICATION.md
   reports/FULL31_EXACT_AGGREGATES.md
   scripts/reproduce_digests_gate.sh
@@ -605,6 +607,10 @@ run_steps(){
   [ -n "$TIMES" ] && printf 'step\twall_s\tpeak_rss_kib\tresult\n' > "$TIMES"
   NSTEP=0; NFAIL=0; NUNFIN=0
   local tmo=${SELFCHECK_STEP_TIMEOUT:-1800}
+  # FV2-G3a (Codex gpt-6-astra F04-022#9): `timeout` sent TERM only, so a step that ignores TERM ran past
+  # its budget and no TIMEOUT verdict was ever produced. KILL follows after SELFCHECK_KILL_AFTER seconds
+  # (default 30); timeout then exits 137, which is classified TIMEOUT when the budget had elapsed.
+  local kaft=${SELFCHECK_KILL_AFTER:-30}
   # F05-020#1: the STEP records are read into a variable with grep's status checked, counted, and the
   # count is required to equal the steps run and the page's stated count -- a producer that emitted
   # one record and died used to leave a one-step run that read PASS.
@@ -624,14 +630,16 @@ run_steps(){
     t0=$(date +%s%N)
     if [ -n "$TIMEBIN" ]; then
       (cd "$W" && env "${UNSET[@]}" "$TIMEBIN" -f '%M' -o "$W/.selfcheck/rss_$n" \
-          timeout "$tmo" bash -o pipefail -c "$cmd") >"$log" 2>&1; rc=$?
+          timeout -k "$kaft" "$tmo" bash -o pipefail -c "$cmd") >"$log" 2>&1; rc=$?
       rss=$(tail -1 "$W/.selfcheck/rss_$n" 2>/dev/null | grep -E '^[0-9]+$' || echo "")
     else
-      (cd "$W" && env "${UNSET[@]}" timeout "$tmo" bash -o pipefail -c "$cmd") >"$log" 2>&1; rc=$?
+      (cd "$W" && env "${UNSET[@]}" timeout -k "$kaft" "$tmo" bash -o pipefail -c "$cmd") >"$log" 2>&1; rc=$?
       rss=""
     fi
     t1=$(date +%s%N)
     local wall; wall=$(awk -v a="$t0" -v b="$t1" 'BEGIN{printf "%.2f", (b-a)/1e9}')
+    # exit 137 after the whole budget elapsed is timeout's KILL (the step ignored TERM): a TIMEOUT, not a CRASH
+    if [ "$rc" -eq 137 ] && [ "$(awk -v w="$wall" -v t="$tmo" 'BEGIN{print (w+0 >= t+0) ? 1 : 0}')" -eq 1 ]; then rc=124; fi
     sed 's/^[[:space:]]*//; s/[[:space:]]*$//' "$log" > "$log.trim"
     ok=1; unfin=0
     if [ "$rc" -eq 124 ]; then
@@ -1019,6 +1027,7 @@ runner p_reports_failure     FAIL 'reports a failure'        "$E"
 # A step that did not finish, a verdict printed twice, and a failure after an expected prefix
 # (the Q-951 / Q-952 class, batch 39).
 mkpage 1 $'[1] echo STEP_ONE=ok; sleep 5\n    expect: STEP_ONE=ok' p_timeout
+mkpage 1 $'[1] trap "" TERM; echo STEP_ONE=ok; sleep 20\n    expect: STEP_ONE=ok' p_timeout_term_ignored
 mkpage 1 $'[1] echo STEP_ONE=ok; kill -SEGV $$\n    expect: STEP_ONE=ok' p_crash
 mkpage 1 $'[1] { echo PIPE=ok; kill -KILL $BASHPID; } | tee out.txt\n    expect: PIPE=ok' p_crash_behind_tee
 mkpage 1 $'[1] echo AGGREGATES=PASS; echo AGGREGATES=PASS\n    expect: AGGREGATES=PASS' p_verdict_twice
@@ -1026,6 +1035,8 @@ mkpage 1 $'[1] printf \'all 9 layer masses MATCH x  [0.0s] FAIL\\n\'\n    expect
 mkpage 1 $'[1] printf \'STEP_ONE=ok\\nERROR: layer 3 unreadable\\n\'\n    expect: STEP_ONE=ok' p_reports_error
 mkpage 1 $'[1] printf \'STEP_ONE=ok\\nTraceback (most recent call last):\\n\'\n    expect: STEP_ONE=ok' p_traceback
 SELFCHECK_STEP_TIMEOUT=1 runner p_timeout ERROR '\[TIMEOUT\]' "$E"
+# F04-022#9: a step that ignores TERM is still a TIMEOUT (KILL after SELFCHECK_KILL_AFTER), never a hang
+SELFCHECK_STEP_TIMEOUT=1 SELFCHECK_KILL_AFTER=1 runner p_timeout_term_ignored ERROR '\[TIMEOUT\]' "$E"
 runner p_crash               ERROR '\[CRASH\] .*signal 11'  "$E"
 runner p_crash_behind_tee    ERROR '\[CRASH\] .*signal 9'   "$E"
 runner p_verdict_twice       FAIL 'exactly once'             "$E"

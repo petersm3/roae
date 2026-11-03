@@ -13,7 +13,14 @@
 # Verdict token: PUBLISHED_CONSISTENCY=PASS|FAIL — grep -qx it, never gate on output shape.
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 2
+PIN="$(dirname "$0")/gate_published_consistency.pin"
 fail=0
+# gpc_q GREP-ARGS... -- grep run ONCE with its output discarded; returns 0 (a match), 1 (no match) or 2
+# (grep FAILED: an unreadable file, a directory, a bad regex). FV2-G3a (Codex gpt-6-astra F05-005#16):
+# G8-G15 used `if grep -q ...` / `! grep -q ...` / `grep ... || true`, so a grep that failed (rc 2)
+# took the "no match" branch and printed [ok]; `[ -r ]` guards only the open, and a directory passes
+# it. Every leg whose PASS is the ABSENCE of a match now branches on all three values.
+gpc_q() { grep "$@" >/dev/null 2>&1; local r=$?; [ "$r" -le 1 ] && return "$r"; return 2; }
 # gpc_n PATTERN FILE [grep flags] -- the count `grep -c` gives, or -1 when grep cannot read FILE (Q-963,
 # batch 48). `[ "$(grep -c ...)" -eq 0 ]` on an unreadable file is `[ "" -eq 0 ]`, an ERROR that `if`
 # reads as false, so a FAIL arm keyed on "count is 0" or "count > 0" was skipped. Every caller compares
@@ -29,6 +36,33 @@ gpc_n() { local c r; c=$(grep "${@:3}" -c -- "$1" "$2" 2>/dev/null); r=$?
 # match against any of the repository's tags. Three lens-B findings collapsed to this one grep. Q-883 (2026-09-27, Fable E4 FIX-2): the grep ran as `2>/dev/null || true`, so with reports/ absent it printed `[ok] no unfilled placeholders` over nothing; it now branches on grep's rc (0 hits, 1 none, >= 2 FAIL), checks both roots exist, prints G1_FILES_SCANNED=N and fails below G1_FLOOR (200 against 290 measured 2026-09-27: 289 files under reports/ plus README.md), and any of those failures forces PUBLISHED_CONSISTENCY=FAIL through G1_ERR at the ratchet. G1_ROOT overrides the directory scanned (default the repo root), for the red tests, the way G19_DOC does for G19.
 echo "== G1: unfilled placeholders in published reports =="
 _G1R=${G1_ROOT:-.}; G1_ERR=0; G1_FLOOR=200; G1_SCANNED=0; G1=""; _g1rc=0; [ "$_G1R" = . ] || echo "   [note] G1: G1_ROOT overrides the scanned root to $_G1R"; if [ -d "$_G1R/reports" ] && [ -r "$_G1R/README.md" ]; then G1_SCANNED=$(( $(find "$_G1R/reports" -type f | wc -l) + 1 )); G1=$(cd "$_G1R" || exit 2; grep -rnoE "\[(REPRO-TAG|EXPECTED-[A-Z0-9]+|STAGE-[FGT]-SHA-REGISTRY)\]" reports/ README.md); _g1rc=$?; else echo "   [FAIL] G1: $_G1R/reports/ or $_G1R/README.md is missing or unreadable -- this leg measured NOTHING"; G1_ERR=1; fi; echo "G1_FILES_SCANNED=$G1_SCANNED"; [ "$_g1rc" -le 1 ] || { echo "   [FAIL] G1: the placeholder grep failed (rc $_g1rc) -- its population is UNMEASURED, so no [ok] can be printed"; G1_ERR=1; }; [ "$G1_SCANNED" -ge "$G1_FLOOR" ] || { echo "   [FAIL] G1: $G1_SCANNED file(s) scanned, below the floor $G1_FLOOR -- a moved, emptied or narrowed reports/ tree is a broken scan, not a clean one"; G1_ERR=1; }
+# FV2-G3a (Codex gpt-6-astra F06-012#5): a token inside a backtick code span (a dated correction note
+# that QUOTES the historical placeholder name) or on a dated revision/correction row (the citation gate's
+# dated-row shape) is not an unfilled placeholder. Measured at 4d9cc323: the four pinned hits were exactly
+# those -- TR12_QUERY_PROGRAM.md:1598 (three names in one code span) and :2832 (a v1.11 revision row) --
+# and they let four real placeholders hide behind the pin. The hits are read back per line and only an
+# occurrence OUTSIDE every code span, on a line that is not a dated row, is counted. The filter's own
+# failure is G1_ERR (measured NOTHING), never an empty [ok].
+if [ "$_g1rc" -eq 0 ] && [ -n "$G1" ]; then
+  G1=$(printf '%s\n' "$G1" | (cd "$_G1R" && python3 -c '
+import re, sys
+DATED = re.compile(r"^\s*\|\s*\**\s*(?:v\d+(?:\.\d+)+|\d{4}-\d{2}-\d{2})\b")
+SPAN = re.compile(r"`+[^`]*`+")
+cache = {}
+for raw in sys.stdin.read().split("\n"):
+    if not raw: continue
+    f, ln, tok = raw.split(":", 2)
+    if f not in cache:
+        cache[f] = open(f, encoding="utf-8", errors="replace").read().split("\n")
+    line = cache[f][int(ln) - 1]
+    if DATED.match(line): continue
+    spans = [(m.start(), m.end()) for m in SPAN.finditer(line)]
+    outside = [m.start() for m in re.finditer(re.escape(tok), line) if not any(a <= m.start() < b for a, b in spans)]
+    key = (f, ln, tok)
+    cache.setdefault(key, 0); cache[key] += 1
+    if cache[key] <= len(outside): print(raw)
+')) || { echo "   [FAIL] G1: the placeholder post-filter failed -- its population is UNMEASURED, so no [ok] can be printed"; G1_ERR=1; }
+fi
 G1_N=$( [ -n "$G1" ] && echo "$G1" | grep -c . || echo 0 )
 if [ -n "$G1" ]; then
   echo "$G1" | sed 's/^/   [FAIL] /'
@@ -122,7 +156,10 @@ else
     # text with spaces removed -- `false;`, `false # no artifact yet`, `! true`, `(exit 1)` and `true &&`
     # are the same constants. Leading `!`, `(`, `{` and blanks are dropped; a comment or nothing left is
     # an empty probe; the word ends at a blank or a shell operator character.
-    _g3w=$(printf '%s' "$test_cmd" | sed -E 's/^[[:space:]!({]*//; s/^#.*//; s/[[:space:];&|()<>#].*//')
+    # FV2-G3a (Codex gpt-6-astra F05-005#13): `"true"`, `'true'`, `command true`, `env true`, `exec true`,
+    # `builtin true`, `sh -c true` and `bash -c true` are the same constants; the quotes and those
+    # prefixes are stripped before the word is read (hardening: no row of the registry has that shape).
+    _g3w=$(printf '%s' "$test_cmd" | sed -E 's/^[[:space:]!({]*//; s/^#.*//; s/^(((command|env|exec|builtin)[[:space:]]+|(sh|bash|dash)[[:space:]]+-c[[:space:]]+)+)//; s/^[[:space:]!({]*//; s/^["'"'"']//; s/[[:space:];&|()<>#"'"'"'].*//')
     case "$_g3w" in
       ''|false|true|:|exit|return)
         echo "   [FAIL] $f: \"$claim\" — its probe is the constant '${test_cmd}', which can never"
@@ -179,7 +216,10 @@ for e in re.split(r'\n(?=#{2,4} *CX-\d+)', s):
     # indentation as CommonMark reads it: the bullet's line, its lazy continuation lines, and, past a
     # blank line, every line indented to the item's content column. A blank line ended the field
     # before, so `  [target](X.md)` under a blank line inside the item was never checked.
-    el = e.split('\n')
+    # FV2-G3a (Codex gpt-6-astra F05-005#15): indentation is measured after tabs are expanded to the
+    # CommonMark 4-column stop; a tab-indented continuation after a blank line read as lead 0 and ended
+    # the field, so the links on it were never propagation-checked.
+    el = [l.expandtabs(4) for l in e.split('\n')]
     dk = next((k for k, l in enumerate(el) if re.match(r'[ \t]*[-*+][ \t]+\*\*Documents:\*\*', l)), None)
     if dk is None: continue
     _ind = len(el[dk]) - len(el[dk].lstrip(' '))
@@ -200,11 +240,17 @@ for e in re.split(r'\n(?=#{2,4} *CX-\d+)', s):
         # naming the ROOT README was checked against documentation/README.md (the CX-28 entry in the
         # ledger links that way). A root-relative spelling (`reports/X.md` written without `../`) is still
         # accepted, but only when the relative target does not exist.
-        p = link.split('#')[0].strip()
+        # FV2-G3a (Codex gpt-6-astra F05-005#14): the DESTINATION is the first token of the link target --
+        # `[x](../README.md "lead")` carries a title, which made isfile() fail and the target skip silently.
+        # An `.md` destination that resolves to no file is a finding, not a skip.
+        p = link.strip().split()[0].strip('<>') if link.strip() else ''
+        p = p.split('#')[0].strip()
         if not p or re.match(r'[a-z]+:', p): continue
         q = os.path.normpath(os.path.join('documentation', p))
         if not os.path.isfile(q) and p.startswith(('reports/','documentation/','lean/')):
             q = os.path.normpath(p)
+        if q.endswith('.md') and not os.path.isfile(q) and q not in seen:
+            seen.add(q); bad.append(f"{cx} names {p}, which resolves to no file")
         if q.endswith('.md') and os.path.isfile(q) and q not in seen:
             seen.add(q)
             # Q-966 (A02#21): the id as an EXACT token -- CX-999 is not found inside CX-9990.
@@ -213,13 +259,34 @@ for e in re.split(r'\n(?=#{2,4} *CX-\d+)', s):
 for b in bad: print(b)
 PYG4
 } | python3 - ); _g4rc=$?
-  if [ "$_g4rc" -ne 0 ]; then echo "   [FAIL] G4: the propagation scan failed (rc $_g4rc) -- NOTHING was checked (F05-005#3)"; fail=1; G4_N=999; elif [ -n "$G4_OUT" ]; then
-    printf '%s\n' "$G4_OUT" | sed 's/^/   [FAIL] /'
-    G4_N=$(printf '%s\n' "$G4_OUT" | grep -c .)
-    echo "   $G4_N correction(s) naming a target that lacks the id"
-    fail=1
-  else
-    echo "   [ok]   every file a correction names carries that correction's id"
+  # FV2-G3a (Codex gpt-6-astra F06-012#8): the known-open misses are pinned PER (correction, target),
+  # with a reason each, in `G4_EXEMPT=<CX>|<path>|<reason>` rows of the pin file -- not as a count. A
+  # count pin let a NEW miss hide behind a pinned one that was cured in the same change; a named row
+  # cannot. G4_N counts the misses that are NOT exempt; an exemption that no longer misses is reported
+  # as a row to remove (tighten), the way a count that fell is.
+  G4_EXEMPT_STALE=0
+  if [ "$_g4rc" -ne 0 ]; then echo "   [FAIL] G4: the propagation scan failed (rc $_g4rc) -- NOTHING was checked (F05-005#3)"; fail=1; G4_N=999; else
+    _g4new=""; _g4pin=0
+    while IFS= read -r _b; do
+      [ -n "$_b" ] || continue
+      _bcx=${_b%% *}; _bq=$(printf '%s' "$_b" | sed -E 's/^[^ ]+ names ([^,]+),.*/\1/')
+      if grep -qF -- "G4_EXEMPT=${_bcx}|${_bq}|" "$PIN"; then
+        printf '   [pinned] %s -- %s\n' "$_b" "$(sed -n "s/^G4_EXEMPT=${_bcx}|$(printf '%s' "$_bq" | sed 's/[][\\.*^$/]/\\&/g')|//p" "$PIN" | head -1)"; _g4pin=$((_g4pin+1))
+      else _g4new="${_g4new}${_b}"$'\n'; fi
+    done <<<"$G4_OUT"
+    while IFS='|' read -r _ecx _eq _er; do
+      [ -n "$_ecx" ] || continue
+      grep -qF -- "${_ecx} names ${_eq}," <<<"$G4_OUT" \
+        || { echo "   [ok]   G4 exemption ${_ecx}|${_eq} no longer misses -- REMOVE THAT ROW from the pin in this same commit"; G4_EXEMPT_STALE=$((G4_EXEMPT_STALE+1)); }
+    done < <(sed -n 's/^G4_EXEMPT=//p' "$PIN")
+    if [ -n "$_g4new" ]; then
+      printf '%s' "$_g4new" | sed 's/^/   [FAIL] /'
+      G4_N=$(printf '%s' "$_g4new" | grep -c .)
+      echo "   $G4_N correction(s) naming a target that lacks the id (plus $_g4pin pinned by name in $PIN)"
+      fail=1
+    else
+      echo "   [ok]   every file a correction names carries that correction's id ($_g4pin known-open miss(es) pinned by name in $PIN)"
+    fi
   fi
 else
   echo "   [FAIL] documentation/CORRECTIONS.md unreadable — cannot check propagation"; fail=1; G4_N=999
@@ -337,13 +404,14 @@ fi
 G8=0
 _L8=${G8_FILE:-enumeration/LEADERBOARD.md}
 if [ -r "$_L8" ]; then
-  if grep -qE 'pos [0-9]+-[0-9]+ constrained.{0,40}(all three|every) dataset' "$_L8"; then
-    echo "  [FAIL] G8: a FIXED position range is claimed constrained across all datasets;"
-    echo "         measured, position 4 is H=0.2803/3 pairs at 742M and H=4.5029/31 at d3 10T."
-    G8=1
-  else
-    echo "  [ok]   G8: no fixed constrained-position range is asserted across datasets"
-  fi
+  gpc_q -E 'pos [0-9]+-[0-9]+ constrained.{0,40}(all three|every) dataset' "$_L8"; _r8=$?
+  case "$_r8" in
+    0) echo "  [FAIL] G8: a FIXED position range is claimed constrained across all datasets;"
+       echo "         measured, position 4 is H=0.2803/3 pairs at 742M and H=4.5029/31 at d3 10T."
+       G8=1 ;;
+    1) echo "  [ok]   G8: no fixed constrained-position range is asserted across datasets" ;;
+    *) echo "  [FAIL] G8: grep could not read $_L8 (rc $_r8) -- this leg measured NOTHING"; G8=1 ;;
+  esac
 else
   echo "  [FAIL] G8: cannot read $_L8 -- this leg measured NOTHING"; G8=1
 fi
@@ -358,18 +426,25 @@ fi
 G9=0
 _G9F=${G9_FILE:-enumeration/LEADERBOARD.md}
 if [ -r "$_G9F" ]; then
-  _nb=$(grep -nE '^\s*(SOLVE_[A-Z_]+=[^ ]+ +)*\./solve --(sub-)?branch ' "$_G9F" 2>/dev/null \
-          | grep -v 'SOLVE_NODE_LIMIT\|SOLVE_PER_SUB_BRANCH_LIMIT\|REQUIRED' || true)
-  if [ -n "$_nb" ]; then
-    echo "  [FAIL] G9: a published --branch recipe carries no budget; it will not return:"
-    printf '%s\n' "$_nb" | head -3 | sed 's/^/         /'
-    G9=$((G9+1))
+  _nbraw=$(grep -nE '^\s*(SOLVE_[A-Z_]+=[^ ]+ +)*\./solve --(sub-)?branch ' "$_G9F" 2>/dev/null); _r9=$?
+  if [ "$_r9" -ge 2 ]; then
+    echo "  [FAIL] G9: grep could not read $_G9F (rc $_r9) -- this leg measured NOTHING"; G9=$((G9+1))
+  else
+    _nb=$(printf '%s\n' "$_nbraw" | grep -v 'SOLVE_NODE_LIMIT\|SOLVE_PER_SUB_BRANCH_LIMIT\|REQUIRED' | grep . || true)
+    if [ -n "$_nb" ]; then
+      echo "  [FAIL] G9: a published --branch recipe carries no budget; it will not return:"
+      printf '%s\n' "$_nb" | head -3 | sed 's/^/         /'
+      G9=$((G9+1))
+    fi
   fi
-  if grep -qE '\-\-validate +solutions_merged\.bin' "$_G9F" 2>/dev/null \
-       && ! grep -qE 'never written' "$_G9F"; then
-    echo "  [FAIL] G9: --validate names solutions_merged.bin, which --merge does not write"
-    G9=$((G9+1))
-  fi
+  gpc_q -E '\-\-validate +solutions_merged\.bin' "$_G9F"; _r9=$?
+  if [ "$_r9" -eq 0 ]; then
+    gpc_q -E 'never written' "$_G9F"; _r9b=$?
+    if [ "$_r9b" -eq 1 ]; then
+      echo "  [FAIL] G9: --validate names solutions_merged.bin, which --merge does not write"
+      G9=$((G9+1))
+    elif [ "$_r9b" -ge 2 ]; then echo "  [FAIL] G9: grep could not read $_G9F (rc $_r9b) -- this leg measured NOTHING"; G9=$((G9+1)); fi
+  elif [ "$_r9" -ge 2 ]; then echo "  [FAIL] G9: grep could not read $_G9F (rc $_r9) -- this leg measured NOTHING"; G9=$((G9+1)); fi
   [ "$G9" -eq 0 ] && echo "  [ok]   G9: published --branch recipes carry a budget and --validate names a real path"
 else
   echo "  [FAIL] G9: cannot read $_G9F -- this leg measured NOTHING"; G9=1
@@ -389,6 +464,8 @@ if [ -r "$_ledger" ]; then
     [ -r "$_tr" ] || continue
     _id=$(basename "$_tr" | grep -oE '^TR[0-9]+')
     _n=$(printf '%s' "$_id" | grep -oE '[0-9]+')
+    _rows10=$(grep -E '^\|.*20[0-9]{2}-[0-9]{2}-[0-9]{2}' "$_tr" 2>/dev/null); _r10=$?
+    [ "$_r10" -le 1 ] || { echo "  [FAIL] G10: grep could not read $_tr (rc $_r10) -- this leg measured NOTHING"; G10=$((G10+1)); continue; }
     while IFS= read -r _row; do
       _d=$(printf '%s' "$_row" | grep -oE '20[0-9]{2}-[0-9]{2}-[0-9]{2}' | head -1)
       [ -n "$_d" ] || continue
@@ -404,8 +481,7 @@ if [ -r "$_ledger" ]; then
         echo "  [FAIL] G10: $_id revision row dated $_d re-scopes/withdraws, with no ledger entry naming both"
         G10=$((G10+1))
       fi
-    done < <(grep -E '^\|.*20[0-9]{2}-[0-9]{2}-[0-9]{2}' "$_tr" 2>/dev/null \
-               | grep -iE 're-scoped|rescoped|withdrawn|retracted' || true)
+    done < <(printf '%s\n' "$_rows10" | grep -iE 're-scoped|rescoped|withdrawn|retracted' || true)
   done
   [ "$G10" -eq 0 ] && echo "  [ok]   G10: every re-scoping TR revision row is named in the corrections ledger"
 else
@@ -447,15 +523,21 @@ _PH=${G12_PRE:-reports/evidence/r11/PHASE2_README.md}
 _T2=${G12_DOC:-reports/TR2_THE_RULES_CONFLICT.md}
 if [ -r "$_PH" ] && [ -r "$_T2" ]; then
   # the pre-registration names 2.5σ for gate 3; if TR-2 quotes 1.9σ it must not call it a 2σ gate
-  if grep -qE 'within 2\.5σ' "$_PH" 2>/dev/null; then
-    if grep -q '1.9σ' "$_T2" 2>/dev/null && ! grep -q 'do NOT share one threshold' "$_T2" 2>/dev/null; then
+  gpc_q -E 'within 2\.5σ' "$_PH"; _r12=$?
+  if [ "$_r12" -eq 0 ]; then
+    gpc_q -F '1.9σ' "$_T2"; _r12a=$?; gpc_q -F 'do NOT share one threshold' "$_T2"; _r12b=$?
+    if [ "$_r12a" -ge 2 ] || [ "$_r12b" -ge 2 ]; then
+      echo "  [FAIL] G12: grep could not read $_T2 (rc $_r12a/$_r12b) -- this leg measured NOTHING"; G12=1
+    elif [ "$_r12a" -eq 0 ] && [ "$_r12b" -eq 1 ]; then
       echo "  [FAIL] G12: TR-2 quotes 1.9σ without recording that its pre-registered gate is 2.5σ"
       G12=1
     else
       echo "  [ok]   G12: the pre-registered gate thresholds are quoted with the figures they bound"
     fi
-  else
+  elif [ "$_r12" -eq 1 ]; then
     echo "  [FAIL] G12: $_PH no longer states a 2.5σ criterion -- this leg measured NOTHING"; G12=1
+  else
+    echo "  [FAIL] G12: grep could not read $_PH (rc $_r12) -- this leg measured NOTHING"; G12=1
   fi
 else
   echo "  [FAIL] G12: cannot read $_PH or $_T2 -- this leg measured NOTHING"; G12=1
@@ -471,9 +553,12 @@ G13=0
 _FB=${G13_FIBER:-reports/evidence/f5/f5_modec_fiber.out}
 _CT=${G13_DOC:-documentation/CITATIONS.md}
 if [ -r "$_FB" ] && [ -r "$_CT" ]; then
-  if ! grep -qE 'X >= 30: 0' "$_FB" 2>/dev/null; then
+  gpc_q -E 'X >= 30: 0' "$_FB"; _r13=$?; gpc_q -F 'his declared exception is forced' "$_CT"; _r13b=$?
+  if [ "$_r13" -ge 2 ] || [ "$_r13b" -ge 2 ]; then
+    echo "  [FAIL] G13: grep could not read $_FB or $_CT (rc $_r13/$_r13b) -- this leg measured NOTHING"; G13=1
+  elif [ "$_r13" -eq 1 ]; then
     echo "  [FAIL] G13: $_FB no longer records X >= 30: 0 -- this leg measured NOTHING"; G13=1
-  elif grep -q 'his declared exception is forced' "$_CT" 2>/dev/null; then
+  elif [ "$_r13b" -eq 0 ]; then
     echo "  [FAIL] G13: the declared (pair 3/4) exception is published as forced; the fiber sweep"
     echo "         forces only THAT an exception exists -- the miss falls at six different pairs."
     G13=1
@@ -495,18 +580,22 @@ G14=0
 _S14=${G14_DOC:-documentation/SEARCH_SPACE_SIZE.md}
 _T14=${G14_TR1:-reports/TR1_EIGHT_CENTURIES_MEASURED.md}
 if [ -r "$_S14" ] && [ -r "$_T14" ]; then
-  if ! grep -q '1,720,320' "$_T14" 2>/dev/null; then
+  gpc_q -F '1,720,320' "$_T14"; _r14a=$?; gpc_q -F 'reached no sooner than k ≈ 14' "$_S14"; _r14b=$?
+  gpc_q -E 'projection (up )?to ~15(–|-)20' "$_S14"; _r14c=$?; gpc_q -F '31 pinnable steps pinned' "$_S14"; _r14d=$?
+  if [ "$_r14a" -ge 2 ] || [ "$_r14b" -ge 2 ] || [ "$_r14c" -ge 2 ] || [ "$_r14d" -ge 2 ]; then
+    echo "  [FAIL] G14: grep could not read $_T14 or $_S14 (rc $_r14a/$_r14b/$_r14c/$_r14d) -- this leg measured NOTHING"; G14=1
+  elif [ "$_r14a" -eq 1 ]; then
     echo "  [FAIL] G14: TR-1 no longer publishes the 1,720,320 fiber -- this leg measured NOTHING"; G14=1
   # Re-keyed 2026-09-26 (Q-842, Fable's Q-827 ruling): the ~15-20 band this leg used to key on is
   # WITHDRAWN, so keying on it would leave the leg green by absence. It now keys on the statement
   # that replaced it -- the conditional k ~ 14 marker -- and is red when that marker is gone
   # (nothing measured), when the withdrawn band is republished as a projection, or when the marker
   # stands without the oriented-fiber floor.
-  elif ! grep -q 'reached no sooner than k ≈ 14' "$_S14" 2>/dev/null; then
+  elif [ "$_r14b" -eq 1 ]; then
     echo "  [FAIL] G14: $_S14 no longer states the conditional k ≈ 14 marker -- this leg measured NOTHING"; G14=1
-  elif grep -qE 'projection (up )?to ~15(–|-)20' "$_S14" 2>/dev/null; then
+  elif [ "$_r14c" -eq 0 ]; then
     echo "  [FAIL] G14: the ~15–20 boundary band (withdrawn 2026-09-26, Q-827) is published as a projection again"; G14=1
-  elif ! grep -q '31 pinnable steps pinned' "$_S14" 2>/dev/null; then
+  elif [ "$_r14d" -eq 1 ]; then
     echo "  [FAIL] G14: a boundary-count projection is published without the oriented-fiber floor;"
     echo "         1,720,320 orientations survive all 31 pins = 20.71 bits no boundary count closes."
     G14=1
@@ -528,9 +617,12 @@ G15=0
 _LR=${G15_POP:-documentation/LITERATURE_RULES_POPULATION_TESTS.md}
 _CA=${G15_DOC:-documentation/CLAIM_TO_ARTIFACT.md}
 if [ -r "$_LR" ] && [ -r "$_CA" ]; then
-  if ! grep -q 'is DATA-LIKE' "$_LR" 2>/dev/null; then
+  gpc_q -F 'is DATA-LIKE' "$_LR"; _r15=$?; gpc_q -E '\*\*27 of 31\*\* reproduce a source-stated' "$_CA"; _r15b=$?
+  if [ "$_r15" -ge 2 ] || [ "$_r15b" -ge 2 ]; then
+    echo "  [FAIL] G15: grep could not read $_LR or $_CA (rc $_r15/$_r15b) -- this leg measured NOTHING"; G15=1
+  elif [ "$_r15" -eq 1 ]; then
     echo "  [FAIL] G15: $_LR no longer classifies any row DATA-LIKE -- this leg measured NOTHING"; G15=1
-  elif grep -qE '\*\*27 of 31\*\* reproduce a source-stated' "$_CA" 2>/dev/null; then
+  elif [ "$_r15b" -eq 0 ]; then
     echo "  [FAIL] G15: 27 of 31 counted as source-stated, but d7 is classified DATA-LIKE"
     echo "         (its slots are King Wen's own; the split is 26 source-stated / 5 KW-derived)"
     G15=1
@@ -641,7 +733,6 @@ fi
 # read-but-never-assigned G3 count LOOK wired: it manufactured a 0 for a leg that never set one, and
 # it let the environment set the count instead. Do not re-add a default for any G<n> here or in the
 # ratchet -- an unassigned count must abort under `set -u`, not read as clean. See the ratchet below.
-PIN="$(dirname "$0")/gate_published_consistency.pin"
 if [ ! -r "$PIN" ]; then
   echo "  [FAIL] no pin file at $PIN — an UNPINNED ratchet certifies nothing"
   echo "PUBLISHED_CONSISTENCY=FAIL"; exit 1
@@ -709,9 +800,11 @@ if [ -r "$_M" ] && [ -r "$_T12" ]; then
   # grep -c, never grep -q on a pipe -- see the note in G18.
   _est=$(gpc_n '95% CI' "$_M")
   # Lines that talk about a price AND carry a dollar figure. awk counts, so nothing is piped into grep.
-  _m_usd=$(awk 'tolower($0) ~ /price/ && /[$] ?[0-9]/ {n++} END {print n+0}' "$_M" 2>/dev/null)
+  # FV2-G3a (Codex gpt-6-astra F05-005#17): awk's status is kept -- on a file it cannot read awk still
+  # runs END and prints a well-formed "0"; a failed awk now leaves ERR, which the integer check refuses.
+  _m_usd=$(awk 'tolower($0) ~ /price/ && /[$] ?[0-9]/ {n++} END {print n+0}' "$_M" 2>/dev/null) || _m_usd=ERR
   _row=$(gpc_n '^| 1 | \*\*Exact `\\|C15\\|`\*\*' "$_T12")
-  _row_ok=$(awk '/^\| 1 \| \*\*Exact `\\\|C15\\\|`\*\*/ && /PRICED AND DECLINED/ && !/[$] ?[0-9]/ {n++} END {print n+0}' "$_T12" 2>/dev/null)
+  _row_ok=$(awk '/^\| 1 \| \*\*Exact `\\\|C15\\\|`\*\*/ && /PRICED AND DECLINED/ && !/[$] ?[0-9]/ {n++} END {print n+0}' "$_T12" 2>/dev/null) || _row_ok=ERR
   if ! [[ "${_m_usd:-}" =~ ^[0-9]+$ ]] || ! [[ "${_row_ok:-}" =~ ^[0-9]+$ ]]; then echo "  [FAIL] G19: an awk count failed (price lines '${_m_usd:-}', row-1 '${_row_ok:-}') -- NOT measured (F05-005#6)"; G19=1
   elif [ "$_est" -le 0 ]; then
     echo "  [FAIL] G19: no confidence-interval row found in $_M -- this leg measured NOTHING"; G19=1
@@ -777,6 +870,9 @@ for _g in $GLEGS; do
   eval "_now=\$G${_g}; _pin=\$P_G${_g}"
   _PAIRS="$_PAIRS G${_g}:${_now}:${_pin}"
 done
+# FV2-G3a: a G4 miss pinned BY NAME is still a known-open defect. It keeps the verdict at PASS-AT-PIN
+# and is named on the OUTSTANDING line, so the named pin never reads as a stronger claim than the count did.
+if [ "${_g4pin:-0}" -gt 0 ]; then outstanding=$((outstanding+1)); open_legs="${open_legs}${open_legs:+ }G4:${_g4pin}-pinned-by-name"; fi
 for pair in $_PAIRS; do
   g=${pair%%:*}; rest=${pair#*:}; now=${rest%%:*}; pin=${rest##*:}
   if [ "$now" -gt 0 ]; then
@@ -790,7 +886,8 @@ for pair in $_PAIRS; do
     echo "  [ok]   $g at its pinned $pin (known-open; see the pin file for why each stands)"
   fi
 done
-[ "$tighten" -eq 1 ] && echo "  A count fell. Leaving the pin loose lets the defect come back unseen."
+[ "${G4_EXEMPT_STALE:-0}" -gt 0 ] && tighten=1
+[ "$tighten" -eq 1 ] && echo "  A count fell (or a G4 exemption no longer misses). Leaving the pin loose lets the defect come back unseen."
 
 # ---- WIRING SELF-CHECK: the defect class this file has now produced twice ------------------------
 # 🔴 `fail` is raised by a G1–G4 leg that PRINTS a finding; `outstanding` counts the legs whose

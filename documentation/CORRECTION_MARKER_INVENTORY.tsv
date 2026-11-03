@@ -106,7 +106,7 @@ documentation/CIRCULAR_KING_WEN.md	21	ledger-link	RETRACTED	n/a	-	not-a-marker	0
 documentation/CIRCULAR_KING_WEN.md	61	marker	Corrected	1	-	reviewed:paragraph-above-already-says-C3-alone-breaks-rotation	24de4f00e658
 documentation/CIRCULAR_KING_WEN.md	64	ledger-link	RETRACTED	n/a	-	not-a-marker	8a37cde55342
 documentation/CITATIONS.md	31	marker	CORRECTED	1	-	reviewed:sentence-already-attributes-the-operations-to-Yu-Fan	6bb134b4104a
-documentation/CITATIONS.md	108	marker	CORRECTED	1	-	reviewed:sentence-already-says-KW-sits-at-the-C3-ceiling	c179c688913d
+documentation/CITATIONS.md	108	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	c179c688913d
 documentation/CITATIONS.md	127	marker	CORRECTED	1	-	reviewed:line-already-says-orientation-is-definitional	e08aff1054e0
 documentation/CITATIONS.md	161	marker	WITHDRAWN	2	-	reviewed:the-withdrawn-3.3e37-figure-is-still-printed-in-the-sentence	92a4e556aa0f
 documentation/CITATIONS.md	168	ledger-link	CORRECTION	n/a	-	not-a-marker	b806e5941d97
@@ -148,7 +148,7 @@ documentation/CRITIQUE.md	7	marker	Correction	1	-	reviewed:update-already-states
 documentation/CRITIQUE.md	11	ledger-link	CORRECTION	n/a	-	not-a-marker	3df76fd79ac3
 documentation/CRITIQUE.md	33	marker	Corrected	1	-	reviewed:sentence-now-reads-chi-square-invalid-exact-tests-not-run	f7559186adac
 documentation/CRITIQUE.md	35	marker	Corrected	1	-	reviewed:sentence-now-reads-the-full-8x8-grid	ed259a02dbfb
-documentation/CRITIQUE.md	60	marker	CORRECTED	1	-	reviewed:sentence-already-states-the-rate-bound-scoped-to-its-sampler;no-minimum-claim-left	ff409f27a01f
+documentation/CRITIQUE.md	60	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	ff409f27a01f
 documentation/CRITIQUE.md	93	marker	Corrected	1	-	reviewed:sentence-now-withdraws-actively-minimizes	30b4887c9aeb
 documentation/CRITIQUE.md	94	marker	Corrected	1	-	reviewed:sentence-now-reads-no-mean-gap-signal	be1089519ddb
 documentation/CRITIQUE.md	103	marker	CORRECTED	3	GATE 26	reanchored:GATE-26=ledger-anchor	61dcd6d2654d
@@ -684,7 +684,7 @@ reports/TR12_QUERY_PROGRAM.md	1294	ledger-link	CORRECTION	n/a	-	not-a-marker	9d9
 reports/TR12_QUERY_PROGRAM.md	1437	marker	Corrected	1	-	reviewed:bullet-already-lists-what-f-alone-answers	715e5a15829e
 reports/TR12_QUERY_PROGRAM.md	1459	marker	Corrected	1	-	reviewed:text-already-pins-the-tag	ffa7e6e73b5e
 reports/TR12_QUERY_PROGRAM.md	1485	marker	Corrected	1	-	reviewed:text-above-already-says-peak-unmeasured	ad03b1023f77
-reports/TR12_QUERY_PROGRAM.md	1597	marker	Corrected	1	-	reviewed:step-already-names-the-per-row-files	725e799b65d4
+reports/TR12_QUERY_PROGRAM.md	1597	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	725e799b65d4
 reports/TR12_QUERY_PROGRAM.md	1738	marker	CORRECTED	1	-	reviewed:text-already-splits-totals-and-per-query	5cd736162e40
 reports/TR12_QUERY_PROGRAM.md	1748	ledger-link	CORRECTION	n/a	-	not-a-marker	61f2a569fa62
 reports/TR12_QUERY_PROGRAM.md	1854	marker	Corrected	1	-	reviewed:bullet-already-reads-priced-and-declined	d6942b4ebed7

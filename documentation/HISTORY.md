@@ -11996,3 +11996,36 @@ Q-686=DONE
   one whose proposed note the commit history does not support).
 - No measured value, canonical sha, certificate or verdict changed. `TestBatchFV2A` holds a cured sentence per file and
   fails on the uncured tree. TR-3 v1.21, TR-5 v2.26, TR-6 v1.17, TR-7 v2.14, TR-8 v1.26, TR-9 v1.38, TR-11 v1.39.
+
+## 2026-10-29 — push group FV2-G3a: the gate-script rows of the FV2 adjudication (scripts/*gate* a2..history_index and reviewer/selfcheck.sh)
+
+- **The published-consistency gate (CX-36F-A).** Codex (gpt-6-astra) ran the final review and the Fable lane
+  triaged and built it. Seven legs that branched on `grep -q` two ways now treat a failed grep as "measured
+  NOTHING"; G4 reads a link's destination before its title, expands tabs, reports an unresolved `.md` target,
+  and pins its eight known-open misses BY NAME instead of by count; G1 skips code spans and dated rows and is
+  re-pinned at its measured 0; the G3 vacuity filter strips quotes and `command|env|exec|builtin|sh -c`
+  prefixes; G19 keeps awk's status; G2 is re-pinned at its measured 4 (6 before push group FV2-A pinned the thread count in two TR-7 commands). The verdict on the real tree is
+  unchanged (PASS-AT-PIN, the same defects standing).
+- **Gate selftests and fixtures that could not see the rule they name (CX-36F-B).** citation_line_gate's leg
+  N9 now fails by the rarity rule itself and a Codex-id citation no longer excludes its whole line (leg N12);
+  the A2 slot gate has a fixture only the combined bound can fail; d5_01 forwards and checks the sampler's
+  status; d5_02 has a fixture between the 3770/100 and 3770/99 bars; d5_03 requires its mutants to be built;
+  d5_04 refuses a handed-in binary without SOURCE_SHA and runs the witness row through its production
+  dispatch; d5_08 pins the c_q6/c_q10a dispatch on bash's own parse, compares the `N_div_24` value, covers the
+  size-weighted census and histogram guards, and credits a mutant kill only on a leg's merits; the fail-open
+  closure gate sees a token assembled from two variables or an f-string; history_currency's selftest carries
+  date ranges; cli_decl reads a last cell without a trailing pipe, a quoted example value, and a flag's own
+  default; group_c requires the whole consumer region.
+- **The inventories, the index and the ledger checker (CX-36F-C).** corrections_inventory binds a date to the
+  marker that encloses the token even across a nested link, and admits the parenthesised marker words the
+  marker inventory admits — CORRECTIONS_INVENTORY.tsv regenerated, five rows re-dated, no id changed; its
+  selftest fails a case its mktemp skipped; correction_marker_inventory refuses an unreadable file and is quiet
+  about REVIEWED keys when unmeasured; history_index ignores fenced and commented headings and refuses a
+  non-compiling pattern; claim_ledger ends a sentence at `etc.` before a formatting mark.
+- **The package self-check and the portability gate (CX-36F-D).** reviewer/selfcheck.sh kills a step that
+  ignores TERM and calls it TIMEOUT, and bundles VERIFY.md and CANONICAL_HASHES.md; the atlas path-portability
+  gate reports a failed build as ERROR.
+- No canonical output, count, certificate or verdict changed on the real data: every touched gate prints its
+  PASS on this tree, and the only generated file that moved is CORRECTIONS_INVENTORY.tsv (dates of five rows).
+  `TestBatchFV2G3a` holds each cure against the planted defect. Developed with AI assistance (Claude,
+  Anthropic): claude-fable-5-1 (pinned); sites found by Codex (gpt-6-astra), final review.

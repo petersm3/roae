@@ -91,6 +91,14 @@ for t in moore-strict grand-strict; do [ -f "$EVID/$t.txt" ] || fail "pinned wit
 # ---- the binary: given, or built here (the q7ranks_parse_gate.sh idiom) ------------------------
 if [ -n "${Q7WIT_SOLVE:-}" ] && [ -x "$Q7WIT_SOLVE" ]; then
   SOLVE="$Q7WIT_SOLVE"; echo "  [gate] using Q7WIT_SOLVE=$SOLVE"
+  # A HANDED-IN engine must carry this solve.c's SOURCE_SHA (FV2-G3a; Codex gpt-6-astra F05-014#4, the
+  # kc_writer_devfull_gate idiom): with only the +x check a stale binary could certify regressed source.
+  # tr12_repro_gate.sh hands in a binary built with the published line, which embeds it.
+  if [ "${Q7WIT_ALLOW_STALE-}" != "1" ]; then
+    . "$ROOT/scripts/lib_binary_currency.sh"
+    solve_binary_currency_strict "$SOLVE" "$ROOT/solve.c" \
+      || err "$BINCUR_MSG (set Q7WIT_ALLOW_STALE=1 to override, deliberately.)"
+  fi
 else
   command -v gcc >/dev/null 2>&1 || err "no gcc and no Q7WIT_SOLVE"
   S=$(sha256sum solve.c | cut -d' ' -f1)
@@ -137,13 +145,23 @@ def rowblock(begin, endtok):
 helpers = block('q7wit_props(){', '\n}\n') + block('q7wit_check(){', '\n}\n')
 wit = rowblock('    row_begin a0_q7_witnesses', 'row_end TR12_Q7_WITNESSES')
 res = rowblock('    row_begin a0_q7_resolve', 'row_end TR12_Q7_RESOLVE')
+# FV2-G3a (Codex gpt-6-astra F05-014#2): the witness row WITH its enclosing dispatch -- from the `if` that
+# probes python3/solve.py/sat.py/verify.py to the `fi` that closes its skip arm -- so leg 2b below can
+# assert the row is reached when its dependencies are present.
+d0 = s.index('if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ]', 0)
+d0 = s.rindex('\n', 0, s.index('    row_begin a0_q7_witnesses')) + 1
+while not s[d0:].startswith('if command -v python3'):
+    d0 = s.rindex('\n', 0, d0 - 1) + 1
+d1 = s.index('\nfi\n', s.index('row_skip a0_q7_witnesses')) + len('\nfi\n')
+open(w + '/dispatch.sh', 'w').write(s[d0:d1])
 open(w + '/helpers.sh', 'w').write(helpers)
 open(w + '/wit.sh', 'w').write(wit)
 open(w + '/res.sh', 'w').write(res)
 PY
 }
 extract || err "could not extract q7wit_props/q7wit_check/a0_q7_witnesses/a0_q7_resolve from $SRC (anchors moved?)"
-for f in helpers.sh wit.sh res.sh; do [ -s "$WORK/$f" ] || err "empty extraction: $f"; done
+for f in helpers.sh wit.sh res.sh dispatch.sh; do [ -s "$WORK/$f" ] || err "empty extraction: $f"; done
+grep -q '^if command -v python3' "$WORK/dispatch.sh" && grep -q 'row_skip a0_q7_witnesses' "$WORK/dispatch.sh" || err "the extracted dispatch block is not the python3 probe .. skip arm"
 grep -q 'Q7WIT_OK' "$WORK/wit.sh" || err "the extracted witness row does not print Q7WIT_OK"
 grep -q 'Q7RESOLVE_OK' "$WORK/res.sh" || err "the extracted resolve row does not print Q7RESOLVE_OK"
 echo "  [gate] extracted $(grep -c . "$WORK/helpers.sh")+$(grep -c . "$WORK/wit.sh")+$(grep -c . "$WORK/res.sh") lines from $SRC"
@@ -152,13 +170,16 @@ echo "  [gate] extracted $(grep -c . "$WORK/helpers.sh")+$(grep -c . "$WORK/wit.
 run_row(){
   # CX-321: RUN_SOLVE / RUN_ROOT (env) substitute the binary / the repository root for ONE call -- legs 14
   # and 15 run the row against a shimmed sat.py and a wrapped binary; everything else sees the real ones.
-  local row="$1" helpers="$2" wdir="$3" q7r="$4" path="$5" d="$WORK/run.$RANDOM$RANDOM"
+  local row="$1" helpers="$2" wdir="$3" q7r="$4" path="$5" mode="${6:-row}" d="$WORK/run.$RANDOM$RANDOM"
   local solve="${RUN_SOLVE:-$SOLVE}" root="${RUN_ROOT:-$ROOT}"
   rm -rf "$d"; mkdir -p "$d/art" "$d/work"; cp "$WORK/q7_kw.json" "$d/art/q7_kw.json"
   {
     echo 'set -u'
     echo "SOLVE=$(printf '%q' "$solve"); WORK=$(printf '%q' "$d/work"); ARTDIR=$(printf '%q' "$d/art"); REPO_ROOT=$(printf '%q' "$root"); RAW=$(printf '%q' "$d/raw"); Q7_RESOLVE=$q7r"
     echo 'ROWRC=99; row_begin(){ :; }; row_end(){ ROWRC=$2; }; row_skip(){ ROWRC=0; echo "SKIPPED $2 $3" >>"$RAW"; }'
+    # the dispatch block's own dependencies: the import probe (answered PRESENT: the leg asserts what happens
+    # when every dependency is there), row_broken, and the pinned-witness list set outside the rows
+    [ "$mode" = dispatch ] && echo 'py_import_state(){ echo PRESENT; }; row_broken(){ ROWRC=1; echo "BROKEN $2 $3" >>"$RAW"; }; Q7_PINNED_WITNESSES="moore-strict grand-strict"'
     cat "$helpers"
     printf '%s=%q\n' Q7WIT_DIR "$wdir"     # a harness assignment, not a verdict token (GATE 89 LEG 2 reads echo "KEY=..." lines)
     cat "$row"
@@ -196,6 +217,17 @@ for t in moore-strict grand-strict; do
   grep -qx "  \"label\": \"$t\"," "$1" 2>/dev/null || fail "leg 2: q7_$t.json does not carry \"label\": \"$t\" -- a2_q7_ranks would fall back to the filename"
 done
 echo "  [gate] leg 2: GREEN -- both pinned witnesses verify solver-free; sha256 lines match the files; certificates carry their target label"
+
+# ---- leg 2b (FV2-G3a; Codex F05-014#2): the DISPATCH reaches the row when its dependencies are present ----
+# The block is the production `if ... then <row> elif ... row_broken else row_skip fi`, run with the import
+# probe answering PRESENT and the rows' stubs; the witness row must execute (Q7WIT_OK for both targets,
+# rc 0) and neither the skip nor the broken arm may fire. A production change that stops dispatching the
+# row (a wrong `if`, an inverted probe) is visible only here: legs 2-10 run the row on its own.
+out=$(run_row "$WORK/dispatch.sh" "$WORK/helpers.sh" "$EVID" 0 "$NOKISSAT:$BASEPATH" dispatch); rc=$?
+[ "$rc" -eq 0 ] || { printf '%s\n' "$out" | grep -E 'Q7WIT_FAIL|SKIPPED|BROKEN|checker_rc' | sed 's/^/        /'; fail "leg 2b: the dispatch block does not reach the witness row (rc=$rc) with python3/solve.py/sat.py/verify.py present"; }
+for t in moore-strict grand-strict; do grep -qx "Q7WIT_OK	$t" <<<"$out" || fail "leg 2b: the dispatched row did not print Q7WIT_OK for $t"; done
+grep -qE '^(SKIPPED|BROKEN) ' <<<"$out" && fail "leg 2b: the dispatch took the skip/broken arm although every dependency is present"
+echo "  [gate] leg 2b: the production dispatch reaches the witness row with its dependencies present (Q7WIT_OK x2, no skip)"
 
 # ---- leg 3: byte-identical with a stub solver first on PATH --------------------------------------
 out2=$(run_row "$WORK/wit.sh" "$WORK/helpers.sh" "$EVID" 0 "$STUB:$BASEPATH"); rc=$?
@@ -504,5 +536,5 @@ mutant_helpers M5_c3_equality_not_asserted 's/^    if pinned and v\["c3"\] != CL
 RUN_ROOT="$SHIM" mutant_helpers M6_rule_set_not_pinned 's/^elif set(rules) != CLAIM_RULES\[t\]:$/elif False:/' "$EVID" "the shimmed sat.py (leg 14)" 'the rule set moved under the claim'
 RUN_SOLVE="$WRAP/solve" mutant_helpers M7_r11_disagreement_not_fatal 's/^    elif \[ "\$r11c" != "\$r11py" \]; then/    elif false; then/' "$EVID" "the wrapped binary (leg 15a)" 'disagree on the R11 rule vector'
 
-echo "  [gate] 17 legs measured (leg 11 $([ "${Q7WIT_LIVE:-0}" = 1 ] && echo run || echo opt-in, not run)); 8/8 mutants killed"
+echo "  [gate] 18 legs measured (leg 11 $([ "${Q7WIT_LIVE:-0}" = 1 ] && echo run || echo opt-in, not run)); 8/8 mutants killed"
 echo "D5_04_Q7_WITNESSES_GATE=PASS"

@@ -144,17 +144,22 @@ bash "$WORK/m1.sh" > "$WORK/m1.out" 2>/dev/null
 cmp -s "$WORK/m1.out" "$GOLD" && fail "mutant M1 (pre-fix MC row) SURVIVED -- the block cannot tell the MC from the exact null"
 echo "  [gate] mutant M1_prefix_mc_row killed"
 # M2: the MC row re-labelled to the parent token -> two owners of TR12_LS_W0
-sed 's/row_end TR12_LS_W0_COND_MC \$rc/row_end TR12_LS_W0 $rc/' "$SRC" > "$WORK/m2.src"
+# FV2-G3a (Codex gpt-6-astra F05-013#2): a sed that FAILED left an empty output that "differed" from the
+# source, owners() read 0 on it and the mutant was counted killed. The status and a non-empty output are required.
+sed 's/row_end TR12_LS_W0_COND_MC \$rc/row_end TR12_LS_W0 $rc/' "$SRC" > "$WORK/m2.src" || fail "mutant M2: sed failed (rc $?) -- the mutant was not built"
+[ -s "$WORK/m2.src" ] || fail "mutant M2: empty output -- the mutant was not built"
 cmp -s "$WORK/m2.src" "$SRC" && fail "mutant M2 did not apply"
 read -r n nmc mctok < <(owners "$WORK/m2.src"); { [ "$n" = 1 ] && [ "$mctok" = TR12_LS_W0_COND_MC ]; } && fail "mutant M2 (MC row records TR12_LS_W0) SURVIVED"
 echo "  [gate] mutant M2_mc_relabelled_to_parent killed"
 # M4: the same relabelling QUOTED, with the old spelling kept in a trailing comment (F05-013#2)
-sed 's/row_end TR12_LS_W0_COND_MC \$rc/row_end "TR12_LS_W0" "$rc" # row_end TR12_LS_W0_COND_MC $rc/' "$SRC" > "$WORK/m4.src"
+sed 's/row_end TR12_LS_W0_COND_MC \$rc/row_end "TR12_LS_W0" "$rc" # row_end TR12_LS_W0_COND_MC $rc/' "$SRC" > "$WORK/m4.src" || fail "mutant M4: sed failed (rc $?) -- the mutant was not built"
+[ -s "$WORK/m4.src" ] || fail "mutant M4: empty output -- the mutant was not built"
 cmp -s "$WORK/m4.src" "$SRC" && fail "mutant M4 did not apply"
 read -r n nmc mctok < <(owners "$WORK/m4.src"); { [ "$n" = 1 ] && [ "$mctok" = TR12_LS_W0_COND_MC ]; } && fail "mutant M4 (quoted relabel, old spelling in a comment) SURVIVED"
 echo "  [gate] mutant M4_quoted_relabel_in_comment killed"
 # M3: the golden block with the value edited by one unit
-sed 's#47/445740#47/445741#' "$GOLD" > "$WORK/m3.gold"
+sed 's#47/445740#47/445741#' "$GOLD" > "$WORK/m3.gold" || fail "mutant M3: sed failed (rc $?) -- the mutant was not built"
+[ -s "$WORK/m3.gold" ] || fail "mutant M3: empty output -- the mutant was not built"
 cmp -s "$WORK/m3.gold" "$GOLD" && fail "mutant M3 did not apply"
 if grep -qx $'pair_null_gender_le2_exact\t47/445740' "$WORK/m3.gold"; then fail "mutant M3 (edited block) SURVIVED the literal pin"; fi
 cmp -s "$WORK/base.out" "$WORK/m3.gold" && fail "mutant M3 (edited block) SURVIVED the diff"
