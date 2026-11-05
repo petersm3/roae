@@ -1503,7 +1503,7 @@ on 2026-08-08 found no such subsumption. The two documents are **complementary**
 | **[LARGE_SCALE_CAMPAIGNS.md](LARGE_SCALE_CAMPAIGNS.md)** | *Operations* — sizing and per-thread rates, campaign architecture pseudocode, branch distribution, disk-based external merge, common gotchas |
 
 Material that exists **only** in `LARGE_SCALE_CAMPAIGNS.md`, with no counterpart here: §2 sizing
-(the phrase "per-thread rate" occurs 8× there and 0× here), §6 runner/orchestrator pseudocode,
+(the phrase "per-thread rate" occurs 8× there and 0× here), §6 runner/orchestrator pseudocode (its orchestrator half, §6c, retired 2026-11-04 in favour of §8 here; CX-36N-A),
 §9b/9c external and tiered merge, §13a gotchas, and — the one that mattered most in deciding not to
 delete — **§13.0 "Scale honesty," the disclosure that `solve.c` was not then empirically validated above
 the 100T pilot** (that file now also records the 560T canonical of 2026-06-08 as validated, and §6 above is its record; Q-763). Deleting the file per the old plan would have removed a candid limitation

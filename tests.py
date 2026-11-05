@@ -59848,6 +59848,143 @@ class TestBatchFV2E2(unittest.TestCase):
         self._need("Drasny / Schulz xiaoxi-in-group-B count (d7). ROAE contributes only" not in s, "D1457: old attribution")
 
 
+class TestBatchG7c(unittest.TestCase):
+    """Batch G7c (2026-11-04): Q-1072 (LARGE_SCALE_CAMPAIGNS §6c retired, §12 rewritten, the other F12-011 rows)
+    and the SOLVE_C_CLI / DEVELOPMENT rows of Codex's FT3f set (CX-36N-A..CX-36N-C). Each test first asserts the
+    code fact the new text relies on (the precondition), then the text; each fails on the parent tree. No
+    canonical sha, count or verdict changes. Developed with AI assistance (Claude, Anthropic): claude-opus-5-5,
+    from Codex (gpt-6-astra) final-review findings."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    def _read(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as f:
+            return f.read()
+
+    @staticmethod
+    def _ws(x):
+        return " ".join(x.split())
+
+    def _has(self, text, needle, why):
+        if self._ws(needle) not in self._ws(text):
+            raise AssertionError("missing (%s): %r" % (why, needle))
+
+    def _lacks(self, text, needle, why):
+        if self._ws(needle) in self._ws(text):
+            raise AssertionError("still present (%s): %r" % (why, needle))
+
+    def test_lsc_section_6c_retired_and_section_12_rewritten(self):
+        c = self._read("solve.c")
+        # Preconditions: the code facts the retirement and the rewrite state.
+        self._has(c, '"results_%d_%d.json", sb_pair, sb_orient', "--branch writes results_<p>_<o>.json")
+        self._has(c, 'UNLISTED: %s', "--verify-shard-manifest names a foreign shard UNLISTED")
+        self._has(c, "MERGE_ARGS=REFUSED", "--merge refuses a trailing argument")
+        i = c.index("int verify_rc = auto_verify_solutions_bin(outname);")
+        self._has(c[i:i + 200], "if (verify_rc != 0) return verify_rc;", "merge's auto --verify runs after the sha write")
+        self._has(c, '"  Checkpoint cross-ref: %d EXHAUSTED, %d BUDGETED, 0 INTERRUPTED sub-branch(es)',
+                  "the merge prints the per-cell count")
+        self._has(c, "unlink(dfsname);", "an EXHAUSTED cell's .dfs_state is deleted")
+        d = self._read("documentation/LARGE_SCALE_CAMPAIGNS.md")
+        self._has(d, "### 6c. Cross-VM orchestrator — RETIRED 2026-11-04", "6c retired")
+        r = d.index("### 6c. Cross-VM orchestrator — RETIRED 2026-11-04")
+        q = d.index("<details><summary>The retired pseudocode", r)
+        if not (r < q < d.index("SCRIPT orchestrator():") < d.index("</details>", q) < d.index("### 6d.")):
+            raise AssertionError("the retired pseudocode must sit inside the collapsed record block of 6c")
+        for row in ("F12-011#2", "F12-011#3", "F12-011#5", "F12-011#6", "F12-011#8", "F12-011#10", "F12-011#11",
+                    "F12-011#20"):
+            self._has(d, row, "6c retirement names " + row)
+        self._has(d, "CAMPAIGN_METHODOLOGY.md) §8", "6c points to the reproduction recipe")
+        j = d.index("## 12. Reproducibility checklist")
+        k = d.index("## 13. Honest uncertainties")
+        s12 = d[j:k]
+        self._has(s12, "REWRITTEN 2026-11-04", "12 rewritten")
+        self._lacks(s12, "auto-emits\n   a manifest after every shard flush", "old manifest claim gone")
+        self._lacks(s12, "and it does not consult the shard manifest", "old merge claim gone")
+        self._lacks(s12, "`.dfs_state` count **exactly** equal to the expected cell count", "dfs_state gate gone")
+        self._lacks(s12, "200 GB shard pile + 50 GB output", "fixed size gone")
+        self._has(s12, "E + B must equal the expected cell count", "cell count from checkpoint lines")
+        self._has(s12, "Gate on the\n     **exit status**, not on `solutions.sha256` being there", "exit status gate")
+        self._has(s12, "python3 verify.py --expect-kw solutions.bin", "two-language check")
+        self._has(s12, "`MERGE_SHARD=MISSING`, exit 20", "merge manifest presence check")
+
+    def test_lsc_remaining_f12_011_rows(self):
+        c = self._read("solve.c")
+        self._has(c, "#define MAX_SORTED_CHUNKS 4096", "external merge chunk ceiling")
+        self._has(c, "long long need = (long long)((double)in_bytes * 1.5);", "scratch check is 1.5x input bytes")
+        self._has(c, "use_ext = (needed_bytes > total_ram * 8 / 10);", "auto mode on all input records")
+        self._has(c, "ClosestEntry all_top[256 * TOP_N];", "the all_top overflow is fixed")
+        d = self._read("documentation/LARGE_SCALE_CAMPAIGNS.md")
+        self._lacks(d, '"$WORKDIR/solve_results.json"', "F12-011#1")
+        self._has(d, 'read("$WORKDIR/results_${p1}_${o1}.json")', "F12-011#1")
+        self._lacks(d, "# per_task_stats.csv is\n", "F12-011#7")
+        self._lacks(d, "files solve wrote and resumes. No work is rewound.", "F12-011#31")
+        self._lacks(d, "is a **cap**, not a target. Total nodes walked is always ≤ the cap", "F12-011#13")
+        self._has(d, "10,078,048,039,950", "F12-011#13 worked example")
+        self._has(d, "(2,824 cells for branch (2,0), so a 10 T `SOLVE_NODE_LIMIT` gives `3541076487`", "F12-011#12")
+        self._lacks(d, "needs ~1.5× the output size", "F12-011#14")
+        self._lacks(d, "| 1 | 1 | 0.632 | 1.2 GiB | ~6.7 B |", "F12-011#16")
+        self._has(d, "| 1 | 1 | 0.632 | 1.2 GiB | ~3.9 B |", "F12-011#16")
+        self._has(d, "CORRECTED 2026-11-04, CX-36N-A (Codex F12-011#32)", "F12-011#32")
+        self._has(d, "4,096 sorted chunks", "F12-011#32")
+        self._has(d, "where I is the pre-merge input record count", "F12-011#30")
+        self._has(d, "13,832,832,979 input records down to 3,432,399,297 unique", "F12-011#19")
+        self._has(d, "resumed through 7 real evictions", "F12-011#18")
+        self._has(d, "There is no global merge-time hash table", "F12-011#29")
+        self._has(d, "The rest of this item\n   is superseded.", "F12-011#17")
+        self._has(d, "estimated (not benchmarked) ~30 seconds", "F12-011#22")
+        self._has(d, "covers 65,281 of the\n  158,364 cells", "F12-011#9")
+
+    def test_solve_c_cli_rows(self):
+        c = self._read("solve.c")
+        self._has(c, "int selftest_threads = (_np_online >= 4) ? 4 :", "selftest threads clamp")
+        self._has(c, '{"posyang0", 0, kc_xw_posyang0, "edge-additive",', "posyang0 class")
+        self._has(c, "SOLVE_KC_G_STOP_AT_K needs the OOC builder", "stop hook needs OOC")
+        self._has(c, "d in {1,3,5}", "wrap distance 5 allowed")
+        d = self._read("documentation/SOLVE_C_CLI.md")
+        self._lacks(d, "(`SOLVE_THREADS=4`, `SOLVE_NODE_LIMIT=100000000`", "F12-001#11")
+        self._lacks(d, "(the drift-robust anchor).", "F12-001#13")
+        self._lacks(d, "(`scripts`-side `disk_health_precheck.sh`)", "F12-001#7")
+        self._lacks(d, "unchecked framing, unchecked\n`pidx` bound.", "F12-001#10")
+        self._lacks(d, "unchecked framing, unchecked `pidx` bound.", "F12-001#10")
+        self._lacks(d, "is odd (d=1/3 split)", "F12-001#9")
+        self._lacks(d, "Ground truth is `solve.py --r11-verify`; outputs must match byte-for-byte.", "F12-001#4")
+        self._lacks(d, "stated FC-4 percentile prediction needs a dated amendment", "F12-001#12")
+        self._has(d, "F12-001#14", "F12-001#14")
+        self._lacks(d, "**The atlas and every chunk are byte-identical at\nevery `T`:**", "F12-002#7")
+        self._lacks(d, "negative legs N1/N2 that flip a byte", "F12-002#15")
+        self._has(d, "The H1 oracle certificate has no `gdir` key", "F12-002#16")
+        self._has(d, "a private review note that is not in this\nrepository", "F12-002#17")
+        self._lacks(d, "certified by `--kc-t-cert` (the XA(iii) / W0-D certificate)", "F12-024#10")
+        self._lacks(d, "and `NON-INVARIANT (negative control)` for `posyang0`.", "F12-024#14")
+        self._has(d, "`t_units_note` is a key at the atlas's top level", "F12-024#15")
+        self._lacks(d, "budget B (argv[2], `atoll`-parsed;", "F12-003#7")
+        self._has(d, "Read only by the parallel single-`--sub-branch` path", "F12-003#10")
+        self._has(d, "`010` means 8", "F12-003#11")
+        self._has(d, "Needs the out-of-core builder (`--kc-g-ooc`)", "F12-003#13")
+        self._has(d, "`--kc-cache-mb` is no\nlonger ignored but refused", "F12-003#14")
+
+    def test_development_rows(self):
+        g = self._read("scripts/pre_push_gate.sh")
+        self._has(g, 'echo "PREPUSH_ENV=CLEAN"', "the hook emits PREPUSH tokens")
+        self._has(g, "bash scripts/selftest_resume_167_gate.sh --solve ./solve_167", "the hook runs the #167 gate")
+        self._has(g, "DOC_GATES_PUBLISHED_REF=", "the hook arms the published-lineage check")
+        c = self._read("solve.c")
+        self._has(c, 'fprintf(sf, "# Build: src %s (git: %s)\\n", SOURCE_SHA, GIT_HASH);', "sidecar Build line")
+        d = self._read("documentation/DEVELOPMENT.md")
+        self._lacks(d, "**The pre-push hook emits no\n`PREPUSH_*` token", "F09-H01#28")
+        self._lacks(d, "a file at or above 1 MiB needs a recorded approval", "F09-H01#29")
+        self._lacks(d, "# Build: <gcc date> <gcc time> (git: <hash>)", "F12-008#19")
+        self._has(d, "`solve --emit-shard-manifest shards.manifest`, naming the same file", "F09-H01#6")
+        self._lacks(d, 'pgrep -af "solve\\|bench"` must return empty', "F12-008#6")
+        self._lacks(d, "| **100B** | **~1-2 min** | **~30-40 min** |", "F12-008#22")
+        self._lacks(d, "a full Phase 1 4-trial benchmark completes in ~3-4 minutes.", "F12-008#21")
+        self._lacks(d, "set-matching and count-matching converge —", "F09-H01#13")
+        self._lacks(d, "that proves the refactor did not alter\nenumeration semantics.", "F12-008#10")
+        self._lacks(d, "it cannot be a pre-commit hook, and it is not wired\ninto any suite.", "F12-008#14")
+        self._lacks(d, "so this check is off there and the gate prints a `[note]` saying so. The pre-push\nhook runs",
+                    "F12-008#15")
+
+
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))

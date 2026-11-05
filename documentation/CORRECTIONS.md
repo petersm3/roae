@@ -38075,3 +38075,102 @@ No canonical sha, record count, certificate value or verdict changed in CX-36M-A
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch FV2-E2; the defects were found by Codex
 (gpt-6-astra) in its fix-verification round and triaged by Fable.
+
+## CX-36N-A — LARGE_SCALE_CAMPAIGNS.md: the cross-VM orchestrator pseudocode retired, the reproducibility checklist rewritten, and the rest of Codex's F12-011 rows (documentation/LARGE_SCALE_CAMPAIGNS.md; documentation/CAMPAIGN_METHODOLOGY.md)
+
+**2026-11-04.** **Source.** Codex (gpt-6-astra), final review, F12-011 (#1 to #22, #28 to #32); triaged by Fable as
+rewrite-or-retire; the operator chose (Q-1072, 2026-11-03): retire §6c, rewrite §12 against current code, fix the
+other rows. Batch G7c. Each claim was checked against `solve.c`, `verify.py` or a run of the built binary first.
+
+- **§6c retired (F12-011#2, #3, #5, #6, #8, #10, #11, #20).** The cross-VM orchestrator pseudocode disagreed with the
+  binary at eight points: a multi-VM manifest check that `--verify-shard-manifest` fails with `UNLISTED` (exit 22),
+  per-VM manifests that a `--branch` run never writes, provenance sidecars placed where `--merge` does not read
+  them, `checkpoint_t*.txt` files that overwrite each other, a CSV glob that missed its own files, a restart guard
+  that took the sha file as proof of a merge whose automatic `--verify` had failed (exit 30, sha file left in
+  place), no `verify.py --expect-kw`, and a `--merge` that "silently discards" an argument it has refused since
+  2026-09-04. The section now says so, keeps the pseudocode only as a collapsed record, and points to CAMPAIGN_METHODOLOGY.md §7 and §8, §12, the shipped commands
+  and the private campaign scripts. The 560 T canonical was not built that way; it ran as one full enumeration.
+- **§12 rewritten (F12-011#2, #3, #4, #15, #21, #28).** The full enumeration writes the shard manifest at start-up
+  and after its workers finish, not after every flush, and `--branch` writes none; the start-up check is skipped
+  with no manifest and advisory on a resume; `--merge` checks that every listed shard is present; an EXHAUSTED
+  cell's `.dfs_state` is deleted, so the cell count is read from the checkpoint lines (the merge's `Checkpoint
+  cross-ref` line), not from `.dfs_state` files; the merge's exit status, not the sha file, is the gate; the saved
+  copy is sized from the campaign (the 560 T raw output and shard records come to about 1.74 TB), not a fixed
+  250 GB.
+- **§6b runner (F12-011#1, #7, #31).** The completion check read `solve_results.json`; `--branch` writes
+  `results_<p1>_<o1>.json`. The runner's `SOLVE_DEPTH_PROFILE` line is removed: the histogram and
+  `per_task_stats.csv` are written only by the parallel `--sub-branch` path. A crash redoes the cells that were
+  mid-walk, because `.dfs_state` is written when a cell reaches its budget; "no work is rewound" is withdrawn.
+- **Budgets (F12-011#12, #13).** In `--branch` mode the per-cell divisor is the branch's own partition (2,824 cells
+  for (2,0), measured), not 158,364, and the `/3030` resume threshold is gone (V3A-134#8). With
+  `SOLVE_PER_SUB_BRANCH_LIMIT` set the total is not held to `SOLVE_NODE_LIMIT`: branch (3,0)'s 2,850 cells
+  (measured) at the published 560 T value are allotted 10,078,048,039,950 nodes.
+- **Merge sizing (F12-011#14, #16, #30, #32).** The external merge's scratch check is 1.5× the input shards'
+  on-disk size, not the output; the in-memory rule is on input records (13.83 B at 100 T), not unique ones; the
+  external merge has a 4,096-chunk ceiling. The Bloom table's 1-bit row expects about 3.86 B lost records at
+  10.5 B (`N/e`), not 6.7 B; the other rows are upper bounds.
+- **Provenance rollup (F12-011#9).** `shards_by_final_status` counts shards, which exist only for cells that
+  produced a record: at 560 T, 65,281 of 158,364 cells.
+- **Scale record (F12-011#17, #18, #19, #22, #29).** The post-enumeration crash was root-caused and fixed on
+  2026-05-05 (`all_top` sized for 64 threads; HISTORY.md), so "still unfixed" is withdrawn; the 100 T canonical has
+  been re-derived several times and the 560 T re-run resumed through 7 real evictions; a second measured external
+  merge exists (100 T: 13,832,832,979 records to 3,432,399,297, in the tracked log); the ~30 s cd recompute is an
+  estimate; there is no global merge-time hash table.
+
+**Tests.** `TestBatchG7c.test_lsc_section_6c_retired_and_section_12_rewritten` and
+`test_lsc_remaining_f12_011_rows` (both fail on the parent tree).
+
+## CX-36N-B — SOLVE_C_CLI.md rows of Codex's FT3f set that disagreed with the code (documentation/SOLVE_C_CLI.md)
+
+**2026-11-04.** **Source.** Codex (gpt-6-astra), final review (the rows named below); triaged by Fable. Batch G7c.
+Documentation only; each claim was checked against `solve.c` or a run of the built binary.
+
+- **Selftest and anchors (F12-001#11, #13).** `--selftest` uses 4 threads or the online CPU count when smaller.
+  The 11.2T anchor is no longer called "drift-robust": the gap that implied was a per-cell-budget difference.
+- **Scripts and attachments that are not in the repository (F12-001#7, F12-002#17).** `disk_health_precheck.sh`,
+  `FABLE_SCAN_LOGGING_LIST_REVIEW_2026_09_11.md`, `query_program_run.sh` and `kcpar_vm_tests.sh` are private; the
+  page now says so. The binary's own `--preflight` text still names the first.
+- **Readers and verifiers (F12-001#4, #9, #10, #14).** `--r11-verify`'s two outputs agree on the eight values but
+  are not byte-identical (`solve.py` adds a violation-positions line). A wrap distance can be 5. `--verify-9th-six`
+  and `--verify-wrap-parity` bounds-check pair indices since Q-520. `--canonical-config` refuses a second `--full`.
+- **Amendment (F12-001#12).** The R7 FC-4 amendment the page called outstanding exists (Amendment 1, 2026-07-12).
+- **KC tools (F12-002#7, #15, #16; F12-024#8, #10, #14, #15).** A scan's table values are identical at every
+  thread count, but chunk files are not (`scan_threads`, `elapsed_sec`, `telemetry`). Selftest leg N1 corrupts an
+  in-memory table, not a layer file. The H1 certificate has no `gdir`. `--kc-t-cert` does not certify the
+  t-unit to node-counter mapping. `posyang0`'s class is `edge-additive`. `t_units_note` is a top-level atlas key.
+- **Environment and parsing (F12-003#7, #10, #11, #13, #14).** The partition-invariance budget is parsed whole.
+  `SOLVE_MEMORY_FLUSH_COUNT` is read only on the parallel `--sub-branch` path. `SOLVE_KNUTH_SEED` reads a
+  leading-zero value as octal. The two ladder stop hooks need the out-of-core builder. `--kc-oocverify` refuses
+  `--kc-cache-mb` rather than ignoring it.
+
+**Already cured at the base, no change:** F12-001#1 (G5b F04-001#13), F12-001#3 (FV2-E2 D1400), F12-001#5 (G5b
+F04-001#14), F12-001#6 (FV2-E2 D1404/D1405), F12-002#3 (FV2-E1 D1355), F12-002#4 (FV2-E1 D1371), F12-002#8 (FV2-E2
+D1392), F12-002#11 and F12-024#11 (FV2-E2 D1363 note), F12-002#12 and F12-002#13 (FV2-E1 D1378, D1387), F12-002#14
+and F12-024#18 (CX-36L-A), F12-003#3 and F12-024#3 (FV2-E1 D1359), F12-024#9 (as F12-002#17, here).
+
+**Tests.** `TestBatchG7c.test_solve_c_cli_rows` (fails on the parent tree).
+
+## CX-36N-C — DEVELOPMENT.md rows of Codex's FT3f set that disagreed with the code (documentation/DEVELOPMENT.md)
+
+**2026-11-04.** **Source.** Codex (gpt-6-astra), final review (the rows named below); triaged by Fable. Batch G7c.
+Documentation only.
+
+- **Hooks and gates (F09-H01#28, F12-008#13, #14, #15).** The pre-push hook does emit `PREPUSH_*` tokens
+  (`PREPUSH_ENV`, `PREPUSH_LEG_<NAME>`, `PREPUSH_VERDICT`); it runs the #167 resume gate when a push touches
+  `solve.c`; and it arms the published-lineage check in its detached worktree through `DOC_GATES_PUBLISHED_REF`.
+- **Size gate (F09-H01#29, F12-008#17).** The applied threshold is 1.25 MiB, as the next row says, not 1 MiB.
+- **Manifest refresh (F09-H01#6, F12-008#1, #2).** The re-emit command names the same file the workflow verifies,
+  and the page says a re-emitted manifest no longer attests PHASE_A's content.
+- **Build identity (F12-008#18, #19).** `solve.c` no longer uses `__DATE__`/`__TIME__`; the sidecar's `Build` line
+  is `src <SOURCE_SHA> (git: <hash>)`.
+- **Smaller drift (F09-H01#13, F12-008#6, #9, #10, #21, #22).** Pure pruning does not make set- and count-matching
+  converge; the stale-process check's `pgrep` pattern is `solve|bench`; one reproduced 10T sha shows that run
+  reproduces, not that the enumeration is unchanged everywhere; two benchmark durations are recomputed from their
+  own per-trial figures.
+
+**Tests.** `TestBatchG7c.test_development_rows` (fails on the parent tree).
+
+No canonical sha, record count, certificate value or verdict changed in CX-36N-A to CX-36N-C.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch G7c; the defects were found by Codex
+(gpt-6-astra), final review, and triaged by Fable.

@@ -21,7 +21,7 @@
 >   line used to pin the claim to a phrase count, "8× here, 0× there"; the
 >   count changed when §2c was rewritten on 2026-09-01, so the brittle half
 >   is dropped and the substantive half kept.)
-> * **§6 campaign architecture** — per-VM runner and cross-VM orchestrator pseudocode
+> * **§6 campaign architecture** — per-VM runner pseudocode (the cross-VM orchestrator pseudocode, §6c, was retired 2026-11-04; the section says why and what to build from instead)
 > * **§9b** — merge sizing and the external-merge path for extreme scale
 >   (§9c's tiered-merge recipe was withdrawn 2026-09-01 as unrunnable; the
 >   section retains the explanation of why)
@@ -105,9 +105,9 @@ Before sizing anything, answer these questions:
    only `solutions.bin`. A few questions (extend the run,
    identify which cells are budget-exhausted) need *side-metadata*,
    most of which solve writes during the run without being asked —
-   the shards, the `.dfs_state` files and `per_task_stats.csv` are
-   unconditional. What you must do is **transfer and archive them**;
-   see §11 for the list and §6c Phase 2 for the transfer.
+   the shards and the `.dfs_state` files are unconditional.
+   `per_task_stats.csv` is not: only the parallel `--sub-branch` path
+   writes it, and a `--branch` run or a full enumeration writes none. What you must do is **transfer and keep them**; see §11 for the list and §12 for the checks. ⚠ [2026-11-04, CX-36N-A (Codex F12-011#7): this item said `per_task_stats.csv` was unconditional too, and pointed to the §6c transfer step, now retired.]
 
 ## 2. Sizing: choose VM size, count, and budget
 
@@ -201,8 +201,8 @@ distinguish with `lscpu`**.
 
 ## 3. Budget semantics — what "10T per branch" actually means
 
-`SOLVE_NODE_LIMIT` is a **cap**, not a target. Total nodes walked
-is always ≤ the cap, typically less. Two structural reasons:
+`SOLVE_NODE_LIMIT` is a **cap**, not a target, and it caps a run only
+through the per-cell budget it is divided into (§3a). Without `SOLVE_PER_SUB_BRANCH_LIMIT`, the nodes one run walks total at most the cap, typically less. With it set, the override replaces the derived budget and nothing holds the total to `SOLVE_NODE_LIMIT`: at the published 560 T value `3536157207`, the 2,850 depth-3 cells of branch (3,0) are allotted 10,078,048,039,950 nodes, above a 10 T `SOLVE_NODE_LIMIT`. ⚠ [2026-11-04, CX-36N-A (Codex F12-011#13): this read "Total nodes walked is always ≤ the cap".] Two structural reasons for the shortfall:
 
 ### 3a. Per-sub-branch budget is what's binding
 
@@ -226,9 +226,9 @@ stored budget is big enough to skip. The code comment at the second site says so
 in as many words: *"Approximation error is irrelevant: the budget-aware resume
 just needs a rough threshold, not an exact match."* The budget the DFS actually
 enforces is `per_branch_node_limit`, assigned `node_limit / divisor` where
-`divisor = total_branches` — the **real depth-3 partition size, 158,364** — and
-overwritten outright by `SOLVE_PER_SUB_BRANCH_LIMIT` when that is set. So there
-was never a wrong divisor to override.
+`divisor = total_branches` — the run's real cell count: **158,364** for a full
+depth-3 enumeration, and the selected branch's own partition in `--branch` mode
+(2,824 cells for branch (2,0), so a 10 T `SOLVE_NODE_LIMIT` gives `3541076487` per cell there) — and overwritten outright by `SOLVE_PER_SUB_BRANCH_LIMIT` when that is set. So there was never a wrong divisor to override. ⚠ **[2026-11-04, CX-36N-A (Codex F12-011#12).]** The paragraph above said the divisor is 158,364 in every mode; in `--branch` mode it is the branch's partition. Its `/3030` sites are also gone: since 2026-09-26 (V3A-134#8) the resume-skip threshold uses the allocator's own divisor, the run's partition, so the quoted "approximation error is irrelevant" comment describes older code. The published PSB values are unaffected: they are set explicitly.
 
 **And the prescribed number produces a different sha.** The published 560 T
 recipe uses `SOLVE_PER_SUB_BRANCH_LIMIT=3536157207`, which is exactly
@@ -278,7 +278,7 @@ termination contribution.
   a "cells budgeted" figure taken from it is a task count unless you
   aggregate. The per-cell final status is in the shard checkpoint
   state, and the campaign-level rollup is
-  `shards_by_final_status` in `solutions.provenance.json`.
+  `shards_by_final_status` in `solutions.provenance.json`. That rollup counts **shards**, and a shard (with its provenance sidecar) exists only for a cell that produced at least one record. A zero-yield cell, BUDGETED or EXHAUSTED, is not in it: at 560 T it covers 65,281 of the 158,364 cells. For the per-cell count use the merge's `Checkpoint cross-ref: <E> EXHAUSTED, <B> BUDGETED` line, which reads the checkpoint lines. ⚠ [2026-11-04, CX-36N-A (Codex F12-011#9).]
 
 ## 4. Cost estimation methodology
 
@@ -445,10 +445,10 @@ SCRIPT branch_runner(role):           # role is "A", "B", "C", ...
             SOLVE_PER_SUB_BRANCH_LIMIT   = $per_sub_branch_budget,
             SOLVE_DFS_ITERATIVE          = 1,    # mid-walk resume
             SOLVE_DFS_CHECKPOINT         = 1,    # write checkpoint state
-            SOLVE_DEPTH_PROFILE          = 1,    # per-DEPTH node histogram
-                                                 # to stderr. NOT the CSV —
-                                                 # per_task_stats.csv is
-                                                 # written unconditionally.
+            # ⚠ 2026-11-04, CX-36N-A (Codex F12-011#7): a line here set
+            # SOLVE_DEPTH_PROFILE = 1 and said per_task_stats.csv "is written
+            # unconditionally". Both the DEPTH_PROFILE histogram and the CSV
+            # are written only by the parallel --sub-branch path; this # --branch launch writes neither, so the line is removed.
             # ⚠ CORRECTED 2026-09-25 (Q-758, Codex V3A-032#3): a line here read `SOLVE_CKPT_INTERVAL = 300,  # 5-min checkpoint cadence`. --branch never reads it: the only getenv("SOLVE_CKPT_INTERVAL") in solve.c sits in the parallel --sub-branch spawn, beside the thread_func_ckpt launch. This runner checkpoints through SOLVE_DFS_CHECKPOINT's per-cell .dfs_state sidecars, which are written when a cell reaches its budget, not on a timer. Setting it is harmless. It is not a 5-minute cadence.
             SOLVE_THREADS                = 64,
          }
@@ -458,8 +458,8 @@ SCRIPT branch_runner(role):           # role is "A", "B", "C", ...
     rc = $?
     sha_file = "$WORKDIR/solutions_${p1}_${o1}.sha256"
 
-    status = json_field(read("$WORKDIR/solve_results.json"), "status")
-
+    status = json_field(read("$WORKDIR/results_${p1}_${o1}.json"), "status")
+    # ⚠ 2026-11-04, CX-36N-A (Codex F12-011#1): this read solve_results.json, # which --branch never writes (it writes results_<p1>_<o1>.json), so in a # fresh directory no branch could ever be marked done. 
     IF rc == 0 AND sha_file exists AND status == "SEARCH_COMPLETE":
       sha = first_field(read(sha_file))
       atomic_touch(DONE_MARKER)              # only NOW mark complete
@@ -498,7 +498,7 @@ SCRIPT branch_runner(role):           # role is "A", "B", "C", ...
 
 - **Crash-safe.** If the script (or the entire VM) dies anywhere
   during a branch's enum, the next launch reads the checkpoint
-  files solve wrote and resumes. No work is rewound.
+  files solve wrote and resumes, and the result is the same. Some work is redone: a cell's `.dfs_state` is written when the cell reaches its budget, not during the walk, so a cell that was mid-walk when the process died is walked again from its last saved state (for a cell walked for the first time, from its start). ⚠ [2026-11-04, CX-36N-A (Codex F12-011#31): this bullet ended "No work is rewound."]
 - **Eviction-safe.** Same as crash-safe; spot eviction is just a
   particular crash flavor.
 - **Restart-safe.** Manually re-launching the script is a no-op
@@ -525,7 +525,29 @@ SCRIPT branch_runner(role):           # role is "A", "B", "C", ...
   [DEPLOYMENT.md](DEPLOYMENT.md) §"Completion and archival". See
   documentation/CORRECTIONS.md CX-52.]** ⚠ **[Scoped 2026-09-25 (CX-134): before that fix the per-branch file behind this sha held 0 records, so the sha the runner logs was the same header-only `4cd43b2b…` for every branch and attested no records. The lifecycle point above stands. A campaign's data went through the `sub_*` shards and `--merge`, never through this sha.]** ⚠ **[2026-10-01, Q-888 (1): a stopped `--branch` no longer returns 0. It writes its partial set to `solutions_<p1>_<o1>.partial.bin` and `.partial.sha256`, prints `BRANCH_OUTPUT=PARTIAL` and exits 36, so the rc-plus-sha test above no longer marks a stopped branch done; the status check is kept for older binaries. See documentation/CORRECTIONS.md (batch 31c).]** ⚠ **[2026-10-02, Q-317 (5), batch 33: `solve` now also prints a whole line `BUDGET_EXHAUSTED=YES|NO|UNKNOWN` after `ENUM_RUN`. A budgeted branch prints `YES` and is still marked done by the status test above, as it should be: the token says the branch's records are a budget-limited slice, it does not make the branch unfinished. See SOLVE_C_CLI.md.]**
 
-### 6c. Cross-VM orchestrator — pseudocode
+### 6c. Cross-VM orchestrator — RETIRED 2026-11-04
+
+⚠ **[RETIRED 2026-11-04 (CX-36N-A; Codex final review, F12-011).]** A pseudocode "cross-VM orchestrator" stood here: wait for every VM's completion marker, copy the shards and their sidecars onto one merge host, check each VM's shard manifest, run `solve --merge`, extract metadata, and declare the canonical. Codex's final review found that it disagreed with the shipped binary at eight points, so an orchestrator built from it would stall, refuse a healthy collection, or pass a merge it should have failed:
+
+- It checked each VM's manifest in the combined shard directory, and said the other VMs' shards would show as a non-fatal `EXTRA`. `--verify-shard-manifest` names them `UNLISTED` and exits 22 (F12-011#2).
+- It needed a manifest per VM, which the §6b runner never produces: `--branch` returns before both of the full enumeration's automatic manifest writes (F12-011#3).
+- It put the shard provenance sidecars in per-VM directories, but `--merge` aggregates only the sidecars in its own directory (F12-011#5).
+- It copied every VM's `checkpoint_t*.txt` into one directory. Those names carry only a local thread number, so one VM's files overwrite another's (F12-011#6).
+- Its metadata step globbed one directory for CSV files it had put in subdirectories (F12-011#8).
+- Its restart guard treated an existing `solutions.sha256` as a finished merge. `--merge` writes that file before its automatic `--verify`, and a failed verify (exit 30) leaves it in place, so a re-run skipped the failed merge (F12-011#10).
+- It declared the canonical without `python3 verify.py --expect-kw`, which §12 requires (F12-011#11).
+- It said `--merge` silently drops a trailing argument. Since 2026-09-04 it refuses one with `MERGE_ARGS=REFUSED` and exit 2 (F12-011#20).
+
+Rather than patch it point by point, the pseudocode is retired; it is kept below, collapsed, as a record only. The published 560 T canonical was not built this way: it ran as one full enumeration on one machine, with the merge on a second ([CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §7). Build from these instead:
+
+- [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §8, the step-by-step reproduction recipe (build, selftest anchor, full enumeration, `--merge`, verification), and §7, how the 560 T campaign actually ran.
+- §12 below, the reproducibility checklist, rewritten on the same date against the current binary.
+- The shipped commands those name: `solve --emit-shard-manifest`, `solve --verify-shard-manifest`, `solve --merge`, `solve --verify` and `python3 verify.py --expect-kw`.
+- The project's own campaign scripts (§6e). They are private and can be disclosed to an auditor; they are a record of what ran, not a public recipe.
+
+If you split one campaign across machines anyway, keep each machine's files apart until they are checked. In each machine's work directory run `solve --emit-shard-manifest` yourself (a `--branch` run writes none). On the merge host, put each machine's shards and that manifest in a directory of their own and run `solve --verify-shard-manifest shard_manifest.txt` there, where no other machine's shard can be `UNLISTED`. Do not copy two machines' `checkpoint_t*.txt` files into one directory: the names collide, and the merge's checkpoint cross-check reads `checkpoint.txt` and every `checkpoint_t<digits>.txt` in the merge directory. This guide no longer gives a tested recipe for combining them; one machine per enumeration directory, as the 560 T campaign ran, avoids the problem. Then gate on §12.
+
+<details><summary>The retired pseudocode and its claimed properties, kept for the record. Do not build from it.</summary>
 
 ```pseudocode
 SCRIPT orchestrator():
@@ -655,34 +677,12 @@ SCRIPT orchestrator():
 ```
 
 **Key correctness properties of the orchestrator:**
+- **Decoupled from VMs' interiors.** Polls only for completion markers; doesn't care how a VM got to "complete" (single run, multiple eviction-restarts, manual-resume after crash).
+- **Operator-in-the-loop for shard transfer.** Cross-VM shard transfer is the highest-risk step (rsync edge cases, network flakes); have the operator confirm transfer integrity before the orchestrator proceeds. Tier 9c verifies the rsync pattern works byte-correctly at small scale.
+- **Side-metadata is captured in the same pass as the shards — but not atomically, and not for free.** This bullet used to claim "all side-metadata captured atomically with the canonical sha." It is a sequence of independent `rsync` invocations against live VMs; nothing makes it atomic, and until 2026-09-01 the transfer list omitted the `.dfs_state` files, the checkpoints, the shard manifests and the provenance JSON that §11 calls required. Treat Phase 2 as the step most likely to lose something irrecoverable, and verify it (§12 item 5a) rather than trusting it. `solutions.bin` and `metadata.json` should be archived together — they reference each other.
+- **Re-runnable — only because Phase 3 now carries the guard.** If the orchestrator dies between "merge done" and "metadata.json written," re-invoking it skips the merge on the existing `solutions.sha256` and picks up at Phase 4. That guard was added to the Phase 3 pseudocode on 2026-09-01; this bullet asserted the behaviour before anything implemented it, and Phase 3 was an unconditional `solve --merge`. If you build from an older copy of this pattern, add the guard — the 560T merge took 18 h 42 m, and re-running it also reopens a finished artifact for writing.
 
-- **Decoupled from VMs' interiors.** Polls only for completion
-  markers; doesn't care how a VM got to "complete" (single run,
-  multiple eviction-restarts, manual-resume after crash).
-- **Operator-in-the-loop for shard transfer.** Cross-VM shard
-  transfer is the highest-risk step (rsync edge cases, network
-  flakes); have the operator confirm transfer integrity before
-  the orchestrator proceeds. Tier 9c verifies the rsync pattern
-  works byte-correctly at small scale.
-- **Side-metadata is captured in the same pass as the shards — but
-  not atomically, and not for free.** This bullet used to claim "all
-  side-metadata captured atomically with the canonical sha." It is a
-  sequence of independent `rsync` invocations against live VMs; nothing
-  makes it atomic, and until 2026-09-01 the transfer list omitted the
-  `.dfs_state` files, the checkpoints, the shard manifests and the
-  provenance JSON that §11 calls required. Treat Phase 2 as the step
-  most likely to lose something irrecoverable, and verify it (§12 item
-  5a) rather than trusting it. `solutions.bin` and `metadata.json`
-  should be archived together — they reference each other.
-- **Re-runnable — only because Phase 3 now carries the guard.** If the
-  orchestrator dies between "merge done" and "metadata.json written,"
-  re-invoking it skips the merge on the existing `solutions.sha256` and
-  picks up at Phase 4. That guard was added to the Phase 3 pseudocode on
-  2026-09-01; this bullet asserted the behaviour before anything
-  implemented it, and Phase 3 was an unconditional `solve --merge`. If
-  you build from an older copy of this pattern, add the guard — the
-  560T merge took 18 h 42 m, and re-running it also reopens a finished
-  artifact for writing.
+</details>
 
 ### 6d. Failure modes and recovery
 
@@ -710,9 +710,9 @@ The project's actual implementation of this pattern lives at:
 
 `petersm3/roae-private` is a private repository — these scripts are not publicly
 accessible; the listing records that a reference implementation exists and can be
-disclosed to an auditor. The pattern itself is fully specified by the public text
-of this section, which is what to build from; adapt VM names, paths, and budgets
-to your campaign.
+disclosed to an auditor. ⚠ [2026-11-04, CX-36N-A: this paragraph said the
+public text of this section fully specifies the pattern and is what to build
+from. The §6b runner stands, with its corrections; the §6c orchestrator was retired for the reasons given there. Build the cross-machine steps from CAMPAIGN_METHODOLOGY.md §8 and §12 of this guide.]
 
 ## 7. Branch distribution — balancing wall time across VMs
 
@@ -881,7 +881,7 @@ three environment variables:
 | Variable | Default | What it does |
 |---|---|---|
 | `SOLVE_MERGE_MODE` | `auto` | `external` forces the chunked path; `memory` forces in-memory and fails if it does not fit |
-| `SOLVE_TEMP_DIR` | CWD | Where the `temp_sorted_*.bin` chunks are written; needs ~1.5× the output size |
+| `SOLVE_TEMP_DIR` | CWD | Where the `temp_sorted_*.bin` chunks are written; the merge refuses to start unless it has ~1.5× the input shards' on-disk size free (2026-11-04, CX-36N-A, Codex F12-011#14: this said 1.5× the output) |
 | `SOLVE_MERGE_CHUNK_GB` | 4 | Per-chunk size; raise it (16, 32) if you hit the sorted-chunk ceiling or `ulimit -n` |
 
 **And the project has run it at the largest scale it has ever reached.** The
@@ -891,8 +891,8 @@ raw leaves — see the correction in §9a above) down to 10.525 B unique.
 So the disk-based path
 is not a follow-on project to scope; it is the path the deepest canonical took.
 For anything past ~1 B records, set `SOLVE_MERGE_MODE=external`, point
-`SOLVE_TEMP_DIR` at fast scratch sized to ~1.5× the output, and size the
-**disk**, not the RAM.
+`SOLVE_TEMP_DIR` at fast scratch sized to ~1.5× the **input** shards'
+on-disk size (the merge's own pre-flight check; the sorted chunks hold every input record, duplicates included, beside the de-duplicated stream), and size the **disk**, not the RAM. ⚠ [2026-11-04, CX-36N-A (Codex F12-011#14): this said ~1.5× the output; at 560 T the input records are about four times the output.]
 
 **Option 1: `--merge-layers` — but it is not what this guide claimed**
 
@@ -963,13 +963,13 @@ bit budget:
 
 | Bits/record | Hashes | False-positive rate | Filter size | Records falsely called duplicate |
 |---:|---:|---:|---:|---:|
-| 1 | 1 | 0.632 | 1.2 GiB | ~6.7 B |
+| 1 | 1 | 0.632 | 1.2 GiB | ~3.9 B |
 | 8 | 6 | 0.0216 | 9.8 GiB | ~227 M |
 | 10 | 7 | 0.0082 | 12.3 GiB | ~86 M |
 | 16 | 11 | 0.00046 | 19.6 GiB | ~4.8 M |
 | 24 | 17 | 0.0000098 | 29.4 GiB | ~104 K |
 
-🔴 **The last column is why this is not a canonical path.** A Bloom false
+⚠ [2026-11-04, CX-36N-A (Codex F12-011#16): the last column multiplied the filter's *final* false-positive rate by every record, but the filter starts empty, so early records face a lower rate. For the 1-bit row the exact expectation is `N(1 − 1/N)^N ≈ N/e`, about 3.86 B at N = 10.5 B, not 6.7 B. The other rows use the same final-rate product and are upper bounds. The warning below stands.] 🔴 **The last column is why this is not a canonical path.** A Bloom false
 positive on this scheme does not cost a wasted lookup — it **silently drops a
 unique record**, because the record is never emitted and nothing downstream
 knows it existed. No bit budget makes that column zero. So a Bloom-deduped
@@ -1013,18 +1013,18 @@ it look.]
 
 Given an estimated solution count S:
 
-- **S small enough that `S × 32 bytes` fits comfortably in your merge VM's RAM**
-  → leave `SOLVE_MERGE_MODE` at `auto` and let `--merge` run in memory. As a
+- **I small enough that `I × 32 bytes` fits comfortably in your merge host's RAM,
+  where I is the pre-merge input record count (duplicates included), not S** → leave `SOLVE_MERGE_MODE` at `auto` and let `--merge` run in memory. The in-memory merge holds every input record, and `auto` switches to external when `I × 32` exceeds 80% of RAM. At 100 T, S = 3.43 B (about 110 GB) but I = 13.83 B (about 443 GB). ⚠ [2026-11-04, CX-36N-A (Codex F12-011#30): this rule was stated on S.] As a
   reference point, the ~750 M-record Tier 1 merge peaked near 90 GB and needs a
   D64als_v7 (128 GB); D32als_v7's 64 GB does not fit it. That 90 GB is an
   estimate carried by this guide, not a recorded measurement — verify it with
   the merge-memory test below before you size on it.
 - **Anything larger** → `SOLVE_MERGE_MODE=external`, with `SOLVE_TEMP_DIR` on
-  **Premium** scratch sized to ~1.5× the expected output. Peak RAM is then set
+  fast scratch sized to ~1.5× the input shards' on-disk size (§9b; this said the expected output until 2026-11-04, CX-36N-A, Codex F12-011#14). Peak RAM is then set
   by `SOLVE_MERGE_CHUNK_GB`, not by S, so the merge VM can stay small: the 560T
   merge did 10.525 B records on a **D16als_v7 (32 GB)**.
 - **There is no S at which you need code that does not exist.** External merge
-  is not RAM-bounded, so the ceiling is scratch disk and wall time, not SKU.
+  is not RAM-bounded, so the ceiling is scratch disk and wall time, not SKU. ⚠ **[CORRECTED 2026-11-04, CX-36N-A (Codex F12-011#32): that ceiling is incomplete.]** External merge also has a chunk ceiling: it writes at most 4,096 sorted chunks, so at a fixed `SOLVE_MERGE_CHUNK_GB` the input it can take is finite (about 16 TiB of input records at the default 4 GiB), however much scratch and time you have. Raising the chunk size raises that ceiling and the RAM the merge needs with it, so the ceiling is scratch disk, wall time and chunk count × chunk RAM.
 
 Run **a merge-memory test** in any case where peak RSS is within
 2× of available RAM. Better to find out at small scale than at
@@ -1099,7 +1099,7 @@ What `solutions.bin` does NOT contain — capture these explicitly:
 
 | Side-metadata | How | Why you might need it |
 |---|---|---|
-| `per_task_stats.csv` (one row per **depth-5 task**: `task_idx,p4,o4,p5,o5,nodes,solutions_added,wall_time_ms,worker_id,completed,max_depth,c3_leaves` + 33 per-depth node bins) | **Written unconditionally** by the parallel sub-branch path — no env var needed. Fixed filename in the run's CWD, so give each branch its own directory or it is overwritten. | Worker load-balance and per-task budget analysis. ⚠ This row previously read "per-cell yield + status + nodes-walked + wall … Set `SOLVE_DEPTH_PROFILE=1` during enum" — wrong on both halves. The granularity is per depth-5 task, not per depth-3 cell, and `SOLVE_DEPTH_PROFILE=1` gates a *different* artifact: a per-depth node histogram printed to **stderr** (`DEPTH_PROFILE depth=<d> nodes=<n>` lines). To identify which **cells** are budget-exhausted, use the shard checkpoint state and `shards_by_final_status` in `solutions.provenance.json`. | *(2026-10-01, Q-317 (2): a task stopped by `SOLVE_PER_TASK_NODE_LIMIT` is now `completed=0`; before, `completed=1` meant only that no global budget, signal or time limit fired during the task, so a capped task counted as completed.)*
+| `per_task_stats.csv` (one row per **depth-5 task**: `task_idx,p4,o4,p5,o5,nodes,solutions_added,wall_time_ms,worker_id,completed,max_depth,c3_leaves` + 33 per-depth node bins) | **Written unconditionally** by the parallel sub-branch path — no env var needed. Fixed filename in the run's CWD, so give each branch its own directory or it is overwritten. | Worker load-balance and per-task budget analysis. ⚠ This row previously read "per-cell yield + status + nodes-walked + wall … Set `SOLVE_DEPTH_PROFILE=1` during enum" — wrong on both halves. The granularity is per depth-5 task, not per depth-3 cell, and `SOLVE_DEPTH_PROFILE=1` gates a *different* artifact: a per-depth node histogram printed to **stderr** (`DEPTH_PROFILE depth=<d> nodes=<n>` lines). To identify which **cells** are budget-exhausted, use the shard checkpoint state; `shards_by_final_status` in `solutions.provenance.json` counts only cells that produced a shard (§3c; 2026-11-04, CX-36N-A, Codex F12-011#9). | *(2026-10-01, Q-317 (2): a task stopped by `SOLVE_PER_TASK_NODE_LIMIT` is now `completed=0`; before, `completed=1` meant only that no global budget, signal or time limit fired during the task, so a capped task counted as completed.)*
 | `checkpoint.txt` | Auto-produced by solve | Records the per-sub-branch budget that was reached. Needed for resume + extension. |
 | `branch_yield_report.txt` | `solve.py --branch-yield-report <solutions.bin>` post-merge, **or** the C form `zcat <enum log>.gz \| solve --yield-report` which reads an enumeration **log** on stdin. ⚠ `solve --branch-yield-report` is not a subcommand and never was — the C binary rejects it as an unknown option. [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) documents the C form correctly; this file was the outlier. | Pre-computed per-prefix counts at depths 1, 2, 3 |
 | `constraint_definitions.json` | Manual extract from solve.c at locked commit | Future C6 / new-rule work needs to reference the EXACT C1-C5 used |
@@ -1110,8 +1110,8 @@ What `solutions.bin` does NOT contain — capture these explicitly:
 the answer lives in the `.dfs_state` files and the provenance JSON — **not** in
 `SOLVE_DEPTH_PROFILE`, which this paragraph used to warn you against skipping.
 Nothing here is opt-in; solve writes it all whether you ask or not. The way you
-lose it is by **not transferring it off the enum VMs before teardown** (§6c
-Phase 2), and that is unrecoverable in a way a missing env var never was.
+lose it is by **not transferring it off the enum VMs before teardown** (§12;
+the §6c transfer step it pointed to was retired 2026-11-04), and that is unrecoverable in a way a missing env var never was.
 
 ### 11a. Pre-record invariants — recompute on demand, don't pre-bake
 
@@ -1153,138 +1153,117 @@ re-runs, not incremental fixes.
 
 ## 12. Reproducibility checklist
 
+⚠ **[REWRITTEN 2026-11-04 (CX-36N-A; Codex final review, F12-011#2, #3, #4, #15,
+#21, #28).]** The checklist that stood here described the shard manifest and the
+merge as they were before several later changes. It said the binary writes a
+manifest after every shard flush (it writes one at a full enumeration's start
+and after its workers finish, and a `--branch` run writes none); that the
+startup check always exits 22 on a mismatch (it is skipped with no manifest and
+advisory on a resume); that `--merge` does not consult the manifest (it checks
+that every listed shard is present); that the `.dfs_state` count must equal the
+cell count (an EXHAUSTED cell's file is deleted, so a complete campaign can
+have fewer); and it sized the saved copy at a fixed 250 GB. Each item below was
+checked against `solve.c` and `verify.py` on that date.
+
 For any campaign producing a sha you intend to publish:
 
-1. **Lock the binary.** Tag the commit; build once on a "build
-   helper" VM; copy bytewise-identical binary to every campaign
-   VM; verify md5 on each.
-2. **Record the constraint definitions** from `solve.c` at that
-   commit. Future contributors need to know the exact C1–C5
-   active when this canonical was produced.
-3. **Save the build environment** (gcc version, host CPU `-march`
-   flag, OS version). Bytewise reproduction across architectures
-   has been validated in this project for ARM Cobalt vs x86; new
-   architectures may need re-validation.
-4. **Verify the merged sha matches the per-branch shas would
-   imply** — i.e., the global `--merge` is deterministic and
-   independent of shard arrival order. Tier 9a in the test suite
-   checks this.
-5. **Two-language constraint verification on the merged output,
-   pre-publication.** Run `solve --verify solutions.bin` AND
-   `python3 verify.py --expect-kw solutions.bin` before declaring the sha
-   canonical (`--expect-kw`: a merged canonical must contain King Wen, and
-   without the flag its absence is reported, not failed)
-   canonical. Both must pass. The two checkers share no code —
-   `solve --verify` is C in the same binary that produced the
-   file (catches bit-flip, disk corruption, merge bugs);
-   `verify.py` is an independent Python reimplementation of
-   C1–C5 (catches shared-codepath bugs in solve.c that
-   `solve --verify` would miss). Skipping either reduces the
-   verification to one-language and weakens the chain. Wire
-   both into the orchestrator post-merge step so the gate is
-   automatic, not relying on operator memory. For tiers in a
-   validation chain that produce a *new* sha (asymmetric
-   extension, multi-stage chain final phase, etc.) this is the
-   only constraint check available — sha-equivalence transitive
-   verification doesn't apply when the sha is new.
+1. **Lock the binary.** Build once from a tagged commit, with the source
+   identity compiled in (`-DGIT_HASH=...`, as in
+   [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §8 step 2), and copy the
+   same bytes to every machine. Check `./solve --selftest` prints the published
+   anchor `403f7202...` on each. The binary guards itself on resume too: a run
+   directory records the build in `build.sha`, and a relaunch under a different
+   build exits 26 unless `SOLVE_ALLOW_BUILD_MISMATCH=1`.
+2. **Record the constraint definitions.** They are the C1–C5 code in `solve.c`
+   at the locked commit; the commit id pins them.
+3. **Record the build environment.** `bash scripts/capture_build_manifest.sh`
+   prints the source identity, toolchain, host CPU and OS. Byte-identical
+   output across architectures has been shown once in this project, for an ARM
+   rebuild of the 11.2 T canonical ([CANONICAL_HASHES.md](CANONICAL_HASHES.md));
+   a new architecture needs its own check.
+4. **The merge is order-independent.** `--merge` sorts and de-duplicates every
+   input record, so the merged set does not depend on the order shards arrive.
+   For an existing canonical the real test is reproducing its published sha.
+5. **Check the merged output in two languages, before you publish.**
+   - `solve --merge` runs `solve --verify` on its own output (it exits 30 if
+     that fails; `SOLVE_SKIP_AUTO_VERIFY=1` turns it off). Gate on the
+     **exit status**, not on `solutions.sha256` being there: the merge writes
+     the sha file before that check and leaves it in place when the check
+     fails.
+   - Then run `python3 verify.py --expect-kw solutions.bin` yourself; the merge
+     does not. `verify.py` is a separate Python implementation of C1–C5, so it
+     catches a bug the C checker shares with the enumerator. `--expect-kw`
+     makes King Wen's absence a failure; without it the absence is only
+     reported.
 
-   **Underlying gap that the verifiers DO NOT close:** they
-   validate per-record correctness, not completeness. A
-   50%-missing `solutions.bin` where every present record is
-   C1–C5 compliant passes both verifiers cleanly. For new
-   canonicals (where there is no reference sha yet),
-   incompleteness is undetectable without an explicit audit.
-   See item #5a below.
+   Both checkers test each record. Neither tests completeness: a
+   `solutions.bin` missing half its records passes both if every record left is
+   valid. For a new canonical with no reference sha, item 5a is the only check
+   on completeness.
 
-5a. **Pre-merge inventory reconciliation + post-merge audit.**
-   ⚠ **[CORRECTED 2026-09-01. This item was headed "closes the
-   completeness gap" while prescribing a ±1% tolerance that lets
-   1,583 of 158,364 cells vanish undetected — and it asserted the
-   absence of a manifest that `solve.c` in fact emits and verifies.]**
+5a. **Account for every cell and every shard.**
 
-   **`--merge` walks the shard directory and merges what it finds,
-   and it does not consult the shard manifest.** That much is true,
-   and it is the real exposure: a shard lost to disk corruption,
-   partial rsync or accidental removal yields silently incomplete
-   output, exit 0, and a wrong sha. For an established canonical a
-   sha mismatch catches it; for a new canonical there is no
-   reference to mismatch against.
+   *What the binary already checks.*
+   - A full enumeration writes `shard_manifest.txt` after its startup
+     promotion and again after its workers finish
+     (`SOLVE_SKIP_AUTO_MANIFEST=1` turns both off). At the next start it
+     checks the shards against that manifest. On a fresh start a mismatch
+     exits 22. On a resume (any `.dfs_state` present) the check is advisory:
+     it prints the counts and `AUTO_MANIFEST_UNEXPLAINED=<n>` and goes on.
+     With no manifest it is skipped. A `--branch` run does none of this; run
+     `solve --emit-shard-manifest` yourself.
+   - `solve --verify-shard-manifest <file>`, run in the shard directory,
+     re-hashes every listed shard and exits 22 on a missing, shrunk or
+     changed shard, on a shard the manifest does not name (`UNLISTED`), or on
+     a duplicate line.
+   - `--merge` cross-checks its directory before merging. It refuses an
+     enumeration that has not finished (`MERGE_INPUT=INCOMPLETE`, exit 35), a
+     cell that was INTERRUPTED and never finished, and a shard that is absent
+     or shorter than its checkpoint line claims. If a `shard_manifest.txt` is
+     present it also refuses when a listed shard is absent
+     (`MERGE_SHARD=MISSING`, exit 20). That is presence only; sizes and hashes
+     are the manifest check's job. It does not re-hash shards.
 
-   But the old text's flat claim that **"there is no manifest"** was
-   false for the enumeration path. `solve.c` ships
-   `--emit-shard-manifest` and `--verify-shard-manifest`, auto-emits
-   a manifest after every shard flush and after orphan promotion
-   (suppressible with `SOLVE_SKIP_AUTO_MANIFEST=1`), and **runs the
-   verify unconditionally at canonical-enum startup**, exiting 22 on
-   MISSING / SHRUNK / DIVERGED. What is missing is the wiring into
-   the **merge** step — not the mechanism.
+   *What to check yourself, before the merge:*
+   - `solve --verify-shard-manifest` against each machine's own manifest, in
+     a directory holding only that machine's shards (§6c).
+   - The cell count, from the checkpoint lines rather than from `.dfs_state`
+     files. A BUDGETED cell keeps its `.dfs_state`; an EXHAUSTED cell's is
+     deleted when it finishes. So the number of `.dfs_state` files equals the
+     cell count only when every cell was BUDGETED, as at 560 T. The merge
+     prints `Checkpoint cross-ref: <E> EXHAUSTED, <B> BUDGETED, 0 INTERRUPTED
+     sub-branch(es)`; E + B must equal the expected cell count (158,364 for a
+     full depth-3 enumeration).
+   - No shard under 32 bytes, and every shard a whole number of records,
+     counted on the **decompressed** bytes: shards are gzip-framed by
+     default, so test `gzip -dc <shard> | wc -c` modulo 32, not the file size.
 
-   **So do not build the ±1% count check.** It is strictly weaker
-   than an exact per-shard reconciliation the binary already
-   implements, and a count tolerance cannot distinguish "1,583 cells
-   never produced solutions" from "1,583 shards were lost in
-   transit." Run `solve --verify-shard-manifest` against each
-   contributing VM's manifest with the merge directory as CWD
-   (§6c Phase 3), and gate the merge on an exact match. `EXTRA` is
-   non-fatal, which is what makes this work across a multi-VM
-   collection.
+   *What to check yourself, after the merge:*
+   - `--merge` exit 0 (this includes its own `--verify`) and
+     `verify.py --expect-kw` (item 5).
+   - The sha against the expected one, when there is one.
+   - Optionally, a second merge from the same shards in a fresh directory,
+     which must give the same sha. At 560 T that is another 18 h 42 m, so it
+     is a decision, not routine overhead.
+   - The per-prefix yield report for the record:
+     `solve.py --branch-yield-report <solutions.bin>`, or the C form
+     `solve --yield-report` reading the enumeration log on stdin.
 
-   The original `merge_audit_pre.sh` and `merge_audit_post.sh`
-   reference scripts were removed 2026-06-11; bundling them as native
-   `solve.c` subcommands is planned (project task #58). What does not
-   ship is the **bundle** — one command that runs the list below and
-   fails on any item. Each item is individually runnable today with
-   the shipped `solve` subcommands, `verify.py` and coreutils, so wire
-   them into your orchestrator one by one until #58 lands. (Until
-   2026-09-03 this paragraph said "nothing shipped can act on the
-   checks below" — true of the bundle, false of the first and most
-   important item, `--verify-shard-manifest`.)
-
-   *Pre-merge (refuse if anything looks wrong):*
-   - **Exact** shard-manifest reconciliation per contributing VM —
-     no tolerance
-   - `.dfs_state` count **exactly** equal to the expected cell count
-     (158,364 at depth-3), counted on the filesystem rather than
-     parsed from a log
-   - No zero-byte / sub-32-byte shards (truncated writes)
-   - All shards record-aligned (no mid-record truncation) — on the
-     **decompressed** byte count: shards are gz-framed by default, so a
-     physical `size % 32` test fails on every healthy shard
-     (`gzip -dc <shard> | wc -c`, then `% 32`)
-
-   *Post-merge:*
-   - `solve --verify` (C-side per-record correctness)
-   - `verify.py` (Python independent per-record correctness)
-   - sha match against expected (when available)
-   - **Deterministic re-merge from same shards in fresh dir;
-     sha must match** — catches non-determinism in solve.c's
-     merge (e.g., timing-dependent ordering bugs)
-   - Yield-report extraction for forensic record —
-     `solve.py --branch-yield-report <solutions.bin>`, or the C
-     `solve --yield-report` reading the enum log on stdin. (Not
-     `solve --branch-yield-report`; that option does not exist.)
-
-   The removed scripts were bash + GNU coreutils + Python; whatever
-   replaces them, wire it into your orchestrator before/after
-   `solve --merge` and fail fast on any audit failure. Their audit
-   overhead was ~5-10 min per merge at the scale of that time
-   (deterministic re-merge dominates — at 560T a re-merge is another
-   18 h 42 m, so that step is a decision, not overhead). What it does
-   NOT catch:
-   per-cell yield drift within bounds, agreed bugs across
-   C and Python implementations, heap-corruption-induced
-   silent data corruption that produces records still
-   satisfying C1–C5. Independent re-derivation on different
-   hardware (Tier 4 cross-arch for established canonicals)
-   is the strongest defense against the latter.
-6. **Archive `solutions.bin` + `solutions.sha256` + all side-
-   metadata + all shards + all `dfs_state` files + the locked
-   binary** to a preserved copy (Standard HDD is fine).
-   Size it for a 200 GB shard pile + 50 GB output
-   ≈ 250 GB in all.
-7. **Document the campaign** with a follow-up post-mortem (or
-   methodology doc) describing what went wrong, what surprised
-   you, and what cost-and-wall actually came in vs estimate.
+   No single shipped command runs this list; each item runs on its own with
+   `solve`, `verify.py` and coreutils. None of it catches a bug that the C and
+   Python checkers share, or a corrupted record that still satisfies C1–C5. An
+   independent re-derivation on different hardware is the strongest defence
+   against those.
+6. **Keep `solutions.bin`, `solutions.sha256`, all side-metadata, all shards,
+   all `.dfs_state` files and the locked binary together in a preserved
+   copy.** Size it from your own campaign, not from a fixed figure. Measure it
+   with `du` before you copy: shards and the merged file are gzip-framed by
+   default and take less than their raw size. For scale, the 560 T canonical's
+   raw output is 336,808,703,936 bytes (10,525,271,997 records × 32), and its
+   43,876,464,466 pre-merge shard records are 1,404,046,862,912 bytes raw,
+   about 1.74 TB together before checkpoints and metadata.
+7. **Write up the campaign** afterwards: what went wrong, what surprised you,
+   and how the resources and wall time compared with the estimate.
 
 ## 13. Honest uncertainties
 
@@ -1321,8 +1300,11 @@ retooling before it can run reliably at the new scale.
   reproducibility across multiple paths,
   sha=`0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7`,
   759 M canonical orderings)
-- 100T canonical (single observed run, 2026-04-19/20, ~17h
-  wall, 158,364 sub-branches at depth=3, full solutions.bin
+- 100T canonical (first run 2026-04-19/20, ~17h
+  wall; since re-derived byte-identically several times, by
+  full enumeration and by a 62-branch `--branch` loop plus `--merge` —
+  [CANONICAL_HASHES.md](CANONICAL_HASHES.md); "single observed run"
+  until 2026-11-04, CX-36N-A, Codex F12-011#18; 158,364 sub-branches at depth=3, full solutions.bin
   produced, sha=`915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5`,
   3.43 B canonical orderings — this is the *post-bugfix* run;
   earlier 100T attempts in early/mid April 2026 hit a
@@ -1359,21 +1341,26 @@ chunked-sort on Premium scratch, 18 h 42 m. Full record in
    for 560T (the budget there is 5.6 × 10^14, leaving 4 orders of
    magnitude of headroom in `long long`).
 
-2. **Hash table sizing.** The current per-thread `sol_table` and
-   global merge-time hash table use heuristic sizing tuned for
-   100T-class workloads. At 5.6 PT scale, expected solution counts
-   could push toward 5–10 B entries; the current sizing may not
-   handle this gracefully. Audit the table-resize / load-factor
-   logic before scaling.
+2. **Hash table sizing.** The per-thread `sol_table` uses heuristic
+   sizing tuned for 100T-class workloads. At 5.6 PT scale, expected
+   solution counts could push toward 5–10 B entries; audit its sizing
+   before scaling. There is no global merge-time hash table: the
+   in-memory merge reads every record into one buffer, heapsorts it and
+   drops adjacent duplicates (§9a), and the external merge sorts chunks
+   and merges them. ⚠ [2026-11-04, CX-36N-A (Codex F12-011#29): this item
+   also named a "global merge-time hash table" to audit.]
 
 3. **Heap-corruption family at long thread runtimes.** A
    heap-corruption pattern observed at 128 threads × 75+ minutes
-   has been mitigated (fork-merge isolation, dead-free patch) but
-   not eliminated. At PT-scale, individual --branch runs are
-   longer (multi-day per branch), so the residual crash rate
-   could increase even with both mitigations in place. The
-   shard-then-fresh-merge recovery pattern still produces correct
-   results but adds operator toil. See §13a #9.
+   was mitigated (fork-merge isolation, dead-free patch) and then
+   root-caused: an AddressSanitizer run on 2026-05-05 found a
+   stack-array overflow in the post-enumeration aggregation
+   (`all_top[64 * TOP_N]` written by up to 128 threads), fixed by
+   sizing it for the 256-thread maximum (HISTORY.md, May 4–5 2026).
+   Both current `all_top` arrays hold 256 × TOP_N. No crash at
+   longer runtimes is ruled out, but this one has a known cause and
+   fix. See §13a #9. ⚠ [2026-11-04, CX-36N-A (Codex F12-011#17): this
+   item said the pattern was "mitigated but not eliminated".]
 
 4. **File handle / inode limits.** ⚠ **[CORRECTED 2026-09-01 — the count here
    was ~64× too high, from two errors in one sentence.]** It read: *"A 5.6 PT
@@ -1401,12 +1388,15 @@ chunked-sort on Premium scratch, 18 h 42 m. Full record in
    said the disk-based merge path would need validation "if/when it
    lands"; it shipped before this guide was written and it produced the
    560T canonical (§9b). Sibling of the §9b inversion, which the
-   2026-09-01 correction did not reach here.]** What is measured: one
-   external merge, 43.88 B pre-merge shard records in 65,281 non-empty
-   shards down to 10.525 B unique, on a 32 GB VM, 18 h 42 m. What is
-   not: any point between the in-memory Tier 1 merge (~750 M records,
-   ~90 GB estimated, never recorded) and that one, and anything beyond
-   it — chunk counts an order of magnitude past the 560T merge's,
+   2026-09-01 correction did not reach here.]** What is measured: two
+   external merges. At 560 T, 43.88 B pre-merge shard records in 65,281
+   non-empty shards down to 10.525 B unique, on a 32 GB VM, 18 h 42 m.
+   At 100 T, 13,832,832,979 input records down to 3,432,399,297 unique
+   (the tracked 100T enumeration log under `runs/`, its "External merge
+   complete" line). ⚠ [2026-11-04, CX-36N-A (Codex
+   F12-011#19): this said one external merge and no measured point
+   between ~750 M and 10.525 B records.] What is not: anything beyond
+   the 560 T merge — chunk counts an order of magnitude past the 560T merge's,
    `ulimit -n` at that count, and scratch sized at ~1.5× a multi-TB
    input are extrapolations from a single measured point.
 
@@ -1414,8 +1404,12 @@ chunked-sort on Premium scratch, 18 h 42 m. Full record in
    continuous campaigns surface OS-level issues (kernel memory
    fragmentation, driver bugs, transient hardware errors) at rates
    not seen in shorter runs. Reproducible recovery is essential
-   but not yet validated past the 100T-pilot eviction-recovery
-   pattern.
+   and has been exercised beyond the 100T pilot: the 560 T
+   re-run resumed through 7 real evictions and reproduced the
+   canonical byte for byte ([CANONICAL_HASHES.md](CANONICAL_HASHES.md)).
+   Multi-week runs remain unobserved. ⚠ [2026-11-04, CX-36N-A (Codex
+   F12-011#18): this said "not yet validated past the 100T-pilot
+   eviction-recovery pattern".]
 
 7. **Per-thread rate degradation at long elapsed times.** The
    100T pilot ran ~17 hours and per-thread rate stayed roughly
@@ -1466,8 +1460,7 @@ solve.c, just operational patterns worth knowing about:
    actually allocates ~9.32 T per branch (7% under intent)"*, and sent
    the reader to a §3 "recipe table" that has been retracted. The
    `/3030` sites in `solve.c` set only the resume-skip threshold; the
-   enforced per-cell budget is `node_limit / 158,364` (the real depth-3
-   partition), and the published 560T value is exactly that quotient —
+   enforced per-cell budget is `node_limit / 158,364` for a full depth-3 enumeration and `node_limit /` the branch's own cell count under `--branch` (2026-11-04, CX-36N-A, Codex F12-011#12), and the published 560T value is exactly that quotient —
    see §3a. The advice stands on a different footing: copy the value
    **verbatim** from the recipe table in
    [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Reproducibility
@@ -1493,9 +1486,13 @@ solve.c, just operational patterns worth knowing about:
    subset (= what's in `solutions.bin`). The diff is the count of
    orderings that satisfy C5 but fail C3. This data is in the
    run log; useful for some Category B questions.
-8. **Per-record cd/distance-sum recompute is fast.** ~30 seconds
-   on one core for a 1B-record canonical to compute cd values
-   from scratch. Don't bother adding pre-computed invariants to
+8. **Per-record cd/distance-sum recompute should be fast.** An
+   estimated (not benchmarked) ~30 seconds on one core for a
+   1B-record canonical to compute cd values from scratch, from
+   the ~100-cycle estimate in §11a; measure it before you rely on
+   it. ⚠ [2026-11-04, CX-36N-A (Codex F12-011#22): this item, under
+   "tips from observed campaigns", stated the estimate as a
+   measurement.] Don't bother adding pre-computed invariants to
    the record format (the perf tradeoff with cache lines is
    worse than the ~30 sec saving). Sidecar files or on-demand
    recompute are cleaner.
@@ -1530,6 +1527,16 @@ solve.c, just operational patterns worth knowing about:
    that ran in the corrupt heap before the fork could isolate.
    With both mitigations in place, this crash is rare; without
    them, it was nearly deterministic at 128t / depth-3 / 75+ min.
+
+   ⚠ **[2026-11-04, CX-36N-A (Codex F12-011#17).]** The rest of this item
+   is superseded. The AddressSanitizer investigation it calls deferred ran
+   on 2026-05-05 and found the cause: `all_top[64 * TOP_N]`, sized for 64
+   threads, overflowed at 128 in the post-enumeration aggregation and
+   corrupted the stack around it. It was fixed by sizing the array for the
+   256-thread maximum (HISTORY.md, May 4–5 2026); both current `all_top`
+   arrays are 256 × TOP_N. Do not expect this crash as a standing residual.
+   Running `solve --merge` from a fresh process when `solutions.bin` is
+   missing remains a sound recovery. The text below is the pre-fix account.
 
    **What is still unfixed:** the underlying heap corruption.
    The two mitigations route around it; they do not eliminate

@@ -1923,7 +1923,7 @@ PY
 #
 # MEASURED. Live: 56 markdown units mention external sort/merge, 0 denials, 1 correctly excluded
 # as narration, rc 0. REAL PRE-FIX TREE `793210b7^` with LARGE_SCALE_CAMPAIGNS.md restored:
-# 49 units, **1 DENIAL at documentation/LARGE_SCALE_CAMPAIGNS.md:587** (the unit holding :590),
+# 49 units, **1 DENIAL at documentation/LARGE_SCALE_CAMPAIGNS.md:587@fbd6f9e5** (the unit holding :590@fbd6f9e5),
 # 0 narration exclusions, rc 1 — the exact A01 row 20 site.
 gate_merge_semantics() {
   echo "== GATE 76: prose may not deny a merge capability the binary's env surface provides =="

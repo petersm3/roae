@@ -411,10 +411,10 @@ against ~4.4 s for the six registry legs and ~62 s for the generated gate.
 The same class was swept through `pre_push_gate.sh` in the same commit — its
 branch-registry leg, its `doc_gates.sh all` leg and its conditional
 `doc_gates.sh generated` leg each now distinguish "exited neither 0 nor 1"
-from "found something" in their message text. **The pre-push hook emits no
+from "found something" in their message text. **That change added no
 `PREPUSH_*` token and its return codes did not change**: every one of those
 legs was blocking before and is blocking after, so only the wording moved.
-Do not write a `grep -qx` reader against the pre-push hook expecting one.
+The hook does emit machine-readable tokens, from other changes: `PREPUSH_ENV` first, a `PREPUSH_LEG_<NAME>` per covered leg, and `PREPUSH_VERDICT=PASS|FAIL` last (see the token table below); read those. *(2026-11-04, CX-36N-C, Codex final review F09-H01#28, F12-008#13: this paragraph said the hook emits no `PREPUSH_*` token at all and told the reader not to build a token reader.)*
 
 
 ### `doc_gates.sh atlas-probe-tokens` (GATE 90) — the `--atlas-probe` token list
@@ -565,10 +565,10 @@ by how the checkout relates to the lineage ref:
 The diverged case fails mid-lane as well as at a push. A local commit made while
 the remote holds a ledger line that `HEAD` lacks turns a behind checkout into a
 diverged one, and the same line goes from `[note]` to `[FAIL]`. Merging or
-rebasing onto the remote clears it. A detached `HEAD` has no published lineage,
-so this check is off there and the gate prints a `[note]` saying so. The pre-push
-hook runs in a detached worktree, so a run in a developer's own checkout is the
-one that applies it.
+rebasing onto the remote clears it. A detached `HEAD` has no published lineage
+of its own, so without help this check is off there and the gate prints a `[note]`
+saying so. The pre-push hook supplies that lineage: it runs in a detached worktree
+and passes the remote sha each pushed sha replaces as `DOC_GATES_PUBLISHED_REF`, which arms the check there and treats a pushed rewind as a loss (Q-953). *(2026-11-04, CX-36N-C, Codex final review F12-008#15: this said the check is off in the hook's detached worktree and applies only in a developer's own checkout.)*
 
 ```sh
 bash scripts/doc_gates.sh appendonly
@@ -776,7 +776,7 @@ table, and adding one is a defect, not a style.
 | `RESIDUAL_CONSISTENCY_OFFENDERS` | `check_residual_consistency.sh` | bare point estimates found. `-1` when the run could not measure — an ERROR never reports zero offenders |
 | `RESIDUAL_CONSISTENCY_SCANNED` | `check_residual_consistency.sh` | lines scanned across the three reports. `-1` when unmeasured; a real count below the floor of 100 is itself the `population-collapsed` ERROR |
 | `SIDECAR_SHA_GATE` | `sidecar_sha_gate.sh` | `OK` \| `FAIL`. Q-324: every `solutions.sha256` writer must record the **logical** sha — the decompressed canonical byte stream — not the sha of the file as it sits on disk. The standalone `--merge` path shelled out to `sha256sum <outname>`, so with gz framing the default since #169, the sidecar (and the `solutions.meta.json` parsed back out of it) held the sha of the **container**. That direction manufactures phantom drift, because gzip framing varies with zlib version and level while the content does not |
-| `SIZE_GATE` | `pre_commit_size_gate.sh` | `OK` \| `REFUSED` \| `ERROR`, all whole-line since 2026-09-08 (every one of the three used to carry trailing prose on the verdict line, against its own header's `grep -qx` promise). Enforces the standing rule that a file at or above 1 MiB needs a recorded approval before it is **newly tracked**; the scope is first-time tracking only, because 22 tracked files already exceed the threshold and a gate that fires on every commit is removed within a day. `REFUSED` (rc 1) names the count of unapproved staged files; `ERROR` (rc 2) covers not being in a git repo, an unlistable index, or an unparseable approval table |
+| `SIZE_GATE` | `pre_commit_size_gate.sh` | `OK` \| `REFUSED` \| `ERROR`, all whole-line since 2026-09-08 (every one of the three used to carry trailing prose on the verdict line, against its own header's `grep -qx` promise). Enforces the standing rule that a file at or above the applied threshold (`SIZE_GATE_LIMIT`, 1.25 MiB by default since 2026-09-04; *2026-11-04, CX-36N-C, Codex final review F09-H01#29, F12-008#17: this said 1 MiB*) needs a recorded approval before it is **newly tracked**; the scope is first-time tracking only, because 22 tracked files already exceed the threshold and a gate that fires on every commit is removed within a day. `REFUSED` (rc 1) names the count of unapproved staged files; `ERROR` (rc 2) covers not being in a git repo, an unlistable index, or an unparseable approval table |
 | `SIZE_GATE_ERROR` | `pre_commit_size_gate.sh` | emitted only alongside `=ERROR`: `not-in-git-repo`, `staged-list-failed` or `allowlist-unparseable` |
 | `SIZE_GATE_LIMIT` | `pre_commit_size_gate.sh` | the threshold in bytes actually applied (1,310,720 = 1.25 MiB, raised from 1 MiB on 2026-09-04). `-1` when the run ended before reading it |
 | `SIZE_GATE_UNAPPROVED` | `pre_commit_size_gate.sh` | unapproved first-time files at or over the limit, emitted on every terminal path. `-1` when the gate could not measure |
@@ -896,7 +896,7 @@ The 560T canonical (`9a968fa2…`, 2026-06-08) shipped on the stock D128als_v7 U
 - **`SOURCE_DATE_EPOCH`, and the rest of the deterministic flag set above** ⚠ **[ADDED 2026-09-03
   (Codex V2-F15 #16) — the four ingredients above are NOT sufficient for the claim that follows.
   Pinning the compiler, libc, libgomp and `-march=` still leaves `__DATE__`/`__TIME__` baked into
-  `.rodata`, so two builds in the same container differ. `SOURCE_DATE_EPOCH`, `-fno-record-gcc-switches`,
+  `.rodata`, so two builds in the same container differ. *(2026-11-04, CX-36N-C, Codex final review F12-008#18: that was true of the source then; `solve.c` no longer uses either macro, `SOURCE_SHA` replaced them, so this is no longer a source of difference. The other flags still matter.)* `SOURCE_DATE_EPOCH`, `-fno-record-gcc-switches`,
   `-ffile-prefix-map` and `-fdebug-prefix-map` are what make the binary reproducible, and the container
   pins the toolchain those flags are applied by.]**
 
@@ -961,8 +961,8 @@ EXCESS=31,897,530`, exactly 1,933 × 16,501 — every zero-yield cell re-walking
 `--selftest-resume` passes: deleting every zero-yield sidecar, and stripping the guard lines from the
 log, both return VACUOUS rather than PASS.
 
-🔴 It runs enumerations, so it is **VM-only** — it cannot be a pre-commit hook, and it is not wired
-into any suite. Run it beside `--selftest-resume` when touching the resume path.
+🔴 It runs enumerations, so it cannot be a pre-commit hook. It is wired into the pre-push hook: when
+the pushed range touches `solve.c`, the hook builds a solver and runs this gate (about 32 s on a VM, about 188 s on a 2-core host) and blocks on a failure. *(2026-11-04, CX-36N-C, Codex final review F12-008#14: this said it is VM-only and not wired into any suite.)* Run it beside `--selftest-resume` when touching the resume path.
 
 #### Item 1: checkpoint-resume equivalence in selftest (`--selftest-resume`) — DONE
 
@@ -994,11 +994,11 @@ SOLVE_RESUME_HISTORY="2026-05-14T18:23:00Z=spot-eviction-at-90%, 2026-05-14T20:1
     ./solve --merge
 ```
 
-**Schema captured in `.sha256` sidecar (post-2026-05-14):**
+**Schema captured in `.sha256` sidecar (post-2026-05-14):** *(2026-11-04, CX-36N-C, Codex final review F12-008#19: the `Build` line read `<gcc date> <gcc time> (git: <hash>)`; the writer prints `src <SOURCE_SHA>`.)*
 
 ```
 # Date: <UTC ISO8601>
-# Build: <gcc date> <gcc time> (git: <hash>)
+# Build: src <SOURCE_SHA> (git: <hash>)
 # Record format: 32 bytes packed (pair_index<<2 | orient<<1)
 # Unique orderings: <count>
 # Nodes explored: <count>
@@ -1047,7 +1047,7 @@ Violation → `_exit(21)` with diagnostic to stderr (distinct from existing exit
 2. (Optional Spot eviction + reallocation. Or asymmetric-extension PHASE_B at higher budget.)
 3. Before PHASE_B merge: `solve --verify-shard-manifest shards.manifest`. Aborts loudly if any shard was modified since the manifest was emitted.
    🔴 **After an INTENTIONAL asymmetric extension (step 2), RE-EMIT the manifest before verifying** —
-   `solve --emit-shard-manifest`. Growth is `DIVERGED` by design since Q-367, so verifying an extended
+   `solve --emit-shard-manifest shards.manifest`, naming the same file (with no path it writes `shard_manifest.txt`, and `shards.manifest` stays stale). A re-emitted manifest attests the shards as they are after the extension, not PHASE_A's content: anything PHASE_B lost or replaced becomes part of the new baseline, so a check against it says nothing about PHASE_A. Emit the post-extension manifest only after checking the extended set some other way (its `--merge` checkpoint cross-check and `--verify`). *(2026-11-04, CX-36N-C, Codex final review F09-H01#6, F12-008#2, F12-008#1.)* Growth is `DIVERGED` by design since Q-367, so verifying an extended
    shard set against the pre-extension manifest fails by construction. Without this step an operator
    either discards legitimately extended shards as corrupt, or bypasses the integrity gate to get past
    it — and the bypass is the dangerous one.
@@ -1090,7 +1090,7 @@ The full protocol lives in the private operational repo at `petersm3/roae-privat
 | Trials | 4 per binary minimum (raised from 3 on 2026-05-15 — three trials had insufficient resolution to distinguish a cold-cache outlier from real variance); raise to 6-8 if speedup is suspected close to noise floor |
 | Warmup | 1 discarded run per binary at 1/10 the trial budget |
 | **Pre-flight: CPU throttling** | **MANDATORY.** Read `cpu MHz` from `/proc/cpuinfo`; abort if below `MIN_FREQ_MHZ` (default 2000). AMD Genoa healthy baseline is 3000-3700 MHz; throttled Spot hosts run at ~600 MHz (observed 3× during v1 Phase B in westus3 May 13-14). Re-checked before every trial — Spot evictions / co-tenant pressure can throttle mid-run. |
-| **Pre-flight: no stale processes** | **MANDATORY.** `pgrep -af "solve\|bench"` must return empty (excluding the bench script itself + systemd-resolved). Stale orphan processes from prior work consume cores and bias the benchmark. (Lesson 2026-05-15 — see HISTORY.md §"Methodology lesson learned … (and contamination correction)".) |
+| **Pre-flight: no stale processes** | **MANDATORY.** `pgrep -af "solve|bench"` must return empty (pgrep takes an extended regex, so `\|` would match a literal bar; *2026-11-04, CX-36N-C, Codex final review F12-008#6*) (excluding the bench script itself + systemd-resolved). Stale orphan processes from prior work consume cores and bias the benchmark. (Lesson 2026-05-15 — see HISTORY.md §"Methodology lesson learned … (and contamination correction)".) |
 | **Between trials of same binary** | `sync; echo 3 > /proc/sys/vm/drop_caches` (needs sudo) + `sleep ${COOLDOWN_SEC}` (default 60s). Clears page cache and lets thermal/frequency state settle to a comparable starting point for each trial. |
 | **Between binaries** | Operator-driven: **reboot the VM** between binaries (`sudo reboot`; ~60-90 sec to SSH-ready). Each binary's 4-trial sequence then starts from full cold-state, so cross-binary comparison is fair. The bench script handles per-trial state within one binary; reboot orchestration is operator-managed (or could be wrapped by a higher-level script). |
 | **Host fingerprint** | Captured per run: kernel, CPU model, microcode, core count, AVX-512 feature presence, binary sha + size, run params, CPU MHz at start. Written as `# ` comments at the top of the output TSV. Lets retrospective analysis correlate weird numbers with the specific physical Spot host. |
@@ -1112,7 +1112,7 @@ The full protocol lives in the private operational repo at `petersm3/roae-privat
 |---|---|---|---|
 | 100M | ~5-10s | <2 min | sha preservation only (selftest scale); too short for speedup signal |
 | 10B | ~10-15s | ~3-4 min | quick sanity sweep |
-| **100B** | **~1-2 min** | **~30-40 min** | **default Phase 1 speedup measurement** — long enough to escape startup-dispatch noise, fast enough for iterative AVX-512 dev |
+| **100B** | **~1-2 min** | **~12-24 min** (12 trials × 1-2 min; read ~30-40 min until 2026-11-04, CX-36N-C, Codex F12-008#22) | **default Phase 1 speedup measurement** — long enough to escape startup-dispatch noise, fast enough for iterative AVX-512 dev |
 | 1T | ~12-15 min | ~3 hr | canonical-correlation confirmation (run once per Phase 1 task after the 100B numbers settle) |
 | 11.2T canonical | ~77 min | ~15 hr | mandatory sha-preservation regression — operator-gate, not iterative |
 
@@ -1133,7 +1133,7 @@ sudo reboot
 
 #### Host strategy
 
-- **`claude` orchestrator (D2as_v6, AMD EPYC Zen 4, 2 cores, x86_64):** has **full AVX-512** instruction support (F/DQ/BW/VL/VNNI/BF16/VBMI/VBMI2/BITALG/VPOPCNTDQ — the complete Zen 4 stack), plus AVX2, FMA, BMI1/2, popcount. Suitable for **all sha-preservation regression at selftest scale** AND **AVX-512 development + selftest-scale speedup measurement**. The "scalar fallback path for ARM" plan element from the original V2_IMPLEMENTATION_PLAN_2026_05_06.md is still relevant for actual Cobalt ARM hosts (D-ps-v6 / Cobalt 100 family) — but claude is not one of those; its 2 cores run the full AVX-512 path natively. Wall time on claude is ~45–50s per 200M-node depth-2 trial (after correcting for benchmark contamination 2026-05-15); a full Phase 1 4-trial benchmark completes in ~3-4 minutes.
+- **`claude` orchestrator (D2as_v6, AMD EPYC Zen 4, 2 cores, x86_64):** has **full AVX-512** instruction support (F/DQ/BW/VL/VNNI/BF16/VBMI/VBMI2/BITALG/VPOPCNTDQ — the complete Zen 4 stack), plus AVX2, FMA, BMI1/2, popcount. Suitable for **all sha-preservation regression at selftest scale** AND **AVX-512 development + selftest-scale speedup measurement**. The "scalar fallback path for ARM" plan element from the original V2_IMPLEMENTATION_PLAN_2026_05_06.md is still relevant for actual Cobalt ARM hosts (D-ps-v6 / Cobalt 100 family) — but claude is not one of those; its 2 cores run the full AVX-512 path natively. Wall time on claude is ~45–50s per 200M-node depth-2 trial (after correcting for benchmark contamination 2026-05-15); four trials take ~3-3.5 minutes of compute, and the full protocol, with its three 60 s cool-downs and the discarded warm-up, takes at least ~6-7 minutes (*2026-11-04, CX-36N-C, Codex final review F12-008#21: this said the 4-trial benchmark completes in ~3-4 minutes*).
 - **x86 Spot D-series in westus3 (D32 or D64als_v7):** required for **canonical-scale (11.2T) sha-preservation regression** (claude has only 2 cores, can't realistically complete 11.2T in operator-friendly time) and for **AVX-512 actual canonical-scale speedup measurement** (Genoa AVX-512 throughput varies by core count + boost behavior; the 11.2T pilot is the operator-meaningful number). Cost: ~1.5 h of Spot time per pilot run.
 - **Cobalt ARM Spot (Dpsv6 family) in westus3:** required for cross-arch validation that the AVX-512-or-scalar fallback path produces identical sha on ARM. The plan's "validate scalar fallback on ARM" task lives here, not on claude (which is x86 and would never exercise the scalar fallback).
 
@@ -1170,7 +1170,7 @@ When v2 lands (after the K-pilot decision and v2 bundled re-baseline), the opera
 1. **Count-matching K (cheaper):** what v2 budget B′ yields the same *number* of unique valid records as v1 at budget B? Answer: K = B / B′.
 2. **Set-matching K (stricter):** what v2 budget B′ yields a *superset* of v1's exact records at budget B?
 
-For pure-pruning v2 (skips only doomed subtrees, preserves DFS order), set-matching and count-matching converge — v2's leaf set at any budget is a superset of v1's at the same budget. For v2 that *also* changes DFS order (e.g., #69 variable ordering heuristic), set-matching is strictly harder than count-matching; the two can give different K values at small budgets. Both are useful to measure.
+For pure-pruning v2 (skips only doomed subtrees, preserves DFS order), v2's leaf set in each cell at a given per-cell budget is a superset of v1's at the same budget; that does not make set-matching and count-matching converge, because a smaller v2 budget chosen to match the total count need not nest cell by cell (see "What this measures" below). *(2026-11-04, CX-36N-C, Codex final review F09-H01#13, F12-008#9: this said the two converge.)* For v2 that *also* changes DFS order (e.g., #69 variable ordering heuristic), set-matching is strictly harder than count-matching; the two can give different K values at small budgets. Both are useful to measure.
 
 #### Recommended approach: opt-in leaf-rate logger in both binaries
 
@@ -1361,8 +1361,8 @@ archiving and *before* deploying 100T. The acceptance target is the **current**
 706,427,594 records — **not** the deprecated `aa1415174c…` or `f7b8c4fb…`
 shas that older revisions of this section named; reproducing either of those
 would mean the refactor reproduced a known-bad artifact. If the retooled
-solve.c produces the anchor sha, that proves the refactor did not alter
-enumeration semantics. Only after this sha-identity check passes should the
+solve.c produces the anchor sha, that shows the refactor reproduces this one
+budget-limited 10T run; it does not prove the enumeration unchanged at other budgets or on checkpoint paths that run did not exercise. *(2026-11-04, CX-36N-C, Codex final review F12-008#10: this said it "proves the refactor did not alter enumeration semantics".)* Only after this sha-identity check passes should the
 10T output be archived and the 100T run deployed. The refactor might touch
 infrastructure (checkpointing granularity, work-unit partitioning) without
 changing the enumeration output; the sha-identity check distinguishes these
