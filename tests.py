@@ -59392,6 +59392,166 @@ printf 'record\tm=32\t%s\n#provenance\tengine=stub\n' "$W"; exit 0
                 self.assertNotIn("XA_EXACT_VERDICT=OK", r.stdout, "%s survived:\n%s" % (name, r.stdout[-1000:]))
 
 
+class TestBatchG7b(unittest.TestCase):
+    """Batch G7b: Q-1053 / D1376 (the t certificate emits the operands its gates were decided against; golden
+    a0_xa_iii re-minted), Codex final review F12-018#4/#5 (BRANCHES_EXPLAINED Part 10 scope) and a part of the
+    FT3f remainder (CLI / ops documentation vs code). The behavioural test drives a binary built from
+    ROAE_TESTS_SOLVE_SRC (default: this tree's solve.c); the others read the tree. Each fails on the parent
+    tree. No canonical sha, count or verdict changes. Developed with AI assistance (Claude, Anthropic):
+    claude-opus-5-5, from Codex (gpt-6-astra) final-review findings."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    def _read(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as f:
+            return f.read()
+
+    @staticmethod
+    def _recompute(c):
+        """Every gate of a --kc-t-cert certificate, from the certificate's own fields alone."""
+        n9, n13 = c["n9"], c["n13"]
+        f9 = [int(x) for x in n9["f_layer_masses"]]
+        g = {}
+        g["n9_t_root_eq_brute_nodes"] = int(n9["t_root"]) == int(n9["brute_dfs_nodes"])
+        g["n9_depth_counter_eq_f_masses"] = (list(n9["nodes_by_depth"]) == f9
+                                             and sum(n9["nodes_by_depth"]) == int(n9["depth_counter_sum"])
+                                             and int(n9["depth_counter_sum"]) == int(n9["brute_dfs_nodes"]))
+        cols = n9["per_state_columns"]
+        it, ib = cols.index("t"), cols.index("brute_subtree_nodes")
+        g["n9_exhaustive_per_state"] = (len(n9["per_state"]) == int(n9["states_cross_checked_exhaustively"])
+                                        and all(int(r[it]) == int(r[ib]) for r in n9["per_state"]))
+        g["n9_branches"] = (all(int(b["t"]) == int(b["brute_subtree_nodes"]) for b in n9["branches"])
+                            and 1 + sum(int(b["t"]) for b in n9["branches"]) == int(n9["t_root"]))
+        f13 = [int(x) for x in n13["f_layer_masses"]]
+        g["n13_t_root_eq_sum_masses"] = (int(n13["t_root"]) == sum(f13) == int(n13["sum_f_layer_masses"]))
+        cap = int(n13["brute_depth_cap"])
+        g["n13_depth_limited_brute"] = (len(n13["nodes_by_depth_to_cap"]) == cap + 1
+                                        and all(int(n13["nodes_by_depth_to_cap"][k]) == f13[k] for k in range(cap + 1)))
+        g["n13_branches"] = (all(int(b["t"]) != 0 for b in n13["branches"])
+                             and 1 + sum(int(b["t"]) for b in n13["branches"]) == int(n13["t_root"]))
+        return g
+
+    def test_q1053_t_cert_gates_recompute_from_the_certificate(self):
+        """Q-1053 / D1376 (Codex F12-002#4): SOLVE_C_CLI.md says a reader can recompute each gate from the
+        certificate alone. On the parent `brute_dfs_nodes` printed sum9 (the depth counter), not the BR.nodes
+        that n9_t_root_eq_brute_nodes compared, and the f masses and the per-state operands were absent, so
+        the recomputation below raised KeyError there."""
+        tmp = tempfile.mkdtemp(prefix="g7b_")
+        self.addCleanup(shutil.rmtree, tmp, True)
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", os.path.join(self.ROOT, "solve.c"))
+        exe = os.path.join(tmp, "solve_g7b")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", exe, src, "-lm", "-lz"],
+                           capture_output=True, text=True, timeout=1800)
+        if r.returncode != 0:
+            raise AssertionError("solve.c did not build, so nothing was verified: " + r.stderr[-2000:])
+        out = os.path.join(tmp, "cert.json")
+        env = {k: v for k, v in os.environ.items() if not k.startswith("SOLVE_")}
+        r = subprocess.run([exe, "--kc-t-cert", out], capture_output=True, text=True, timeout=900, env=env)
+        if r.returncode != 0 or "[kc-t-cert] VERDICT: PASS (0 gate failures)" not in r.stdout:
+            raise AssertionError("precondition: the certificate run passes:\n" + (r.stdout + r.stderr)[-1500:])
+        import json
+        with open(out) as f:
+            c = json.load(f)
+        for k in ("depth_counter_sum", "f_layer_masses", "per_state", "per_state_columns"):
+            if k not in c["n9"]:
+                raise AssertionError("n9.%s is not emitted: the gate operands are not in the certificate" % k)
+        if "f_layer_masses" not in c["n13"]:
+            raise AssertionError("n13.f_layer_masses is not emitted")
+        got = self._recompute(c)
+        gates = {k: v for k, v in c["gates"].items() if k != "fails"}
+        if got != gates:
+            raise AssertionError("recomputed %r != emitted %r" % (got, gates))
+        if c["gates"]["fails"] != sum(1 for v in gates.values() if not v):
+            raise AssertionError("gates.fails does not count the false gates")
+        # the discriminating control: a certificate whose brute_dfs_nodes disagrees with t_root must recompute
+        # to a failing n9 root gate (the parent's emitted operands both read 229861 whatever BR.nodes was)
+        bad = json.loads(json.dumps(c))
+        bad["n9"]["brute_dfs_nodes"] = int(bad["n9"]["brute_dfs_nodes"]) + 1
+        if self._recompute(bad)["n9_t_root_eq_brute_nodes"]:
+            raise AssertionError("control: a mismatched brute_dfs_nodes must fail the recomputed root gate")
+
+    def test_q1053_golden_manifest_and_tier1_pin_agree(self):
+        """The re-minted a0_xa_iii golden carries the operands, and its sha is the one _MANIFEST.txt and the
+        n=31 golden gate's Tier 1 table pin (parent: the golden had no per_state)."""
+        gold = self._read("scripts/tr12_expected/n9/a0_xa_iii.txt")
+        for needle in ('"depth_counter_sum": 229861', '"per_state": [', '"f_layer_masses": [1, 12, 96,'):
+            if needle not in gold:
+                raise AssertionError("golden a0_xa_iii lacks %r" % needle)
+        with open(os.path.join(self.ROOT, "scripts/tr12_expected/n9/a0_xa_iii.txt"), "rb") as f:
+            h = hashlib.sha256(f.read()).hexdigest()
+        if ("  %s  a0_xa_iii.txt" % h) not in self._read("scripts/tr12_expected/n9/_MANIFEST.txt"):
+            raise AssertionError("_MANIFEST.txt does not carry the golden's sha %s" % h)
+        if not re.search(r"^a0_xa_iii\s+%s$" % h, self._read("scripts/tr12_n31_golden_gate.sh"), re.M):
+            raise AssertionError("Tier 1 pin for a0_xa_iii is not the golden's sha %s" % h)
+
+    def test_q1053_doc_names_the_operands(self):
+        doc = self._read("documentation/SOLVE_C_CLI.md")
+        for needle in ("`depth_counter_sum`", "`f_layer_masses`", "`per_state`", "Q-1053"):
+            if needle not in doc:
+                raise AssertionError("SOLVE_C_CLI.md t-cert section lacks %s" % needle)
+
+    def test_f12_018_partition_box_carries_its_scope(self):
+        """Codex F12-018#4/#5 (and the BRANCHES_EXPLAINED twin of F12-003#12): Part 10's byte-for-byte box
+        promised identity with no per-cell-budget or decompressed-bytes qualifier."""
+        doc = self._read("documentation/BRANCHES_EXPLAINED.md")
+        i = doc.find("> resulting `solutions.bin` is byte-for-byte identical.**")
+        if i < 0:
+            raise AssertionError("precondition: Part 10's box is where it was")
+        line = doc[i:doc.find("\n", i)]
+        for needle in ("SOLVE_PER_SUB_BRANCH_LIMIT", "SOLVE_NODE_LIMIT", "decompressed", "F12-018#4/#5"):
+            if needle not in line:
+                raise AssertionError("Part 10's box lacks %r" % needle)
+
+    def test_ft3f_rows_doc_vs_code(self):
+        """FT3f rows of this batch, one needle per cured claim; each was checked against the code first."""
+        cases = [
+            ("CLAUDE.md", "peaks at ~4.13 GB", "peaks at ~3.9 GB (an earlier"),                       # F12-019#3
+            ("CLAUDE.md", "Codex F12-019#4", None),                                                   # F12-019#4
+            ("CLAUDE.md", "it does NOT supersede the split rule", "(2026-04-29, supersedes the prior split rule)"),  # #5
+            ("CLAUDE.md", "~451 KiB", "short, current, read this one"),                             # F12-019#6
+            (".gitattributes", "`-text` alone only stops EOL normalisation", None),                  # F12-019#7
+            ("documentation/SOLVE_C_CLI.md", "`TMPDIR`", None),                                      # F12-019#8
+            ("README.md", "**python3** (3.10 or later", None),                                        # F09-A05#2
+            ("documentation/ROAE_PY_CLI.md", "Python 3.10 or later", None),                          # F09-A05#1
+            ("documentation/ROAE_PY_CLI.md", "F12-012#14", None),                                    # F12-012#14
+            ("documentation/REBUILD_FROM_SPEC.md", "What the ten settings are for", "What the nine settings are for"),  # F12-015#2
+            ("documentation/PARTITION_STABILITY_BOUNDARIES.md", "the only 5-sets ever scored are the 27", "the only 5-set ever scored is the one"),  # F12-017#2
+            ("documentation/DEPLOYMENT.md", "/data/progress.txt /data/build.sha || exit 1", None),   # F12-007#5/#6
+            ("documentation/DEPLOYMENT.md", "since 2026-09-04 any argument after `--merge` is refused", None),  # F12-007#19
+            ("documentation/DEPLOYMENT.md", "anything else is raw (a raw `sub_*.bin` shard has no `ROAE` header", None),  # #18
+            ("documentation/DEPLOYMENT.md", "F12-007#3", None),                                       # F12-007#3
+            ("documentation/CAMPAIGN_METHODOLOGY.md", "selftest_resume_167_gate.sh --threads 2 --solve ./solve", None),  # F12-010#5
+        ]
+        for rel, want, gone in cases:
+            txt = self._read(rel)
+            if want not in txt:
+                raise AssertionError("%s lacks %r" % (rel, want))
+            if gone is not None and gone in txt:
+                raise AssertionError("%s still carries %r" % (rel, gone))
+        dep = self._read("documentation/DEPLOYMENT.md")
+        if "< /dev/null 2>/dev/null\n" in dep:
+            raise AssertionError("an SSH launch example still sends ssh's own stderr to /dev/null (F12-007#24)")
+        # the code side of two claims: selftest_resume_167_gate.sh does require --solve, and solve.c's own
+        # TMPDIR getter exists (so the doc rows describe real behaviour)
+        if 'echo "ERROR: --solve is required"' not in self._read("scripts/selftest_resume_167_gate.sh"):
+            raise AssertionError("precondition: the gate requires --solve")
+        if 'getenv("TMPDIR")' not in self._read("solve.c"):
+            raise AssertionError("precondition: solve.c reads TMPDIR")
+
+    def test_ft3f_solve_c_messages(self):
+        """F12-001#15: --cpu-features promised a vectorized path this build does not contain. F12-001#18: the
+        depth-3 resume gate's receipt printed the REQUESTED kill count after a kill that did not fire."""
+        src = self._read("solve.c")
+        if "vectorized path will be selected\" :" in src or '"YES - vectorized path will be selected"' in src:
+            raise AssertionError("--cpu-features still says a vectorized path will be selected")
+        if "_mm512_" in src:
+            raise AssertionError("precondition changed: solve.c now has AVX-512 intrinsics; revisit F12-001#15")
+        if 'sha_B (%dx kill+resume): %s\\n", kills_fired, sha_B);' not in src:
+            raise AssertionError("the d3 receipt does not report the kills that fired")
+        if "kills_fired = k - 1;" not in src:
+            raise AssertionError("the early-completion branch does not record the kills that fired")
+
+
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))

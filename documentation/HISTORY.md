@@ -12044,3 +12044,20 @@ Q-686=DONE
   inventory leg bounds a new ref by what the destination holds, and the verdict recorder reads its count's status.
 - No canonical sha, count, certificate or verdict changed. `TestBatchFV2G3b` holds each cure and fails on the
   uncured tree.
+
+## 2026-11-03 — batch G7b: the t certificate's gate operands, Part 10's scope, and more of the CLI and ops documentation
+
+- **The t certificate emits what its gates compared (CX-36L-A, Q-1053).** Codex (gpt-6-astra) found in its final
+  review that `--kc-t-cert` printed the per-depth counter's total as `brute_dfs_nodes`, where its root gate compared
+  the brute DFS total, and left out the f layer masses and the per-state values behind four gates. It now emits
+  them, so every gate can be recomputed from the file. No verdict and no earlier value changed; the n=9 golden
+  `a0_xa_iii` gains lines and is re-minted, with its manifest and Tier 1 pins.
+- **BRANCHES_EXPLAINED Part 10 (CX-36L-B).** The byte-for-byte box now carries the two limits its sources state: a
+  budget each cell gets on its own, and a sha over decompressed bytes.
+- **CLI and operations documentation vs code (CX-36L-C).** A further part of Codex's FT3f set: the Python 3.10
+  floor on the front page and the roae.py reference, CLAUDE.md's orientation figures, `TMPDIR`, the
+  `--cpu-features` verdict line, the depth-3 resume gate's kill receipt, the selftest's standalone settings, the
+  greedy five-set count, and six DEPLOYMENT.md items (SIGTERM and merging, the stale-state wipe, the shard sniff,
+  `--merge` arguments, SSH stderr). The rest of that set stays queued.
+- No canonical sha, count, certificate value or verdict changed. `TestBatchG7b` holds each cure and fails on the
+  parent tree.

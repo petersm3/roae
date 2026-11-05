@@ -3,7 +3,7 @@ CLAUDE.md	20	marker	Corrected	1	-	reviewed:sentence-already-states-the-lower-bou
 CLAUDE.md	22	ledger-link	RETRACTED	n/a	-	not-a-marker	7ba6bb332493
 CLAUDE.md	23	ledger-link	CORRECTION	n/a	-	not-a-marker	841e6af12c78
 CLAUDE.md	116	marker	CORRECTED	1	-	reviewed:rule-above-already-states-the-split-policy	00465bcfc043
-CLAUDE.md	118	marker	CORRECTED	1	-	reviewed:operative-rule-below-already-states-the-split-policy	d2b8083d4fde
+CLAUDE.md	118	marker	CORRECTED	1	-	reviewed:operative-rule-below-already-states-the-split-policy	a815cd1da874
 CLAUDE.md	167	marker	CORRECTED	1	-	reviewed:bare-date-tag;following-sentences-carry-the-withdrawal	d3a86349b512
 CLAUDE.md	361	ledger-link	CORRECTION	n/a	-	not-a-marker	e1b13e715649
 CLAUDE.md	365	marker	CORRECTED	1	-	reviewed:bullet-already-reads-14-files	d63457974d3b
@@ -178,6 +178,7 @@ documentation/CRITIQUE.md	679	marker	Corrected	1	-	reviewed:label-only;the-secti
 documentation/CRITIQUE.md	710	ledger-link	CORRECTION	n/a	-	not-a-marker	ff5c80e84578
 documentation/CRITIQUE.md	718	marker	Corrected	1	-	reviewed:sentence-now-says-only-the-KW-facing-integration-never-ran	c7e9ca794979
 documentation/CRITIQUE.md	720	marker	Corrected	1	-	reviewed:paragraph-already-says-the-calibration-ran-and-failed-and-the-rest-is-vetoed	7e8663968875
+documentation/DEPLOYMENT.md	145	marker	Corrected	1	-	reviewed:paragraph-states-q881-no-merge-of-a-stopped-run	da3191129c92
 documentation/DEPLOYMENT.md	335	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	cbe96c2b4198
 documentation/DEPLOYMENT.md	583	marker	CORRECTED	1	-	reviewed:following-sentences-already-explain-merge-takes-no-arguments	4a49a542d6ee
 documentation/DEPLOYMENT.md	797	marker	CORRECTED	1	-	reviewed:box-already-sizes-from-pre-dedup-records	c108685b1733
@@ -488,6 +489,7 @@ documentation/SOLVE_C_CLI.md	1790	marker	CORRECTED	1	-	reviewed:cell-already-say
 documentation/SOLVE_C_CLI.md	1892	marker	Corrected	1	-	reviewed:text-already-names-q3_profile_exact.tsv	592602838f8a
 documentation/SOLVE_C_CLI.md	1944	marker	CORRECTED	1	-	reviewed:text-already-says-not-computable-from-these-ladders	72888a99f0d6
 documentation/SOLVE_C_CLI.md	2088	ledger-link	CORRECTION	n/a	-	not-a-marker	f674f98c4327
+documentation/SOLVE_C_CLI.md	2413	marker	Corrected	1	-	reviewed:row-states-brute_dfs_nodes-is-BR.nodes	ab737789e737
 documentation/SOLVE_C_CLI.md	2504	marker	CORRECTED	1	-	reviewed:paragraph-already-says-instrument-boundary	e0fa245a5d0c
 documentation/SOLVE_C_CLI.md	2769	marker	Corrected	1	-	reviewed:rule-already-sized-from-input-bytes	45051dcbdad8
 documentation/SOLVE_C_CLI.md	2821	narration	now reads	1	-	reviewed:dated-change-note;not-a-correction-of-a-claim	1b2fae92923a

@@ -37836,3 +37836,110 @@ No canonical sha, record count, certificate or verdict changed in CX-36G-A to CX
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group FV2-G3b; the defects were found by Codex
 (gpt-6-astra), final review.
+
+## CX-36L-A — the t certificate printed the depth counter where its root gate compared the brute DFS total, and left out the operands of four gates (solve.c `--kc-t-cert`; documentation/SOLVE_C_CLI.md; scripts/tr12_expected/n9/a0_xa_iii.txt; scripts/tr12_n31_golden_gate.sh)
+
+**2026-11-03.** **Source.** Codex (gpt-6-astra), final review, F12-002#4 (with its siblings F12-002#5, F12-002#14,
+F12-024#5 and F12-024#18); triaged by Fable as D1376; the operator approved the fix and the golden re-mint
+(Q-1053). Batch G7b.
+
+**What was wrong.** SOLVE_C_CLI.md says the certificate's `n9` and `n13` objects carry the numbers the gates were
+computed from, "so a reader can recompute each gate from the certificate alone", and names `brute_dfs_nodes` as
+the right-hand side of `n9_t_root_eq_brute_nodes`. The old file printed the wrong operand there: the gate
+compared `t(root)` with `BR.nodes`, the brute DFS's visit total, but the JSON field took `sum9`, the total of a
+separate per-depth counter. The two are equal on every run that passes, so the printed certificate agreed with
+itself; on a run where they differ it would have shown two equal numbers beside a false gate. Four gates also had
+operands the file never carried: the f layer masses behind `n9_depth_counter_eq_f_masses` and
+`n13_depth_limited_brute`, and the per-state values behind `n9_exhaustive_per_state`, of which only the count was
+written (and that leg stopped at the first failing state).
+
+**What it does now.** `brute_dfs_nodes` is `BR.nodes`. `n9` adds `depth_counter_sum` (the per-depth counter's
+total, which the depth gate also compares with `brute_dfs_nodes`), `f_layer_masses`, and `per_state` (one row per
+memo cell: depth, mask, `last`, `rid`, the ladder's `t` and the brute subtree count, columns named by
+`per_state_columns`); every state is now checked even after a failure. `n13` adds `f_layer_masses` as decimal
+strings. The edit to `kc_t_cert_main` is line-neutral, so no `solve.c:N` citation moved. The certificate's
+`version` stays 1: every earlier key keeps its name and meaning, except that `brute_dfs_nodes` now holds the value
+its documentation always said it held.
+
+**No verdict changed.** A fresh run of this tree passes all seven gates, as before, and every value the old file
+printed is unchanged (`brute_dfs_nodes` still reads 229861, because `BR.nodes` and the depth counter's total are
+equal). `scripts/tr12_repro.sh --n9 --regen` into a scratch directory moves exactly one golden, `a0_xa_iii.txt`,
+and only by added lines; its sha goes `716eeadd…` → `ac6218c9055c18e5a649ee61545b6468275bb6b13a80ea5fae0a54688215ee89`
+in `_MANIFEST.txt` and in the Tier 1 table of `scripts/tr12_n31_golden_gate.sh`. An n=31 golden set minted before
+this reads `[WRONG]` on `a0_xa_iii` until that one row is re-minted; the row takes no ladder and no `n`, so its
+output is the n=9 file.
+
+**Tests.** `TestBatchG7b.test_q1053_t_cert_gates_recompute_from_the_certificate` builds the engine, runs
+`--kc-t-cert`, recomputes all seven gates from the certificate's own fields and compares them with `gates`, with a
+control in which a mismatched `brute_dfs_nodes` must fail the recomputed root gate.
+`test_q1053_golden_manifest_and_tier1_pin_agree` and `test_q1053_doc_names_the_operands` hold the golden, its two
+pins and the documentation. All three fail on the parent tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch G7b; the defect was found by Codex
+(gpt-6-astra), final review.
+
+## CX-36L-B — BRANCHES_EXPLAINED Part 10 promised a byte-for-byte identical `solutions.bin` without the two limits its sources state (documentation/BRANCHES_EXPLAINED.md)
+
+**2026-11-03.** **Source.** Codex (gpt-6-astra), final review, F12-018#4 and F12-018#5; also the BRANCHES_EXPLAINED
+twin of F12-003#12, whose SOLVE_C_CLI.md side G7 corrected. Batch G7b.
+
+Part 10's box says that at a fixed partition depth, if every cell gets the same per-sub-branch budget, the merged
+`solutions.bin` is byte-for-byte identical however the work is split. Two limits were missing. A parallel
+`--sub-branch` run (threads > 1) shares its cell's budget, from `SOLVE_NODE_LIMIT` or `SOLVE_PER_SUB_BRANCH_LIMIT`
+alike, among its task workers and cuts each in-flight task wherever its worker stood when the shared counter
+crossed it, so its record set varies between runs (solve.c's determinism note, Q-871); "the same per-sub-branch
+budget" has to mean a budget each cell gets on its own and is walked against by one thread. And "byte-for-byte" holds for the
+decompressed records the sha256 is taken over; compressed files also need the same compression profile
+(PARTITION_INVARIANCE.md). A dated scope note after the box now says both, and the "it's a theorem" sentence above
+Part 10 points to it. The box itself is unchanged.
+
+**Tests.** `TestBatchG7b.test_f12_018_partition_box_carries_its_scope` (fails on the parent tree).
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch G7b; found by Codex (gpt-6-astra).
+
+## CX-36L-C — CLI and operations documentation that disagreed with the code, a further part of Codex's FT3f set (CLAUDE.md; .gitattributes; README.md; documentation/ROAE_PY_CLI.md, SOLVE_C_CLI.md, REBUILD_FROM_SPEC.md, PARTITION_STABILITY_BOUNDARIES.md, DEPLOYMENT.md, CAMPAIGN_METHODOLOGY.md; solve.c)
+
+**2026-11-03.** **Source.** Codex (gpt-6-astra), final review (the FT3f rows named below); triaged by Fable. Batch G7b.
+Each claim was checked against the code before it was changed.
+
+- **Python floor (F09-A02#3, F09-A03#3, F09-A04#13, F09-A05#1, F09-A05#2).** G7 put Python ≥ 3.10 in DEVELOPMENT.md;
+  README.md's tool list and ROAE_PY_CLI.md now say it too (`int.bit_count`; roae.py imports only the standard
+  library).
+- **CLAUDE.md (F12-019#3 to #6, #8).** The `PruneGInvariance.lean` peak is 4.13 GB, the figure lean/README.md
+  re-measured on 2026-08-21, not 3.9 GB. The VM-priority section's heading no longer says the 2026-04-29 policy
+  supersedes the split rule (its own correction says it does not), and a note bounds that correction's "never" to
+  the one day measured, as CORRECTIONS.md already does. The orientation table no longer calls `CURRENT_STATE.md`
+  short and gives `CURRENT_PLAN.md`'s measured size. The CLI-reference row points to the `TMPDIR` note below.
+- **.gitattributes (F12-019#7).** The SVG comment said `-text` would forfeit readable diffs; `-text` only stops
+  line-ending normalisation, and it is the `binary` macro (`-diff -merge -text`) that would.
+- **SOLVE_C_CLI.md (F12-019#8, F12-001#15).** `--selftest` makes its scratch directory under `TMPDIR` (default
+  `/tmp`, also when empty or over 4,000 characters) and exits 10 if it cannot; the environment table now says so.
+  `--cpu-features` printed "YES - vectorized path will be selected" on a capable host, but this build has no
+  vectorized path; it now prints `YES - capable, but this build has no vectorized path; scalar code runs`.
+- **solve.c (F12-001#18, F12-007#3).** The depth-3 resume gate's final receipt printed the requested kill count even
+  when a later kill did not fire; it now prints the kills that fired. The header comment saying a SIGTERM'd run
+  goes on to merge now says that, since Q-881, a stopped run is not merged unless `SOLVE_MERGE_ALLOW_INCOMPLETE=1`.
+- **ROAE_PY_CLI.md (F12-012#14).** The Markdown report's two citation links are relative to `example/`, where the
+  shipped report lives; a report written elsewhere has those two links broken. The page now says so.
+- **REBUILD_FROM_SPEC.md (F12-015#2).** The standalone selftest command has ten settings, not nine, and its thread
+  count is capped by the CPU count as `--selftest` does; the list now explains `SOLVE_HASH_LOG2=20`.
+- **PARTITION_STABILITY_BOUNDARIES.md (F12-017#2).** At 100T and 560T §[6]'s greedy step five scores all 27 five-sets
+  that extend its four-set, not one; the page said only the one it chose was scored. Nothing it concludes changes:
+  every one of the 27 contains boundaries 25 and 27.
+- **DEPLOYMENT.md (F12-007#3, #5, #6, #18, #19, #24).** A run stopped by SIGTERM is not merged in any mode since
+  Q-881. The stale-state wipe now exits on a failed `rm` before stamping the new run id, and wipes `build.sha`,
+  which the cross-build resume guard reads. A raw `sub_*.bin` shard has no `ROAE` header, so the framing sniff is
+  "`1f 8b` or not". `--merge` has refused extra arguments since 2026-09-04. The two SSH launch examples keep ssh's
+  own stderr instead of sending it to `/dev/null`, as the page's own rule requires.
+- **CAMPAIGN_METHODOLOGY.md (F12-010#5).** The cited `selftest_resume_167_gate.sh` measurement command now carries
+  the required `--solve`.
+
+**Already cured at the base, no change:** F09-H04#3, F12-012#13 (CX-36K), F12-012#15 (F12-012#6's cure), F12-015#1,
+F12-010#3, F12-010#14, F12-010#15.
+
+**Tests.** `TestBatchG7b.test_ft3f_rows_doc_vs_code` and `test_ft3f_solve_c_messages` (both fail on the parent tree).
+
+No canonical sha, record count, certificate value or verdict changed in CX-36L-A to CX-36L-C.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch G7b; the defects were found by Codex
+(gpt-6-astra), final review.

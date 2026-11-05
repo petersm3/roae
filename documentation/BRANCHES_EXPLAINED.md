@@ -441,7 +441,7 @@ survive. See [PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md)
 
 For 5.6 trillion-node runs at depth-3 partitioning, both produce
 EXACTLY the same `solutions.bin` byte-for-byte. That's not an accident —
-it's a theorem.
+it's a theorem (for equal per-cell budgets, as set above, and a sha over decompressed bytes: Part 10's scope note, 2026-11-03, F12-018#5).
 
 ---
 
@@ -453,7 +453,7 @@ work. Stated plainly:
 > **At a fixed partition depth, no matter how you split the work — by
 > first-level branches, by sub-branches, all at once, or across many
 > machines — if every cell gets the same per-sub-branch budget, the
-> resulting `solutions.bin` is byte-for-byte identical.**
+> resulting `solutions.bin` is byte-for-byte identical.** *(Scope note 2026-11-03, Codex final review F12-018#4/#5: "the same per-sub-branch budget" means a budget each cell gets on its own and is walked against by one thread, as the full enumeration, `--branch` and a single-threaded `--sub-branch` do (the per-cell share of `SOLVE_NODE_LIMIT`, or `SOLVE_PER_SUB_BRANCH_LIMIT`). A parallel `--sub-branch` run (threads > 1) shares its cell's budget, from either variable, among its depth-5 task workers and cuts each in-flight task wherever its worker stood when the shared counter crossed it, so its record set varies between runs; only a complete, unbudgeted parallel run has a fixed record set (solve.c's determinism note, Q-871). "Byte-for-byte" is about the decompressed records the sha256 is taken over; compressed shard files also need the same compression profile, because gzip framing varies with zlib version and level ([PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md)).)*
 
 "At a fixed partition depth" is load-bearing, and so is the budget
 qualifier. Changing the depth changes the number of cells — 3,030 at

@@ -143,9 +143,15 @@ REVIEWED = {
     # not restate the withdrawn claim. Class 2: deleting the marker would leave the withdrawn wording
     # standing, or the marker carries the only statement of a caveat the text depends on, so the text
     # must be rewritten first (Q-938). The review token says which text the verdict rests on.
+    # G7b (2026-11-03): two new dated markers, each read in its paragraph. Class 1: the text around each
+    # marker states the corrected fact, and the marker only records what the line said before.
+    ('documentation/DEPLOYMENT.md', 'da3191129c92'):
+        ('1', 'reviewed:paragraph-states-q881-no-merge-of-a-stopped-run'),
+    ('documentation/SOLVE_C_CLI.md', 'ab737789e737'):
+        ('1', 'reviewed:row-states-brute_dfs_nodes-is-BR.nodes'),
     ('CLAUDE.md', '00465bcfc043'):
         ('1', 'reviewed:rule-above-already-states-the-split-policy'),
-    ('CLAUDE.md', 'd2b8083d4fde'):
+    ('CLAUDE.md', 'a815cd1da874'):   # re-keyed 2026-11-03 (G7b, F12-019#4: a dated note appended to the line; verdict re-read, unchanged)
         ('1', 'reviewed:operative-rule-below-already-states-the-split-policy'),
     ('CLAUDE.md', 'd3a86349b512'):
         ('1', 'reviewed:bare-date-tag;following-sentences-carry-the-withdrawal'),

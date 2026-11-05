@@ -4,7 +4,7 @@
 
 A man-page-style command-line reference for `roae.py`, the Python
 analysis tool that runs 29 descriptive statistical analyses against
-the King Wen hexagram sequence as a fixed 64-element ordering.
+the King Wen hexagram sequence as a fixed 64-element ordering. It needs Python 3.10 or later (`int.bit_count`; standard library only — Codex final review F09-A05#1).
 
 ## NAME
 
@@ -648,7 +648,7 @@ and JSONL checkpoint unconditionally whenever the mode is run:
 
 Output files are written to the current working directory, except
 `--gs-json` / `--gs-checkpoint`, which take an arbitrary path (absolute
-paths outside the CWD included).
+paths outside the CWD included). The Markdown report's two citation links (Jing Fang, Terence McKenna) are written as `../documentation/CITATIONS.md#…`, relative to `example/`, where the shipped `report.md` lives; in a report written from any other directory those two links do not resolve *(noted 2026-11-03, Codex final review F12-012#14)*.
 
 ## REPRODUCIBILITY
 

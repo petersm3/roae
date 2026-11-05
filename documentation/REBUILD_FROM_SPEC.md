@@ -363,11 +363,11 @@ SOLVE_SKIP_IOPS_CHECK=1 \
 { gzip -dc solutions.bin 2>/dev/null || cat solutions.bin; } | sha256sum
 ```
 
-What the nine settings are for:
+What the ten settings are for *(this said "nine" and `SOLVE_THREADS=4` until 2026-11-03, after `SOLVE_HASH_LOG2=20` and the CPU cap were added to the command; Codex final review F12-015#2)*:
 
-- `SOLVE_THREADS=4` and `SOLVE_NODE_LIMIT=100000000` fix the shape of the run. The budget is a
+- `SOLVE_THREADS` (four, or fewer on a host with fewer online CPUs, as `--selftest` caps it) and `SOLVE_NODE_LIMIT=100000000` fix the shape of the run. The budget is a
   per-sub-branch node limit rather than a wall-clock limit precisely so the result is byte-exact
-  across thread counts and machines.
+  across thread counts and machines. `SOLVE_HASH_LOG2=20` sizes the initial record table at 32 MiB per thread instead of the default 2^24 (512 MiB per thread); the table grows on demand, so this changes memory use, not which records are found.
 - `SOLVE_ALLOW_SUB_CANONICAL=1` — the 100M-node budget is below the 1 T sub-canonical hard-gate
   (see [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"100B and sub-canonical reference shas", the
   "Sub-canonical hard-gate" paragraph); without this override the run exits 25 and writes nothing.

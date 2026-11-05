@@ -125,10 +125,15 @@ Q8_BUCKETS='71,55,64,59,75,58,53,74,51,49,64,60,58,81,60,68'
 # ladder, no n and no knob (--kc-t-cert FILE; --kc-scan-selftest), so their output is
 # n-independent by construction; the 09-11 n=13 leg was not repeated. A golden MINTED BEFORE
 # those commits differs from n=9 on exactly those lines, and Tier 1 reports it [WRONG].
+# RE-PINNED 2026-11-03 (Q-1053, Codex F12-002#4): a0_xa_iii 716eeadd -> ac6218c9. The --kc-t-cert
+# JSON now emits the operands its gates compare (brute_dfs_nodes = BR.nodes, depth_counter_sum,
+# f_layer_masses at n=9 and n=13, per_state); no gate verdict and no pre-existing value changed, and
+# the new value is from a fresh `tr12_repro.sh --n9 --regen` of this tree (only a0_xa_iii moved). An
+# n=31 set minted before this reads [WRONG] on a0_xa_iii until that one row is re-minted (Q-947 shape).
 TIER1_ROWS='
 a0_build        bfc2153cb595d9700c3614355ed1b4c37502cde0c0f1594cfc0157051edbbd1b
 a0_gates        897a2d168f60890a29f0d4c242a06e96398bac7a3de82a1c7807617c30ccd496
-a0_xa_iii       716eeaddbe8f6aac4edb3f136061eda59665be129059919e4341c8f0f542be37
+a0_xa_iii       ac6218c9055c18e5a649ee61545b6468275bb6b13a80ea5fae0a54688215ee89
 a0_q7_kw        baecd37f936b5fdb891f1b90a595270e8fe49eb854241195dd5c172d52da0aaf
 a0_q7_hist      6076b14937dba09eb07dcc75518a4724a335d457f28f6f90aa2e4d68f02ad213
 a0_ls_w0        bf1593a820d9e2da157d3da538523dead0b177dce8d87231e6d09a0dc959b810

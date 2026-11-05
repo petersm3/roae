@@ -140,11 +140,11 @@ resume from the saved frontier).
 
 ## Graceful shutdown is load-bearing
 
-In bundled-merge mode the solver's SIGTERM handler does real work on exit: it reads all committed
-`sub_*.bin` files, merges them, deduplicates, sorts, and writes the final `solutions.bin` + sha256 (under `SOLVE_SKIP_AUTOMERGE=1` — the split
-mode this file prescribes for canonical runs — it returns before the merge, and `--merge` on the merge VM produces them). ⚠ *(Scoped 2026-09-25, Q-763: this read as if every mode merged on SIGTERM.)* When aborting a run, always `kill -TERM` the solver
-(not SIGKILL) and wait for it to finish — otherwise you lose the merged output
-even though the per-sub-branch data is safe on disk.
+On SIGTERM the solver stops cleanly: the handler only sets a flag the walk checks. Since Q-881 a stopped run is **not** merged in
+any mode: the bundled merge is skipped with a warning and no new `solutions.bin` is written, unless `SOLVE_MERGE_ALLOW_INCOMPLETE=1` asks for a merge of the partial shards (under `SOLVE_SKIP_AUTOMERGE=1` — the split
+mode this file prescribes for canonical runs — the enum VM never merges, and `--merge` on the merge VM produces `solutions.bin`). ⚠ *(Scoped 2026-09-25, Q-763: this read as if every mode merged on SIGTERM.)* ⚠ *(Corrected 2026-11-03, Codex final review F12-007#3: this paragraph said that in bundled-merge mode the SIGTERM handler merges the committed shards and writes the final `solutions.bin` and sha256 on exit, and that SIGKILL instead loses the merged output; Q-881 had ended merging a stopped run.)* When aborting a run, always `kill -TERM` the solver
+(not SIGKILL) and wait for it to finish, so it stops at a clean point; the per-sub-branch data already committed
+is safe on disk either way.
 
 ## Two-phase deployment: enumeration VM vs merge VM
 
@@ -583,7 +583,7 @@ MB/thread). Merge RAM scales with output size.
    ⚠ **[CORRECTED 2026-09-01 — this read `./solve --merge /data/solutions.bin`,
    which does not do what it looks like.]** `--merge` takes **no arguments**: it
    sets `arg_offset = argc`, so every following argument is consumed and
-   silently discarded — no error, no warning. It then scans the **current
+   silently discarded — no error, no warning *(that was the behaviour on 2026-09-01; since 2026-09-04 any argument after `--merge` is refused with `MERGE_ARGS=REFUSED` and exit 2, before anything is merged — note 2026-11-03, Codex final review F12-007#19)*. It then scans the **current
    working directory** for `sub_*.bin` shards and writes `solutions.bin` and
    `solutions.sha256` there. Run from `~` on a fresh merge VM, the old command
    therefore finds no shards at all, or — worse — merges whatever stale shards
@@ -759,7 +759,7 @@ poll loop. **Required form:**
 ```bash
 timeout 15 ssh -n -i $KEY -o StrictHostKeyChecking=no "solver@$IP" \
     "cd /data && setsid nohup ~/solve $TIMEOUT > solve_output.txt 2>&1 < /dev/null &" \
-    < /dev/null 2>/dev/null
+    < /dev/null 2>>ssh_launch.err   # keep ssh's own errors (auth, connection); was 2>/dev/null until 2026-11-03, Codex F12-007#24
 ```
 
 - `setsid` puts solve in its own session (detached from SSH's process group)
@@ -782,7 +782,7 @@ The hash table guarantees zero silent drops at any scale. If a resize fails
       means the **whole** resume surface: `sub_*.bin`, `sub_*.dfs_state`,
       `sub_*.bin.budget`, `sub_*.bin.provenance.json`, `sub_ckpt_*`,
       `sub_flush_chunk_*`, `shard_manifest.txt`, `checkpoint.txt`,
-      `checkpoint_t*.txt`, `progress.txt`, and the `solutions.*` outputs — see
+      `checkpoint_t*.txt`, `progress.txt`, `build.sha` (added 2026-11-03), and the `solutions.*` outputs — see
       §Deployment lifecycle step 6. A partial wipe resumes silently and reports
       success.
 - [ ] Persistent volume mount verified
@@ -976,7 +976,7 @@ Adapt names, regions, and SKUs to your environment. All commands assume
              /data/solutions.meta.json /data/solutions.provenance.json \
              /data/solve_output.txt /data/solve_results.json \
              /data/checkpoint.txt /data/checkpoint.txt.* /data/checkpoint_t*.txt \
-             /data/progress.txt
+             /data/progress.txt /data/build.sha || exit 1   # 2026-11-03, Codex F12-007#5/#6: a failed wipe must not stamp the id; build.sha is resume state too
    fi
    echo '$RUN_ID' > /data/run_id.txt
    "
@@ -1004,7 +1004,7 @@ Adapt names, regions, and SKUs to your environment. All commands assume
    timeout 15 ssh -n -i ~/.ssh/f64_key -o StrictHostKeyChecking=no "solver@$IP" \
        "cd /data && SOLVE_THREADS=64 SOLVE_NODE_LIMIT=$NODE_LIMIT \
         setsid nohup ~/solve 86400 > solve_output.txt 2>&1 < /dev/null &" \
-       < /dev/null 2>/dev/null
+       < /dev/null 2>>ssh_launch.err   # ssh's own errors are kept (2026-11-03, Codex F12-007#24)
    sleep 5
    ssh ... solver@$IP 'pgrep -x solve >/dev/null && echo started || echo FAILED'
    ```
@@ -1177,7 +1177,7 @@ head -1 sub_<branch>.sha256               # the hash above must match this line
 # archives — logical and on-disk bytes are the same, so
 #     sha256sum -c sub_<branch>.sha256
 # is also correct; it is WRONG for gz-framed shards (it hashes the container).
-# Sniff the first two bytes to tell them apart: `1f 8b` is gz-framed, `ROAE` is raw.
+# Sniff the first two bytes to tell them apart: `1f 8b` is gz-framed, anything else is raw (a raw `sub_*.bin` shard has no `ROAE` header, so it starts with a record; `ROAE` marks a header-bearing solutions.bin -- corrected 2026-11-03, Codex final review F12-007#18).
 
 ./solve --verify sub_<branch>.bin  # per-record C1-C5 check, framing auto-detected
 ```

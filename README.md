@@ -316,7 +316,7 @@ python3 sat.py                           # SAT layer usage + targets
 python3 tests.py                         # regression harness (prints its own test count)
 bash reports/certificates/verify_all.sh  # one command: selftest, two-language gates, all DRAT certs, Lean, tests.py, roae.py --verify, doc gates
 ```
-`verify_all.sh` needs five external tools — **gcc**, **python3**, **drat-trim**, **lean** (elan) and
+`verify_all.sh` needs five external tools — **gcc**, **python3** (3.10 or later: the Python tools use `int.bit_count`; Codex final review F09-A05#2), **drat-trim**, **lean** (elan) and
 **git** (section 7 only: the documentation gates enumerate the corpus with `git ls-files`, so an
 exported tarball with no work tree cannot run them).
 It probes for each up front and reports any dependent check as **SKIP**, not FAIL: a SKIP means the

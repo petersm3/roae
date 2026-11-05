@@ -48,13 +48,13 @@ what an enumeration artifact contains is
 | Project narrative + why-decisions-were-made | [HISTORY.md](documentation/HISTORY.md) |
 | Enumeration leaderboard | [enumeration/LEADERBOARD.md](enumeration/LEADERBOARD.md) |
 | Build / self-test / developer invariants | [DEVELOPMENT.md](documentation/DEVELOPMENT.md) |
-| **Full `solve` (C binary) CLI reference** (subcommands, env vars, exit codes) | [SOLVE_C_CLI.md](documentation/SOLVE_C_CLI.md) |
+| **Full `solve` (C binary) CLI reference** (subcommands, env vars, exit codes; `--selftest`'s `TMPDIR` scratch directory is described there too) | [SOLVE_C_CLI.md](documentation/SOLVE_C_CLI.md) |
 | **Full `solve.py` CLI reference** (analysis sections + verification/companion commands) | [SOLVE_PY_CLI.md](documentation/SOLVE_PY_CLI.md) |
 | **Full `roae.py` CLI reference** (29 analysis sections, modifiers, exports) | [ROAE_PY_CLI.md](documentation/ROAE_PY_CLI.md) |
 | **`sat.py` SAT/certificate-layer CLI** (CNF emit, witness, C3 encoding) | [SAT_CLI.md](documentation/SAT_CLI.md) |
 | Azure deployment / SKU sizing | [DEPLOYMENT.md](documentation/DEPLOYMENT.md) |
 | Visualization tooling + how-to-read | [viz/README.md](viz/README.md) |
-| **Live operational state** (current run, schedule, in-flight work) | `~/github/roae-private/CURRENT_STATE.md` — short, current, read this one (**private repo, `petersm3/roae-private`** — not in this repo). `CURRENT_PLAN.md` beside it is ~416 KB of append-only history: provenance only, never orientation |
+| **Live operational state** (current run, schedule, in-flight work) | `~/github/roae-private/CURRENT_STATE.md` — current, read its lead block by offset (it is ~8,300 lines, see §In-flight state; this cell said "short" until 2026-11-03, Codex F12-019#6) (**private repo, `petersm3/roae-private`** — not in this repo). `CURRENT_PLAN.md` beside it is ~451 KiB (measured 2026-09-18; this cell said ~416 KB) of append-only history: provenance only, never orientation |
 | Operator memory (user preferences, feedback rules, infra notes) | `~/.claude/projects/*/memory/MEMORY.md` |
 
 ## Canonical shas — INVARIANT
@@ -111,11 +111,11 @@ positives on whitespace / comment-only edits.
 
 ## Cost control — VM purchase type (STRICT, mandatory gate)
 
-**Current standing policy (2026-04-29, supersedes the prior split rule):**
+**Current standing policy (2026-04-29; it does NOT supersede the split rule — see the correction below; this heading said "supersedes the prior split rule" until 2026-11-03, Codex F12-019#5):**
 
 > **Every VM other than the 2-core 8GB `claude` orchestrator must be provisioned deliberately: **enumeration on Spot**, and **merge or any workload that cannot checkpoint on Regular/Standard, right-sized**. No VM of any priority may be created or started without a teardown plan stated in the same breath. If a workload genuinely cannot tolerate eviction, do not put it on Spot — design for checkpoint/resume or provision Regular, and say which.** ⚠ **[CORRECTED 2026-08-29 — this read "All VMs … MUST be Spot priority. No exceptions for merge VMs, no exceptions for 'brief inspection' VMs, no exceptions for analysis VMs." Measured on the live subscription: five of seven non-orchestrator VMs are `Regular`, so the rule was never followed, and it contradicted `documentation/DEPLOYMENT.md`'s STANDING split policy. See documentation/CORRECTIONS.md]**
 
-⚠ **[CORRECTED 2026-08-29 — this said the blanket-Spot rule "supersedes the 2026-04-20 split policy (enumeration=Spot, merge=on-demand)". It does not, and PRACTICE HAS NEVER FOLLOWED IT: measured on the live subscription, five of the seven non-orchestrator VMs are `Regular` and only the enumeration VM is Spot. `documentation/DEPLOYMENT.md` still presents the split policy as STANDING with no supersession note, so the two documents contradicted each other and the one claiming priority was the one practice ignored. See documentation/CORRECTIONS.md]**
+⚠ **[CORRECTED 2026-08-29 — this said the blanket-Spot rule "supersedes the 2026-04-20 split policy (enumeration=Spot, merge=on-demand)". It does not, and PRACTICE HAS NEVER FOLLOWED IT: measured on the live subscription, five of the seven non-orchestrator VMs are `Regular` and only the enumeration VM is Spot. `documentation/DEPLOYMENT.md` still presents the split policy as STANDING with no supersession note, so the two documents contradicted each other and the one claiming priority was the one practice ignored. See documentation/CORRECTIONS.md]** ⚠ *(Note 2026-11-03, Codex F12-019#4: "never" in this note overstates its evidence. The measurement is one day's snapshot; it shows the rule was not followed on the date measured (2026-08-29), which is the form documentation/CORRECTIONS.md supports.)*
 
 **The operative rule, as actually practised:**
 
@@ -431,7 +431,7 @@ held exactly one file; the second and third landed 2026-07-04 and it is now fift
 thirteen; `SatEncodingFidelity.lean` landed 2026-08-31 and took it to fourteen; `CompilerCorrectness.lean` arrived on `main` with the `v4-query-program` merge `a19682b2` on 2026-09-04 and takes it to fifteen —
 `git ls-files 'lean/*.lean' | wc -l`, agreeing with `lean/README.md`). Per-module is
 the RIGHT structure for Lean and is not to be consolidated: compile cost is PER FILE. The landed
-kernel-`decide` `PruneGInvariance.lean` peaks at ~3.9 GB (an earlier revision of this sentence
+kernel-`decide` `PruneGInvariance.lean` peaks at ~4.13 GB (lean/README.md, re-measured 2026-08-21; this said ~3.9 GB until 2026-11-03, Codex F12-019#3) (an earlier revision of this sentence
 said "near 10.6 GB" — that WAS a real measurement, kept here for provenance, but of the REJECTED
 one-liner migration route, the direct 48×64×64 kernel enumeration of `applyPerm_isometry`; the
 shipped route proves the isometry structurally, and the 10.6 GB figure applies to nothing in the

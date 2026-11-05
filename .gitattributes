@@ -77,5 +77,5 @@
 
 # NOT marked binary, deliberately: *.svg. All 17 tracked SVGs are text, not binary
 # (`file --mime` reports charset us-ascii or utf-8 for every one), they diff
-# usefully as text, and nothing in them is byte-sensitive. Marking them `-text`
-# would forfeit readable diffs for no gain.
+# usefully as text, and nothing in them is byte-sensitive. Marking them `binary`
+# (= -diff -merge -text) would forfeit readable diffs for no gain; `-text` alone only stops EOL normalisation (2026-11-03, Codex F12-019#7).

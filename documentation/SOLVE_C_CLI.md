@@ -693,15 +693,15 @@ foundation+bw+vpopcntdq triple that a **future** v2 dispatcher would require. *(
 > ⚠️ **This build has no vectorised path.** The subcommand's own header says
 > it reports capability "used by *future* AVX-512 runtime dispatch" with "no
 > behavioral change to canonical enumeration" (solve.c:43123-43132), yet on a
-> capable host it prints a YES verdict asserting a vectorised path will be
+> capable host it printed (until 2026-11-03) a YES verdict asserting a vectorised path will be
 > selected (`avx512_ready`, solve.c:43150-43152). Measured on this tree:
 > `solve.c` contains 17
 > `avx512`/`AVX-512` strings and **zero** occurrences of `_mm512_*`,
 > `immintrin.h`, or `__attribute__((target(...)))` — there is no vectorised
 > path to select, so a YES here does not explain throughput. Rewording that
-> printf is an open code change. *(Doc corrected 2026-09-01: this sentence
+> printf was an open code change until 2026-11-03. *(Doc corrected 2026-09-01: this sentence
 > previously attributed the triple, in the present tense, to a dispatcher that
-> exists in this build.)*
+> exists in this build.)* *(2026-11-03, Codex final review F12-001#15: the printf is reworded; on a capable host it prints `YES - capable, but this build has no vectorized path; scalar code runs`.)*
 
 No enumeration; instantaneous. Used by `v2_bench_d64.sh` fingerprint
 capture and by pre-flight checks before AVX-512 work.
@@ -2410,9 +2410,9 @@ reader can recompute each gate from the certificate alone rather than trusting `
 |---|---|---|
 | `N_walks` | both | the number of full walks. ⚠ At n=9 this is the **literal `26112`** written into the emitter, not a value the run measured; at n=13 it is the ladder's own `total` as a decimal string. Only the n=13 field is evidence |
 | `t_root` | both | `t(root)` read off the t ladder — `u64` at n=9, decimal string at n=13 |
-| `brute_dfs_nodes` | n9 | total visits of the independent brute DFS over the same superspace; the right-hand side of `n9_t_root_eq_brute_nodes` |
-| `nodes_by_depth` | n9 | an `n+1` element array: entry `k` is the number of DFS visits at depth `k`, tallied by a separate recursive walk that consults no ladder |
-| `states_cross_checked_exhaustively` | n9 | how many t-ladder memo cells were individually re-derived against the brute DFS — the size of the exhaustive leg's evidence. It is **every** stored state, not a sample |
+| `brute_dfs_nodes` | n9 | total visits of the independent brute DFS over the same superspace (`BR.nodes`); the right-hand side of `n9_t_root_eq_brute_nodes`. Beside it, `depth_counter_sum` is the sum of `nodes_by_depth`, which `n9_depth_counter_eq_f_masses` also compares with `brute_dfs_nodes`. ⚠ *(Corrected 2026-11-03, Q-1053, from Codex finding F12-002#4: until then this field printed `depth_counter_sum`'s value, not the `BR.nodes` the gate compared, and `depth_counter_sum` was not emitted. The two agree on every published run, so no verdict changed.)* |
+| `nodes_by_depth` | n9 | an `n+1` element array: entry `k` is the number of DFS visits at depth `k`, tallied by a separate recursive walk that consults no ladder. `f_layer_masses` (in both `n9` and `n13`; decimal strings at n=13) is the `n+1` f layer masses `M[k]` these counts are compared with *(added 2026-11-03, Q-1053)* |
+| `states_cross_checked_exhaustively` | n9 | how many t-ladder memo cells were individually re-derived against the brute DFS — the size of the exhaustive leg's evidence. It is **every** stored state, not a sample. `per_state` lists them, one row each, with the columns `per_state_columns` names: depth, mask, `last`, `rid` (the cell key), the ladder's `t` and the brute subtree count it was compared with *(added 2026-11-03, Q-1053; until then only the count was emitted, and the leg stopped at the first failing cell)* |
 | `brute_subtree_nodes` | n9 branch rows | the brute DFS's node count for that one child subtree, beside the ladder's `t` for the same state |
 | `global_pair` | branch rows | the placed pair's index in the **global** 0..31 pair labelling (`kc->c.pl[q]`), not its index within this ladder's `n` active pairs. The branch atlas emitted by `--kc-scan` uses the same key with the same meaning |
 | `sum_f_layer_masses` | n13 | the f layer masses summed over all depths `0..n`; the right-hand side of `n13_t_root_eq_sum_masses` |
@@ -3759,7 +3759,7 @@ slow layer from an interrupted one. Background and the falsifiable proofs: `roae
 | `SOLVE_KC_CACHE_MB` | `2048` | LRU block-cache size for the out-of-core layer reader, when `--kc-cache-mb` is not given. `0` falls back to the default rather than disabling the cache; a negative, non-numeric or above-4194304 value is refused with exit 2 (2026-09-27, lane HE). |
 | `SOLVE_KC_G_STOP_AT_K` | `0` | Probe hook: stop the **g** ladder build after reaching layer `k`. Clamped to `[0, n]`. A ladder stopped this way is INCOMPLETE and says so on stderr. |
 | `SOLVE_KC_T_STOP_AT_K` | `0` | The same hook for the **t** ladder build. |
-| `SOLVE_KC_SCRATCH` | `/tmp` | Base directory under which the `kc` selftests `mkdtemp` their scratch dir. |
+| `SOLVE_KC_SCRATCH` | `/tmp` | Base directory under which the `kc` selftests `mkdtemp` their scratch dir. Not to be confused with the standard `TMPDIR` (default `/tmp`, also used when it is empty or longer than 4,000 characters): `--selftest` makes its `solve_selftest_XXXXXX` scratch directory there and exits **10** before enumerating if it cannot, and the digest helpers make their temp files there *(added 2026-11-03, Codex F12-019#8)*. |
 
 #### `--kc-g-check`
 

@@ -144,7 +144,7 @@
  * SIGTERM and SIGINT are caught via sigaction (not signal(), which resets after one
  * use — a bug in an earlier version). The handler sets global_timed_out = 1, which
  * is checked on every backtracking node. Threads exit cleanly, and the main thread
- * proceeds to merge, sort, write, and report — producing complete, valid output.
+ * reports; since Q-881 a STOPPED run is not merged unless SOLVE_MERGE_ALLOW_INCOMPLETE=1 (2026-11-03, F12-007#3).
  *
  * OUTPUT FILES
  * ============
@@ -34692,16 +34692,18 @@ static int kc_t_cert_main(const char *outp) {
     if (!g2) fails++;
     printf("[kc-t-cert] n=9: per-depth counter == f layer masses (all k), sum == nodes  %s\n",
            g2 ? "PASS" : "FAIL");
-    int g3 = 1;
-    uint64_t states9 = 0;
-    for (int k = 0; k <= f9->n && g3; k++) {
+    int g3 = 1;   /* Q-1053 / D1376: every state is checked and its two operands kept for the JSON */
+    uint64_t states9 = 0, ne9 = 0; for (int k = 0; k <= f9->n; k++) ne9 += TL9[k].ne;
+    struct { int k; uint32_t mask, key; F1U192 t; uint64_t bsub; } *st9 = calloc(ne9 ? ne9 : 1, sizeof(*st9)); F1_CHECK(st9 != NULL, "[kc-t-cert] alloc");
+    for (int k = 0; k <= f9->n; k++) {
         const F1C5Layer *L = &TL9[k];
-        for (uint64_t mi = 0; mi < L->nm && g3; mi++)
-            for (uint64_t e = L->off[mi]; e < L->off[mi + 1] && g3; e++) {
+        for (uint64_t mi = 0; mi < L->nm; mi++)
+            for (uint64_t e = L->off[mi]; e < L->off[mi + 1]; e++) {
                 const uint32_t key = L->keys[e];
                 const uint64_t sub = kc_t_brute_subtree(f9, k, L->masks[mi],
                                                         (int)(key >> 16), key & 0xffffu);
-                g3 = (L->vals[e].l1 == 0 && L->vals[e].l2 == 0 && L->vals[e].l0 == sub);
+                if (!(L->vals[e].l1 == 0 && L->vals[e].l2 == 0 && L->vals[e].l0 == sub)) g3 = 0;
+                if (states9 < ne9) { st9[states9].k = k; st9[states9].mask = L->masks[mi]; st9[states9].key = key; st9[states9].t = L->vals[e]; st9[states9].bsub = sub; }
                 states9++;
             }
     }
@@ -34738,8 +34740,7 @@ static int kc_t_cert_main(const char *outp) {
     if (!g4) fails++;
     printf("[kc-t-cert] n=9: per-branch t == brute subtree; 1 + sum == t(root) (%d branches)  %s\n",
            nbr9, g4 ? "PASS" : "FAIL");
-    free(BR.walks);
-    free(BR.cds);
+    const uint64_t brnodes9 = BR.nodes; free(BR.walks); free(BR.cds);
     /* ---- n=13 spot ---- */
     KC *f13 = (KC *)calloc(1, sizeof(KC));
     F1_CHECK(f13 != NULL, "[kc-t-cert] alloc");
@@ -34755,10 +34756,7 @@ static int kc_t_cert_main(const char *outp) {
     for (int k = 0; k <= f13->n; k++) f1_add(&sumM13, &M13[k]);
     const int g5 = f1_eq(&troot13, &sumM13);
     if (!g5) fails++;
-    {
-        char a[64], b[64];
-        f1_dec(troot13, a);
-        f1_dec(sumM13, b);
+    {   char a[64], b[64]; f1_dec(troot13, a); f1_dec(sumM13, b);
         printf("[kc-t-cert] n=13: t(root)=%s sum-of-f-layer-masses=%s  %s\n",
                a, b, g5 ? "EQUAL" : "MISMATCH");
     }
@@ -34833,15 +34831,18 @@ static int kc_t_cert_main(const char *outp) {
                 "splitting, and the prefixes its combined kw_dist budget admits beyond the t-ladder's boundary cap; C3 is only a leaf filter there) using this instrument\"\n");
         fprintf(f, "  },\n");
         fprintf(f, "  \"n9\": {\n    \"N_walks\": 26112,\n");
-        fprintf(f, "    \"t_root\": %llu,\n    \"brute_dfs_nodes\": %llu,\n",
-                (unsigned long long)troot9.l0, (unsigned long long)sum9);
+        fprintf(f, "    \"t_root\": %llu,\n    \"brute_dfs_nodes\": %llu,\n    \"depth_counter_sum\": %llu,\n",
+                (unsigned long long)troot9.l0, (unsigned long long)brnodes9, (unsigned long long)sum9);
         fprintf(f, "    \"nodes_by_depth\": [");
         for (int k = 0; k <= f9->n; k++)
             fprintf(f, "%s%llu", k ? ", " : "", (unsigned long long)cnt9[k]);
-        fprintf(f, "],\n");
-        fprintf(f, "    \"states_cross_checked_exhaustively\": %llu,\n",
+        fprintf(f, "],\n    \"f_layer_masses\": [");
+        for (int k = 0; k <= f9->n; k++) { f1_dec(M9[k], t); fprintf(f, "%s%s", k ? ", " : "", t); }
+        fprintf(f, "],\n    \"states_cross_checked_exhaustively\": %llu,\n    \"per_state_columns\": "
+                "[\"depth\", \"mask\", \"last\", \"rid\", \"t\", \"brute_subtree_nodes\"],\n    \"per_state\": [\n",
                 (unsigned long long)states9);
-        fprintf(f, "    \"branches\": [\n");
+        for (uint64_t s = 0; s < states9 && s < ne9; s++) { f1_dec(st9[s].t, t); fprintf(f, "      [%d, %u, %u, %u, %s, %llu]%s\n", st9[s].k, (unsigned)st9[s].mask, (unsigned)(st9[s].key >> 16), (unsigned)(st9[s].key & 0xffffu), t, (unsigned long long)st9[s].bsub, s + 1 < states9 ? "," : ""); }
+        fprintf(f, "    ],\n    \"branches\": [\n");
         for (int b = 0; b < nbr9; b++)
             fprintf(f, "      {\"global_pair\": %d, \"entry\": %d, \"exit\": %d, "
                     "\"t\": %llu, \"brute_subtree_nodes\": %llu}%s\n",
@@ -34857,7 +34858,9 @@ static int kc_t_cert_main(const char *outp) {
         f1_dec(sumM13, t);
         fprintf(f, "    \"sum_f_layer_masses\": \"%s\",\n", t);
         fprintf(f, "    \"brute_depth_cap\": %d,\n", cap13);
-        fprintf(f, "    \"brute_cap_rule\": \"largest cap with cumulative visits <= 2e8\",\n");
+        fprintf(f, "    \"brute_cap_rule\": \"largest cap with cumulative visits <= 2e8\",\n    \"f_layer_masses\": [");
+        for (int k = 0; k <= f13->n; k++) { f1_dec(M13[k], t); fprintf(f, "%s\"%s\"", k ? ", " : "", t); }
+        fprintf(f, "],\n");
         fprintf(f, "    \"nodes_by_depth_to_cap\": [");
         for (int k = 0; k <= cap13; k++)
             fprintf(f, "%s%llu", k ? ", " : "", (unsigned long long)cnt13[k]);
@@ -34889,11 +34892,8 @@ static int kc_t_cert_main(const char *outp) {
            (fails || rc) ? "FAIL" : "PASS", fails, fails == 1 ? "" : "s");   /* G5b F04-006#10: a failed certificate write is a FAIL */
     for (int k = 0; k <= f9->n; k++) f1c5_layer_free(&TL9[k]);
     for (int k = 0; k <= f13->n; k++) f1c5_layer_free(&TL13[k]);
-    free(TL13);
-    kc_free(f9);
-    kc_free(f13);
-    free(f9);
-    free(f13);
+    free(TL13); free(st9);
+    kc_free(f9); kc_free(f13); free(f9); free(f13);
     return rc;
 }
 
@@ -41463,7 +41463,7 @@ int main(int argc, char *argv[]) {
         fflush(stdout);
 
         /* ---- Leg B: g_kills x (enum -> SIGKILL mid-run) then resume to done ---- */
-        int completed_early = 0;
+        int completed_early = 0, kills_fired = g_kills;   /* 2026-11-03 Codex F12-001#18: the receipt reports the kills that fired */
         for (int k = 1; k <= g_kills; k++) {
             t0 = time(NULL);
             snprintf(cmd, sizeof(cmd),
@@ -41484,7 +41484,7 @@ int main(int argc, char *argv[]) {
                 printf("[--selftest-resume-d3] note: kill #%d did not fire (resume completed "
                        "the remaining work first) — %d kill(s) were injected; proceeding\n",
                        k, k - 1);
-                completed_early = 1;
+                completed_early = 1; kills_fired = k - 1;
                 break;
             }
             if (!killed) {
@@ -41560,7 +41560,7 @@ int main(int argc, char *argv[]) {
         }
 
         printf("[--selftest-resume-d3] sha_A (uninterrupted):   %s\n", sha_A);
-        printf("[--selftest-resume-d3] sha_B (%dx kill+resume): %s\n", g_kills, sha_B);
+        printf("[--selftest-resume-d3] sha_B (%dx kill+resume): %s\n", kills_fired, sha_B);
 
         if (strcmp(sha_A, sha_B) == 0) {
             char rm[8600];
@@ -43148,7 +43148,7 @@ int main(int argc, char *argv[]) {
                         && g6_cpu_has("avx512bw")
                         && g6_cpu_has("avx512vpopcntdq");
         printf("\n  v2 AVX-512 dispatch ready (avx512f + avx512bw + avx512vpopcntdq): %s\n",
-               avx512_ready ? "YES - vectorized path will be selected" :
+               avx512_ready ? "YES - capable, but this build has no vectorized path; scalar code runs" : /* 2026-11-03 Codex F12-001#15: said "vectorized path will be selected" */
                               "NO - scalar fallback will be used");
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--cpu-freq") == 0) { if (argv_refuse_extra(argc, argv, 3, "at most ONE argument (the threshold in MHz)")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
