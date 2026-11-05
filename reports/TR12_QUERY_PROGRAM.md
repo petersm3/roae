@@ -2095,7 +2095,7 @@ query family and refines four existing items. All items below are labeled by spa
   both symbols are **Lean definitions**, not engine helpers: `lean/Automorphism.lean:127` defines
   `applyPerm` and `:131` defines `pairKey`. Measured on `origin/main`: `applyPerm` occurs **0**
   times in `solve.c` under every casing tried (`applyPerm`, `applyperm`, `APPLYPERM`, `ApplyPerm`,
-  `apply_perm`; control `main` = 38, `zzznotreal` = 0). The `PairKey` struct at `solve.c:45965` is
+  `apply_perm`; control `main` = 38, `zzznotreal` = 0). The `PairKey` struct at `solve.c:45967` is
   an unrelated `qsort` sort-record (`{ unsigned char pi[32]; long long idx; }`) with no coset
   semantics, so calling this a misspelling would point the reader at real machinery that does the
   wrong thing. The engine's actual XOR/coset tables are `F1Coset`/`f1_g24[24]`

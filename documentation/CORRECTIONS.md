@@ -37943,3 +37943,135 @@ No canonical sha, record count, certificate value or verdict changed in CX-36L-A
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch G7b; the defects were found by Codex
 (gpt-6-astra), final review.
+
+## CX-36M-A — `--kc-scan` above n=13 refuses without `--kc-raw` (solve.c `--kc-scan`, `--kc-scan-merge`; documentation/SOLVE_C_CLI.md)
+
+**2026-11-03.** **Source.** Codex (gpt-6-astra), fix-verification round, F09-H01#10; triaged by Fable as D1363;
+the operator chose option (b) on 2026-11-01 (Q-1052). Batch FV2-E2.
+
+**What was wrong.** `--kc-scan` turned the raw frame on by itself only at n <= 13. A default scan above 13 wrote an
+atlas without the raw marginals, and the standard loader in VERIFY.md rejects such an atlas, so the failure showed
+up only when the atlas was read.
+
+**What changed.** Above n=13 a whole-atlas scan, a chunk scan and `--kc-scan-merge` now refuse to run without
+`--kc-raw`: exit 2, `KC_SCAN_RAW=REFUSED`, and a message that names the flag. Nothing is written. A measurement run,
+which writes no chunk and no atlas, is not refused. At n <= 13 nothing changes. n=14 is not orbit-realizable, so
+the test uses n=15, the first n above 13 the ladders support.
+
+**Test.** `TestBatchFV2E2.test_d1363_kc_scan_above_13_refuses_without_kc_raw` (n=15; a `--kc-raw` run is the
+positive control). It fails on the parent tree.
+
+## CX-36M-B — argument, reader and estimator rows (solve.c; documentation/SOLVE_C_CLI.md)
+
+**2026-11-03.** **Source.** Codex (gpt-6-astra), fix-verification round; triaged by Fable in FV2 slice 2. Batch
+FV2-E2. Finding ids are given per item.
+
+- **`--kc-enum-desc` (D1391, F12-002#16).** A shared argument error, such as a bad `--kc-c3-max`, returned 2 before
+  any `KC_ENUM_DESC` token. Every failure now ends with `KC_ENUM_DESC=FAIL`.
+- **`--f1-mod` (D1392, F12-002#10).** `strtoull` accepted a leading `-` and wrapped it modulo 2^64, so
+  `-18446744073709551611` ran as P=5. An empty value returned 2. A sign, an overflow and an empty value now exit 71
+  with the other invalid values.
+- **The 64-value test hooks (D1393, F04-007#4; D1453, F04-007#9).** With a 65th value the four `*_TESTVEC` hooks
+  read one element past their 64-entry array before refusing; the loop is bounded now. The strict integer reader
+  mapped any token of four or more digits to "out of range", so `0063` was refused; the value decides now.
+- **`--c3-min` (D1396, F04-008#9).** It stopped at the declared record count and accepted data after it. It now
+  refuses that, as `--verify` does. The `--verify-rule*` readers the finding also named already had this check
+  (G6).
+- **`--knuth-dump-prefix` (D1404, F12-001#4; D1405, F12-001#5).** A descent that dead-ended short of the asked depth
+  exited 0; it now exits 1. Depths 29 and 30 were emitted although `--estimate-knuth` reads at most 28 levels; the
+  depth is now 1..28.
+- **`--estimate-knuth` (D1408, F04-001#18; D1460, F04-001#4; D1469, F04-004#8; D1466, F02-013#2; D1471,
+  F04-001#6; D1463, F02-011#2).** An infeasible prefix exited 0 with no estimate; it exits 1. Under
+  `SOLVE_KNUTH_C67=1` a prefix that put another pair in slots 24 to 27 was estimated; it is refused, as G6 refused
+  it for `SOLVE_KNUTH_PIN_SLOTS`. Without scoring, the gender-strict cross-check never ran but printed 0
+  mismatches; it prints `UNCHECKED`. The R-C1c line now carries `se=` for each mass. The subtree sampler is also
+  refused with `SOLVE_KNUTH_SEED`, which it does not read. In exact mode the gloss no longer points at
+  `records_*` lines that exact mode does not print.
+- **`--print-config` (D1411, F04-001#20).** The fixed list left out names read elsewhere, such as `SOLVE_COMPRESS`
+  and `SOLVE_HASH_LOG2`. Every other `SOLVE_*` variable that is set is printed after the list.
+- **`--kde-score-stream` (D1419, F04-001#16).** A finite bandwidth above about 1e154 made `bw*bw` overflow and the
+  normaliser infinite. A bandwidth outside [1e-100, 1e100] is refused; the arithmetic for an accepted one is
+  unchanged.
+- **The King Wen self-check (D1420, F06-007#3).** Checks (a) to (f) also pass for the 47 other sigma-images of King
+  Wen (TR-5), so a change of `KW[]` to one of them went unnoticed. Check (g) compares the table with a pinned copy.
+  The comment that said the checks pass only for King Wen is corrected.
+- **`--show --mode random` (D1421, F12-003#2).** For a pool above 2^31 the combined `rand()` word left bit 31 of
+  its low half at 0, so some records could never be drawn. Above 2^31 the draw now uses 62 random bits with
+  rejection sampling; a pool of 2^31 or less draws exactly as before.
+- **Metadata probe (D1407, F12-009#4).** `curl --connect-timeout 1` bounded only the connect; `--max-time 1` bounds
+  the whole probe.
+- **Fixed-quota race (D1459, F04-004#13).** The fiber cross-check quota is taken by a compare-and-swap that
+  decrements only while it is positive. The printed count is unchanged.
+
+**Tests.** `TestBatchFV2E2` (19 tests): one behavioural test per row above that a command can reach, plus
+`test_structural_rows` for D1407, D1421 and D1459. All 19 fail on the parent tree.
+
+## CX-36M-C — merge, regression and stamp rows (solve.c; documentation/SOLVE_C_CLI.md)
+
+**2026-11-03.** **Source.** Codex (gpt-6-astra), fix-verification round; triaged by Fable in FV2 slice 2. Batch
+FV2-E2.
+
+- **Merge input gate (D1447, F04-003#3, F04-008#23; D1448, F04-008#24; D1449, F04-008#25).** With no checkpoint
+  file the gate skipped the `shard_manifest.txt` cross-reference, so a listed shard could be absent. A `BUDGETED`
+  line without a budget field finished an `INTERRUPTED` cell here, while the resume loader treats the same line as
+  covering nothing. Manifest lines that were not `sub_*.bin` rows were skipped, so a junk manifest certified the
+  shards. Each case is now refused (`MERGE_SHARD=MISSING`, `MERGE_INPUT=INCOMPLETE`, `MERGE_MANIFEST=MALFORMED`).
+- **Long shard names (D1440, F04-008#8).** The in-memory merge copied names into a 64-byte table. A longer name is
+  refused by name now (`MERGE_SHARD=NAME-TOO-LONG`); before, it failed later with a "cannot size" message for the
+  cut-off name.
+- **Disk preflight (D1441, F12-007#14).** Free space was rounded down to whole GiB, and 0 skipped the check. It
+  compares bytes now.
+- **Post-merge analytics (D1429, F04-003#18).** A failed optional `--analyze` left a partial report under the final
+  name. It writes a `.tmp` file and renames it only on success.
+- **`--merge-layers` manifest (D1395, F04-007#6).** A failed `opendir` or `readlink` dropped entries, and the
+  manifest was announced as written. Fewer rows than distinct shards now exits 20 with
+  `MERGE_LAYERS_MANIFEST=INCOMPLETE`.
+- **Equivalence harnesses (D1397, F04-007#4, F04-001#8).** `--selftest-resume`, `--regression-test` and
+  `--double-regression-test` compared captured digest strings, so the same error text on both sides counted as a
+  match. A PASS now needs two 64-hex digests.
+- **Regression working dirs (D1417, F04-007#5).** Fixed directory names under the base let two concurrent runs
+  remove each other's trees. Each run makes a private `regress_XXXXXX` (or `dregress_XXXXXX`) root.
+- **Canonical validation child (D1400, F04-001#14; D1399, F04-001#21).** The child now also unsets
+  `SOLVE_SKIP_AUTOMERGE` and `SOLVE_MERGE_MODE`. A comment promised host-fingerprint deltas from a variable nothing
+  reads; it now says none are printed.
+- **Build-identity stamp (D1432, F04-001#9; D1437, F04-001#10).** When the digest of the binary could not be
+  measured, the gate warned and let the run start. It now exits 26 with `BUILD_SHA_GATE=UNMEASURED` unless
+  `SOLVE_ALLOW_BUILD_MISMATCH=1`. A failed write of `build.sha.tmp` was renamed into place as an empty stamp; now
+  no stamp is installed.
+- **Directory fsync EINVAL (D1446, F12-024#7).** The KC writers counted EINVAL from a directory fsync as success
+  without saying so. They now print a WARN; SOLVE_C_CLI.md states the carve-out.
+- **MIDJOIN g keys (D1450, F04-008#19).** A g key with no matching f key got no domain check. Both unmatched paths
+  now apply the f side's checks.
+
+**Tests.** `TestBatchFV2E2` behavioural tests for D1440, D1447, D1448 and D1449 (each with a positive control
+where one applies), and `test_structural_rows` for D1395, D1397, D1399, D1400, D1417, D1429, D1432, D1437, D1441,
+D1446 and D1450, whose failure needs a fault this suite cannot inject. They fail on the parent tree.
+
+## CX-36M-D — comments and labels; rows already cured; rows held (solve.c)
+
+**2026-11-03.** **Source.** Codex (gpt-6-astra), fix-verification round; triaged by Fable in FV2 slice 2. Batch
+FV2-E2.
+
+- **R11 axis g8 (D1457, F03-004#1).** The comment said the g8 count is Drasny's and Schulz's. The hexagram class is
+  theirs; the positional predicate counted here is ROAE's operationalisation of it. The comment now says so.
+- **`--analyze` subfamily label (D1436, F04-003#14).** "pair-orderings with forced orient" claimed a constraint
+  that one observed variant in a deduplicated file cannot support. It now reads "ONE observed orientation variant
+  in this file; forced only if the orientation fiber is complete".
+
+**Already cured at the base, no change:** D1398 (G6 quotes the d3 gate's engine path at its source), D1409 (the
+G5c numeric preflight refuses `SOLVE_KNUTH_PURDOM_W=" 8x"` with `SOLVE_ENV=REFUSED`), D1414 (G7b, F12-001#15),
+D1415 (G6 caps `SOLVE_REGRESS_DIR` at 1,024 bytes, so the child names cannot be cut off), D1470 (G6 refuses the
+subtree sampler under the strict walks).
+
+**Held for the operator:** D1452 (the MIDJOIN resume key binds layers by name and size: a content digest costs a
+full read of every layer at each resume, and inode or ctime would drop the cache when layers are copied), D1465
+(printing `se=NA` for a zero-hit score changes a line that reports/evidence/circular_census/pool.sh parses as a
+number). The two HEADLINE-OR-COUNT rows of this range, D1430 and D1455, stay held as in the triage.
+
+**Not done in this batch:** D1427 and D1431 (several analysis sections each; queued).
+
+No canonical sha, record count, certificate value or verdict changed in CX-36M-A to CX-36M-D: `--selftest` and
+`--selftest-resume` print their recorded digests.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch FV2-E2; the defects were found by Codex
+(gpt-6-astra) in its fix-verification round and triaged by Fable.

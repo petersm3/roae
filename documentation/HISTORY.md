@@ -12061,3 +12061,20 @@ Q-686=DONE
   `--merge` arguments, SSH stderr). The rest of that set stays queued.
 - No canonical sha, count, certificate value or verdict changed. `TestBatchG7b` holds each cure and fails on the
   parent tree.
+
+## 2026-11-03 — batch FV2-E2: the second half of the engine rows from Codex's fix-verification round
+
+- **`--kc-scan` above n=13 needs `--kc-raw` (CX-36M-A, Q-1052).** Codex (gpt-6-astra) found that a default scan
+  above n=13 wrote an atlas the standard loader rejects later. On the operator's choice the scan, chunk and merge
+  now refuse without `--kc-raw` and name the flag.
+- **Arguments, readers and the estimator (CX-36M-B).** Bad `--f1-mod`, `--kc-c3-max` and test-vector values are
+  refused with the documented codes and tokens; `--c3-min` refuses trailing data; prefix tools exit nonzero on a
+  dead end or an infeasible prefix and honour the C6/C7 pins; `--print-config` shows every set `SOLVE_*` variable;
+  the King Wen self-check pins the table itself.
+- **Merges, harnesses and stamps (CX-36M-C).** The merge gate checks the shard manifest without a checkpoint file,
+  refuses a corrupt manifest, a long shard name and a budgetless line as a finished cell; the equivalence
+  harnesses need real digests; an unmeasurable build stamp refuses instead of warning.
+- **Comments, and what was held (CX-36M-D).** Two labels and an attribution comment are corrected; five rows were
+  already cured; two rows are held for the operator and two are queued.
+- No canonical sha, count, certificate or verdict changed. `TestBatchFV2E2` holds each cure and fails on the
+  parent tree.

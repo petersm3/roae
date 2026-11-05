@@ -665,7 +665,7 @@ REVIEWED = {
     ('documentation/SOLVE_C_CLI.md', '2338b84a23d6'):
         ('1', 'reviewed:dated-label;bullet-already-reads-correctly'),
     # re-keyed batch 35 (was 2cfd795d413c): only a line-number cite on the line moved; re-read, same verdict.
-    ('documentation/SOLVE_C_CLI.md', '8edc57212467'):
+    ('documentation/SOLVE_C_CLI.md', 'b68e82867526'):  # re-keyed FV2-E2 (was 8edc57212467): only the solve.c line cite moved; re-read, same verdict
         ('1', 'reviewed:line-already-gives-the-256-ceiling'),
     ('documentation/SOLVE_C_CLI.md', '45051dcbdad8'):
         ('1', 'reviewed:rule-already-sized-from-input-bytes'),
@@ -841,8 +841,8 @@ REVIEWED = {
     ('enumeration/LEADERBOARD.md', '2cb7abe5c0a2'):
         ('1', 'reviewed:paragraph-already-reads-from-the-742M-archive'),
     # re-keyed batch 35 (was 829aed6413ee): only a line-number cite on the line moved; re-read, same verdict.
-    # re-keyed batch 46 (was 945a371c2c4b; CX-340, Q-993): the solve.c cite became the span 46159-46160; re-read, same verdict.
-    ('enumeration/LEADERBOARD.md', '90a94005650f'):
+    # re-keyed batch 46 (was 945a371c2c4b; CX-340, Q-993): the solve.c cite became the span 46159-46160; re-read, same verdict. Re-keyed FV2-E2 (was 90a94005650f): only the solve.c line cite moved; re-read, same verdict.
+    ('enumeration/LEADERBOARD.md', '8628a4b667a1'):
         ('1', 'reviewed:sentence-already-calls-it-an-overlap-ratio'),
     ('enumeration/LEADERBOARD.md', '8ff0ea958479'):
         ('1', 'reviewed:qualifier-already-uses-0-based-pair-numbers'),
@@ -1164,7 +1164,7 @@ REVIEWED = {
         ('1', 'reviewed:note-already-says-the-boundary-minimum-did-not-shift'),
     # re-keyed batch 35 (was eaf5abc0b734): only a line-number cite on the line moved; re-read, same verdict.
     # re-keyed batch 46 (was 597d3234e446; CX-340, Q-993): the solve.c cite became the span 46159-46160; re-read, same verdict.
-    ('documentation/CRITIQUE.md', 'fdeca61f4d29'):
+    ('documentation/CRITIQUE.md', 'e7a0456a1486'):  # re-keyed FV2-E2 (was fdeca61f4d29): only the solve.c line cite moved; re-read, same verdict
         ('1', 'reviewed:update-already-states-minimum-5-and-the-overlap-reading-of-ratio-0.007'),
     ('documentation/CRITIQUE.md', '14f8e15eb91d'):
         ('1', 'reviewed:paragraph-already-closes-order-64-Costas-by-construction-and-C1'),
@@ -1293,7 +1293,7 @@ REVIEWED = {
     ('-', 'pop:GATE 94 (ADVISORY)'):
         ('n/a', 'reviewed:advisory-live-count-falls-with-phrasings-quoted-inside-deleted-spans;CAMPAIGN_METHODOLOGY-GUIDE-viz_kc_river-runs'),
     # batch 50 (CX-354 item 5): "now reads" narration in the c8screen bundle README describing a
-    # code-comment edit between the pinned instrument and the committed scorer (solve.c:52278); the
+    # code-comment edit between the pinned instrument and the committed scorer (solve.c:52280); the
     # frozen digest 486cac40... is stated beside the amended 529fb27a..., so nothing withdrawn can be
     # re-derived and no public claim rests on the phrase.
     ('reports/evidence/c8screen/README.md', '0b049652ee25'):

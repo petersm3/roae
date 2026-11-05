@@ -6963,7 +6963,7 @@ def extended_selftest(solve_binary):
     def _run(env_extra, dir_, args_=("0", "4")):
         env = {k: v for k, v in os.environ.items() if not k.startswith("SOLVE_")}   # G5b F04-011#3: no inherited SOLVE_*
         # Every --extended-selftest subtest runs BELOW the 1T canonical-stability threshold
-        # (100M-2G nodes), so solve.c's sub-canonical gate (solve.c:44035) refuses to start
+        # (100M-2G nodes), so solve.c's sub-canonical gate (solve.c:44036) refuses to start
         # without this override and the whole selftest dies at subtest 1. The gate exists
         # because a sub-1T sha is CODE-SPECIFIC and therefore not a cross-build anchor -- but
         # these subtests compare shas THREE WAYS AGAINST EACH OTHER on one build (recursive vs

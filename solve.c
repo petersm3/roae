@@ -1330,7 +1330,7 @@ static long long gz_logical_size(const char *path) {
     if (n != 4) return -1;
     return (long long)((uint32_t)b[0] | ((uint32_t)b[1] << 8) |
                        ((uint32_t)b[2] << 16) | ((uint32_t)b[3] << 24));
-} static int gz_framing_matches(int is_gz, long long observed, long long want); static int verify_stream_ends_here(gzFile vf, const char *path, long long n_records);  /* Q-619 #1; both defined at end of file */
+} static int gz_framing_matches(int is_gz, long long observed, long long want); static int verify_stream_ends_here(gzFile vf, const char *path, long long n_records);  /* Q-619 #1; both defined at end of file */ static int e2_hex64(const char *s);  /* FV2-E2 D1397 */
 /* Native `gzip -t`: fully inflate the file (discarding output), relying on zlib's
  * built-in CRC-32 + ISIZE trailer check at end-of-stream. Returns 0 if the gz is
  * intact, -1 if corrupt/truncated. O(decompressed size) — the CRC is in the
@@ -4316,7 +4316,7 @@ static void capture_host_fingerprint(long long node_limit) {
         "echo '  \"cpu_count\": '$(nproc)','; "
         "echo '  \"cpu_microcode\": \"'$(grep -m1 '^microcode' /proc/cpuinfo 2>/dev/null | sed 's/^microcode\\s*:\\s*//')'\",'; "
         "echo '  \"memory_total_kb\": '$(grep '^MemTotal' /proc/meminfo 2>/dev/null | awk '{print $2}')','; "
-        "AZURE_META=$(curl -s -H 'Metadata: true' --connect-timeout 1 'http://169.254.169.254/metadata/instance?api-version=2021-02-01' 2>/dev/null || echo ''); "
+        "AZURE_META=$(curl -s -H 'Metadata: true' --connect-timeout 1 --max-time 1 'http://169.254.169.254/metadata/instance?api-version=2021-02-01' 2>/dev/null || echo ''); "
         "AZURE_SKU=$(echo \"$AZURE_META\" | grep -o '\"vmSize\":\"[^\"]*\"' | head -1 | cut -d':' -f2 | tr -d '\"'); "
         "AZURE_LOC=$(echo \"$AZURE_META\" | grep -o '\"location\":\"[^\"]*\"' | head -1 | cut -d':' -f2 | tr -d '\"'); "
         "AZURE_HOST=$(echo \"$AZURE_META\" | grep -o '\"hostId\":\"[^\"]*\"' | head -1 | cut -d':' -f2 | tr -d '\"'); "
@@ -4642,13 +4642,13 @@ static void auto_run_analyze_to_text(const char *bin_path) {
     }
     self_path[n] = '\0';
     char cmd[8 * PATH_MAX + 128]; const char *g6_q(const char *);   /* G6 F04-001#1: both paths as quoted shell words */
-    if (snprintf(cmd, sizeof(cmd), "%s --analyze %s > solutions.analytics.txt 2>&1", g6_q(self_path), g6_q(bin_path)) >= (int)sizeof(cmd)) { fprintf(stderr, "[task #102] WARN: post-merge --analyze command too long; skipping\n"); return; }
+    if (snprintf(cmd, sizeof(cmd), "%s --analyze %s > solutions.analytics.txt.tmp 2>&1", g6_q(self_path), g6_q(bin_path)) >= (int)sizeof(cmd)) { fprintf(stderr, "[task #102] WARN: post-merge --analyze command too long; skipping\n"); return; }
     fprintf(stderr, "[task #102] post-merge --analyze: running %s (this may take 30 min - 4h depending on scale)...\n", cmd);
     int rc = system(cmd);
-    if (rc == 0) {
+    if (rc == 0 && rename("solutions.analytics.txt.tmp", "solutions.analytics.txt") == 0) {  /* FV2-E2 D1429 (Codex F04-003#18): the final name only ever holds a complete report */
         fprintf(stderr, "[task #102] post-merge --analyze PASS; output -> solutions.analytics.txt\n");
     } else {
-        fprintf(stderr, "[task #102] WARN: post-merge --analyze rc=%d; solutions.analytics.txt may be incomplete\n", rc);
+        (void)unlink("solutions.analytics.txt"); fprintf(stderr, "[task #102] WARN: post-merge --analyze rc=%d; its partial output is left as solutions.analytics.txt.tmp (no solutions.analytics.txt is written; an older one is removed)\n", rc);
     }
 }
 
@@ -4656,13 +4656,13 @@ static void auto_run_analyze_to_text(const char *bin_path) {
  * /proc/self/exe and compare to build.sha in cwd. First run writes
  * build.sha; subsequent runs MUST match unless SOLVE_ALLOW_BUILD_MISMATCH=1.
  * Returns 0 on success / clean first-run / override, -1 on mismatch or a MALFORMED build.sha (Q-848: exit 26, file left untouched) without override.
- * Tolerates missing sha256 tool (logs a warning, proceeds). */ static int build_sha_is_legacy_tool_digest(const char *tool, const char *prior, const char *current);
+ * A missing sha256 tool or an unparsable digest is refused (-1) unless SOLVE_ALLOW_BUILD_MISMATCH=1 (FV2-E2 D1432). */ static int build_sha_is_legacy_tool_digest(const char *tool, const char *prior, const char *current);
 static int check_build_sha_invariant(void) {
     const char *tool = sha256_tool();
     if (!tool) {
         fprintf(stderr, "[hardening] WARN: no sha256 tool on PATH; build-sha invariant SKIPPED. "
                         "Outlier #4 unguarded; do not resume across different binaries.\n");
-        return 0;
+        { if (getenv("SOLVE_ALLOW_BUILD_MISMATCH") && atoi(getenv("SOLVE_ALLOW_BUILD_MISMATCH")) == 1) return 0; fprintf(stderr, "ERROR: the build-identity gate could not measure this binary, so it cannot be compared with build.sha; refusing (SOLVE_ALLOW_BUILD_MISMATCH=1 proceeds unguarded)\nBUILD_SHA_GATE=UNMEASURED\n"); return -1; }  /* FV2-E2 D1432 (Codex F04-001#9): was return 0 */
     }
     /* Compute current binary sha. Q-619 #4: by PID -- "/proc/self/exe" inside the popen child named the HASHING TOOL. */
     char cmd[256];
@@ -4671,7 +4671,7 @@ static int check_build_sha_invariant(void) {
     if (!p) {
         fprintf(stderr, "[hardening] WARN: popen(%s) failed: %s; build-sha invariant SKIPPED\n",
                 cmd, strerror(errno));
-        return 0;
+        { if (getenv("SOLVE_ALLOW_BUILD_MISMATCH") && atoi(getenv("SOLVE_ALLOW_BUILD_MISMATCH")) == 1) return 0; fprintf(stderr, "ERROR: the build-identity gate could not measure this binary, so it cannot be compared with build.sha; refusing (SOLVE_ALLOW_BUILD_MISMATCH=1 proceeds unguarded)\nBUILD_SHA_GATE=UNMEASURED\n"); return -1; }  /* FV2-E2 D1432 (Codex F04-001#9): was return 0 */
     }
     char current_sha[80] = {0};
     int n = fscanf(p, "%79s", current_sha);
@@ -4679,7 +4679,7 @@ static int check_build_sha_invariant(void) {
     if (n != 1 || strlen(current_sha) != 64) {
         fprintf(stderr, "[hardening] WARN: could not parse sha256 of /proc/self/exe (got %d chars); SKIPPED\n",
                 (int)strlen(current_sha));
-        return 0;
+        { if (getenv("SOLVE_ALLOW_BUILD_MISMATCH") && atoi(getenv("SOLVE_ALLOW_BUILD_MISMATCH")) == 1) return 0; fprintf(stderr, "ERROR: the build-identity gate could not measure this binary, so it cannot be compared with build.sha; refusing (SOLVE_ALLOW_BUILD_MISMATCH=1 proceeds unguarded)\nBUILD_SHA_GATE=UNMEASURED\n"); return -1; }  /* FV2-E2 D1432 (Codex F04-001#9): was return 0 */
     }
     /* Read existing build.sha if present. Q-848 (2026-09-26): through the one reader; a MALFORMED file is refused (exit 26), not overwritten. */
     char prior_sha[80] = {0}; int prior_st = build_sha_read(prior_sha);
@@ -4716,8 +4716,8 @@ static int check_build_sha_invariant(void) {
         fprintf(stderr, "[hardening] WARN: cannot write build.sha.tmp: %s; Outlier #4 unguarded\n", strerror(errno));
         return 0;
     }
-    fprintf(fw, "%s\n", current_sha);
-    fflush(fw); fsync(fileno(fw)); fclose(fw);
+    int e2_w = fprintf(fw, "%s\n", current_sha) < 0; e2_w |= fflush(fw) != 0; e2_w |= fsync(fileno(fw)) != 0; e2_w |= ferror(fw) != 0;
+    e2_w |= fclose(fw) != 0; if (e2_w) { fprintf(stderr, "[hardening] WARN: writing build.sha.tmp failed: %s; build.sha NOT installed; Outlier #4 unguarded\n", strerror(errno)); (void)unlink("build.sha.tmp"); return 0; }  /* FV2-E2 D1437 (Codex F04-001#10): a failed write used to rename an empty stamp into place */
     if (rename("build.sha.tmp", "build.sha") != 0) {
         fprintf(stderr, "[hardening] WARN: cannot rename build.sha.tmp -> build.sha: %s\n", strerror(errno));
         return 0;
@@ -7423,7 +7423,7 @@ static void score_perm(const int seq[64], double W, KnuthArg *a){
  *   App.2) rising/falling rhythm; g3 Schulz 1990 (JCP 17:3, Zhu Yuansheng exception) gender/parity;
  *   g4/g5 Cook 2006 (STEDT Mono.5) first-7-level coverage / final-pair anchor; g6 張行成/朱熹 (Song, per
  *   Li Shangxin 2008; Zheng Qiao credit withdrawn 2026-07-30) / Hu Yigui 1247 / Hacker & Moore 2003 18:18 split; g7 Schulz 2011/2016 S25-28 dui config (ccn4; earlier Li Shangxin 2000 p. 53);
- *   g8 Drasny / Schulz xiaoxi-in-group-B count (d7). ROAE contributes only the population measurement.
+ *   g8 xiaoxi-in-group-B count (d7): the hexagram CLASS is Drasny / Schulz; the positional predicate counted here is ROAE's operationalisation of it (FV2-E2 D1457). ROAE contributes the population measurement.
  * Estimator/gate-only, sha-neutral. */
 static void r11_axes(const int seq[64], int g[8]){
     /* g1 = 18 - Moore-2005 pair-positioning compliance (comp-pairs + pc==3 rev-pairs exempt) */
@@ -7507,7 +7507,7 @@ static void r11_axes(const int seq[64], int g[8]){
         }
         g[6] = ok ? 0 : 1;
     }
-    /* g8 = 8 - xiaoxi count in Drasny group-B slots (d7; Drasny / Schulz) */
+    /* g8 = 8 - xiaoxi count in Drasny group-B slots (d7; class Drasny / Schulz, positional predicate ROAE's) */
     {
         uint64_t xw = 0;
         for (int k=1;k<=6;k++){ xw |= 1ULL << ((1 << k) - 1); xw |= 1ULL << (REG_COMP6((1 << k) - 1)); }
@@ -8007,7 +8007,7 @@ static int fiber_init(const int budget0[7]){
 static void fiber_leaf_note(KnuthArg *a, const int seq[64], double m){
     if (a->fib_min == 0 || m < a->fib_min) a->fib_min = m;
     if (m > a->fib_max) a->fib_max = m;
-    if (knuth_fiber_xcheck > 0 && __atomic_fetch_sub(&knuth_fiber_xcheck, 1, __ATOMIC_SEQ_CST) > 0) {
+    if (({ __typeof__(knuth_fiber_xcheck) e2_q = __atomic_load_n(&knuth_fiber_xcheck, __ATOMIC_SEQ_CST); int e2_ok = 0; while (e2_q > 0 && !(e2_ok = __atomic_compare_exchange_n(&knuth_fiber_xcheck, &e2_q, e2_q - 1, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))) ; e2_ok; })) {  /* FV2-E2 D1459 (Codex F04-004#13): a CAS that decrements only while positive (was a plain read, then fetch_sub) */
         char buf[320]; int off = 0;
         for (int i = 0; i < 32 && off < 300; i++)
             off += snprintf(buf + off, (size_t)(320 - off), "%s%d", i ? "," : "", pair_of_hex(seq[2*i]));
@@ -8552,8 +8552,8 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
     }
     int start_step = 1;
     for (int i=0;i<n_levels;i++){
-        if (((knuth_pin_mask >> (i + 1)) & 1u) && lp[i] != i + 1) { fprintf(stderr, "KNUTH: prefix level %d places pair %d in slot %d, which SOLVE_KNUTH_PIN_SLOTS pins to pair %d; the pinned population has no leaf under this prefix. Refused (G6 F04-004#1).\n", i + 1, lp[i], i + 1, i + 1); exit(1); } if (!knuth_apply(seq0,&used0,budget0,lp[i],lo[i],i+1)){
-            fprintf(stderr,"KNUTH: prefix infeasible at level %d (pair=%d orient=%d)\n",i+1,lp[i],lo[i]); return; }
+        if ((((knuth_pin_mask | (knuth_pin_c67 ? 0x0F000000u : 0u)) >> (i + 1)) & 1u) && lp[i] != i + 1) { fprintf(stderr, "KNUTH: prefix level %d places pair %d in slot %d, which %s pins to pair %d; the pinned population has no leaf under this prefix. Refused (G6 F04-004#1; FV2-E2 D1460, Codex F04-001#4: the C6/C7 pins of slots 24-27 too).\n", i + 1, lp[i], i + 1, ((knuth_pin_mask >> (i + 1)) & 1u) ? "SOLVE_KNUTH_PIN_SLOTS" : "SOLVE_KNUTH_C67", i + 1); exit(1); } if (!knuth_apply(seq0,&used0,budget0,lp[i],lo[i],i+1)){
+            fprintf(stderr,"KNUTH: prefix infeasible at level %d (pair=%d orient=%d)\n",i+1,lp[i],lo[i]); exit(1); }  /* FV2-E2 D1408 (Codex F04-001#18): was return, and main exited 0 with no estimate */
         start_step = i+2;
     }
     /* R11 gate-2 repair (2026-07-13): strict-prefix composition. When a strict walk
@@ -8670,7 +8670,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
         printf("  leaves_canonical_C1C5 : %.0f\n", c3);
         printf("  LEAVES_CANONICAL_GLOSS=present\n");
         printf("    (raw ORIENTED leaves passing the C1-C5 filter; NOT deduped orientation\n");
-        printf("     classes -- see the records_* lines for deduped counts)\n");
+        printf("     classes; exact mode prints no records_* lines and no deduped count)\n");  /* FV2-E2 D1463 (Codex F02-011#2) */
         fflush(stdout); return;
     }
     if (nthreads<1) nthreads=1; if (nthreads>256) nthreads=256;
@@ -9024,8 +9024,8 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
     if (knuth_score && sC > 0) {
         printf("  [score] R-C1 final-pair-anchor  : %.6f of canonical mass se=%.3e\n", sR1/sC,
                KNUTH_MASS_SE(zR1, sR1/sC, sC, qC));
-        printf("  [score] R-C1c circular anchor-adjacency (R6; A2={21,42} slot2||slot32): adjacent=%.6f slot2=%.6f slot32=%.6f (McKenna 1975 frame; slot32 must reproduce R-C1=%.6f)\n",
-               sRC1cAdj/sC, sRC1cS2/sC, sRC1cS32/sC, sR1/sC);
+        printf("  [score] R-C1c circular anchor-adjacency (R6; A2={21,42} slot2||slot32): adjacent=%.6f se=%.3e slot2=%.6f se=%.3e slot32=%.6f se=%.3e (McKenna 1975 frame; slot32 must reproduce R-C1=%.6f)\n",  /* FV2-E2 D1466 (Codex F02-013#2): se= on every mass, as METHODS says */
+               sRC1cAdj/sC, KNUTH_MASS_SE(zRC1cAdj, sRC1cAdj/sC, sC, qC), sRC1cS2/sC, KNUTH_MASS_SE(zRC1cS2, sRC1cS2/sC, sC, qC), sRC1cS32/sC, KNUTH_MASS_SE(zRC1cS32, sRC1cS32/sC, sC, qC), sR1/sC);
         {
             printf("  [score] R-C1c A2 pair-slot histogram (report-only; fraction of canonical mass, slots 1-32):\n");
             for (int q2=1;q2<=32;q2++) if (sA2[q2] > 0)
@@ -9334,7 +9334,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
     if (knuth_gender_strict) {
         uint64_t mm = 0;
         for (int i = 0; i < nthreads; i++) mm += arg[i].f11_gs_mismatch;
-        printf("  [f11] gender-strict leaf cross-check mismatches (must be 0): %llu\n",
+        if (!knuth_score) printf("  [f11] gender-strict leaf cross-check mismatches (must be 0): UNCHECKED (the check runs inside the scorer; SOLVE_KNUTH_SCORE=1 runs it)\n"); else printf("  [f11] gender-strict leaf cross-check mismatches (must be 0): %llu\n",  /* FV2-E2 D1469 (Codex F04-004#8): a check that never ran no longer prints 0 */
                (unsigned long long)mm);
     }
     if (knuth_h2) {
@@ -9379,12 +9379,12 @@ static void estimate_subtree_sampler(int target_depth, int M, int K,
     int start_step = 1;
     for (int i=0;i<n_levels;i++){
         if (!knuth_apply(seq0,&used0,budget0,lp[i],lo[i],i+1)){
-            fprintf(stderr,"KNUTH-SUBTREE: prefix infeasible at level %d\n", i+1); return; }
+            fprintf(stderr,"KNUTH-SUBTREE: prefix infeasible at level %d\n", i+1); exit(1); }  /* FV2-E2 D1408 */
         start_step = i+2;
     }
     if (target_depth <= start_step || target_depth > 31){
         fprintf(stderr, "KNUTH-SUBTREE: target depth %d out of range (%d..31)\n", target_depth, start_step+1);
-        return;
+        exit(1);  /* FV2-E2 D1408 */
     }
     uint64_t rng = 0xD1B54A32D192ED03ULL ^ ((uint64_t)target_depth * 0x9E3779B97F4A7C15ULL);
     printf("KNUTH_SUBTREE_HEADER depth=%d roots=%d probes=%d start_step=%d\n",
@@ -13802,7 +13802,7 @@ static void run_c3_min(const char *filename) {
         }
     }
     time_t end = time(NULL);
-    gzclose(f);
+    if (verify_stream_ends_here(f, filename, n_records) != 0) { exit(20); } gzclose(f);  /* FV2-E2 D1396 (Codex F04-008#9): the declared count must be the whole stream */
 
     printf("\nResults (wall time %lds):\n", (long)(end - start));
     printf("  Minimum C3 observed:     %d\n", min_c3);
@@ -30597,7 +30597,7 @@ static int kc_scan_main(int argc, char *argv[]) {
         F1_CHECK(fkc->n == tkc->n && fkc->start_exit == tkc->start_exit &&
                  f1_pl_hash(&fkc->c) == f1_pl_hash(&tkc->c),
                  "[kc-scan] f/t ladder context mismatch");
-    if (fkc->n <= 13) want_raw = 1;   /* small-n: raw frame always feasible */
+    if (fkc->n <= 13) want_raw = 1;   /* small-n: raw frame always feasible */ else if (!want_raw && !P.measure) { fprintf(stderr, "ERROR: [kc-scan] n=%d > 13 needs --kc-raw: an atlas without the raw frame is rejected by the standard loader (VERIFY.md); pass --kc-raw\n", fkc->n); printf("KC_SCAN_RAW=REFUSED\n%s\n", ftok); kc_free(fkc); kc_free(gkc); if (tkc) kc_free(tkc); free(fkc); free(gkc); free(tkc); return 2; }  /* FV2-E2 D1363 (operator option b, 2026-11-01) */
     kc_h_check_hex_linear(&fkc->c);   /* G16: the lifts are linear, or nothing runs */
     if (P.measure) {
         /* design s7.1: a MEASUREMENT run. A partial layer pass whose table is
@@ -31334,7 +31334,7 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
                  f1_pl_hash(&fkc->c) == f1_pl_hash(&tkc->c),
                  "[kc-scan-merge] f/t ladder context mismatch");
     /* want_raw must be resolved by the IDENTICAL rule the chunk producer used */
-    if (fkc->n <= 13) want_raw = 1;
+    if (fkc->n <= 13) want_raw = 1; else if (!want_raw) { fprintf(stderr, "ERROR: [kc-scan-merge] n=%d > 13 needs --kc-raw (the --kc-scan rule, D1363); pass --kc-raw\n", fkc->n); printf("KC_SCAN_RAW=REFUSED\n"); kc_free(fkc); kc_free(gkc); if (tkc) kc_free(tkc); free(fkc); free(gkc); free(tkc); KC_SCAN_MERGE_EARLY_FAIL(); return 2; }  /* FV2-E2 D1363 */
 
     const int n = fkc->n;
     char want_N[64], want_pl[32], want_b0[128];
@@ -38884,7 +38884,7 @@ static int kc_extremal_selftest(void) {
     return fails ? 1 : 0;
 }
 
-static int kc_cli(int argc, char *argv[]) {
+static int kc_ed_tok_done = 0;  /* FV2-E2 D1391: set once KC_ENUM_DESC=<verdict> is printed */ static int kc_cli(int argc, char *argv[]) {
     const char *cmd = argv[1]; { const size_t cl = strlen(cmd); if (cl > 9 && strcmp(cmd + cl - 9, "-selftest") == 0 && argv_refuse_extra(argc, argv, 2, "NO arguments")) return 2; }  /* Q-852: every --kc-*-selftest takes none */
     if (strcmp(cmd, "--kc-selftest") == 0) return kc_selftest();
     if (strcmp(cmd, "--kc-enum-desc-selftest") == 0) return kc_enum_desc_selftest();
@@ -39417,7 +39417,7 @@ static int kc_cli(int argc, char *argv[]) {
          * --kc-enum-desc-selftest (n=9 exhaustive); never inside --selftest. */
         const int desc = (strcmp(cmd, "--kc-enum-desc") == 0);
         if (kc_open(kc, dir, force_ooc, cache_mb) != 0) {
-            if (desc) printf("KC_ENUM_DESC=FAIL\n");
+            if (desc) { printf("KC_ENUM_DESC=FAIL\n"); kc_ed_tok_done = 1; }
             free(kc);
             return 2;
         }
@@ -39432,7 +39432,7 @@ static int kc_cli(int argc, char *argv[]) {
                    "(reverse-exit-lex,descending;NOT-O3)\tobject=WALK\tspace=%s\tlimit=%s\tc3max=%s\n",
                    GIT_BRANCH, GIT_HASH, SOURCE_SHA, kc->n,
                    c3max >= 0 ? "C1C2C4C5+walk-cd<=T" : "C1C2C4C5-SUPERSPACE", lim_s, c3_s);
-            printf("KC_ENUM_DESC=OK\n");
+            printf("KC_ENUM_DESC=OK\n"); kc_ed_tok_done = 1;
         }
     } else {
         fprintf(stderr, "ERROR: [kc] unknown subcommand %s\n", cmd);
@@ -40095,13 +40095,13 @@ static int f1u_exact_main(const char *subset_spec, const char *orbit_spec, const
     f1_binom_init();
     f1u_build_group();
 
-    if (!mod_spec || !*mod_spec) {
+    if (!mod_spec) {  /* FV2-E2 D1392: a supplied-but-empty value is an invalid value (71 below), not a missing one */
         fprintf(stderr, "ERROR: [f1u] --f1-mod P is required (odd prime, 2 < P < 2^62)\n");
         return 2;
     }
     char *endp = NULL;
-    uint64_t P = strtoull(mod_spec, &endp, 10);
-    F1_CHECK(endp && !*endp, "--f1-mod '%s' is not a decimal integer", mod_spec);
+    errno = 0; uint64_t P = strtoull(mod_spec, &endp, 10); const int f1u_mod_erange = (errno == ERANGE);
+    F1_CHECK(mod_spec[0] >= '0' && mod_spec[0] <= '9' && endp && !*endp && !f1u_mod_erange, "--f1-mod '%s' is not an unsigned decimal integer", mod_spec);  /* FV2-E2 D1392 (Codex F12-002#10): strtoull wrapped a leading '-' modulo 2^64 */
     F1_CHECK(P > 2 && P < (1ULL << 62) && (P & 1), "--f1-mod must be odd and in (2, 2^62)");
     F1_CHECK(f1u_is_prime(P), "--f1-mod %llu is not prime (Miller-Rabin)", (unsigned long long)P);
 
@@ -40318,7 +40318,7 @@ int main(int argc, char *argv[]) {
           if (n < 0) n = -1;                  /* a 65th value is refused below, never skipped */
           (void)p;
           /* (was: a scan that skipped minus signs and non-digits and stopped at 64 values) */
-          { uint64_t seen = 0; for (int i = 0; i < n; i++) if ((unsigned)tseq[i] < 64u) seen |= 1ULL << tseq[i]; if (n != 64 || seen != ~0ULL) { fprintf(stderr, "SOLVE_REG_TESTVEC: need 64 distinct ints 0..63 (a permutation), got %d ints\n", n); return 1; } }  /* EE: a repeated/out-of-range value left pos[]/pi_bot[] slots unset (stack garbage; the pattern-init build segfaulted) or wrote past them; solve.py perm_verify raises on the same input */
+          { uint64_t seen = 0; for (int i = 0; i < n && i < 64; i++) /* FV2-E2 D1393: n may be 65 */ if ((unsigned)tseq[i] < 64u) seen |= 1ULL << tseq[i]; if (n != 64 || seen != ~0ULL) { fprintf(stderr, "SOLVE_REG_TESTVEC: need 64 distinct ints 0..63 (a permutation), got %d ints\n", n); return 1; } }  /* EE: a repeated/out-of-range value left pos[]/pi_bot[] slots unset (stack garbage; the pattern-init build segfaulted) or wrote past them; solve.py perm_verify raises on the same input */
           KnuthArg ta; memset(&ta, 0, sizeof(ta));
           ta.min_rm2 = -1; ta.reg_min_mmt3 = -1; ta.reg_min_c1 = -1;
           score_registry(tseq, 1.0, &ta);
@@ -40343,7 +40343,7 @@ int main(int argc, char *argv[]) {
           if (n < 0) n = -1;                  /* a 65th value is refused below, never skipped */
           (void)p;
           /* (was: a scan that skipped minus signs and non-digits and stopped at 64 values) */
-          { uint64_t seen = 0; for (int i = 0; i < n; i++) if ((unsigned)tseq[i] < 64u) seen |= 1ULL << tseq[i]; if (n != 64 || seen != ~0ULL) { fprintf(stderr, "SOLVE_F5_TESTVEC: need 64 distinct ints 0..63 (a permutation), got %d ints\n", n); return 1; } }  /* EE: a repeated/out-of-range value left pos[]/pi_bot[] slots unset (stack garbage; the pattern-init build segfaulted) or wrote past them; solve.py perm_verify raises on the same input */
+          { uint64_t seen = 0; for (int i = 0; i < n && i < 64; i++) /* FV2-E2 D1393: n may be 65 */ if ((unsigned)tseq[i] < 64u) seen |= 1ULL << tseq[i]; if (n != 64 || seen != ~0ULL) { fprintf(stderr, "SOLVE_F5_TESTVEC: need 64 distinct ints 0..63 (a permutation), got %d ints\n", n); return 1; } }  /* EE: a repeated/out-of-range value left pos[]/pi_bot[] slots unset (stack garbage; the pattern-init build segfaulted) or wrote past them; solve.py perm_verify raises on the same input */
           int v[11];
           f5_compute(tseq, v);
           for (int i = 0; i < 11; i++)
@@ -40365,7 +40365,7 @@ int main(int argc, char *argv[]) {
           if (n < 0) n = -1;                  /* a 65th value is refused below, never skipped */
           (void)p;
           /* (was: a scan that skipped minus signs and non-digits and stopped at 64 values) */
-          { uint64_t seen = 0; for (int i = 0; i < n; i++) if ((unsigned)tseq[i] < 64u) seen |= 1ULL << tseq[i]; if (n != 64 || seen != ~0ULL) { fprintf(stderr, "SOLVE_F6_TESTVEC: need 64 distinct ints 0..63 (a permutation), got %d ints\n", n); return 1; } }  /* EE: a repeated/out-of-range value left pos[]/pi_bot[] slots unset (stack garbage; the pattern-init build segfaulted) or wrote past them; solve.py perm_verify raises on the same input */
+          { uint64_t seen = 0; for (int i = 0; i < n && i < 64; i++) /* FV2-E2 D1393: n may be 65 */ if ((unsigned)tseq[i] < 64u) seen |= 1ULL << tseq[i]; if (n != 64 || seen != ~0ULL) { fprintf(stderr, "SOLVE_F6_TESTVEC: need 64 distinct ints 0..63 (a permutation), got %d ints\n", n); return 1; } }  /* EE: a repeated/out-of-range value left pos[]/pi_bot[] slots unset (stack garbage; the pattern-init build segfaulted) or wrote past them; solve.py perm_verify raises on the same input */
           f4p_pal_init();
           int v[7];
           f6_compute(tseq, v);
@@ -40390,7 +40390,7 @@ int main(int argc, char *argv[]) {
           if (n < 0) n = -1;                  /* a 65th value is refused below, never skipped */
           (void)p;
           /* (was: a scan that skipped minus signs and non-digits and stopped at 64 values) */
-          { uint64_t seen = 0; for (int i = 0; i < n; i++) if ((unsigned)tseq[i] < 64u) seen |= 1ULL << tseq[i]; if (n != 64 || seen != ~0ULL) { fprintf(stderr, "SOLVE_PERM_TESTVEC: need 64 distinct ints 0..63 (a permutation), got %d ints\n", n); return 1; } }  /* EE: a repeated/out-of-range value left pos[]/pi_bot[] slots unset (stack garbage; the pattern-init build segfaulted) or wrote past them; solve.py perm_verify raises on the same input */
+          { uint64_t seen = 0; for (int i = 0; i < n && i < 64; i++) /* FV2-E2 D1393: n may be 65 */ if ((unsigned)tseq[i] < 64u) seen |= 1ULL << tseq[i]; if (n != 64 || seen != ~0ULL) { fprintf(stderr, "SOLVE_PERM_TESTVEC: need 64 distinct ints 0..63 (a permutation), got %d ints\n", n); return 1; } }  /* EE: a repeated/out-of-range value left pos[]/pi_bot[] slots unset (stack garbage; the pattern-init build segfaulted) or wrote past them; solve.py perm_verify raises on the same input */
           int v[13], tm[2];
           perm_compute(tseq, v, tm);
           for (int i = 0; i < 13; i++) printf("%d,", v[i]);
@@ -40601,7 +40601,7 @@ int main(int argc, char *argv[]) {
         fprintf(manifest, "# Distinct sub-branches: %d   Overrides applied: %d\n",
                 unique_shards, total_overrides);
         fprintf(manifest, "# Format: <shard>\\t<winning_layer>\n");
-        DIR *md = opendir(merged_dir);
+        DIR *md = opendir(merged_dir); int e2_written = 0, e2_bad = (md == NULL);  /* FV2-E2 D1395 (Codex F04-007#6): an unreadable dir or link is an incomplete manifest */
         if (md) {
             int written = 0;
             while ((de = readdir(md)) != NULL) {
@@ -40612,21 +40612,21 @@ int main(int argc, char *argv[]) {
                 snprintf(linkpath, sizeof(linkpath), "%s/%s",
                          merged_dir, de->d_name);
                 ssize_t tn = readlink(linkpath, target, sizeof(target) - 1);
-                if (tn < 0) continue;
+                if (tn < 0) { e2_bad++; continue; }
                 target[tn] = 0;
                 /* target = "<layer_root>/<layer_name>/sub_*.bin" — extract
                  * the layer_name segment between the last two '/' */
                 char *last_slash = strrchr(target, '/');
-                if (!last_slash) continue;
+                if (!last_slash) { e2_bad++; continue; }
                 *last_slash = 0;
                 char *layer_seg = strrchr(target, '/');
                 const char *winning_layer = layer_seg ? layer_seg + 1 : target;
                 fprintf(manifest, "%s\t%s\n", de->d_name, winning_layer);
-                written++;
+                written++; e2_written = written;
             }
             closedir(md);
         }
-        { int g6_e = ferror(manifest); if ((fclose(manifest) != 0) || g6_e) { fprintf(stderr, "ERROR: [merge-layers] writing %s failed: %s\n", manifest_path, strerror(errno)); return 20; } }   /* G6 F04-001#10, F04-007#6: the writes and the close were unchecked */
+        { int g6_e = ferror(manifest); if ((fclose(manifest) != 0) || g6_e) { fprintf(stderr, "ERROR: [merge-layers] writing %s failed: %s\n", manifest_path, strerror(errno)); return 20; } }   /* G6 F04-001#10, F04-007#6: the writes and the close were unchecked */ if (e2_bad || e2_written != unique_shards) { fprintf(stderr, "ERROR: [merge-layers] MANIFEST.txt incomplete: %d of %d shard(s) written, %d unreadable entr%s (a non-link or a dangling link in %s)\nMERGE_LAYERS_MANIFEST=INCOMPLETE\n", e2_written, unique_shards, e2_bad, e2_bad == 1 ? "y" : "ies", merged_dir); return 20; }
         printf("[merge-layers] manifest written to %s\n", manifest_path);
         printf("[merge-layers] running merge in %s\n", merged_dir);
         if (chdir(merged_dir) != 0) {
@@ -41284,7 +41284,7 @@ int main(int argc, char *argv[]) {
         snprintf(rm, sizeof(rm), "rm -rf '%s' '%s'", tdir_A, tdir_B);
         int _rc = system(rm); (void)_rc;
 
-        if (sha_resume[0] != 0 && strcmp(sha_resume, sha_single) == 0) {
+        if (e2_hex64(sha_resume) && e2_hex64(sha_single) && strcmp(sha_resume, sha_single) == 0) {  /* FV2-E2 D1397 (Codex F04-007#4): two identical error strings are not a match */
             printf("[--selftest-resume] PASS - resume produces byte-identical "
                    "output to single-shot\n");
             return 0;
@@ -41589,8 +41589,8 @@ int main(int argc, char *argv[]) {
          *      (in a fresh temp dir; sha-neutral to current run dir)
          *   3. Auto-merge produces solutions.bin
          *   4. sha256(solutions.bin) compared to <expected-sha256>
-         *   5. Exit 0 on match, 33 on mismatch (with host-fingerprint deltas if
-         *      a reference fingerprint is present in $SOLVE_REFERENCE_FINGERPRINT)
+         *   5. Exit 0 on match, 33 on mismatch (no fingerprint diff is printed;
+         *      FV2-E2 D1399: nothing reads a reference-fingerprint variable)
          *
          * Why: cheap pre-flight gate before canonical campaigns.
          * An 11.2T gate (~5h) catches a wrong build or a wrong per-cell budget
@@ -41701,7 +41701,7 @@ int main(int argc, char *argv[]) {
                  "unset SOLVE_DEPTH SOLVE_THREADS SOLVE_NODE_LIMIT "
                  "SOLVE_PER_SUB_BRANCH_LIMIT SOLVE_DFS_ITERATIVE "
                  "SOLVE_DFS_CHECKPOINT SOLVE_FSYNC_BATCH_SIZE "
-                 "SOLVE_TIME_LIMIT SOLVE_TEMP_DIR SOLVE_MAX_THREADS && "
+                 "SOLVE_TIME_LIMIT SOLVE_TEMP_DIR SOLVE_MAX_THREADS SOLVE_SKIP_AUTOMERGE SOLVE_MERGE_MODE && "  /* FV2-E2 D1400 (Codex F04-001#14): an inherited SOLVE_SKIP_AUTOMERGE left no solutions.bin */
                  "SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=%lld SOLVE_PER_SUB_BRANCH_LIMIT=%lld SOLVE_THREADS=128 "
                  "SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 "
                  "SOLVE_SKIP_AUTO_SELFTEST=1 SOLVE_SKIP_DISK_CHECK=1 "
@@ -42049,7 +42049,7 @@ int main(int argc, char *argv[]) {
          * touches the enumeration or estimator hot path. */
         if (argc < 4) { fprintf(stderr, "usage: solve --knuth-dump-prefix <depth> <seed>\n"); return 1; }
         init_pairs(); init_kw_dist();
-        int depth = 0; if (argv_int(argv[1], "<depth>", argv[2], 1, 30, &depth)) return 2;  /* Q-865: was atoi, then clamped to 1..30 */
+        int depth = 0; if (argv_int(argv[1], "<depth>", argv[2], 1, 28, &depth)) return 2;  /* Q-865: was atoi, then clamped to 1..30; FV2-E2 D1405 (Codex F12-001#5): 1..28, the --estimate-knuth prefix limit, so every prefix emitted round-trips */
         uint64_t rng = 0; if (argv_u64(argv[1], "<seed>", argv[3], 0, &rng)) return 2; if (!rng) rng = 0x9E3779B97F4A7C15ULL;
         int seq0[64]; memset(seq0, 0, sizeof(seq0)); pair_mask_t used0 = 0; int budget0[7];
         seq0[0] = 63; seq0[1] = 0; PAIR_MASK_SET(used0, pair_index_of(63, 0));
@@ -42077,7 +42077,7 @@ int main(int argc, char *argv[]) {
             if (!ok) break;   /* dead end before target depth */
         }
         printf("\nPREFIX_DEPTH_REACHED %d\n", placed);
-        return 0;
+        return placed < depth ? 1 : 0;  /* FV2-E2 D1404 (Codex F12-001#4): a dead end short of <depth> is not the prefix asked for */
     } else if (argc > 1 && strcmp(argv[1], "--estimate-knuth") == 0) {
         /* #195 Knuth (1975) random-probe tree-size estimator. Pure compute, NO shard
          * data / mounts. Usage:
@@ -42851,7 +42851,7 @@ int main(int argc, char *argv[]) {
          * KC module header for scope, order semantics, verification gates,
          * and credits. Sha-neutral (argv-dispatched, never on the
          * enumeration path). */
-        return kc_cli(argc, argv);
+        { const int kr = kc_cli(argc, argv); if (kr != 0 && !kc_ed_tok_done && strcmp(argv[1], "--kc-enum-desc") == 0) printf("KC_ENUM_DESC=FAIL\n"); return kr; }  /* FV2-E2 D1391 (Codex F12-002#16): every --kc-enum-desc failure, the shared argument errors included, ends with the token */
     } else if (argc > 1 && strcmp(argv[1], "--check-arrangement") == 0) {
         /* H3a / CAP-2: first-principles C1..C5 verdict for an explicit
          * 64-hexagram arrangement (KC-H module header; sha-neutral,
@@ -42950,8 +42950,8 @@ int main(int argc, char *argv[]) {
         return f1c5_exact_main(c3_layers_dir, c3_npairs, c3_ooc_dir, c3_resume,
                                1, c3_with_c5, c3_no_c2, NULL);
     } else if (argc > 1 && strcmp(argv[1], "--print-config") == 0) {
-        /* Config introspection (2026-05-28). Dumps build provenance + every
-         * SOLVE_* env var's effective value, so that when a future change
+        /* Config introspection (2026-05-28). Dumps build provenance + a curated
+         * SOLVE_* list (set value or "(unset)") plus every other SOLVE_* var set, so that when a future change
          * drifts the canonical sha the config delta is EXPLICIT rather than
          * reverse-engineered. Complements the #110 host-fingerprint sidecar
          * (host env) and --cpu-features (ISA). Sha-neutral (argv-dispatched,
@@ -42986,7 +42986,7 @@ int main(int argc, char *argv[]) {
         for (int i = 0; cfg_envs[i]; i++) {
             const char *v = getenv(cfg_envs[i]);
             printf("  %-34s = %s\n", cfg_envs[i], (v && v[0]) ? v : "(unset)");
-        }
+        } { extern char **environ; int e2_extra = 0; for (char **e = environ; e && *e; e++) { if (strncmp(*e, "SOLVE_", 6) != 0) continue; const char *eq = strchr(*e, '='); size_t nl = eq ? (size_t)(eq - *e) : strlen(*e); int listed = 0; for (int i = 0; cfg_envs[i]; i++) if (strlen(cfg_envs[i]) == nl && strncmp(cfg_envs[i], *e, nl) == 0) { listed = 1; break; } if (listed) continue; if (!e2_extra++) printf("  -- every other SOLVE_* variable set in this environment:\n"); printf("  %-34.*s = %s\n", (int)nl, *e, eq ? eq + 1 : ""); } }  /* FV2-E2 D1411 (Codex F04-001#20): the curated list above omitted names read elsewhere (SOLVE_COMPRESS, SOLVE_HASH_LOG2, ...); a set variable is never hidden now */
         printf("\nNote: this is the in-process view. Compile-time choices (LTO/PGO/-march/\n");
         printf("AVX-512) are NOT runtime-introspectable here — record them at build time\n");
         printf("(see documentation/DEVELOPMENT.md reproducible-build recipe + build.sha).\n");
@@ -43291,7 +43291,7 @@ int main(int argc, char *argv[]) {
          *   ./solve --regression-test <budget>
          * For a fast smoke test: ./solve --regression-test 5600000  (5.6 M, ~5 min)
          *
-         * Working dirs: /tmp/regress_full, /tmp/regress_56. Left in place on
+         * Working dirs: <base>/regress_XXXXXX/regress_full and .../regress_56 (one private root per run, FV2-E2 D1417). Left in place on
          * FAIL for inspection; cleaned up on PASS.
          */
         /* init_pairs is normally called later in main; we need it here for
@@ -43333,9 +43333,9 @@ int main(int argc, char *argv[]) {
         } else if (!regress_dir_safe(base_dir)) {
             return 30;
         }
-        char dir_full[PATH_MAX], dir_56[PATH_MAX];
-        snprintf(dir_full, sizeof(dir_full), "%s/regress_full", base_dir);
-        snprintf(dir_56,   sizeof(dir_56),   "%s/regress_56",   base_dir);
+        char dir_full[PATH_MAX], dir_56[PATH_MAX]; char e2_root[PATH_MAX]; snprintf(e2_root, sizeof(e2_root), "%s/regress_XXXXXX", base_dir); if (!mkdtemp(e2_root)) { fprintf(stderr, "ERROR: cannot create a private working root under %s: %s\n", base_dir, strerror(errno)); return 50; }  /* FV2-E2 D1417 (Codex F04-007#5): one private root per invocation, so two runs never rm -rf each other's trees */
+        if (snprintf(dir_full, sizeof(dir_full), "%s/regress_full", e2_root) >= (int)sizeof(dir_full)) return 50;
+        if (snprintf(dir_56,   sizeof(dir_56),   "%s/regress_56",   e2_root) >= (int)sizeof(dir_56)) return 50;
         printf("[regression-test] working dirs: %s, %s\n", dir_full, dir_56);
         char cleanup1[PATH_MAX * 2 + 64], cleanup2[PATH_MAX * 2 + 64];
         snprintf(cleanup1, sizeof(cleanup1), "rm -rf '%s' && mkdir -p '%s'", dir_full, dir_full);
@@ -43461,11 +43461,11 @@ int main(int argc, char *argv[]) {
 
         /* Phase 4: compare */
         printf("[regression-test] Phase 4/4: compare\n");
-        if (strcmp(sha_full, sha_56) == 0) {
+        if (e2_hex64(sha_full) && e2_hex64(sha_56) && strcmp(sha_full, sha_56) == 0) {  /* FV2-E2 D1397 */
             printf("[regression-test] PASS — partition invariance confirmed at total budget %lld\n",
                    total_budget);
-            char rmcmd[PATH_MAX * 2 + 32];
-            snprintf(rmcmd, sizeof(rmcmd), "rm -rf '%s' '%s'", dir_full, dir_56);
+            char rmcmd[PATH_MAX * 3 + 64];
+            snprintf(rmcmd, sizeof(rmcmd), "rm -rf '%s' '%s' && rmdir '%s'", dir_full, dir_56, e2_root);
             _r = system(rmcmd); (void)_r;
             return 0;
         } else {
@@ -43545,9 +43545,9 @@ int main(int argc, char *argv[]) {
         } else if (!regress_dir_safe(base_dir)) {
             return 30;
         }
-        char dir_full[PATH_MAX], dir_56[PATH_MAX];
-        snprintf(dir_full, sizeof(dir_full), "%s/dregress_full", base_dir);
-        snprintf(dir_56,   sizeof(dir_56),   "%s/dregress_56",   base_dir);
+        char dir_full[PATH_MAX], dir_56[PATH_MAX]; char e2_root[PATH_MAX]; snprintf(e2_root, sizeof(e2_root), "%s/dregress_XXXXXX", base_dir); if (!mkdtemp(e2_root)) { fprintf(stderr, "ERROR: cannot create a private working root under %s: %s\n", base_dir, strerror(errno)); return 50; }  /* FV2-E2 D1417 (Codex F04-007#5): one private root per invocation, so two runs never rm -rf each other's trees */
+        if (snprintf(dir_full, sizeof(dir_full), "%s/dregress_full", e2_root) >= (int)sizeof(dir_full)) return 50;
+        if (snprintf(dir_56,   sizeof(dir_56),   "%s/dregress_56",   e2_root) >= (int)sizeof(dir_56)) return 50;
         printf("[double-regression-test] working dirs: %s, %s\n", dir_full, dir_56);
 
         char cmd[PATH_MAX * 4 + 1024];
@@ -43728,7 +43728,7 @@ int main(int argc, char *argv[]) {
         printf("  full_merged = %s\n", sha_full_merged);
         printf("  56_merged   = %s\n", sha_56_merged);
 
-        int all_equal = (strcmp(sha_full_L1, sha_full_L2) == 0
+        int all_equal = (e2_hex64(sha_full_L1) && e2_hex64(sha_full_L2) && e2_hex64(sha_full_merged) && e2_hex64(sha_56_merged) && strcmp(sha_full_L1, sha_full_L2) == 0  /* FV2-E2 D1397 */
                          && strcmp(sha_full_L1, sha_full_merged) == 0
                          && strcmp(sha_full_L1, sha_56_merged) == 0);
         if (all_equal) {
@@ -43776,6 +43776,7 @@ int main(int argc, char *argv[]) {
             else if (ai + 1 < argc && strcmp(argv[ai], "--bandwidth") == 0) { if (argv_dbl(argv[1], "--bandwidth", argv[++ai], &kde_bw)) return 2; }
             else if (ai + 1 < argc && strcmp(argv[ai], "--threshold") == 0) { if (argv_dbl(argv[1], "--threshold", argv[++ai], &kde_threshold)) return 2; kde_saw_t = 1; } else { argv_refuse_arg(argv[1], argv[ai], "--fit-file PATH --d N --bandwidth BW --threshold T"); return 2; }
         }
+        if (kde_bw > 0.0 && (!(kde_bw <= 1e100) || kde_bw < 1e-100)) { fprintf(stderr, "ERROR: --bandwidth %g is outside [1e-100, 1e100]: bw*bw overflows or underflows a double there, which made the normaliser infinite and reversed the threshold test\nKDE_ARGS=REFUSED\n", kde_bw); return 2; }  /* FV2-E2 D1419 (Codex F04-001#16); the arithmetic for an accepted bandwidth is unchanged */
         if (!fit_file || kde_d <= 0 || kde_bw <= 0.0 || !kde_saw_t) {
             fprintf(stderr, "Usage: --kde-score-stream --fit-file PATH --d N --bandwidth BW --threshold T\n");
             return 2;
@@ -44174,8 +44175,8 @@ int main(int argc, char *argv[]) {
      * Catches accidental edits to KW[] or to the constraint checkers with
      * EXACT constants (not ranges). A weaker check that only verified
      * "distribution sums to 63" or "complement-distance is plausible" would
-     * pass for many wrong sequences; the exact forms here pass only for
-     * the canonical King Wen sequence. If this fails, every downstream claim
+     * pass for many wrong sequences; (a)-(f) still pass for the 47 other
+     * sigma-images of KW (TR-5), so (g) pins the table itself. If this fails, every downstream claim
      * is suspect — exit 50.
      *
      * The constants (expected multiset, 776, hexagram 1 / hexagram 2) are
@@ -44245,6 +44246,7 @@ int main(int argc, char *argv[]) {
                             "(12.125 x 64)\n", kw_comp_dist_x64);
             return 50;
         }
+        { static const int e2_kw_pin[64] = {63,0,17,34,23,58,2,16,55,59,7,56,61,47,4,8,25,38,3,48,41,37,32,1,57,39,33,30,18,45,28,14,60,15,40,5,53,43,20,10,35,49,31,62,24,6,26,22,29,46,9,36,52,11,13,44,54,27,50,19,51,12,21,42}; for (int i = 0; i < 64; i++) if (KW[i] != e2_kw_pin[i]) { fprintf(stderr, "ERROR: KW self-check failed: KW[%d]=%d, the pinned King Wen table has %d ((a)-(f) pass for every sigma-image of KW, so only this identity check names which sequence is loaded)\n", i, KW[i], e2_kw_pin[i]); return 50; } }  /* (g) FV2-E2 D1420 (Codex F06-007#3) */
     }
 
     if (!show_mode) {
@@ -44610,7 +44612,7 @@ int main(int argc, char *argv[]) {
             srand(seed);
             for (long long i = 0; i < n_to_show; i++) {
                 /* Combine two rand() calls for >32-bit pool support */
-                uint64_t r = ((uint64_t)rand() << 32) | (uint32_t)rand();
+                uint64_t r = ((uint64_t)rand() << 32) | (uint32_t)rand(); if ((uint64_t)pool > 2147483648ULL) { const uint64_t lim = ((1ULL << 62) / (uint64_t)pool) * (uint64_t)pool; do r = ((uint64_t)rand() << 31) | (uint64_t)rand(); while (r >= lim); }  /* FV2-E2 D1421 (Codex F12-003#2): above 2^31 the old word left bit 31 of the low half 0, so some indices were unreachable; now 62 random bits, rejection-sampled. A pool <= 2^31 draws as before */
                 indices[i] = (long long)(r % (uint64_t)pool);
             }
         } else {
@@ -46189,7 +46191,7 @@ int main(int argc, char *argv[]) {
             free(patterns4);
 
             /* 1-variant subfamily report */
-            printf("\n     --- 1-variant subfamily (pair-orderings with forced orient) ---\n");
+            printf("\n     --- 1-variant subfamily (pair-orderings with ONE observed orientation variant in this file; forced only if the orientation fiber is complete) ---\n");  /* FV2-E2 D1436 (Codex F04-003#14) */
             printf("     Total 1-variant pair-orderings: %lld\n", groups1_total);
             printf("     Edit-distance-to-KW distribution (non-zero bins):\n");
             for (int d = 0; d <= 32; d++) {
@@ -47472,7 +47474,7 @@ int main(int argc, char *argv[]) {
                 closedir(dir);
                 return 10;
             }
-            snprintf(filenames[n_files], 64, "%s", de->d_name);
+            if (strlen(de->d_name) >= 64) { fprintf(stderr, "ERROR: shard name %s is %zu bytes; the in-memory merge holds names of at most 63, and a longer one would alias another shard\nMERGE_SHARD=NAME-TOO-LONG\n", de->d_name, strlen(de->d_name)); closedir(dir); return 20; } snprintf(filenames[n_files], 64, "%s", de->d_name);  /* FV2-E2 D1440 (Codex F04-008#8) */
             n_files++;
         }
         closedir(dir);
@@ -47554,12 +47556,12 @@ int main(int argc, char *argv[]) {
         } else {
             /* Preflight: check disk space */
             {
-                long long need_disk_gb = (total_records * SOL_RECORD_SIZE * 2) / (1024LL*1024*1024);
+                long long need_disk_gb = (total_records * SOL_RECORD_SIZE * 2) / (1024LL*1024*1024); const long long e2_need_b = total_records * SOL_RECORD_SIZE * 2;
                 struct statvfs vfs;
-                long long disk_avail_gb = 0;
-                if (statvfs(".", &vfs) == 0)
-                    disk_avail_gb = ((long long)vfs.f_bavail * vfs.f_frsize) / (1024LL*1024*1024);
-                if (disk_avail_gb > 0 && need_disk_gb > disk_avail_gb) {
+                long long disk_avail_gb = 0; long long e2_avail_b = -1;
+                if (statvfs(".", &vfs) == 0) {
+                    disk_avail_gb = ((long long)vfs.f_bavail * vfs.f_frsize) / (1024LL*1024*1024); e2_avail_b = (long long)vfs.f_bavail * (long long)vfs.f_frsize; } else fprintf(stderr, "WARN: statvfs(.) failed (%s); the merge disk preflight is UNMEASURED\nMERGE_DISK_PREFLIGHT=UNMEASURED\n", strerror(errno));
+                if (e2_avail_b >= 0 && e2_need_b > e2_avail_b) {  /* FV2-E2 D1441 (Codex F12-007#14): bytes, not whole GiB, so 900 MB free no longer reads as "0, skip the check" */ need_disk_gb = (e2_need_b + (1LL << 30) - 1) >> 30;
                     fprintf(stderr, "ERROR: insufficient disk (%lld GB needed, %lld available)\n"
                             "       Try SOLVE_MERGE_MODE=external\n", need_disk_gb, disk_avail_gb);
                     return 10;
@@ -51271,7 +51273,7 @@ static int kc_h_fsync_parent_dir(const char *path) {
     const int dfd = open(dir, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
     if (dfd < 0) return -1;
     int rc = fsync(dfd);
-    if (rc != 0 && errno == EINVAL) rc = 0;
+    if (rc != 0 && errno == EINVAL) { rc = 0; fprintf(stderr, "[kc] WARN: directory fsync of %s is unsupported here (EINVAL); %s is written but its directory entry was not made durable\n", dir, path); errno = EINVAL; }  /* FV2-E2 D1446 (Codex F12-024#7): the carve-out is now said, not silent */
     const int e = errno;
     close(dfd);
     errno = e;
@@ -51965,8 +51967,8 @@ static void build_sha_write_pending(void) {
         fprintf(stderr, "[hardening] WARN: cannot write build.sha.tmp: %s; Outlier #4 unguarded\n", strerror(errno));
         return;
     }
-    fprintf(fw, "%s\n", g_build_sha_pending);
-    fflush(fw); fsync(fileno(fw)); fclose(fw);
+    int e2_w = fprintf(fw, "%s\n", g_build_sha_pending) < 0; e2_w |= fflush(fw) != 0; e2_w |= fsync(fileno(fw)) != 0; e2_w |= ferror(fw) != 0;
+    e2_w |= fclose(fw) != 0; if (e2_w) { fprintf(stderr, "[hardening] WARN: writing build.sha.tmp failed: %s; build.sha NOT installed; Outlier #4 unguarded\n", strerror(errno)); (void)unlink("build.sha.tmp"); return; }  /* FV2-E2 D1437 (Codex F04-001#10): a failed write used to rename an empty stamp into place */
     if (rename("build.sha.tmp", "build.sha") != 0) {
         fprintf(stderr, "[hardening] WARN: cannot rename build.sha.tmp -> build.sha: %s\n", strerror(errno));
         return;
@@ -52835,7 +52837,7 @@ static int q881_merge_input_gate(const char *dir, const char *ctx, int *n_exh_ou
     }
     closedir(d);
     if (n_files == 0) {
-        printf("  Checkpoint cross-ref: no checkpoint files in %s -- nothing to cross-check (Q-881)\n", dir);
+        printf("  Checkpoint cross-ref: no checkpoint files in %s -- nothing to cross-check (Q-881)\n", dir); { int q888_manifest_missing(const char *, const char *, const long long *, int); const int e2_m = q888_manifest_missing(dir, ctx, claim, 0); if (e2_m > 0) { fprintf(stderr, "ERROR: %s: shard_manifest.txt does not match the shards in %s -- refusing to merge (no checkpoint file, so the manifest is the only shard list)\nMERGE_SHARD=MISSING\n", ctx, dir); rc = 20; } }  /* FV2-E2 D1447 (Codex F04-003#3, F04-008#23): the manifest cross-reference ran only when a checkpoint file existed */
         goto done;
     }
     for (int k = 0; k < Q623_SEC25_KEYS; k++) {
@@ -52845,7 +52847,7 @@ static int q881_merge_input_gate(const char *dir, const char *ctx, int *n_exh_ou
         char cell[64];
         if (p3 >= 0) snprintf(cell, sizeof(cell), "sub_%d_%d_%d_%d_%d_%d.bin", p1, o1, p2, o2, p3, o3);
         else snprintf(cell, sizeof(cell), "sub_%d_%d_%d_%d.bin", p1, o1, p2, o2);
-        if ((fl[k] & 2) && !(fl[k] & 1) && !(fl[k] & 4) && cov[k] < intr[k] && !q888_legacy_suspect(k, lvl, ctx, cell, intr[k], &n_legacy)) {  /* Q-888 (4): no thread-written line finishes it; if a [v3.1 promoted] line does, that is the legacy promoted-partial signature, refused by its own name below */
+        if ((fl[k] & 2) && !(fl[k] & 1) /* FV2-E2 D1448 (Codex F04-008#24): a budgetless BUDGETED line (fl 4) covers nothing, as the resume loader treats it */ && cov[k] < intr[k] && !q888_legacy_suspect(k, lvl, ctx, cell, intr[k], &n_legacy)) {  /* Q-888 (4): no thread-written line finishes it; if a [v3.1 promoted] line does, that is the legacy promoted-partial signature, refused by its own name below */
             if (++n_incomplete <= 10) {
                 if (intr[k] == LLONG_MAX) fprintf(stderr, "%s: %s: sub-branch %s was INTERRUPTED (uncapped) and no line records that it finished\n", lvl, ctx, cell);
                 else fprintf(stderr, "%s: %s: sub-branch %s was INTERRUPTED at budget %lld and no line records that it finished at that budget or above\n", lvl, ctx, cell, intr[k]);
@@ -53104,12 +53106,12 @@ int q888_manifest_missing(const char *dir, const char *ctx, const long long *cla
         return 1;
     }
     char line[4096];
-    int missing = 0, listed = 0;
+    int missing = 0, listed = 0, e2_malformed = 0;  /* FV2-E2 D1449 (Codex F04-008#25): every manifest row is "sub_*.bin<TAB>size<TAB>sha" (do_emit_shard_manifest); any other line is a corrupt manifest */
     while (fgets(line, sizeof(line), f)) {
         char *tab = strchr(line, '\t');
-        if (!tab) continue;
+        if (!tab) { if (++e2_malformed <= 3) fprintf(stderr, "ERROR: %s: shard_manifest.txt line without a tab: a corrupt manifest certifies nothing (MERGE_MANIFEST=MALFORMED)\n", ctx); continue; }
         *tab = '\0';
-        if (strncmp(line, "sub_", 4) != 0 || strchr(line, '/') != NULL) continue;
+        if (strncmp(line, "sub_", 4) != 0 || strchr(line, '/') != NULL) { if (++e2_malformed <= 3) fprintf(stderr, "ERROR: %s: shard_manifest.txt row '%.80s' is not a sub_*.bin name (MERGE_MANIFEST=MALFORMED)\n", ctx, line); continue; }
         listed++;
         int p1, o1, p2, o2, p3 = -1, o3 = -1, k = -1;
         char tail[8];
@@ -53133,6 +53135,8 @@ int q888_manifest_missing(const char *dir, const char *ctx, const long long *cla
         fprintf(stderr, "ERROR: %s: read error on %s -- refusing to merge without the shard list it holds (Q-888 (3))\n", ctx, path);
         return missing + 1;
     }
+    if (e2_malformed) { fprintf(stderr, "ERROR: %s: %s has %d malformed line(s) -- refusing to merge on a corrupt shard list\nMERGE_MANIFEST=MALFORMED\n", ctx, path, e2_malformed); return missing + e2_malformed; }
+    if (listed == 0) { DIR *e2d = opendir(dir); struct dirent *e2e; int e2_sh = 0; if (e2d) { while ((e2e = readdir(e2d)) != NULL) if (strncmp(e2e->d_name, "sub_", 4) == 0) { e2_sh++; break; } closedir(e2d); } if (e2_sh) { fprintf(stderr, "ERROR: %s: %s lists no shard while %s holds sub_* files -- refusing to merge on an empty shard list\nMERGE_MANIFEST=EMPTY\n", ctx, path, dir); return missing + 1; } }  /* FV2-E2 D1449 */
     if (missing == 0)
         printf("  Shard manifest cross-ref: all %d shard(s) listed in shard_manifest.txt are present (Q-888 (3))\n", listed);
     return missing;
@@ -54236,7 +54240,7 @@ static int mj_layer_compute(const KC *kc, int k, const F1U192 *N, MjSrc *F, MjSr
                 const uint32_t kg = G->keys[G->e - G->e0];
                 if (hpg && kg <= pg) MJ_LFAIL("key-order");
                 if (kg < kf) {
-                    if (k == 0) MJ_LFAIL("g-only-at-k0");
+                    if (k == 0) { MJ_LFAIL("g-only-at-k0"); } if ((kg >> 16) > 63 || (kg & 0xffffu) >= Rr || kc->B.rsum[kg & 0xffffu] != k) MJ_LFAIL("g-key-domain");  /* FV2-E2 D1450 (Codex F04-008#19): an unmatched g key gets the f side's domain checks */
                     pg = kg; hpg = 1;
                     R->g_only++;
                     G->e++;
@@ -54283,7 +54287,7 @@ static int mj_layer_compute(const KC *kc, int k, const F1U192 *N, MjSrc *F, MjSr
             if (mj_ensure(G) != 0) MJ_SFAIL(G);
             const uint32_t kg = G->keys[G->e - G->e0];
             if (hpg && kg <= pg) MJ_LFAIL("key-order");
-            if (k == 0) MJ_LFAIL("g-only-at-k0");
+            if (k == 0) { MJ_LFAIL("g-only-at-k0"); } if ((kg >> 16) > 63 || (kg & 0xffffu) >= Rr || kc->B.rsum[kg & 0xffffu] != k) MJ_LFAIL("g-key-domain");  /* FV2-E2 D1450 */
             pg = kg; hpg = 1;
             R->g_only++;
             G->e++;
@@ -55646,9 +55650,9 @@ int g5b_strict_ints(const char *s, int *out, int cap) {
         while (*p == ',' || *p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') p++;
         if (!*p) break;
         long v = 0; int nd = 0;
-        while (*p >= '0' && *p <= '9') { if (nd < 6) v = v * 10 + (*p - '0'); nd++; p++; }
+        while (*p >= '0' && *p <= '9') { if (v < 1000000) v = v * 10 + (*p - '0'); nd++; p++; }  /* FV2-E2 D1453 (Codex F04-007#9): the VALUE decides, so 0063 is 63; v saturates past 10^6 */
         if (nd == 0 || (*p && *p != ',' && *p != ' ' && *p != '\t' && *p != '\n' && *p != '\r')) return -1;
-        if (n < cap) out[n] = (nd > 3 || v > 63) ? 999 : (int)v;
+        if (n < cap) out[n] = (v > 63) ? 999 : (int)v;
         n++;
     }
     return n;
@@ -56085,7 +56089,7 @@ int g6_subtree_refused(void) {
                     : knuth_gender_strict ? "SOLVE_KNUTH_GENDER_STRICT"
                     : knuth_pin_mask ? "SOLVE_KNUTH_PIN_SLOTS"
                     : knuth_pin_c67 ? "SOLVE_KNUTH_C67"
-                    : getenv("SOLVE_KNUTH_C5_BUDGET") ? "SOLVE_KNUTH_C5_BUDGET"
+                    : getenv("SOLVE_KNUTH_C5_BUDGET") ? "SOLVE_KNUTH_C5_BUDGET" : (getenv("SOLVE_KNUTH_SEED") && *getenv("SOLVE_KNUTH_SEED")) ? "SOLVE_KNUTH_SEED (the sampler seeds from the depth only; FV2-E2 D1471)"
                     : (getenv("SOLVE_KNUTH_RELAX_C5") && atoi(getenv("SOLVE_KNUTH_RELAX_C5")) == 1) ? "SOLVE_KNUTH_RELAX_C5" : NULL;
     if (!why) return 0;
     fprintf(stderr, "[knuth] SOLVE_KNUTH_SUBTREE_DEPTH with %s is REFUSED: the subtree sampler applies none of the strict walks,\n"
@@ -56272,4 +56276,13 @@ int g6_strict_int(const char *s, long lo, long hi, int *out) {
     if (v < lo || v > hi) return -1;
     *out = (int)v;
     return 0;
+}
+
+/* FV2-E2 D1397 (Codex F04-007#4, F04-001#8): the equivalence harnesses compare two captured digests.
+ * When the hash tool is missing or fails the same way on both sides, the two captured strings are the
+ * same error text, and strcmp called that a match. A digest is exactly 64 lowercase hex digits. */
+static int e2_hex64(const char *s) {
+    int i = 0;
+    for (; s[i]; i++) if (!((s[i] >= '0' && s[i] <= '9') || (s[i] >= 'a' && s[i] <= 'f'))) return 0;
+    return i == 64;
 }

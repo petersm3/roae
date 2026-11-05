@@ -3760,7 +3760,7 @@ class TestSolveVerifyKingWenScope(unittest.TestCase):
     CORRECTED 2026-09-04, twice, because this docstring's own premises expired under it.
     (1) It said "solve.c has no --expect-kw; verify.py's flag is the only instrument that
     promotes absence to a failure". solve.c GAINED --expect-kw on 2026-09-04 (g_expect_kw,
-    folded into the verdict at solve.c:44497 for --verify and :44932 for --validate), so
+    folded into the verdict at solve.c:44499 for --verify and :44934 for --validate), so
     both instruments now answer the question and the tests below pin BOTH halves: the
     default is still reported-not-enforced, and --expect-kw makes absence fatal.
     (2) It said "solve.c is behind the MASTER GATE and is not edited". That gate is Q-77,
@@ -17962,7 +17962,7 @@ class TestQ852ArgRefusalLastRingAndShowIoSnapshot(unittest.TestCase):
                  (["--kc-sample", F, "1", "7", "extra"], "extra")]
         for argv, bad in cases:
             with self.subTest(argv=argv):
-                self._refused(argv, bad, "ERROR: " + argv[0] + " does not accept '%s'")
+                self._refused(argv, bad, "ERROR: " + argv[0] + " does not accept '%s'", stdout="KC_ENUM_DESC=FAIL\n" if argv[0] == "--kc-enum-desc" else "")  # FV2-E2 D1391: its verdict token, as --kc-scan's below
         self._refused(["--kc-scan", F, G, "o.tsv", "--bogus"], "--bogus",
                       "ERROR: --kc-scan does not accept '%s'", stdout="KC_SCAN=FAIL\n")
 
@@ -59550,6 +59550,302 @@ class TestBatchG7b(unittest.TestCase):
             raise AssertionError("the d3 receipt does not report the kills that fired")
         if "kills_fired = k - 1;" not in src:
             raise AssertionError("the early-completion branch does not record the kills that fired")
+
+
+class TestBatchFV2E2(unittest.TestCase):
+    """Push group FV2-E2: the second half of the solve.c rows of Codex's fix-verification round (Fable's slice-2
+    triage, rows D1391..D1471) and Q-1052 (D1363, operator option b: --kc-scan above n=13 refuses without
+    --kc-raw), CX-36M-A..CX-36M-D. Each behavioural test drives a binary built from ROAE_TESTS_SOLVE_SRC (default:
+    this tree's solve.c) and fails on the defect; the structural tests read the same source and say so. Nothing here
+    changes a canonical output: the --selftest and --selftest-resume digests are unchanged. Developed with AI
+    assistance (Claude, Anthropic): claude-opus-5-5, from Codex (gpt-6-astra) fix-verification findings triaged
+    by Fable."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    KW = [63, 0, 17, 34, 23, 58, 2, 16, 55, 59, 7, 56, 61, 47, 4, 8, 25, 38, 3, 48, 41, 37, 32, 1, 57, 39, 33, 30,
+          18, 45, 28, 14, 60, 15, 40, 5, 53, 43, 20, 10, 35, 49, 31, 62, 24, 6, 26, 22, 29, 46, 9, 36, 52, 11, 13,
+          44, 54, 27, 50, 19, 51, 12, 21, 42]
+    REC = bytes(i << 2 for i in range(32))   # King Wen as one record (pairs[] is in King Wen order, orient 0)
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = os.path.realpath(tempfile.mkdtemp(prefix="fv2e2_"))
+        cls.src = os.environ.get("ROAE_TESTS_SOLVE_SRC", os.path.join(cls.ROOT, "solve.c"))
+        cls.sbin = os.path.join(cls.tmp, "solve_fv2e2")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, cls.src, "-lm", "-lz"],
+                           capture_output=True, text=True, timeout=1800)
+        cls.build_ok = r.returncode == 0 and os.path.exists(cls.sbin)
+        cls.build_err = "gcc rc %d: %s" % (r.returncode, r.stderr[-2000:])
+
+    @classmethod
+    def tearDownClass(cls):
+        t = getattr(cls, "tmp", None)
+        if t and os.path.basename(t).startswith("fv2e2_"):
+            shutil.rmtree(t, ignore_errors=True)
+
+    def setUp(self):
+        if not self.build_ok:
+            raise AssertionError("solve.c did not build, so nothing was verified: " + self.build_err)
+
+    @staticmethod
+    def _unlimited_stack():
+        import resource
+        try:
+            resource.setrlimit(resource.RLIMIT_STACK, (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
+        except (ValueError, OSError):
+            pass
+
+    def _run(self, args, cwd=None, env=None, timeout=600, exe=None, stdin=None):
+        e = {k: v for k, v in os.environ.items() if not k.startswith("SOLVE_")}
+        if env:
+            e.update(env)
+        try:
+            r = subprocess.run([exe or self.sbin] + list(args), cwd=cwd, env=e, timeout=timeout,
+                               capture_output=True, text=True, preexec_fn=self._unlimited_stack,
+                               stdin=subprocess.DEVNULL if stdin is None else stdin)
+        except subprocess.TimeoutExpired:
+            raise AssertionError("%s did not finish within %ds (the defect accepted the input and ran)" % (args, timeout))
+        return r.returncode, r.stdout, r.stderr
+
+    def _d(self, name):
+        return tempfile.mkdtemp(dir=self.tmp, prefix=name + "_")
+
+    def _src_text(self):
+        with open(self.src, encoding="utf-8", errors="replace") as fh:
+            return fh.read()
+
+    def _need(self, cond, msg):
+        if not cond:
+            raise AssertionError(msg)
+
+    def _shard_dir(self, name, files):
+        d = self._d(name)
+        for fn, body in files.items():
+            with open(os.path.join(d, fn), "wb" if isinstance(body, bytes) else "w") as fh:
+                fh.write(body)
+        return d
+
+    # ---- Q-1052 / D1363 ---------------------------------------------------------------------------------
+    def test_d1363_kc_scan_above_13_refuses_without_kc_raw(self):
+        """D1363 (operator option b, 2026-11-01): a default --kc-scan at n=15 (n=14 is not orbit-realizable;
+        15 is the first n above 13 the ladders support) wrote an atlas without the raw frame, which the standard
+        loader rejects later. Now it refuses, names --kc-raw, and writes nothing; with --kc-raw it succeeds."""
+        d = self._d("d1363")
+        for flag, sub in (("--kc-build", "f"), ("--kc-g-build", "g")):
+            rc, out, err = self._run([flag, os.path.join(d, sub), "--f1-pairs", "15"], cwd=d)
+            self._need(rc == 0, "precondition: %s at n=15 failed: %s" % (flag, err[-400:]))
+        atlas = os.path.join(d, "a.json")
+        rc, out, err = self._run(["--kc-scan", os.path.join(d, "f"), os.path.join(d, "g"), atlas], cwd=d)
+        self._need(rc == 2, "--kc-scan at n=15 without --kc-raw exited %d (want 2): %s" % (rc, out[-300:]))
+        self._need("KC_SCAN_RAW=REFUSED" in out and "KC_SCAN=FAIL" in out, "no refusal tokens: " + out[-300:])
+        self._need("--kc-raw" in err, "the refusal does not name --kc-raw: " + err[-300:])
+        self._need(not os.path.exists(atlas), "a refused scan left an atlas behind")
+        rc, out, err = self._run(["--kc-scan", os.path.join(d, "f"), os.path.join(d, "g"), atlas, "--kc-raw"], cwd=d)
+        self._need(rc == 0 and "KC_SCAN=OK" in out, "positive control: --kc-raw at n=15 failed rc %d: %s" % (rc, err[-300:]))
+        src = self._src_text()
+        self._need('"ERROR: [kc-scan-merge] n=%d > 13 needs --kc-raw' in src, "--kc-scan-merge does not apply the same rule")
+
+    # ---- KC / F1 argument paths -------------------------------------------------------------------------
+    def test_d1391_kc_enum_desc_shared_argument_error_prints_token(self):
+        """D1391 (Codex F12-002#16): a bad --kc-c3-max returned 2 before any KC_ENUM_DESC token."""
+        rc, out, err = self._run(["--kc-enum-desc", os.path.join(self.tmp, "absent"), "--kc-c3-max", "abc"])
+        self._need(rc != 0, "precondition: the bad value was accepted")
+        self._need("KC_ENUM_DESC=FAIL" in out.split("\n"), "no KC_ENUM_DESC=FAIL line: " + out[-200:])
+
+    def test_d1392_f1_mod_negative_and_empty_refused(self):
+        """D1392 (Codex F12-002#10): strtoull wrapped -18446744073709551611 to 5 and the run went ahead; an
+        empty value returned 2, where the documented code for a supplied-but-invalid value is 71."""
+        for v in ("-18446744073709551611", ""):
+            rc, out, err = self._run(["--f1-exact-c1c2", "--f1-mod", v], timeout=60)
+            self._need(rc == 71, "--f1-mod %r exited %d (want 71): %s" % (v, rc, err[-200:]))
+
+    def test_d1453_zero_padded_value_and_d1393_bound(self):
+        """D1453 (Codex F04-007#9): 0063 is 63, not out of range. D1393 (Codex F04-007#4): the four 64-value
+        test hooks read tseq[64] when a 65th value arrived (stack over-read; the loop is bounded now)."""
+        vec = ",".join(["0063"] + [str(x) for x in self.KW[1:]])
+        rc, out, err = self._run(["--estimate-knuth", "1"], env={"SOLVE_KNUTH_SCORE_REG": "2", "SOLVE_REG_TESTVEC": vec})
+        self._need(rc == 0 and re.search(r"^([01],){30}[01]$", out, re.M), "a zero-padded 63 was refused: rc %d %s" % (rc, err[-200:]))
+        rc, out, err = self._run(["--estimate-knuth", "1"], env={"SOLVE_KNUTH_SCORE_REG": "2",
+                                                                 "SOLVE_REG_TESTVEC": ",".join(map(str, self.KW + [5]))})
+        self._need(rc == 1, "a 65-value vector was not refused (rc %d)" % rc)
+        self._need(self._src_text().count("for (int i = 0; i < n && i < 64; i++) /* FV2-E2 D1393") == 4,
+                   "structural: the four TESTVEC loops are not all bounded at 64")
+
+    # ---- readers and merges -----------------------------------------------------------------------------
+    def test_d1396_c3_min_refuses_trailing_bytes(self):
+        """D1396 (Codex F04-008#9): --c3-min stopped at the declared count and accepted 32 trailing bytes."""
+        d = self._d("d1396")
+        p = os.path.join(d, "s.bin")
+        with open(p, "wb") as fh:
+            fh.write(b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", 3) + b"\0" * 16 + self.REC * 3)
+        rc, out, err = self._run(["--c3-min", p], cwd=d)
+        self._need(rc == 0, "precondition: a well-formed 3-record file failed --c3-min: rc %d %s" % (rc, err[-300:]))
+        with open(p, "ab") as fh:
+            fh.write(self.REC)
+        rc, out, err = self._run(["--c3-min", p], cwd=d)
+        self._need(rc == 20 and "framing mismatch" in err, "trailing bytes accepted by --c3-min: rc %d" % rc)
+
+    def test_d1447_manifest_checked_without_checkpoint(self):
+        """D1447 (Codex F04-003#3, F04-008#23): with no checkpoint file the merge skipped the shard_manifest
+        cross-reference, so a manifest listing an absent shard merged and exited 0."""
+        d = self._shard_dir("d1447", {"sub_1_0_2_0.bin": self.REC,
+                                      "shard_manifest.txt": "sub_1_0_2_0.bin\t32\tx\nsub_3_0_4_0.bin\t32\ty\n"})
+        rc, out, err = self._run(["--merge"], cwd=d)
+        self._need(rc == 20 and "MERGE_SHARD=MISSING" in err, "an absent listed shard merged: rc %d" % rc)
+        self._need(not os.path.exists(os.path.join(d, "solutions.bin")), "solutions.bin was written")
+
+    def test_d1449_malformed_manifest_refused(self):
+        """D1449 (Codex F04-008#25): junk manifest lines were skipped and the cross-reference passed."""
+        d = self._shard_dir("d1449", {"sub_1_0_2_0.bin": self.REC, "shard_manifest.txt": "junk\nmore junk\n"})
+        rc, out, err = self._run(["--merge"], cwd=d)
+        self._need(rc == 20 and "MERGE_MANIFEST=MALFORMED" in err, "a junk manifest certified the shards: rc %d" % rc)
+        ok = self._shard_dir("d1449ok", {"sub_1_0_2_0.bin": self.REC, "shard_manifest.txt": "sub_1_0_2_0.bin\t32\tx\n"})
+        rc, out, err = self._run(["--merge"], cwd=ok)
+        self._need(rc == 0, "positive control: a well-formed manifest was refused: rc %d %s" % (rc, err[-300:]))
+
+    def test_d1448_budgetless_budgeted_line_covers_nothing(self):
+        """D1448 (Codex F04-008#24): a BUDGETED line without a budget field satisfied the INTERRUPTED cell in the
+        merge gate, while the resume loader treats the same line as not covering it."""
+        line = "Sub-branch %s (thread 0, pair1 1 orient1 0 pair2 2 orient2 0): 5 nodes, 1 C3-valid, 1 solutions, 1s elapsed%s\n"
+        d = self._shard_dir("d1448", {"sub_1_0_2_0.bin": self.REC,
+                                      "checkpoint.txt": line % ("INTERRUPTED", ", budget 100") + line % ("BUDGETED", "")})
+        rc, out, err = self._run(["--merge"], cwd=d)
+        self._need(rc == 35 and "MERGE_INPUT=INCOMPLETE" in err, "the budgetless line finished the cell: rc %d" % rc)
+        ok = self._shard_dir("d1448ok", {"sub_1_0_2_0.bin": self.REC,
+                                         "checkpoint.txt": line % ("INTERRUPTED", ", budget 100") + line % ("BUDGETED", ", budget 100")})
+        rc, out, err = self._run(["--merge"], cwd=ok)
+        self._need(rc == 0, "positive control: a budgeted line at the same budget was refused: rc %d %s" % (rc, err[-300:]))
+
+    def test_d1440_long_shard_name_refused_by_name(self):
+        """D1440 (Codex F04-008#8): a shard name of 64+ bytes was truncated into the 64-byte name table, so two
+        names sharing a 63-byte prefix aliased one file. It is refused by name before any read."""
+        d = self._shard_dir("d1440", {"sub_1_0_2_0_" + "a" * 60 + ".bin": self.REC})
+        rc, out, err = self._run(["--merge"], cwd=d)
+        self._need(rc == 20 and "MERGE_SHARD=NAME-TOO-LONG" in err, "a 76-byte shard name was not refused by name: rc %d" % rc)
+
+    # ---- estimator --------------------------------------------------------------------------------------
+    def test_d1404_d1405_knuth_dump_prefix(self):
+        """D1404 (Codex F12-001#4): a dead end short of <depth> exited 0. D1405 (Codex F12-001#5): depths 29-30
+        were emitted although --estimate-knuth takes at most 28 levels."""
+        rc, out, err = self._run(["--knuth-dump-prefix", "28", "4"])
+        m = re.search(r"PREFIX_DEPTH_REACHED (\d+)", out)
+        self._need(m is not None and int(m.group(1)) < 28, "precondition: seed 4 no longer dead-ends below 28")
+        self._need(rc == 1, "a dead end at depth %s exited %d (want 1)" % (m.group(1), rc))
+        rc, out, err = self._run(["--knuth-dump-prefix", "28", "1"])
+        self._need(rc == 0 and "PREFIX_DEPTH_REACHED 28" in out, "positive control: a full depth-28 prefix failed")
+        rc, out, err = self._run(["--knuth-dump-prefix", "29", "1"])
+        self._need(rc == 2, "depth 29 was accepted (rc %d), but no estimator can read the prefix" % rc)
+
+    def test_d1408_infeasible_prefix_exits_nonzero(self):
+        """D1408 (Codex F04-001#18): an infeasible prefix printed a refusal and exited 0 with no estimate."""
+        rc, out, err = self._run(["--estimate-knuth", "100", "0", "0"])
+        self._need("prefix infeasible" in err, "precondition: the prefix 0 0 is no longer infeasible")
+        self._need(rc == 1, "an infeasible prefix exited %d" % rc)
+
+    def test_d1460_c67_pins_apply_to_the_prefix(self):
+        """D1460 (Codex F04-001#4): SOLVE_KNUTH_C67 pinned slots 24-27 for sampled steps only, so a prefix placing
+        another pair in slot 24 was estimated as if it were inside the pinned population."""
+        rc, out, err = self._run(["--knuth-dump-prefix", "24", "1"])
+        self._need(rc == 0, "precondition: --knuth-dump-prefix 24 1 failed")
+        pfx = out.split(":", 1)[1].split("\n", 1)[0].split()
+        self._need(len(pfx) == 48 and pfx[46] != "24", "precondition: slot 24 of the seed-1 prefix is pair 24")
+        rc, out, err = self._run(["--estimate-knuth", "10"] + pfx, env={"SOLVE_KNUTH_C67": "1"})
+        self._need(rc == 1 and "SOLVE_KNUTH_C67 pins" in err, "a prefix outside the C6/C7 pins was estimated: rc %d" % rc)
+
+    def test_d1469_unrun_gender_cross_check_is_unchecked(self):
+        """D1469 (Codex F04-004#8): without scoring the gender-strict cross-check never ran but printed 0."""
+        rc, out, err = self._run(["--estimate-knuth", "200"], env={"SOLVE_KNUTH_GENDER_STRICT": "1", "SOLVE_THREADS": "2"})
+        self._need(rc == 0, "precondition: the gender-strict estimate failed: rc %d %s" % (rc, err[-300:]))
+        self._need("cross-check mismatches (must be 0): UNCHECKED" in out, "an unrun check printed a count")
+
+    def test_d1466_rc1c_line_carries_se(self):
+        """D1466 (Codex F02-013#2): the R-C1c line printed three masses with no se=."""
+        rc, out, err = self._run(["--estimate-knuth", "200"], env={"SOLVE_KNUTH_SCORE": "1", "SOLVE_THREADS": "2"})
+        self._need(rc == 0, "precondition: the scored estimate failed: rc %d %s" % (rc, err[-300:]))
+        line = next((l for l in out.split("\n") if "R-C1c circular anchor-adjacency" in l), None)
+        self._need(line is not None, "precondition: no R-C1c line")
+        self._need(re.search(r"adjacent=\S+ se=\S+ slot2=\S+ se=\S+ slot32=\S+ se=", line), "no se= per mass: " + line)
+
+    def test_d1471_subtree_sampler_refuses_seed(self):
+        """D1471 (Codex F04-001#6): the subtree sampler seeds from the depth only, so SOLVE_KNUTH_SEED was
+        announced and ignored. G6 refused the pins and strict walks; the seed is refused now too."""
+        rc, out, err = self._run(["--estimate-knuth", "1"], env={"SOLVE_KNUTH_SUBTREE_DEPTH": "5", "SOLVE_KNUTH_SEED": "7"})
+        self._need(rc == 1 and "SOLVE_KNUTH_SEED" in err, "the seed was ignored silently: rc %d" % rc)
+
+    # ---- small CLI rows ---------------------------------------------------------------------------------
+    def test_d1411_print_config_shows_every_set_solve_var(self):
+        """D1411 (Codex F04-001#20): --print-config's fixed list omitted SOLVE_COMPRESS and SOLVE_HASH_LOG2."""
+        rc, out, err = self._run(["--print-config"], env={"SOLVE_COMPRESS": "1", "SOLVE_HASH_LOG2": "18"})
+        self._need(rc == 0, "precondition: --print-config failed")
+        for name, v in (("SOLVE_COMPRESS", "1"), ("SOLVE_HASH_LOG2", "18")):
+            self._need(re.search(r"^\s+%s\s+= %s$" % (name, v), out, re.M), "%s is hidden by --print-config" % name)
+
+    def test_d1419_kde_extreme_bandwidth_refused(self):
+        """D1419 (Codex F04-001#16): bw*bw overflowed for an accepted finite bandwidth (1e200)."""
+        rc, out, err = self._run(["--kde-score-stream", "--fit-file", os.path.join(self.tmp, "absent"), "--d", "1",
+                                  "--bandwidth", "1e200", "--threshold", "0"])
+        self._need(rc == 2 and "KDE_ARGS=REFUSED" in err, "--bandwidth 1e200 was accepted: rc %d %s" % (rc, err[-200:]))
+
+    def test_d1420_sigma_image_of_kw_fails_the_self_check(self):
+        """D1420 (Codex F06-007#3): checks (a)-(f) pass for the 47 other sigma-images of KW, so an edit of KW[] to
+        one of them was invisible. A mutant whose KW[] is the image under the bit swap (0 1)(4 5), which commutes
+        with reversal, must now exit 50."""
+        def sig(h):
+            b = [(h >> i) & 1 for i in range(6)]
+            b[0], b[1], b[4], b[5] = b[1], b[0], b[5], b[4]
+            return sum(v << i for i, v in enumerate(b))
+        img = [sig(h) for h in self.KW]
+        self._need(img != self.KW, "precondition: the image is KW itself")
+        src = self._src_text()
+        old = "static const int KW[64] = {"
+        i = src.index(old)
+        j = src.index("};", i)
+        mut = src[:i] + old + ",".join(map(str, img)) + src[j:]
+        mp = os.path.join(self.tmp, "kw_sigma.c")
+        with open(mp, "w", encoding="utf-8") as fh:
+            fh.write(mut)
+        exe = os.path.join(self.tmp, "solve_kw_sigma")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", exe, mp, "-lm", "-lz"], capture_output=True, text=True, timeout=1800)
+        self._need(r.returncode == 0, "the mutant did not build: " + r.stderr[-400:])
+        d = self._d("d1420")
+        rc, out, err = self._run(["--merge"], cwd=d, exe=exe)
+        self._need("KW self-check failed: kw_dist" not in err and "kw_comp_dist_x64 =" not in err,
+                   "precondition: the sigma-image fails (a)-(f), so it does not isolate (g)")
+        self._need(rc == 50 and "pinned King Wen table" in err, "a sigma-image of KW passed the self-check: rc %d" % rc)
+        rc, out, err = self._run(["--merge"], cwd=d)
+        self._need(rc != 50, "positive control: the real KW failed the self-check")
+
+    def test_structural_rows(self):
+        """Structural pins (source text) for rows whose failure needs a fault injection this suite cannot make:
+        D1395 manifest completeness, D1397 64-hex digests, D1399 no unread variable promised, D1400 unset list,
+        D1407 curl --max-time, D1417 private root, D1421 62-bit draw, D1429 analytics tmp+rename, D1432 the
+        UNMEASURED gate, D1437 checked stamp writes, D1441 bytes not GiB, D1446 EINVAL WARN, D1450 g-key domain,
+        D1459 CAS, and the comment/label rows D1436, D1457, D1463."""
+        s = self._src_text()
+        pins = {
+            "D1395": "MERGE_LAYERS_MANIFEST=INCOMPLETE",
+            "D1397": "if (e2_hex64(sha_resume) && e2_hex64(sha_single) && strcmp(sha_resume, sha_single) == 0)",
+            "D1400": "SOLVE_MAX_THREADS SOLVE_SKIP_AUTOMERGE SOLVE_MERGE_MODE && ",
+            "D1407": "--connect-timeout 1 --max-time 1 ",
+            "D1417": '"%s/regress_XXXXXX", base_dir); if (!mkdtemp(e2_root))',
+            "D1421": "do r = ((uint64_t)rand() << 31) | (uint64_t)rand(); while (r >= lim);",
+            "D1429": 'rename("solutions.analytics.txt.tmp", "solutions.analytics.txt") == 0',
+            "D1432": "BUILD_SHA_GATE=UNMEASURED",
+            "D1437": "build.sha NOT installed",
+            "D1441": "if (e2_avail_b >= 0 && e2_need_b > e2_avail_b)",
+            "D1446": "is unsupported here (EINVAL)",
+            "D1450": 'MJ_LFAIL("g-key-domain")',
+            "D1459": "__atomic_compare_exchange_n(&knuth_fiber_xcheck",
+            "D1436": "ONE observed orientation variant in this file",
+            "D1457": "the hexagram CLASS is Drasny / Schulz; the positional predicate counted here is ROAE's",
+            "D1463": "exact mode prints no records_* lines",
+        }
+        for row, pin in pins.items():
+            self._need(pin in s, "%s: the cure is absent (%r)" % (row, pin))
+        self._need("SOLVE_REFERENCE_FINGERPRINT" not in s, "D1399: solve.c still promises a variable nothing reads")
+        self._need(s.count('MJ_LFAIL("g-key-domain")') == 2, "D1450: both unmatched-g paths need the domain check")
+        self._need("see the records_* lines for deduped counts" not in s, "D1463: the exact-mode pointer is still printed")
+        self._need("Drasny / Schulz xiaoxi-in-group-B count (d7). ROAE contributes only" not in s, "D1457: old attribution")
 
 
 if __name__ == "__main__":

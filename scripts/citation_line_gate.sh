@@ -780,7 +780,7 @@ def candidates(line, tname="solve.c"):
 def context(lines, li, ismd):
     """The citing line plus its paragraph neighbours (<= 3 lines each way, never across a blank
     line). Hard-wrapped prose puts the symbol on the line BEFORE the number as often as on the
-    same line (`...\n  `long long fail_c1 ...` (`solve.c:44350-44351`)`), and a comment block in a
+    same line (`...\n  `long long fail_c1 ...` (`solve.c:44352-44353`)`), and a comment block in a
     script is one sentence spread over several `#` lines. A markdown TABLE ROW is its own unit:
     the next row is a different claim, so a table row takes no neighbours; nor does a heading."""
     line = lines[li - 1]

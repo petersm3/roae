@@ -1165,7 +1165,7 @@ $(tail -c 2000 "$ref")"; fi
   elif grep -qiE "failed to allocate|cannot allocate|out of memory|bad_alloc|alloc.{0,16}fail|free disk in cwd|No space left on device" <<<"$out"; then
     outcome="SKIP-RESOURCE(allocation/disk failure — host, not claim)"
   # solve.c's disk_iops_pre_check (solve.c:4262) refuses with "ERROR: projected fsync-wait
-  # ~%.1fh is %.0f%% of the estimated enum wall ~%.1fh." and main returns 31 (solve.c:49852).
+  # ~%.1fh is %.0f%% of the estimated enum wall ~%.1fh." and main returns 31 (solve.c:49854).
   # That is a HOST verdict — this box's disk is too slow — not a verdict on the documented
   # claim, so it is a SKIP-RESOURCE exactly as an allocation failure is. Measured 2026-09-07:
   # no branch above matched it, so `solve --preflight` (SOLVE_C_CLI.md:58/:385 — a gating row,
