@@ -133,3 +133,12 @@ throwaway n=9 ladder, diffs the grid against `scripts/tr12_expected/n9/a1_v3.txt
 Added from Codex's final review (gpt-6-astra); the record above is kept as written. [CORRECTIONS.md](../../../../documentation/CORRECTIONS.md) CX-35X-K.
 
 - **Exit status of the driver.** `run_v3_rows.sh` routes every fatal path through `die`, which calls `finish ERROR`, and `finish` ends with `exit 0`. A failed run therefore writes `V3ROWS_STATE=ERROR` into `VERDICTS.txt` but exits 0: a caller must read `V3ROWS_STATE`, not the exit status. The driver is frozen and is not edited; the archived run's `VERDICTS.txt` records its own state (Codex F07-011#11).
+
+## Dated notes (2026-11-04)
+
+Added from Codex's fix-verification round (gpt-6-astra); the record and the driver above are kept as written. [CORRECTIONS.md](../../../../documentation/CORRECTIONS.md) CX-36R-B.
+
+- **`V3ROWS_LADDER_UNMODIFIED=YES` is an absence of evidence, not a proof.** The driver reads an EMPTY `find "$FDIR" -newer …` result as YES, and that `find` sends its errors to `/dev/null`. A `find` that failed (an unreadable directory, say) also prints nothing, so it would also give YES. The archived `VERDICTS.txt` line therefore means "this `find` printed no newer file". It does not mean "`find` read the whole ladder". A re-run should capture `find`'s output and status together, and record YES only for status 0 with empty output, or `UNKNOWN:<rc>` otherwise (Codex F09-A03#15).
+- **A mount the driver cannot read is reported as a read-only failure.** If `findmnt` is missing or fails, `opts` is empty and the run dies with `FDIR-mount-not-read-only`. The run fails closed, but for the wrong stated reason: it could not inspect the mount at all. A re-run should test `findmnt`'s status separately (Codex F09-A03#16).
+- **An empty digest.** `sha()` does not check `sha256sum`'s status, so an unreadable input gives an empty digest. Against a pin, that reads as `DIFFER`, which dies (fail-closed). `finish` also ignores a failed bundle `sha256sum` (the exit-0 half is the note above). A re-run should make `sha()` return `sha256sum`'s status (`PIPESTATUS[0]`) (Codex F09-A03#14).
+- **The README's default input paths** (`scripts/tr12_repro.sh`, `solve.py`, `scripts/tr12_expected/n9/a1_v3.txt`) resolve in the tree as of this note (Codex F07-011#1, residual).

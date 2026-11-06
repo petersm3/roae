@@ -11,6 +11,7 @@ set -u
 BIN=${BIN:-./solve}
 OUT=${OUT:-reports/evidence/q374_se_replicates}
 PROBES=${PROBES:-10000000}
+fails=0   # D860 (Codex F02-010#3): never inherit a count from the environment
 for SEED in 1 2 3 4 5 6 7 8 9 10 11 12; do
   f=$(printf '%s/rep%02d_seed%d.out' "$OUT" "$SEED" "$SEED")
   SOLVE_THREADS=2 SOLVE_KNUTH_SCORE_DAV=1 SOLVE_KNUTH_SEED=$SEED \

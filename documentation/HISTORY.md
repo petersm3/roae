@@ -12114,3 +12114,17 @@ Q-686=DONE
   is held for a measured reference digest; the seven HEADLINE-OR-COUNT rows stay held.
 - No canonical sha, count, golden or published figure changed. `TestBatchFV2P` holds each cure and fails on the
   parent tree.
+
+## 2026-11-04 — batch FV2-T: tests, evidence and registry rows from Codex's fix-verification round
+
+- **Tests that could pass over their defect (CX-36R-A).** Codex (gpt-6-astra) found tests that read a message but
+  not the exit status or final verdict, a heredoc scan that skipped a common form, and a selfcheck test whose pins
+  were silently empty. Each test now checks what it guards, and each was shown to fail on a planted defect.
+- **Evidence analyzers and frozen drivers (CX-36R-B).** The Q-374 and Q-OY1/Q-992 analyzers now refuse
+  replicates that do not match, or halves that share a seed. Their outputs on the archived inputs are unchanged.
+  The frozen drivers are not edited. Their limits are recorded in dated README notes.
+- **Registries and comments (CX-36R-C).** Four retired-branch rows were added, along with a TR-4 disclosure probe,
+  a wider unquoted-`rm` invariant and three corrected comments. Five rows are held for the operator and six are
+  queued.
+- No canonical sha, count, certificate or verdict changed. `TestBatchFV2T` holds each fix and fails on the parent
+  tree.

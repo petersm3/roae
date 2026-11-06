@@ -56,6 +56,10 @@ solve.binary.snapshot
 # If a future record type is added and does not appear in `git status`, it needs
 # its own negation. That is the failure this block exists to prevent, and the
 # command above is the only reliable way to detect it.
+# Correction (2026-11-04, CX-36R-C, Codex F12-019#2): that command lists TRACKED files an
+# ignore rule matches; it cannot see an UNTRACKED new record being swallowed. For a prospective
+# record path use `git check-ignore -v <path>` (prints the rule that ignores it) or
+# `git status --ignored`. Keep the ls-files command for the tracked-but-ignored invariant.
 # ---------------------------------------------------------------------------
 
 # Protects the reproducibility anchor: the sha256 of each canonical run's

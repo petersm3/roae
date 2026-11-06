@@ -9,6 +9,9 @@
 # slots s,s+1) and slat inversion (orientation flip of one slot), with optional inversion
 # of displaced slats. Slot-edit distance = # slots whose (pair, orientation) differs
 # (identical to sat.py's near-k metric). Slot 0 (pair 0 = 63,0) is fixed by canonical form.
+# Attribution scope (2026-11-04, CX-36R-C, Codex F03-005#2): Rutt 1996 (via Hacker & Moore 2003)
+# motivates the bamboo-slat PICTURE only; the edit set (adjacent swap, slat inversion, the optional
+# inversion of displaced slats) and the locality bias of variant A are this project's modelling choices.
 #
 # Rule ATTRIBUTION: Moore 2005 (Oracle Papers No.1) pair-positioning parity; Moore 1989
 # (The Trigrams of Han, App.2) rising/falling rhythm; Schulz 1990 (JCP 17:3) gender/

@@ -111,6 +111,16 @@ def main():
     n0 = kv(os.path.join(D, "n0_exact.out")); g = kv(os.path.join(D, "gates.txt"))
     ctl = ctrl_vals(os.path.join(D, "n0_exact.out"))
     runs = {k: parse_run(os.path.join(D, k + ".out")) for k in ("N1_A", "N1_B", "N1P_A", "N1P_B")}
+    # D863 (Codex F02-006#1, F02-001#4): two halves are a replication only if they ran on DIFFERENT seeds, and
+    # each must be the seed PREREGISTRATION.md §6 committed to (N1 half A: the default instrument seed).
+    PREREG_SEEDS = {"N1_A": 0x243F6A8885A308D3, "N1_B": 8087609961813646905,
+                    "N1P_A": 7944743365876395449, "N1P_B": 15064022667821298811}
+    for k, want in PREREG_SEEDS.items():
+        if int(runs[k]["seed"], 16) != want:
+            raise SystemExit("REFUSED: %s ran on seed %s, not the preregistered 0x%016x" % (k, runs[k]["seed"], want))
+    for a, b in (("N1_A", "N1_B"), ("N1P_A", "N1P_B")):
+        if runs[a]["seed"] == runs[b]["seed"]:
+            raise SystemExit("REFUSED: %s and %s share seed %s -- not a replication" % (a, b, runs[a]["seed"]))
     for k, r in runs.items():
         assert r["probes_ok"], k
         assert r["c67"] == k.startswith("N1P"), k
@@ -138,7 +148,10 @@ def main():
     gates_ok = (g.get("PREREG_SHA_VERIFIED") == "PASS" and g.get("DEFCHECK") == "PASS" and g.get("QOY_VERIFY") == "PASS"
                 and g.get("QOY_VERIFY_MUTANT") == "FAIL" and g.get("BINARY_FRESH") == "FRESH" and g.get("Q992_KW_W") == "6"
                 and g.get("QOY1_KW_COSETS_CONSISTENT") == "YES" and g.get("INSTRUMENT_PIN", "MISSING") != "MISSING"
-                and n0["N0_SAMPLER_CROSSCHECK"] == "PASS")
+                and n0["N0_SAMPLER_CROSSCHECK"] == "PASS"
+                # D864 (Codex F02-006#2): the instrument's own consistency counters gate the verdict too.
+                and wconst and all(r["QOY_INCONSISTENT_LEAVES"] == 0 for r in runs.values())
+                and sum(r["QOY_CLAMPED"] for r in runs.values()) == 0)
     out("PRE_RUN_GATES_ALL", "PASS" if gates_ok else "FAIL")
     res = {}
     for pop, (P, A, B, ref, bh, bp) in pools.items():

@@ -223,7 +223,7 @@ elif E == "rank_member_admit_c3":  # G5a: rank and member alone accept-and-ignor
     old = '                 strcmp(cmd, "--kc-enum-desc") == 0)                       allowed = KO_C3 | KO_LIMIT;\n'
     new = old + '        else if (strcmp(cmd, "--kc-rank") == 0 || strcmp(cmd, "--kc-member") == 0) allowed = KO_C3;\n'
 else: sys.exit(2)
-assert s.count(old) == 1, "mutant anchor drift: " + E
+if s.count(old) != 1: sys.exit("mutant anchor drift: " + E)  # not a bare assert: python3 -O must not skip it (Q-373)
 open(os.environ["MUT"], "w", encoding="utf-8").write(s.replace(old, new))
 PY
   cmp -s solve.c "$WORK/m.c" && { echo "  [ERROR] mutant $name did not change solve.c"; return 2; }

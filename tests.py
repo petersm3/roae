@@ -522,14 +522,14 @@ class TestGates(unittest.TestCase):
         # Fu Xi natural-order identity free-correctness check (prereg §6c).
         r = subprocess.run([sys.executable, _py_src("solve"), "--perm-verify"],
                            capture_output=True, text=True)
-        self.assertIn("PERM VERIFY: PASS", r.stdout)
+        self.assertIn("PERM VERIFY: PASS", r.stdout); self.assertEqual(r.returncode, 0, r.stderr[-2000:])  # D1537 (Codex F04-015#7): rc too
         seq = ",".join(str(i) for i in range(64))
         r2 = subprocess.run([sys.executable, _py_src("solve"), "--perm-verify", seq],
                             capture_output=True, text=True)
         # bit0=bottom identity -> pi_bot=id: ncyc=64,lcyc=1,fix=64,c2=0,ord=1,
         # desc=0,sign=0 (top convention non-trivial); template indicators 0,0.
         self.assertEqual(r2.stdout.strip().split(",")[:7],
-                         ["64", "1", "64", "0", "1", "0", "0"])
+                         ["64", "1", "64", "0", "1", "0", "0"]); self.assertEqual(r2.returncode, 0, r2.stderr[-2000:])
 
     def test_r7_verify(self):
         # R7 cross-tradition corpus-control: frozen anchors (FC-2 construction
@@ -2000,8 +2000,8 @@ class TestNoBareAsserts(unittest.TestCase):
                                         capture_output=True, text=True).stdout.split() if f]
         self.assertTrue(sh, "git ls-files matched no shell scripts — the scan would be vacuous")
         # `python3 - <<'TAG' ... TAG` / `python3 - <<TAG`. The quoted-tag form is the common one.
-        HD = re.compile(r"<<-?\s*'?\"?([A-Za-z_][A-Za-z0-9_]*)'?\"?\s*\n(.*?)\n[ \t]*\1",
-                        re.S)
+        # D1521 (Codex F04-015#3): the opening line may continue after the tag (`python3 - <<'PY' || return 2`).
+        HD = _Q373_HEREDOC_RE
         scanned = 0
         for f in sh:
             try:
@@ -5225,10 +5225,10 @@ class TestKnuthEstimatorOutputHonesty(unittest.TestCase):
 
     def test_unrestricted_fiber_is_still_accepted(self):
         # Control: the refusal must be scoped to strict walks, not to FIBER itself.
-        _, lines = self._run(["--estimate-knuth", "50"],
+        r, lines = self._run(["--estimate-knuth", "50"],
                              env={"SOLVE_KNUTH_FIBER": "1"}, timeout=180)
-        self.assertIn("FIBER_MODE=ACTIVE-UNRESTRICTED", lines)
-        self.assertNotIn("FIBER_MODE=REFUSED-STRICT-WALK", lines)
+        self.assertIn("FIBER_MODE=ACTIVE-UNRESTRICTED", lines); self.assertEqual(r.returncode, 0, " | ".join(lines[-8:]))  # D1538 (Codex F04-004#10): it also RAN
+        self.assertNotIn("FIBER_MODE=REFUSED-STRICT-WALK", lines); self.assertTrue(any(l.startswith("leaves_canonical_C1C5 :") for l in lines), "no estimate line")
 
     def test_exact_mode_refuses_strict_flags_it_cannot_apply(self):
         # exact_count() prunes on C1/C2/C5 only. Pre-fix it silently counted the UNRESTRICTED
@@ -9513,6 +9513,7 @@ class TestQ42KcSelftestGatesCanFail(unittest.TestCase):
         v, r = self._gate("clean", "--kc-scan-selftest", self.CGATE)
         self.assertEqual("PASS", v)
         self.assertIn("KC_SCAN_SELFTEST=PASS", r.stdout.splitlines())
+        self.assertEqual(r.returncode, 0, r.stdout[-2000:])   # D1542: rc read on the positive control too
         for g in self.EGATES:
             v, r = self._gate("clean", "--kc-layers-selftest", g)
             self.assertEqual("PASS", v, g)
@@ -9521,6 +9522,9 @@ class TestQ42KcSelftestGatesCanFail(unittest.TestCase):
     def test_c_a_wrong_t_root_turns_the_t_units_gate_red(self):
         v, r = self._gate("c_troot", "--kc-scan-selftest", self.CGATE)
         self.assertEqual("FAIL", v, r.stdout[-2000:])
+        # D1542 (Codex F05-015#4): the AGGREGATE verdict and the exit status must fail too, not only the leg.
+        self.assertIn("KC_SCAN_SELFTEST=FAIL", r.stdout.splitlines(), r.stdout[-2000:])
+        self.assertNotEqual(r.returncode, 0, "a failing leg exited 0:\n" + r.stdout[-2000:])
 
     def test_e_a_merge_that_leaves_out_untouched_turns_l9_red(self):
         v, _ = self._gate("e_untouched", "--kc-layers-selftest", self.EGATES[0])
@@ -9528,6 +9532,9 @@ class TestQ42KcSelftestGatesCanFail(unittest.TestCase):
         for g in self.EGATES[1:]:
             v, r = self._gate("e_untouched", "--kc-layers-selftest", g)
             self.assertEqual("FAIL", v, g + "\n" + r.stdout[-2000:])
+        # D1542 (Codex F05-015#4): the aggregate verdict and the exit status, not only the per-gate lines.
+        self.assertIn("KC_LAYERS_SELFTEST=FAIL", r.stdout.splitlines(), r.stdout[-2000:])
+        self.assertNotEqual(r.returncode, 0, "failing legs exited 0:\n" + r.stdout[-2000:])
 
 
 class TestQ782LadderShaRowChecksLayerIdentity(unittest.TestCase):
@@ -26323,11 +26330,17 @@ class TestSatCertifyCountRefusesStaleDnnf(unittest.TestCase):
             shutil.rmtree(d, ignore_errors=True)
 
 
+# The heredoc grammar of the Q-373 bare-assert scan (and _lsf_heredoc_body). D1521, Codex F04-015#3:
+# the opening line may continue after the tag (`python3 - <<'PY' || return 2`).
+_Q373_HEREDOC_RE = re.compile(
+    r"<<-?\s*'?\"?([A-Za-z_][A-Za-z0-9_]*)(?![A-Za-z0-9_])'?\"?[^\n]*\n(.*?)\n[ \t]*\1", re.S)
+
+
 def _lsf_heredoc_body(marker):
     """The body of the python3 heredoc in reports/certificates/verify_all.sh that contains
     `marker` (the same heredoc grammar the Q-373 scan uses)."""
     src = _lsf_read("reports/certificates/verify_all.sh")
-    HD = re.compile(r"<<-?\s*'?\"?([A-Za-z_][A-Za-z0-9_]*)'?\"?\s*\n(.*?)\n[ \t]*\1", re.S)
+    HD = _Q373_HEREDOC_RE
     bodies = [m.group(2) for m in HD.finditer(src) if marker in m.group(2)]
     if len(bodies) != 1:
         raise AssertionError("expected exactly one verify_all.sh heredoc containing %r, found %d"
@@ -31977,7 +31990,8 @@ class TestPipeRecordSplitSafety(unittest.TestCase):
             v = re.escape(v)
             if re.search(r"\$\{%s(?:%%%%|%%|##|#)[^}]*\|" % v, text) or \
                re.search(r"\$%s\"?\s*\|\s*cut -d\s*'?\\?\|" % v, text) or \
-               re.search(r"IFS='?\\?\|'?[^\n]*<<<\s*\"?\$\{?%s\b" % v, text):
+               re.search(r"IFS=(?:'\|'|\"\|\"|\\\|)[^\n]*<<<\s*\"?\$\{?%s\b" % v, text):
+                # D1524 (Codex F04-017#3): IFS="|" (double-quoted) splits on a pipe too.
                 return True
         return False
 
@@ -36241,8 +36255,10 @@ class TestQ954Q955SelftestLegsCanFail(unittest.TestCase):
 
     def test_q955_no_row_probes_with_a_constant(self):
         rows = self._rows()
-        # Q-433 (batch 49): two rows until the TR-12 one fired and was removed (CX-349)
-        self.assertEqual(len(rows), 1, "precondition: the one live disclosure row")
+        # Q-433 (batch 49): two rows until the TR-12 one fired and was removed (CX-349); FV2-T (CX-36R-C, D220)
+        # registered TR-4's, so two live rows again: TR-11 and TR-4.
+        self.assertEqual(sorted(rows), ["reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md",
+                                        "reports/TR4_SIZE_OF_THE_SPACE.md"], "precondition: the live disclosure rows")
         for f, cmd in rows.items():
             self.assertNotIn(re.sub(r"\s", "", cmd), ("", "false", "true", ":"), f)
 
@@ -36501,7 +36517,10 @@ esac
 
     # ---------------------------------------------- shape 5: `producer | tr` hid the producer's rc (G49)
     def test_f_gate_parity_figures_reads_the_checker_rc(self):
-        self._write(os.path.join(self.tmp, "documentation/PARITY_ALTERNATION.md"), "x\n", 0o644)
+        # D1526 (Codex F05-015#1): the page carries five figures the healthy checker prints, so a healthy run
+        # passes the figure scan and its floors, and GATE_RC is read for every mode, not only the refusal text.
+        self._write(os.path.join(self.tmp, "documentation/PARITY_ALTERNATION.md"),
+                    "| a | 10 | 20 | 30 | 40 | 50 |\n", 0o644)
         for mode in self.BAD + ("healthy",):
             body = {"healthy": "print('PARITY_ALTERNATION=PASS')",
                     "crash": "print('PARITY_ALTERNATION=PASS', flush=True); import os, signal; os.kill(os.getpid(), signal.SIGSEGV)",
@@ -36509,15 +36528,19 @@ esac
                     "pass_rc1": "print('PARITY_ALTERNATION=PASS'); raise SystemExit(1)",
                     "pass_rc137": "print('PARITY_ALTERNATION=PASS'); raise SystemExit(137)",
                     "pass_then_fail": "print('PARITY_ALTERNATION=PASS'); print('PARITY_ALTERNATION=FAIL')"}[mode]
-            self._write(os.path.join(self.tmp, "verify.py"), body + "\n", 0o644)
+            self._write(os.path.join(self.tmp, "verify.py"), "print('figures 10 20 30 40 50')\n" + body + "\n", 0o644)
             rc, out = self._bash("require_tracked(){ [ -f \"$1\" ]; }\n" + self._helper()
                                  + ". '%s'\ngate_parity_figures; echo \"GATE_RC=$?\"\n"
                                  % os.path.join(self.ROOT, "scripts/doc_gates.d/90_claim_artifacts.sh"))
             refused = "did not print PARITY_ALTERNATION=PASS" in out
-            if mode == "healthy":   # it gets PAST the token check (the figure scan after it is not stubbed)
+            g = re.findall(r"^GATE_RC=(\d+)$", out, re.M)
+            self.assertEqual(len(g), 1, out)
+            if mode == "healthy":   # past the token check, through the figure scan, rc 0
                 self.assertFalse(refused, out)
+                self.assertEqual(g[0], "0", out)
             else:
                 self.assertTrue(refused, "%s got past the token check:\n%s" % (mode, out))
+                self.assertNotEqual(g[0], "0", "%s printed the refusal but returned 0:\n%s" % (mode, out))
 
     # ---------------------------------------------- shape 6: pre_push_gate one_token + tok_is
     def test_g_pre_push_q479_leg(self):
@@ -36525,11 +36548,17 @@ esac
         prog = self._fn(pp, "one_token") + self._fn(pp, "tok_is") + self._fn(pp, "_q479_leg")
         stub = self._write(os.path.join(self.tmp, "stub.sh"), self.STUB)
         for mode in self.BAD + ("healthy",):
-            rc, out = self._bash(prog + '_q479_leg - LEG K bash "%s" K PASS\n' % stub, {"STUB_MODE": mode})
+            # D1527 (Codex F05-015#2): a real advisory record (_A_LEG), not "-", so what the leg STORES is read.
+            rc, out = self._bash(prog + '_q479_leg LEG LEG K bash "%s" K PASS\necho "REC=${_A_LEG:-NOT-RUN}"\n'
+                                 % stub, {"STUB_MODE": mode})
+            recs = re.findall(r"^REC=(\S+)$", out, re.M)
+            self.assertEqual(len(recs), 1, out)
             if mode == "healthy":
                 self.assertIn("[ok]", out, out)
+                self.assertEqual(recs[0], "PASS", out)
             else:
                 self.assertNotIn("[ok]", out, "%s read as PASS:\n%s" % (mode, out))
+                self.assertNotEqual(recs[0], "PASS", "%s recorded PASS:\n%s" % (mode, out))
 
     # ---------------------------------------------- shape 7: tr12_repro_gate sub-legs
     def test_h_tr12_repro_gate_q7ranks_and_q2_legs(self):
@@ -37137,7 +37166,8 @@ def _q956_fixture_binding(repo):
 # TestBatchG5a requires every path-defaulted override tests.py reads to be in this list or prefixed.
 _Q956_SOURCE_OVERRIDES = ("Q949_HOOK_SRC", "Q971_SRC_DIR", "Q951_SCRIPTS_ROOT", "ROAE_B39D_REVIEWER_DIR",
                           "Q908_SOLVE_BIN", "Q908_VERIFY_BIN", "ROAE_P01_SCRIPT", "Q958_SCRIPT",
-                          "Q957_BATTERY", "ROAE_C8_DEFCHECK")
+                          "Q957_BATTERY", "ROAE_C8_DEFCHECK",
+                          "ROAE_B39D_RDG")   # D1528, Codex F04-018#1: read by subscript, not .get()
 
 
 def _q956_tests_tree(root):
@@ -37246,6 +37276,14 @@ class TestQ959Q961PushPathB39C(unittest.TestCase):
                      "def atlas_selftest(): pass\n"
                      "out = sys.argv[sys.argv.index('--atlas-out') + 1]\nos.makedirs(out, exist_ok=True)\n"
                      "shutil.copy(%r, os.path.join(out, 'VERDICTS.txt'))\n" % vf)
+        # D1529 (Codex F05-015#3): the named coverage (Gate 3) exists in the fixture, so a healthy run reaches
+        # the footer with GROUPC_REHEARSAL=PASS and the terminal token + rc can be asserted.
+        for rel, text in (("tests.py", "atlas_q3_trace_is_king_wen atlas_a2_slot_check atlas_a3_external_check\n"),
+                          ("scripts/a2_slot_verdict_gate.sh", "# atlas_a2_slot_check\n"),
+                          ("scripts/a5_orbit_membership_gate.sh", "# atlas_orbit_columns atlas_orbit_membership\n"),
+                          ("scripts/invoker.sh", "bash a2_slot_verdict_gate.sh; bash a5_orbit_membership_gate.sh\n")):
+            with open(os.path.join(d, rel), "w", encoding="utf-8") as fh:
+                fh.write(text)
         env = dict(os.environ, SOLVE=eng, TMPDIR=d)
         for k in ("GROUPC_MIN_VERDICTS", "GROUPC_N31_GUARDS"):
             env.pop(k, None)
@@ -37253,29 +37291,40 @@ class TestQ959Q961PushPathB39C(unittest.TestCase):
                            env=env, timeout=120)
         self.assertTrue("verdicts emitted (floor" in r.stdout or "verdict(s); expected at least" in r.stdout,
                         "precondition: the gate reached GATE 2\n" + r.stdout[-2000:] + r.stderr[-1000:])
+        self.last_rc = r.returncode
         return r.stdout
+
+    def _gc_terminal(self, out, want):   # D1529: the gate's whole-line verdict and its exit status
+        toks = [l for l in out.splitlines() if l.startswith("GROUPC_REHEARSAL=")]
+        self.assertEqual(toks, ["GROUPC_REHEARSAL=" + want], out[-1500:])
+        self.assertEqual(self.last_rc, 0 if want == "PASS" else 1, out[-1500:])
 
     def test_q959_a_positive_control_the_measured_18_are_green(self):
         out = self._gc(self.GOOD18)
         self.assertIn("[ok]   18 verdicts emitted (floor 18)", out)
         self.assertIn("[ok]   every verdict is PASS / PASS: / SKIP: / PENDING:", out)
+        self._gc_terminal(out, "PASS")
 
     def test_q959_b_an_error_that_quotes_pass_is_not_green(self):
         out = self._gc(self.GOOD18 + ["TR12_XA_A2=ERROR:expected=PASS"])
         self.assertIn("[FAIL] verdict(s) that are neither", out)
         self.assertIn("TR12_XA_A2=ERROR:expected=PASS", out)
+        self._gc_terminal(out, "FAIL")
 
     def test_q959_c_a_bare_pass_prefix_is_not_pass(self):
         out = self._gc(self.GOOD18 + ["TR12_XA_A2=PASSED_NOTHING"])
         self.assertIn("[FAIL] verdict(s) that are neither", out)
+        self._gc_terminal(out, "FAIL")
 
     def test_q959_d_seventeen_is_below_the_floor(self):
         out = self._gc(self.GOOD18[:-1])
         self.assertIn("[FAIL] only 17 verdict(s); expected at least 18", out)
+        self._gc_terminal(out, "FAIL")
 
     def test_q959_e_a_duplicate_does_not_stand_in_for_a_silent_family(self):
         out = self._gc(self.GOOD18[:-1] + [self.GOOD18[0]])
         self.assertIn("[FAIL] only 17 verdict(s); expected at least 18", out)
+        self._gc_terminal(out, "FAIL")
 
     def test_q959_f_mutants(self):
         with open(self.GC, encoding="utf-8") as fh:
@@ -48372,22 +48421,32 @@ class TestBatchG3(unittest.TestCase):
 
     def _gpc_fixture(self, corrections_text, target_mode):
         d = self._d()
-        for rel in ("scripts/gate_published_consistency.sh", "scripts/doc_gates.d/word_match.sh"):
+        # D1533 (Codex F05-015#8): the pin ships too, so the aggregate ratchet runs as it does in the tree.
+        for rel in ("scripts/gate_published_consistency.sh", "scripts/doc_gates.d/word_match.sh",
+                    "scripts/gate_published_consistency.pin"):
             self._wr(os.path.join(d, rel), self._r(rel), 0o755)
         self._wr(os.path.join(d, "documentation", "CORRECTIONS.md"), corrections_text)
         self._wr(os.path.join(d, "documentation", "T.md"), "CX-1 is here\n", target_mode)
         r = subprocess.run(["bash", "scripts/gate_published_consistency.sh"], cwd=d, capture_output=True, text=True,
                            env=self._env(), timeout=300)
         sec = r.stdout.split("== G4:", 1)[1].split("\n== ", 1)[0] if "== G4:" in r.stdout else ""
+        self.last_gpc_stdout = r.stdout
         return d, "\n".join(l for l in sec.splitlines() if "G4" in l or "every file a correction names" in l)
 
     def test_gpc_g4_failed_scan_is_not_ok(self):  # F05-005#3
         led = "# C\n\n## CX-1 — x\n\n- **Documents:** [t](T.md)\n"
         d, g4 = self._gpc_fixture(led, 0o644)
         self.assertIn("[ok]   every file a correction names carries that correction's id", g4, "precondition: positive control:\n" + g4)
+        # D1533: in the positive control G4 reaches the ratchet at its pin (the other legs fail in this bare
+        # fixture, so the TOKEN alone could not tell the two runs apart; G4's own ratchet line can).
+        self.assertIn("[ok]   G4 at its pinned 0", self.last_gpc_stdout, "precondition: G4 at its pin:\n" + self.last_gpc_stdout[-1500:])
         d, g4 = self._gpc_fixture(led, 0o000)
         self.assertFalse(os.access(os.path.join(d, "documentation", "T.md"), os.R_OK), "precondition: the target is unreadable")
         self.assertNotIn("[ok]", g4, "G4 printed [ok] over a scan that crashed:\n" + g4)
+        out = self.last_gpc_stdout
+        self.assertTrue(re.search(r"^  \[FAIL\] G4 rose to \d+ from a pinned", out, re.M),
+                        "the crashed G4 scan did not reach the ratchet:\n" + out[-1500:])
+        self.assertIn("PUBLISHED_CONSISTENCY=FAIL", out.splitlines(), out[-800:])
 
     def _gpc_real(self, path_prefix=None, **env):
         e = self._env(**env)
@@ -48404,6 +48463,9 @@ class TestBatchG3(unittest.TestCase):
         g7 = [l for l in out.splitlines() if "G7:" in l]
         self.assertTrue(g7, "precondition: G7 ran")
         self.assertFalse(any("[ok]" in l for l in g7), "G7 compared nothing and said [ok]:\n" + "\n".join(g7))
+        # D1534 (Codex F05-015#5/#6): and the AGGREGATE must fail -- the real tree is PASS-AT-PIN without the fault.
+        self.assertIn("PUBLISHED_CONSISTENCY=FAIL", out.splitlines(), "G7 fault left the aggregate at %r"
+                      % [l for l in out.splitlines() if l.startswith("PUBLISHED_CONSISTENCY=")])
 
     def test_gpc_g18_failed_count_not_masked(self):  # F05-005#5
         d = self._d()
@@ -48414,6 +48476,9 @@ class TestBatchG3(unittest.TestCase):
         self.assertIn("≥~10×", self._shimlog(d), "precondition: the count's grep was refused")
         g18 = [l for l in out.splitlines() if "G18:" in l]
         self.assertFalse(any("[ok]" in l for l in g18), "G18 masked a failed count:\n" + "\n".join(g18))
+        # D1534 (Codex F05-015#5/#6): and the AGGREGATE must fail -- the real tree is PASS-AT-PIN without the fault.
+        self.assertIn("PUBLISHED_CONSISTENCY=FAIL", out.splitlines(), "G18 fault left the aggregate at %r"
+                      % [l for l in out.splitlines() if l.startswith("PUBLISHED_CONSISTENCY=")])
 
     def test_gpc_g19_failed_awk_not_ok(self):  # F05-005#6
         d = self._d()
@@ -48422,6 +48487,9 @@ class TestBatchG3(unittest.TestCase):
         self.assertIn("tolower", self._shimlog(d), "precondition: G19's price-line awk was refused")
         g19 = [l for l in out.splitlines() if "G19:" in l]
         self.assertFalse(any("[ok]" in l for l in g19), "G19 printed [ok] with an unmeasured count:\n" + "\n".join(g19))
+        # D1534 (Codex F05-015#5/#6): and the AGGREGATE must fail -- the real tree is PASS-AT-PIN without the fault.
+        self.assertIn("PUBLISHED_CONSISTENCY=FAIL", out.splitlines(), "G19 fault left the aggregate at %r"
+                      % [l for l in out.splitlines() if l.startswith("PUBLISHED_CONSISTENCY=")])
 
     def test_gate27_unreadable_doc_fails(self):  # F05-004#6
         d = self._d()
@@ -49544,6 +49612,10 @@ class TestBatchG5a(unittest.TestCase):
         # the class: every path-defaulted override this file reads is prefixed or listed
         names = set(re.findall(r'os\.environ\.get\("([A-Z0-9_]+)",\s*os\.path\.join', self._read("tests.py")))
         names |= set(re.findall(r'os\.environ\.get\("([A-Z0-9_]+)"\)\s*or\s', self._read("tests.py")))
+        # D1528 (Codex F04-018#1): an override read by subscript under an `in os.environ` guard, or copied
+        # straight from os.environ[...], substitutes a source just the same.
+        names |= set(re.findall(r'if\s+"([A-Z0-9_]+)"\s+in\s+os\.environ\b', self._read("tests.py")))
+        names |= set(re.findall(r'shutil\.copy\w*\(os\.environ\["([A-Z0-9_]+)"\]', self._read("tests.py")))
         names = {n for n in names if not n.startswith("ROAE_TESTS_")}
         self.assertTrue(names, "precondition: the scan found the overrides")
         self.assertEqual(sorted(names - set(_Q956_SOURCE_OVERRIDES)), [])
@@ -50908,14 +50980,26 @@ exit 0
         with open(sc, encoding="utf-8") as fh:
             src = fh.read()
         body = re.search(r"aggregates\(\)\{.*?<<'PY'\n(.*?)\nPY\n", src, re.S).group(1)
-        pins = dict(re.findall(r'^(RUNOUT_SHA|TABLE_SHA|TERMINAL)=([0-9a-f]+)$', src, re.M))
+        pins = dict(re.findall(r'^(RUNOUT_SHA|TABLE_SHA|TERMINAL)="?([0-9a-f]+)"?$', src, re.M))   # D1536: quoted
         runout = os.path.join("runs", "20260716_f1c5_c1c2c4c5_d128westus3", "run.out")
+        # D1536 (Codex F04-022#2): all three pins must be read (empty pins would refuse for the wrong reason),
+        # and the unchanged document must PASS first, so the refusal below is the extra cell's doing.
+        self.assertEqual(set(pins), {"RUNOUT_SHA", "TABLE_SHA", "TERMINAL"},
+                         "reviewer/selfcheck.sh pin lines moved or changed format: %r" % sorted(pins))
+        good = os.path.join(self.tmp, "f31_good.md")
+        with open(good, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(lines))
+        r0 = subprocess.run([sys.executable, "-", good, runout, "", pins["RUNOUT_SHA"], pins["TABLE_SHA"],
+                             pins["TERMINAL"]], input=body, capture_output=True, text=True, timeout=600)
+        self.assertIn("AGGREGATES=PASS", r0.stdout.splitlines(),
+                      "positive control: the unchanged document did not pass: " + (r0.stdout + r0.stderr)[-400:])
         bd = os.path.join(self.tmp, "f31_bad1.md")
         with open(bd, "w", encoding="utf-8") as fh:
             fh.write("\n".join(bad1))
-        r = subprocess.run([sys.executable, "-", bd, runout, "", pins.get("RUNOUT_SHA", ""), pins.get("TABLE_SHA", ""),
-                            pins.get("TERMINAL", "")], input=body, capture_output=True, text=True, timeout=600)
-        self.assertNotIn("AGGREGATES=PASS", r.stdout.splitlines(), r.stdout[-400:])
+        r = subprocess.run([sys.executable, "-", bd, runout, "", pins["RUNOUT_SHA"], pins["TABLE_SHA"],
+                            pins["TERMINAL"]], input=body, capture_output=True, text=True, timeout=600)
+        self.assertNotIn("AGGREGATES=PASS", r.stdout.splitlines(),
+                         "the doc with an extra-cell (9-cell) row passed: " + r.stdout[-400:])
 
     def test_nuclear_selftest_reads_the_engine(self):
         # F04-013#2 / F12-006#3: the "engine" side was a Python expression inside verify.py; an engine-only
@@ -61207,9 +61291,246 @@ class TestBatchFV2P(unittest.TestCase):
         self._need(e is not None and "MAX_RECORDS" in e, "4 packed records loaded under a cap of 3")
 
 
+class TestBatchFV2T(unittest.TestCase):
+    """Push group FV2-T: the tests.py, reports/evidence, .gitattributes/.gitignore and documentation/*.tsv/.txt
+    rows of Codex's fix-verification round (Fable's slice-2 triage, lane FV2-T; Q-1046), CX-36R-A..CX-36R-C.
+    Most rows here repair an EXISTING test or gate that could pass over a defect; each test below plants that
+    defect (or reads the pre-fix shape) and fails on the parent tree. No canonical sha, count, certificate
+    value or verdict changes. Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, from Codex
+    (gpt-6-astra) fix-verification findings triaged by Fable."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    def _src(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_d1521_heredoc_with_trailing_shell_is_scanned(self):
+        # Codex F04-015#3: `python3 - <<'PY' || return 2` was never scanned by the Q-373 bare-assert leg.
+        hd = globals().get("_Q373_HEREDOC_RE")
+        if hd is None:
+            raise AssertionError("_Q373_HEREDOC_RE missing: the Q-373 scan still uses the newline-only grammar")
+        fx = "python3 - <<'PY' || return 2\nassert 1\nPY\n"
+        bodies = [m.group(2) for m in hd.finditer(fx)]
+        if bodies != ["assert 1"]:
+            raise AssertionError("heredoc with trailing shell not extracted: %r" % bodies)
+        # the tag may not be shortened to make room for the trailing text
+        if [m.group(1) for m in hd.finditer("cat <<'PYX'\nx = 1\nPY\nPYX\n")] != ["PYX"]:
+            raise AssertionError("the heredoc tag was shortened")
+        if "HD = _Q373_HEREDOC_RE" not in self._src("tests.py").split("class TestSubtreeCrossAnchors")[0]:
+            raise AssertionError("TestNoBareAsserts does not use the fixed grammar")
+
+    def test_d1524_double_quoted_ifs_pipe_counts_as_splitting(self):
+        # Codex F04-017#3: IFS="|" was read as not splitting, so its malformed records were skipped.
+        t = TestPipeRecordSplitSafety()
+        fx = "RECS=('a|b' 'c||d')\nfor r in \"${RECS[@]}\"; do IFS=\"|\" read -r a b <<<\"$r\"; done\n"
+        if not any("||" in d for d in t._defects(fx)):
+            raise AssertionError("IFS=\"|\" record list with `||` not reported: %r" % t._defects(fx))
+        if not t._defects(fx.replace('IFS="|"', "IFS='|'")):
+            raise AssertionError("positive control: the single-quoted form is no longer reported")
+        if t._defects(fx.replace('IFS="|"', "IFS=','")):
+            raise AssertionError("negative control: a comma split was reported as a pipe split")
+
+    def _evcopy(self, rel):
+        d = tempfile.mkdtemp(prefix="fv2t_")
+        self.addCleanup(shutil.rmtree, d, True)
+        dst = os.path.join(d, os.path.basename(rel))
+        shutil.copytree(os.path.join(self.ROOT, rel), dst)
+        return dst
+
+    def test_d859_q374_provenance_line_must_agree_whole(self):
+        # Codex F02-010#2: replicates differing in a provenance field beyond the four null flags were pooled.
+        d = self._evcopy("reports/evidence/q374_se_replicates")
+        ok = subprocess.run([sys.executable, "analyze.py", "."], cwd=d, capture_output=True, text=True, timeout=300)
+        if ok.returncode != 0:
+            raise AssertionError("positive control: the archived replicates were refused: " + ok.stderr[-600:])
+        f = os.path.join(d, "rep05_seed5.out")
+        with open(f, encoding="utf-8") as fh:
+            t = fh.read()
+        t2 = re.sub(r"(?m)^(KNUTH-PROVENANCE seed_base=\S+ .*)$", r"\1 prefix=3", t, count=1)
+        if t2 == t:
+            raise AssertionError("precondition: the provenance line was not found")
+        with open(f, "w", encoding="utf-8") as fh:
+            fh.write(t2)
+        r = subprocess.run([sys.executable, "analyze.py", "."], cwd=d, capture_output=True, text=True, timeout=300)
+        if r.returncode == 0 or "REFUSED" not in r.stderr + r.stdout:
+            raise AssertionError("a replicate with a different prefix field was pooled (rc %d)" % r.returncode)
+
+    def test_d860_q374_launcher_does_not_inherit_fails(self):
+        # Codex F02-010#3: fails was never initialised, so fails=-12 in the environment cancelled 12 failures.
+        d = self._evcopy("reports/evidence/q374_se_replicates")
+        stub = os.path.join(d, "solve_fail")
+        with open(stub, "w") as fh:
+            fh.write("#!/bin/sh\nexit 3\n")
+        os.chmod(stub, 0o755)
+        r = subprocess.run(["bash", os.path.join(d, "run_replicates.sh")], cwd=d, capture_output=True, text=True,
+                           timeout=120, env=dict(os.environ, BIN=stub, OUT=d, PROBES="1", fails="-12"))
+        if r.returncode == 0:
+            raise AssertionError("all 12 estimator calls failed and the launcher exited 0:\n" + r.stdout[-600:])
+        if "12 of 12" not in r.stdout:
+            raise AssertionError("the failure count is not the 12 calls that failed:\n" + r.stdout[-600:])
+
+    def _qoy(self, edit=None):
+        d = self._evcopy("reports/evidence/qoy1_q992")
+        if edit:
+            edit(d)
+        return subprocess.run([sys.executable, os.path.join(d, "analyze.py")], cwd=d, capture_output=True,
+                              text=True, timeout=300)
+
+    def test_d863_qoy1_halves_must_be_distinct_preregistered_seeds(self):
+        # Codex F02-006#1, F02-001#4: a byte-identical N1_B (a copy of N1_A) was accepted as a replication.
+        r = self._qoy()
+        with open(os.path.join(self.ROOT, "reports/evidence/qoy1_q992/TOKENS.txt"), encoding="utf-8") as fh:
+            if r.returncode != 0 or r.stdout != fh.read():
+                raise AssertionError("positive control: the archived inputs no longer reproduce TOKENS.txt")
+        r = self._qoy(lambda d: shutil.copy(os.path.join(d, "N1_A.out"), os.path.join(d, "N1_B.out")))
+        if r.returncode == 0 or "REFUSED" not in r.stderr:
+            raise AssertionError("N1_B == N1_A was accepted as a replication:\n" + r.stdout[-400:])
+
+    def test_d864_qoy1_instrument_counters_gate_the_verdict(self):
+        # Codex F02-006#2: nonzero clamped / inconsistent / W!=6 counters still produced a non-VOID verdict.
+        for key in ("QOY_CLAMPED", "QOY_INCONSISTENT_LEAVES", "QOY_W_NOT6_LEAVES"):
+            def edit(d, key=key):
+                f = os.path.join(d, "N1_A.out")
+                with open(f, encoding="utf-8") as fh:
+                    t = fh.read()
+                t2 = re.sub(r"(?m)^%s=0$" % key, "%s=5" % key, t)
+                if t2 == t:
+                    raise AssertionError("precondition: %s=0 not found in N1_A.out" % key)
+                with open(f, "w", encoding="utf-8") as fh:
+                    fh.write(t2)
+            r = self._qoy(edit)
+            toks = dict(l.split("=", 1) for l in r.stdout.splitlines() if "=" in l)
+            for q in ("Q992_VERDICT", "QOY1_VERDICT"):
+                if toks.get(q) != "VOID":
+                    raise AssertionError("%s nonzero left %s=%r (rc %d)" % (key, q, toks.get(q), r.returncode))
+
+
+    # Rows that repair an EXISTING test: each strengthened test was shown to go red on a planted defect when it
+    # was fixed (the mutants are listed in the lane report); this structural check holds the strengthening in
+    # place and fails on the parent tree, where none of these assertions exist.
+    STRENGTHENED = (
+        ("D1526", "TestQ951Q952VerdictNeedsExitStatus", "test_f_gate_parity_figures_reads_the_checker_rc",
+         "printed the refusal but returned 0"),
+        ("D1527", "TestQ951Q952VerdictNeedsExitStatus", "test_g_pre_push_q479_leg", "_A_LEG"),
+        ("D1529", "TestQ959Q961PushPathB39C", "test_q959_a_positive_control_the_measured_18_are_green",
+         'self._gc_terminal(out, "PASS")'),
+        ("D1529", "TestQ959Q961PushPathB39C", "test_q959_d_seventeen_is_below_the_floor", 'self._gc_terminal(out, "FAIL")'),
+        ("D1533", "TestBatchG3", "test_gpc_g4_failed_scan_is_not_ok", "G4 rose to"),
+        ("D1534", "TestBatchG3", "test_gpc_g7_counts_what_it_compared", '"PUBLISHED_CONSISTENCY=FAIL"'),
+        ("D1534", "TestBatchG3", "test_gpc_g18_failed_count_not_masked", '"PUBLISHED_CONSISTENCY=FAIL"'),
+        ("D1534", "TestBatchG3", "test_gpc_g19_failed_awk_not_ok", '"PUBLISHED_CONSISTENCY=FAIL"'),
+        ("D1536", "TestBatchG5b", "test_full31_readers_refuse_an_extra_cell_row",
+         'self.assertEqual(set(pins), {"RUNOUT_SHA", "TABLE_SHA", "TERMINAL"}'),
+        ("D1537", "TestGates", "test_perm_verify", "self.assertEqual(r2.returncode, 0"),
+        ("D1538", "TestKnuthEstimatorOutputHonesty", "test_unrestricted_fiber_is_still_accepted",
+         "self.assertEqual(r.returncode, 0"),
+        ("D1542", "TestQ42KcSelftestGatesCanFail", "test_c_a_wrong_t_root_turns_the_t_units_gate_red",
+         '"KC_SCAN_SELFTEST=FAIL"'),
+        ("D1542", "TestQ42KcSelftestGatesCanFail", "test_e_a_merge_that_leaves_out_untouched_turns_l9_red",
+         '"KC_LAYERS_SELFTEST=FAIL"'),
+    )
+
+    def test_strengthened_existing_tests_keep_their_new_assertions(self):
+        import inspect
+        missing = []
+        for row, cls, meth, marker in self.STRENGTHENED:
+            c = globals().get(cls)
+            fn = getattr(c, meth, None) if c is not None else None
+            if fn is None:
+                missing.append("%s: %s.%s not found" % (row, cls, meth)); continue
+            if marker not in inspect.getsource(fn):
+                missing.append("%s: %s.%s lacks %r" % (row, cls, meth, marker))
+        if missing:
+            raise AssertionError("strengthened tests lost (or never had) their new checks:\n" + "\n".join(missing))
+
+    def test_d1528_b39d_rdg_override_marks_the_run_overridden(self):
+        # Codex F04-018#1: ROAE_B39D_RDG substitutes a gate script but the run was recorded as HEAD's tree.
+        import unittest.mock as um
+        with um.patch.dict(os.environ, {"ROAE_B39D_RDG": "/somewhere/else.sh"}):
+            got = _q956_tests_tree(self.ROOT)
+        if got != "OVERRIDDEN":
+            raise AssertionError("ROAE_B39D_RDG set, tree recorded as %r" % got)
+
+
+    def test_d466_tree_invariant_reads_split_and_extra_rm_options(self):
+        # Codex F06-006#3: `rm -rf -v %s` and `rm -r -f %s` escaped the unquoted-rm invariant.
+        pat = [l.split("\t")[0] for l in self._src("documentation/TREE_INVARIANTS.tsv").splitlines()
+               if l and not l.startswith("#")][0]
+        for s, want in (('"rm -rf -v %s"', True), ('"rm -r -f %s"', True), ('"rm -f -R %s/x"', True),
+                        ('"rm -rf %s"', True), ("\"rm -rf -v '%s'\"", False), ('"rm -f %s"', False),
+                        ("\"rm -rf -- %s\"", False)):
+            r = subprocess.run(["grep", "-cE", "--", pat], input=s + "\n", capture_output=True, text=True)
+            if (r.stdout.strip() == "1") != want:
+                raise AssertionError("pattern %r on %s: match=%s, want %s" % (pat, s, r.stdout.strip(), want))
+
+    def test_d34_retired_branches_have_rows_naming_public_tags(self):
+        # Codex F06-010#1: four deleted branches had no retired row.
+        rows = {}
+        for l in self._src("documentation/BRANCH_REGISTRY.tsv").splitlines():
+            f = l.split("\t")
+            if l and not l.startswith("#") and len(f) >= 4:
+                rows[f[0]] = f
+        for b, tag in (("f1c3-gchannel", "archive/f1c3-gchannel-20260824"),
+                       ("f1c5-g-finalize-marker", "archive/f1c5-g-finalize-marker-20260824"),
+                       ("fix-recon-1t-yield-offbyone-20260814", "fix-recon-1t-yield-offbyone-20260814-retired"),
+                       ("kw-provenance-and-adjacency-20260816", "archive/kw-provenance-and-adjacency-20260816-20260824")):
+            if b not in rows or rows[b][1] != "retired" or tag not in rows[b][3]:
+                raise AssertionError("no retired row for %s naming %s" % (b, tag))
+
+    def test_d220_tr4_disclosure_is_registered_with_a_live_probe(self):
+        # Codex F06-003#3: the disclosure registry held only TR-11.
+        rows = [l.split("\t") for l in self._src("documentation/DISCLOSURE_CHECKS.tsv").splitlines()
+                if l and not l.startswith("#")]
+        tr4 = [r for r in rows if r[0] == "reports/TR4_SIZE_OF_THE_SPACE.md"]
+        if len(tr4) != 1:
+            raise AssertionError("TR-4 disclosure row missing")
+        f, claim, probe = tr4[0][:3]
+        if claim not in self._src(f):
+            raise AssertionError("the registered TR-4 claim is not on the page")
+        r = subprocess.run(["bash", "-c", probe], cwd=self.ROOT, capture_output=True, text=True, timeout=60)
+        if r.returncode != 1:
+            raise AssertionError("probe should answer 1 (disclosure true) on this tree, got %d" % r.returncode)
+        # positive control: a third tracked S(k) artifact makes the probe fire
+        d = tempfile.mkdtemp(prefix="fv2t_")
+        self.addCleanup(shutil.rmtree, d, True)
+        env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        sub = lambda *a: subprocess.run(list(a), cwd=d, capture_output=True, text=True, env=env, timeout=60)
+        sub("git", "init", "-q")
+        os.makedirs(os.path.join(d, "reports/evidence/sk"))
+        for n in ("sk5_7_rounds.out", "sk8_round.out", "sk6_weakest.out"):
+            open(os.path.join(d, "reports/evidence/sk", n), "w").close()
+        sub("git", "add", "-A")
+        r = subprocess.run(["bash", "-c", probe], cwd=d, capture_output=True, text=True, env=env, timeout=60)
+        if r.returncode != 0:
+            raise AssertionError("a third S(k) artifact did not fire the probe (rc %d)" % r.returncode)
+        os.remove(os.path.join(d, "reports/evidence/sk/sk6_weakest.out"))
+        sub("git", "rm", "-q", "--cached", "reports/evidence/sk/sk6_weakest.out")
+        r = subprocess.run(["bash", "-c", probe], cwd=d, capture_output=True, text=True, env=env, timeout=60)
+        if r.returncode != 1:
+            raise AssertionError("the two greedy chains alone fired the probe (rc %d)" % r.returncode)
+
+    def test_comment_rows_carry_their_corrections(self):
+        # D2 (F12-019#2), D222 (F07-014#4), D848 (F03-005#2): comment-only corrections.
+        for rel, needle in ((".gitignore", "git check-ignore -v"),
+                            ("documentation/DOC_GATE_NUMBER_ALLOWLIST.txt", "10T / 56 = 178,571,428,571.4"),
+                            ("reports/evidence/f11/f11_events.py", "this project's modelling choices"),
+                            ("reports/evidence/tr12/v3_rows_n31_20260925/README.md", "## Dated notes (2026-11-04)"),
+                            ("reports/evidence/r11/README.md", "## Dated notes (2026-11-04)")):
+            if needle not in self._src(rel):
+                raise AssertionError("%s lacks %r" % (rel, needle))
+        # every listed 178,571,429,xxx value really is the 10T/56 budget plus 649..755
+        vals = [int(l[1:]) for l in self._src("documentation/DOC_GATE_NUMBER_ALLOWLIST.txt").splitlines()
+                if l.startswith("=17857142")]
+        over = [v - 10 ** 13 / 56 for v in vals]
+        if not vals or min(over) < 648 or max(over) > 755:
+            raise AssertionError("the stated overshoot range does not hold: %r" % (min(over), max(over)))
+
+
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))
     sys.stderr.write("ROAE_TESTS_TOOLCHAIN=%s\n" % _q956_tests_toolchain())
     sys.stderr.flush()
     unittest.main(verbosity=2)
+

@@ -9,6 +9,11 @@
 #   12:1785714292 } per-branch "Nodes explored" counters in enumeration/LEADERBOARD.md (partial runs,
 #   12:1785714293 } 0/54 sub-branches complete; not Knuth estimates — corrected 2026-09-25, Q-763) — dozens of
 #                   distinct values sharing a prefix by magnitude — TRANSCRIBED, PRODUCER NOT ARCHIVED (2026-11-01, CX-35X-I): no run/receipt holds them.
+#                   Why they agree to 10 digits (2026-11-04, CX-36R-C, Codex F07-014#4): not a coincidence of
+#                   magnitude. Each is one first-level branch's counter at the end of the 10T run, which gave each of
+#                   its 56 branches the same node budget, 10T / 56 = 178,571,428,571.4; every listed value is that
+#                   budget plus 649 to 755 nodes, counted past it before the branch stopped. Arithmetic on the listed
+#                   values, not a receipt.
 #   12:3368087039 — solutions.bin size WITH the 32-byte header (…936 = 32 + 10,525,271,997×32)
 #                   vs the header-less figure (…904). Documented distinction, not a defect.
 # key 12:1098367775 -- its reviewed values (G5a: values, not the key, are exempt):

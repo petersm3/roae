@@ -38458,3 +38458,97 @@ No canonical sha, record count, golden file or published figure changed in CX-36
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch FV2-P; the defects were found by Codex
 (gpt-6-astra) in its fix-verification round and triaged by Fable.
+
+## CX-36R-A — tests that could pass over the defect they guard (tests.py; two gate scripts)
+
+**2026-11-04.** **Source.** Codex (gpt-6-astra), fix-verification round; triaged by Fable in FV2 slice 2 (lane
+FV2-T, Q-1046). Batch FV2-T. Finding ids are given per item. Each repaired test was run against a planted defect
+and fails on it.
+
+- **The bare-assert scan of shell heredocs (D1521, F04-015#3).** The scan read a heredoc only when the tag ended
+  its line, so `python3 - <<'PY' || return 2` was never read. It now reads the rest of the opening line. The scan
+  then found two bare `assert`s in such heredocs (scripts/disk_precheck_marker_gate.sh and
+  scripts/q326_kc_query_surface_gate.sh, both mutant-anchor checks). `python3 -O` skips a bare assert, so both are
+  now explicit exits.
+- **The pipe-record scanner (D1524, F04-017#3).** It treated `IFS="|"` (double quotes) as not splitting on a pipe,
+  so malformed records in such a list were skipped. All three quoting forms now count.
+- **Exit status and stored state (D1526, F05-015#1; D1527, F05-015#2; D1537, F04-015#7; D1538, F04-004#10;
+  D1542, F05-015#4).** These tests read a message or a per-leg line but not the exit status or the overall verdict.
+  The parity-figures gate test now reads `GATE_RC` in every mode, with a fixture that a healthy run passes. The
+  pre-push advisory-leg test reads the record it stores. `--perm-verify` must exit 0. An accepted FIBER estimate
+  must exit 0 and print its estimate. The KC selftest negatives must fail overall (`KC_SCAN_SELFTEST=FAIL`,
+  `KC_LAYERS_SELFTEST=FAIL`) with a nonzero exit.
+- **Final verdicts (D1529, F05-015#3; D1533, F05-015#8; D1534, F05-015#5, F05-015#6).** The Group C rehearsal
+  fixture now includes the coverage files the gate checks. The healthy run must end `GROUPC_REHEARSAL=PASS` with
+  exit 0, and each bad run must end `=FAIL` with exit 1. The published-consistency G4 fixture now includes the pin
+  file. A crashed G4 scan must reach the ratchet ("G4 rose to …") and give `PUBLISHED_CONSISTENCY=FAIL`. The G7,
+  G18 and G19 fault tests must also give `PUBLISHED_CONSISTENCY=FAIL` on the real tree, which is `PASS-AT-PIN`
+  without the fault. That gate exits 0 by design and reports through its token, so the token is what the tests
+  read.
+- **The extra-cell refusal of the full-31 aggregates (D1536, F04-022#2).** The test read the selfcheck pins with a
+  pattern that missed their quotes. All three pins came back empty, so the "refusal" it observed came from the
+  empty pins. The pins are now read, and the test fails if any of the three is missing. An unchanged-document run
+  must print `AGGREGATES=PASS` before the extra-cell run is judged.
+- **The source-override list (D1528, F04-018#1).** `ROAE_B39D_RDG` replaces a gate script but was not in the list,
+  so a run with it set was recorded as HEAD's tree. It is listed now, and the discovery scan also reads overrides
+  taken by subscript.
+
+**Test.** `TestBatchFV2T` (structural checks on each repaired test, plus the behaviour of D1521, D1524 and D1528).
+It fails on the parent tree.
+
+## CX-36R-B — evidence analyzers and drivers (reports/evidence/q374_se_replicates, qoy1_q992, tr12/v3_rows_n31_20260925, r11)
+
+**2026-11-04.** **Source.** Codex (gpt-6-astra), fix-verification round; triaged by Fable. Batch FV2-T.
+
+- **Q-374 replicates (D859, F02-010#2; D860, F02-010#3).** The analyzer compared only four null flags of each
+  replicate's provenance line. It now requires the whole line after `seed_base` to agree, except the run's own
+  `wall_s`. The launcher never set `fails=0`, so a negative value inherited from the environment could cancel
+  recorded failures. It now starts at 0. The analyzer's output on the 12 archived replicates is byte-identical.
+- **Q-OY1 / Q-992 analyzer (D863, F02-006#1, F02-001#4; D864, F02-006#2).** Two byte-identical halves passed as a
+  replication. Each half must now carry the seed that PREREGISTRATION.md §6 fixed, and the two halves of each pair
+  must differ. The instrument's consistency counters (`QOY_W_NOT6_LEAVES`, `QOY_INCONSISTENT_LEAVES`,
+  `QOY_CLAMPED`) now gate the verdict. Rerun on the archived inputs, the analyzer reproduces TOKENS.txt byte for
+  byte, so no verdict moves.
+- **Frozen drivers: dated README notes, drivers unchanged.** In run_v3_rows.sh, `V3ROWS_LADDER_UNMODIFIED=YES` is
+  recorded whenever `find` prints nothing, which includes a `find` that failed (D873, F09-A03#15). If `findmnt`
+  fails, the run is reported as a read-only-mount failure (D872, F09-A03#16). An unreadable input gives an empty
+  digest (D874, F09-A03#14). The README's default paths were checked and resolve (D875, F07-011#1). That
+  README's line in SHA256SUMS is re-signed. In the r11 drivers, an exact-count `TIMEOUT` cell covers any solver
+  failure, but the archived audit has none (D869, F09-A01#3). Provenance lines end in `|| true` (D870,
+  F09-A03#23).
+
+**Test.** `TestBatchFV2T.test_d859_*`, `test_d860_*`, `test_d863_*`, `test_d864_*` (each plants the defect in a
+copy of the archived bundle) and `test_comment_rows_carry_their_corrections`. They fail on the parent tree.
+
+## CX-36R-C — registries and comments (documentation/*.tsv/.txt, .gitignore, reports/evidence/f11)
+
+**2026-11-04.** **Source.** Codex (gpt-6-astra), fix-verification round; triaged by Fable. Batch FV2-T.
+
+- **BRANCH_REGISTRY.tsv (D34, F06-010#1).** Four deleted branches had no `retired` row: f1c3-gchannel,
+  f1c5-g-finalize-marker, fix-recon-1t-yield-offbyone-20260814 and kw-provenance-and-adjacency-20260816. Each now
+  has one, naming the public tag that preserves it. The tags were checked on the remote.
+- **DISCLOSURE_CHECKS.tsv (D220, F06-003#3).** The file said it registered "every" such disclosure but held only
+  TR-11. TR-4 §5's "no weakest-remaining chain is archived" is now registered with a probe that has three outcomes.
+  The header now names three similar disclosures (TR-1, TR-4, TR-12) that are not yet registered.
+- **TREE_INVARIANTS.tsv (D466, F06-006#3).** The unquoted-`rm` invariant missed `rm -rf -v %s` and `rm -r -f %s`.
+  It now reads any group of option words that includes a recursive one. solve.c still has 0 matches.
+- **Comments.** .gitignore: `git ls-files -i -c` lists only tracked files; `git check-ignore -v` is named for a
+  new path (D2, F12-019#2). DOC_GATE_NUMBER_ALLOWLIST.txt: the counters share 10 digits because every branch had
+  the same 10T/56 node budget, not by coincidence (D222, F07-014#4). f11_events.py: Rutt 1996 supports only the
+  bamboo-slat picture, and the edit set is this project's modelling choice (D848, F03-005#2).
+
+**Already cured at the base, no change:** D1 (.gitattributes already distinguishes `-text` from `binary`, Codex
+F12-019#7) and D221 (CX-35X-I already discloses that the allowlisted counters have no archived producer).
+
+**Held for the operator:** D833 and the c8screen half of D863 (reports/evidence/c8screen/analyze.py is pinned in
+the run's RECORDED_SHA256SUMS, so editing it means a new analyzer version, not a fix in place); D835 (the
+prereg defcheck scripts are covered by their lock-ledger sha; their READMEs already tell the reader to change
+the hard-coded path); D1539 (needs a debug flag in the solve.c sampler, which is another lane's file); D867 and
+D868 (r11 calibration units: either could change a published calibration, so the triage held them).
+
+**Not done in this batch:** D1522, D1525, D1530, D1532, D1535, D1541 (queued).
+
+No canonical sha, record count, certificate value or verdict changed in CX-36R-A to CX-36R-C.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch FV2-T; the defects were found by Codex
+(gpt-6-astra) in its fix-verification round and triaged by Fable.

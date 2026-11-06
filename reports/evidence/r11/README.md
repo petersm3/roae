@@ -197,3 +197,10 @@ status line is updated to say which gate failed.
 Developed with AI assistance (Claude, Anthropic); rules and mechanisms credited in the
 design doc (Moore, Schulz, Cook, Hacker & Moore, Rutt, McKenna & Mair, Davis,
 Van den Berghe). Corrections welcome via [CITATIONS.md](../../../documentation/CITATIONS.md).
+
+## Dated notes (2026-11-04)
+
+Added from Codex's fix-verification round (gpt-6-astra). The drivers are frozen evidence and are not edited. [CORRECTIONS.md](../../../documentation/CORRECTIONS.md) CX-36R-B.
+
+- **`r11_phase2_battery.sh` writes `TIMEOUT` for any exact-count failure.** The exact-count cell is set to `TIMEOUT` whenever no `leaves_canonical_C1C5` value was parsed. That includes a solver that failed for another reason, not only the `timeout` kill. The archived `exact_audit.tsv` holds no `TIMEOUT` cell, so this record is not affected. A re-run should capture the solver's status (`PIPESTATUS[0]`) and write `TIMEOUT` only for status 124, or `ERROR:<rc>` otherwise (Codex F09-A01#3).
+- **`r11_stratified_repair.sh` accepts partial provenance.** Every provenance line ends in `|| true`, so a provenance file holding only the compiler line is accepted. That file is not part of this bundle. A re-run should drop `|| true` on the sha line and write `UNAVAILABLE` explicitly for the CPU and compiler lines (Codex F09-A03#23).

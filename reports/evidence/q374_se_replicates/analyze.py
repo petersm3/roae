@@ -23,7 +23,10 @@ leaves = []
 for f in files:
     t = open(f).read()
     m = re.search(r"KNUTH-PROVENANCE seed_base=(0x[0-9a-f]+) (moore_strict=\S+ gender_strict=\S+ score=\S+ r11_hist=\S+)", t)
-    seeds.append(m.group(1)); nulls.add(m.group(2))
+    # D859 (Codex F02-010#2): the WHOLE provenance line after seed_base must agree (prefix, C5 modification and
+    # slot-pin fields too, when a build prints them); only the run's own wall_s may differ.
+    full = re.search(r"^KNUTH-PROVENANCE seed_base=0x[0-9a-f]+ (.*)$", t, re.M)
+    seeds.append(m.group(1)); nulls.add(re.sub(r"\s*\bwall_s=\S+", "", full.group(1)).strip())
     p = re.search(r"KNUTH-ESTIMATE probes=(\d+) threads=(\d+)", t)
     assert p.group(1) == "10000000" and p.group(2) == "2", (f, p.group(0))
     lc = re.search(r"leaves_canonical_C1C5 : est=(\S+)\s+95%CI=\[(\S+), (\S+)\]\s+relerr=(\S+)%", t)

@@ -44,4 +44,12 @@
 #    probe text is kept here, so the removal can be checked: test "$(grep -c '^TR12_XA_CD='
 #    reports/tr12/VERDICTS.txt 2>/dev/null)" = 1 || exit 2; grep -qxE 'TR12_XA_CD=(PASS|ONE-SIDED:.+)'
 #    reports/tr12/VERDICTS.txt
+# FV2-T (2026-11-04, CX-36R-C; Codex F06-003#3): "every" in the first line was not true -- the file held only
+# the TR-11 row. TR-4 §5's statement that no weakest-remaining S(k) chain is archived is added below; its
+# artifact exists when reports/evidence/sk/ holds a tracked file other than the two greedy chains (rc 2 when
+# that directory lists nothing, i.e. the probe could not look). A phrase sweep of reports/TR*.md the same day
+# ("not archived", "not reproducible from published material") found further disclosures of the same kind
+# (TR-1 line 77, TR-4 line 247, TR-12 line 2727) that are NOT registered yet, so this file is the registered
+# subset, not a complete census.
 reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	no public artifact	git grep -qE '7,?477,?248,?378,?538,?061,?907,?099,?648|83,?855,?263,?774,?549,?546,?015,?506,?432|61,?666,?352,?085,?618,?532,?666,?071,?318,?528|2,?155,?118,?806,?480,?613,?893,?163,?229,?118,?464' -- . ':!*.md' ':!*.py' ':!*.c' ':!*.h' ':!*.sh'
+reports/TR4_SIZE_OF_THE_SPACE.md	no weakest-remaining chain is archived	f=$(git ls-files -- reports/evidence/sk) || exit 2; [ -n "$f" ] || exit 2; printf '%s\n' "$f" | grep -qvxE 'reports/evidence/sk/(sk5_7_rounds|sk8_round)\.out'

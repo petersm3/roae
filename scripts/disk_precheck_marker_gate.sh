@@ -130,7 +130,7 @@ if sys.argv[1] == "reword_only":          # keeps the new prose, drops the CONTE
 elif sys.argv[1] == "assert_accepts_all": # the assertion stops comparing
     old = "            if (!mk_hex || strcmp(mk_first, want_sha) != 0) {\n"; new = "            if (0) {\n"
 else: sys.exit(2)
-assert s.count(old) == 1, "mutant anchor drift: " + sys.argv[1]
+if s.count(old) != 1: sys.exit("mutant anchor drift: " + sys.argv[1])  # not a bare assert: python3 -O must not skip it (Q-373)
 open(os.environ["MUT"], "w", encoding="utf-8").write(s.replace(old, new))
 PY
   cmp -s solve.c "$WORK/m.c" && { echo "  [ERROR] mutant $name did not change solve.c"; return 2; }
