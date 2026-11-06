@@ -39,7 +39,7 @@ _G1R=${G1_ROOT:-.}; G1_ERR=0; G1_FLOOR=200; G1_SCANNED=0; G1=""; _g1rc=0; [ "$_G
 # FV2-G3a (Codex gpt-6-astra F06-012#5): a token inside a backtick code span (a dated correction note
 # that QUOTES the historical placeholder name) or on a dated revision/correction row (the citation gate's
 # dated-row shape) is not an unfilled placeholder. Measured at 4d9cc323: the four pinned hits were exactly
-# those -- TR12_QUERY_PROGRAM.md:1598 (three names in one code span) and :2832 (a v1.11 revision row) --
+# those -- TR12_QUERY_PROGRAM.md:1598 (three names in one code span) and :2832 at 4d9cc323 (a v1.11 revision row, two lines further down since Q1056 added two rows above it) --
 # and they let four real placeholders hide behind the pin. The hits are read back per line and only an
 # occurrence OUTSIDE every code span, on a line that is not a dated row, is counted. The filter's own
 # failure is G1_ERR (measured NOTHING), never an empty [ok].

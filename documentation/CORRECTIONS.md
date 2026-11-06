@@ -38586,3 +38586,31 @@ re-pins the 2026-10-29 CR rule on the streamed path. `TestBatchFV2L`'s stubbed-`
 
 Developed with AI assistance (Claude, Anthropic): claude-fable-5-1 (pinned), push group Q1055; the measurement is
 the Opus ops lane's (2026-11-03).
+
+## CX-36U — TR-12's §Open Problems omitted two items of the report's own DONE contract: §10.C (a MUST, not delivered) and §10.E (a SHOULD, partly delivered elsewhere) (reports/TR12_QUERY_PROGRAM.md; tests.py)
+
+**2026-11-05.** **Source.** The Q-1054 catalog pass of 2026-11-03 (backlog row Q-1056); a private pre-release review of
+this report on 2026-09-22 had recorded the same gap, and it was not carried into the public text. Push group Q1056.
+Found by the catalog pass (Opus), cured by Fable.
+
+**What the document said, and what it says now.**
+- §10.A declares §Open Problems the handoff section for "every unanswered question", and §10 is headed "the DONE-contract set"; its preamble makes A–D the MUST set and E "the one with budget", labelled SHOULD. §Open Problems (twelve rows since v1.15) listed neither C nor E, so a reader
+  of the handoff section could not learn that a MUST of the contract had not been delivered.
+- **§10.C.** The sampler `--kc-sample` ran in the n=31 battery for Q4(a,c), Q8 and Q1(c), and Q4(a,c) tabulates the C3
+  census on its draws; the battery §10.C specifies was run in part on 2026-08-20 on the T5 mega-sample (10⁶ exact-uniform `--kc-sample` draws over SUPER, `documentation/VERIFY.md` §"Analyses over large artifacts"): the `--marginals` observable set, a uniform-scoped summary and King Wen's marginal percentiles, computed privately; one figure is published in this report (§Q4, `P(C3 ≤ 776) = 12.1288%`, `verify.py --check-t5-c3`) and the summariser `solve.py --uniform-marginals` is public with one figure (87.9%, `documentation/SOLVE_PY_CLI.md`). Not delivered: the battery's table and the percentiles are unpublished, the TR-1/TR-2 rule statistics were not evaluated on the sample, the two-language sub-sample check was not run, `DISTRIBUTIONAL_ANALYSIS.md` carries no exact-uniform figure, no battery row evaluates that set on a sample, and no run directory holds it. Row 13 says so and classes the item **run in part, not published as the battery** — none of §10.A's four, and neither row 1's nor row 11's label; the 2026-07-17 estimate is the one §10.C redacts. The Q-1054 catalog pass had recorded §10.C as not run; the pre-publication review found the 2026-08-20 run in the public history (`verify.py --check-t5-c3`, `--uniform-marginals`, HISTORY.md 2026-08-20/21).
+- **§10.E.** Its step (3), the C3-free kill-factor chain, is published exact in `DESCRIPTION_LENGTH.md` §"Exact
+  marginals", and the start-unpinned |C1∩C2| is exact since 2026-07-25 (TR-9); its step (1) was done as a private
+  sizing pass on 2026-07-18 and is cited only as that; its step (2), the lattice table with every cell labelled by
+  method, was never run — no further exact cell, no estimator sweep. Row 14 says so.
+- Row 5's "the other eleven rows" is left as written (it counted the table on 2026-09-26) and row 13 says so; the
+  revision row v1.37 and the `*(current)*` marker move with it. No sentence of §10 is reworded.
+
+**Tests.** `TestBatchQ1056` pins the two rows, their section, their classes, the revision row, and the absence of any
+dollar figure in the new text; it fails on the tree before this entry. Two existing pins move with the table (two rows
+inserted above them): `TestBatchFV2H.test_fv2h_tr12_tv_bound`'s needle for the current revision row, and
+`TestBatchFV2G3a.test_gpc_g1_counts_only_placeholders_outside_code_spans_and_dated_rows`'s line-number precondition.
+
+No canonical sha, count, certificate, figure or verdict changed.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, push group Q1056; the gap was found by the Q-1054
+catalog pass (claude-opus-5-5).

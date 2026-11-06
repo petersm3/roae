@@ -56150,7 +56150,7 @@ class TestBatchFV2H(unittest.TestCase):
         self._discriminates(lambda x: self._needs(x, need=(
             "sits within TV **0.04151** of the exchangeable null", "within TV 0.04151 of the exchangeable null",
             "the total-variation distance is ≤ **0.04151** at every layer", "= 0.04150117 (to eight decimals)",
-            "| v1.36 *(current)* | 2026-11-01 |"),
+            "| v1.36 | 2026-11-01 |"),
             never=("sits within TV **0.0415** of", "lies within TV 0.0415 of", "is ≤ **0.0415** at every layer")) +
             ([] if len(re.findall(r"(?m)^\| v[\d.]+ \*\(current\)\* \|", x)) == 1 else ["current rows"]), "reports/TR12_QUERY_PROGRAM.md")
         self._discriminates(lambda x: self._needs(x, need=("within 0.04151 total variation",), never=("within 0.0415 total variation",)),
@@ -58214,18 +58214,18 @@ class TestBatchFV2G3a(unittest.TestCase):
 
     def test_gpc_g1_counts_only_placeholders_outside_code_spans_and_dated_rows(self):
         """F06-012#5: the four pinned hits were quoted names and a revision row; a real [REPRO-TAG] added
-        while the :2832 row's token is removed now RAISES G1 above its pin of 0."""
+        while the :2834 row's token is removed now RAISES G1 above its pin of 0 (the row was :2832 until Q1056 inserted two §Open Problems rows above it)."""
         root = self._d()
         shutil.copytree(os.path.join(self.ROOT, "reports"), os.path.join(root, "reports"), symlinks=True)
         shutil.copy(os.path.join(self.ROOT, "README.md"), root)
         tr12 = os.path.join(root, "reports", "TR12_QUERY_PROGRAM.md")
         lines = self._r("reports/TR12_QUERY_PROGRAM.md").split("\n")
         self.assertIn("`[EXPECTED-Q1]..[EXPECTED-Q9], [EXPECTED-XA], …`", lines[1597], "precondition: the code-span names on line 1598")
-        self.assertTrue(lines[2831].startswith("| v1.11 | 2026-09-23 |") and "[REPRO-TAG]" in lines[2831], "precondition: the dated row on line 2832")
+        self.assertTrue(lines[2833].startswith("| v1.11 | 2026-09-23 |") and "[REPRO-TAG]" in lines[2833], "precondition: the dated row on line 2834")
         os.remove(tr12); self._wr(tr12, "\n".join(lines))
         out = self._gpc(G1_ROOT=root)
         self.assertIn("G1 at its pinned 0", out, "positive control: the unplanted copy measures 0:\n" + out[-1500:])
-        lines[2831] = lines[2831].replace("[REPRO-TAG]", "REPRO-TAG")
+        lines[2833] = lines[2833].replace("[REPRO-TAG]", "REPRO-TAG")
         tr1 = os.path.join(root, "reports", "TR1_EIGHT_CENTURIES_MEASURED.md")
         os.remove(tr12); self._wr(tr12, "\n".join(lines))
         t = self._r("reports/TR1_EIGHT_CENTURIES_MEASURED.md") + "\nA real placeholder [REPRO-TAG] here.\n"
@@ -61675,6 +61675,107 @@ class TestBatchFV2T(unittest.TestCase):
         over = [v - 10 ** 13 / 56 for v in vals]
         if not vals or min(over) < 648 or max(over) > 755:
             raise AssertionError("the stated overshoot range does not hold: %r" % (min(over), max(over)))
+
+
+class TestBatchQ1056(unittest.TestCase):
+    """Push group Q1056 (CX-36U): TR-12's §Open Problems lists the two items of the report's own DONE contract
+    (§10) that it had omitted — §10.C, the exact-uniform observable battery, a MUST that was not delivered, and
+    §10.E, the constraint lattice, a SHOULD whose sizing pass was private and whose lattice table was never run.
+    Every test here fails on the tree before the batch (b4dbd9a7: twelve rows, v1.36 current, no CX-36U) and
+    passes on this tree. The rows are pinned by their leading cells and the phrases that carry their status, not
+    by line number; the one line-number pin on TR-12 that exists elsewhere (TestBatchFV2G3a, the v1.11 row) moved
+    by the two inserted rows and is re-measured there. Developed with AI assistance (Claude, Anthropic):
+    claude-fable-5-1."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    TR12 = "reports/TR12_QUERY_PROGRAM.md"
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _open_problems(self):
+        t = self._r(self.TR12)
+        a, b = t.find("\n## Open Problems\n"), t.find("\n## Confidence Ledger\n")
+        self.assertGreater(a, 0, "precondition: §Open Problems heading")
+        self.assertGreater(b, a, "precondition: §Confidence Ledger follows §Open Problems")
+        return t[a:b]
+
+    def _row(self, k):
+        sec = self._open_problems()
+        rows = [l for l in sec.split("\n") if l.startswith("| %d | " % k)]
+        self.assertEqual(len(rows), 1, "exactly one row numbered %d in §Open Problems" % k)
+        return rows[0]
+
+    def test_q1056_open_problems_has_fourteen_rows_and_the_two_new_ones_name_their_items(self):
+        sec = self._open_problems()
+        nums = [int(m.group(1)) for m in re.finditer(r"(?m)^\| (\d+) \| ", sec)]
+        self.assertEqual(nums, list(range(1, 15)), "rows 1..14, in order, once each")
+        r13, r14 = self._row(13), self._row(14)
+        self.assertTrue(r13.startswith("| 13 | **§10.C, the exact-uniform observable battery**"), r13[:80])
+        self.assertTrue(r14.startswith("| 14 | **§10.E, the constraint lattice**"), r14[:80])
+        self.assertIn("§10 labels it **MUST**; it was run in part on 2026-08-20 and never delivered as the battery", r13)
+        self.assertIn("§10 labels it SHOULD", r14)
+
+    def test_q1056_classes_use_the_tables_own_labels_and_say_where_they_do_not_fit(self):
+        r13, r14 = self._row(13), self._row(14)
+        c13 = r13.split(" | ")[2]
+        c14 = r14.split(" | ")[2]
+        self.assertIn("**run in part, not published as the battery**", c13)
+        self.assertIn("none of §10.A's four classes, and neither row 1's nor row 11's label", c13)
+        self.assertIn("**priced, not authorised** for the exact cells", c14)
+        self.assertIn("**unpriced computation** for the estimator cells", c14)
+        self.assertIn("a private sizing pass on 2026-07-18", c14)
+
+    def test_q1056_rows_cite_where_the_partial_state_lives(self):
+        r13, r14 = self._row(13), self._row(14)
+        for needle in ("`TR12_Q4AC`", "`documentation/DISTRIBUTIONAL_ANALYSIS.md` carries no exact-uniform",
+                       "no row of `scripts/tr12_repro.sh` evaluates", "row 5's \"other eleven rows\" counts the table as it stood on 2026-09-26",
+                       "CX-36U", "`P(C3 ≤ 776) = 12.1288%`", "the two-language sub-sample check §10.C requires was not run"):
+            self.assertIn(needle, r13, needle)
+        self.assertIn("so six rows do not fit", self._open_problems(), "the preamble counts the rows outside §10.A's four")
+        for needle in ("`documentation/DESCRIPTION_LENGTH.md` §\"Exact marginals\"", "×23.325", "×690.085",
+                       "(TR9_PRICING_THE_CONSTRAINTS.md)", "no estimator sweep has run", "is cited here only as that"):
+            self.assertIn(needle, r14, needle)
+        t = self._r(self.TR12)
+        self.assertIn("### C. Distributional upgrade — exact-uniform observable battery — MUST", t, "precondition: §10.C still MUST")
+        self.assertIn("### E. The constraint lattice (\"which constraint does the work\") — SHOULD", t, "precondition: §10.E still SHOULD")
+
+    def test_q1056_revision_row_v137_is_the_single_current_row(self):
+        t = self._r(self.TR12)
+        cur = re.findall(r"(?m)^\| v[\d.]+ \*\(current\)\* \|", t)
+        self.assertEqual(cur, ["| v1.37 *(current)* |"])
+        self.assertIn("| v1.37 *(current)* | 2026-11-05 | **Two items of §10, this report's DONE-contract section", t)
+        self.assertIn("| v1.36 | 2026-11-01 |", t)
+        self.assertNotIn("| v1.36 *(current)* |", t)
+        v137 = [l for l in t.split("\n") if l.startswith("| v1.37 *(current)* |")][0]
+        self.assertIn("CORRECTIONS.md CX-36U", v137)
+        self.assertIn("No figure, token, count or verdict moves", v137)
+
+    def test_q1056_ledger_entry_and_history_line(self):
+        cx = self._r("documentation/CORRECTIONS.md")
+        heads = re.findall(r"(?m)^## CX-36U — .*$", cx)
+        self.assertEqual(len(heads), 1, heads)
+        self.assertIn("(reports/TR12_QUERY_PROGRAM.md; tests.py)", heads[0])
+        entry = cx[cx.find(heads[0]):]
+        self.assertIn("**2026-11-05.**", entry)
+        self.assertIn("`TestBatchQ1056`", entry)
+        self.assertIn("No canonical sha, count, certificate, figure or verdict changed.", entry)
+        hist = self._r("documentation/HISTORY.md")
+        self.assertIn("\n## 2026-11-05 — push group Q1056: ", hist)
+        self.assertIn("§10.C and §10.E added to §Open Problems (CX-36U)", hist)
+
+    def test_q1056_new_text_carries_no_cost_figure_private_path_or_cloud_name(self):
+        t = self._r(self.TR12)
+        v137 = [l for l in t.split("\n") if l.startswith("| v1.37 *(current)* |")]
+        self.assertEqual(len(v137), 1)
+        cx = self._r("documentation/CORRECTIONS.md"); cx = cx[cx.find("\n## CX-36U — "):]
+        hist = self._r("documentation/HISTORY.md"); hist = hist[hist.find("\n## 2026-11-05 — push group Q1056"):]
+        for name, text in (("row 13", self._row(13)), ("row 14", self._row(14)), ("v1.37", v137[0]),
+                           ("CX-36U", cx), ("HISTORY", hist)):
+            self.assertNotRegex(text, r"\$\s?\d", name + ": a dollar figure")
+            for bad in ("roae-private", "/home/", "azure", "Azure", "docs/notes/"):
+                self.assertNotIn(bad, text, name + ": " + bad)
 
 
 if __name__ == "__main__":

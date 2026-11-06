@@ -714,19 +714,20 @@ reports/TR12_QUERY_PROGRAM.md	2496	ledger-link	CORRECTION	n/a	-	not-a-marker	48d
 reports/TR12_QUERY_PROGRAM.md	2630	marker	Corrected	1	-	reviewed:text-already-says-solve.c-differs	1c6c27f1c56a
 reports/TR12_QUERY_PROGRAM.md	2657	ledger-link	CORRECTION	n/a	-	not-a-marker	bf86a36d3823
 reports/TR12_QUERY_PROGRAM.md	2666	marker	Corrected	1	-	reviewed:cell-already-says-no-battery-run-took-the-digests	8f4153493d43
-reports/TR12_QUERY_PROGRAM.md	2709	marker	Corrected	1	-	reviewed:cell-already-scopes-the-container-count-to-t	6854b73d97ab
-reports/TR12_QUERY_PROGRAM.md	2711	marker	Corrected	1	-	reviewed:cell-already-says-bound-from-below	6e1226b0918f
-reports/TR12_QUERY_PROGRAM.md	2733	marker	Withdrawn	1	-	reviewed:sentence-already-lists-the-figure-as-withdrawn	ceefbb4faa97
-reports/TR12_QUERY_PROGRAM.md	2780	marker	Corrected	2	-	reviewed:bullet-above-still-calls-the-witnesses-leg-a-named-skip	efc7d1699e2a
-reports/TR12_QUERY_PROGRAM.md	2806	marker	Corrected	1	-	reviewed:text-already-says-the-atlas-is-distributed	3615257e9c26
-reports/TR12_QUERY_PROGRAM.md	2809	marker	Corrected	1	-	reviewed:text-already-says-the-witnesses-leg-verifies-pinned-bytes	bacba42ca97d
-reports/TR12_QUERY_PROGRAM.md	2822	changelog	CORRECTION	keep	-	revision-row	8e7f201097bb
-reports/TR12_QUERY_PROGRAM.md	2835	changelog	now reads	keep	-	revision-row	ea6e45f688a7
-reports/TR12_QUERY_PROGRAM.md	2836	changelog	CORRECTION	keep	-	revision-row	9218f33c3c9c
-reports/TR12_QUERY_PROGRAM.md	2836	changelog	now reads	keep	-	revision-row	9218f33c3c9c
-reports/TR12_QUERY_PROGRAM.md	2839	changelog	now reads	keep	-	revision-row	402a228da8c2
-reports/TR12_QUERY_PROGRAM.md	2841	changelog	CORRECTION	keep	-	revision-row	c4a3eddbc375
-reports/TR12_QUERY_PROGRAM.md	2857	changelog	now reads	keep	-	revision-row	e42e610fe5de
+reports/TR12_QUERY_PROGRAM.md	2667	ledger-link	CORRECTION	n/a	-	not-a-marker	57190d4b7b96
+reports/TR12_QUERY_PROGRAM.md	2711	marker	Corrected	1	-	reviewed:cell-already-scopes-the-container-count-to-t	6854b73d97ab
+reports/TR12_QUERY_PROGRAM.md	2713	marker	Corrected	1	-	reviewed:cell-already-says-bound-from-below	6e1226b0918f
+reports/TR12_QUERY_PROGRAM.md	2735	marker	Withdrawn	1	-	reviewed:sentence-already-lists-the-figure-as-withdrawn	ceefbb4faa97
+reports/TR12_QUERY_PROGRAM.md	2782	marker	Corrected	2	-	reviewed:bullet-above-still-calls-the-witnesses-leg-a-named-skip	efc7d1699e2a
+reports/TR12_QUERY_PROGRAM.md	2808	marker	Corrected	1	-	reviewed:text-already-says-the-atlas-is-distributed	3615257e9c26
+reports/TR12_QUERY_PROGRAM.md	2811	marker	Corrected	1	-	reviewed:text-already-says-the-witnesses-leg-verifies-pinned-bytes	bacba42ca97d
+reports/TR12_QUERY_PROGRAM.md	2824	changelog	CORRECTION	keep	-	revision-row	8e7f201097bb
+reports/TR12_QUERY_PROGRAM.md	2837	changelog	now reads	keep	-	revision-row	ea6e45f688a7
+reports/TR12_QUERY_PROGRAM.md	2838	changelog	CORRECTION	keep	-	revision-row	9218f33c3c9c
+reports/TR12_QUERY_PROGRAM.md	2838	changelog	now reads	keep	-	revision-row	9218f33c3c9c
+reports/TR12_QUERY_PROGRAM.md	2841	changelog	now reads	keep	-	revision-row	402a228da8c2
+reports/TR12_QUERY_PROGRAM.md	2843	changelog	CORRECTION	keep	-	revision-row	c4a3eddbc375
+reports/TR12_QUERY_PROGRAM.md	2859	changelog	now reads	keep	-	revision-row	bc1aa50e6309
 reports/TR1_EIGHT_CENTURIES_MEASURED.md	55	narration	now reads	1	-	reviewed:ordinary-present-tense-prose;not-a-correction-note	44b4c27eab96
 reports/TR1_EIGHT_CENTURIES_MEASURED.md	96	marker	Corrected	1	-	reviewed:caveat-already-says-the-fraction-is-weighted	e5524bd1cd03
 reports/TR1_EIGHT_CENTURIES_MEASURED.md	141	marker	Corrected	1	-	reviewed:entry-already-prices-against-the-measured-6.52-percent	c60b3819912d

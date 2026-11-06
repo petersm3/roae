@@ -12140,3 +12140,12 @@ Q-686=DONE
 - No canonical sha, count, certificate or verdict changed; the n=9 hashes are untouched. `TestBatchQ1055` drives
   this tree's `sat.py` and b4dbd9a7's through a stub `cpog-check` printing 400 MB of chatter under a 640 MiB
   address-space cap: the base fails with `MemoryError`, this tree prints PASS.
+
+## 2026-11-05 — push group Q1056: TR-12's §Open Problems lists the two undelivered items of its own DONE contract
+
+- **§10.C and §10.E added to §Open Problems (CX-36U).** TR-12 §10, headed "the DONE-contract set", makes A–D its MUST set and E its SHOULD, and labels §10.C, the exact-uniform observable battery, MUST; it was run in part, privately, on 2026-08-20 over the 10⁶-draw exact-uniform T5 mega-sample (one figure public in TR-12 §Q4; the summariser public), never delivered as the battery — its table, the rule statistics and the two-language check are unpublished or unrun — and §Open Problems did not say so. §10.E, the constraint lattice
+  (SHOULD), had its sizing pass done privately on 2026-07-18 and its C3-free kill-factor chain published in
+  `DESCRIPTION_LENGTH.md`; the lattice table itself was never run. Rows 13 and 14 state both, with their classes
+  against §10.A's own list; revision row v1.37.
+- No canonical sha, count, certificate, figure or verdict changed; nothing in §10 is reworded. `TestBatchQ1056` holds
+  the rows and fails on the tree before them.
