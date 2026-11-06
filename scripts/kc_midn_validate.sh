@@ -34,7 +34,22 @@ set -euo pipefail
 BIN="${SOLVE_BIN:-./solve}"
 NS="${KC_MIDN_NS:-18 19 21 22}"
 MAXN="${KC_MIDN_MAX_N:-22}"
-WORK="${KC_MIDN_WORK:-$(mktemp -d /tmp/kc_midn_XXXXXX)}"
+# Codex (gpt-6-astra) F04-021#11 (FV2 D1144): a non-integer or oversized KC_MIDN_MAX_N (or n) made
+# `[ "$n" -gt "$MAXN" ]` error, which an `if` reads as false, so the ceiling never refused and an
+# oversized n ran here. Both are validated as plain integers before anything runs.
+[[ "$MAXN" =~ ^[0-9]{1,6}$ ]] || { echo "ERROR: KC_MIDN_MAX_N='$MAXN' is not an integer of at most 6 digits." >&2; exit 2; }
+for n in $NS; do
+  [[ "$n" =~ ^[0-9]{1,6}$ ]] || { echo "ERROR: KC_MIDN_NS entry '$n' is not an integer of at most 6 digits." >&2; exit 2; }
+done
+# Codex F04-006#10 (FV2 D1145): a mktemp'd WORK was left behind on every failure path. When this
+# script created WORK it now removes it on exit (KC_MIDN_KEEP=1 keeps it for inspection); a WORK the
+# caller named with KC_MIDN_WORK is the caller's and is never removed.
+if [ -n "${KC_MIDN_WORK-}" ]; then
+  WORK="$KC_MIDN_WORK"
+else
+  WORK="$(mktemp -d /tmp/kc_midn_XXXXXX)"
+  if [ "${KC_MIDN_KEEP-}" != "1" ]; then trap 'rm -rf "$WORK"' EXIT; fi
+fi
 mkdir -p "$WORK"
 
 [ -x "$BIN" ] || { echo "ERROR: $BIN not found/executable (build: gcc -O3 -pthread -fopenmp -march=native -o solve solve.c -lm -lz)" >&2; exit 2; }

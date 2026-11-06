@@ -150,7 +150,8 @@ res = rowblock('    row_begin a0_q7_resolve', 'row_end TR12_Q7_RESOLVE')
 # assert the row is reached when its dependencies are present.
 d0 = s.index('if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ]', 0)
 d0 = s.rindex('\n', 0, s.index('    row_begin a0_q7_witnesses')) + 1
-while not s[d0:].startswith('if command -v python3'):
+# FV2 D1295 (Codex F05-002#1): the dispatch line now opens with the one import probe, _PYS_Q7W=$(py_import_state ...); if ...
+while not (s[d0:].startswith('if command -v python3') or s[d0:].startswith('_PYS_Q7W=$(py_import_state solve sat verify); if command -v python3')):
     d0 = s.rindex('\n', 0, d0 - 1) + 1
 d1 = s.index('\nfi\n', s.index('row_skip a0_q7_witnesses')) + len('\nfi\n')
 open(w + '/dispatch.sh', 'w').write(s[d0:d1])
@@ -161,7 +162,7 @@ PY
 }
 extract || err "could not extract q7wit_props/q7wit_check/a0_q7_witnesses/a0_q7_resolve from $SRC (anchors moved?)"
 for f in helpers.sh wit.sh res.sh dispatch.sh; do [ -s "$WORK/$f" ] || err "empty extraction: $f"; done
-grep -q '^if command -v python3' "$WORK/dispatch.sh" && grep -q 'row_skip a0_q7_witnesses' "$WORK/dispatch.sh" || err "the extracted dispatch block is not the python3 probe .. skip arm"
+grep -qE '^(_PYS_Q7W=\$\(py_import_state solve sat verify\); )?if command -v python3' "$WORK/dispatch.sh" && grep -q 'row_skip a0_q7_witnesses' "$WORK/dispatch.sh" || err "the extracted dispatch block is not the python3 probe .. skip arm"
 grep -q 'Q7WIT_OK' "$WORK/wit.sh" || err "the extracted witness row does not print Q7WIT_OK"
 grep -q 'Q7RESOLVE_OK' "$WORK/res.sh" || err "the extracted resolve row does not print Q7RESOLVE_OK"
 echo "  [gate] extracted $(grep -c . "$WORK/helpers.sh")+$(grep -c . "$WORK/wit.sh")+$(grep -c . "$WORK/res.sh") lines from $SRC"

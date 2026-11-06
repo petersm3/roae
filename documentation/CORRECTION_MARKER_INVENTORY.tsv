@@ -209,6 +209,8 @@ documentation/DEVELOPMENT.md	2018	marker	CORRECTED	1	-	reviewed:bullet-already-c
 documentation/DEVELOPMENT.md	2131	marker	CORRECTED	2	-	reviewed:the-lead-in-above-still-introduces-the-withdrawn-manual-total-recipe	9b282f2fc568
 documentation/DEVELOPMENT.md	2171	marker	CORRECTED	1	-	reviewed:paragraph-already-says-sub_ckpt_load-restores-state	c510c83c79d4
 documentation/DEVELOPMENT.md	2175	marker	CORRECTED	1	-	reviewed:paragraph-already-describes-P1-auto-parallelism	6c9035ef137d
+documentation/DEVELOPMENT.md	2276	ledger-link	CORRECTION	n/a	-	not-a-marker	87a71c5b578a
+documentation/DEVELOPMENT.md	2276	marker	Corrected	2	-	reviewed:sentence-above-still-says-no-teardown-trap;the-marker-carries-the-FV2-R-trap-fix	87a71c5b578a
 documentation/DEVELOPMENT.md	2278	marker	CORRECTED	1	-	reviewed:paragraph-above-already-documents-the-public-IP-residual	71e678fefb7c
 documentation/DEVELOPMENT.md	2285	ledger-link	RETRACTED	n/a	-	not-a-marker	77367344ffda
 documentation/DEVELOPMENT.md	2286	ledger-link	CORRECTION	n/a	-	not-a-marker	8446092fdd6e

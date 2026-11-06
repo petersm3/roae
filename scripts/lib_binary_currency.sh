@@ -84,6 +84,8 @@
 #       makes a stale binary look new, and this rule is indifferent to timestamps entirely.
 #   sha absent, and solve.c is NEWER than binary -> STALE     (rc 1, signal mtime)
 #   sha absent, and binary is newer or equal     -> CURRENT, weak (rc 0, signal mtime-weak)
+#   solve.c cannot be hashed, or `strings` is absent/fails -> UNMEASURED (rc 2, signal unmeasured;
+#       every caller tests `! solve_binary_currency ...`, so rc 2 is an ERROR there, as rc 1 is)
 #       "Absent" does not mean stale: several gates build with a bare `gcc -O2 ... -o solve solve.c`
 #       and no -DSOURCE_SHA, leaving SOURCE_SHA at its "unknown" default (solve.c:396). Those
 #       binaries are current BY CONSTRUCTION. Erroring on them would be a false ERROR, which is
@@ -101,7 +103,7 @@
 #     echo "   [ERROR] $BINCUR_MSG"; echo "MY_GATE=ERROR"; exit 2
 #   fi
 # Sets, on every path:  BINCUR_MSG (human text)  BINCUR_SIGNAL (source-sha|mtime|mtime-weak|
-# foreign-sha|no-source|no-binary)  BINCUR_WANT (the current source sha, or empty).
+# foreign-sha|no-source|no-binary|unmeasured)  BINCUR_WANT (the current source sha, or empty).
 #
 # Authored by Claude (ROAE lane, 2026-09-08), generalising the guard landed the same night in
 # scripts/resume_budget_infinity_gate.sh. Errors here are mine; corrections invited.
@@ -127,6 +129,14 @@ solve_binary_currency() {   # solve_binary_currency <binary> [solve.c]
   local want
   want=$(sha256sum "$src" 2>/dev/null | cut -d' ' -f1)
   BINCUR_WANT="$want"
+  # Codex (gpt-6-astra) F09-A03#3 (FV2 D1155): an unreadable source used to leave `want` empty, skip
+  # the source-sha arm and then call the binary's own embedded digest "foreign" -- fail-closed, but
+  # the wrong class. A source that cannot be hashed is UNMEASURED (rc 2), never a verdict on the binary.
+  if [[ ! "$want" =~ ^[0-9a-f]{64}$ ]]; then
+    BINCUR_SIGNAL="unmeasured"; BINCUR_WANT=""
+    BINCUR_MSG="cannot hash $src (unreadable, or sha256sum missing) — currency of $bin is UNMEASURED."
+    return 2
+  fi
 
   # Same idiom as scripts/manifest_zero_entry_gate.sh's build_verified(): grep the IMAGE directly.
   # NOT a pipeline, so grep's own status is the answer and there is no producer to SIGPIPE.
@@ -141,8 +151,22 @@ solve_binary_currency() {   # solve_binary_currency <binary> [solve.c]
   # the arm that survives `touch`: it never looks at a timestamp.
   # `awk NR==1` and not `head -1`: awk drains the pipe, head would close it early and SIGPIPE
   # `sort`, which under the caller's `set -o pipefail` is the same trap described above.
+  # Codex F04-021#5 (FV2 D1158): a failing or absent `strings` used to be swallowed by the `|| true`
+  # below, so a stale TAGGED binary reached the mtime arm and could read mtime-weak (rc 0). The image's
+  # strings are now read on their own, with their status: no `strings`, or a failing one, is UNMEASURED.
+  local imgstr
+  if ! command -v strings >/dev/null 2>&1; then
+    BINCUR_SIGNAL="unmeasured"
+    BINCUR_MSG="\`strings\` is not on PATH — cannot look for a foreign SOURCE_SHA in $bin; currency UNMEASURED."
+    return 2
+  fi
+  if ! imgstr=$(strings -a "$bin" 2>/dev/null); then
+    BINCUR_SIGNAL="unmeasured"
+    BINCUR_MSG="\`strings -a $bin\` failed — cannot look for a foreign SOURCE_SHA; currency UNMEASURED."
+    return 2
+  fi
   local foreign
-  foreign=$(strings -a "$bin" 2>/dev/null | grep -oE '[0-9a-f]{64}' | sort -u \
+  foreign=$(grep -oE '[0-9a-f]{64}' <<<"$imgstr" | sort -u \
             | grep -vxF -f <( { grep -oE '[0-9a-f]{64}' "$src" 2>/dev/null; printf '%s\n' "$want"; } \
                               | sort -u ) \
             | awk 'NR==1{print}') || true
@@ -185,7 +209,9 @@ solve_binary_currency() {   # solve_binary_currency <binary> [solve.c]
 # tr12_repro_gate.sh hands its gates a binary built with the published line, which embeds
 # -DSOURCE_SHA, so the normal path reads source-sha and is unaffected.
 solve_binary_currency_strict() {
-  solve_binary_currency "$@" || return 1
+  local _rc=0
+  solve_binary_currency "$@" || _rc=$?
+  [ "$_rc" -eq 0 ] || return "$_rc"   # rc 2 (unmeasured) is passed through, not folded into 1
   if [ "$BINCUR_SIGNAL" != "source-sha" ]; then
     BINCUR_MSG="$1 carries no SOURCE_SHA, so nothing establishes that it was built from ${2-solve.c}
            (signal $BINCUR_SIGNAL; a timestamp is not an identity). Hand in a binary built with

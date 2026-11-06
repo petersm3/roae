@@ -158,6 +158,38 @@ done
 BUDGET="${EXEC_LANE_BUDGET:-30}"
 BUILD_BUDGET="${EXEC_LANE_BUILD_BUDGET:-300}"
 
+# Codex (gpt-6-astra) F04-021#13 residual (FV2 D1114): the traps were installed only after the
+# extraction below had already spawned its python children and written scratch files, so a signal
+# during extraction left them behind and printed no INTERRUPTED report. The trap block (described
+# at its old place, section 2) is now installed here, before anything is made.
+MEAS_OUT=""; INV=""; CHAINS=""; HELP=""
+WS=""; LOGDIR=""; CUR_PGID=""; LANE_SIG=""; PRE_BG=""; LAUNCHING=0
+lane_kill_and_cleanup() {
+  local rc=$?
+  trap - EXIT; trap '' INT TERM HUP   # a second signal must not abort the cleanup half-done
+  # A signal can land between `setsid ... &` and the line that records its PID; $! then differs
+  # from the PID saved just before the launch, and it is that child.
+  if [ -z "$CUR_PGID" ] && [ "$LAUNCHING" = 1 ] && [ -n "${!:-}" ] && [ "${!}" != "$PRE_BG" ]; then CUR_PGID=$!; fi
+  if [ -n "$CUR_PGID" ]; then
+    kill -TERM -- -"$CUR_PGID" 2>/dev/null
+    local j=0; while [ $j -lt 20 ] && kill -0 -- -"$CUR_PGID" 2>/dev/null; do sleep 0.1; j=$((j+1)); done
+    kill -KILL -- -"$CUR_PGID" 2>/dev/null; CUR_PGID=""
+  fi
+  if [ -n "$WS" ] && [ -d "$WS" ]; then
+    if [ "${EXEC_LANE_KEEP:-0}" != "1" ]; then rm -rf "$WS"; elif [ -n "$LANE_SIG" ]; then echo "workspace kept: $WS"; fi
+  fi
+  rm -f "$INV" "$HELP" "$CHAINS" "$MEAS_OUT"
+  if [ -n "$LANE_SIG" ]; then
+    [ -n "$LOGDIR" ] && echo "logs kept: $LOGDIR"
+    echo "EXEC_LANE_ERROR=interrupted-by-SIG$LANE_SIG"; echo "EXEC_LANE=INTERRUPTED"
+    [ "$rc" -eq 0 ] && rc=1
+  fi
+  exit "$rc"
+}
+lane_on_signal() { LANE_SIG=$1; trap '' INT TERM HUP; exit "$2"; }
+trap lane_kill_and_cleanup EXIT
+trap 'lane_on_signal INT 130' INT; trap 'lane_on_signal TERM 143' TERM; trap 'lane_on_signal HUP 129' HUP
+
 # ---------------------------------------------------------------- 1. EXTRACT
 # Generative extraction: every tracked *.md, three source shapes, no curated command list.
 INV="$(mktemp "${TMPDIR:-/tmp}/exec_lane_inv.XXXXXX")"
@@ -273,6 +305,9 @@ def cmd_shaped(c, need_args):
                                 executable file there. A doc that names `scripts/nope.sh` is
                                 not command-shaped, which is the answer we want and one the old
                                 code could only give by accident of where it was launched.
+                                (SUPERSEDED 2026-11-04, FV2 D1106: a missing .sh/.py under a real
+                                directory IS command-shaped and is classed FAIL-MISSING-SCRIPT,
+                                so it is reported rather than dropped; see missing_script().)
       no `/`                  -- a PATH lookup, which is what shutil.which() is for and is
                                 cwd-independent for a bare name.
     Fixing it by cd-ing at startup was rejected: that hides the dependency instead of removing
@@ -285,8 +320,20 @@ def cmd_shaped(c, need_args):
     if t in KNOWN: return True
     if '/' in t:
         p = os.path.join(ROOT, t)
+        if missing_script(t): return True             # D1106: recognised, then classed FAIL-MISSING-SCRIPT
         return os.path.isfile(p) and os.access(p, os.X_OK)
     return shutil.which(t) is not None
+def missing_script(t):
+    """Codex F05-010#11 (FV2 D1106): a repository-relative invocation whose target is missing was not
+    command-shaped and vanished from the inventory, so a document naming `scripts/no_such_gate.sh`
+    produced no verdict at all. The SHAPE is judged apart from availability: a .sh/.py path under a
+    directory the tree really has (scripts/..., reports/evidence/...) that names no file is a command
+    the reader cannot run. (Measured on the corpus when this landed: no such fenced or argument-bearing
+    published line; a `ROOT/...` metavariable path is not under a real directory and stays prose.)"""
+    if not t or t.startswith(('/', './', '../', '~')) or '/' not in t: return False
+    if not re.match(r'^[A-Za-z0-9_][A-Za-z0-9_./-]*\.(sh|py)$', t): return False
+    top = t.split('/', 1)[0]
+    return os.path.isdir(os.path.join(ROOT, top)) and not os.path.exists(os.path.join(ROOT, t))
 QSPAN = r'("[^"]*"|\'[^\']*\')'   # a quoted span (regex form, for the prose-shape tests below;
                                   # strip_opt/strip_comment/balanced/norm_cmd come from $HELP)
 def dequote(c):
@@ -383,7 +430,28 @@ DEVREF = r'(?:^|[\s="\'])/dev/(sd|nvme|xvd|loop)'   # block-device references ar
 # delimiter. Denying that row is a false positive, and it was invisible until the cure itself
 # was run against the corpus rather than against its own defect.
 HOMEREF = r'(?:(?:^|[\s"\'=,(:])~|\$HOME|\$\{HOME\}|/home)(?:/|\s|$)'
-def ops_deny(c):
+# Codex F04-021#1 (FV2 D1108): OPS matched tool NAMES at a word boundary, so `/usr/bin/curl ...` and
+# `bash -c "curl ..."` / `eval 'az ...'` were not denied and the lane ran them. A path whose BASENAME is
+# an OPS tool is denied wherever it stands as a word, and the body of `sh|bash|dash|zsh -c '...'` and of
+# `eval '...'` is judged by ops_deny itself (recursively, depth-bounded).
+OPS_NAMES = OPS[OPS.index('(sudo'):OPS.rindex(')')+1]
+OPS_PATH = r'(?:^|[\s|&;(=])[^\s|&;()\'"]*/' + OPS_NAMES + r'(?=$|[\s|&;)\'"])'
+def _ops_bodies(c):
+    try:
+        w = shlex.split(c.replace('\n', ' '))
+    except ValueError:
+        return []
+    out = []
+    for k, x in enumerate(w):
+        b = os.path.basename(x)
+        if b in ('sh', 'bash', 'dash', 'zsh') and k + 2 < len(w) and re.match(r'^-[A-Za-z]*c[A-Za-z]*$', w[k+1]):
+            out.append(w[k+2])
+        elif b == 'eval' and k + 1 < len(w):
+            out.append(' '.join(w[k+1:]))
+    return out
+def ops_deny(c, _depth=0):
+    if re.search(OPS_PATH, c): return True
+    if _depth < 4 and any(ops_deny(b, _depth + 1) for b in _ops_bodies(c)): return True
     if re.search(HOMEREF, c): return True
     if re.search(GIT_MUT, c): return True
     if re.search(r'\bgit\b', c) and not re.search(r'\bgit\s+(-C\s+\S+\s+)?(rev-parse|log|show|status|diff|reflog|describe|ls-files)\b', c):
@@ -503,7 +571,8 @@ def emit(f, ln, origin, raw, ulimit_ctx):
     if origin == 'fence' and fence_reject(c): return None
     t = tok0(c)
     cls = 'BUILD' if t in ('cc','gcc','clang','g++') else 'RUN'
-    if ops_deny(c): cls = 'SKIP-OPS'
+    if missing_script(t): cls = 'FAIL-MISSING-SCRIPT'
+    elif ops_deny(c): cls = 'SKIP-OPS'
     elif placeholder(c): cls = 'SKIP-PLACEHOLDER'
     elif unbounded_branch(c): cls = 'FAIL-UNBOUNDED'
     if cls == 'RUN':
@@ -554,18 +623,36 @@ def _paths(c):
     for x in w:
         if x in ('>', '>>', '-o', '--out', '--output'):
             nxt_out = True; continue
+        if x == '<':
+            nxt_out = False; continue                  # D1116: the next word is an input operand
         m = re.match(r'^(?:\d?>>?|--out(?:put)?=)(.+)$', x)
+        mi = re.match(r'^\d?<(.+)$', x)                # D1116: `<file` attached to its operator
         if m:
             x, isout = m.group(1), True
+        elif mi:
+            x, isout, nxt_out = mi.group(1), False, False
         else:
             isout, nxt_out = nxt_out, False
         if x.startswith('-') or not re.match(r'^[A-Za-z0-9_./~+-]+$', x):
             continue
         if os.path.basename(x) in ('solve', 'verify'):
             continue                                   # built by the BUILD phase, not by the block
-        if ('/' in x or '.' in x) and not re.match(r'^[0-9.]+$', x) and x not in ('.', '..'):
-            out.append((x, isout))
+        if x in ('.', '..') or re.match(r'^[0-9.]+$', x):
+            continue
+        # Codex F05-010#16 (FV2 D1112): a word in an OUTPUT position is an artifact however it is
+        # spelled (`--out atlas`); an extensionless word elsewhere is kept as a candidate (bare=True)
+        # and only ever matches a name an earlier step WROTE.
+        if '/' in x or '.' in x or isout:
+            out.append((x, isout, False))
+        elif re.match(r'^[A-Za-z0-9_][A-Za-z0-9_+-]*$', x):
+            out.append((x, False, True))
     return out
+def _pkey(tok, cwd):
+    """Codex F05-010#15 (FV2 D1113): one spelling per path -- `./out.dat` and `out.dat` (or a path
+    through a different cwd) are the same artifact. Relative to the step's cwd, normalised."""
+    if tok.startswith(('/', '~')):
+        return os.path.normpath(tok)
+    return os.path.normpath(os.path.join(cwd or '.', tok))
 def finish_block(f, start, heading, first_under, steps):
     if not gating(f) or len([s for s in steps if s[1] == 'CMD']) < 2:
         return
@@ -580,13 +667,16 @@ def finish_block(f, start, heading, first_under, steps):
             rows.append([f'{f}:{ln}', str(i), 'CD', '-', cur, '0', '-', c]); continue
         cwd = cur if cur is not None else pick_cwd(f, c)
         deps = []
-        for tok, isout in _paths(c):
+        for tok, isout, bare in _paths(c):
             if cls != 'RUN':
                 continue
             # The path itself, or the nearest ANCESTOR an earlier step named: a producer that writes
             # a directory (`run_v3_rows.sh ... /tmp/v3rows_out`) feeds `grep ... /tmp/v3rows_out/X`.
-            anc = [tok] + [tok[:k] for k in range(len(tok) - 1, 0, -1) if tok[k] == '/']
+            key = _pkey(tok, cwd)
+            anc = [key] + [key[:k] for k in range(len(key) - 1, 0, -1) if key[k] == '/']
             cand = [named[a] for a in anc if a in named and named[a][0] != i]
+            if bare:
+                cand = [x for x in cand if x[1]]       # D1112: a bare word matches only an OUTPUT name
             if not cand:
                 continue
             # The PRODUCER: the latest step that named the path (or an ancestor) in an OUTPUT
@@ -597,11 +687,12 @@ def finish_block(f, start, heading, first_under, steps):
             absent = not tok.startswith('/') and not os.path.exists(os.path.join(ROOT, cwd, tok))
             if tmp or absent or jout:
                 deps.append(f'{j}:{tok}')
-        for tok, isout in _paths(c):
+        for tok, isout, bare in _paths(c):
+            key = _pkey(tok, cwd)
             if isout:
-                named[tok] = (i, True)                 # an OUTPUT naming makes this step the producer
-            elif tok not in named:
-                named[tok] = (i, False)                # else the FIRST step that names it
+                named[key] = (i, True)                 # an OUTPUT naming makes this step the producer
+            elif not bare and key not in named:
+                named[key] = (i, False)                # else the FIRST step that names it
         dep_any = dep_any or bool(deps)
         rows.append([f'{f}:{ln}', str(i), 'CMD', cls, cwd, str(ctx), ';'.join(deps) or '-', c])
     if dep_any:
@@ -806,32 +897,7 @@ fi
 # solve.c checkpoints and exits 0 on SIGTERM, so the child's status cannot report the interrupt.
 # The lane records the signal itself and exits 128+N with EXEC_LANE=INTERRUPTED.
 # Proven by killing a live run (it leaves no child and no workspace, and exits 143).
-WS=""; LOGDIR=""; CUR_PGID=""; LANE_SIG=""; PRE_BG=""; LAUNCHING=0
-lane_kill_and_cleanup() {
-  local rc=$?
-  trap - EXIT; trap '' INT TERM HUP   # a second signal must not abort the cleanup half-done
-  # A signal can land between `setsid ... &` and the line that records its PID; $! then differs
-  # from the PID saved just before the launch, and it is that child.
-  if [ -z "$CUR_PGID" ] && [ "$LAUNCHING" = 1 ] && [ -n "${!:-}" ] && [ "${!}" != "$PRE_BG" ]; then CUR_PGID=$!; fi
-  if [ -n "$CUR_PGID" ]; then
-    kill -TERM -- -"$CUR_PGID" 2>/dev/null
-    local j=0; while [ $j -lt 20 ] && kill -0 -- -"$CUR_PGID" 2>/dev/null; do sleep 0.1; j=$((j+1)); done
-    kill -KILL -- -"$CUR_PGID" 2>/dev/null; CUR_PGID=""
-  fi
-  if [ -n "$WS" ] && [ -d "$WS" ]; then
-    if [ "${EXEC_LANE_KEEP:-0}" != "1" ]; then rm -rf "$WS"; elif [ -n "$LANE_SIG" ]; then echo "workspace kept: $WS"; fi
-  fi
-  rm -f "$INV" "$HELP" "$CHAINS" "$MEAS_OUT"
-  if [ -n "$LANE_SIG" ]; then
-    [ -n "$LOGDIR" ] && echo "logs kept: $LOGDIR"
-    echo "EXEC_LANE_ERROR=interrupted-by-SIG$LANE_SIG"; echo "EXEC_LANE=INTERRUPTED"
-    [ "$rc" -eq 0 ] && rc=1
-  fi
-  exit "$rc"
-}
-lane_on_signal() { LANE_SIG=$1; trap '' INT TERM HUP; exit "$2"; }
-trap lane_kill_and_cleanup EXIT
-trap 'lane_on_signal INT 130' INT; trap 'lane_on_signal TERM 143' TERM; trap 'lane_on_signal HUP 129' HUP
+# (D1114: the trap block that stood here now sits above the extraction; see there.)
 # F04-021#13: the workspace and log paths are spliced into each command's shell text (`cd '...'`,
 # the /tmp rewrite), so a TMPDIR holding a quote or another shell or sed metacharacter would turn
 # every command into a syntax error charged to the document. Such a TMPDIR is not used.
@@ -1038,6 +1104,10 @@ ws_reset() {
 # pipe_last_only FILE -- F05-010#19 (Codex gpt-6-astra, final review; rider F04-021#2). Under pipefail a status of 1
 # can come from ANY stage, so the grep/diff "exit 1 = no match / differs" readings below are allowed only when the
 # recorded PIPESTATUS shows every stage but the last at 0. No record (the command ended the shell itself) allows nothing.
+sigpipe_only() { [ -n "$1" ] || return 1; case "$1" in *bg=*|cdfail) return 1 ;; esac   # D1102
+  set -- $1; [ $# -ge 2 ] || return 1; local seen=0
+  while [ $# -gt 1 ]; do case "$1" in 0) ;; 141) seen=1 ;; *) return 1 ;; esac; shift; done
+  [ "$1" = 0 ] && [ "$seen" = 1 ]; }
 pipe_last_only() { local ps; ps=$(cat -- "$1" 2>/dev/null) || return 1; [ -n "$ps" ] || return 1
   set -- $ps; [ $# -ge 1 ] || return 1; while [ $# -gt 1 ]; do [ "$1" = 0 ] || return 1; shift; done; return 0; }
 run_one() {  # $1=class $2=gating $3=ctx $4=cwd $5=origins $6=sources $7=command
@@ -1079,8 +1149,13 @@ run_one() {  # $1=class $2=gating $3=ctx $4=cwd $5=origins $6=sources $7=command
   # pipefail is PAIRED with the rc-141 rule in the outcome ladder below; on its own it would
   # manufacture FAILs on every published row that pipes into an early-closing consumer.
   PRE_BG=${!:-}; LAUNCHING=1   # Q-457: lets the trap find a child whose PID was not yet recorded
-  rm -f "$LOGDIR/ps.$IDX"; setsid bash -c "set -o pipefail; ulimit -S -s 8192 2>/dev/null; cd '$WS/$cwd' || exit 97; $execmd
-__ps=(\"\${PIPESTATUS[@]}\"); echo \"\${__ps[*]}\" > '$LOGDIR/ps.$IDX'; __r=0; for __x in \"\${__ps[@]}\"; do [ \"\$__x\" = 0 ] || __r=\$__x; done; exit \$__r" \
+  # Codex F09-A03#8 (FV2 D1101): the launcher's own `cd` failure exits 97, which the expected-failure
+  # rule below read as "fails as documented"; it now writes `cdfail` where the PIPESTATUS record goes,
+  # and that status is classified before any other rule. Codex F05-010#21 (FV2 D1117): a documented
+  # `cmd &` returned at once and its failure was never seen; every background job is now waited for,
+  # and a failing one makes the step's status (its rc is appended to the record as `bg=<rc>`).
+  rm -f "$LOGDIR/ps.$IDX"; setsid bash -c "set -o pipefail; ulimit -S -s 8192 2>/dev/null; cd '$WS/$cwd' || { echo cdfail > '$LOGDIR/ps.$IDX'; exit 97; }; $execmd
+__ps=(\"\${PIPESTATUS[@]}\"); __bg=0; for __j in \$(jobs -p); do wait \"\$__j\" || __bg=\$?; done; echo \"\${__ps[*]}\" > '$LOGDIR/ps.$IDX'; [ \"\$__bg\" = 0 ] || echo \"bg=\$__bg\" >> '$LOGDIR/ps.$IDX'; __r=0; for __x in \"\${__ps[@]}\"; do [ \"\$__x\" = 0 ] || __r=\$__x; done; [ \"\$__r\" = 0 ] && __r=\$__bg; exit \$__r" \
     </dev/null >>"$log" 2>&1 &
   local pid=$!; CUR_PGID=$pid; LAUNCHING=0   # setsid made $pid its own process-group leader (Q-457)
   local i=0 killed=0
@@ -1099,14 +1174,20 @@ __ps=(\"\${PIPESTATUS[@]}\"); echo \"\${__ps[*]}\" > '$LOGDIR/ps.$IDX'; __r=0; f
     restored=" [restored $bout: the failed link unlinked it; the previous successful build is kept for the RUN phase]"
   fi
   [ -n "$bkeep" ] && rm -f "$bkeep"
-  local out; out="$(tail -c 4000 "$log")"
+  # Codex F05-010#19 / F05-016#2 (FV2 D1100, D1104): $out was a tail of the WHOLE log, whose first
+  # three lines are this harness's own header (`# src`, `# cwd`, `# cmd: <the command>`), so a
+  # diagnostic-shaped word in the documented command (SOLVE_ALLOW_SLOW_IOPS, `ulimit`) could turn a
+  # real failure into a SKIP. Only the process's own output is classified.
+  local out; out="$(tail -n +4 "$log" | tail -c 4000)"
   local ref; ref=$(grep -oE "see /[^ )]+\.log" <<<"$out" | head -1 | cut -d" " -f2)
   if [ -n "$ref" ] && [ -f "$ref" ]; then out="$out
 $(tail -c 2000 "$ref")"; fi
   local outcome="" docfail=0 lst
   lst="$(last_stage_tok "$execmd")"
   if [ "$org" != "fence" ] && doc_says_fails "$src" "$asdoc"; then docfail=1; fi
-  if   [ $docfail -eq 1 ] && [ $rc -ne 0 ]; then outcome="PASS(fails as the source line says it does — a quoted, withdrawn defect, rc=$rc)"
+  local psrec; psrec="$(cat -- "$LOGDIR/ps.$IDX" 2>/dev/null)" || psrec=""
+  if   [ $rc -eq 97 ] && [ "$psrec" = cdfail ]; then outcome="FAIL(launcher: cd into the step's working directory '$cwd' failed; the command never ran)"
+  elif [ $docfail -eq 1 ] && [ $rc -ne 0 ]; then outcome="PASS(fails as the source line says it does — a quoted, withdrawn defect, rc=$rc)"
   elif [ $docfail -eq 1 ]; then outcome="FAIL(the source line says this command fails, but it exited 0 — the correction note is stale)"
   elif [ $rc -eq 0 ];   then outcome="PASS"
   # Q-649, the other half of `set -o pipefail` above. A pipeline whose CONSUMER closes early
@@ -1115,7 +1196,11 @@ $(tail -c 2000 "$ref")"; fi
   # 55 RUN rows contain a pipe and 7 pipe into head/grep -q, so without this rule pipefail turns
   # working rows into FAILs. The `|` test is what keeps it narrow -- a bare `kill -PIPE $$` with
   # no pipeline still FAILs (verified).
-  elif [ $rc -eq 141 ] && grep -q '|' <<<"$execmd"; then
+  # Codex F04-021#3 / F05-010#18 (FV2 D1102): any 141 used to PASS when the text held a `|`, though
+  # the launcher's rc is the LAST non-zero stage (`false | yes | head -1` records "1 141 0" -> 141), and
+  # a literal `|` in a string got the same exemption. The PIPESTATUS record must show a final stage of
+  # 0 and every other stage 0 or 141.
+  elif [ $rc -eq 141 ] && sigpipe_only "$psrec"; then
     outcome="PASS(exit 141 = SIGPIPE — a later pipeline stage closed early, e.g. head/grep -q)"
   elif [ $rc -eq 1 ] && grep -qxE 'grep|egrep|fgrep|pgrep' <<<"$lst" && ! grep -qiE "error|usage" <<<"$out" && pipe_last_only "$LOGDIR/ps.$IDX"; then
     outcome="PASS(exit 1 = no-match — documented result, not an error)"
@@ -1159,7 +1244,10 @@ $(tail -c 2000 "$ref")"; fi
   # `grep -c`, NOT `grep -v ... | grep -q`: under the `set -o pipefail` at the top of this file
   # grep -q exits at the first match, the upstream grep takes SIGPIPE, and the pipeline returns
   # 141 -- which an `elif` reads as NO MATCH. That is fail-open ledger instance 24.
-  elif [ "$(grep -v '^# ' <<<"$out" | grep -c "ulimit")" -gt 0 ]; then
+  # Codex F05-010#20 (FV2 D1103): any output line naming the bare word "ulimit" (a NameError, a usage
+  # note) read as the engine's documented stack refusal. The refusal is solve.c's own instruction,
+  # `ulimit -s unlimited` or `ulimit -s <N>` (solve.c's stack preflight), so that is what must appear.
+  elif [ "$(grep -v '^# ' <<<"$out" | grep -cE "ulimit -s (unlimited|[0-9]+)")" -gt 0 ]; then
     if [ "$ctx" = "1" ]; then outcome="PASS(refused-as-documented: names a prereq the doc states)"
     else outcome="FAIL(refusal names a prereq the source doc does NOT state)"; fi
   elif grep -qiE "failed to allocate|cannot allocate|out of memory|bad_alloc|alloc.{0,16}fail|free disk in cwd|No space left on device" <<<"$out"; then
@@ -1177,7 +1265,9 @@ $(tail -c 2000 "$ref")"; fi
   # fall outside that window while its override hint survives.
   # ORDER: this sits AFTER the allocation/disk branch above, matching solve.c's own first_fail
   # ordering -- a real out-of-space failure must still win over a slow-disk projection.
-  elif grep -qE "projected fsync-wait|SOLVE_ALLOW_SLOW_IOPS" <<<"$out"; then
+  # D1104: and only with main's refusal status 31, so a different failure whose output merely
+  # mentions the override does not read as the IOPS refusal.
+  elif [ $rc -eq 31 ] && grep -qE "projected fsync-wait|SOLVE_ALLOW_SLOW_IOPS" <<<"$out"; then
     outcome="SKIP-RESOURCE(disk-IOPS pre-check refused — host disk too slow, not claim)"
   elif grep -qiE "no such file|cannot open|cannot read|\[Errno 2\]|no .* files found" <<<"$out"; then
     # case-insensitive since 2026-09-02: `python3 sat.py --decode model.txt plain` (SAT_CLI.md:252)
@@ -1239,6 +1329,10 @@ while IFS=$'\t' read -r cls gat ctx cwd org src cmd; do
   case "$cls" in
     SKIP-OPS)         echo "SKIP-OPS(cloud/network/privileged/destructive — never run)  $src  $cmd"; NS=$((NS+1));;
     SKIP-PLACEHOLDER) echo "SKIP-PLACEHOLDER(metavars/unset vars — not runnable verbatim)  $src  $cmd"; NS=$((NS+1));;
+    FAIL-MISSING-SCRIPT)   # D1106: the published invocation names a script the tree does not ship
+      echo "FAIL(missing-script: the command names a repository script that does not exist)  $src  $cmd"
+      if [ "$gat" = "1" ]; then NF=$((NF+1)); else NFN=$((NFN+1)); fi
+      FAIL_LINES="${FAIL_LINES}FAIL(missing-script)$([ "$gat" = 1 ] || echo '[NONGATING]')  $src  $cmd"$'\n';;
   esac
 done < "$INV"
 echo
@@ -1276,6 +1370,19 @@ if [ -s "$CHAINS" ] && [ -z "$ONLY" ]; then
   echo "== CHAINED blocks (Q-435: one cwd chain per block; CHAINBREAK-AFTER-<n> = a step depends on step n's output) =="
   chain_reset
   _bid=""; declare -A COUT=(); _reset_after=0; _cd_broken=0; _left=0
+  # Codex F05-010#14 residual (FV2 D1105): with no reset between them, a producer that PASSed but
+  # never wrote its declared output was still credited when a TRACKED copy pre-existed, and the
+  # consumer ran on the tree's bytes. Each producer's dependency paths are fingerprinted (mtime to the
+  # nanosecond, size) just before it runs; a consumer whose path is unchanged since then breaks the
+  # chain as a gating FAIL, exactly as a path the producer never created does.
+  declare -A PDEPS=() PFP=()
+  while IFS=$'\t' read -r _b _n _s _i _k _c _r _w _x _dd _cc; do
+    [ "$_dd" = "-" ] && continue
+    IFS=';' read -ra _dl <<<"$_dd"
+    for _d in "${_dl[@]}"; do PDEPS["$_b|${_d%%:*}"]+="$_w"$'\t'"${_d#*:}"$'\n'; done
+  done < "$CHAINS"
+  chain_path() { case "$2" in /tmp/*) printf '%s' "$WS/.lane_tmp/${2#/tmp/}" ;; /*) printf '%s' "$2" ;; *) printf '%s' "$WS/$1/$2" ;; esac; }
+  chain_fp() { stat -c '%y %s' -- "$1" 2>/dev/null || echo ABSENT; }
   while IFS=$'\t' read -r cbid cnrun csrc cidx ckind ccls crole ccwd cctx cdeps ccmd; do
     [ "$WS_RESET_ERR" = 0 ] || { echo "  [ERROR] a workspace reset failed; the remaining chained steps are not run"; break; }
     if [ "$cbid" != "$_bid" ]; then
@@ -1304,7 +1411,7 @@ if [ -s "$CHAINS" ] && [ -z "$ONLY" ]; then
       for _d in "${_dl[@]}"; do
         _j="${_d%%:*}"; _tok="${_d#*:}"; _o="${COUT[$_j]:-NOT-RUN}"
         case "$_o" in PASS*) ;; *) _brk=$_j; _why="step $_j did not PASS ($_o); $_tok is its output"; break ;; esac
-        case "$_tok" in /tmp/*) _p="$WS/.lane_tmp/${_tok#/tmp/}" ;; /*) _p="$_tok" ;; *) _p="$WS/$ccwd/$_tok" ;; esac
+        _p="$(chain_path "$ccwd" "$_tok")"
         # F04-021#4 residual: a reset after the producer discards its output whether or not the path
         # still EXISTS -- a tracked output is restored to the tree's bytes, not the producer's, so a
         # consumer must not run on it (a skip, as for a removed path).
@@ -1313,6 +1420,10 @@ if [ -s "$CHAINS" ] && [ -z "$ONLY" ]; then
         fi
         if [ ! -e "$_p" ]; then
           _brk=$_j; _brkg=1; _why="step $_j PASSED but never produced $_tok"
+          break
+        fi
+        if [ -n "${PFP[$_j|$ccwd|$_tok]+x}" ] && [ "${PFP[$_j|$ccwd|$_tok]}" = "$(chain_fp "$_p")" ]; then
+          _brk=$_j; _brkg=1; _why="step $_j PASSED but did not write $_tok (it is unchanged since before the step: the tree's or an earlier step's bytes)"
           break
         fi
       done
@@ -1326,6 +1437,11 @@ if [ -s "$CHAINS" ] && [ -z "$ONLY" ]; then
     fi
     # The classifier's side counters belong to the per-command census; a chain re-run must not
     # count the same published line twice there.
+    if [ -n "${PDEPS[$cbid|$cidx]+x}" ]; then   # D1105: fingerprint what later steps will read from this one
+      while IFS=$'\t' read -r _w _t; do
+        [ -n "$_t" ] && PFP["$cidx|$_w|$_t"]="$(chain_fp "$(chain_path "$_w" "$_t")")"
+      done <<<"${PDEPS[$cbid|$cidx]}"
+    fi
     _sv="$NDIFFU|$NFRAG|$NFRAGU|$NUNDOC|$NBLDMISS"; _svd="$DIFF_LINES"; _svf="$FRAG_LINES"
     CHAIN_MODE=1 CHAIN_BUDGET=$(( _left > 1 ? _left : 1 )) run_one RUN 1 "$cctx" "$ccwd" fence "$csrc" "$ccmd"
     IFS='|' read -r NDIFFU NFRAG NFRAGU NUNDOC NBLDMISS <<<"$_sv"; DIFF_LINES="$_svd"; FRAG_LINES="$_svf"

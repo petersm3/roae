@@ -138,7 +138,7 @@ REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 MODE_N9=0; PAIRS=9
 FDIR=""; GDIR=""; TDIR=""
 SOLVE=""; OUTDIR=""; EXPECTDIR=""
-REGEN=0; WAVE3=0; WITH_GCHECK=0; WITH_CHUNKED=0; DO_SCAN=1; KEEP=0; WITH_LADDERSHA=0; WITH_TCHECK=0
+REGEN=0; WAVE3=0; WITH_GCHECK=0; WITH_CHUNKED=0; DO_SCAN=1; KEEP=0; WITH_LADDERSHA=0; WITH_TCHECK=0; VHW=0   # FV2 D1291: set here so it is never inherited from the caller
 Q7_RESOLVE=0
 ATLAS_IN=""; MINT_MISSING=0
 
@@ -177,14 +177,14 @@ if [ "$MODE_N9" -eq 0 ] && [ -z "$FDIR" ]; then
     usage >&2; exit 2
 fi
 
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/tr12repro.XXXXXX")"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/tr12repro.XXXXXX")" && [ -n "$WORK" ] && [ -d "$WORK" ] || { echo "FATAL: mktemp failed under ${TMPDIR:-/tmp}; refusing to run with an empty WORK (Codex F04-015#9, FV2 D1277)" >&2; exit 2; }
 # 🔴 2026-09-11: KILL THE CHILDREN BEFORE REMOVING THEIR FILES. This trap used to be only the rm.
 # When the shell died on a full disk (H-2, n=13) it unlinked $WORK/walks.txt while `solve --kc-enum`
 # still held it open; the child was reparented to init and wrote 14.58 GB into a file nothing could
 # see. A cleanup that deletes without killing turns an early exit into an invisible leak. Descendants
 # first -- the engine runs inside a `( ... )` row subshell, so the holder is a GRANDCHILD -- then files.
 _tr12_kill_tree(){ local c; for c in $(pgrep -P "$1" 2>/dev/null); do _tr12_kill_tree "$c"; kill -TERM "$c" 2>/dev/null; done; }
-[ "$KEEP" -eq 1 ] || trap '_tr12_kill_tree $$; rm -rf "$WORK"' EXIT
+trap '_tr12_kill_tree $$; [ "$KEEP" -eq 1 ] || rm -rf "$WORK"' EXIT   # Codex F04-020#6 (FV2 D1278): --keep keeps the FILES, never the children; the descendant kill always runs
 [ -n "$OUTDIR" ] || OUTDIR="$WORK/out"
 mkdir -p "$OUTDIR" && OUTDIR="$(cd -- "$OUTDIR" && pwd)" || { echo "FATAL: cannot create/resolve --out '$OUTDIR'" >&2; exit 2; }  # absolute, like REPO_ROOT (2026-09-27): c_viz and c_consumer use $OUTDIR paths after a cd, so a relative --out broke them
 
@@ -197,7 +197,7 @@ mkdir -p "$RAWDIR" "$GOTDIR" "$DIFFDIR" "$ARTDIR"
 VERD="$OUTDIR/VERDICTS.txt"; : > "$VERD"
 LOG="$OUTDIR/tr12_repro.log"; : > "$LOG"
 
-say(){ printf '%s\n' "$*" | tee -a "$LOG"; }; py_import_state(){ command -v python3 >/dev/null 2>&1 || { echo ABSENT; return 0; }; local o; o=$(PYTHONPATH="$REPO_ROOT" python3 -c 'exec("import importlib, sys\nm = sys.argv[1:]\ntry:\n    [importlib.import_module(x) for x in m]\nexcept ModuleNotFoundError as e:\n    if (e.name or \"\") in m: print(\"PY_IMPORT=ABSENT\"); sys.exit(0)\n    raise\nprint(\"PY_IMPORT=PRESENT\")")' "$@" 2>/dev/null) && [ "$(grep -c '^PY_IMPORT=' <<<"$o")" = 1 ] && { sed -n 's/^PY_IMPORT=//p' <<<"$o"; return 0; }; echo BROKEN; }; row_broken(){ row_begin "$1"; echo "PY_IMPORT_BROKEN	$3: the import failed for a reason other than an absent module (a crash, a kill, a syntax error) -- not a skip (Q-983)" >>"$RAW"; row_end "$2" 1; }   # Q-983 (batch 42; Codex gpt-6-astra, Q964-D04#9 sibling sweep): py_import_state MOD... prints PRESENT, ABSENT (no python3, or a ModuleNotFoundError naming a probed module) or BROKEN (any other failure); the import probes below took ANY nonzero rc for "unavailable" and skipped, so a crash or syntax error in solve.py read as SKIP:python3-unavailable. A BROKEN import fails its row (row_broken). Kept on this one line so no cited line below moves.
+say(){ printf '%s\n' "$*" | tee -a "$LOG"; }; py_import_state(){ command -v python3 >/dev/null 2>&1 || { echo ABSENT; return 0; }; local o; o=$(PYTHONPATH="$REPO_ROOT" python3 -c 'exec("import importlib, sys\nm = sys.argv[1:]\ntry:\n    [importlib.import_module(x) for x in m]\nexcept ModuleNotFoundError as e:\n    if (e.name or \"\") in m: print(\"PY_IMPORT=ABSENT\"); sys.exit(0)\n    raise\nprint(\"PY_IMPORT=PRESENT\")")' "$@" 2>/dev/null) && [ "$(grep -c '^PY_IMPORT=' <<<"$o")" = 1 ] && { case "$(sed -n 's/^PY_IMPORT=//p' <<<"$o")" in PRESENT) echo PRESENT ;; ABSENT) echo ABSENT ;; *) echo BROKEN ;; esac; return 0; }; echo BROKEN; }; row_broken(){ row_begin "$1"; echo "PY_IMPORT_BROKEN	$3: the import failed for a reason other than an absent module (a crash, a kill, a syntax error) -- not a skip (Q-983)" >>"$RAW"; row_end "$2" 1; }   # Q-983 (batch 42; Codex gpt-6-astra, Q964-D04#9 sibling sweep): py_import_state MOD... prints PRESENT, ABSENT (no python3, or a ModuleNotFoundError naming a probed module) or BROKEN (any other failure); the import probes below took ANY nonzero rc for "unavailable" and skipped, so a crash or syntax error in solve.py read as SKIP:python3-unavailable. A BROKEN import fails its row (row_broken). Kept on this one line so no cited line below moves. FV2 D1279 (Codex F05-002#2): only an exact PRESENT or ABSENT value is a state; anything else (PRESENT\r, an empty value) is BROKEN.
 die(){ say "FATAL: $*"; exit 2; }
 
 # ---- Q-461 (2026-09-24): --pairs is REFUSED outside the MEASURED set, by name, before any build.
@@ -731,7 +731,7 @@ q10a_kwrank_measure(){    # CERT_JSON  VERDICT_FILE
 
     # ---- leg 1: the instrument does not supply a class/orbit rank ------------------------------
     note=$(_n3_json_str "$cert" class_rank_note)
-    keys=$(grep -o '^[[:space:]]*"[A-Za-z0-9_]*"[[:space:]]*:' "$cert" | sed 's/^[[:space:]]*"//; s/".*//' | sort -u)
+    keys=$(grep -o '^[[:space:]]*"[A-Za-z0-9_]*"[[:space:]]*:' "$cert"); [ $? -le 1 ] || { _n3_q10a_err "the certificate $cert could not be read (grep failed), so no key list exists" "cert-unreadable"; return 0; }; keys=$(sed 's/^[[:space:]]*"//; s/".*//' <<<"$keys" | sort -u)   # FV2 D1292 (Codex F05-019#5)
     hit=""
     for k in $forbidden; do grep -qx "$k" <<<"$keys" && hit="$hit $k"; done
     printf 'q10a_class_rank_note\t%s\n' "$(case "$note" in *"NOT computed"*) echo "present, says NOT computed" ;; "") echo "ABSENT" ;; *) echo "present, does NOT say NOT computed" ;; esac)"
@@ -937,8 +937,8 @@ row_end TR12_Q7_KW $rc
 #            repo's existing solve.py; there is no --check-arrangement name lookup, so this is
 #            a python3 call (QUERY_INVENTORY §2 row Q7).  It was the ONLY one until the Q5
 #            two-language re-check landed in row a1_q5, 2026-09-10. ---------------------------
-if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \
-   && [ "$(py_import_state solve)" = PRESENT ]; then
+_PYS_Q7H=$(py_import_state solve); if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \
+   && [ "$_PYS_Q7H" = PRESENT ]; then   # FV2 D1295 (Codex F05-002#1): probed ONCE (on the `if` line above); the elif reads the same answer
     row_begin a0_q7_hist
     (
       hrc=0
@@ -966,7 +966,7 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \
       exit $hrc
     ) >>"$RAW" 2>&1; rc=$?
     row_end TR12_Q7_HIST $rc
-elif [ -f "$REPO_ROOT/solve.py" ] && [ "$(py_import_state solve)" = BROKEN ]; then row_broken a0_q7_hist TR12_Q7_HIST "import solve"; else   # Q-983
+elif [ -f "$REPO_ROOT/solve.py" ] && [ "$_PYS_Q7H" = BROKEN ]; then row_broken a0_q7_hist TR12_Q7_HIST "import solve"; else   # Q-983
     row_skip a0_q7_hist TR12_Q7_HIST "SKIP:python3-unavailable" \
       "python3+solve.py unavailable — the 3 historical arrangements (_r7_mawangdui/_r7_fuxi/_r7_jingfang) could not be materialised"
 fi
@@ -1071,7 +1071,7 @@ else:
               % (t, g_indep, v["scores"]["gender"])); bad = 1
 if not v["ok"]:
     print("Q7WIT_FAIL\t%s: sat.target_verdict says not ok (base=%s rules=%s c3=%s)" % (t, v["base"], v["rule_viol"], v["c3_label"])); bad = 1
-# CX-321: C3 is a published EQUALITY. c3 <= 776 is membership in C15; C3 = 776 is the claim.
+if pinned and v["c3"] is None: print("Q7WIT_FAIL\t%s: the certificate carries no C3 measurement, so the published equality C3 = %d is unchecked" % (t, CLAIM_C3)); bad = 1   # FV2 D1267 (Codex F05-002#5). CX-321: C3 is a published EQUALITY; c3 <= 776 is membership in C15
 if v["c3"] is not None:
     print("c3_value\t%d\t(published claim: C3 = %d)" % (v["c3"], CLAIM_C3))
     if pinned and v["c3"] != CLAIM_C3:
@@ -1110,7 +1110,7 @@ PY
     )
 }
 q7wit_check(){ # q7wit_check TARGET SEQ CERT_JSON [MODE]  -> the solver-free property check shared by both Q7 witness rows; rc 0 iff all hold
-    local t="$1" seq="$2" cert="$3" mode="${4:-pinned}" frc=0 nv kwarr c3v r11c r11py ctl f1 f2 f3 got need crc
+    local t="$1" seq="$2" cert="$3" mode="${4:-pinned}" frc=0 nv kwarr c3v r11c r11py ctl f1 f2 f3 got need crc r11crc r11pyrc
     nv=$(printf '%s\n' "$seq" | tr ',' '\n' | grep -c .)
     if [ "$nv" -ne 64 ]; then echo "Q7WIT_FAIL	$t: the sequence has $nv values, not 64"; return 1; fi
     "$SOLVE" --check-arrangement "$seq" --cert-out "$cert" --label "$t" > "$WORK/q7wit_$t.out" 2>&1 < /dev/null; crc=$?   # Q-795: label = target; a2_q7_ranks keys on it
@@ -1146,8 +1146,8 @@ q7wit_check(){ # q7wit_check TARGET SEQ CERT_JSON [MODE]  -> the solver-free pro
     # vector (fields 1..3 = Moore-2005 parity, Moore-1989 rhythm, Schulz gender; KW = 2,2,2,...); solve.py
     # --r11-verify is its Python twin. The C form exits 0 whatever the values, so the FIELDS are parsed
     # and the exit status is never trusted. The enforced rules must read 0 in C as well as in Python.
-    r11c=$("$SOLVE" --r11-verify "$seq" 2>/dev/null < /dev/null | grep -E '^[0-9]+(,[0-9]+){7}$' | head -1)
-    r11py=$(cd "$REPO_ROOT" && PYTHONPATH="$REPO_ROOT" python3 solve.py --r11-verify "$seq" 2>/dev/null < /dev/null | grep -E '^[0-9]+(,[0-9]+){7}$' | head -1)
+    "$SOLVE" --r11-verify "$seq" > "$WORK/q7wit_r11c_$t.out" 2>/dev/null < /dev/null; r11crc=$?; r11c=$(grep -E '^[0-9]+(,[0-9]+){7}$' "$WORK/q7wit_r11c_$t.out"); [ "$r11crc" -eq 0 ] || { echo "Q7WIT_FAIL	$t: solve.c --r11-verify exited $r11crc"; frc=1; r11c=""; }; [ "$(grep -c . <<<"$r11c")" -le 1 ] || { echo "Q7WIT_FAIL	$t: solve.c --r11-verify printed $(grep -c . <<<"$r11c") 8-field vectors, not one"; frc=1; r11c=""; }   # FV2 D1268/D1269 (Codex F05-002#6/#4): status read; exactly one vector
+    (cd "$REPO_ROOT" && PYTHONPATH="$REPO_ROOT" python3 solve.py --r11-verify "$seq") > "$WORK/q7wit_r11py_$t.out" 2>/dev/null < /dev/null; r11pyrc=$?; r11py=$(grep -E '^[0-9]+(,[0-9]+){7}$' "$WORK/q7wit_r11py_$t.out"); [ "$r11pyrc" -eq 0 ] || { echo "Q7WIT_FAIL	$t: solve.py --r11-verify exited $r11pyrc"; frc=1; r11py=""; }; [ "$(grep -c . <<<"$r11py")" -le 1 ] || { echo "Q7WIT_FAIL	$t: solve.py --r11-verify printed $(grep -c . <<<"$r11py") 8-field vectors, not one"; frc=1; r11py=""; }
     echo "r11_c	${r11c:-NONE}"
     echo "r11_py	${r11py:-NONE}"
     if [ -z "$r11c" ] || [ -z "$r11py" ]; then echo "Q7WIT_FAIL	$t: --r11-verify did not print an 8-field vector in both languages (C: ${r11c:-NONE}; py: ${r11py:-NONE})"; frc=1
@@ -1166,8 +1166,8 @@ q7wit_check(){ # q7wit_check TARGET SEQ CERT_JSON [MODE]  -> the solver-free pro
 # serial number for each (Codex, gpt-6-astra, F04-020#1). Set here, outside the rows, so a harness
 # that extracts a row alone does not inherit it.
 Q7_PINNED_WITNESSES="moore-strict grand-strict"
-if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \
-   && [ "$(py_import_state solve sat verify)" = PRESENT ]; then
+_PYS_Q7W=$(py_import_state solve sat verify); if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \
+   && [ "$_PYS_Q7W" = PRESENT ]; then   # FV2 D1295
     row_begin a0_q7_witnesses
     (
       wrc=0
@@ -1201,7 +1201,7 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \
       exit $wrc
     ) >>"$RAW" 2>&1; rc=$?
     row_end TR12_Q7_WITNESSES $rc
-elif [ -f "$REPO_ROOT/solve.py" ] && [ "$(py_import_state solve sat verify)" = BROKEN ]; then row_broken a0_q7_witnesses TR12_Q7_WITNESSES "import solve, sat, verify"; else   # Q-983
+elif [ -f "$REPO_ROOT/solve.py" ] && [ "$_PYS_Q7W" = BROKEN ]; then row_broken a0_q7_witnesses TR12_Q7_WITNESSES "import solve, sat, verify"; else   # Q-983
     row_skip a0_q7_witnesses TR12_Q7_WITNESSES "SKIP:python3-unavailable" \
       "python3+solve.py/sat.py/verify.py unavailable — the pinned witnesses' literature rules (Moore parity/rhythm, Schulz gender) are defined only in solve.py, so the rule re-score cannot run"
 fi
@@ -1263,8 +1263,8 @@ fi
 #            so TR12_LS_W0=PASS attested a computation other than the one the prose names. The MC is
 #            kept below under its own name (a0_ls_w0_mc) and labelled as what it is. No ladder; both
 #            rows are 64-hexagram objects and n-independent, which is what Group A0 is for. ------------
-if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \
-   && [ "$(py_import_state solve)" = PRESENT ]; then
+_PYS_LSW=$(py_import_state solve); if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \
+   && [ "$_PYS_LSW" = PRESENT ]; then   # FV2 D1295
     row_begin a0_ls_w0
     ( cd "$REPO_ROOT" && PYTHONPATH="$REPO_ROOT" python3 -c '
 import solve
@@ -1286,7 +1286,7 @@ print("threshold_label\tKW-anchored: the event level 2 is the rc4_violations val
 print("correction_family\t91 observables (TR-8 F-32; METHODS.md Global observable ledger); Bonferroni bar 0.05/91 = 5.5e-4, cleared by ~5x")
 ' ) >>"$RAW" 2>&1; rc=$?
     row_end TR12_LS_W0 $rc
-elif [ -f "$REPO_ROOT/solve.py" ] && [ "$(py_import_state solve)" = BROKEN ]; then row_broken a0_ls_w0 TR12_LS_W0 "import solve"; else   # Q-983
+elif [ -f "$REPO_ROOT/solve.py" ] && [ "$_PYS_LSW" = BROKEN ]; then row_broken a0_ls_w0 TR12_LS_W0 "import solve"; else   # Q-983
     row_skip a0_ls_w0 TR12_LS_W0 "SKIP:python3-unavailable" \
       "python3+solve.py unavailable — pair_null_gender_le2_exact() could not be evaluated"
 fi
@@ -1298,7 +1298,7 @@ fi
 row_begin a0_ls_w0_mc
 ( echo "# NOT the TR-8 pair-only null (that is row a0_ls_w0 / TR12_LS_W0). This is the C2|C1 and C3|C1"
   echo "# conditional pass-rate Monte-Carlo over random pair-permutations, 10^6 draws, engine seed."
-  "$SOLVE" --null-pair-constrained 1000000 ) >>"$RAW" 2>&1; rc=$?
+  "$SOLVE" --null-pair-constrained 1000000 > "$WORK/ls_w0_mc.out" 2>&1; _r=$?; cat "$WORK/ls_w0_mc.out"; awk '{ if (match($0, /[0-9]+ \/ [0-9]+ +\([0-9.]+%\)/)) { s = substr($0, RSTART, RLENGTH); gsub(/[\/()%]/, " ", s); split(s, a, " "); k = index(a[3], "."); w = sprintf("%." (k ? length(a[3]) - k : 0) "f", (a[2] > 0 ? 100 * a[1] / a[2] : -1)); if (w != a[3]) { printf "MC_PCT_FAIL\t%s / %s is printed as %s%%, recomputed %s%%\n", a[1], a[2], a[3], w; bad = 1 } } } END { exit bad }' "$WORK/ls_w0_mc.out" || _r=1; exit $_r ) >>"$RAW" 2>&1; rc=$?   # FV2 D1272 (Codex F05-020#10): every printed percentage is re-derived from its numerator/denominator
 row_end TR12_LS_W0_COND_MC $rc
 
 # ---- A0.5  Q4(b): ANSWERED 2026-09-05, not pending. -------------------------------------------
@@ -1436,14 +1436,14 @@ if [ "$N_PAIRS" -ge 31 ]; then
     if [ -z "$ANCHOR" ]; then
         # shell-only fallback: --kc-profile resolves "KW" itself and prints entry/exit per step,
         # which reassembles the walk string exactly.
-        ANCHOR=$("$SOLVE" --kc-profile "$FDIR" "$GDIR" KW 2>/dev/null \
-                 | awk -F'\t' '$1 ~ /^[0-9]+$/ {printf "%s%s,%s", (n++?",":""), $3, $4} END{print ""}')
+        "$SOLVE" --kc-profile "$FDIR" "$GDIR" KW > "$WORK/anchor_profile.out" 2>/dev/null < /dev/null || die "--kc-profile KW failed for the anchor (FV2 D1280)"
+        ANCHOR=$(awk -F'\t' '$1 ~ /^[0-9]+$/ {printf "%s%s,%s", (n++?",":""), $3, $4} END{print ""}' "$WORK/anchor_profile.out")
         [ -n "$ANCHOR" ] && ANCHOR_SRC="--kc-profile FDIR GDIR KW (entry/exit columns)"
     fi
 else
     ANCHOR_LABEL="O3-MIDPOINT(unrank_O3(floor(N/2)))"
-    ANCHOR=$("$SOLVE" --kc-o3-unrank "$FDIR" "$GDIR" "$N_HALF" 2>/dev/null \
-             | grep -E '^[0-9]+(,[0-9]+)+$' | head -1)
+    "$SOLVE" --kc-o3-unrank "$FDIR" "$GDIR" "$N_HALF" > "$WORK/anchor_unrank.out" 2>/dev/null < /dev/null || die "--kc-o3-unrank failed for the anchor (FV2 D1280, Codex F05-002#12: the producer's status, not the pipeline's)"
+    ANCHOR=$(grep -E '^[0-9]+(,[0-9]+)+$' "$WORK/anchor_unrank.out" | head -1)
     ANCHOR_SRC="--kc-o3-unrank FDIR GDIR $N_HALF"
 fi
 [ -n "$ANCHOR" ] || die "could not materialise the anchor walk for n=$N_PAIRS"
@@ -1615,7 +1615,7 @@ ladder_sha_row(){ # ladder_sha_row ROWID TOKEN DIR LAYER_PREFIX
 # copy-in drops the page cache and re-hashes every copied file ON the NVMe with O_DIRECT against
 # digests extracted BY FILENAME from the committed tables (130/130, VERIFY_FAILURES=0). For the
 # bytes to be wrong while BOTH checks pass you would need a sha256 collision.
-# 🔴 THE COPY-IN COVERS f AND g ONLY -- t is never copied, so t rests on this row alone.
+# 🔴 THE COPY-IN COVERS f AND g ONLY -- t is not covered by the copy-in; its bytes were verified separately (STAGE_T_RAW_VERIFY.md in the n31 KC-ladders run folder, named without its path so this comment adds no fingerprint member, Q-613: 65/65 container, 32/32 logical digests), which this battery's inline pass does not repeat. (Was "t rests on this row alone"; Codex F04-020#10, FV2 D1274.)
 #
 # MEASURED 2026-09-14 against the live n=31 ladders: 96/96 match, position by position, 0.00 s.
 ladder_identity_row(){ # ladder_identity_row ROWID TOKEN DIR LAYER_PREFIX STAGE_LETTER
@@ -2083,9 +2083,9 @@ kc_first_last_witness() {
         return 1
     fi
     local _kcm _kcmrc _kcp _kcprc; _kcm=$("$SOLVE" --kc-member "$FDIR" "$w" 2>/dev/null); _kcmrc=$?; [ "$_kcmrc" -eq 0 ] && grep -qx 'MEMBER' <<<"$_kcm" \
-      || { echo "${tok}_FAIL	--kc-member does not call the emitted walk a member of this f ladder (rc=$_kcmrc; Q-963: MEMBER and rc 0, both)"; erc=1; }
+      && [ "$(grep -cxE 'MEMBER|NON-MEMBER' <<<"$_kcm")" = 1 ] || { echo "${tok}_FAIL	--kc-member does not call the emitted walk a member of this f ladder (rc=$_kcmrc; Q-963: MEMBER and rc 0, both)"; erc=1; }
     _kcp=$("$SOLVE" --kc-profile "$FDIR" "$GDIR" "$w" 2>/dev/null); _kcprc=$?; cd=$(printf '%s\n' "$_kcp" \
-           | sed -n 's/.*[[:space:]]cd=\([0-9][0-9]*\).*/\1/p' | head -1); [ "$_kcprc" -eq 0 ] || cd="rc=$_kcprc"   # Q-963 (batch 48; Codex Q835 R7): the profile's status was lost through `sed | head`
+           | grep -oE '(^|[[:space:]])cd=[^[:space:]]*' | sed 's/^[[:space:]]*cd=//'); [ "$(grep -c . <<<"$cd")" -le 1 ] || cd="several:$(tr '\n' ' ' <<<"$cd")"; [ "$_kcprc" -eq 0 ] || cd="rc=$_kcprc"   # FV2 D1281/D1282 (Codex F05-002#9/#10): one MEMBER verdict; one whole cd=<digits> token   # Q-963 (batch 48; Codex Q835 R7): the profile's status was lost through `sed | head`
     case "${cd:-}" in
         ''|*[!0-9]*) echo "${tok}_FAIL	--kc-profile printed no numeric cd for the emitted walk (got '${cd:-<none>}')"; erc=1 ;;
         *) [ "$cd" -le "$C3MAX" ] \
@@ -2210,7 +2210,7 @@ row_end TR12_V3_TSV $rc
 # ---- A1.9  Q5 functional extremals.  --kc-extremal has landed (in-memory v1, n<=22), so the
 #            reduced universes run it for free.  At full-31 it is SCAN-class per functional and
 #            §7 rules wave 3 NOT BUDGETED — it stays skipped unless --wave3 is passed. ---------
-if [ "$N_PAIRS" -ge 31 ] && [ "$WAVE3" -eq 0 ]; then
+_PYS_Q5=$(py_import_state solve); if [ "$N_PAIRS" -ge 31 ] && [ "$WAVE3" -eq 0 ]; then
     # 🔴 CODEX R5 FINDING 5 (2026-09-11). This said "Pass --wave3 to run it anyway", which is an
     # instruction that CANNOT WORK at n=31 and it is published in the battery an operator reads.
     # Control-flow proof, verified here: kc_open returns OUT-OF-CORE whenever n > KC_MEM_MAX_PAIRS
@@ -2224,8 +2224,8 @@ if [ "$N_PAIRS" -ge 31 ] && [ "$WAVE3" -eq 0 ]; then
     row_skip a1_q5 TR12_Q5 "SKIP:wave3-not-budgeted" "wave3-not-budgeted (§7 operator ruling): one full Stage-F-shaped pass per functional, several machine-hours each. NOTE: --wave3 does NOT enable this at n=31 -- the extremal builder is IN-MEMORY ONLY (the kc_open call and its out-of-core refusal, solve.c:38150-38151) and an n=31 f ladder always opens out-of-core (n > KC_MEM_MAX_PAIRS, :20991), so --wave3 exits 2 and computes nothing. The OOC extremal builder is unbuilt; budget is not the only gate."
 elif ! "$SOLVE" --kc-extremal list >/dev/null 2>&1; then
     row_skip a1_q5 TR12_Q5 "PENDING:--kc-extremal" "PENDING:--kc-extremal — this binary does not accept it"
-elif [ -f "$REPO_ROOT/solve.py" ] && [ "$(py_import_state solve)" = BROKEN ]; then row_broken a1_q5 TR12_Q5 "import solve"   # Q-983
-elif ! command -v python3 >/dev/null 2>&1 || [ ! -f "$REPO_ROOT/solve.py" ] || [ "$(py_import_state solve)" != PRESENT ]; then
+elif [ -f "$REPO_ROOT/solve.py" ] && [ "$_PYS_Q5" = BROKEN ]; then row_broken a1_q5 TR12_Q5 "import solve"   # Q-983; FV2 D1295: one probe for both arms
+elif ! command -v python3 >/dev/null 2>&1 || [ ! -f "$REPO_ROOT/solve.py" ] || [ "$_PYS_Q5" != PRESENT ]; then
     # 🔴 THE ROW SKIPS RATHER THAN RUNS WITHOUT THE SECOND LANGUAGE. The KC-X module header makes
     # the solve.py re-check a SHIPPING CONDITION of every Q5 number ("no Q5 number ships without
     # it"), so a run that produces the numbers and cannot re-check them has not reproduced the
@@ -2808,8 +2808,8 @@ if [ "$N_PAIRS" -ge 31 ]; then
               # Both the round-4 prescription and this implementation wrote that stub format without
               # running --kc-o3-rank once. Keyed on the FIELD now, not on a punctuation guess.
               r3=$(awk -F'\t' '$1=="rank3"{print $2; exit}' "$WORK/q7rank.out")
-              if [ -z "$r3" ]; then
-                  echo "Q7RANKS_FAIL	$(basename "$j"): no rank3 field was printed -- an unmeasured rank is not a rank"; erc=1
+              if [ -z "$r3" ] || ! [[ "$r3" =~ ^(0|[1-9][0-9]*)$ ]] || { [ -n "$N_TOTAL" ] && [ "$(echo "$r3 < $N_TOTAL" | bc 2>/dev/null)" != 1 ]; }; then   # FV2 D1286 (Codex F05-002#8): a decimal in [0, N), not any string
+                  echo "Q7RANKS_FAIL	$(basename "$j"): no rank3 in [0, N=$N_TOTAL) was printed (got '${r3:-}') -- an unmeasured rank is not a rank"; erc=1
               elif [ "$lab" = "KW" ] && [ "$r3" != "0" ]; then
                   echo "Q7RANKS_FAIL	$(basename "$j"): rank3=$r3, but rank_O3 of an anchor-derived labeling is FORCED to 0"; erc=1
               elif [ "$lab" != "KW" ] && [ "$r3" = "0" ]; then
@@ -3425,7 +3425,7 @@ else
           d4=$(printf '%s' "$line" | sed -n 's/.*"d4": "\([0-9]*\)".*/\1/p')
           d6=$(printf '%s' "$line" | sed -n 's/.*"d6": "\([0-9]*\)".*/\1/p')
           ad=$(awk -F'\t' -v k="$i" '$1==k{print $2}' "$WORK/q6_ad.tsv"); ad=${ad:-NA}
-          am=NA; ap=NA; pc=NA
+          am=NA; ap=NA; pc=NA; for _f in "$fl" "$d1" "$d2" "$d3" "$d4" "$d6"; do [ -n "$_f" ] || { echo "Q6_FAIL	layer $i: a flow/d-class field is missing or not a quoted integer in this atlas record (FV2 D1289)"; fails=1; break; }; done
           if [ "$ad" != "NA" ] && [ -n "$fl" ]; then
               case "$ad" in 1) am=$d1 ;; 2) am=$d2 ;; 3) am=$d3 ;; 4) am=$d4 ;; 6) am=$d6 ;; *) am="" ;; esac
               if [ -z "$am" ]; then
@@ -4006,7 +4006,7 @@ fi
 # The V1/V2/V4/V5 generators landed in viz/report_figures.py (TSV -> figure, no analysis logic).
 # They need matplotlib + numpy, which are deliberately NOT project dependencies, so a box without
 # them skips the row rather than failing it.
-if [ -d "$ARTDIR/consumer" ] && [ "$(py_import_state matplotlib numpy)" = BROKEN ]; then row_broken c_viz TR12_VIZ "import matplotlib, numpy"; elif [ -d "$ARTDIR/consumer" ] && [ "$(py_import_state matplotlib numpy)" = PRESENT ]; then   # Q-983
+_PYS_VIZ=$(py_import_state matplotlib numpy); if [ -d "$ARTDIR/consumer" ] && [ "$_PYS_VIZ" = BROKEN ]; then row_broken c_viz TR12_VIZ "import matplotlib, numpy"; elif [ -d "$ARTDIR/consumer" ] && [ "$_PYS_VIZ" = PRESENT ]; then   # Q-983
     row_begin c_viz
     mkdir -p "$ARTDIR/figures"
     #   V4 (shells) renders only if row c_consumer wrote a q3_profile TSV, i.e. only if the
@@ -4101,14 +4101,14 @@ agg TR12_Q2 TR12_Q2 TR12_GCHECK TR12_GSHA
 {
   echo "# TR-12 reproduction battery verdicts — one KEY=value line per row, matched with grep -qx."
   echo "# universe n=$N_PAIRS  N=$N_TOTAL  expected-blocks=$EXPECTDIR"
-} > "$VERD.hdr"
+} > "$VERD.hdr" || VHW=1   # FV2 D1291 (Codex F04-020#5, F05-002#13): every write of the verdict file is checked
 
 for t in "${TOKORDER[@]}"; do
     printf '%s=%s\n' "$t" "${TOKSTATE[$t]}"
     [ -n "${TOKREASON[$t]:-}" ] && printf '%s_REASON=%s\n' "$t" "${TOKREASON[$t]}"
-done | awk '!seen[$0]++' > "$VERD.body"
+done | awk '!seen[$0]++' > "$VERD.body" || VHW=1
 
-cat "$VERD.hdr" "$VERD.body" > "$VERD"; rm -f "$VERD.hdr" "$VERD.body"
+cat "$VERD.hdr" "$VERD.body" > "$VERD" || VHW=1; rm -f "$VERD.hdr" "$VERD.body"; [ "$(grep -v '^#' "$VERD" 2>/dev/null | grep -v '_REASON=' | cut -d= -f1 | sort -u | grep -c .)" = "$(printf '%s\n' "${TOKORDER[@]}" | sort -u | grep -c .)" ] || VHW=1
 
 # ================================================================================================
 # THE SKIPPED REPORT — printed even on success, because a silent skip reading as a pass is the
@@ -4193,7 +4193,7 @@ fi
 # PENDING withholds is TR12_REPRO_COMPLETE: row_skip counts PENDING into NSKIP, and COMPLETE=YES is
 # emitted only at NSKIP == 0, so one PENDING already forces TR12_REPRO_COMPLETE=NO. The driver was
 # right and the comment was wrong. COMMENT ONLY -- not one executable line changed.)
-AGG_OK=1; VWF=0   # VWF: Q-963 (batch 48), set when a verdict or manifest write fails
+AGG_OK=1; VWF=$VHW   # VWF: Q-963 (batch 48), set when a verdict or manifest write fails
 for t in "${TOKORDER[@]}"; do
     case "${TOKSTATE[$t]}" in FAIL*|ERROR*) AGG_OK=0 ;; esac
 done

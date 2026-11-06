@@ -38174,3 +38174,141 @@ No canonical sha, record count, certificate value or verdict changed in CX-36N-A
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch G7c; the defects were found by Codex
 (gpt-6-astra), final review, and triaged by Fable.
+
+## CX-36Q-A — build, bench and binary-currency helpers (scripts/lib_binary_currency.sh, kc_midn_validate.sh, build_pgo.sh, capture_build_manifest.sh, perf_bench.sh; documentation/DEVELOPMENT.md)
+
+**2026-11-04.** **Source.** Codex (gpt-6-astra), fix-verification round; triaged by Fable in FV2 slice 2. Batch
+FV2-R (backlog Q-1047).
+
+- **Binary currency (D1155, F09-A03#3; D1158, F04-021#5).** A source that could not be hashed made the binary's own
+  tag look "foreign" (refused, but for the wrong reason), and a missing or failing `strings` let a stale tagged binary
+  read as current by timestamp. Both are now UNMEASURED: rc 2, signal `unmeasured`. Every caller already treats a
+  nonzero rc as an error, and the strict wrapper passes rc 2 through.
+- **kc mid-n driver (D1144, F04-021#11; D1145, F04-006#10).** A non-integer `KC_MIDN_MAX_N` made the size check
+  error, which read as "not too big", so an oversized n ran. The ceiling and each n must now be plain integers. A
+  work directory the script made itself is removed on exit (`KC_MIDN_KEEP=1` keeps it).
+- **PGO build (D931, F04-021#4; D932, F09-A04#5, F09-A01#15).** One `ENUM_RUN=FINISHED` line was enough, so a
+  workload whose first run was killed and whose second finished trained Pass 2 on a partial profile. The workload
+  now sees `$INSTR_BIN` as a small runner that logs each start; the log must hold one FINISHED line per start. The
+  final binary's digest is taken before "PGO build complete" is printed, and a failed hash is an error.
+- **Build manifest (D935, F04-021#8).** `gcc -print-prog-name=libgomp.so.1` prints the bare name when it finds
+  nothing, and that name was recorded as a path. The manifest now uses `-print-file-name`, records `unknown` unless
+  the result exists, and reads linkage from `ldd ./solve`. DEVELOPMENT.md's manifest recipe says the same.
+- **Paired bench (D1167, F04-022#10; D1168, F04-022#3; D1169, F04-022#13).** An interrupt after provisioning had
+  started (Ctrl-C, a lost session, TERM) left the bench host allocated. From the first provisioning step, every exit
+  path now tears it down (once, and `--keep-vm` is still honoured). The throttle probe now requires every burner to
+  be alive when the frequency is read; a dead burner reads UNVERIFIED. The header no longer says the script runs two
+  scales by default; it runs one (`--scale`).
+
+**Already cured at the base, no change:** D1170 (F12-008#2). The header, the JSON's `enum_wall_scope` and
+DEVELOPMENT.md already say the timed span is the whole `--branch` run, not enumeration alone. The field keeps its
+name, so PERFORMANCE_HISTORY.md entries stay comparable.
+
+**Tests.** `TestBatchFV2R` (test_d1155, d1158, d1144, d1145, d931, d932, d935, d1167, d1168, d1169). They fail on
+the parent tree. One shared fixture changed: TestQ847PerfBenchFreshWorkdir's `yes` stub now keeps running until it
+is killed, as the real `yes` does, so the full-run perf_bench tests still reach their bench.
+
+## CX-36Q-B — Spot launch checks (scripts/spot_health_precheck.sh, scripts/spot_pre_launch_check.sh)
+
+**2026-11-04.** **Source.** Codex (gpt-6-astra), fix-verification round; triaged by Fable in FV2 slice 2. Batch
+FV2-R.
+
+- **Restrictions answer (D1234, F04-022#5).** Any answer other than `[]` or `[[]]` passed signal 1 if a text search
+  for the region found nothing, so an error object or a cut-off reply read OK. The answer is now parsed as JSON. A
+  restriction whose locations name the region is a HARD-FAIL. Any other shape is an ERROR.
+- **Quota values (D1236, F04-022#6).** The quota reader took the leading digits of a bad value ("999x" read as 999).
+  Each value must now be a whole integer, else ERROR.
+- **Probe wording (D1237, F04-022#8).** The final OK said "safe to launch" the target size on the strength of a
+  small probe VM. It now says the OK rests on signals 1 and 2, and that the probe is a capacity signal, not
+  clearance. The probe can still return WAIT.
+- **Input range (D1239, F04-022#4).** A need_vcpu too large for bash's integers broke the quota comparison, which
+  then read as enough quota. More than 6 digits is now an ERROR.
+- **Risk window (D1242, F04-022#12).** 16:00-16:59 PT on a weekday read HIGH. The script's own table puts the peak
+  at 09:00-16:00, with the MEDIUM tail from 16:00, and the test now matches that.
+- **Dead citation (D1240, F04-022#15).** The recovery-time estimate cited a file that is not in this checkout. The
+  comment now names the analysis by date and says it is not reproduced here.
+
+**Tests.** `TestBatchFV2R` (test_d1234, d1236, d1237, d1239, d1240, d1242), all on stubs, with no cloud call. They
+fail on the parent tree.
+
+## CX-36Q-C — the execution lane (scripts/exec_lane.sh)
+
+**2026-11-04.** **Source.** Codex (gpt-6-astra), fix-verification round; triaged by Fable in FV2 slice 2. Batch
+FV2-R.
+
+- **What is classified (D1100, F05-010#19; D1104, F05-016#2).** The failure classifier read the tail of the whole
+  log, including the lane's own `# cmd:` header. A command whose text named SOLVE_ALLOW_SLOW_IOPS or `ulimit`
+  could turn its own failure into a skip. Only the process's output is classified now. The disk-IOPS skip also
+  needs the engine's refusal status (31).
+- **Launcher status (D1101, F09-A03#8).** If the launcher could not `cd` into the step's directory, a command the
+  docs say fails was graded "fails as documented" without ever running. The launcher now records that case, and
+  it is a FAIL before any other rule is read.
+- **SIGPIPE (D1102, F04-021#3, F05-010#18).** Exit 141 passed whenever the text held a `|`, so
+  `false | yes | head -1` passed. The recorded PIPESTATUS must now show a final stage of 0 and every other stage 0
+  or 141.
+- **ulimit refusal (D1103, F05-010#20).** Any output naming the word "ulimit" was graded as the engine's stack
+  refusal. It must now be solve.c's instruction, `ulimit -s unlimited` or `ulimit -s <N>`.
+- **Chains (D1105, F05-010#14; D1112, F05-010#16; D1113, F05-010#15; D1116, F05-010#17).** A producer that passed
+  without writing its declared output was credited when a tracked copy already existed. Each producer's dependency
+  paths are now fingerprinted before it runs, and an unchanged path breaks the chain as a gating FAIL. An output
+  named without an extension (`--out atlas`), a `./`-prefixed spelling, and an attached `<file` operand now
+  connect producer and consumer. (The /tmp rewrite of an attached `</tmp/...` is not changed in this batch; a spaced `< /tmp/...` was already rewritten.)
+- **Missing scripts (D1106, F05-010#11).** A published invocation of a repository script that does not exist
+  dropped out of the inventory with no verdict. It is now class FAIL-MISSING-SCRIPT (a .sh or .py path under a
+  directory the tree has). The corpus had no such line when this landed.
+- **OPS denial (D1108, F04-021#1).** `/usr/bin/curl ...` and `bash -c "curl ..."` were not denied and ran. A path
+  whose basename is an OPS tool is now denied, and the bodies of `sh|bash -c '...'` and `eval '...'` are judged
+  recursively. Measured on the corpus: the inventory moves one row, an existing skip that is now SKIP-OPS instead
+  of SKIP-PLACEHOLDER.
+- **Signals during extraction (D1114, F04-021#13).** The traps were set only after extraction. A signal during
+  extraction left scratch files behind and printed no INTERRUPTED report. The traps are now set first.
+- **Background jobs (D1117, F05-010#21).** A documented `cmd &` returned at once, and its failure was never seen.
+  Every background job is now waited for, and its failure fails the step.
+
+**Held for the operator:** D1107 (F04-021#9). Judging `<...>` only outside quotes would make four published rows
+runnable. One of them, a markdown table cell in viz/viz_kc_spectrum.md, then fails only because the lane reads the
+table's `\|` escape literally. Unescaping `\|` in table cells changes 12 other rows, so this needs a decision on how
+the lane reads tables. No code changed for D1107.
+
+**Tests.** `TestBatchFV2R` (test_d1100/d1104, d1101, d1102, d1103, d1105, d1106, d1108, d1112/d1113/d1116, d1114,
+d1117). They run the real lane on small fixture repositories and fail on the parent tree.
+
+## CX-36Q-D — the TR-12 battery driver (scripts/tr12_repro.sh); rows already cured; rows held
+
+**2026-11-04.** **Source.** Codex (gpt-6-astra), fix-verification round; triaged by Fable in FV2 slice 2. Batch
+FV2-R. Every edit keeps tr12_repro.sh's line count (4,243), so no cited line moves. No n=9 golden changed.
+
+- **Q7 witnesses (D1267, F05-002#5; D1268, F05-002#6/#4/#3, F04-020#2, F05-014#3; D1269, F05-002#4).** A pinned
+  witness whose certificate had no C3 value skipped the published-equality check, and that now fails. The two
+  `--r11-verify` producers are captured with their exit status. Each must exit 0 and print exactly one 8-field
+  vector.
+- **Probes and parsers (D1279, F05-002#2; D1295, F05-002#1; D1281, F05-002#9; D1282, F05-002#10; D1286,
+  F05-002#8; D1292, F05-019#5).** The import probe now reports BROKEN for any value other than an exact PRESENT or
+  ABSENT, and each if/elif dispatch probes once. A walk must get exactly one MEMBER verdict, and exactly one whole
+  `cd=<digits>` token. A witness serial must be a decimal in [0, N). An unreadable Q10(a) certificate is an
+  error, not an empty key list.
+- **Statuses and writes (D1277, F04-015#9; D1278, F04-020#6; D1280, F05-002#12; D1291, F04-020#5, F05-002#13).** A
+  failed `mktemp` stops the battery before WORK is used. `--keep` keeps the files but no longer turns off the kill
+  of child processes. The n<31 anchor's `--kc-o3-unrank`, and the n=31 `--kc-profile` fallback, are now read with
+  their status. Each write of VERDICTS.txt is checked, and its row count must equal the token count, or there is
+  no verdict (exit 2).
+- **Checks and comments (D1272, F05-020#10; D1289, F05-017#2; D1274, F04-020#10).** The MC row now recomputes
+  each printed percentage from its numerator and denominator. The Q6 row fails on a layer record with a missing
+  field. The copy-in comment no longer says the t ladder "rests on this row alone": STAGE_T_RAW_VERIFY.md records
+  a separate 65/65 container and 32/32 logical-digest check of t.
+
+**Already cured at the base, no change:** D1275 (F04-020#7). `--with-tcheck` under `--atlas` already runs the t
+check (F04-020#6). For D1280, the universe count and V3 unranking already read their producers' status, and only
+the anchor needed it.
+
+**Held:** D1270 (HEADLINE-OR-COUNT, as triaged). The a0_ls_w0 row's Bonferroni sentence changes the golden and a
+published verdict sentence. D1107 (CX-36Q-C).
+
+**Tests.** `TestBatchFV2R` (test_d1279, d1295, d1277/d1278, d1268/d1269, d1272, d1281/d1282, and
+test_tr12_structural_cures for D1267, D1274, D1280, D1286, D1289, D1291, D1292, whose failure needs the full
+battery). They fail on the parent tree. The stamp was refreshed.
+
+No canonical sha, record count, certificate value or verdict changed in CX-36Q-A to CX-36Q-D.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch FV2-R; the defects were found by Codex
+(gpt-6-astra) in its fix-verification round and triaged by Fable.

@@ -27,10 +27,20 @@ echo
 echo "=== toolchain ==="
 gcc --version | head -1
 ldd --version | head -1
-GOMP_PATH=$(gcc -print-prog-name=libgomp.so.1 2>/dev/null)
-echo "libgomp path:      ${GOMP_PATH:-unknown}"
+# Codex (gpt-6-astra) F04-021#8 (FV2 D935): `gcc -print-prog-name=libgomp.so.1` echoes the bare name
+# back when it finds no such PROGRAM, so "libgomp path: libgomp.so.1" was recorded as if it were a
+# path. -print-file-name searches the library path (it, too, echoes the bare name on a miss), so the
+# result is recorded only when it names an existing file; the linkage itself is read from the binary.
+GOMP_PATH=$(gcc -print-file-name=libgomp.so.1 2>/dev/null) || GOMP_PATH=""
+[ -n "$GOMP_PATH" ] && [ -e "$GOMP_PATH" ] || GOMP_PATH=unknown
+echo "libgomp path:      $GOMP_PATH"
 if [ -L "$GOMP_PATH" ]; then
-    echo "libgomp resolved:  $(readlink -f $GOMP_PATH)"
+    echo "libgomp resolved:  $(readlink -f "$GOMP_PATH")"
+fi
+if [ -x ./solve ]; then
+    GOMP_LINK=$(ldd ./solve 2>/dev/null | grep -F libgomp || true)
+    if [ -n "$GOMP_LINK" ]; then echo "libgomp linked:    ${GOMP_LINK#"${GOMP_LINK%%[![:space:]]*}"}"
+    else echo "libgomp linked:    none (./solve does not link libgomp)"; fi
 fi
 echo
 

@@ -15762,7 +15762,7 @@ case "$1" in tee) cat > /dev/null ;; esac
 exit 0
 """,
         "sleep": "#!/bin/sh\nexit 0\n",
-        "yes": "#!/bin/sh\nexit 0\n",
+        "yes": "#!/bin/sh\nexec /bin/sleep 30\n",   # FV2 D1168: a real `yes` runs until killed; the probe now requires every burner alive
         "gcc": r"""#!/bin/bash
 out=""; gdir=""
 while [ $# -gt 0 ]; do
@@ -49580,7 +49580,7 @@ class TestBatchG5a(unittest.TestCase):
         self.assertNotIn("D5_08_Q6_Q10A_SHELL_GATE=PASS", out.splitlines(), "unbuilt mutants were counted as kills")
 
     def test_d5_03_gate_sees_an_unreachable_row(self):  # F05-013#1
-        old = 'if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \\\n   && [ "$(py_import_state solve)" = PRESENT ]; then\n    row_begin a0_ls_w0\n'
+        old = '_PYS_LSW=$(py_import_state solve); if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \\\n   && [ "$_PYS_LSW" = PRESENT ]; then   # FV2 D1295\n    row_begin a0_ls_w0\n'   # FV2-R: the guard after D1295 (one import probe)
         d = self._mini("d503", ("scripts/tr12_repro.sh",), [("scripts/tr12_repro.sh", old, old.replace("if command", "if false && command", 1))])
         rc, out = self._gate(self.ROOT, "scripts/d5_03_ls_w0_exact_gate.sh", env={"D5_03_SRC": os.path.join(d, "scripts/tr12_repro.sh")})
         self.assertNotIn("D5_03_LS_W0_EXACT_GATE=PASS", out.splitlines(), "the row made unreachable was certified")
@@ -59984,6 +59984,560 @@ class TestBatchG7c(unittest.TestCase):
         self._lacks(d, "so this check is off there and the gate prints a `[note]` saying so. The pre-push\nhook runs",
                     "F12-008#15")
 
+
+import time  # TestBatchFV2R (polling waits on a started marker)
+
+
+class TestBatchFV2R(unittest.TestCase):
+    """Push group FV2-R (backlog Q-1047): the tr12_repro.sh, exec_lane.sh and build / spot / perf /
+    binary-currency helper rows of the FV2 adjudication of Codex's final review (gpt-6-astra), triaged by
+    Fable (SLICE2). CX-36Q-A onward; each test names the FV2 row (Dnnnn) and the Codex finding it closes.
+
+    Each behaviour test plants the defect Codex described (an unreadable source, a missing `strings`, a
+    malformed limit, a killed first workload run, a SIGINT after provisioning, a dead burner, a quoted
+    SOLVE_ALLOW_SLOW_IOPS, `false | yes | head -1`, a producer that never wrote its output, a probe that
+    prints PRESENT\\r, a vector followed by a failing exit, ...), asserts the plant reached the site, and
+    requires the cured script to go red (or, for a mis-classification, to classify correctly). On the
+    uncured scripts of the parent tree each plant passes, so the test fails for that reason. Stubs only:
+    no cloud call, no spend, no real VM."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="fv2r_")
+        cls.n = 0
+
+    @classmethod
+    def tearDownClass(cls):
+        subprocess.run(["chmod", "-R", "u+rwX", cls.tmp], capture_output=True)
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    # ---- helpers ------------------------------------------------------------------------------------
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _sp(self, name):
+        return os.path.join(self.ROOT, "scripts", name)
+
+    def _d(self):
+        type(self).n += 1
+        d = os.path.join(self.tmp, "c%d" % self.n)
+        os.makedirs(d)
+        return d
+
+    def _wr(self, path, text, mode=0o644):
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.chmod(path, mode)
+
+    def _env(self, **extra):
+        e = dict(os.environ)
+        for k in list(e):
+            if k.startswith("GIT_"):
+                e.pop(k)
+        e.update(GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t", GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+        e.update(extra)
+        return e
+
+    def _bash(self, script, cwd=None, path_prefix=None, timeout=300, **env):
+        e = self._env(**env)
+        if path_prefix:
+            e["PATH"] = path_prefix + os.pathsep + e["PATH"]
+        return subprocess.run([shutil.which("bash") or "/bin/bash", "-c", script], cwd=cwd or self.ROOT,
+                              capture_output=True, text=True, env=e, timeout=timeout)
+
+    def _bin(self, d, name, body):
+        p = os.path.join(d, "bin", name)
+        self._wr(p, body, 0o755)
+        return os.path.join(d, "bin")
+
+    def _git(self, d, *args):
+        r = subprocess.run(["git", "-C", d] + list(args), capture_output=True, text=True, env=self._env())
+        self.assertEqual(r.returncode, 0, "git %s: %s" % (" ".join(args), r.stderr))
+
+    def _lane_fixture(self, md_body, extra=None):
+        d = self._d()
+        self._git(d, "init", "-q")
+        files = {"README.md": md_body,
+                 "reports/TR1_X.md": "# TR\n\nEvery MEASURED result carries a reproduction command.\n"}
+        files.update(extra or {})
+        for rel, text in files.items():
+            self._wr(os.path.join(d, rel), text)
+        self._git(d, "add", "-A")
+        self._git(d, "commit", "-qm", "base")
+        return d
+
+    def _lane(self, d, *args, path_prefix=None, timeout=300):
+        r = self._bash("bash %s --tree . %s 2>&1" % (shlex.quote(self._sp("exec_lane.sh")), " ".join(args)),
+                       cwd=d, path_prefix=path_prefix, timeout=timeout)
+        return r.stdout
+
+    # ================================================================================================
+    # lib_binary_currency.sh (D1155 F09-A03#3, D1158 F04-021#5) -- CX-36Q-A
+    # ================================================================================================
+    def _currency(self, d, src, binp, strict=False, path=None):
+        fn = "solve_binary_currency_strict" if strict else "solve_binary_currency"
+        sc = ('. %s\n%s %s %s; rc=$?\necho "rc=$rc signal=$BINCUR_SIGNAL"\n'
+              % (shlex.quote(self._sp("lib_binary_currency.sh")), fn, shlex.quote(binp), shlex.quote(src)))
+        env = {}
+        if path is not None:
+            env["PATH"] = path
+        return self._bash(sc, cwd=d, **env).stdout
+
+    def test_d1155_unhashable_source_is_unmeasured_not_foreign(self):
+        d = self._d()
+        src = os.path.join(d, "solve.c")
+        self._wr(src, "int main(void){return 0;}\n")
+        binp = os.path.join(d, "solve")
+        self._wr(binp, "#!/bin/sh\n# " + "ab" * 32 + "\nexit 0\n", 0o755)
+        ok = self._currency(d, src, binp)
+        self.assertIn("signal=foreign-sha", ok, "precondition: a readable source with a foreign tag reads foreign: " + ok)
+        os.chmod(src, 0)
+        if os.access(src, os.R_OK):
+            self.skipTest("running as a user that can read mode-000 files")
+        out = self._currency(d, src, binp)
+        self.assertIn("rc=2 signal=unmeasured", out, "an unhashable source must be UNMEASURED (rc 2): " + out)
+        out = self._currency(d, src, binp, strict=True)
+        self.assertIn("rc=2 signal=unmeasured", out, "the strict wrapper must pass rc 2 through: " + out)
+
+    def test_d1158_missing_strings_is_unmeasured_not_mtime_weak(self):
+        d = self._d()
+        src = os.path.join(d, "solve.c")
+        self._wr(src, "int main(void){return 0;}\n")
+        binp = os.path.join(d, "solve")
+        self._wr(binp, "#!/bin/sh\n# " + "cd" * 32 + "\nexit 0\n", 0o755)
+        st = os.stat(src)
+        os.utime(binp, (st.st_atime + 100, st.st_mtime + 100))
+        tools = os.path.join(d, "tools")
+        os.makedirs(tools)
+        for t in ("sha256sum", "cut", "grep", "sort", "awk", "cat"):
+            w = shutil.which(t)
+            self.assertTrue(w, "precondition: %s exists" % t)
+            os.symlink(w, os.path.join(tools, t))
+        full = self._currency(d, src, binp)
+        self.assertIn("signal=foreign-sha", full, "precondition: with strings the stale tag is found: " + full)
+        out = self._currency(d, src, binp, path=tools)
+        self.assertIn("rc=2 signal=unmeasured", out, "no `strings` must not read mtime-weak (rc 0): " + out)
+
+    # ================================================================================================
+    # kc_midn_validate.sh (D1144 F04-021#11, D1145 F04-006#10) -- CX-36Q-A
+    # ================================================================================================
+    def _kc_stub(self, d):
+        log = os.path.join(d, "calls.log")
+        sd = self._bin(d, "solve_stub", "#!/bin/bash\necho \"$*\" >> %s\nexit 7\n" % shlex.quote(log))
+        return os.path.join(sd, "solve_stub"), log
+
+    def test_d1144_non_integer_ceiling_refuses(self):
+        d = self._d()
+        stub, log = self._kc_stub(d)
+        r = self._bash("bash %s" % shlex.quote(self._sp("kc_midn_validate.sh")), cwd=d, SOLVE_BIN=stub,
+                       KC_MIDN_ALLOW_STALE="1", KC_MIDN_MAX_N="abc", KC_MIDN_NS="31", KC_MIDN_WORK=os.path.join(d, "w"))
+        calls = open(log).read() if os.path.exists(log) else ""
+        self.assertNotIn("--kc-build", calls, "n=31 started under a non-integer ceiling: " + calls)
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("KC_MIDN_MAX_N", r.stderr)
+        r2 = self._bash("bash %s" % shlex.quote(self._sp("kc_midn_validate.sh")), cwd=d, SOLVE_BIN=stub,
+                        KC_MIDN_ALLOW_STALE="1", KC_MIDN_MAX_N="22", KC_MIDN_NS="31", KC_MIDN_WORK=os.path.join(d, "w"))
+        self.assertEqual(r2.returncode, 3, "control: an integer ceiling still refuses n=31 with exit 3: " + r2.stderr)
+
+    def test_d1145_own_work_dir_is_removed_on_failure(self):
+        d = self._d()
+        stub, log = self._kc_stub(d)
+        r = self._bash("bash %s" % shlex.quote(self._sp("kc_midn_validate.sh")), cwd=d, SOLVE_BIN=stub,
+                       KC_MIDN_ALLOW_STALE="1", KC_MIDN_NS="9")
+        m = re.search(r"work=(/tmp/kc_midn_\w+)", r.stdout)
+        self.assertTrue(m, "precondition: the run named its work dir: " + r.stdout + r.stderr)
+        self.assertIn("--kc-build", open(log).read(), "precondition: the failing build was reached")
+        self.assertNotEqual(r.returncode, 0, "precondition: the stub build fails the run")
+        exists = os.path.exists(m.group(1))
+        if exists:
+            shutil.rmtree(m.group(1), ignore_errors=True)
+        self.assertFalse(exists, "the mktemp'd work dir survived a failing run")
+
+    # ================================================================================================
+    # build_pgo.sh (D931 F04-021#4, D932 F09-A04#5) / capture_build_manifest.sh (D935 F04-021#8) -- CX-36Q-A
+    # ================================================================================================
+    STUB_C = r'''#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+int main(int argc, char **argv) {
+    if (argc > 1 && strcmp(argv[1], "--selftest") == 0) { puts("selftest: PASS"); return 0; }
+    if (argc > 1 && strcmp(argv[1], "slow") == 0) sleep(5);
+    puts("ENUM_RUN=FINISHED");
+    return 0;
+}
+'''
+
+    def _pgo(self, d, workload, path_prefix=None):
+        bd = os.path.join(d, "build")
+        self._wr(os.path.join(bd, "stub.c"), self.STUB_C)
+        return self._bash("bash %s stubpgo %s stub.c %s 2>&1" % (shlex.quote(self._sp("build_pgo.sh")), shlex.quote(bd),
+                                                                    shlex.quote(workload)),
+                          cwd=d, path_prefix=path_prefix, timeout=600)
+
+    def test_d931_a_killed_first_run_refuses_pass2(self):
+        d = self._d()
+        r0 = self._pgo(d, '"$INSTR_BIN" fast; "$INSTR_BIN" fast')
+        self.assertEqual(r0.returncode, 0, "control: two finished runs build: " + r0.stdout[-1500:])
+        self.assertIn("PGO build complete", r0.stdout)
+        d2 = self._d()
+        r = self._pgo(d2, '"$INSTR_BIN" slow & p=$!; sleep 1; kill -9 $p; wait $p; "$INSTR_BIN" fast')
+        wl = "".join(open(os.path.join(dp, f)).read() for dp, _, fs in os.walk(os.path.join(d2, "build"))
+                     for f in fs if f == "workload.log")
+        self.assertIn("ENUM_RUN=FINISHED", wl, "precondition: the second run finished: " + r.stdout[-1500:])
+        self.assertNotIn("PGO build complete", r.stdout, "Pass 2 built from a profile whose first run was killed: " + r.stdout[-1500:])
+        self.assertNotEqual(r.returncode, 0)
+
+    def test_d932_failed_digest_is_no_completed_build(self):
+        d = self._d()
+        sd = self._bin(d, "sha256sum", "#!/bin/bash\ncase \"$*\" in *stubpgo) echo \"shim $*\" >> %s; exit 1;; esac\nexec %s \"$@\"\n"
+                       % (shlex.quote(os.path.join(d, "shim.log")), shlex.quote(shutil.which("sha256sum"))))
+        r = self._pgo(d, '"$INSTR_BIN" fast', path_prefix=sd)
+        self.assertTrue(os.path.exists(os.path.join(d, "shim.log")), "precondition: the final hash was attempted: " + r.stdout[-1500:])
+        self.assertNotIn("PGO build complete", r.stdout, "a failed hash still printed the completion banner")
+        self.assertNotEqual(r.returncode, 0)
+
+    def test_d935_libgomp_path_is_a_path_or_unknown(self):
+        r = self._bash("bash %s" % shlex.quote(self._sp("capture_build_manifest.sh")), cwd=self._d())
+        m = re.search(r"^libgomp path: +(\S+)$", r.stdout, re.M)
+        self.assertTrue(m, "precondition: the manifest prints a libgomp line: " + r.stdout[:800])
+        v = m.group(1)
+        self.assertTrue(v == "unknown" or (v.startswith("/") and os.path.exists(v)),
+                        "the recorded libgomp 'path' is neither an existing path nor 'unknown': %r" % v)
+        self.assertNotIn("print-prog-name=libgomp", self._r("documentation/DEVELOPMENT.md"), "DEVELOPMENT.md still recommends -print-prog-name")
+
+    # ================================================================================================
+    # perf_bench.sh (D1167 F04-022#10, D1168 F04-022#3, D1169 F04-022#13; D1170 ALREADY) -- CX-36Q-A
+    # ================================================================================================
+    def test_d1167_interrupt_after_provisioning_tears_down(self):
+        d = self._d()
+        azlog = os.path.join(d, "az.log")
+        mark = os.path.join(d, "vnet.started")
+        sd = self._bin(d, "az", "#!/bin/bash\necho \"$*\" >> %s\ncase \"$*\" in \"network vnet create\"*) touch %s; exec /bin/sleep 60;; esac\nexit 0\n"
+                       % (shlex.quote(azlog), shlex.quote(mark)))
+        e = self._env(PB_SESSION_LOG=os.path.join(d, "session.txt"))
+        e["PATH"] = sd + os.pathsep + e["PATH"]
+        p = subprocess.Popen(["bash", self._sp("perf_bench.sh"), "--control-commit", "HEAD", "--treatment-commit", "HEAD",
+                              "--scale", "1B", "--burn-seconds", "30", "--throttle-min-mhz", "0"],
+                             cwd=self.ROOT, env=e, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                             start_new_session=True)
+        t0 = time.time()
+        while not os.path.exists(mark) and time.time() - t0 < 60 and p.poll() is None:
+            time.sleep(0.2)
+        started = os.path.exists(mark)
+        time.sleep(0.5)                                   # let the stub settle into its wait
+        os.killpg(p.pid, signal.SIGINT)
+        try:
+            out, _ = p.communicate(timeout=60)
+        except subprocess.TimeoutExpired:
+            os.killpg(p.pid, signal.SIGKILL); out, _ = p.communicate()
+        self.assertTrue(started, "precondition: provisioning reached the vnet step: " + out[-1500:])
+        calls = open(azlog).read()
+        self.assertIn("group create", calls, "precondition: the resource container was created")
+        self.assertIn("group delete", calls, "an interrupted bench left its host allocated: " + calls + out[-800:])
+
+    def _probe_block(self):
+        src = self._r("scripts/perf_bench.sh").split("\n")
+        i = next(k for k, l in enumerate(src) if "PROBE=UNVERIFIED; PROBE_DETAIL=no-detail" in l)
+        j = next(k for k in range(i, len(src)) if 'tee "$RAW_DIR/probe.out"' in src[k])
+        self.assertTrue(src[i - 2].startswith('$SSH "$ADMIN@$VM_IP" "'), "precondition: the probe is the ssh block")
+        return "\n".join(src[i - 2:j + 1])
+
+    def test_d1168_a_dead_burner_is_not_healthy(self):
+        block = self._probe_block()
+        d = self._d()
+        sd = self._bin(d, "nproc", "#!/bin/sh\necho 1\n")
+        sc = ('fake_ssh(){ bash -c "$2"; }\nSSH=fake_ssh; ADMIN=a; VM_IP=b; RAW_DIR=%s; BURN_SECS=1; BURN_FLOOR=0; '
+              'THROTTLE_MIN_MHZ=0\n%s\n' % (shlex.quote(d), block))
+        self._bin(d, "yes", "#!/bin/sh\nexec /bin/sleep 30\n")
+        r0 = self._bash(sc, path_prefix=sd)
+        self.assertIn("PERFBENCH_THROTTLE_PROBE=HEALTHY", r0.stdout, "control: live burners read HEALTHY: " + r0.stdout + r0.stderr)
+        self._bin(d, "yes", "#!/bin/sh\nexit 0\n")
+        r = self._bash(sc, path_prefix=sd)
+        self.assertNotIn("PERFBENCH_THROTTLE_PROBE=HEALTHY", r.stdout, "a dead burner certified the host: " + r.stdout)
+        self.assertIn("burners-alive-0-of-1", r.stdout)
+
+    def test_d1169_header_does_not_promise_two_scales(self):
+        self.assertNotIn("Multi-scale: 1B-node smoke + 1T-node full bench by default", self._r("scripts/perf_bench.sh"))
+
+    # ================================================================================================
+    # spot_health_precheck.sh (D1234 F04-022#5, D1236 #6, D1237 #8, D1239 #4) -- CX-36Q-B
+    # ================================================================================================
+    def _spot(self, d, restrictions='[[]]', usage='{"currentValue": "0", "limit": "512"}', need="128", pow_="VM running"):
+        log = os.path.join(d, "az.log")
+        body = ("#!/bin/bash\necho \"$*\" >> %s\ncase \"$*\" in\n"
+                "  \"vm list-skus\"*) printf '%%s' %s ;;\n"
+                "  \"vm list-usage\"*) printf '%%s' %s ;;\n"
+                "  \"vm show\"*powerState*) echo %s ;;\n"
+                "  \"vm show\"*provisioningState*) echo Succeeded ;;\nesac\nexit 0\n"
+                % (shlex.quote(log), shlex.quote(restrictions), shlex.quote(usage), shlex.quote(pow_)))
+        sd = self._bin(d, "az", body)
+        self._bin(d, "sleep", "#!/bin/sh\nexit 0\n")
+        r = self._bash("bash %s region1 sku1 %s" % (shlex.quote(self._sp("spot_health_precheck.sh")), need),
+                       cwd=d, path_prefix=sd, HOME=d)
+        return r
+
+    def test_d1234_unreadable_restrictions_are_an_error(self):
+        r0 = self._spot(self._d())
+        self.assertIn("SPOT_PRECHECK=OK", r0.stdout, "control: a clean answer clears: " + r0.stdout[-800:])
+        r1 = self._spot(self._d(), restrictions='[[{"type": "Location", "values": ["region1"], "restrictionInfo": {"locations": ["region1"]}}]]')
+        self.assertIn("SPOT_PRECHECK=HARD-FAIL", r1.stdout, "control: a region-scoped restriction fails: " + r1.stdout[-800:])
+        r = self._spot(self._d(), restrictions='{"error":"throttled"}')
+        self.assertNotIn("signal-1 OK", r.stdout, "an error object cleared signal 1: " + r.stdout[-800:])
+        self.assertIn("SPOT_PRECHECK=ERROR", r.stdout)
+
+    def test_d1236_malformed_quota_value_is_an_error(self):
+        r = self._spot(self._d(), usage='{"currentValue": "0", "limit": "999x"}')
+        self.assertNotIn("999 free", r.stdout, "the digit prefix of a malformed limit was read: " + r.stdout[-800:])
+        self.assertIn("SPOT_PRECHECK=ERROR", r.stdout)
+        r0 = self._spot(self._d(), usage='{"currentValue": 8, "limit": 512}')
+        self.assertIn("8 / 512 used", r0.stdout, "control: bare JSON integers still read: " + r0.stdout[-800:])
+
+    def test_d1237_probe_is_advisory_not_clearance(self):
+        r = self._spot(self._d())
+        self.assertIn("SPOT_PRECHECK=OK", r.stdout, "precondition: the stubbed run clears: " + r.stdout[-800:])
+        v = [l for l in r.stdout.split("\n") if "VERDICT: OK" in l]
+        self.assertEqual(len(v), 1, r.stdout[-800:])
+        self.assertNotIn("safe to launch", v[0])
+        self.assertIn("not clearance", v[0], "the OK message reads as clearance from the small probe: " + v[0])
+
+    def test_d1239_oversized_need_is_an_error(self):
+        r = self._spot(self._d(), need="99999999999999999999")
+        self.assertIn("SPOT_PRECHECK=ERROR", r.stdout, "an out-of-range need_vcpu passed the quota check: " + r.stdout[-800:])
+
+    # ================================================================================================
+    # spot_pre_launch_check.sh (D1240 F04-022#15, D1242 F04-022#12) -- CX-36Q-B
+    # ================================================================================================
+    def test_d1242_1630_weekday_is_the_medium_tail(self):
+        d = self._d()
+        sd = self._bin(d, "date", "#!/bin/bash\ncase \"$*\" in *%%u*) echo 2;; *%%H:%%M*) echo 'Tue 16:30 PST';; *%%H*) echo %s;; *) exec %s \"$@\";; esac\n"
+                       % ("$FAKE_HR", shlex.quote(shutil.which("date"))))
+        r = self._bash("bash %s --quiet" % shlex.quote(self._sp("spot_pre_launch_check.sh")), path_prefix=sd, FAKE_HR="16")
+        self.assertEqual(r.returncode, 1, "16:30 PT on a weekday must be MEDIUM (exit 1), not HIGH: rc=%d" % r.returncode)
+        r2 = self._bash("bash %s --quiet" % shlex.quote(self._sp("spot_pre_launch_check.sh")), path_prefix=sd, FAKE_HR="15")
+        self.assertEqual(r2.returncode, 2, "control: 15:xx PT on a weekday is HIGH")
+
+    def test_d1240_no_dead_path_cited(self):
+        s = self._r("scripts/spot_pre_launch_check.sh")
+        self.assertNotIn("FAST_SKIP_RESUME_PHASE_ANALYSIS_2026_05_22.md", s)
+
+    # ================================================================================================
+    # exec_lane.sh (D1100 F05-010#19, D1101 F09-A03#8, D1102 F04-021#3, D1103 F05-010#20, D1104 F05-016#2,
+    # D1105 F05-010#14, D1106 F05-010#11, D1108 F04-021#1, D1112 F05-010#16, D1113 F05-010#15,
+    # D1114 F04-021#13, D1116 F05-010#17, D1117 F05-010#21) -- CX-36Q-C
+    # ================================================================================================
+    def _run_rows(self, md, needle, extra=None):
+        out = self._lane(self._lane_fixture("# t\n\n```bash\nprintf ok\n```\n\n" + md, extra))
+        self.assertIn("printf ok", out, "precondition: the fixture ran: " + out[-1500:])
+        rows = [l for l in out.split("\n") if needle in l and re.match(r"^\s*\d+\.", l)]
+        self.assertEqual(len(rows), 1, "precondition: one run row for %r: %s" % (needle, out[-2000:]))
+        return rows[0], out
+
+    def test_d1104_d1100_header_text_does_not_classify(self):
+        row, _ = self._run_rows("```bash\nSOLVE_ALLOW_SLOW_IOPS=0 false\n```\n", "SOLVE_ALLOW_SLOW_IOPS=0 false")
+        self.assertNotIn("SKIP-RESOURCE", row, "the command's own text made a failure a host skip: " + row)
+        self.assertIn("FAIL", row)
+
+    def test_d1102_sigpipe_does_not_mask_an_upstream_failure(self):
+        row, out = self._run_rows("```bash\nfalse | yes | head -1\n```\n\n```bash\nyes | head -1\n```\n", "false | yes | head -1")
+        self.assertNotIn("PASS", row, "an upstream failure hid behind a later SIGPIPE: " + row)
+        ctl = [l for l in out.split("\n") if re.match(r"^\s*\d+\.", l) and l.rstrip().endswith("  yes | head -1")]
+        self.assertEqual(len(ctl), 1, out[-1500:])
+        self.assertIn("PASS", ctl[0], "control: a pure SIGPIPE pipeline still passes: " + ctl[0])
+
+    def test_d1103_bare_word_ulimit_is_not_the_engine_refusal(self):
+        row, _ = self._run_rows("First run `ulimit -s unlimited`.\n\n```bash\npython3 -c 'ulimit'\n```\n", "python3 -c 'ulimit'")
+        self.assertNotIn("refused-as-documented", row, "a NameError naming ulimit read as the stack refusal: " + row)
+        self.assertIn("FAIL", row)
+
+    def test_d1117_background_failure_is_seen(self):
+        row, _ = self._run_rows("```bash\nsh -c 'sleep 1; exit 3' &\n```\n", "sh -c 'sleep 1; exit 3' &")
+        self.assertNotIn("PASS", row, "a failing background job read PASS: " + row)
+
+    def test_d1101_launcher_cd_failure_is_classified_first(self):
+        s = self._r("scripts/exec_lane.sh")
+        self.assertIn("|| { echo cdfail > '$LOGDIR/ps.$IDX'; exit 97; }", s, "the launcher does not record its own cd failure")
+        i = s.index('if   [ $rc -eq 97 ] && [ "$psrec" = cdfail ]')
+        self.assertLess(i, s.index('elif [ $docfail -eq 1 ] && [ $rc -ne 0 ]'), "the expected-failure rule is read before the launcher status")
+
+    def test_d1105_producer_that_never_wrote_breaks_the_chain(self):
+        out = self._lane(self._lane_fixture("# t\n\n```bash\nprintf ok\n```\n\n```bash\nprintf hi -o notes.txt\ncat notes.txt\n```\n",
+                                            {"notes.txt": "tracked\n"}))
+        self.assertIn("printf ok", out, "precondition: the fixture ran: " + out[-1500:])
+        brk = [l for l in out.split("\n") if "CHAINBREAK-AFTER-1(" in l]
+        self.assertTrue(brk, "the consumer ran on the tree's bytes of an output its producer never wrote: " + out[-2500:])
+        self.assertIn("did not write notes.txt", brk[0])
+
+    def test_d1106_missing_repo_script_is_reported(self):
+        d = self._lane_fixture("# t\n\n```bash\nprintf ok\n```\n\n```bash\nscripts/no_such_gate.sh --x\n```\n",
+                               {"scripts/real.sh": "#!/bin/sh\nexit 0\n"})
+        out = self._lane(d, "--list")
+        self.assertIn("printf ok", out, "precondition: the inventory was extracted: " + out[-1500:])
+        rows = [l for l in out.split("\n") if "scripts/no_such_gate.sh --x" in l]
+        self.assertEqual(len(rows), 1, "a missing repository script vanished from the inventory: " + out[-1500:])
+        self.assertTrue(rows[0].startswith("FAIL-MISSING-SCRIPT"), rows[0])
+
+    def test_d1108_ops_by_path_and_inside_shell_bodies(self):
+        d = self._lane_fixture("# t\n\n```bash\nprintf ok\n```\n\n```bash\n/usr/bin/curl http://127.0.0.1:1\n```\n\n"
+                               "```bash\nbash -c \"curl http://127.0.0.1:1\"\n```\n")
+        out = self._lane(d, "--list")
+        self.assertIn("printf ok", out, "precondition: the inventory was extracted: " + out[-1500:])
+        for needle in ("/usr/bin/curl http://127.0.0.1:1", 'bash -c "curl http://127.0.0.1:1"'):
+            rows = [l for l in out.split("\n") if l.rstrip().endswith(needle)]
+            self.assertEqual(len(rows), 1, "precondition: %r was extracted: %s" % (needle, out[-1500:]))
+            self.assertTrue(rows[0].startswith("SKIP-OPS"), "an OPS tool ran: " + rows[0])
+        ctl = [l for l in out.split("\n") if l.rstrip().endswith("printf ok")]
+        self.assertTrue(ctl[0].startswith("RUN"), "control: printf still runs")
+
+    def test_d1112_d1113_d1116_chain_paths(self):
+        d = self._lane_fixture("# t\n\n```bash\nprintf ok\n```\n\n"
+                               "```bash\nprintf hi > ./fv2r_o.dat\ncat fv2r_o.dat\n```\n\n"
+                               "```bash\nprintf hi --out fv2rfoo\ncat fv2rfoo\n```\n\n"
+                               "```bash\nprintf hi > /tmp/fv2r_in.txt\nsort </tmp/fv2r_in.txt\n```\n")
+        out = self._lane(d, "--list")
+        chain = out[out.index("== CHAINED"):] if "== CHAINED" in out else ""
+        self.assertIn("printf ok", out, "precondition: the inventory was extracted: " + out[-1500:])
+        self.assertIn("deps=1:fv2r_o.dat", chain, "D1113: ./fv2r_o.dat and fv2r_o.dat did not connect: " + chain)
+        self.assertIn("deps=1:fv2rfoo", chain, "D1112: an extensionless --out did not connect: " + chain)
+        self.assertIn("deps=1:/tmp/fv2r_in.txt", chain, "D1116: an attached `<` operand did not connect: " + chain)
+
+    def test_d1114_signal_during_extraction_is_reported(self):
+        d = self._lane_fixture("# t\n\n```bash\nprintf ok\n```\n")
+        mark = os.path.join(d, "py.started")
+        real = shutil.which("python3")
+        sd = self._bin(d, "python3", "#!/bin/bash\ntouch %s\n/bin/sleep 20\nexec %s \"$@\"\n" % (shlex.quote(mark), shlex.quote(real)))
+        e = self._env()
+        e["PATH"] = sd + os.pathsep + e["PATH"]
+        for k in [k for k in e if k.startswith("BASH_FUNC_")]:
+            e.pop(k)                                      # an exported python3() wrapper would shadow the shim
+        p = subprocess.Popen(["bash", self._sp("exec_lane.sh"), "--tree", "."], cwd=d, env=e, stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT, text=True, start_new_session=True)
+        t0 = time.time()
+        while not os.path.exists(mark) and time.time() - t0 < 30 and p.poll() is None:
+            time.sleep(0.1)
+        started = os.path.exists(mark)
+        time.sleep(0.5)                                   # let the stub settle into its wait
+        os.killpg(p.pid, signal.SIGINT)
+        try:
+            out, _ = p.communicate(timeout=60)
+        except subprocess.TimeoutExpired:
+            os.killpg(p.pid, signal.SIGKILL); out, _ = p.communicate()
+        self.assertTrue(started, "precondition: the extraction python was reached: " + out[-800:])
+        self.assertIn("EXEC_LANE=INTERRUPTED", out, "a signal during extraction printed no INTERRUPTED report: " + out[-800:])
+
+    # ================================================================================================
+    # tr12_repro.sh (D1267, D1268, D1269, D1272, D1274, D1277, D1278, D1279, D1280, D1281, D1282, D1286,
+    # D1289, D1291, D1292, D1295; D1275 ALREADY; D1270 HELD) -- CX-36Q-D
+    # ================================================================================================
+    def _tr(self):
+        return self._r("scripts/tr12_repro.sh")
+
+    def test_d1279_malformed_probe_value_is_broken(self):
+        s = self._tr()
+        m = re.search(r"(py_import_state\(\)\{.*?echo BROKEN; \};)", s)
+        self.assertTrue(m, "precondition: py_import_state is defined")
+        d = self._d()
+        sd = self._bin(d, "python3", "#!/bin/bash\nprintf 'PY_IMPORT=PRESENT\\r\\n'\n")
+        r = self._bash("REPO_ROOT=%s\n%s\npy_import_state solve\n" % (shlex.quote(d), m.group(1)), path_prefix=sd)
+        self.assertEqual(r.stdout.strip(), "BROKEN", "PRESENT\\r read as a state: %r" % r.stdout)
+        self._bin(d, "python3", "#!/bin/bash\necho PY_IMPORT=PRESENT\n")
+        r0 = self._bash("REPO_ROOT=%s\n%s\npy_import_state solve\n" % (shlex.quote(d), m.group(1)), path_prefix=sd)
+        self.assertEqual(r0.stdout.strip(), "PRESENT", "control")
+
+    def test_d1295_each_dispatch_probes_once(self):
+        lines = self._tr().split("\n")
+        # c_consumer's dispatch probes once (its `if` tests the atlas, not the import), so it is not a re-probe
+        bad = [l[:90] for l in lines if re.match(r"^\s*elif .*\"\$\(py_import_state ", l) and "row_broken c_consumer" not in l]
+        self.assertEqual(bad, [], "an elif re-probes the import (a flaky probe can fall to a skip): %s" % bad)
+        self.assertIn('_PYS_VIZ=$(py_import_state matplotlib numpy); if [ -d "$ARTDIR/consumer" ] && [ "$_PYS_VIZ" = BROKEN ]', self._tr())
+
+    def test_d1277_d1278_work_dir_and_trap(self):
+        d = self._d()
+        r = self._bash("bash %s --n9" % shlex.quote(self._sp("tr12_repro.sh")), cwd=d, TMPDIR=os.path.join(d, "no_such_dir"),
+                       timeout=120)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("mktemp failed", r.stderr, "D1277: the battery went on with an empty WORK: " + (r.stdout + r.stderr)[-800:])
+        s = self._tr()
+        self.assertIn("""trap '_tr12_kill_tree $$; [ "$KEEP" -eq 1 ] || rm -rf "$WORK"' EXIT""", s, "D1278: --keep drops the descendant kill")
+
+    def _q7wit_r11(self, c_out, c_rc, py_out, py_rc):
+        s = self._tr().split("\n")
+        i = next((k for k, l in enumerate(s) if '--r11-verify "$seq" >' in l and "q7wit_r11c_" in l), None)
+        self.assertIsNotNone(i, "D1268/D1269: the --r11-verify producers are not captured with their status")
+        block = "\n".join(s[i:i + 2])
+        d = self._d()
+        self._wr(os.path.join(d, "solve"), "#!/bin/bash\nprintf %s\nexit %d\n" % (shlex.quote(c_out), c_rc), 0o755)
+        self._wr(os.path.join(d, "solve.py"), "import sys\nsys.stdout.write(%r)\nsys.exit(%d)\n" % (py_out, py_rc))
+        sc = ('SOLVE=%s/solve; REPO_ROOT=%s; WORK=%s; t=moore-strict; seq=1; frc=0\n%s\n'
+              'echo "r11c=${r11c:-NONE} r11py=${r11py:-NONE} frc=$frc"\n' % (d, d, d, block))
+        return self._bash(sc).stdout
+
+    def test_d1268_d1269_r11_producers_status_and_single_vector(self):
+        v = "2,2,2,1,1,1,1,1\n"
+        ok = self._q7wit_r11(v, 0, v, 0)
+        self.assertIn("r11c=2,2,2,1,1,1,1,1 r11py=2,2,2,1,1,1,1,1 frc=0", ok, "control: " + ok)
+        r = self._q7wit_r11(v, 0, v, 3)
+        self.assertIn("r11py=NONE", r, "D1268: a solve.py that printed its vector then exited 3 was accepted: " + r)
+        self.assertIn("frc=1", r)
+        r2 = self._q7wit_r11("0,0,0,0,0,0,0,0\n" + v, 0, v, 0)
+        self.assertIn("r11c=NONE", r2, "D1269: the first of two vectors was read: " + r2)
+
+    def test_d1272_mc_percentages_are_rederived(self):
+        s = self._tr()
+        m = re.search(r"awk '(\{ if \(match\(\$0, /\[0-9\]\+ .*?END \{ exit bad \})' \"\$WORK/ls_w0_mc.out\"", s)
+        self.assertTrue(m, "D1272: the MC row does not re-derive its percentages")
+        prog = m.group(1)
+        d = self._d()
+        good = self._r("scripts/tr12_expected/n9/a0_ls_w0_mc.txt")
+        self.assertIn("42824 / 1000000  (4.282400%)", good, "precondition: the golden carries the C2 line")
+        self._wr(os.path.join(d, "g.txt"), good)
+        self._wr(os.path.join(d, "b.txt"), good.replace("(4.282400%)", "(4.282500%)"))
+        r0 = subprocess.run(["awk", prog, os.path.join(d, "g.txt")], capture_output=True, text=True)
+        self.assertEqual((r0.returncode, r0.stdout), (0, ""), "control: the golden's own percentages agree: " + r0.stdout)
+        r = subprocess.run(["awk", prog, os.path.join(d, "b.txt")], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 1, "an inconsistent percentage passed: " + r.stdout)
+        self.assertIn("MC_PCT_FAIL", r.stdout)
+
+    def test_d1281_d1282_member_and_cd_tokens(self):
+        s = self._tr().split("\n")
+        i = next(k for k, l in enumerate(s) if l.lstrip().startswith("local _kcm _kcmrc _kcp _kcprc;"))
+        j = next(k for k in range(i, len(s)) if s[k].strip() == "esac")
+        block = "\n".join(s[i:j + 1]).replace("local ", "", 1)
+        d = self._d()
+        def run(member_out, profile_out):
+            self._wr(os.path.join(d, "solve"), "#!/bin/bash\ncase \"$1\" in --kc-member) printf %s;; --kc-profile) printf %s;; esac\nexit 0\n"
+                     % (shlex.quote(member_out), shlex.quote(profile_out)), 0o755)
+            sc = 'SOLVE=%s/solve; FDIR=f; GDIR=g; w=1; tok=T; C3MAX=100; erc=0\n%s\necho "erc=$erc cd=$cd"\n' % (d, block)
+            return self._bash(sc).stdout
+        ok = run("MEMBER\n", "x\tcd=5\n")
+        self.assertIn("erc=0 cd=5", ok, "control: " + ok)
+        r = run("MEMBER\nNON-MEMBER\n", "x\tcd=5\n")
+        self.assertIn("erc=1", r, "D1281: a walk called both MEMBER and NON-MEMBER was accepted: " + r)
+        r2 = run("MEMBER\n", "x\tcd=5x\n")
+        self.assertIn("erc=1", r2, "D1282: cd=5x was read as 5: " + r2)
+
+    def test_tr12_structural_cures(self):
+        s = self._tr()
+        pins = {
+            "D1267": 'if pinned and v["c3"] is None: print("Q7WIT_FAIL',
+            "D1274": "its bytes were verified separately (STAGE_T_RAW_VERIFY.md in the n31 KC-ladders run folder",
+            "D1280": '> "$WORK/anchor_unrank.out" 2>/dev/null < /dev/null || die',
+            "D1286": '[[ "$r3" =~ ^(0|[1-9][0-9]*)$ ]] || { [ -n "$N_TOTAL" ] && [ "$(echo "$r3 < $N_TOTAL" | bc 2>/dev/null)" != 1 ]; }',
+            "D1289": 'a flow/d-class field is missing or not a quoted integer',
+            "D1291": 'cat "$VERD.hdr" "$VERD.body" > "$VERD" || VHW=1',
+            "D1292": '"cert-unreadable"',
+        }
+        for row, pin in pins.items():
+            self.assertIn(pin, s, "%s: the cure is absent" % row)
+        self.assertNotIn("t is never copied, so t rests on this row alone", s, "D1274: the old claim stands")
+        self.assertIn("VWF=$VHW", s, "D1291: a failed verdict-file write does not reach the exit")
+        self.assertEqual(s.count("\n"), 4243, "tr12_repro.sh changed length: its cited lines moved")
+
+
+# end class TestBatchFV2R (push group FV2-R, CX-36Q-A..CX-36Q-D)
 
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).

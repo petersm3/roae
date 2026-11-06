@@ -39,7 +39,8 @@
 #     with zlib version and level and false-mismatches a byte-identical
 #     artifact (phantom drift), and `(container_bytes-32)/32` was a fictional
 #     record count. The container sha is still reported, labelled as such.
-#   - Multi-scale: 1B-node smoke + 1T-node full bench by default.
+#   - One scale per run (--scale 1B|1T|11.2T, default 1T). (Was "Multi-scale: 1B-node smoke + 1T-node
+#     full bench by default"; the script never ran two scales. Codex F04-022#13, FV2 D1169.)
 #   - Output: JSON line to stdout that drops into a PERFORMANCE_HISTORY.md entry.
 #
 # Usage:
@@ -70,7 +71,12 @@
 #   - 11.2T scale: ~12h wall
 
 set -uo pipefail
-exec > >(tee /tmp/perf_bench_$$.log) 2>&1
+# D1167 follow-up: the tee shares this script's process group, so a Ctrl-C (or a killpg INT/TERM)
+# killed it first and the INT trap's own emit then died of SIGPIPE before the EXIT-trap teardown
+# ran, leaving the bench host allocated. The tee now ignores INT/TERM/HUP and exits on EOF when
+# this script exits; the signal traps below also ignore PIPE, so a dead log reader cannot
+# pre-empt the teardown.
+exec > >(trap '' INT TERM HUP; exec tee /tmp/perf_bench_$$.log) 2>&1
 
 # ---------- argparse ----------
 CONTROL_COMMIT=""
@@ -148,7 +154,9 @@ ADMIN=azureuser
 REPO=$(git -C "$(dirname "$0")/.." rev-parse --show-toplevel)
 
 emit() { printf '[%s] %s\n' "$(date -u +%H:%M:%SZ)" "$*"; }
-teardown() {
+PB_PROVISIONED=0; PB_TORN_DOWN=0
+teardown() {   # idempotent: the explicit calls below and the EXIT trap may both reach it
+    [ "$PB_TORN_DOWN" -eq 1 ] && return; PB_TORN_DOWN=1
     [ $KEEP_VM -eq 1 ] && { emit "KEEP-VM requested; not tearing down $RG"; return; }
     emit "TEARDOWN $RG"
     az group delete -n "$RG" --yes --no-wait 2>&1 | sed 's/^/  /' || true
@@ -160,7 +168,15 @@ teardown() {
 # mktemp directory that this EXIT trap removes on every exit path; it is always ours, never a
 # caller's. Made here, before anything is provisioned, so a mktemp failure has no VM to tear down.
 SRC_TMP=$(mktemp -d /tmp/perf_bench_src.XXXXXX) || { echo "FATAL: mktemp failed for the source copies"; exit 1; }
-trap 'rm -rf "${SRC_TMP:?}"' EXIT
+# Codex (gpt-6-astra) F04-022#10 (FV2 D1167): the trap removed the source copies only, so a run
+# interrupted after provisioning began (Ctrl-C, a lost SSH session, a TERM) left the bench host
+# allocated. Once STEP 1 starts, every exit path -- normal, error, INT, TERM, HUP -- tears it down
+# (teardown is idempotent and honours --keep-vm).
+pb_on_exit() { if [ "$PB_PROVISIONED" -eq 1 ]; then teardown; fi; rm -rf "${SRC_TMP:?}"; }
+trap pb_on_exit EXIT
+trap 'trap "" PIPE; emit "INTERRUPTED (INT)"; exit 130' INT
+trap 'trap "" PIPE; emit "INTERRUPTED (TERM)"; exit 143' TERM
+trap 'trap "" PIPE; emit "INTERRUPTED (HUP)"; exit 129' HUP
 
 emit "==================================="
 emit "perf_bench.sh — paired solve.c perf bench"
@@ -172,6 +188,7 @@ emit "==================================="
 
 # ---------- provision ----------
 emit "STEP 1: Provision $RG"
+PB_PROVISIONED=1   # from here on the EXIT trap tears the host down (D1167)
 az group create -n "$RG" -l "$LOC" --query name -o tsv >/dev/null
 az network vnet create -g "$RG" -n vnet --address-prefix 10.0.0.0/16 \
     --subnet-name subnet --subnet-prefix 10.0.0.0/24 --query name -o tsv >/dev/null
@@ -325,6 +342,10 @@ $SSH "$ADMIN@$VM_IP" "
     else
         for i in \$(seq 1 \"\$NC\"); do yes > /dev/null & done
         sleep $BURN_SECS
+        # Codex F04-022#3 (FV2 D1168): a burner that never started or was killed (limits, OOM)
+        # leaves a core idle, and an idle core can read a HEALTHY frequency. Every burner must
+        # still be running when the frequency is read.
+        ALIVE=\$(jobs -rp | wc -l)
         MHZ=\$(awk '/^cpu MHz/{print \$4}' /proc/cpuinfo 2>/dev/null)
         if [ -z \"\$MHZ\" ]; then
             MHZ=\$(cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null | awk '{printf \"%.0f\\n\", \$1/1000}')
@@ -338,6 +359,8 @@ $SSH "$ADMIN@$VM_IP" "
             PROBE_DETAIL=min_\${1}_avg_\${2}_max_\${3}_mhz_over_\${4}_samples_\${NC}_cores_burn_${BURN_SECS}s_threshold_${THROTTLE_MIN_MHZ}
             if [ $BURN_SECS -lt $BURN_FLOOR ]; then
                 PROBE=UNVERIFIED; PROBE_DETAIL=burn-too-short-\${PROBE_DETAIL}
+            elif [ \"\$ALIVE\" -ne \"\$NC\" ]; then
+                PROBE=UNVERIFIED; PROBE_DETAIL=burners-alive-\${ALIVE}-of-\${NC}-\${PROBE_DETAIL}
             elif [ \"\${4:-0}\" -lt \"\$NC\" ]; then
                 # F12-016#3: one readable core must not certify the other NC-1. Every core is sampled or none is.
                 PROBE=UNVERIFIED; PROBE_DETAIL=partial-samples-\${PROBE_DETAIL}

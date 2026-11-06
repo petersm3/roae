@@ -13,7 +13,8 @@
 #   into peak demand means a higher chance of eviction within the first few
 #   hours — which is the worst outcome for a canonical run, because the
 #   fast-skip phase at resume time on a recovery VM takes ~3-4h to catch up
-#   to the prior progress (see x/roae/FAST_SKIP_RESUME_PHASE_ANALYSIS_2026_05_22.md).
+#   to the prior progress (estimate from the 2026-05-22 resume-phase analysis, which is not
+#   reproduced in this checkout; Codex F04-022#15, FV2 D1240).
 #
 # Risk windows (heuristic, based on prior project experience + standard
 # cloud-ops patterns; refine over time via accumulated eviction log):
@@ -48,7 +49,7 @@
 #   https://portal.azure.com/#blade/Microsoft_Azure_ComputeIaaS/SpotVmEvictionRatePricingBlade
 #
 # See also:
-#   - x/roae/FAST_SKIP_RESUME_PHASE_ANALYSIS_2026_05_22.md (why eviction-timing matters)
+#   - the 2026-05-22 resume-phase analysis (why eviction timing matters; not in this checkout)
 #   - documentation/DEVELOPMENT.md §Monitor/orchestrator (ps pcpu interpretation)
 
 set -uo pipefail
@@ -87,7 +88,9 @@ reason="off-peak window"
 
 if [[ $PT_DOW -le 5 ]]; then
   # Weekday
-  if [[ $PT_HR -ge 9 && $PT_HR -le 16 ]]; then
+  # Codex F04-022#12 (FV2 D1242): `-le 16` made 16:00-16:59 HIGH, while the reason string and the
+  # table above put the peak at 09:00-16:00 and the MEDIUM tail from 16:00; the tail test began at 17.
+  if [[ $PT_HR -ge 9 && $PT_HR -le 15 ]]; then
     risk="HIGH"
     reason="US business-hours peak (Mon-Fri 09:00-16:00 PT)"
   elif [[ $PT_DOW -eq 1 && $PT_HR -ge 5 && $PT_HR -le 11 ]]; then
@@ -96,7 +99,7 @@ if [[ $PT_DOW -le 5 ]]; then
   elif [[ $PT_HR -ge 5 && $PT_HR -le 8 ]]; then
     risk="MEDIUM"
     reason="weekday morning ramp-up"
-  elif [[ $PT_HR -ge 17 && $PT_HR -le 19 ]]; then
+  elif [[ $PT_HR -ge 16 && $PT_HR -le 19 ]]; then
     risk="MEDIUM"
     reason="weekday business-hours tail"
   fi

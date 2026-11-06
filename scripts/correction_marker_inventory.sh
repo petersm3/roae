@@ -345,6 +345,8 @@ REVIEWED = {
         ('1', 'reviewed:paragraph-already-describes-P1-auto-parallelism'),
     ('documentation/DEVELOPMENT.md', '71e678fefb7c'):
         ('1', 'reviewed:paragraph-above-already-documents-the-public-IP-residual'),
+    ('documentation/DEVELOPMENT.md', '87a71c5b578a'):
+        ('2', 'reviewed:sentence-above-still-says-no-teardown-trap;the-marker-carries-the-FV2-R-trap-fix'),
     ('documentation/DEVELOPMENT.md', '79ba53ed0166'):
         ('2', 'reviewed:sentence-above-still-says-proc-self-exe;the-marker-carries-the-fix-and-pre-fix-WARN-path'),
     ('documentation/DEVELOPMENT.md', '82e7fe10b5e5'):

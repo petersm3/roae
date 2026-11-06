@@ -69,6 +69,14 @@ case "$NEED_VCPU" in
         echo "SPOT_PRECHECK=ERROR"
         exit 4 ;;
 esac
+# Codex (gpt-6-astra) F04-022#4 (FV2 D1239): digits alone are not enough -- a value beyond bash's
+# integer range makes the later `-lt` error, which reads as false, and the quota check passed. At
+# most 6 digits keeps every comparison below in range.
+if [ "${#NEED_VCPU}" -gt 6 ]; then
+    echo "need_vcpu must be at most 6 digits, got: $NEED_VCPU" >&2
+    echo "SPOT_PRECHECK=ERROR"
+    exit 4
+fi
 
 PROBE_SKU="Standard_D2als_v7"
 # Q-860: the probe's name is the ONLY thing cleanup_probe() keys its `az vm delete` on, and RG
@@ -134,14 +142,45 @@ case "$_R1" in
     '[[]]')
         log "  signal-1 OK: $TARGET_SKU is offered in $REGION with no published restrictions" ;;
     *)
-        # Check if any restriction is region-scoped to our region
-        BLOCKED=$(printf '%s' "$RESTRICTIONS" | grep -ic "$REGION" || true)
-        if [ "${BLOCKED:-0}" -gt 0 ]; then
-            log "  signal-1 HARD-FAIL: $TARGET_SKU restricted in $REGION"
-            log "  restrictions: $RESTRICTIONS"
-            verdict HARD-FAIL 3
-        fi
-        log "  signal-1 OK: restrictions present but not in $REGION" ;;
+        # Codex F04-022#5 (FV2 D1234): any answer that was not exactly [] / [[]] used to read OK
+        # whenever a case-insensitive grep for the region found nothing, so an error object, a
+        # truncated response or restrictions keyed differently all cleared signal 1. The answer is
+        # now parsed: it must be a list of per-SKU restriction lists of objects; a restriction whose
+        # restrictionInfo.locations (or values) names the region is a HARD-FAIL; any other shape is
+        # an ERROR, because nothing was measured.
+        R1V=$(python3 -c '
+import json, sys
+region = sys.argv[1].lower()
+try:
+    d = json.loads(sys.stdin.read())
+except Exception:
+    print("BADJSON"); sys.exit(0)
+if not isinstance(d, list) or not d or not all(isinstance(x, list) for x in d):
+    print("BADSHAPE"); sys.exit(0)
+hit = False
+for rl in d:
+    for r in rl:
+        if not isinstance(r, dict):
+            print("BADSHAPE"); sys.exit(0)
+        ri = r.get("restrictionInfo")
+        locs = (ri.get("locations") if isinstance(ri, dict) else None) or []
+        vals = r.get("values") or []
+        if not isinstance(locs, list) or not isinstance(vals, list):
+            print("BADSHAPE"); sys.exit(0)
+        if region in [str(v).lower() for v in locs + vals]:
+            hit = True
+print("REGION" if hit else "ELSEWHERE")
+' "$REGION" <<<"$RESTRICTIONS" 2>/dev/null) || R1V=NOPY
+        case "$R1V" in
+            REGION)
+                log "  signal-1 HARD-FAIL: $TARGET_SKU restricted in $REGION"
+                log "  restrictions: $RESTRICTIONS"
+                verdict HARD-FAIL 3 ;;
+            ELSEWHERE)
+                log "  signal-1 OK: restrictions present but not in $REGION" ;;
+            *)
+                verdict ERROR 4 "signal-1 ERROR: the restrictions answer could not be read as a list of restriction lists ($R1V); nothing about $TARGET_SKU in $REGION was measured. Answer: $(printf '%.300s' "$RESTRICTIONS")" ;;
+        esac ;;
 esac
 
 # ===== Signal 2: regional Spot (low-priority) vCPU quota headroom =====
@@ -162,8 +201,24 @@ fi
 # FREE=0 and printed "only 0 free", a false WAIT that would block every launch while
 # 122 vCPU were actually free. Accept both forms. (Same class as the known az
 # silent-wrong-answer traps: -o tsv rendering null as "None", diskSizeGB vs diskSizeGb.)
-USED=$(echo "$USAGE_JSON" | grep -oP '"currentValue":\s*"?\K[0-9]+' | head -1)
-LIMIT=$(echo "$USAGE_JSON" | grep -oP '"limit":\s*"?\K[0-9]+' | head -1)
+# Codex F04-022#6 (FV2 D1236): `\K[0-9]+` read the digit PREFIX of a malformed value ("limit":
+# "12abc" -> 12). The whole token must be digits: parsed as JSON, each value a bare integer or a
+# string of 1-9 digits, else empty (and the ERROR below).
+read -r USED LIMIT < <(python3 -c '
+import json, re, sys
+try:
+    d = json.loads(sys.stdin.read())
+except Exception:
+    sys.exit(0)
+def num(v):
+    if isinstance(v, bool): return ""
+    if isinstance(v, int) and 0 <= v < 10**9: return str(v)
+    if isinstance(v, str) and re.fullmatch(r"[0-9]{1,9}", v): return str(int(v))
+    return ""
+if isinstance(d, dict):
+    u, l = num(d.get("currentValue")), num(d.get("limit"))
+    if u and l: print(u, l)
+' <<<"$USAGE_JSON" 2>/dev/null) || true
 # An unreadable quota is NOT "0 free". Both arms of the old arithmetic silently
 # treated a failed `az` call as zero, which happened to fail closed here -- but it
 # reported "0 / 0 used" as though measured. A check that cannot see its target must
@@ -253,8 +308,12 @@ if [ "$FINAL_POW" != "VM running" ]; then
     log "  signal-3 WAIT: probe evicted within 15s of provisioning (Spot capacity unstable)"
     verdict WAIT 2
 fi
-log "  signal-3 OK: probe ran for 15s without eviction"
+log "  signal-3 OK (advisory): a $PROBE_SKU probe ran for 15s without eviction"
 
 # ===== Verdict =====
-log "=== VERDICT: OK — safe to launch $TARGET_SKU Spot in $REGION ==="
+# Codex F04-022#8 (FV2 D1237): the probe is a SMALL VM ($PROBE_SKU); its allocation is a capacity
+# signal for the region, not evidence that $TARGET_SKU will allocate (probing the target itself
+# would mean a full launch). The OK below rests on signals 1-2; signal 3 can only veto (WAIT).
+log "  SPOT_PROBE_SKU=$PROBE_SKU (signal 3 is a capacity signal, not clearance for $TARGET_SKU)"
+log "=== VERDICT: OK — signals 1-2 clear $TARGET_SKU Spot in $REGION (published restrictions, quota); signal 3 is advisory, not clearance for $TARGET_SKU ==="
 verdict OK 0

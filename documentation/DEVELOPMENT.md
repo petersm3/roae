@@ -833,7 +833,7 @@ echo ""
 echo "=== toolchain ==="
 gcc --version | head -1
 ldd --version | head -1               # glibc
-gcc -print-prog-name=libgomp.so.1     # path → confirms libgomp linkage
+gcc -print-file-name=libgomp.so.1     # library path (a bare name back = not found); `ldd ./solve | grep libgomp` confirms linkage
 echo ""
 echo "=== host ==="
 uname -srvmpio
@@ -2260,20 +2260,20 @@ per VM, simpler resource inventory.
 benchmark harness).** This one endorsed script does **not** follow the rule,
 on every invocation and not only from a laptop. It provisions a *fresh
 resource group of its own* with its own `vnet`/`subnet` at `10.0.0.0/16`
-(`perf_bench.sh:176-177`) rather than joining `claude-vnet`, so no private
+(`perf_bench.sh:193-194`) rather than joining `claude-vnet`, so no private
 path from the orchestrator exists at all, and then creates the VM with
-`--public-ip-sku Standard --nsg-rule SSH` (`:181`) and connects with
-`StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null` (`:190-191`).
+`--public-ip-sku Standard --nsg-rule SSH` (`:198`) and connects with
+`StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null` (`:207-208`).
 Read honestly, that is: port 22 open to the internet with no source-IP
 restriction, plus an accepted first-connection MITM window on every run.
 Mitigations, such as they are — key-only auth (`--ssh-key-values`), a Spot VM
 that exists for the length of one bench, and no secret on the box beyond
 public repo source and bench output. The residual is real, not zero. The
-teardown that closes the window is `az group delete` (`:151-155`), called
-explicitly at four sites (`:194`, `:306`, `:368`, `:612`; re-cited after Q-877's insertions, 2026-09-27) with **no teardown `trap`** (the one `EXIT` trap, Q-851, removes only the local source copies) — so an
+teardown that closes the window is `az group delete` (`:158-163`), called
+explicitly at four sites (`:211`, `:323`, `:391`, `:635`; re-cited after Q-877's insertions, 2026-09-27, and again after FV2-R's, 2026-11-04) with **no teardown `trap`** (the one `EXIT` trap, Q-851, removes only the local source copies) — so an
 interrupted or crashed run leaves the public-IP VM standing until someone
 removes the resource group by hand, and `--keep-vm` suppresses teardown by
-design. Check for orphans after any bench that did not print `TEARDOWN`.
+design. Check for orphans after any bench that did not print `TEARDOWN`. *(Corrected 2026-11-04: from the first provisioning step on, an EXIT/INT/TERM/HUP trap now runs the same idempotent teardown, so an interrupted run tears its host down too; a crash that kills the shell itself (SIGKILL) and `--keep-vm` still leave it standing. Codex F04-022#10; [CORRECTIONS.md](CORRECTIONS.md) CX-36Q-A.)*
 
 ⚠ **[CORRECTED 2026-09-02 — this section previously asserted, as an
 unconditional property of solver VMs, that they present no external attack

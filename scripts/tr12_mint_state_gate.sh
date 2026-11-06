@@ -96,6 +96,7 @@ run_block(){ # run_block OUTFILE N_PAIRS SCAN_OK NFAIL [MINTED_ROW...]
         # emitted verdict token and demand a documentation row for a name no run ever prints.
         printf '%s=%q\n' EXPECTDIR "$WORK/expect"
         printf 'N_PAIRS=%s\nSCAN_OK=%s\nNFAIL=%s\nREGEN=0\nMINT_MISSING=0\n' "$np" "$so" "$nf"
+        printf 'VHW=0\n'   # FV2-R (FV2 D1291): the block seeds VWF from VHW, the verdict-header write status the battery sets before it  # not-a-verdict
         printf 'declare -a TOKORDER=()\n'
         printf 'declare -A TOKSTATE=()\n'
         printf 'declare -a MINTED=('
@@ -196,6 +197,7 @@ V5="$WORK/v_rowmint.txt"; R5="$WORK/r5"; mkdir -p "$R5/raw" "$R5/got" "$R5/diff"
     printf 'VERD=%q\nLOG=/dev/null\n' "$V5"
     printf '%s=%q\n' EXPECTDIR "$R5/expect" GOTDIR "$R5/got" DIFFDIR "$R5/diff" RAWDIR "$R5/raw"
     printf '%s=%s\n' N_PAIRS 31 SCAN_OK 1 NFAIL 0 NPASS 0 NROWS 0 REGEN 0 MINT_MISSING 1   # generated SOURCE, not tokens (see run_block)
+    printf 'VHW=0\n'   # FV2-R (FV2 D1291): as in run_block  # not-a-verdict
     printf 'declare -a TOKORDER=() FAILED=() MINTED=()\ndeclare -A TOKSTATE=() TOKROWS=()\n'
     cat "$FNS"
     printf 'ROW_ID=r_one; RAW="$RAWDIR/r_one.txt"; echo one > "$RAW"; row_end TR12_ONE 0\n'

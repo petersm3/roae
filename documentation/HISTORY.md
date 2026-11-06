@@ -12078,3 +12078,21 @@ Q-686=DONE
   already cured; two rows are held for the operator and two are queued.
 - No canonical sha, count, certificate or verdict changed. `TestBatchFV2E2` holds each cure and fails on the
   parent tree.
+
+## 2026-11-04 — batch FV2-R: the battery driver, execution lane and helper-script rows from Codex's fix-verification round
+
+- **Build, bench and binary-currency helpers (CX-36Q-A).** Codex (gpt-6-astra) found helpers that let something
+  pass without checking it. A source that could not be hashed, or a missing `strings`, now reads UNMEASURED. A PGO
+  workload must finish every run it starts. An interrupted bench tears its host down. A dead throttle burner no
+  longer reads HEALTHY. The build manifest records a real libgomp path or `unknown`.
+- **Spot launch checks (CX-36Q-B).** Restrictions and quota answers are parsed, not text-searched. The final OK says
+  it rests on the published signals, not on the small probe. 16:00 PT is the MEDIUM tail the script's own table
+  states.
+- **Execution lane (CX-36Q-C).** Failures are classified on the command's output, not on the lane's header. A
+  SIGPIPE pass needs a clean upstream. Chains catch a producer that never wrote its output. A missing script is
+  reported. OPS tools are denied by path and inside `bash -c`. Background jobs are waited for. D1107 is held for a
+  decision on how the lane reads table pipes.
+- **TR-12 battery driver (CX-36Q-D).** Producer statuses are read, parsers require one well-formed token, and the
+  verdict file's writes are checked. No cited line moved, and no golden changed. D1270 stays held.
+- No canonical sha, count, certificate or verdict changed. `TestBatchFV2R` holds each cure and fails on the parent
+  tree.

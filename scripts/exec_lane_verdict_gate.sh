@@ -95,7 +95,7 @@ echo "-- LEG A: outcome classifier (D1: host refusal must be SKIP-RESOURCE, not 
 # Anchors are matched as FIXED strings (grep -F): the chain is shell source full of $, [ and (,
 # and passing it through a regex engine — or through awk's own escape processing — silently
 # matches nothing, which would have made leg A extract an empty chain and measure zero cases.
-A_START='if   [ $docfail -eq 1 ] && [ $rc -ne 0 ]'
+A_START='if   [ $rc -eq 97 ] && [ "$psrec" = cdfail ]'   # FV2-R: the launcher cd-failure branch (rc 97 + ps.IDX=cdfail) now opens the chain; the docfail rule is an elif
 A_END='else outcome="FAIL(rc=$rc)"; fi'
 a_n1="$(grep -cF -- "$A_START" "$LANE")"
 a_n2="$(grep -cF -- "$A_END" "$LANE")"

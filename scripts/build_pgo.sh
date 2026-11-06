@@ -176,8 +176,18 @@ mkdir -p "$PROFILE_DIR"
 WORK_DIR=$(mktemp -d "$BUILD_DIR/pgo_work.XXXXXX") || {
     echo "ERROR: could not create a fresh workload directory under $BUILD_DIR" >&2; exit 1; }
 echo "[$(date -u +%FT%TZ)] PGO profile-gen workload (in $WORK_DIR)"
-export INSTR_BIN
-( cd "$WORK_DIR" && eval "$PGO_WORKLOAD" ) > "$LOG_DIR/workload.log" 2>&1
+# Codex (gpt-6-astra) F04-021#4 (FV2 D931): the ENUM_RUN=FINISHED test below accepted ONE such line,
+# so a workload of two runs whose first was SIGKILLed (no stop line, no FINISHED) and whose second
+# finished passed, and Pass 2 trained on a partial profile. The workload now sees $INSTR_BIN as a
+# thin runner that logs one line per start and then execs the instrumented binary (same process, so
+# `$!`, signals and the .gcda path are unchanged); the log must carry exactly as many
+# ENUM_RUN=FINISHED lines as there were starts, and at least one start.
+PGO_RUNS="$LOG_DIR/workload.starts"
+PGO_RUNNER="$LOG_DIR/instr_runner.sh"
+: > "$PGO_RUNS" || { echo "ERROR: could not create $PGO_RUNS" >&2; exit 1; }
+printf '#!/usr/bin/env bash\necho start >> %q || exit 125\nexec %q "$@"\n' "$PGO_RUNS" "$INSTR_BIN" > "$PGO_RUNNER" \
+    && chmod 755 "$PGO_RUNNER" || { echo "ERROR: could not write $PGO_RUNNER" >&2; exit 1; }
+( cd "$WORK_DIR" && INSTR_BIN="$PGO_RUNNER" && export INSTR_BIN && eval "$PGO_WORKLOAD" ) > "$LOG_DIR/workload.log" 2>&1
 WORKLOAD_RC=$?
 if [ "$WORKLOAD_RC" -ne 0 ]; then
     echo "ERROR: PGO workload exited rc=$WORKLOAD_RC; refusing to build a PGO binary from it" >&2
@@ -212,6 +222,18 @@ if grep -Eq "$PGO_STOP_RE" "$LOG_DIR/workload.log"; then
 fi
 if ! grep -qx 'ENUM_RUN=FINISHED' "$LOG_DIR/workload.log"; then
     echo "ERROR: PGO workload log has no ENUM_RUN=FINISHED line (Q-828); refusing to build a PGO binary from it" >&2
+    echo "       workload log ($LOG_DIR/workload.log):" >&2
+    tail -20 "$LOG_DIR/workload.log" >&2
+    exit 1
+fi
+PGO_STARTS=$(wc -l < "$PGO_RUNS") || { echo "ERROR: could not read $PGO_RUNS" >&2; exit 1; }
+PGO_FINISHED=$(grep -cx 'ENUM_RUN=FINISHED' "$LOG_DIR/workload.log")
+if [ "$PGO_STARTS" -lt 1 ]; then
+    echo "ERROR: the PGO workload never started \$INSTR_BIN (D931); a workload must invoke the instrumented binary as \"\$INSTR_BIN\"" >&2
+    exit 1
+fi
+if [ "$PGO_FINISHED" -ne "$PGO_STARTS" ]; then
+    echo "ERROR: PGO workload started $PGO_STARTS run(s) but its log has $PGO_FINISHED ENUM_RUN=FINISHED line(s) (Q-828, D931); refusing to build a PGO binary from a partial profile" >&2
     echo "       workload log ($LOG_DIR/workload.log):" >&2
     tail -20 "$LOG_DIR/workload.log" >&2
     exit 1
@@ -263,9 +285,13 @@ if ! "$FINAL_BIN" --selftest > "$LOG_DIR/pass2_selftest.log" 2>&1; then
     exit 1
 fi
 
+# Codex F09-A04#5 / F09-A01#15 (FV2 D932): the digest line was unchecked, so a failed hash still
+# printed "PGO build complete" at rc 0 with no digest recorded. The hash is taken first.
+FINAL_DIG=$(sha256sum "$FINAL_BIN") && [[ "${FINAL_DIG%% *}" =~ ^[0-9a-f]{64}$ ]] || {
+    echo "ERROR: could not hash $FINAL_BIN; no digest, so no completed build is reported" >&2; exit 1; }
 echo "[$(date -u +%FT%TZ)] PGO build complete"
 echo "  binary:        $FINAL_BIN"
-sha256sum "$FINAL_BIN"
+echo "$FINAL_DIG"
 echo "  gcda files:    $GCDA_COUNT (in $PROFILE_DIR)"
 echo "  instrumented:  $INSTR_BIN (kept for forensics; rm to free space)"
 echo "  workload dir:  $WORK_DIR (its checkpoints; kept for forensics, rm to free space)"

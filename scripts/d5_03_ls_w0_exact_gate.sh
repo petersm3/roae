@@ -53,8 +53,9 @@ if 'pair_null_gender_le2_exact' not in row: raise SystemExit(3)
 # G5a (Codex F05-013#1): the row is extracted from INSIDE its guard, so a guard made false (the row
 # unreachable) left every extracted byte unchanged. The guard is pinned: the two lines before the
 # row must be exactly the python3/solve.py/import-state test, so `if false && ...` cannot pass.
-GUARD = ('if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \\\n'
-         '   && [ "$(py_import_state solve)" = PRESENT ]; then\n')
+# FV2 D1295 (Codex F05-002#1): the guard now probes the import state ONCE into _PYS_LSW (shared with the elif); pinned as written.
+GUARD = ('_PYS_LSW=$(py_import_state solve); if command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/solve.py" ] \\\n'
+         '   && [ "$_PYS_LSW" = PRESENT ]; then   # FV2 D1295\n')
 if not s[:a].endswith(GUARD): raise SystemExit(5)
 a=s.index('row_begin a0_ls_w0_mc\n'); b=s.index('row_end TR12_LS_W0_COND_MC $rc', a)
 mc=s[a:b]
