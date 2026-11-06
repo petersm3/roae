@@ -113,11 +113,24 @@ def _wm_head(text, pos):
         pass
     if cut is not None:
         head = head[cut.end():]
-    for c in reversed(list(_WM_COMMA.finditer(head))):
+    # CX-36S-G (D1095, Codex F05-007#14): a comma-delimited PARENTHETICAL of at most three words right
+    # before the word judged (`has not, in fact, completed`) is skipped, not taken as the window's start:
+    # cutting at its first comma lost the "not" before it.
+    cs = list(_WM_COMMA.finditer(head))
+    k = len(cs) - 1
+    while k >= 0:
+        c = cs[k]
         seg = [w.lower() for w in _WM_WORD.findall(head[c.end():])]
+        if not seg and k >= 1:
+            inner = [w.lower() for w in _WM_WORD.findall(head[cs[k - 1].end():c.start()])]
+            if 1 <= len(inner) <= 3 and not (set(inner) & _WM_COORD):
+                head = head[:cs[k - 1].start()] + ' '
+                k -= 2
+                continue
         if seg and not (set(seg) & _WM_COORD):
             head = head[c.end():]
             break
+        k -= 1
     return head
 
 def wm_before(text, pos, window=3):

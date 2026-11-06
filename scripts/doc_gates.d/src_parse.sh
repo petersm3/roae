@@ -114,6 +114,56 @@ _SP_HD = _sre.compile(r"""[ \t]*(['"]?)([^\s'"<>|&;()]+)\1""")
 
 _SP_CMT = None      # sp_strip_comments: when a list, the lexers record each comment's (start, end) here
 
+class _SpOp(str):
+    """A lexer operator token; .fd is the file-descriptor number written before a redirection ('2>'), or None."""
+    fd = None
+
+def _sp_bq_comments(s, a, b):
+    # CX-36S-G (D1087, Codex F05-004#15): the body of a `..` substitution is a script of its own, and a `#`
+    # comment inside it is a comment. It was kept whole, so a commented path inside backticks read as
+    # code. Lexed only for sp_strip_comments (when _SP_CMT is a list); offsets are mapped back.
+    global _SP_CMT
+    if _SP_CMT is None or '#' not in s[a:b]:
+        return
+    outer, _SP_CMT = _SP_CMT, []
+    try:
+        sp_sh_lex(s[a:b])
+        inner = _SP_CMT
+    finally:
+        _SP_CMT = outer
+    _SP_CMT.extend((x + a, y + a) for x, y in inner)
+
+def _sp_ansi_c(s, j):
+    # CX-36S-G (D1086, Codex F05-004#13): $'..' escapes as bash decodes them: \xHH, \NNN (octal), \uHHHH,
+    # \UHHHHHHHH and \cX, besides the one-letter ones. Returns (text, index past the escape).
+    c = s[j + 1]
+    m = _sre.match(r'x([0-9A-Fa-f]{1,2})|([0-7]{1,3})|u([0-9A-Fa-f]{1,4})|U([0-9A-Fa-f]{1,8})|c(.)', s[j + 1:j + 10])
+    if m and (m.group(1) or m.group(2) or m.group(3) or m.group(4) or m.group(5)):
+        if m.group(5) is not None:
+            v = chr(ord(m.group(5).upper()) ^ 0x40)
+        else:
+            k = next(x for x in (1, 2, 3, 4) if m.group(x))
+            num = int(m.group(k), 8 if k == 2 else 16)
+            v = chr(num & 0xFF) if k in (1, 2) else (chr(num) if num <= 0x10FFFF else '')
+        return v, j + 1 + m.end()
+    return _SP_ESC.get(c, '\\' + c), j + 2
+
+def _sp_param_subs(t):
+    # CX-36S-G (D1089, Codex F05-004#14): the $( ) substitutions nested inside a parameter expansion
+    # (`${V:-$(emit)}`) -- their bodies, for sp_sh_commands to recurse into.
+    out, i = [], 2
+    while True:
+        i = t.find('$(', i)
+        if i < 0:
+            return out
+        if t.startswith('$((', i):
+            i += 3; continue
+        try:
+            e = _sp_balanced(t, i + 2, '(', ')')
+        except SpError:
+            return out
+        out.append(t[i + 2:e - 1]); i = e
+
 def _sp_balanced(s, i, op, cl):
     # s[i] is just past the opener; returns the index just past the matching closer. Inside $(..)
     # it reads what bash reads: quotes, nested expansions, comments, here-documents (their bodies
@@ -293,7 +343,7 @@ def sp_sh_lex(text):
             j, out = i + 2, []
             while j < n and s[j] != "'":
                 if s[j] == '\\' and j + 1 < n:
-                    out.append(_SP_ESC.get(s[j + 1], '\\' + s[j + 1])); j += 2
+                    _v, j = _sp_ansi_c(s, j); out.append(_v)
                 else:
                     out.append(s[j]); j += 1
             if j >= n:
@@ -318,6 +368,7 @@ def sp_sh_lex(text):
                     e = _sp_expansion(s, k); add(s[k:e], 'exp'); k = e; continue
                 if ch == '`':
                     e = s.find('`', k + 1)
+                    _sp_bq_comments(s, k + 1, e)
                     add(s[k:e + 1], 'exp'); k = e + 1; continue
                 add(ch, 'lit'); k += 1
             line += s.count('\n', i, j); i = j + 1; continue
@@ -329,6 +380,7 @@ def sp_sh_lex(text):
                 j += 2 if s[j] == '\\' else 1
             if j >= n:
                 raise SpError('unterminated backquote at line %d' % line)
+            _sp_bq_comments(s, i + 1, j)
             add(s[i:j + 1], 'exp'); line += s.count('\n', i, j); i = j + 1; continue
         if c in '<>' and s[i + 1:i + 2] == '(':
             e = _sp_balanced(s, i + 2, '(', ')'); add(s[i:e], 'exp'); line += s.count('\n', i, e); i = e; continue
@@ -336,7 +388,9 @@ def sp_sh_lex(text):
         if op == '(' and cur is not None and not cur.quoted and cur.value.endswith(('@', '?', '*', '+', '!')):
             e = _sp_balanced(s, i + 1, '(', ')'); add(s[i:e], 'lit'); i = e; continue   # an extglob pattern
         if op is not None:
+            op = _SpOp(op)
             if op[0] in '<>' and cur is not None and not cur.quoted and cur.value.isdigit():
+                op.fd = cur.value               # CX-36S-G (D1088): kept, so `2>` is not read as `>`
                 cur = None                      # a file-descriptor number belongs to the redirection
             flush()
             toks.append(('op', op, line))
@@ -391,7 +445,10 @@ def sp_sh_commands(text, sub=True, _off=0):
             continue
         if kind in ('op', 'nl'):
             if kind == 'op' and v in _SP_REDIR:
-                skip = True; cur.redirs.append((v, None)); continue
+                # CX-36S-G (D1088, Codex F05-003#11): .redirs names the descriptor -- `2>` (stderr) is
+                # not `>`; fd 1 written out (`1>`) is `>`.
+                _fd = getattr(v, 'fd', None)
+                skip = True; cur.redirs.append((str(v) if _fd in (None, '1') else _fd + v, None)); continue
             push()
             if kind == 'op' and v in (';;', ';&', ';;&') and case_in:
                 pattern = True
@@ -409,6 +466,9 @@ def sp_sh_commands(text, sub=True, _off=0):
                         out.extend(sp_sh_commands(t[2:-1], True, ln - 1 + _off))
                 if k == 'exp' and t.startswith('`'):
                     out.extend(sp_sh_commands(t[1:-1], True, ln - 1 + _off))
+                if k == 'exp' and t.startswith('${') and '$(' in t:
+                    for _body in _sp_param_subs(t):
+                        out.extend(sp_sh_commands(_body, True, ln - 1 + _off))
         if skip:
             skip = False
             if cur.redirs:
@@ -434,7 +494,10 @@ def sp_sh_funcdefs(text):
     def body_opens(k):
         while k < n and toks[k][0] == 'nl':
             k += 1
-        return k < n and ((toks[k][0] == 'word' and toks[k][1].value == '{' and not toks[k][1].quoted)
+        # CX-36S-G (D1090, Codex F05-004#16): any compound command is a legal body (`f() if ...; fi`,
+        # `f() [[ ... ]]`, `f() for ...`), not only `{` and `(`.
+        return k < n and ((toks[k][0] == 'word' and not toks[k][1].quoted and toks[k][1].value in
+                           ('{', 'if', 'for', 'while', 'until', 'case', 'select', '[['))
                           or (toks[k][0] == 'op' and toks[k][1] == '('))
     for k in range(n):
         kind, v, ln = toks[k]
@@ -464,7 +527,19 @@ def sp_sh_split(s):
         val, quoted, ok = [], False, True
         while i < n and s[i] not in ' \t':
             c = s[i]
-            if c in '"\'':
+            if c == '"':
+                # CX-36S-G (D1091, Codex F05-004#2): inside double quotes \" \\ \$ \` are escapes, so an
+                # escaped quote does not end the string and swallow the rest of the line.
+                j, buf = i + 1, []
+                while j < n and s[j] != '"':
+                    if s[j] == '\\' and j + 1 < n and s[j + 1] in '"\\$`':
+                        buf.append(s[j + 1]); j += 2
+                    else:
+                        buf.append(s[j]); j += 1
+                if j >= n:
+                    ok = False; val.append(s[i:]); i = n; break
+                val.append(''.join(buf)); quoted = True; i = j + 1
+            elif c == "'":
                 j = s.find(c, i + 1)
                 if j < 0:
                     ok = False; val.append(s[i:]); i = n; break
@@ -514,7 +589,8 @@ def sp_grep_E(ere, lines):
                   text=True)      # the caller's locale: the assertion helpers' own grep runs in it
     if r.returncode not in (0, 1):
         raise SpError('grep -E cannot use %r: %s' % (ere, r.stderr.strip()[:200]))
-    return [l for l in r.stdout.split('\n') if l] if r.returncode == 0 else []
+    # CX-36S-E (D1016, Codex F05-006#7): a matched EMPTY line is a match (`^$` asserts a blank line).
+    return r.stdout.split('\n')[:-1] if r.returncode == 0 else []
 
 def sp_brace_expand(s, cap=4096):
     def first_group(t):
@@ -541,7 +617,7 @@ def sp_brace_expand(s, cap=4096):
                         for c in commas + [j - 1]:
                             alts.append(t[a:c]); a = c + 1
                         return i, j, alts
-                    m = _sre.fullmatch(r'(-?\d+)\.\.(-?\d+)(?:\.\.(-?\d+))?|([A-Za-z])\.\.([A-Za-z])', inner)
+                    m = _sre.fullmatch(r'(-?\d+)\.\.(-?\d+)(?:\.\.(-?\d+))?|([A-Za-z])\.\.([A-Za-z])(?:\.\.(-?\d+))?', inner)
                     if m:
                         if m.group(1) is not None:
                             a, b = int(m.group(1)), int(m.group(2)); st = abs(int(m.group(3) or 1)) or 1
@@ -549,7 +625,8 @@ def sp_brace_expand(s, cap=4096):
                             rng = range(a, b + 1, st) if a <= b else range(a, b - 1, -st)
                             return i, j, [str(x).zfill(w) for x in rng]
                         a, b = ord(m.group(4)), ord(m.group(5))
-                        rng = range(a, b + 1) if a <= b else range(a, b - 1, -1)
+                        st = abs(int(m.group(6) or 1)) or 1          # CX-36S-G (D1093): {a..z..2}, as bash
+                        rng = range(a, b + 1, st) if a <= b else range(a, b - 1, -st)
                         return i, j, [chr(x) for x in rng]
                     i += 1; continue
             i += 1
@@ -666,7 +743,16 @@ def sp_strip_comments(src, lang):
         for node in _sast.walk(_sast.parse(src)):
             if isinstance(node, _sast.Expr) and (isinstance(node.value, _sast.JoinedStr) or (
                     isinstance(node.value, _sast.Constant) and isinstance(node.value.value, (str, bytes)))):
-                _sp_blank(out, at(node.lineno, node.col_offset), at(node.end_lineno, node.end_col_offset))
+                _a, _b = at(node.lineno, node.col_offset), at(node.end_lineno, node.end_col_offset)
+                _keep = list(out[_a:_b])
+                _sp_blank(out, _a, _b)
+                # CX-36S-G (D1094, Codex F05-004#12): an f-string statement's {...} EXPRESSIONS run; only
+                # its string segments are blanked (python 3.12 gives their exact positions).
+                if isinstance(node.value, _sast.JoinedStr):
+                    for _fv in node.value.values:
+                        if isinstance(_fv, _sast.FormattedValue) and getattr(_fv.value, 'end_lineno', None):
+                            _x, _y = at(_fv.value.lineno, _fv.value.col_offset), at(_fv.value.end_lineno, _fv.value.end_col_offset)
+                            out[_x:_y] = _keep[_x - _a:_y - _a]
         return ''.join(out)
     if lang == 'c':
         keep = []                        # original index of each character of the SPLICED text

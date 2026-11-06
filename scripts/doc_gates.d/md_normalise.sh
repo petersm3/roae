@@ -174,7 +174,7 @@ MD_EDGE = r'(?<![\w.])(?:(?<!\d[,   ])|(?!\d{3}(?!\d)))'
 # read after the blank, while "7 − 5" stays a subtraction (two numbers). At the start of the text or of
 # a line only U+2212 counts: an ASCII "- " there is a Markdown list marker, not a sign. The anchors are
 # separate fixed-width lookbehinds (Python's re has no variable-width lookbehind).
-_MD_SPM_SET = r'[(\[{:=,;|.!?]'
+_MD_SPM_SET = r'[(\[{:=,;|.!?/×÷*]'   # CX-36S-F (D1081): and after an operator, `6.52 / − 3.2` divides by -3.2
 _MD_SPM_BEFORE = (r'(?:(?<=' + _MD_SPM_SET + r')'
                   + ''.join(r'|(?<=' + _MD_SPM_SET + r'[ \t]{%d})' % k for k in (1, 2, 3)) + r')')
 _MD_SPM_START = (r'(?:(?<![\s\S])|(?<=\n)'
@@ -387,6 +387,18 @@ _MD_LINKRX = _mre.compile(r'(?<!\\)!?\[((?:[^\[\]\\\n]|\\.)*)\]'
                           r'(?:\((?:[ \t]*(?:<[^<>\n]*>|(?:[^()\s\\]|\\.|\([^()\s]*\))*)'
                           r'(?:[ \t]+(?:"[^"\n]*"|\'[^\'\n]*\'|\([^()\n]*\)))?[ \t]*)\))')
 _MD_ESCPH = _mre.compile(r'\\([!-/:-@\[-`{-~])')
+# CX-36S-F (D1082, Codex F05-010#8): an ENTITY-encoded bracket or parenthesis is literal text, not link
+# syntax (CommonMark resolves entities after inline structure), so it is parked like an escape before
+# html.unescape runs: `&#91;3.3e37&#93;(note)` reads as the visible "[3.3e37](note)", not as a link.
+_MD_ENTPH = _mre.compile(r'&(?:#0*(91|93|40|41);|#[xX]0*(5[bBdD]|28|29);|(lsqb|lbrack|rsqb|rbrack|lpar|rpar);)')
+_MD_ENTCH = {'lsqb': '[', 'lbrack': '[', 'rsqb': ']', 'rbrack': ']', 'lpar': '(', 'rpar': ')'}
+def _md_entph(m):
+    c = chr(int(m.group(1))) if m.group(1) else chr(int(m.group(2), 16)) if m.group(2) else _MD_ENTCH[m.group(3)]
+    return chr(0xF0000 + ord(c))
+# CX-36S-F (D1081, Codex F05-010#6): a spaced U+2212 at the START of the text is a sign (MD_SIGN), but
+# the fold turns it into an ASCII "- ", which there is a list marker, so the sign was lost. Before the
+# fold it is closed up to "-7.84", which every MD_SIGN form reads as negative.
+_MD_SPM_LEAD = _mre.compile(_MD_SPM_START + r'\u2212[ \t]+(?=\d)')
 
 def _md_spans(s):
     """[(is_code, start, end)] covering s in order: CommonMark code spans (a run of n backticks
@@ -424,7 +436,9 @@ def _md_spans(s):
 
 def _md_inline_text(s, fold):
     if '&' in s:
-        s = _mhtml.unescape(s)
+        s = _mhtml.unescape(_MD_ENTPH.sub(_md_entph, s))
+    if fold and '\u2212' in s:
+        s = _MD_SPM_LEAD.sub('-', s)
     s = _MD_DGRP.sub(',', s)
     if fold:
         s = s.translate(_MD_FOLD)
@@ -451,12 +465,25 @@ def _md_inline_code(seg, fold):
     seg = _MD_CODE_EMPH.sub('', seg)
     return seg.translate(_MD_FOLD) if fold else seg
 
+# CX-36S-F (D1083, Codex F05-010#7): a link whose LABEL holds a code span (`[`x`](dest "title")`) was
+# split at the span before the link rule ran, so its destination and title survived as text that could
+# carry an exemption word. Such a link is found on the whole block first; its brackets, destination and
+# title are blanked IN PLACE (same length, newlines kept), so every offset below still lines up.
+_MD_CLINK = _mre.compile(r'(?<![\\!])\[((?:[^\[\]\\`\n]|\\.|(`+)[^`]*?\2)*?`(?:[^\[\]\\\n]|\\.)*)\]'
+                         r'(\((?:[ \t]*(?:<[^<>\n]*>|(?:[^()\s\\]|\\.|\([^()\s]*\))*)'
+                         r'(?:[ \t]+(?:"[^"\n]*"|\'[^\'\n]*\'|\([^()\n]*\)))?[ \t]*)\))')
+def _md_codelabel_links(t):
+    if '`' not in t or '](' not in t:
+        return t
+    blank = lambda x: ''.join(c if c == '\n' else ' ' for c in x)
+    return _MD_CLINK.sub(lambda m: ' ' + m.group(1) + blank(']' + m.group(3)), t)
+
 def md_inline_lines(lines, fold=True):
     """md_inline of each line of ONE block (a paragraph, a list item), with code spans paired
     across the line ends the way the block renders: a span opened on one line and closed on the
     next is code on both. Returns one folded string per line."""
     lines = list(lines)
-    joined = '\n'.join(lines)
+    joined = _md_codelabel_links('\n'.join(lines))
     segs = _md_spans(joined)
     res, off = [], 0
     for l in lines:
@@ -566,9 +593,24 @@ def md_parse(text):
         ind = _md_indent(bi)
         m = _MD_FENCE.match(bi)
         lead = m is not None or _MD_ATX.match(bi) is not None or _MD_HR.match(bi) is not None
-        while stack and ind < stack[-1] and not (prev_text and not lead and _md_item(bi, True) is None):
+        # CX-36S-F (D1084, Codex F05-010#9): "an ordered item other than 1 cannot interrupt a paragraph"
+        # holds only for a paragraph that is NOT in a list item the line falls outside: there the list is
+        # the open container, and `2.` after `1. one` is its next item (CommonMark), not lazy text.
+        sib = bool(stack) and ind < stack[-1]
+        while stack and ind < stack[-1] and not (prev_text and not lead and _md_item(bi, not sib) is None):
             stack.pop()                     # the line is not indented into the item: the item ended
         base = stack[-1] if stack else 0
+        # CX-36S-F (D1085, Codex F05-010#10): a fence can OPEN a list item (`- ```` ... ```` ``` ````): the
+        # marker is read first, the item pushed, and the fence matched on the item's content.
+        if m is None:
+            w0 = _md_item(bi, prev_text and not sib)
+            if w0 is not None and ind - base <= 3 and _MD_FENCE.match(bi[w0:]):
+                while stack and stack[-1] > ind:
+                    stack.pop()
+                stack.append(w0)
+                item.add(i)
+                base, ind, bi = w0, w0, ' ' * w0 + bi[w0:]
+                m = _MD_FENCE.match(bi[w0:])
         if m and 0 <= ind - base <= 3 and not (m.group(1)[0] == '`' and '`' in m.group(2)):
             close = _mre.compile(r'^[ \t]*' + _mre.escape(m.group(1)[0]) + '{%d,}[ \t]*$' % len(m.group(1)))
             j, end, closed = i + 1, n, False
@@ -595,8 +637,8 @@ def md_parse(text):
             unclosed.append(i + 1)
             for k in range(i, end):
                 shadow[k] = True
-        w = _md_item(bi, prev_text)
-        if w is not None and ind - base <= 3:
+        w = _md_item(bi, prev_text and not sib)
+        if w is not None and ind - base <= 3 and i not in item:
             while stack and stack[-1] > ind:
                 stack.pop()
             stack.append(w)

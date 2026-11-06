@@ -55,7 +55,7 @@ gate_numbers() {
   if [ "$found" -eq 0 ]; then
     echo "  [ok] no long integer disagrees with a same-length near-twin elsewhere"
   else
-    echo "  (report-only: confirm each pair is intentional, then add its key to $allow)"
+    echo "  (report-only: confirm each value is intentional, then add each reviewed integer to $allow as a line =<value> -- a key line silences nothing; CX-36S-B)"
   fi
   rm -f "$tmp"
   return 0   # report-only gate — never blocks
@@ -88,7 +88,7 @@ if kind == "code" and mode == "py":
             out |= {a.value for a in n.args if isinstance(a, ast.Constant) and isinstance(a.value, str)
                     and FLAG.match(a.value)}
 elif kind == "code":
-    out = {m.group(1) for m in re.finditer(r'"(--[a-z0-9][a-z0-9-]*)(?:"|=)', code)}
+    out = {m.group(1) for m in re.finditer(r'"(--[a-z0-9][a-z0-9-]*)(?:"|=)', re.sub(r'"\s*"', '', code))}   # CX-36S-B: "--kc-" "scan" is one literal
 elif mode == "py":
     out = {m.group(2) for m in re.finditer(r"add_argument\(\s*(['\"])(--[a-z0-9][a-z0-9_-]*)", cmt)}
 else:
@@ -97,7 +97,7 @@ for f in sorted(out):
     print(f)
 CLIPY
     } | python3 - "$@" | sort -u
-    return "${PIPESTATUS[1]}"
+    local _ps=("${PIPESTATUS[@]}"); [ "${_ps[0]}" -eq 0 ] && [ "${_ps[2]}" -eq 0 ] || return 1; return "${_ps[1]}"   # CX-36S-B: every stage
   }
   check_pair() { # $1=code file  $2=doc file  $3=extractor
     local code="$1" doc="$2" mode="$3" cf df miss rcc=0 rcd=0
@@ -169,8 +169,8 @@ CLIPY
     # and verify.py (49); c mode loses exactly solve.c's three comment-only fragments (--kc-alt,
     # --kc-braket, --kc-witnes) and gains nothing. The "commented" census below counts flags named in
     # COMMENTS (whole-line or trailing), read the same way.
-    if ! _cli_flags "$mode" "$code" code > "$cf"; then
-      echo "  [FAIL] $code could not be parsed, so NOTHING was compared for it."; bad=1
+    if ! _cli_flags "$mode" "$code" code > "$cf" || [ ! -s "$cf" ]; then
+      echo "  [FAIL] $code could not be parsed, or the extraction is empty (CX-36S-B), so NOTHING was compared for it."; bad=1
       rm -f "$cf" "$df"; return 1
     fi
     # Q-963 (batch 48; Codex Q835 A04#2): both producers are CHECKED. grep exits 1 for a doc naming no

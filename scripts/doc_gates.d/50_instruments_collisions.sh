@@ -304,8 +304,9 @@ except SpError as exc:
     print("  [FAIL] LEG 2: the --selftest region could not be lexed (%s); its copies are unknown" % exc)
     sys.exit(1)
 def _var_of(w):
-    m = re.fullmatch(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?", w.value)
-    return m.group(1) if m else None
+    # CX-36S-E (D1020, Codex F05-006#2): `${V:?}`, `${V:-x}`, `${V%...}` name the same variable.
+    m = re.fullmatch(r"\$(?:([A-Za-z_][A-Za-z0-9_]*)|\{([A-Za-z_][A-Za-z0-9_]*)(?:[:%#/^,@-][^}]*)?\})", w.value)
+    return (m.group(1) or m.group(2)) if m else None
 for _ln, _w in _rcmds:
     if _w[0].value in ("_gsrc", "bash") and len(_w) > 1 and _var_of(_w[1]):
         copyvars.add(_var_of(_w[1]))
@@ -319,10 +320,22 @@ _CV = "(?:%s)" % "|".join(sorted(map(re.escape, copyvars))) if copyvars else "(?
 COPY_GUARD = re.compile(
     r"grep\s+-q([A-Za-z]*)\s+(?P<q>['\"])(?P<pat>.*?)(?P=q)[^&|;]*\$\{?" + _CV + r"\b")
 guards = []
+# CX-36S-E (D1021, Codex F05-006#3): the pattern is the WHOLE shell word, read by the lexer. The first
+# quoted fragment of `'^a'"|b"` is `^a`, which hid the unanchored `b` alternative from the check.
+def _guard_pat(line, m):
+    try:
+        _gw = [t[1] for t in sp_sh_lex(line[m.start("q"):]) if t[0] == "word"]
+    except SpError:
+        return None
+    return _gw[0].value if _gw and _gw[0].lit() else None
 for i in range(start + 1, end):
     m = COPY_GUARD.search(lines[i])
     if m:
-        guards.append((i + 1, m.group(1), m.group("pat")))
+        _gp = _guard_pat(lines[i], m)
+        if _gp is None:
+            print("  [FAIL] LEG 2: the copy guard at line %d has a pattern the lexer cannot read whole" % (i + 1))
+            sys.exit(1)
+        guards.append((i + 1, m.group(1), _gp))
 
 if not guards:
     print("  [FAIL] zero copy-confirmation guards found in the --selftest region (lines"
@@ -1220,6 +1233,28 @@ CALLPOS = re.compile(r"(?:^|\$\()\s*(?:[A-Za-z_][A-Za-z0-9_]*=\$\(\s*)?(%s)\s+(?
                      % "|".join(HELPERS))
 QUOTED = re.compile(r"'((?:[^'\\]|\\.)*)'")
 LABEL_ARG = re.compile(r'^"((?:[^"\\]|\\.)*)"\s*(.*)$')
+def _in_bracket(ere):   # CX-36S-E: does the ERE text end INSIDE an open bracket expression?
+    i, n, open_ = 0, len(ere), False
+    while i < n:
+        c = ere[i]
+        if not open_:
+            if c == "\\":
+                i += 2; continue
+            if c == "[":
+                open_ = True; i += 1
+                if ere[i:i + 1] == "^":
+                    i += 1
+                if ere[i:i + 1] == "]":
+                    i += 1           # a leading ] is a member, not the close
+                continue
+        else:
+            if ere.startswith(("[:", "[.", "[="), i):
+                j = ere.find(ere[i + 1] + "]", i + 2)
+                i = n if j < 0 else j + 2; continue
+            if c == "]":
+                open_ = False
+        i += 1
+    return open_
 calls, found = [], []
 for i, ln in enumerate(lines):
     if ln.lstrip().startswith("#"):
@@ -1251,7 +1286,16 @@ for i, ln in enumerate(lines):
         _aw = [t[1] for t in sp_sh_lex(tail) if t[0] == "word"]
     except SpError:
         _aw = []
-    ere = "".join(t if k == "lit" else ".*" for t, k in _aw[2].parts) if len(_aw) >= 3 else None
+    # CX-36S-E (D1013, Codex F05-006#5): inside a bracket expression `.*` NARROWS (`[$X]` -> `[.*]`), so
+    # an expansion there makes the ERE unresolvable (None: the loud FAIL below), never a substitution.
+    ere = None
+    if len(_aw) >= 3:
+        _ep, _unres = "", False
+        for t, k in _aw[2].parts:
+            if k != "lit" and _in_bracket(_ep):
+                _unres = True
+            _ep += t if k == "lit" else ".*"
+        ere = None if _unres else _ep
     found.append((label, ere, i + 1))
 
 bad = 0
@@ -1412,7 +1456,7 @@ else:
 # exemption whose condition nothing re-reads is prose, and prose about a corpus property that
 # nothing re-reads is the class this campaign has caught in eleven consecutive rounds.
 NESTED = {
-    "require_final_newline": ("quiet",
+    "require_final_newline": ("quiet", 2,    # CX-36S-E (D1014): the literal suppresses only as ARGUMENT 2
                               "its pre-dispatch caller passes the literal, and the callee"
                               " returns on it before its first echo, so none of its three"
                               " message lines can reach any run this gate compares against"),
@@ -1470,15 +1514,17 @@ for _caller, _callee, _site in _nested:
         print("         argument that does the suppressing, or teach the scan to read it.")
         bad = 1
         continue
-    _arg, _why = NESTED[_callee]
+    _arg, _pos, _why = NESTED[_callee]
     # Q-970 (A06#9): the suppressing literal must be an ARGUMENT of the call, read by the lexer --
     # `require_final_newline "$f" loud && continue # quiet` carries the word only in a comment, and
     # the whole-line search below this used to accept it.
     try:
-        _cargs = [w for _l, ws in sp_sh_commands(_site, sub=False) if ws[0].value == _callee for w in ws[1:]]
+        _ccalls = [ws for _l, ws in sp_sh_commands(_site, sub=False) if ws[0].value == _callee]
     except SpError:
-        _cargs = []
-    if not any(w.lit() and w.value == _arg for w in _cargs):
+        _ccalls = []
+    # CX-36S-E (D1014, Codex F05-006#4): at the callee's OWN position, in every call on the line;
+    # `require_final_newline quiet "$f"` passes it as the path and suppresses nothing.
+    if not _ccalls or not all(len(ws) > _pos and ws[_pos].lit() and ws[_pos].value == _arg for ws in _ccalls):
         print("  [FAIL] %s() calls %s(), and the ONLY thing keeping that callee out of this"
               " gate's scan is the '%s' argument — which is not at this call site"
               % (_caller, _callee, _arg))
@@ -1574,7 +1620,7 @@ for fn in SCANNED:
         _bc = []
     _nlex = 0
     for _ln, _w in _bc:
-        if _w[0].quoted or _w[0].value not in ("echo", "printf"):
+        if _w[0].value not in ("echo", "printf"):   # CX-36S-E (D1015): `"echo" X` runs echo all the same
             continue
         if _w[0].value == "printf":
             print("  [FAIL] %s() prints with printf at its line %d; this extractor templates echo"
@@ -1587,8 +1633,7 @@ for fn in SCANNED:
             _args = _args[1:]
         _t = " ".join("".join(x if k == "lit" else re.sub(r"^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$", r"$\1", x)
                               for x, k in a.parts) for a in _args)
-        if _t:
-            templates.append(_t)
+        templates.append(_t)    # CX-36S-E (D1016): an EMPTY template (a bare `echo`) is a blank line, compared too
     _nrx = sum(1 for ln in b if ECHO.match(ln))
     if _nlex < _nrx:
         print("  [FAIL] %s(): the lexer read %d echo command(s) and the line pattern %d; the parser"
@@ -1598,7 +1643,7 @@ for fn in SCANNED:
     # going quiet — a rewrite from `echo` to `printf` in either function would drop its lines
     # from the comparison and leave the other's, and the count nobody reads would still look
     # plausible. Each preflight must contribute at least one line of its own.
-    if b and len(templates) == n_before:
+    if b and not any(templates[n_before:]):   # a blank line (D1016) is compared, but it is not a message of its own
         print("  [FAIL] %s() contributed ZERO message templates, so none of its output was"
               " compared against any assertion" % fn)
         print("         The extractor reads `echo \"...\"` lines; if this preflight now")
@@ -1716,7 +1761,7 @@ direct = {f: sorted({g for ln in fnbody(f) for g in GATECALL.findall(ln)
 _BOOKKEEPING = {"local", "echo", "printf", "return", ":", "true"}
 def _checks(f):
     try:
-        cmds = sp_sh_commands("\n".join(fnbody(f)), sub=False)
+        cmds = sp_sh_commands("\n".join(fnbody(f)), sub=True)   # CX-36S-E (D1017): `n=$(grep ...)` checks
     except SpError:
         return True
     return any(w[0].value not in _BOOKKEEPING and w[0].value not in defined for _l, w in cmds)
@@ -1961,8 +2006,12 @@ for _k, _v, _ln in _toks:
               " and ast found %d call(s); the parse under-reads" % (src, _first, _opens, len(_calls)))
         bad = 1
     for _c in _calls:
-        _parts = sorted(x for a in _c.args for x in _strs(a))
-        templates.append((_first - 1 + _c.lineno, "print", norm("".join(t for _p, t in _parts), True)))
+        # CX-36S-E (D1019, Codex F05-006#9): print() separates its ARGUMENTS with sep (default " "); the
+        # literal parts inside one argument join with "".
+        _sep = next((k.value.value for k in _c.keywords if k.arg == "sep" and isinstance(k.value, ast.Constant)
+                     and isinstance(k.value.value, str)), " ")
+        _txt = _sep.join("".join(t for _p, t in sorted(_strs(a))) for a in _c.args)
+        templates.append((_first - 1 + _c.lineno, "print", norm(_txt, True)))
 i = 0
 while i < len(lines):
     ln = lines[i]

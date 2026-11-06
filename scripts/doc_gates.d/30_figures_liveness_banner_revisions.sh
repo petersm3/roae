@@ -413,7 +413,14 @@ MENTIONED = set()          # appears in the registry at all — but appearing is
 for m in re.finditer(r'\b([0-9.]+T)\b', reg):
     MENTIONED.add(m.group(1))
 _lines = reg.split('\n')
-for l in _lines:
+# CX-36S-C (D996, Codex F05-009#3): code attests nothing. A heading or a sha inside a fenced block, or
+# under an UNCLOSED fence (md_parse's 'shadow': it renders as code), no longer marks a budget REACHED.
+_rp = md_parse(reg)
+_code_ln = {i + 1 for i, k in enumerate(_rp[1]) if k in ('code', 'fence')}
+_code_ln |= {x for b in _rp[2] if b.get('shadow') for x in range(b['start'], b['end'] + 1)}
+for _ln0, l in enumerate(_lines, 1):
+    if _ln0 in _code_ln:
+        continue
     if l.lstrip().startswith('|'):
         cells = [c for c in re.split(r'(?<!\\)\|', l.strip().strip('|'))]
         if len(cells) > 1 and re.search(r'`[0-9a-f]{8,64}…?`', l):
@@ -423,10 +430,10 @@ for l in _lines:
 # HEADINGS (md_parse): ATX at any level and indented up to 3 spaces, setext, never a `#` line inside a
 # code fence. The raw `^#{2,6} ` test missed " ## 560T" (one space), so the hashless "## 9999T"
 # section ran on into the 560T sha and was attested by it.
-_hb = [b for b in md_parse(reg)[2] if b['kind'] == 'heading']
+_hb = [b for b in _rp[2] if b['kind'] == 'heading' and not b.get('shadow')]
 for _k, _h in enumerate(_hb):
     _e = _hb[_k + 1]['start'] - 1 if _k + 1 < len(_hb) else len(_lines)
-    body = '\n'.join(_lines[_h['end']:_e])
+    body = '\n'.join(_lines[x] for x in range(_h['end'], _e) if x + 1 not in _code_ln)
     if re.search(r'\b[0-9a-f]{64}\b', body):
         for bud in re.findall(r'\b([0-9.]+T)\b', _h['text']):
             REACHED.add(bud)
@@ -457,7 +464,22 @@ def quoted_narration(unit, key, at=None):
 # Q-980 (batch 44; Codex gpt-6-astra Q964-D03#4): the first cell must be a VERSION -- `v` and a number,
 # or a dotted number (1.2, 1.2.3) -- not any digit-led cell: `| 560T | 2026-10-08 | in flight |` under
 # Run/Date/Status is a live status row, and `v?\d+` with a free suffix read it as a revision row.
-_REVROW = re.compile(r'^\s*\|\s*\*{0,2}(?:v\d+(?:\.\d+)*|\d+(?:\.\d+)+)(?![\w.])[^|]*\|\s*\*{0,2}20\d\d-\d\d-\d\d\*{0,2}\s*\|')
+# CX-36S-C (D997, Codex F05-009#4): the first cell is the version ONLY (a `-draft` suffix and the
+# `*(current)*` marker allowed, as the TR tables write them): `| v2 smoke run | 2026-10-08 | in flight |`
+# and `| 5.6 T | ... |` are status rows, and the free `[^|]*` after the version read them as revision rows.
+_REVROW = re.compile(r'^\s*\|\s*\*{0,2}(?:v\d+(?:\.\d+)*(?:-draft)?|\d+(?:\.\d+)+)\*{0,2}(?:\s*\*?\(current\)\*?)?\s*\|\s*\*{0,2}20\d\d-\d\d-\d\d\*{0,2}\s*\|')
+class _SpanM(object):          # CX-36S-C: a code span from md_code_spans, read like the old regex match
+    def __init__(self, raw, a, b):
+        r = len(raw[a:b]) - len(raw[a:b].lstrip('`'))
+        self._g = (raw[a:b], raw[a:a + r], raw[a + r:b - r])
+    def group(self, k=0):
+        return self._g[k]
+def _span_matches(raw):
+    return [_SpanM(raw, a, b) for a, b in md_code_spans(raw)]
+def _mask_spans(raw, fn):
+    for (a, b), m in reversed(list(zip(md_code_spans(raw), _span_matches(raw)))):
+        raw = raw[:a] + fn(m) + raw[b:]
+    return raw
 def unit_at(text, pos):
     """The scope unit (sentence, table row, heading, list item) of `text` holding offset `pos`."""
     ls = text.rfind('\n', 0, pos) + 1
@@ -515,13 +537,15 @@ def unit_of(u, p, with_off=False):
         if not re.search(r'[.!?]', c) or not re.search(r'[^.!?\s]', c):   # Fable B40 FIX 2: no sentence-ender, nothing to hide
             return cm.group(0)
         return cm.group(1) + 'x' * len(c) + cm.group(1)
-    mt = md_para([(ln_, re.sub(r'(`+)([^`\n]+?)\1', _xspan, raw)) for ln_, raw in u['lines']])['text']
+    # CX-36S-C (D998, Codex F05-009#5): the spans are md_code_spans' (escape-aware, CommonMark run
+    # lengths); the backtick regex took an escaped \` for a delimiter and masked prose.
+    mt = md_para([(ln_, _mask_spans(raw, _xspan)) for ln_, raw in u['lines']])['text']
     if len(mt) == len(t):
         masked = mt[a:b]
     else:
         masked = seg
         for _ln, raw in u['lines'][xa:xb]:
-            for cm in re.finditer(r'(`+)([^`\n]+?)\1', raw):
+            for cm in _span_matches(raw):
                 c = md_inline(cm.group(2))
                 if not re.search(r'[.!?]', c) or not re.search(r'[^.!?\s]', c): continue
                 q = seg.find(c) if c else -1
@@ -721,7 +745,10 @@ def block(path, cap=MAXBLK):
         # closing marker (an odd run of backslashes before it escapes it); ending there left the
         # over-claim on the next line outside the block.
         _s = l.rstrip().replace('**', '')
-        if _s.endswith('*') and (len(_s) - 1 - len(_s[:-1].rstrip('\\'))) % 2 == 0:      # closing italic marker
+        # CX-36S-C (D999, Codex F05-009#6): and a closing `*` is RIGHT-FLANKING (CommonMark): not preceded by
+        # whitespace. `... *` is a literal asterisk, and ending the block there left the next line unread.
+        if _s.endswith('*') and (len(_s) - 1 - len(_s[:-1].rstrip('\\'))) % 2 == 0 \
+                and len(_s) > 1 and not _s[-2].isspace():      # closing italic marker
             return '\n'.join(blk), 1, i + 1
     return None, -1, i + 1                # never closed its italic within `cap`
 

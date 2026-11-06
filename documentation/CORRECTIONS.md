@@ -38614,3 +38614,194 @@ No canonical sha, count, certificate, figure or verdict changed.
 
 Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, push group Q1056; the gap was found by the Q-1054
 catalog pass (claude-opus-5-5).
+
+## CX-36S-A — the self-test driver of the doc gates (scripts/doc_gates.sh)
+
+**2026-11-05.** **Source.** Codex (gpt-6-astra), fix-verification round; triaged by Fable in FV2 slice 2 (lane
+FV2-G1, Q-1048). Batch FV2-G1. Finding ids are given per item. Each fix was run on the real tree, where the gate
+still passes, and on a planted defect, where it now fails.
+
+- **A failed `git status` read as a clean tree (D1096, F05-001#5).** Both self-test entry points asked
+  `git status --porcelain` whether the tree was clean, and a git that failed printed nothing, which read as clean.
+  The in-place self-test then went on to plant and revert files in a tree it could not inspect. A failed
+  `git status` is now a refusal.
+- **Glob characters in tracked paths (D1097, F05-001#1).** The preflight refused tracked paths holding whitespace,
+  because the suite's unquoted path lists split them. A `*`, `?` or `[` in a path is expanded by the same lists,
+  so a document could be skipped or read twice. Such a path is now refused too. No tracked path has one today.
+- **Self-test children judged by output only (D1098, F05-001#4).** The GATE 13 and GATE 5 self-test cases read
+  what the child run printed and never its exit status, so a child that printed the expected line and then
+  crashed was reported `[ok]`. GATE 13 is report-only and must exit 0; a GATE 5 run must exit 0 or 1 (a verdict),
+  never higher (a crash).
+
+**Test.** `TestBatchFV2G1.test_d1096_*`, `test_d1097_*`, `test_d1098_*`. They fail on the parent tree.
+
+## CX-36S-B — GATE 1 and GATE 2 (scripts/doc_gates.d/10_numbers_cli_citations.sh)
+
+**2026-11-05.** **Source.** Codex (gpt-6-astra), fix-verification round; triaged by Fable. Batch FV2-G1.
+
+- **The allowlist advice (D986, F07-014#2).** GATE 1 told the reader to "add its key" to the allowlist, but the
+  allowlist is read for `=<value>` lines only, so a key added as told silenced nothing. The message now says to add
+  each reviewed integer as a line `=<value>`.
+- **Adjacent C string literals (D987, F05-007#3).** A flag written in solve.c as two adjacent literals
+  (`"--kc-" "scan"`, which C joins into one string) was not extracted, so GATE 2 could not see it undocumented.
+  Adjacent literals are now joined first. solve.c's extracted set is unchanged (187 flags).
+- **Every stage of the extraction is checked (D988, F05-007#4).** The extractor returned the status of its python
+  stage only, so a failed `sort` gave an empty list that read as "every code flag documented". Every stage's status
+  is now read, and an empty extraction is a FAIL.
+
+**Test.** `TestBatchFV2G1.test_d986_*`, `test_d987_*`, `test_d988_*`. They fail on the parent tree.
+
+## CX-36S-C — gates that read the markdown corpus (scripts/doc_gates.d/20_retract_links_status.sh, 30_figures_liveness_banner_revisions.sh)
+
+**2026-11-05.** **Source.** Codex (gpt-6-astra), fix-verification round; triaged by Fable. Batch FV2-G1.
+
+- **Text inside code is not an anchor or a label (D992, F05-010#3; D993, F05-010#4).** GATE 4 took `<a id=...>`
+  anchors, and GATE 4b took bold `**Label**` lines, from the raw file, so an example inside a fenced code block
+  could satisfy a broken `#fragment` or a missing `§"Label"` reference. Both now read prose only: not a fenced
+  block, not text under an unclosed fence, and (for anchors) not an inline code span.
+- **Escaped backticks (D989, F05-010#5; D998, F05-009#5).** GATE 5 and GATE 7 found code spans with a simple
+  backtick pattern that took an escaped `` \` `` for a delimiter. Text between two escaped backticks was read as
+  code: GATE 5 left a figure there out of its census, and GATE 7 let a disposition word in the next sentence
+  excuse a live-status claim. Both now use the shared escape-aware reader (md_code_spans).
+- **Code attests no budget (D996, F05-009#3).** GATE 7 counted a budget as reached when a registry heading named
+  it and its section held a sha. A heading under an unclosed fence, or a sha inside a fenced block, counted too.
+  Neither does now.
+- **Revision rows (D997, F05-009#4).** GATE 7 exempted a table row as a dated revision row when its first cell
+  only began with a version, so a live-status row whose first cell reads `v2 smoke run` was exempt. The first
+  cell must now be the version alone. A `-draft` suffix and the `*(current)*` marker are still allowed, as the
+  reports use them.
+- **The banner's closing asterisk (D999, F05-009#6).** GATE 9 ended the banner block at a line ending in `*`, even
+  when a space came before it. Such a `*` cannot close italics in Markdown, so the next line, which could hold an
+  overclaim, was not checked. The closing `*` must now follow a non-space character.
+
+**Test.** `TestBatchFV2G1.test_a_*` (the unplanted fixture is green on every leg) and `test_b_*` (each defect,
+planted in a full-tree fixture, turns its leg red), plus `test_d989_*`. They fail on the parent tree.
+
+## CX-36S-D — GATE 8, GATE 10 and GATE 14 (scripts/doc_gates.d/40_generated_appendonly_ledger_regdupes.sh)
+
+**2026-11-05.** **Source.** Codex (gpt-6-astra), fix-verification round; triaged by Fable. Batch FV2-G1.
+
+- **An empty baseline from a failed copy (D1007, F05-009#9).** When a ledger held no redaction marker, the
+  alignment helper ran `cat; return 0`, so a copy that failed gave an empty baseline with status 0. An empty
+  baseline loses no line. It now returns the copy's status.
+- **A HEAD naming a missing object (D1010, F05-009#7).** GATE 10a read status 1 from `rev-parse --verify HEAD` as
+  "no commit yet". A HEAD naming a missing object gives the same status. Unborn now means HEAD names a branch
+  that does not exist yet. Anything else is a FAIL.
+- **NUL bytes (D1011, F05-009#8).** One NUL byte made `diff` report "Binary files differ" and no removed line, so
+  10a passed a ledger that had lost a line. A ledger holding a NUL byte is now refused, and the diffs read text.
+- **Unreadable baselines (D1001, F05-009#10).** GATE 10b skipped any version whose file git could not look up. A
+  version where the file is absent is still skipped. A git failure is now a FAIL.
+- **The lost-line count (D1003, F05-009#12).** A failed count left the number empty, which read as 0 lost. It is
+  now checked.
+- **The strongest lineage ref decides (D1000, F05-009#11).** GATE 10b judged a version by the first lineage ref
+  that held it. When that ref was merely "behind", a later ref (the published sha handed over by the pre-push hook)
+  never got the stronger "published" verdict. Every ref is now read, and the strongest verdict is kept.
+- **GATE 14's input-mutation check (D1004, F05-009#13).** It compared values, so a rule that changed `1` to `True`
+  (or `2` to `2.0`) in its input was not caught. Types are compared too.
+- **GATE 8's compared list (D1006, F05-016#8).** The pre-commit hook watches every tracked `example/` path. GATE 8
+  compares eleven of them, by name. A new file under `example/` was watched, compared by nothing, and the gate
+  still passed. Every tracked `example/` path must now be one that GATE 8 compares. All eleven shipped files are
+  compared today.
+
+**Test.** `TestBatchFV2G1.test_d1000_*`, `test_d1001_*`, `test_d1003_*`, `test_d1004_*`, `test_d1006_*`,
+`test_d1007_*`, `test_d1010_*`, `test_d1011_*` (scratch repositories with the defect planted, and a positive
+control for the unborn branch). They fail on the parent tree.
+
+## CX-36S-E — GATE 15 and GATE 16, the instrument and collision censuses (scripts/doc_gates.d/50_instruments_collisions.sh; sp_grep_E)
+
+**2026-11-05.** **Source.** Codex (gpt-6-astra), fix-verification round; triaged by Fable. Batch FV2-G1.
+
+- **The copy variable (D1020, F05-006#2).** Only `$V` and `${V}` were read as the copy a guard confirms. `${V:?}`,
+  `${V:-x}` and `${V%...}` are now read too.
+- **The copy guard's pattern (D1021, F05-006#3).** The guard's grep pattern was read from its first quoted piece,
+  so in `'^a'"|b"` the unanchored `b` alternative was hidden. The whole shell word is now read.
+- **An expansion inside brackets (D1013, F05-006#5).** An unresolved expansion became `.*` in the evidence pattern.
+  Inside a bracket expression that narrows the match (`[$X]` becomes `[.*]`) and could hide a collision. Such a
+  pattern is now reported as unreadable.
+- **The suppressing argument's position (D1014, F05-006#4).** `require_final_newline` stays quiet only when
+  `quiet` is its second argument. Any argument position was accepted, so `require_final_newline quiet "$f"` was
+  wrongly treated as quiet. The position is now checked.
+- **A quoted `"echo"` (D1015, F05-006#6).** bash runs `"echo" X` like `echo X`, but the census skipped it.
+- **Blank lines (D1016, F05-006#7).** A bare `echo` (a blank line) was dropped from the templates, and matched
+  blank lines were dropped from `sp_grep_E`'s result. So an assertion on `^$` could never collide with a
+  preflight. Both are kept now. The per-preflight "contributed ZERO message templates" guard counts non-blank
+  templates, so a preflight whose only readable line is blank is still reported.
+- **Checks inside `$( )` (D1017, F05-006#8).** A dispatch function whose only check ran inside `$( )` counted as
+  bookkeeping, so it and the gate it called were counted as one gate. The census now reads inside `$( )`.
+- **`print()` arguments (D1019, F05-006#9).** `print("A", "B")` was read as "AB". Python prints "A B" (the
+  default separator), so a duplicate of "A B" was missed. Arguments are now joined with the separator.
+
+**Test.** `TestBatchFV2G1.test_b_*` (D1014, D1015, D1017 and D1019 planted in a full-tree fixture),
+`test_d1013_*`, `test_d1016_*`, `test_d1020_*`, `test_d1021_*`. They fail on the parent tree.
+
+## CX-36S-F — the shared Markdown reader (scripts/doc_gates.d/md_normalise.sh)
+
+**2026-11-05.** **Source.** Codex (gpt-6-astra), fix-verification round; triaged by Fable. Batch FV2-G1.
+
+- **Spaced minus signs (D1081, F05-010#6).** A spaced `−` at the start of a line lost its sign. Normalising turned
+  it into an ASCII `- `, which reads there as a list marker. It is now closed up to `-7.84` first. A spaced minus
+  after an operator (`6.52 / − 3.2`) is also read as a sign now. Codex's example needs this second change.
+  `7 − 5` is still a subtraction.
+- **Entity-encoded brackets (D1082, F05-010#8).** Brackets written as the entities `&#91;` and `&#93;`,
+  followed by a destination in parentheses, were decoded first and then removed as a link. Markdown shows them as
+  literal text, and they are now kept as text.
+- **Links with a code-span label (D1083, F05-010#7).** In a link whose label is a code span, the destination and
+  title were kept as text, where they could supply an exemption word. They are now dropped, as for any other link.
+- **Ordered list siblings (D1084, F05-010#9).** The rule that an ordered item other than 1 cannot interrupt a
+  paragraph was applied inside a list too, so items 2 and 3 were merged into item 1. Within a list each item is
+  now its own unit.
+- **A fence opened on a list marker (D1085, F05-010#10).** A fence opened on `- ```` was not seen, so a `## heading`
+  inside it gave an anchor. The list marker is now read first.
+
+**Test.** `TestBatchFV2G1.test_d1081_*` to `test_d1085_*` and the D1083 and D1085 plants in `test_b_*`. They fail
+on the parent tree.
+
+## CX-36S-G — the shared shell and python reader, and the negation window (scripts/doc_gates.d/src_parse.sh, word_match.sh)
+
+**2026-11-05.** **Source.** Codex (gpt-6-astra), fix-verification round; triaged by Fable. Batch FV2-G1.
+
+- **`$'...'` escapes (D1086, F05-004#13).** `\xHH`, octal `\NNN`, `\uHHHH`, `\UHHHHHHHH` and `\cX` are now decoded
+  as bash decodes them, so a verdict name spelled with escapes is censused.
+- **Comments inside backticks (D1087, F05-004#15).** A `#` comment inside a `` `...` `` substitution was kept as
+  code, so a path named only in that comment could read as a produced file. It is now blanked.
+- **Redirection descriptors (D1088, F05-003#11).** `2>/dev/null` and `>/dev/null` were read alike, so the
+  emitted-surface gate treated a stderr-only redirection as hiding stdout. The descriptor is now kept (`2>`).
+- **Substitutions inside `${...}` (D1089, F05-004#14).** `${V:-$(emit)}` is now read for the commands it runs.
+- **Function bodies (D1090, F05-004#16).** `f() if ...; fi`, `f() [[ ... ]]` and `f() for ...` are legal bash
+  definitions and are now read as definitions.
+- **Escaped quotes inside double quotes (D1091, F05-004#2).** In `"a\"b"` the escaped quote ended the string, and
+  the rest of the line, with any flags on it, became one token. It is now read as an escape.
+- **Lettered ranges with a step (D1093, F05-004#17).** `{a..e..2}` is now expanded, as bash does.
+- **f-string statements (D1094, F05-004#12).** A bare f-string statement was blanked whole, including its `{...}`
+  expressions, which run. Only its string parts are blanked now.
+- **A parenthetical before the judged word (D1095, F05-007#14).** In "has not, in fact, completed" the negation
+  window was cut at the first comma and lost the "not". A parenthetical of up to three words between commas, just
+  before the judged word, is now skipped.
+
+**Test.** `TestBatchFV2G1.test_d1086_*` to `test_d1095_*`. They fail on the parent tree.
+
+## CX-36S-H — FV2-G1 rows already cured, and rows held for the operator
+
+**2026-11-05.** **Source.** Codex (gpt-6-astra), fix-verification round; triaged by Fable. Batch FV2-G1.
+
+**Already cured at the base, no change:** D991 (F05-010#2: GATE 3 reads the same scan-cache file one line
+earlier and fails on a grep status above 1, since Q-963; an unreadable fold file then leaves no line to cite, and
+the hit is still reported). D995 (F05-009#2: GATE 6 checks that every generator can be read before it scans any,
+and fails if one cannot).
+
+**Held for the operator** (each one would change a verdict on the real tree, or needs a decision about format):
+
+- D1009 (F06-001#4): putting HISTORY.md under GATE 10a/10b. Measured on this tree: 10a passes, but 10b fails.
+  Lines from earlier committed versions of HISTORY.md are no longer in it (19 lines in the newest such version).
+  Turning it on needs a decision about those historical edits.
+- D1002 (F06-007#16): an order check in GATE 10b. Measured: 12 earlier committed versions of CORRECTIONS.md keep
+  every line but not their order. The check would turn the gate red until those are decided.
+- D1008 (F06-007#15): limiting a `[storage detail redacted]` span to approved original text. That needs a list of
+  the original text, which the redaction exists to keep out of the public tree.
+- D990 (F06-003#2) and D994 (F06-012#1): tying each RETRACTED_PHRASES allowance, and each section-reference
+  allowance, to the line or the number of times it covers. Both change an allowlist format.
+
+No canonical sha, record count, certificate value or verdict changed in CX-36S-A to CX-36S-H.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch FV2-G1; the defects were found by Codex
+(gpt-6-astra) in its fix-verification round and triaged by Fable.

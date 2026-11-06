@@ -507,6 +507,11 @@ def slug(t):  # Q-816: GitHub's rule. Keep letters, marks, Nd/Nl digits, '_', ' 
     t = re.sub(r'[`*~]', '', t).strip().lower()  # literal '_' survives rendering and stays in the slug
     t = ''.join(c for c in t if c in ' -' or unicodedata.category(c)[0] in 'LM' or unicodedata.category(c) in ('Nd', 'Nl', 'Pc'))
     return t.replace(' ', '-')  # no collapsing: 'A — B' -> 'a--b'; superscripts (No) and emoji (So) drop out
+def md_prose(txt):   # CX-36S-C: the text a reader sees as prose -- code lines, shadow lines and code spans blanked
+    p = md_parse(txt)
+    cl = {i for i, k in enumerate(p[1]) if k in ('code', 'fence')}
+    cl |= {x - 1 for b in p[2] if b.get('shadow') for x in range(b['start'], b['end'] + 1)}
+    return '\n'.join('' if i in cl else md_mask_code(l) for i, l in enumerate(txt.split('\n')))
 mds = [p for p in subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True, check=True)
        .stdout.split()]
 anchors = {}
@@ -521,7 +526,9 @@ for m in mds:
     for h in [b['title'] for b in md_parse(txt)[2] if b['kind'] == 'heading' and not b.get('shadow')]:
         s = slug(h); seen[s] += 1
         a.add(s if seen[s] == 1 else f"{s}-{seen[s]-1}")
-    a.update(re.findall(r'<a\s+(?:name|id)="([^"]+)"', txt))
+    # CX-36S-C (D992, Codex F05-010#3): an HTML anchor counts only in PROSE, as headings already do: not
+    # in a fenced block, not under an unclosed fence ('shadow'), not inside an inline code span.
+    a.update(re.findall(r'<a\s+(?:name|id)="([^"]+)"', md_prose(txt)))
     anchors[os.path.realpath(m)] = a
 bad = []
 for m in mds:
@@ -662,12 +669,17 @@ def norm(s):
     s = re.sub(r'\s+', ' ', s)
     return s.strip().strip('.,;:').lower()
 
+def md_prose(txt):   # CX-36S-C: as GATE 4's -- code lines and shadow lines blanked (a bold label is read
+    p = md_parse(txt)    # at a line start, so an inline code span cannot open one and stays in the label)
+    cl = {i for i, k in enumerate(p[1]) if k in ('code', 'fence')}
+    cl |= {x - 1 for b in p[2] if b.get('shadow') for x in range(b['start'], b['end'] + 1)}
+    return '\n'.join('' if i in cl else l for i, l in enumerate(txt.split('\n')))
 mds = subprocess.run(['git','ls-files','*.md'],capture_output=True,text=True, check=True).stdout.split()
 heads, bolds, bybase = {}, {}, {}
 for m in mds:
     txt = open(m, encoding='utf-8', errors='replace').read()
     heads[os.path.realpath(m)] = [norm(b['title']) for b in md_parse(txt)[2] if b['kind'] == 'heading' and not b.get('shadow')]   # Q-965: not inside a fence; indented/setext count
-    bolds[os.path.realpath(m)] = [norm(b) for b in BOLD.findall(txt)]
+    bolds[os.path.realpath(m)] = [norm(b) for b in BOLD.findall(md_prose(txt))]   # CX-36S-C (D993): not from code
     bybase.setdefault(os.path.basename(m), []).append(os.path.realpath(m))
 
 allow, allow_why = set(), {}
@@ -1094,7 +1106,7 @@ for f in files:
                 # the condition: population +3, findings +0.
                 # The hex-context lookbehind is also LEG 2's: without it a sha256 fragment
                 # reads as a registry value.
-                _spans = [(m.start(), m.end()) for m in re.finditer(r'`[^`]*`', line)]
+                _spans = md_code_spans(line)   # CX-36S-C (D989): escape-aware; `[^`]*` opened a span at \`
                 _asc = re.search(r'(?<![0-9a-fA-F.])' + re.escape(val) + r'[eE]\+?\d', line)
                 if _asc and any(a <= _asc.start() and _asc.end() <= b for a, b in _spans):
                     _asc = None

@@ -12149,3 +12149,16 @@ Q-686=DONE
   against §10.A's own list; revision row v1.37.
 - No canonical sha, count, certificate, figure or verdict changed; nothing in §10 is reworded. `TestBatchQ1056` holds
   the rows and fails on the tree before them.
+
+## 2026-11-05 — batch FV2-G1: doc-gate rows from Codex's fix-verification round
+
+- **The doc gates and their shared readers (CX-36S-A to CX-36S-G).** Codex (gpt-6-astra) found 50 places where a
+  doc gate, or the shared Markdown and shell readers they use, could pass over a defect. Examples: a failed git
+  command read as a clean tree, text inside code read as an anchor, an escaped backtick read as code, and a
+  quoted `"echo"` or a `print("A", "B")` read wrongly. 43 are fixed. Each gate still passes on the real tree and
+  now fails on a planted copy of its defect.
+- **Two already cured, five held (CX-36S-H).** Two rows were already cured at the base. Five are held for the
+  operator: three would turn a gate red on the real tree, or would need the redacted text published, and two
+  change an allowlist format.
+- No canonical sha, count, certificate or verdict changed. `TestBatchFV2G1` holds each fix and fails on the
+  parent tree.

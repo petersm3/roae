@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 9 place(s) over all 230 dated sections, 8 of them among the 154 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 9 place(s) over all 231 dated sections, 8 of them among the 155 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -254,6 +254,7 @@
 | 228 | 2026-11-04 | iso | 12118 | [open](HISTORY.md#2026-11-04--batch-fv2-t-tests-evidence-and-registry-rows-from-codexs-fix-verification-round) 2026-11-04 — batch FV2-T: tests, evidence and registry rows from Codex's fix-verification round |
 | 229 | 2026-11-05 | iso | 12132 | [open](HISTORY.md#2026-11-05--push-group-q1055---certify-count-keeps-a-bounded-tail-of-each-tools-output) 2026-11-05 — push group Q1055: `--certify-count` keeps a bounded tail of each tool's output |
 | 230 | 2026-11-05 | iso | 12144 | [open](HISTORY.md#2026-11-05--push-group-q1056-tr-12s-open-problems-lists-the-two-undelivered-items-of-its-own-done-contract) 2026-11-05 — push group Q1056: TR-12's §Open Problems lists the two undelivered items of its own DONE contract |
+| 231 | 2026-11-05 | iso | 12153 | [open](HISTORY.md#2026-11-05--batch-fv2-g1-doc-gate-rows-from-codexs-fix-verification-round) 2026-11-05 — batch FV2-G1: doc-gate rows from Codex's fix-verification round |
 
 ## Sections with no date in the heading, in file order
 

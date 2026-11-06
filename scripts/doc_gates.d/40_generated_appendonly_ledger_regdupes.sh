@@ -546,6 +546,26 @@ gate_generated() {
     rm -rf "$dtmp"
   fi
 
+  # CX-36S-D (D1006, Codex F05-016#8): THE COMPARED LIST IS CHECKED AGAINST THE WATCHED POPULATION.
+  # pre_commit_generated_gate.sh watches every tracked example/ path (HEAD's and the index's), and this
+  # gate compares the eleven named above. A path added to example/ was watched, compared by nothing, and
+  # the gate still passed. Every tracked example/ path must now be one this gate compares.
+  local _g8_seen _g8_p _g8_new=""
+  _g8_seen=$( { git ls-files -- example/ && { ! git rev-parse -q --verify HEAD >/dev/null 2>&1 \
+               || git ls-tree -r --name-only HEAD -- example/; }; } 2>/dev/null) \
+    || { echo "  [FAIL] GATE 8: could not list the tracked example/ paths, so the compared set was NOT checked against them."; rc=1; }
+  for _g8_p in $(printf '%s\n' "$_g8_seen" | sort -u); do
+    case " example/report.txt example/report.md example/README.md example/report.html example/hexagrams.csv example/hexagrams.json example/hexagrams.svg example/wave.dot example/wave.mid example/wave.dot.png example/wave.dot.svg " in
+      *" $_g8_p "*) ;;
+      *) _g8_new="$_g8_new $_g8_p" ;;
+    esac
+  done
+  if [ -n "$_g8_new" ]; then
+    echo "  [FAIL] tracked under example/ (so watched by the pre-commit hook) but compared by NO leg of this gate:$_g8_new"
+    echo "         Add a comparison against its generator here, or stop shipping it."
+    rc=1
+  fi
+
   [ "$owned" = 1 ] && rm -rf "$tmp"
   return "$rc"
 }
@@ -640,7 +660,7 @@ gate_generated() {
 # the spans still fails. A working line with fewer than 4 characters outside its markers anchors
 # nothing and is never used, and a committed line still present verbatim is never re-aligned. Tested in tests.py (TestCX242AppendOnlyStorageRedaction).
 _g10_money_align() {
-  if ! grep -qF -e '[cost redacted]' -e '[storage detail redacted]' "$1" 2>/dev/null; then cat; return 0; fi
+  if ! grep -qF -e '[cost redacted]' -e '[storage detail redacted]' "$1" 2>/dev/null; then cat; return $?; fi   # CX-36S-D: a failed copy is not an empty baseline
   DG_WORK="$1" python3 -c '
 import os, re, sys
 M = "[cost redacted]"
@@ -706,6 +726,14 @@ for i, b in enumerate(data):
 sys.stdout.buffer.write("\n".join(data).encode("utf-8", "surrogateescape"))
 '
 }
+_g10_nul_free() {   # rc 0: no NUL byte in $1; 1: one is there, or the file could not be read (both FAIL)
+  tr -d '\000' < "$1" | cmp -s - "$1"
+  case "${PIPESTATUS[0]}:${PIPESTATUS[1]}" in
+    0:0) return 0 ;;
+    0:1) echo "  [FAIL] $1 contains a NUL byte: diff would read it as binary and compare no line — NOTHING was checked."; return 1 ;;
+    *)   echo "  [FAIL] could not read $1 to check it for NUL bytes — NOTHING was checked."; return 1 ;;
+  esac
+}
 gate_appendonly_head() {
   echo "== GATE 10a: CORRECTIONS.md is append-only vs HEAD =="
   local f="documentation/CORRECTIONS.md"
@@ -722,6 +750,14 @@ gate_appendonly_head() {
   local _g10a_rc _g10a_ls
   git rev-parse -q --verify 'HEAD^{commit}' >/dev/null 2>&1; _g10a_rc=$?
   if [ "$_g10a_rc" -eq 1 ]; then
+    # CX-36S-D (D1010, Codex F05-009#7): rc 1 is also a HEAD naming a MISSING object. Unborn means HEAD
+    # is a symbolic ref to a branch that does not exist yet; anything else is git failing.
+    # (`show-ref --verify` exits 1 for a ref that does not exist and 128 for one naming a missing object.)
+    local _g10a_sym _g10a_sr=0
+    _g10a_sym=$(git symbolic-ref -q HEAD 2>/dev/null) && { git show-ref --verify -q "$_g10a_sym" >/dev/null 2>&1; _g10a_sr=$?; }
+    if [ "$_g10a_sr" -ne 1 ]; then
+      echo "  [FAIL] GATE 10a: HEAD does not resolve to a commit, and it is not an unborn branch — NOTHING was checked."; return 1
+    fi
     echo "  [ok] $f is not yet in HEAD (no commit yet) — nothing committed to be append-only against"
     return 0
   elif [ "$_g10a_rc" -ne 0 ]; then
@@ -734,6 +770,9 @@ gate_appendonly_head() {
     return 0
   fi
   local tmp gone
+  # CX-36S-D (D1011, Codex F05-009#8): a NUL byte makes diff print "Binary files differ" (rc 1, no `<`
+  # line), which counted as no line removed. A ledger holding NUL is refused, and diff reads text.
+  _g10_nul_free "$f" || return 1
   tmp=$(mktemp) || return 1
   # Q-963: the baseline is a PRODUCER. Unchecked, a failed `git show` left $tmp empty, an empty
   # baseline has no line to lose, and the gate printed [ok] (pipefail makes the status readable).
@@ -745,7 +784,7 @@ gate_appendonly_head() {
   # Now diff is run once into a file and must exit 0 or 1, and each count must exit 0 or 1.
   local _g10a_d
   _g10a_d=$(mktemp) || { echo "  [FAIL] GATE 10a: mktemp failed, so NOTHING was checked."; rm -f "$tmp"; return 1; }
-  diff "$tmp" "$f" > "$_g10a_d"; _g10a_rc=$?
+  diff --text "$tmp" "$f" > "$_g10a_d"; _g10a_rc=$?
   if [ "$_g10a_rc" -gt 1 ]; then
     echo "  [FAIL] GATE 10a: diff could not compare HEAD:$f with the working copy (rc $_g10a_rc) — NOTHING was checked."
     rm -f "$tmp" "$_g10a_d"; return 1
@@ -880,6 +919,7 @@ gate_appendonly_history() {
   require_tracked "$f" "Deleting the ledger loses every line of every published version at once."
   case $? in 1) return 0;; 2) return 1;; esac
   local cur tmp bad=0 n=0 blob src seen=""
+  _g10_nul_free "$f" || return 1      # CX-36S-D (D1011)
   cur=$(mktemp) || return 1
   tmp=$(mktemp) || { rm -f "$cur"; return 1; }
   # Q-251: the accumulator for re-wrapped lines seen across every baseline. A three-line reflow
@@ -1063,15 +1103,21 @@ gate_appendonly_history() {
           # brought a ledger append would otherwise turn this gate red on an untouched tree).
           # If HEAD and the upstream have DIVERGED, the published commit was rewritten past or
           # a merge is pending that could drop it — the hard FAIL.
-          if _g10b_anc HEAD "$_g10b_ref"; then _g10b_kind=behind; else _g10b_kind=published; fi
+          # CX-36S-D (D1000, Codex F05-009#11): every lineage ref is read and the STRONGEST kind kept
+          # (published > behind); the first ancestor ref no longer decides.
+          if _g10b_anc HEAD "$_g10b_ref"; then [ "$_g10b_kind" = published ] || _g10b_kind=behind; else _g10b_kind=published; fi
           # Q-953: a remote sha handed over by the pre-push hook is the ref a push would MOVE, so a
           # published commit there that HEAD lacks is a loss even when HEAD is behind (a rewind).
           case " $_g10b_pushref " in *" $_g10b_ref "*) _g10b_kind=published;; esac
-          break
+          [ "$_g10b_kind" = published ] && break
         fi
       done
     fi
-    blob=$(git rev-parse --quiet --verify "$src:$f" 2>/dev/null) || continue
+    # CX-36S-D (D1001, Codex F05-009#10): `rev-parse --verify` exits 1 for a path absent at $src AND for
+    # git failing, so a version git could not read was skipped. ls-tree tells them apart: an empty
+    # listing (rc 0) is "absent there", any other status is a git failure and the gate FAILS below.
+    blob=$(git ls-tree "$src" -- "$f" 2>/dev/null) || { _g10b_gitfail="${_g10b_gitfail:-ls-tree $src -- $f exited $?}"; continue; }
+    blob=${blob#* blob }; blob=${blob%%$'\t'*}
     [ -n "$blob" ] || continue
     case "$_g10b_kind" in ancestor) _g10b_rank=0;; published) _g10b_rank=1;; behind) _g10b_rank=2;; *) _g10b_rank=3;; esac
     _g10b_seq=$((_g10b_seq+1))
@@ -1100,13 +1146,13 @@ gate_appendonly_history() {
     grep -v '^[[:space:]]*$' "$g10b_base" | sort > "$tmp"; _g10b_ps="${PIPESTATUS[0]}:${PIPESTATUS[1]}"
     case "$_g10b_ps" in [01]:0) ;; *)
       echo "  [FAIL] GATE 10b: could not prepare the version $blob of $f (grep:sort $_g10b_ps), so it was NOT checked."; bad=1; continue;; esac
-    lost=$(comm -23 "$tmp" "$cur" | wc -l) || {
+    lost=$(comm -23 "$tmp" "$cur" | wc -l) && [[ "$lost" =~ ^[[:space:]]*[0-9]+$ ]] || {
       echo "  [FAIL] GATE 10b: comm could not compare the version $blob of $f, so it was NOT checked."; bad=1; continue; }
     if [ "${lost:-0}" -ne 0 ]; then
       # Q-251 / Q-718: split into RE-WRAPS (accumulated, reported once below) and LOST lines.
       local g10b_lostf
       g10b_lostf=$(mktemp) || { echo "  [FAIL] GATE 10b: mktemp failed, so nothing was classified."; rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_pairs"; return 1; }
-      diff "$g10b_base" "$f" > "$g10b_diff"; _g10b_ps=$?
+      diff --text "$g10b_base" "$f" > "$g10b_diff"; _g10b_ps=$?
       if [ "$_g10b_ps" -gt 1 ]; then
         echo "  [FAIL] GATE 10b: diff could not compare the version $blob of $f (rc $_g10b_ps), so its lines were NOT classified."
         rm -f "$g10b_lostf"; g10b_lostf=""; bad=1; continue
@@ -1132,7 +1178,10 @@ for l in (x.rstrip("\n") for x in sys.stdin):
 ' > "$g10b_lostf" || {
         echo "  [FAIL] GATE 10b: the line classifier failed on the version $blob of $f, so its $lost missing line(s) were NOT classified."
         rm -f "$g10b_lostf"; g10b_lostf=""; bad=1; continue; }
-      lost=$(wc -l < "$g10b_lostf")
+      # CX-36S-D (D1003, Codex F05-009#12): the count is CHECKED; an empty `lost` read as 0.
+      lost=$(wc -l < "$g10b_lostf") && [[ "$lost" =~ ^[[:space:]]*[0-9]+$ ]] || {
+        echo "  [FAIL] GATE 10b: could not count the lost lines of the version $blob of $f, so it was NOT checked."
+        rm -f "$g10b_lostf"; g10b_lostf=""; bad=1; continue; }
     fi
     if [ "${lost:-0}" -ne 0 ]; then
       if [ "${_g10b_kind:-ancestor}" = ancestor ]; then
@@ -1494,7 +1543,7 @@ for seq in sample():
     for idx, fn in enumerate(fns):
         arg = list(seq)
         vecs[idx].append(repr(fn(arg)))
-        if arg != seq:
+        if len(arg) != len(seq) or any(type(x) is not type(y) or x != y for x, y in zip(arg, seq)):   # CX-36S-D: 1 -> True is a mutation
             mutated.add(ids[idx])
 
 allow = {}

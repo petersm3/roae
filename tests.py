@@ -41284,7 +41284,7 @@ class TestQ976Q977Q978Batch43(unittest.TestCase):
         self.assertEqual(out[2], str(['text', 'text', 'text', 'blank']))
         self.assertEqual(out[3], str(['text', 'blank', 'fence', 'code', 'fence', 'blank']))
         self.assertEqual(out[4], str([('para', False), ('heading', True)]))
-        self.assertEqual(out[5], str(['a', 'b', 'c d 8. e']))
+        self.assertEqual(out[5], str(['a', 'b', 'c d', 'e']))   # FV2-G1 (D1084): inside a list `8. e` is a sibling item, as CommonMark reads it
         self.assertEqual(out[6], str([(2, '$ x')]))
         self.assertEqual(out[7].rstrip(), '- a - b')
 
@@ -42184,7 +42184,7 @@ class TestQ979Q986Batch44(unittest.TestCase):
                                  "            pass\n", 0, "--a"),
             "no comment record inside $( )": ("            if _SP_CMT is not None:\n                _SP_CMT.append((i, j))\n            i = j\n            continue\n        if c == \"'\":",
                                               "            i = j\n            continue\n        if c == \"'\":", 2, "a.tsv"),
-            "no statement strings": ("                _sp_blank(out, at(node.lineno, node.col_offset), at(node.end_lineno, node.end_col_offset))\n",
+            "no statement strings": ("                _sp_blank(out, _a, _b)\n",
                                      "                pass\n", 3, "--a"),
         }
         for name, (a, b, k, needle) in mutants.items():
@@ -61776,6 +61776,511 @@ class TestBatchQ1056(unittest.TestCase):
             self.assertNotRegex(text, r"\$\s?\d", name + ": a dollar figure")
             for bad in ("roae-private", "/home/", "azure", "Azure", "docs/notes/"):
                 self.assertNotIn(bad, text, name + ": " + bad)
+
+
+class TestBatchFV2G1(unittest.TestCase):
+    """Push group FV2-G1: the doc_gates.sh and doc_gates.d/10..50 + md_normalise/src_parse/word_match rows of
+    Codex's fix-verification round (Fable's slice-2 triage, lane FV2-G1; Q-1048), CX-36S-A..CX-36S-H.
+    Each repaired gate is shown both ways: green on the unplanted tree (a full-tree fixture, or the shared
+    reader on real input) and red on a planted defect that the parent tree passes over. No canonical
+    sha, count, certificate value or verdict changes. Developed with AI assistance (Claude, Anthropic):
+    claude-opus-5-5, from Codex (gpt-6-astra) fix-verification findings triaged by Fable."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    M10 = "scripts/doc_gates.d/10_numbers_cli_citations.sh"
+    M20 = "scripts/doc_gates.d/20_retract_links_status.sh"
+    M30 = "scripts/doc_gates.d/30_figures_liveness_banner_revisions.sh"
+    M40 = "scripts/doc_gates.d/40_generated_appendonly_ledger_regdupes.sh"
+    M50 = "scripts/doc_gates.d/50_instruments_collisions.sh"
+    D = "scripts/doc_gates.sh"
+    LED = "documentation/CORRECTIONS.md"
+    H64 = "ab" * 32
+    ECHO_PF = '    echo "  [FAIL] tracked markdown missing from the working tree: $f"\n'
+    PLANTS = [
+        # (row, leg, needle, edits)
+        ("D992", "links-internal", "#fv2g1ghost",
+         [("README.md", "append", '\n```\n<a id="fv2g1ghost"></a>\n```\n\nSee [the note](#fv2g1ghost).\n')]),
+        ("D1085", "links-internal", "#fv2g1-listghost",
+         [("README.md", "append", "\n- ```\n  ## Fv2g1 Listghost\n  ```\n\nSee [the item](#fv2g1-listghost).\n")]),
+        ("D993", "secrefs", 'README.md \u00a7"Fv2g1 Results"',
+         [("README.md", "append", '\n```\n**Fv2g1 Results**\n```\n\nThe table is in README.md \u00a7"Fv2g1 Results".\n')]),
+        ("D997", "liveness", "v2 smoke run",
+         [("README.md", "append", "\n| Run | Date | Status |\n|---|---|---|\n| v2 smoke run | 2026-10-08 | in flight |\n")]),
+        ("D998", "liveness", "The ladder build is in flight. Then",
+         [("README.md", "append", "\nSee \\`x. The ladder build is in flight. Then \\` was withdrawn.\n")]),
+        ("D1083", "liveness", "The ladder build is in flight [`run`]",
+         [("README.md", "append", '\nThe ladder build is in flight [`run`](x "withdrawn")\n')]),
+        ("D996-body", "liveness", "9993T run",
+         [(LED.replace("CORRECTIONS", "CANONICAL_HASHES"), "append", "\n## 9993T\n\n```\n" + H64 + "\n```\n"),
+          ("README.md", "append", "\nSee the 9993T run for the detail.\n")]),
+        ("D996-shadow", "liveness", "9994T run",
+         [(LED.replace("CORRECTIONS", "CANONICAL_HASHES"), "append", "\n```text\n## 9994T\n\n" + H64 + "\n"),
+          ("README.md", "append", "\nSee the 9994T run for the detail.\n")]),
+        ("D999", "banner", "machine-verifiable",
+         [("reports/README.md", "replace", "interpretation are argued, not verified. The covers",
+           "interpretation are argued, not verified; multiplication is written *\n"
+           "Every claim is machine-verifiable. The covers")]),
+        ("D1014", "collisions", "require_final_newline quiet",
+         [(D, "replace", '    require_final_newline "$f" quiet && continue\n',
+           '    require_final_newline quiet "$f" && continue\n')]),
+        ("D1015", "collisions", "spans a hard wrap",
+         [(D, "replace", ECHO_PF, ECHO_PF + '    "echo" "spans a hard wrap"\n')]),
+        ("D1017", "collisions", "gate_fv2g1_wrap, gate_retract",
+         [(D, "replace", "  retract) gate_retract || RC=1 ;;", "  retract) gate_fv2g1_wrap || RC=1 ;;"),
+          (D, "replace", "require_final_newline() {\n",
+           "gate_fv2g1_wrap() {\n  local n\n  n=$(grep -c . README.md) || return 1\n  gate_retract\n}\n"
+           "require_final_newline() {\n")]),
+        ("D1019", "collisions", "is 2 gates behind one exit code",
+         [(M40, "replace", 'fns = [getattr(solve, "reg_" + r) for r in ids]\n',
+           'if not ids:\n    print("is 2 gates", "behind one exit code")\nfns = [getattr(solve, "reg_" + r) for r in ids]\n')]),
+    ]
+
+    # ------------------------------------------------------------------ helpers
+    def _src(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _prelude(self, lib, fn):
+        return subprocess.run(["bash", "-c", ". scripts/doc_gates.d/%s && %s" % (lib, fn)], cwd=self.ROOT,
+                              capture_output=True, text=True, check=True).stdout
+
+    def _py(self, src, body, cwd=None):
+        r = subprocess.run(["python3", "-c", src + "\n" + body], capture_output=True, text=True, timeout=300,
+                           cwd=cwd or self.ROOT)
+        if r.returncode != 0:
+            raise AssertionError("python harness failed:\n" + r.stderr[-3000:])
+        return r.stdout.split("\n")
+
+    def _sp(self, body):
+        return self._py(self._prelude("src_parse.sh", "_sp_prelude"), body)
+
+    def _md(self, body):
+        return self._py(self._prelude("md_normalise.sh", "_md_norm_prelude"), body)
+
+    def _git_env(self):
+        return dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@invalid", GIT_COMMITTER_NAME="t",
+                    GIT_COMMITTER_EMAIL="t@invalid", GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
+
+    def _mini(self, files):
+        """A scratch git repo holding the doc-gate scripts and `files` ({path: text}), committed on main."""
+        d = tempfile.mkdtemp(prefix="fv2g1_")
+        self.addCleanup(shutil.rmtree, d, True)
+        os.makedirs(os.path.join(d, "scripts"))
+        shutil.copy(os.path.join(self.ROOT, self.D), os.path.join(d, self.D))
+        shutil.copytree(os.path.join(self.ROOT, "scripts", "doc_gates.d"), os.path.join(d, "scripts", "doc_gates.d"))
+        self._write(d, files)
+        env = self._git_env()
+        for a in (["init", "-q", "."], ["symbolic-ref", "HEAD", "refs/heads/main"], ["add", "-A"],
+                  ["commit", "-qm", "c0"]):
+            subprocess.run(["git"] + a, cwd=d, env=env, check=True, capture_output=True)
+        return d, env
+
+    def _write(self, d, files):
+        for rel, text in files.items():
+            p = os.path.join(d, rel)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "wb") as fh:
+                fh.write(text.encode("utf-8") if isinstance(text, str) else text)
+
+    def _git(self, d, env, *a):
+        return subprocess.run(["git"] + list(a), cwd=d, env=env, check=True, capture_output=True,
+                              text=True).stdout.strip()
+
+    def _gate(self, d, env, leg, timeout=600):
+        r = subprocess.run(["timeout", str(timeout), "bash", "scripts/doc_gates.sh", leg], cwd=d, env=env,
+                           capture_output=True, text=True, timeout=timeout + 60)
+        return r.returncode, r.stdout + r.stderr
+
+    def _stub(self, name, body):
+        sd = tempfile.mkdtemp(prefix="fv2g1_bin_")
+        self.addCleanup(shutil.rmtree, sd, True)
+        p = os.path.join(sd, name)
+        with open(p, "w") as fh:
+            fh.write(body)
+        os.chmod(p, 0o755)
+        return sd
+
+    # ------------------------------------------------------------------ the full-tree fixture (plants)
+    @classmethod
+    def _fixture(cls):
+        if getattr(cls, "_fx", None):
+            return cls._fx
+        tmp = tempfile.mkdtemp(prefix="fv2g1_fx_")
+        repo = os.path.join(tmp, "repo")
+        files = subprocess.run(["git", "-C", cls.ROOT, "ls-files", "-z"], capture_output=True,
+                               check=True).stdout.decode("utf-8").split("\0")
+        for f in files:
+            src = os.path.join(cls.ROOT, f)
+            if not f or not os.path.isfile(src):
+                continue
+            dst = os.path.join(repo, f)
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(src, dst)
+        g = ["git", "-C", repo]
+        subprocess.run(g + ["init", "-q"], check=True)
+        subprocess.run(g + ["add", "-A"], check=True)
+        subprocess.run(g + ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "fixture"], check=True)
+        cls._fx = (tmp, repo)
+        return cls._fx
+
+    @classmethod
+    def tearDownClass(cls):
+        if getattr(cls, "_fx", None):
+            shutil.rmtree(cls._fx[0], ignore_errors=True)
+            cls._fx = None
+
+    def _leg(self, leg, edits=()):
+        _tmp, repo = self._fixture()
+        saved = {}
+        try:
+            for f, op, a, *b in edits:
+                p = os.path.join(repo, f)
+                with open(p, encoding="utf-8") as fh:
+                    t = fh.read()
+                saved.setdefault(p, t)
+                if op == "append":
+                    t += a
+                else:
+                    if a not in t:
+                        raise AssertionError("precondition: the plant applies to %s: %r" % (f, a[:60]))
+                    t = t.replace(a, b[0], 1)
+                with open(p, "w", encoding="utf-8") as fh:
+                    fh.write(t)
+            r = subprocess.run(["nice", "-n", "10", "timeout", "1200", "bash", "scripts/doc_gates.sh", leg],
+                               cwd=repo, capture_output=True, text=True, timeout=1260)
+        finally:
+            for p, t in saved.items():
+                with open(p, "w", encoding="utf-8") as fh:
+                    fh.write(t)
+        return r.returncode, r.stdout + r.stderr
+
+    def test_a_unplanted_fixture_is_green_on_every_planted_leg(self):
+        for leg in sorted(set(p[1] for p in self.PLANTS)):
+            with self.subTest(leg=leg):
+                rc, out = self._leg(leg)
+                if rc != 0:
+                    raise AssertionError("leg %s is red on the unplanted tree:\n%s" % (leg, out[-3000:]))
+
+    def test_b_every_plant_turns_its_leg_red(self):
+        for row, leg, needle, edits in self.PLANTS:
+            with self.subTest(row=row, leg=leg):
+                rc, out = self._leg(leg, edits)
+                if rc != 1:
+                    raise AssertionError("%s: the %s leg passed over the planted defect (rc %d):\n%s"
+                                         % (row, leg, rc, out[-3000:]))
+                if not any(needle in l for l in out.split("\n")):
+                    raise AssertionError("%s: no output line names %r:\n%s" % (row, needle, out[-3000:]))
+
+    # ------------------------------------------------------------------ CX-36S-A: doc_gates.sh
+    def test_d1096_selftest_refuses_when_git_status_fails(self):
+        d, env = self._mini({"README.md": "x\n"})
+        self._git(d, env, "checkout", "-q", "--detach")
+        real = shutil.which("git")
+        sd = self._stub("git", '#!/bin/bash\n[ "$1" = status ] && exit 128\nexec %s "$@"\n' % real)
+        env = dict(env, PATH=sd + os.pathsep + env.get("PATH", ""), DOC_GATES_SELFTEST_INPLACE="1")
+        r = subprocess.run(["timeout", "60", "bash", "scripts/doc_gates.sh", "--selftest"], cwd=d, env=env,
+                           capture_output=True, text=True, timeout=120)
+        out = r.stdout + r.stderr
+        if r.returncode != 2 or "git status failed" not in out:
+            raise AssertionError("a failing git status was read as a clean tree (rc %d):\n%s" % (r.returncode, out[-2000:]))
+        if self._git(d, self._git_env(), "status", "--porcelain"):
+            raise AssertionError("the refused self-test wrote the tree")
+
+    def test_d1097_glob_character_in_a_tracked_path_is_refused(self):
+        d, env = self._mini({"README.md": "x\n", "docs/a[1].md": "y\n"})
+        rc, out = self._gate(d, env, "numbers", 120)
+        if rc != 2 or "glob character" not in out:
+            raise AssertionError("a tracked path holding [ was not refused (rc %d):\n%s" % (rc, out[-2000:]))
+
+    def test_d1098_selftest_children_are_judged_by_exit_status_too(self):
+        src = self._src(self.D)
+        for call, var in (("G13OUT=$(_g13 ", "G13RC"), ('A8OUT=$(bash "$0" status 2>&1)', "A8RC")):
+            n = [l for l in src.split("\n") if call in l]
+            if not n or any(("; %s=$?" % var) not in l for l in n):
+                raise AssertionError("a %s call does not keep the child's exit status: %r" % (call, n))
+        if src.count('[ "$G13RC" -') != 4 or src.count('[ "$A8RC" -le 1 ]') != 3:
+            raise AssertionError("an rc is captured but not judged")
+        # behaviour: the GATE 13 batch block, with a child that prints the expected line and exits 3
+        a = src.index("  G13OUT=$(_g13 'b5bcff7c^..b5bcff7c')")
+        b = src.index("\n  fi\n", a) + 6
+        prog = ("_g13() { echo 'b5bcff7c reports/TR4_SIZE_OF_THE_SPACE.md'; return 3; }\nPASS=0\n"
+                + src[a:b] + 'echo "PASS=$PASS"\n')
+        r = subprocess.run(["bash", "-c", prog], capture_output=True, text=True, timeout=60)
+        if "PASS=1" not in r.stdout or "[FAIL]" not in r.stdout:
+            raise AssertionError("a crashed GATE 13 child was reported [ok]:\n" + r.stdout + r.stderr)
+
+    # ------------------------------------------------------------------ CX-36S-B: GATE 1 / GATE 2
+    def _cli_flags_fn(self):
+        src = self._src(self.M10)
+        a = src.index("  _cli_flags() {")
+        b = src.index("\n  }\n", a) + 4
+        return src[a:b]
+
+    def _cli_run(self, ctext, shadow_sort=False):
+        d = tempfile.mkdtemp(prefix="fv2g1_cli_")
+        self.addCleanup(shutil.rmtree, d, True)
+        cf = os.path.join(d, "x.c")
+        with open(cf, "w") as fh:
+            fh.write(ctext)
+        prog = (". scripts/doc_gates.d/word_match.sh; . scripts/doc_gates.d/src_parse.sh\n"
+                + ("sort() { return 3; }\n" if shadow_sort else "") + self._cli_flags_fn()
+                + '\n_cli_flags c "%s" code; echo "RC=$?"\n' % cf)
+        r = subprocess.run(["bash", "-c", "set -o pipefail\n" + prog], cwd=self.ROOT, capture_output=True,
+                           text=True, timeout=120)
+        return r.stdout
+
+    def test_d986_allowlist_diagnostic_names_the_value_rows(self):
+        if "=<value>" not in self._src(self.M10):
+            raise AssertionError("GATE 1 still tells the reader to add a KEY, which its reader never matches")
+
+    def test_d987_adjacent_c_string_literals_are_one_flag(self):
+        out = self._cli_run('int f(const char *a){ return !strcmp(a, "--kc-" "fv2g1scan"); }\n')
+        if "--kc-fv2g1scan" not in out or "RC=0" not in out:
+            raise AssertionError("a flag spelled as two adjacent C literals was not extracted:\n" + out)
+
+    def test_d988_every_pipeline_stage_is_checked_and_empty_is_a_fail(self):
+        out = self._cli_run('int f(const char *a){ return !strcmp(a, "--fv2g1-x"); }\n', shadow_sort=True)
+        if "RC=0" in out:
+            raise AssertionError("a failed sort read as an extraction:\n" + out)
+        if '|| [ ! -s "$cf" ]' not in self._src(self.M10):
+            raise AssertionError("an EMPTY code-side extraction is not refused")
+
+    # ------------------------------------------------------------------ CX-36S-D: GATE 8 / 10 / 14
+    def test_d1007_money_align_returns_the_copy_status(self):
+        d = tempfile.mkdtemp(prefix="fv2g1_al_")
+        self.addCleanup(shutil.rmtree, d, True)
+        w = os.path.join(d, "w.md")
+        with open(w, "w") as fh:
+            fh.write("no marker here\n")
+        src = self._src(self.M40)
+        a = src.index("_g10_money_align() {")
+        b = src.index("\n}\n", a) + 3
+        prog = src[a:b] + '\nyes line | head -2000 | _g10_money_align "%s" > /dev/full; echo "RC=${PIPESTATUS[2]}"\n' % w
+        r = subprocess.run(["bash", "-c", prog], capture_output=True, text=True, timeout=60)
+        if "RC=0" in r.stdout or "RC=" not in r.stdout:
+            raise AssertionError("a copy that could not be written returned 0 (an empty baseline):\n" + r.stdout + r.stderr)
+
+    def test_d1010_dangling_head_is_not_an_unborn_branch(self):
+        d, env = self._mini({self.LED: "CX-1 a\nCX-2 b\n"})
+        with open(os.path.join(d, ".git", "refs", "heads", "main"), "w") as fh:
+            fh.write("1234567890123456789012345678901234567890\n")
+        rc, out = self._gate(d, env, "appendonly-head", 300)
+        if rc == 0 or "not an unborn branch" not in out:
+            raise AssertionError("a HEAD naming a missing object passed as 'no commit yet' (rc %d):\n%s" % (rc, out[-2000:]))
+        # positive control: a real unborn branch still passes
+        d2, env2 = self._mini({self.LED: "CX-1 a\n"})
+        self._git(d2, env2, "checkout", "-q", "--orphan", "fresh")
+        rc2, out2 = self._gate(d2, env2, "appendonly-head", 300)
+        if rc2 != 0 or "not yet in HEAD" not in out2:
+            raise AssertionError("an unborn branch is no longer accepted:\n" + out2[-2000:])
+
+    def test_d1011_a_nul_byte_cannot_hide_a_removed_line(self):
+        d, env = self._mini({self.LED: "CX-1 a\nCX-2 b\nCX-3 c\n"})
+        self._write(d, {self.LED: b"CX-1 a\nCX-3 c\n\x00\n"})
+        rc, out = self._gate(d, env, "appendonly-head", 300)
+        if rc == 0 or "NUL byte" not in out:
+            raise AssertionError("a ledger that lost a line and gained a NUL passed 10a (rc %d):\n%s" % (rc, out[-2000:]))
+        if "diff --text" not in self._src(self.M40):
+            raise AssertionError("the 10a/10b diffs do not read text")
+
+    def _history_repo(self):
+        d, env = self._mini({self.LED: "CX-1 a\nCX-2 b\nCX-3 c\n"})
+        c1 = self._git(d, env, "rev-parse", "HEAD")
+        self._write(d, {self.LED: "CX-1 a\nCX-2 b\n"})
+        self._git(d, env, "commit", "-qam", "drop c")
+        return d, env, c1
+
+    def test_d1001_unreadable_baseline_fails_instead_of_skipping(self):
+        d, env, c1 = self._history_repo()
+        rc0, out0 = self._gate(d, env, "appendonly-history", 300)
+        if rc0 != 1:
+            raise AssertionError("precondition: the committed removal is a 10b FAIL:\n" + out0[-2000:])
+        real = shutil.which("git")
+        sd = self._stub("git", '#!/bin/bash\ncase "$1" in ls-tree|rev-parse)\n  for a in "$@"; do case "$a" in *%s*) exit 128;; esac; done;;\nesac\nexec %s "$@"\n' % (c1, real))
+        rc, out = self._gate(d, dict(env, PATH=sd + os.pathsep + env["PATH"]), "appendonly-history", 300)
+        if rc == 0:
+            raise AssertionError("a baseline git could not read was skipped and 10b passed:\n" + out[-2000:])
+
+    def test_d1003_lost_line_count_is_checked(self):
+        d, env, _c1 = self._history_repo()
+        real = shutil.which("wc")
+        sd = self._stub("wc", '#!/bin/bash\n[ -p /dev/stdin ] || exit 1\nexec %s "$@"\n' % real)
+        rc, out = self._gate(d, dict(env, PATH=sd + os.pathsep + env["PATH"]), "appendonly-history", 300)
+        if rc == 0:
+            raise AssertionError("a failed count of the lost lines read as 0 lost:\n" + out[-2000:])
+
+    def test_d1000_the_strongest_lineage_ref_decides(self):
+        d, env = self._mini({self.LED: "CX-1 a\n"})
+        self._git(d, env, "checkout", "-q", "-b", "side")
+        self._write(d, {self.LED: "CX-1 a\nCX-2 published\n"})
+        self._git(d, env, "commit", "-qam", "published")
+        p = self._git(d, env, "rev-parse", "HEAD")
+        self._git(d, env, "update-ref", "refs/remotes/o1/main", p)
+        self._git(d, env, "checkout", "-q", "main")
+        rc, out = self._gate(d, dict(env, DOC_GATES_PUBLISHED_REF=p), "appendonly-history", 300)
+        if rc != 1 or "PUBLISHED lineage" not in out:
+            raise AssertionError("the push-handed published sha lost to an earlier 'behind' ref (rc %d):\n%s" % (rc, out[-2000:]))
+
+    def test_d1004_a_type_changing_rule_is_an_input_mutation(self):
+        src = self._src(self.M40)
+        m = re.search(r"\n        if (.+?):(?:[ \t]*#[^\n]*)?\n            mutated\.add\(ids\[idx\]\)", src)
+        if not m:
+            raise AssertionError("the mutation check was not found")
+        cond = m.group(1)
+        for arg, seq, want in (([True, 2], [1, 2], True), ([1, 2.0], [1, 2], True), ([1, 2], [1, 2], False),
+                               ([2, 1], [1, 2], True), ([1], [1, 2], True)):
+            if bool(eval(cond, {}, {"arg": arg, "seq": seq})) != want:
+                raise AssertionError("%r vs %r judged %s by %r" % (arg, seq, not want, cond))
+
+    def test_d1006_every_tracked_example_path_is_compared(self):
+        src = self._src(self.M40)
+        if "(D1006" not in src:
+            raise AssertionError("GATE 8 does not check its compared list against the watched population")
+        a = src.index("  local _g8_seen _g8_p _g8_new")
+        b = src.index("\n  fi\n", src.index('if [ -n "$_g8_new" ]', a)) + 6
+        block = "rc=0\n" + src[a:b].split("\n", 1)[1] + 'echo "RC=$rc"\n'
+        names = ["report.txt", "report.md", "README.md", "report.html", "hexagrams.csv", "hexagrams.json",
+                 "hexagrams.svg", "wave.dot", "wave.mid", "wave.dot.png", "wave.dot.svg"]
+        d, env = self._mini({"example/" + n: "x\n" for n in names})
+        r = subprocess.run(["bash", "-c", block], cwd=d, env=env, capture_output=True, text=True, timeout=60)
+        if "RC=0" not in r.stdout:
+            raise AssertionError("the shipped population is not fully compared:\n" + r.stdout)
+        self._write(d, {"example/report.json": "{}\n"})
+        self._git(d, env, "add", "example/report.json")
+        r = subprocess.run(["bash", "-c", block], cwd=d, env=env, capture_output=True, text=True, timeout=60)
+        if "RC=1" not in r.stdout or "example/report.json" not in r.stdout:
+            raise AssertionError("a new watched output with no comparison passed:\n" + r.stdout)
+
+    # ------------------------------------------------------------------ CX-36S-C / CX-36S-F: GATE 5 and the shared Markdown reader
+    def test_d989_escaped_backtick_opens_no_code_span(self):
+        if "_spans = md_code_spans(line)" not in self._src(self.M20):
+            raise AssertionError("GATE 5 still finds code spans with `[^`]*`")
+        out = self._md("print(md_code_spans('\\\\`x\\\\` 3.3e37'))\nprint(md_code_spans('`a` b'))")
+        if out[:2] != ["[]", "[(0, 3)]"]:
+            raise AssertionError("md_code_spans: %r" % out[:2])
+
+    def test_d1082_entity_brackets_are_text_not_a_link(self):
+        out = self._md("print(md_inline('a &#91;3.3e37&#93;(9.9e9) b'))\nprint(md_inline('a [x](9.9e9) b'))")
+        if out[:2] != ["a [3.3e37](9.9e9) b", "a x b"]:
+            raise AssertionError("entity-encoded brackets read as a link: %r" % out[:2])
+
+    def test_d1083_code_span_label_link_drops_destination_and_title(self):
+        out = self._md("print(md_inline('[`run`](x \"withdrawn\") is live'))\n"
+                       "print(md_inline_lines(['a [`r`](u \"t\")', 'b']))")
+        if out[0] != "run is live" or out[1] != str(["a r", "b"]):
+            raise AssertionError("a code-label link kept its destination or title: %r" % out[:2])
+
+    def test_d1081_spaced_minus_after_an_operator_or_at_the_start_is_a_sign(self):
+        out = self._md("print([m.group(0) for m in _MD_NUM_RE.finditer(md_inline('6.52 / \\u2212 3.2'))])\n"
+                       "print([m.group(0) for m in _MD_NUM_RE.finditer(md_inline('\\u2212 7.84 here'))])\n"
+                       "print([m.group(0) for m in _MD_NUM_RE.finditer(md_inline('7 \\u2212 5'))])")
+        if out[0] != str(["6.52", "- 3.2"]) or out[1] != str(["-7.84"]) or out[2] != str(["7", "5"]):
+            raise AssertionError("signs: %r" % out[:3])
+
+    def test_d1084_sibling_ordered_items_are_separate_units(self):
+        out = self._md("print([(b['kind'], b.get('text')) for b in md_parse('1. one\\n2. two\\n3. three\\n')[2]])\n"
+                       "print([(b['kind'], b.get('text')) for b in md_parse('para\\n8. The next\\n')[2]])")
+        if out[0] != str([("para", "one"), ("para", "two"), ("para", "three")]):
+            raise AssertionError("ordered siblings merged: %s" % out[0])
+        if out[1] != str([("para", "para 8. The next")]):
+            raise AssertionError("an ordered item other than 1 now interrupts a paragraph: %s" % out[1])
+
+    def test_d1085_fence_opened_on_a_list_marker(self):
+        out = self._md("L, k, b, u = md_parse('- ```\\n  ## ghost\\n  ```\\nafter\\n')\nprint(k)\n"
+                       "print([x['kind'] for x in b])")
+        if out[0] != str(["fence", "code", "fence", "text", "blank"]) or "heading" in out[1]:
+            raise AssertionError("a heading inside a list-item fence is still a heading: %r" % out[:2])
+
+    # ------------------------------------------------------------------ CX-36S-E: GATES 15/16 readers
+    def _defn(self, rel, name):
+        src = self._src(rel)
+        a = src.index("def %s(" % name)
+        b = re.compile(r"\n(?=\S)").search(src, a + 1).start()
+        return src[a:b] + "\n"
+
+    def test_d1020_copy_variable_in_any_parameter_expansion_form(self):
+        out = self._sp("import re\n" + self._defn(self.M50, "_var_of") +
+                       "w = lambda s: [t[1] for t in sp_sh_lex(s) if t[0] == 'word'][0]\n"
+                       "print([_var_of(w(x)) for x in ('\"${SRC:?}\"', '\"$SRC\"', '\"${SRC}\"', '\"${SRC%/}\"', 'lit')])")
+        if out[0] != str(["SRC", "SRC", "SRC", "SRC", None]):
+            raise AssertionError("_var_of: %s" % out[0])
+
+    def test_d1021_copy_guard_pattern_is_the_whole_word(self):
+        src = self._src(self.M50)
+        if "_gp = _guard_pat(lines[i], m)" not in src:
+            raise AssertionError("COPY_GUARD still reads the first quoted fragment")
+        out = self._sp("import re\n" + self._defn(self.M50, "_guard_pat") +
+                       "rx = re.compile(r\"grep\\s+-q([A-Za-z]*)\\s+(?P<q>['\\\"])(?P<pat>.*?)(?P=q)\")\n"
+                       "l = 'grep -q \\'^a\\'\"|b\" \"$COPY\"'\nm = rx.search(l)\nprint(m.group('pat'), _guard_pat(l, m))")
+        if out[0] != "^a ^a|b":
+            raise AssertionError("guard pattern: %r" % out[0])
+
+    def test_d1013_expansion_inside_a_bracket_is_unresolvable(self):
+        out = self._py(self._defn(self.M50, "_in_bracket"),
+                       "print([_in_bracket(x) for x in ('[^', 'a[x]', '[]', '[[:space:]', '\\\\[', 'a')])")
+        if out[0] != str([True, False, True, True, False, False]):
+            raise AssertionError("_in_bracket: %s" % out[0])
+        if "ere = None if _unres else _ep" not in self._src(self.M50):
+            raise AssertionError("an expansion inside [...] is still substituted")
+
+    def test_d1016_empty_lines_and_templates_are_compared(self):
+        out = self._sp("print(sp_grep_E('^$', ['x', '', 'y']))")
+        if out[0] != "['']":
+            raise AssertionError("an empty matched line was dropped: %s" % out[0])
+        if "        if _t:\n            templates.append(_t)" in self._src(self.M50):
+            raise AssertionError("an empty echo template is still dropped")
+
+    # ------------------------------------------------------------------ CX-36S-G: the shared shell/python reader
+    def test_d1086_ansi_c_escapes_are_decoded(self):
+        out = self._sp("print([w.value for k, w, l in sp_sh_lex(\"echo $'\\\\x44OC=\\\\120ASS' $'\\\\u0041\\\\cA'\\n\") if k == 'word'])")
+        if out[0] != str(["echo", "DOC=PASS", "A\x01"]):
+            raise AssertionError("ANSI-C escapes: %s" % out[0])
+
+    def test_d1087_comment_inside_backticks_is_a_comment(self):
+        out = self._sp("print(repr(sp_strip_comments('x=`true # writes out/x.txt`\\ny=\"`echo a # b`\"\\n', 'sh')))")
+        if "out/x.txt" in out[0] or "# b" in out[0] or "echo a" not in out[0]:
+            raise AssertionError("backtick comments survived: %s" % out[0])
+
+    def test_d1088_redirection_keeps_its_descriptor(self):
+        out = self._sp("print([(c[0].value, [o for o, t in c.redirs]) for _l, c in sp_sh_commands("
+                       "'echo X=PASS 2>/dev/null\\necho Y 1>/dev/null\\necho Z >/dev/null\\n')])")
+        if out[0] != str([("echo", ["2>"]), ("echo", [">"]), ("echo", [">"])]):
+            raise AssertionError("redirections: %s" % out[0])
+
+    def test_d1089_substitution_inside_a_parameter_expansion(self):
+        out = self._sp("print([[w.value for w in c] for _l, c in sp_sh_commands(': \"${V:-$(echo Y=PASS)}\"\\n')])")
+        if "['echo', 'Y=PASS']" not in out[0]:
+            raise AssertionError("the nested emitter was not read: %s" % out[0])
+
+    def test_d1090_compound_command_function_bodies(self):
+        out = self._sp("print(sorted(sp_sh_funcdefs('a() if true; then :; fi\\nb() [[ -n x ]]\\nc() for i in 1; do :; done\\n"
+                       "d() { :; }\\ne() (:)\\nf() g\\n')))")
+        if out[0] != str(["a", "b", "c", "d", "e"]):
+            raise AssertionError("function definitions: %s" % out[0])
+
+    def test_d1091_escaped_quote_inside_double_quotes(self):
+        out = self._sp("print(sp_sh_split('./solve --x \"a\\\\\"b\" --bogus'))")
+        if out[0] != str([("./solve", False), ("--x", False), ('a"b', True), ("--bogus", False)]):
+            raise AssertionError("split: %s" % out[0])
+
+    def test_d1093_alphabetic_range_with_a_stride(self):
+        out = self._sp("print(sp_brace_expand('cert_{a..e..2}.txt'), sp_brace_expand('{e..a..2}'))")
+        if out[0] != str(["cert_a.txt", "cert_c.txt", "cert_e.txt"]) + " " + str(["e", "c", "a"]):
+            raise AssertionError("brace expansion: %s" % out[0])
+
+    def test_d1094_fstring_statement_keeps_its_expressions(self):
+        out = self._sp("print(repr(sp_strip_comments('f\"{emit(\\'BAND\\')} tail\"\\n\"doc\"\\nx = 1\\n', 'py')))")
+        if "emit('BAND')" not in out[0] or "tail" in out[0] or "doc" in out[0]:
+            raise AssertionError("f-string statement: %s" % out[0])
+
+    def test_d1095_parenthetical_does_not_cut_the_negation_window(self):
+        wm = self._prelude("word_match.sh", "_wm_prelude")
+        out = self._py(wm, "for t in ('The run has not, in fact, completed.', 'The run, in fact, completed.', "
+                           "'It is not pending, and it completed.'):\n    print(wm_negated(t, t.index('completed')))")
+        if out[:3] != ["True", "False", "False"]:
+            raise AssertionError("negation windows: %r" % out[:3])
+
+# end class TestBatchFV2G1 (push group FV2-G1, CX-36S-A..CX-36S-H)
 
 
 if __name__ == "__main__":

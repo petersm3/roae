@@ -291,10 +291,10 @@ _dg_ws=$(python3 -c '
 import subprocess, sys
 r = subprocess.run(["git", "ls-files", "-z"], capture_output=True)
 if r.returncode: sys.exit(2)
-bad = [p for p in r.stdout.decode("utf-8", "surrogateescape").split("\0") if p and any(c.isspace() for c in p)]
+bad = [p for p in r.stdout.decode("utf-8", "surrogateescape").split("\0") if p and any(c.isspace() or c in "*?[" for c in p)]
 print("\n".join(bad[:5])); sys.exit(1 if bad else 0)'); case $? in
   0) ;;
-  1) echo "  [FAIL] tracked path(s) contain whitespace, which this suite's unquoted path lists split into words — NOTHING was checked:" >&2
+  1) echo "  [FAIL] tracked path(s) contain whitespace or a glob character (* ? [; CX-36S-A), which this suite's unquoted path lists split or expand — NOTHING was checked:" >&2
      printf '%s\n' "$_dg_ws" | sed 's/^/         /' >&2; exit 2 ;;
   *) echo "  [FAIL] cannot list the tracked paths (git ls-files -z failed) — NOTHING was checked." >&2; exit 2 ;;
 esac
@@ -1118,8 +1118,8 @@ fold_variants() {
 # clone (pre_push_gate.sh); set by hand on a real checkout it restores the old in-place run.
 if [ "${1:-}" = --selftest ] && [ -z "${DOC_GATES_SELFTEST_INPLACE:-}" ]; then
   cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
-  if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
-    echo "REFUSING: working tree is not clean. The self-test runs on a scratch clone of HEAD"
+  if ! _dg_st=$(git status --porcelain 2>/dev/null) || [ -n "$_dg_st" ]; then
+    echo "REFUSING: working tree is not clean, or git status failed (CX-36S-A). The self-test runs on a scratch clone of HEAD"
     echo "(Q-911), so with uncommitted edits it would test a different tree from this one."
     exit 2
   fi
@@ -1150,8 +1150,8 @@ if [ "${1:-}" = --selftest ] && [ -z "${DOC_GATES_SELFTEST_INPLACE:-}" ]; then
 fi
 if [ "${1:-}" = "--selftest" ]; then
   cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
-  if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
-    echo "REFUSING: working tree is not clean. This self-test mutates real files and"
+  if ! _dg_st=$(git status --porcelain 2>/dev/null) || [ -n "$_dg_st" ]; then
+    echo "REFUSING: working tree is not clean, or git status failed (CX-36S-A). This self-test mutates real files and"
     echo "reverts them with 'git checkout --'; that would discard your uncommitted work."
     exit 2
   fi
@@ -3128,11 +3128,11 @@ open(f,'w',encoding='utf-8').write(chr(10).join(lines))"
   if _inject "f='reports/TR6_PARITY_SKELETON.md'
 s=open(f,encoding='utf-8').read()
 open(f,'w',encoding='utf-8').write(s+chr(10)+'Self-test body sentence with no revision row.'+chr(10))"; then
-    G13OUT=$(_g13 'HEAD..HEAD')
-    if grep -qE 'WORKTREE reports/TR6_PARITY_SKELETON\.md — 1 body line' <<<"$G13OUT"; then
+    G13OUT=$(_g13 'HEAD..HEAD'); G13RC=$?
+    if [ "$G13RC" -eq 0 ] && grep -qE 'WORKTREE reports/TR6_PARITY_SKELETON\.md — 1 body line' <<<"$G13OUT"; then
       echo "  [ok]   GATE 13 worktree — an uncommitted TR body edit with no revision row is noted"
     else
-      echo "  [FAIL] GATE 13 worktree — a body edit with no revision row was NOT noted."
+      echo "  [FAIL] GATE 13 worktree — a body edit with no revision row was NOT noted, or the gate exited $G13RC (report-only: 0)."
       printf '%s\n' "$G13OUT" | sed 's/^/           > /' | head -5
       PASS=1
     fi
@@ -3146,13 +3146,13 @@ open(f,'w',encoding='utf-8').write(s+chr(10)+'Self-test body sentence with no re
   if _inject "f='reports/TR6_PARITY_SKELETON.md'
 s=open(f,encoding='utf-8').read()
 open(f,'w',encoding='utf-8').write(s+chr(10)+'Self-test body sentence, recorded below.'+chr(10)+'| v9.99 | 2026-08-02 | Self-test revision row. |'+chr(10))"; then
-    G13OUT=$(_g13 'HEAD..HEAD')
+    G13OUT=$(_g13 'HEAD..HEAD'); G13RC=$?
     # THE VACUITY GUARD, and it is not decoration. "No WORKTREE note" is also what a run
     # prints when the injection never reached the tree — the gate would then say
     # "working tree: no uncommitted TR edit" and this assertion would pass having tested
     # nothing. Requiring that line to be ABSENT is what makes the silence mean something.
-    if grep -qE 'no uncommitted TR edit' <<<"$G13OUT"; then
-      echo "  [FAIL] GATE 13 worktree negative control — the gate saw a CLEAN tree, so the"
+    if [ "$G13RC" -ne 0 ] || grep -qE 'no uncommitted TR edit' <<<"$G13OUT"; then
+      echo "  [FAIL] GATE 13 worktree negative control — the gate saw a CLEAN tree or exited $G13RC (CX-36S-A), so the"
       echo "         injection never landed and the silence proves nothing (vacuous pass)."
       PASS=1
     elif grep -qE 'WORKTREE' <<<"$G13OUT"; then
@@ -3167,24 +3167,24 @@ open(f,'w',encoding='utf-8').write(s+chr(10)+'Self-test body sentence, recorded 
   fi
   _selftest_revert
 
-  G13OUT=$(_g13 'b5bcff7c^..b5bcff7c')
-  if grep -qE 'b5bcff7c reports/TR4_SIZE_OF_THE_SPACE\.md' <<<"$G13OUT"; then
+  G13OUT=$(_g13 'b5bcff7c^..b5bcff7c'); G13RC=$?
+  if [ "$G13RC" -eq 0 ] && grep -qE 'b5bcff7c reports/TR4_SIZE_OF_THE_SPACE\.md' <<<"$G13OUT"; then
     echo "  [ok]   GATE 13 batch — fires on b5bcff7c, the real silent TR-4 edit v1.13 records"
   else
-    echo "  [FAIL] GATE 13 batch — b5bcff7c is the commit this gate was written for (TR-4 §3"
+    echo "  [FAIL] GATE 13 batch (rc $G13RC; report-only: 0) — b5bcff7c is the commit this gate was written for (TR-4 §3"
     echo "         edited, no revision row; recorded after the fact as v1.13) and it was NOT"
     echo "         noted. If that commit has been rewritten, re-anchor on another real one."
     printf '%s\n' "$G13OUT" | sed 's/^/           > /' | head -6
     PASS=1
   fi
 
-  G13OUT=$(_g13 '00c0db0^..00c0db0')
+  G13OUT=$(_g13 '00c0db0^..00c0db0'); G13RC=$?
   # THE SAME VACUITY GUARD. If that sha is ever rewritten or unreachable, `git rev-list`
   # returns nothing, the gate reports zero commits examined, and "no note was printed"
   # becomes true for a reason that has nothing to do with the gate working. Assert the
   # commit was actually READ before reading anything into its silence.
-  if ! grep -qE '1 non-merge commit\(s\) examined' <<<"$G13OUT"; then
-    echo "  [FAIL] GATE 13 batch negative control — the range 00c0db0^..00c0db0 resolved to no"
+  if [ "$G13RC" -ne 0 ] || ! grep -qE '1 non-merge commit\(s\) examined' <<<"$G13OUT"; then
+    echo "  [FAIL] GATE 13 batch negative control (rc $G13RC; report-only: 0) — the range 00c0db0^..00c0db0 resolved to no"
     echo "         commit, so the absence of a note proves nothing (vacuous pass). Re-anchor"
     echo "         on a reachable commit that gives every TR it touches a revision row."
     printf '%s\n' "$G13OUT" | sed 's/^/           > /' | head -4
@@ -3326,13 +3326,13 @@ a='*none — no exact value exists*'
 assert a in s, 'anchor moved'
 i=s.index(a); j=s.rindex(chr(10), 0, i)
 open('reports/TR4_SIZE_OF_THE_SPACE.md','w').write(s[:j]+chr(10)+'<!-- selftest: a line inserted above the anchored row -->'+s[j:])" \
-    && { A8OUT=$(bash "$0" status 2>&1)
-         if [ -n "$A8BASE" ] \
+    && { A8OUT=$(bash "$0" status 2>&1); A8RC=$?
+         if [ -n "$A8BASE" ] && [ "$A8RC" -le 1 ] \
             && grep -q "TR4_SIZE_OF_THE_SPACE.md:$((A8BASE+1)) exemption live" <<<"$A8OUT" \
             && ! grep -q '\[note\] allowlist' <<<"$A8OUT"; then
            echo "  [ok]   GATE 5 allowlist drift immunity — anchor moved :$A8BASE -> :$((A8BASE+1)), still live, no [note]"
          else
-           echo "  [FAIL] GATE 5 allowlist did not survive an insertion above its anchor"
+           echo "  [FAIL] GATE 5 allowlist did not survive an insertion above its anchor (or the gate crashed: rc $A8RC > 1; CX-36S-A)"
            printf '%s\n' "$A8OUT" | grep -E 'allowlist' | sed 's/^/           > /' | head -4
            PASS=1
          fi
@@ -3343,11 +3343,11 @@ open('reports/TR4_SIZE_OF_THE_SPACE.md','w').write(s[:j]+chr(10)+'<!-- selftest:
   #     and it does not: it never read the line number.
   _inject "open('documentation/DOC_GATE_STATUS_ALLOWLIST.txt','a').write(
 'documentation/HISTORY.md'+chr(9)+'a sentence that appears nowhere in the corpus'+chr(10))" \
-    && { A8OUT=$(bash "$0" status 2>&1)
-         if grep -q 'anchor no longer appears in the file' <<<"$A8OUT"; then
+    && { A8OUT=$(bash "$0" status 2>&1); A8RC=$?
+         if [ "$A8RC" -le 1 ] && grep -q 'anchor no longer appears in the file' <<<"$A8OUT"; then
            echo "  [ok]   GATE 5 allowlist dead-anchor audit — fires, and says prune it"
          else
-           echo "  [FAIL] GATE 5 allowlist accepted an anchor matching nothing, silently"
+           echo "  [FAIL] GATE 5 allowlist accepted an anchor matching nothing, silently (or the gate crashed: rc $A8RC > 1)"
            PASS=1
          fi
          _selftest_revert; } \
@@ -3361,12 +3361,12 @@ open('reports/TR4_SIZE_OF_THE_SPACE.md','w').write(s[:j]+chr(10)+'<!-- selftest:
 open('documentation/GUIDE.md','w').write(s+chr(10)+'The exact figure 5.21 x 10^31 is a proven count.'+chr(10))
 n=len(open('documentation/GUIDE.md').read().split(chr(10)))-1
 open('documentation/DOC_GATE_STATUS_ALLOWLIST.txt','a').write('documentation/GUIDE.md:%d'%n+chr(10))" \
-    && { A8OUT=$(bash "$0" status 2>&1)
-         if grep -q 'SUPPRESSES NOTHING' <<<"$A8OUT" \
+    && { A8OUT=$(bash "$0" status 2>&1); A8RC=$?
+         if [ "$A8RC" -le 1 ] && grep -q 'SUPPRESSES NOTHING' <<<"$A8OUT" \
             && grep -q "carries exact/proven token(s)" <<<"$A8OUT"; then
            echo "  [ok]   GATE 5 unanchored allowlist entry — reported AND inert"
          else
-           echo "  [FAIL] GATE 5 unanchored entry suppressed a WARN, or was not reported"
+           echo "  [FAIL] GATE 5 unanchored entry suppressed a WARN, or was not reported (or the gate crashed: rc $A8RC > 1)"
            printf '%s\n' "$A8OUT" | grep -E 'allowlist|WARN' | sed 's/^/           > /' | head -4
            PASS=1
          fi
