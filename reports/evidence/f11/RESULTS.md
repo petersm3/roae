@@ -147,9 +147,15 @@ E(KW) ∈ grand-strict:
   error is visible. Strictest-reading refinements applied at computation time (both push AGAINST
   M_corr): (a) the numerator keeps only the enumerated k ≤ 6 terms (omitting the positive k > 6
   tail); (b) the conditioning denominator D extends the geometric tail k > 6 with validity
-  fraction vf_6 — an upper bound, since vf_k is monotonically decreasing (0.3226 → 0.00752 over
-  k = 1..6) — making D larger. Numerator truncation error is small anyway: the k = 6 term carries
-  0.4–0.9% of the numerator across the p_c grid.
+  fraction vf_6 — an upper bound if vf_k keeps decreasing past k = 6 (it decreases monotonically,
+  0.3226 → 0.00752, over the enumerated k = 1..6; beyond k = 6 that is assumed, not shown) — making
+  D larger. The k = 6 term carries 0.001–0.9% of the retained numerator across the p_c grid (0.3–0.9%
+  for p_c ≤ 0.3); it is the last retained term, not a bound on the omitted k > 6 tail.
+  *(corrected 2026-11-06: this read "an upper bound, since vf_k is monotonically decreasing" and "Numerator
+  truncation error is small anyway: the k = 6 term carries 0.4–0.9% of the numerator across the p_c grid".
+  From `compute_f11_bf.py`'s own `geom` and `w_num`, the k = 6 share is 0.8692% at p_c = 0.05, 0.3864% at
+  0.3 and 0.0014% at 0.9 (variant U; variant A 0.7833% to 0.0013%). No likelihood, Bayes factor or
+  verdict changes. Codex F02-012#2; [CORRECTIONS.md](../../../documentation/CORRECTIONS.md) CX-36V-C.)*
 
 ### M_tend
 Gibbs form P(S) ∝ exp(−λ·V(S)) over the C1–C5 space of §2 row 3 (raw / orientation-explicit), V = parity + rhythm + gender violations:
@@ -308,9 +314,12 @@ in the pooled sense; the numbers stand, their calibration support does not.
    λ grid spans ×10⁴ in L_tend among its competitive points (λ = 0.5–2 vs the rest). This is the
    spread a reader re-weighting the grids can exploit — bounded by the gridpoint matrix above
    (minimum 3.3 at one corner, >100 at 46/49 points).
-6. **RUN-D truncation (k ≤ 6)**: <1% on the numerator (k = 6 carries 0.4–0.9%); the denominator
-   tail is bounded above by construction. Direction of both residuals is anti-corruption
-   (strictest reading), so the true BF is, if anything, slightly larger.
+6. **RUN-D truncation (k ≤ 6)**: the last retained numerator term, k = 6, carries 0.001–0.9% of the retained
+   numerator across the p_c grid; that is not a bound on the omitted k > 6 tail, and the denominator's k > 6
+   continuation uses vf_6 as an assumed bound (§3, corrected 2026-11-06). Direction of both residuals is
+   anti-corruption (strictest reading), so the true BF is, if anything, slightly larger. *(corrected 2026-11-06:
+   this read "<1% on the numerator (k = 6 carries 0.4–0.9%); the denominator tail is bounded above by
+   construction". Codex F02-012#2, which names this line; [CORRECTIONS.md](../../../documentation/CORRECTIONS.md) CX-36V-C.)*
 
 What makes the result this one-sided, in one sentence: M_tend must pay for the enormous
 near-compliant population (its best λ ≈ 1 still leaves Z ≈ 1.2e30-equivalent mass, so the exact

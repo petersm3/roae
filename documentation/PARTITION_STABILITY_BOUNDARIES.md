@@ -32,7 +32,7 @@ Each was independently enumerated and merged on Azure compute; canonical SHAs re
 ## Method
 
 For each canonical, ran [`./solve --analyze solutions.bin`](SOLVE_C_CLI.md#--analyze):
-- §[6] greedy minimum-boundary search — iteratively picks one boundary at a time, each maximizing elimination of non-KW survivors; terminates when only KW remains
+- §[6] greedy minimum-boundary search — iteratively picks one boundary at a time, each maximizing elimination of non-KW survivors; terminates when only KW remains or after eight boundaries, whichever comes first *(corrected 2026-11-06: this read "terminates when only KW remains". The loop in `solve.c` §[6] is `for (int step = 0; step < 8 && alive_n > 0; step++)`, so it stops after eight picks even if non-KW survivors remain. Every greedy set this document reports stopped with no non-KW survivor, in at most five steps — inside the cap — so no reported set changes. Codex F12-017#1; [CORRECTIONS.md](CORRECTIONS.md) CX-36V-D.)*
 - §[7] exhaustive 3-subset test — all C(31, 3) = 4,495 triples; reports the best (minimum-survivors) triple
 - §[8] exhaustive 4-subset enumeration — all C(31, 4) = 31,465 quadruples; reports every joint 4-set whose conjunction reduces survivors to ≤ 1
 

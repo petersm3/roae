@@ -62283,6 +62283,201 @@ class TestBatchFV2G1(unittest.TestCase):
 # end class TestBatchFV2G1 (push group FV2-G1, CX-36S-A..CX-36S-H)
 
 
+class TestBatchQ1037(unittest.TestCase):
+    """Batch Q1037 (CX-36V-A..CX-36V-E): dated corrections to published figures from Q-1037 groups C, D, F and
+    G (Codex, gpt-6-astra, fix-verification round; Fable's slice triage held them as published figures, and the
+    operator released verified, sourced corrections on 2026-10-29). Each test re-derives the corrected value
+    from the tree's own data or code (an archived log, an archived checkpoint, an evidence script, solve.c,
+    roae.py), then requires the corrected text and its dated note. Every test fails on the parent tree (d17fb284,
+    tree 753f7287), which prints the old values. Developed with AI assistance (Claude, Anthropic):
+    claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _gz(self, rel):
+        p = os.path.join(self.ROOT, rel)
+        self.assertTrue(os.path.isfile(p), "precondition: archived file %s is tracked" % rel)
+        with gzip.open(p, "rt", encoding="utf-8", errors="replace") as fh:
+            return fh.read()
+
+    # ---- CX-36V-A (D455, D456) ----
+    def test_cx36v_a_cascade_entropy(self):
+        log = self._gz("runs/20260418_10T_d3_fresh/analyze_output.log.gz")
+        a = log.find("[2] Per-position Shannon entropy")
+        self.assertGreaterEqual(a, 0, "precondition: §[2] table in the archived d3 10T log")
+        H = {}
+        for m in re.finditer(r"(?m)^\s+(\d+)\s+(\d+\.\d+)\s+\d+\s*$", log[a:a + 4000]):
+            H.setdefault(int(m.group(1)), float(m.group(2)))
+        self.assertEqual(sorted(H), list(range(1, 33)), "precondition: 32 positions parsed")
+        cas = [H[k] for k in range(5, 21)]
+        self.assertEqual(("%.2f" % min(cas), "%.2f" % max(cas)), ("0.48", "1.85"))
+        self.assertEqual((round(H[3], 1), round(H[4], 1)), (4.5, 4.5))
+        self.assertGreater(min(H[k] for k in range(3, 21)), 0.4, "no cascade position carries 0.3 bits")
+        t = self._r("documentation/SOLVE_SUMMARY.md")
+        self.assertNotIn("(per-position entropy 0.3-1.9 bits at d3, well below", t)
+        self.assertNotIn("(positions 3-20) is heavily constrained (per-position entropy 0.3-1.9 bits at d3 — far", t)
+        self.assertEqual(t.count("positions 5-20 carry 0.48-1.85 bits each at d3 10T"), 2)
+        self.assertEqual(t.count("positions 3-4 carry 4.5 bits each"), 2)
+        self.assertEqual(t.count('corrected 2026-11-06: was "per-position entropy 0.3-1.9 bits at d3"'), 1)
+        self.assertIn('corrected 2026-11-06: was "The cascade region (positions 3-20) is heavily constrained', t)
+
+    def test_cx36v_a_step4_rate(self):
+        S = _load("solve")
+        pairs = S.king_wen_pairs()
+        first = [p for p in pairs if set(p) == {63, 0}]
+        self.assertEqual(len(first), 1, "precondition: one Heaven/Earth pair")
+        rest = [p for p in pairs if p is not first[0]]
+        kwcd = S.mean_complement_distance(S.binary_hexagrams)
+        kwx = S.king_wen_xor_products()
+        self.assertEqual(kwcd, 12.125, "precondition: KW mean complement distance")
+        rng = random.Random(20261106)
+        n, hits = 200000, 0
+        for _ in range(n):
+            order = list(rest)
+            rng.shuffle(order)
+            seq = S.flatten_pairs([first[0]] + order, [rng.randint(0, 1) for _ in range(32)])
+            if seq[0] != 63:
+                seq[0], seq[1] = seq[1], seq[0]
+            if S.has_no_five(seq) and S.mean_complement_distance(seq) <= kwcd and \
+               S.xor_products([(seq[i], seq[i + 1]) for i in range(0, 64, 2)]).issubset(kwx):
+                hits += 1
+        p = hits / n
+        se = (p * (1 - p) / n) ** 0.5
+        lo, hi = (p - 1.96 * se) / 64 * 100, (p + 1.96 * se) / 64 * 100
+        self.assertGreater(lo, 0.0050, "the 95%% interval excludes 0.005%% (%.5f..%.5f)" % (lo, hi))
+        self.assertLess(hi, 0.0065, "the 95%% interval rounds to 0.006%% (%.5f..%.5f)" % (lo, hi))
+        t = self._r("documentation/SOLVE_SUMMARY.md")
+        rows = [l for l in t.split("\n") if l.startswith("| 4 | Start with Heaven/Earth |")]
+        self.assertEqual(len(rows), 1, "precondition: one funnel step-4 row")
+        self.assertIn("| ~0.006% of step 1 *(corrected 2026-11-06: was \"~0.005%\"", rows[0])
+        self.assertIn("0.00609% [0.00596%, 0.00623%]", rows[0])
+        self.assertIn("CX-36V-A", rows[0])
+
+    # ---- CX-36V-B (D499) ----
+    def test_cx36v_b_subbranch_denominators(self):
+        ck = self._gz("runs/20260418_10T_d2_fresh/checkpoint.txt.gz")
+        kids = {}
+        for m in re.finditer(r"pair1 (\d+) orient1 (\d+) pair2 (\d+) orient2 (\d+)", ck):
+            kids.setdefault((int(m.group(1)), int(m.group(2))), set()).add((int(m.group(3)), int(m.group(4))))
+        self.assertEqual(len(kids), 56, "precondition: 56 first-level branches in the checkpoint")
+        n = {k: len(v) for k, v in kids.items()}
+        self.assertEqual(sorted(k for k, v in n.items() if v == 55),
+                         [(3, 0), (3, 1), (7, 0), (7, 1), (11, 0), (11, 1)])
+        self.assertTrue(all(v in (54, 55) for v in n.values()))
+        lb = self._r("enumeration/LEADERBOARD.md")
+        cur, seen = None, 0
+        for line in lb.split("\n"):
+            m = re.match(r"\*\*Pair (\d+), orient ([01])\*\*", line)
+            if m:
+                cur = (int(m.group(1)), int(m.group(2)))
+                continue
+            m = re.match(r"\| [\d,]+ \| [\d,]+ \| [\d,]+ \| 0/(\d+)\b", line)
+            if m and cur is not None:
+                self.assertIn(cur, n, "branch %r is in the checkpoint" % (cur,))
+                self.assertEqual(int(m.group(1)), n[cur], "denominator of branch %r" % (cur,))
+                if n[cur] == 55:
+                    self.assertIn("*(corrected 2026-11-06: was 0/54; note (3) at the end of this page, CX-36V-B)*", line)
+                seen += 1
+                cur = None
+        self.assertEqual(seen, 56, "every branch-detail row checked")
+        self.assertIn("*(3) Dated note 2026-11-06 (Codex, gpt-6-astra, F07-014#3;", lb)
+        self.assertIn("lists **55** distinct second-level sub-branches", lb)
+
+    # ---- CX-36V-C (D841) ----
+    def test_cx36v_c_k6_share(self):
+        d = os.path.join(self.ROOT, "reports/evidence/f11")
+        spec = importlib.util.spec_from_file_location("f11_bf_q1037", os.path.join(d, "compute_f11_bf.py"))
+        m = importlib.util.module_from_spec(spec)
+        cwd, argv = os.getcwd(), sys.argv
+        try:
+            os.chdir(d)
+            sys.argv = ["compute_f11_bf.py"]
+            spec.loader.exec_module(m)
+        finally:
+            os.chdir(cwd)
+            sys.argv = argv
+        self.assertEqual(m.KMAX, 6, "precondition: numerator truncated at k = 6")
+        share = {}
+        for v in ("U", "A"):
+            for p in m.PC_GRID:
+                cs = [m.geom(k, p) * m.w_num(k, v) for k in range(1, m.KMAX + 1)]
+                share[(v, p)] = 100 * cs[-1] / sum(cs)
+        su = [share[("U", p)] for p in m.PC_GRID]
+        self.assertEqual(("%.4f" % min(su), "%.4f" % max(su)), ("0.0014", "0.8692"))
+        self.assertLess(max(share.values()), 0.9)
+        self.assertLess(min(share.values()), 0.4, "the published 0.4-0.9% does not cover the grid")
+        low = [share[(v, p)] for v in ("U", "A") for p in m.PC_GRID if p <= 0.3]
+        self.assertEqual(("%.1f" % min(low), "%.1f" % max(low)), ("0.3", "0.9"))
+        t = self._r("reports/evidence/f11/RESULTS.md")
+        self.assertIn("The k = 6 term carries 0.001–0.9% of the retained numerator across the p_c grid (0.3–0.9%\n"
+                      "  for p_c ≤ 0.3); it is the last retained term, not a bound on the omitted k > 6 tail.", t)
+        self.assertIn("beyond k = 6 that is assumed, not shown", t)
+        self.assertIn("*(corrected 2026-11-06: this read \"an upper bound, since vf_k is monotonically decreasing\"", t)
+        self.assertIn("CX-36V-C.)*", t)
+        self.assertNotIn("Numerator truncation error is small anyway: the k = 6 term carries\n", t)
+        self.assertNotIn("**RUN-D truncation (k ≤ 6)**: <1% on the numerator (k = 6 carries 0.4–0.9%)", t)
+        self.assertIn("this read \"<1% on the numerator (k = 6 carries 0.4–0.9%); the denominator tail is bounded above by", t)
+
+    # ---- CX-36V-D (D1430) ----
+    def test_cx36v_d_greedy_cap(self):
+        src = self._r("solve.c")
+        self.assertEqual(src.count("for (int step = 0; step < 8 && alive_n > 0; step++)"), 1,
+                         "precondition: §[6] greedy loop capped at eight steps")
+        for rel, last in (("runs/20260418_10T_d2_fresh/analyze_output.log.gz", 4),
+                          ("runs/20260418_10T_d3_fresh/analyze_output.log.gz", 4),
+                          ("runs/20260419_100T_d3_d128westus3/analyze_output.log.gz", 5)):
+            steps = re.findall(r"(?m)^\s+Step (\d+): Boundary \d+ eliminates \d+, (\d+) remain", self._gz(rel))
+            self.assertTrue(steps, "precondition: greedy steps in %s" % rel)
+            self.assertEqual((int(steps[-1][0]), steps[-1][1]), (last, "0"), rel)
+            self.assertLess(int(steps[-1][0]), 8, "inside the cap")
+        t = self._r("documentation/PARTITION_STABILITY_BOUNDARIES.md")
+        self.assertIn("terminates when only KW remains or after eight boundaries, whichever comes first "
+                      "*(corrected 2026-11-06: this read \"terminates when only KW remains\".", t)
+        self.assertIn("CX-36V-D.)*", t)
+        self.assertIn("Terminates when only KW remains or after eight boundaries, whichever comes first *(corrected 2026-11-06:", self._r("documentation/SOLVE.md"))
+
+    # ---- CX-36V-E (D896, D887, D888) ----
+    def test_cx36v_e_roae_labels(self):
+        R = _load("roae")
+        src = self._r("roae.py")
+        a, b = src.find("def print_trigrams"), src.find("def print_nuclear")
+        self.assertTrue(0 < a < b, "precondition: print_trigrams precedes print_nuclear")
+        self.assertIn("_rng = _rnd.Random(42)", src[a:b], "precondition: the trigram nulls use a fixed seed")
+        R._global_seed = 20260904
+        try:
+            note = R._seed_note()
+        finally:
+            R._global_seed = None
+        self.assertIn("except the three trigram-section nulls (change rates, pure-hexagram placement, Eight "
+                      "Palaces), which always draw from a fixed internal seed, 42.", note)
+        H = R.binary_hexagrams
+        both = ["%d-%d" % (i + 1, i + 2) for i in range(0, 64, 2)
+                if H[i] == R.reverse_6bit(H[i + 1]) and H[i] == H[i + 1] ^ 0b111111]
+        inv_only = sum(1 for i in range(0, 64, 2)
+                       if H[i] != R.reverse_6bit(H[i + 1]) and H[i] == H[i + 1] ^ 0b111111)
+        self.assertEqual((both, inv_only), (["11-12", "17-18", "53-54", "63-64"], 4))
+        aa = set(R.codon_table.get(R.val_to_codon(v)) for v in H)
+        self.assertEqual((len(aa), "Stop" in aa), (21, True), "precondition: Stop is one of the 21 classes")
+        out = subprocess.run([sys.executable, "roae.py", "--pairs", "--codons"], cwd=self.ROOT,
+                             capture_output=True, text=True, timeout=600)
+        self.assertEqual(out.returncode, 0, out.stderr[-2000:])
+        line = "Reverse pairs that are also inverse: 4 (%s); the inverse relation, taken by itself, holds for 8 pairs." % ", ".join(both)
+        for rel in ("example/README.md", "example/report.md", "example/report.txt"):
+            ex = self._r(rel)
+            for needle in (line, "Inverse count pairs: 04/32 (12.5%)",
+                           "  A pair that is both is counted once, as Reverse, so the Inverse count below",
+                           "Unique amino acids in King Wen order (Stop counted as a class): 21",
+                           "(Stop is counted as a class here too: a Stop-to-Stop move counts as preserving it.)",
+                           "Single-base changes that preserve amino acid: 138/576 (24.0%)", note):
+                self.assertIn(needle, ex, rel)
+        for needle in (line, "Unique amino acids in King Wen order (Stop counted as a class): 21",
+                       "(Stop is counted as a class here too: a Stop-to-Stop move counts as preserving it.)"):
+            self.assertIn(needle, out.stdout)
+
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))

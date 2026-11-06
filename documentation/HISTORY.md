@@ -12162,3 +12162,19 @@ Q-686=DONE
   change an allowlist format.
 - No canonical sha, count, certificate or verdict changed. `TestBatchFV2G1` holds each fix and fails on the
   parent tree.
+
+## 2026-11-06 — batch Q1037: dated corrections to published figures, groups C, D, F and G
+
+- **Figures re-measured and corrected, old values kept (CX-36V-A to CX-36V-D).** Codex (gpt-6-astra) found them in its
+  fix-verification round, and Fable's slice triage held them as published figures; the operator released verified,
+  sourced corrections on 2026-10-29. SOLVE_SUMMARY's cascade entropy is 0.48-1.85 bits at positions 5-20, with
+  positions 3-4 at 4.5 bits (was "0.3-1.9 bits"), and its funnel step 4 is ~0.006% of step 1 (was ~0.005%; a
+  2×10⁶-draw re-estimate gives 0.00609%). Six leaderboard branch rows have 55 sub-branches (was 54), as the archived
+  d2 checkpoint lists. The f11 k = 6 numerator share runs from 0.001% to 0.9% across the grid (was 0.4–0.9%). The
+  greedy boundary search is capped at eight steps; no published set reached the cap.
+- **roae.py labels (CX-36V-E).** The seed note, the inverse-pair count and the amino-acid count now say what they
+  count. example/ was regenerated under the same seed, and no number in it moved.
+- The other rows of these groups are held for the operator: each one would withdraw a published figure or qualify a
+  verdict, or needs a first-hand source check or a re-run that moves published outputs.
+- No canonical sha, record count, certificate or verdict changed. `TestBatchQ1037` holds each correction and fails on
+  the parent tree.

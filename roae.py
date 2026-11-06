@@ -45,8 +45,8 @@ def _seed_note():
     """One-line seed provenance, or None when the run drew unseeded."""
     if _global_seed is None:
         return None
-    return ("Seeded run: --seed %d. The randomized sections are one fixed draw "
-            "under this seed, not a fresh sample." % _global_seed)
+    return ("Seeded run: --seed %d. The randomized sections are one fixed draw under this seed, not a fresh sample, except the three trigram-section "
+            "nulls (change rates, pure-hexagram placement, Eight Palaces), which always draw from a fixed internal seed, 42." % _global_seed)  # D896 / CX-36V-E
 
 # Reverse the bit order of a 6-bit value, equivalent to flipping a hexagram
 # upside down (180-degree rotation). Each hexagram has 6 lines (bits), so
@@ -299,20 +299,20 @@ def print_pairs(use_color=False):
     print("           bottom-to-top). If the second hexagram upside-down equals the first,")
     print("           they are a reverse pair.")
     print("  Inverse: toggle every line (solid becomes broken, broken becomes solid).")
-    print("           If toggling all lines of one hexagram gives the other, they are inverse.")
+    print("           If toggling all lines of one hexagram gives the other, they are inverse.\n"  "  A pair that is both is counted once, as Reverse, so the Inverse count below\n  is of pairs that are inverse but not reverse.")  # D887 / CX-36V-E
     print("Key finding: EVERY pair in the King Wen sequence is one or the other — none are")
     print("unrelated. This perfect pairing structure is unlikely to occur by chance.")
     print("---")
     reverse_count = 0
     inverse_count = 0
-    neither_count = 0
+    neither_count = 0; both_pairs = []  # D887 / CX-36V-E: reverse AND inverse, counted as Reverse below
     total_count = len(binary_hexagrams) // 2
 
     for index in range(0, 64, 2):
         print(str(index+1).zfill(2) + " ", end="")
         # Check if flipping the second hexagram upside down yields the first
         if binary_hexagrams[index] == reverse_6bit(binary_hexagrams[index+1]):
-            reverse_count += 1
+            reverse_count += 1; both_pairs += [f"{index+1}-{index+2}"] if binary_hexagrams[index] == binary_hexagrams[index+1] ^ 0b111111 else []
             print(unicode_hexagrams[index], end="")
             label = f"{COLOR_REVERSE} Reverse {COLOR_RESET}" if use_color else " Reverse "
             print(label, end="")
@@ -333,7 +333,7 @@ def print_pairs(use_color=False):
     print("---")
     print(f"Reverse count pairs: {reverse_count:02}/{total_count} ({reverse_count/total_count*100}%)")
     print(f"Inverse count pairs: {inverse_count:02}/{total_count} ({inverse_count/total_count*100}%)")
-    print(f"Neither count pairs: {neither_count:02}/{total_count} ({neither_count/total_count*100}%)")
+    print(f"Neither count pairs: {neither_count:02}/{total_count} ({neither_count/total_count*100}%)\nReverse pairs that are also inverse: {len(both_pairs)} ({', '.join(both_pairs)}); the inverse relation, taken by itself, holds for {inverse_count + len(both_pairs)} pairs.")
 
 def compute_diffs(wrap=False):
     """Compute the number of line changes between consecutive hexagrams."""
@@ -1731,7 +1731,7 @@ def print_symmetry():
     print(f"\nUnique XOR products: {len(xor_products)} (out of 32 pairs)")
     print("If this number is small, the pairs share algebraic structure.")
 
-    # Check: do the 4 inverse pairs form a subgroup under XOR?
+    # Check: do the inverse pairs (all 8: 4 inverse-only + 4 also reverse) form a subgroup under XOR?
     print("\n--- Inverse pair XOR closure test ---")
     inverse_pairs = []
     for index in range(0, 64, 2):
@@ -3376,7 +3376,7 @@ def print_codons():
 
     # How many unique amino acids does the King Wen sequence map to?
     unique_aa = set(amino_acids)
-    print(f"\nUnique amino acids in King Wen order: {len(unique_aa)}")
+    print(f"\nUnique amino acids in King Wen order (Stop counted as a class): {len(unique_aa)}")  # D888 / CX-36V-E
     print(f"Total possible amino acids + stop: 21")
 
     # Structural comparison: in the genetic code, single-base mutations often
@@ -3390,7 +3390,7 @@ def print_codons():
 
     preserved, total_neighbors, bf_preserved, bf_total = codon_degeneracy()
 
-    print(f"Single-base changes that preserve amino acid: {preserved}/{total_neighbors} "
+    print("(Stop is counted as a class here too: a Stop-to-Stop move counts as preserving it.)\n" f"Single-base changes that preserve amino acid: {preserved}/{total_neighbors} "
           f"({preserved/total_neighbors*100:.1f}%)")
     print(f"Single-LINE changes (one flipped bit) that preserve it: "
           f"{bf_preserved}/{bf_total} ({bf_preserved/bf_total*100:.1f}%)")

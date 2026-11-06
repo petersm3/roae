@@ -110,6 +110,29 @@ EXCLUDE = re.compile(r'(^|/)(CORRECTIONS|HISTORY)\.md$')
 # reported on stderr (the line changed, so its verdict must be re-read), never silently applied.
 # Values are (class, review) and the review is one token (no spaces, no tab): what was decided.
 REVIEWED = {
+    # Q1037 (2026-11-06, CX-36V-A..D): dated in-place corrections; each line states the corrected value.
+    ('documentation/PARTITION_STABILITY_BOUNDARIES.md', 'b080bf30e732'):
+        ('1', 'reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
+    ('documentation/SOLVE_SUMMARY.md', '2ac376f13eda'):
+        ('1', 'reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
+    ('documentation/SOLVE_SUMMARY.md', '98194f8e82bb'):
+        ('1', 'reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
+    ('documentation/SOLVE.md', '64d3e30103cb'):
+        ('1', 'reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
+    ('enumeration/LEADERBOARD.md', 'e79b03f29431'):
+        ('1', 'reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
+    ('enumeration/LEADERBOARD.md', '619d3f0a9291'):
+        ('1', 'reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
+    ('enumeration/LEADERBOARD.md', 'e95c160ef73b'):
+        ('1', 'reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
+    ('enumeration/LEADERBOARD.md', '948ddd868ab4'):
+        ('1', 'reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
+    ('enumeration/LEADERBOARD.md', '77b1a61b685e'):
+        ('1', 'reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
+    ('reports/evidence/f11/RESULTS.md', '162bc46ecc6e'):
+        ('1', 'reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
+    ('reports/evidence/f11/RESULTS.md', '9edd6499ea44'):
+        ('1', 'reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
     ('documentation/CITATIONS.md', '441a9b35a8ce'):
         ('1', 'reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
     ('documentation/PARTITION_STABILITY_BOUNDARIES.md', '2435473d9c8c'):

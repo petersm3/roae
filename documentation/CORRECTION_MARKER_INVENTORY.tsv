@@ -318,6 +318,8 @@ documentation/PARTITION_INVARIANCE.md	94	marker	CORRECTED	1	-	reviewed:consequen
 documentation/PARTITION_STABILITY_BOUNDARIES.md	5	ledger-link	CORRECTION	n/a	-	not-a-marker	0e25dd1c67d7
 documentation/PARTITION_STABILITY_BOUNDARIES.md	26	ledger-link	CORRECTION	n/a	-	not-a-marker	2435473d9c8c
 documentation/PARTITION_STABILITY_BOUNDARIES.md	26	marker	Corrected	1	-	reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	2435473d9c8c
+documentation/PARTITION_STABILITY_BOUNDARIES.md	35	ledger-link	CORRECTION	n/a	-	not-a-marker	b080bf30e732
+documentation/PARTITION_STABILITY_BOUNDARIES.md	35	marker	Corrected	1	-	reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	b080bf30e732
 documentation/PARTITION_STABILITY_BOUNDARIES.md	52	ledger-link	CORRECTION	n/a	-	not-a-marker	8994f6c50536
 documentation/PARTITION_STABILITY_BOUNDARIES.md	52	marker	CORRECTED	1	-	reviewed:table-already-lists-the-8-working-sets	8994f6c50536
 documentation/PARTITION_STABILITY_BOUNDARIES.md	60	marker	Corrected	1	-	reviewed:paragraph-already-reads-monotone-and-stable	8af9abd8ef6a
@@ -448,6 +450,8 @@ documentation/SOLVE.md	329	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-an
 documentation/SOLVE.md	329	marker	Correction	3	CITATION LINE GATE,GATE 2c	gate-anchored	2dd9b258de02
 documentation/SOLVE.md	334	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	55d219e805bd
 documentation/SOLVE.md	343	marker	CORRECTED	1	-	reviewed:list-already-opens-with-boundary-4	33c9d32a013c
+documentation/SOLVE.md	351	ledger-link	CORRECTION	n/a	-	not-a-marker	64d3e30103cb
+documentation/SOLVE.md	351	marker	Corrected	1	-	reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	64d3e30103cb
 documentation/SOLVE.md	365	marker	Corrected	1	-	reviewed:bullet-already-gives-the-1-in-10-tie-share	f68f5f29f9dc
 documentation/SOLVE.md	403	marker	Corrected	1	-	reviewed:sentence-already-says-a-boundary-fixes-the-pair-not-orientation	328ca31d5f05
 documentation/SOLVE.md	442	marker	CORRECTED	1	-	reviewed:bullet-already-names-boundary-1-2-or-3	339c19d61221
@@ -537,13 +541,17 @@ documentation/SOLVE_SUMMARY.md	85	marker	CORRECTED	1	-	reviewed:sentence-already
 documentation/SOLVE_SUMMARY.md	178	ledger-link	CORRECTION	n/a	-	not-a-marker	9db47b8ca8fc
 documentation/SOLVE_SUMMARY.md	191	marker	CORRECTED	1	-	reviewed:table-text-already-re-derived-from-the-logs	3c5b8586e07b
 documentation/SOLVE_SUMMARY.md	201	marker	Corrected	1	-	reviewed:paragraph-already-places-twins-front-middle-and-back	bd12ec3877f7
+documentation/SOLVE_SUMMARY.md	204	ledger-link	CORRECTION	n/a	-	not-a-marker	2ac376f13eda
+documentation/SOLVE_SUMMARY.md	204	marker	Corrected	1	-	reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	2ac376f13eda
 documentation/SOLVE_SUMMARY.md	207	marker	CORRECTED	1	-	reviewed:bullet-already-says-definitional-not-forced	99d0ad144096
 documentation/SOLVE_SUMMARY.md	207	marker	Corrected	1	-	reviewed:bullet-already-says-definitional-not-forced	99d0ad144096
 documentation/SOLVE_SUMMARY.md	208	marker	Corrected	1	-	reviewed:dated-label;bullet-already-says-coupled-not-free	a53b5628cc8b
-documentation/SOLVE_SUMMARY.md	212	ledger-link	CORRECTION	n/a	-	not-a-marker	e3c5ef31af2a
-documentation/SOLVE_SUMMARY.md	212	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	e3c5ef31af2a
+documentation/SOLVE_SUMMARY.md	212	ledger-link	CORRECTION	n/a	-	not-a-marker	268183c4ef8a
+documentation/SOLVE_SUMMARY.md	212	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	268183c4ef8a
 documentation/SOLVE_SUMMARY.md	214	ledger-link	CORRECTION	n/a	-	not-a-marker	7a4bbd08af7b
 documentation/SOLVE_SUMMARY.md	214	marker	Corrected	1	-	reviewed:sentence-already-gives-5-at-canonical-depth;re-read-2026-10-17-after-the-current-values-replaced-the-withdrawn-figure	7a4bbd08af7b
+documentation/SOLVE_SUMMARY.md	231	ledger-link	CORRECTION	n/a	-	not-a-marker	98194f8e82bb
+documentation/SOLVE_SUMMARY.md	231	marker	Corrected	1	-	reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	98194f8e82bb
 documentation/SOLVE_SUMMARY.md	244	ledger-link	CORRECTION	n/a	-	not-a-marker	4c09fff69f71
 documentation/SOLVE_SUMMARY.md	264	marker	CORRECTED	1	-	reviewed:bullet-already-withdraws-the-superlative-in-its-own-words	17330333a03e
 documentation/SOLVE_SUMMARY.md	290	marker	Corrected	1	-	reviewed:paragraph-already-says-the-scale-is-not-measured	d11bb25a2b20
@@ -602,7 +610,14 @@ enumeration/LEADERBOARD.md	81	ledger-link	CORRECTION	n/a	-	not-a-marker	b81099d8
 enumeration/LEADERBOARD.md	102	marker	CORRECTED	1	-	reviewed:paragraph-already-reads-from-the-742M-archive	2cb7abe5c0a2
 enumeration/LEADERBOARD.md	175	marker	CORRECTED	1	-	reviewed:qualifier-already-uses-0-based-pair-numbers	8ff0ea958479
 enumeration/LEADERBOARD.md	192	marker	WITHDRAWN	3	GATE 26,GATE 27	reanchored:GATE-26=ledger-anchor+GATE-27=ledger-anchor	653e853d6ca7
+enumeration/LEADERBOARD.md	413	marker	Corrected	1	-	reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	e79b03f29431
+enumeration/LEADERBOARD.md	430	marker	Corrected	1	-	reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	619d3f0a9291
+enumeration/LEADERBOARD.md	481	marker	Corrected	1	-	reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	e95c160ef73b
+enumeration/LEADERBOARD.md	498	marker	Corrected	1	-	reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	e95c160ef73b
+enumeration/LEADERBOARD.md	625	marker	Corrected	1	-	reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	948ddd868ab4
+enumeration/LEADERBOARD.md	644	marker	Corrected	1	-	reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	77b1a61b685e
 enumeration/LEADERBOARD.md	1370	ledger-link	CORRECTION	n/a	-	not-a-marker	7a0b5e747282
+enumeration/LEADERBOARD.md	1376	ledger-link	CORRECTION	n/a	-	not-a-marker	c6d92803c852
 enumeration/README.md	34	ledger-link	CORRECTION	n/a	-	not-a-marker	2b79b481f0a0
 enumeration/README.md	47	ledger-link	CORRECTION	n/a	-	not-a-marker	02571355da1f
 lean/README.md	25	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	c905d50c57f8
@@ -852,8 +867,12 @@ reports/evidence/f11/README.md	5	ledger-link	CORRECTION	n/a	-	not-a-marker	cccf5
 reports/evidence/f11/README.md	7	ledger-link	CORRECTION	n/a	-	not-a-marker	583f0a8a3aa2
 reports/evidence/f11/RESULTS.md	19	ledger-link	CORRECTION	n/a	-	not-a-marker	a22d2ab99d59
 reports/evidence/f11/RESULTS.md	32	ledger-link	CORRECTION	n/a	-	not-a-marker	ecf3d31d645f
-reports/evidence/f11/RESULTS.md	285	marker	Superseded	2	-	reviewed:the-re-affirmed-verdict-above-is-what-it-qualifies	bddf92b9a1a9
-reports/evidence/f11/RESULTS.md	288	ledger-link	CORRECTION	n/a	-	not-a-marker	ed24b3a432d8
+reports/evidence/f11/RESULTS.md	154	marker	Corrected	1	-	reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	162bc46ecc6e
+reports/evidence/f11/RESULTS.md	158	ledger-link	CORRECTION	n/a	-	not-a-marker	1af694d5ceea
+reports/evidence/f11/RESULTS.md	291	marker	Superseded	2	-	reviewed:the-re-affirmed-verdict-above-is-what-it-qualifies	bddf92b9a1a9
+reports/evidence/f11/RESULTS.md	294	ledger-link	CORRECTION	n/a	-	not-a-marker	ed24b3a432d8
+reports/evidence/f11/RESULTS.md	320	marker	Corrected	1	-	reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	9edd6499ea44
+reports/evidence/f11/RESULTS.md	322	ledger-link	CORRECTION	n/a	-	not-a-marker	6e71c1c0111a
 reports/evidence/f11halfb/README.md	27	ledger-link	CORRECTION	n/a	-	not-a-marker	846458a59fea
 reports/evidence/f11halfb/README.md	28	marker	Superseded	2	-	reviewed:the-not-withdrawn-sentence-it-supersedes-is-still-above-it	d1896fedb93b
 reports/evidence/f11halfb/RESULTS.md	74	ledger-link	CORRECTION	n/a	-	not-a-marker	0f4781c9f12f

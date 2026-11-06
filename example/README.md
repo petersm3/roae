@@ -2,7 +2,7 @@
 
 Analysis of the King Wen sequence including observations by [Terence McKenna](../documentation/CITATIONS.md#mckenna-mckenna1975).
 
-*Seeded run: --seed 20260904. The randomized sections are one fixed draw under this seed, not a fresh sample.*
+*Seeded run: --seed 20260904. The randomized sections are one fixed draw under this seed, not a fresh sample, except the three trigram-section nulls (change rates, pure-hexagram placement, Eight Palaces), which always draw from a fixed internal seed, 42.*
 
 ## Hexagram reference table
 
@@ -90,6 +90,8 @@ For each pair, we test two relationships:
            they are a reverse pair.
   Inverse: toggle every line (solid becomes broken, broken becomes solid).
            If toggling all lines of one hexagram gives the other, they are inverse.
+  A pair that is both is counted once, as Reverse, so the Inverse count below
+  is of pairs that are inverse but not reverse.
 Key finding: EVERY pair in the King Wen sequence is one or the other — none are
 unrelated. This perfect pairing structure is unlikely to occur by chance.
 
@@ -130,6 +132,7 @@ unrelated. This perfect pairing structure is unlikely to occur by chance.
 Reverse count pairs: 28/32 (87.5%)
 Inverse count pairs: 04/32 (12.5%)
 Neither count pairs: 00/32 (0.0%)
+Reverse pairs that are also inverse: 4 (11-12, 17-18, 53-54, 63-64); the inverse relation, taken by itself, holds for 8 pairs.
 ```
 
 ## First order of difference (the 'wave')
@@ -1504,7 +1507,7 @@ Pos | Hex  | Binary | Codon | Amino Acid | Name
 63  | ䷾   | 010101 | CCC   | Pro        | Water over Fire
 64  | ䷿   | 101010 | AAA   | Lys        | Fire over Water
 
-Unique amino acids in King Wen order: 21
+Unique amino acids in King Wen order (Stop counted as a class): 21
 Total possible amino acids + stop: 21
 ```
 
@@ -1516,6 +1519,7 @@ A base has THREE possible substitutions, but a hexagram line has only one flip, 
 under this bit-to-base convention a flipped bit reaches only two of the three. The
 line graph is therefore not the mutation graph, and the two are reported separately:
 the full single-base neighbourhood first, then the single-line subset of it.
+(Stop is counted as a class here too: a Stop-to-Stop move counts as preserving it.)
 Single-base changes that preserve amino acid: 138/576 (24.0%)
 Single-LINE changes (one flipped bit) that preserve it: 100/384 (26.0%)
 The second figure is the higher of the two, and it is not a subsample: a flipped

@@ -410,7 +410,7 @@ This is the subtree containing the actual historical King Wen sequence.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 178,571,429,220 | 26,897,920 | 197,814 | 0/54 |
+| 178,571,429,220 | 26,897,920 | 197,814 | 0/55 *(corrected 2026-11-06: was 0/54; note (3) at the end of this page, CX-36V-B)* |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -427,7 +427,7 @@ This is the subtree containing the actual historical King Wen sequence.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 178,571,429,317 | 29,621,664 | 233,660 | 0/54 |
+| 178,571,429,317 | 29,621,664 | 233,660 | 0/55 *(corrected 2026-11-06: was 0/54; note (3) at the end of this page, CX-36V-B)* |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -478,7 +478,7 @@ This is the subtree containing the actual historical King Wen sequence.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 178,571,429,306 | 60,474,416 | 443,216 | 0/54 |
+| 178,571,429,306 | 60,474,416 | 443,216 | 0/55 *(corrected 2026-11-06: was 0/54; note (3) at the end of this page, CX-36V-B)* |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -495,7 +495,7 @@ This is the subtree containing the actual historical King Wen sequence.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 178,571,429,306 | 60,474,416 | 443,216 | 0/54 |
+| 178,571,429,306 | 60,474,416 | 443,216 | 0/55 *(corrected 2026-11-06: was 0/54; note (3) at the end of this page, CX-36V-B)* |
 
 <details><summary>Sub-branches (click to expand)</summary>
 
@@ -622,7 +622,7 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 178,571,429,228 | 0 | 0 | 0/54 |
+| 178,571,429,228 | 0 | 0 | 0/55 *(corrected 2026-11-06: was 0/54; note (3) at the end of this page, CX-36V-B)* |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -641,7 +641,7 @@ Every explored path in this subtree violated the complement distance constraint.
 
 | Nodes explored | C3-valid solutions | Unique orderings stored | Sub-branches complete |
 |---------------:|-------------------:|------------------------:|:---------------------:|
-| 178,571,429,306 | 0 | 0 | 0/54 |
+| 178,571,429,306 | 0 | 0 | 0/55 *(corrected 2026-11-06: was 0/54; note (3) at the end of this page, CX-36V-B)* |
 
 Every explored path in this subtree violated the complement distance constraint.
 
@@ -1372,3 +1372,5 @@ See [solve.c](../solve.c) source for full documentation.
 *(1) The second novel-finding note near the top of this page points to [HISTORY.md](../documentation/HISTORY.md) "for the full §[1]–§[28] dump". The HISTORY entry publishes selected findings only; the full 560T `--analyze` log is not tracked (the 560T run README says so). Two of the selected findings it restates — an overlap coefficient called independence, and a sum of per-position marginal entropies called total entropy — are the readings this page withdrew; HISTORY.md is append-only, so CX-35X-J records the correction there (F07-009#14, F07-009#15).*
 
 *(2) The per-branch "Nodes explored", "C3-valid" and "Stored" counters in the branch table and the branch details have no archived producing command, commit or receipt; they are transcribed from the earlier 56-branch regime and are not reproducible from this repository. The doc-gate allowlist entries that exempt them now say so (F07-009#8, F07-007#19, F07-014#2).*
+
+*(3) Dated note 2026-11-06 (Codex, gpt-6-astra, F07-014#3; [CORRECTIONS.md](../documentation/CORRECTIONS.md) CX-36V-B): the "Sub-branches complete" denominator of the six branch-detail rows for pairs 3, 7 and 11 (both orientations) read 0/54. The archived 2026-04-18 d2 10T checkpoint (`runs/20260418_10T_d2_fresh/checkpoint.txt.gz`) lists **55** distinct second-level sub-branches for each of those six branches and 54 for every other one, so those six rows now read 0/55. The numerators and the other counters in these rows are unchanged; note (2) still applies to them.*

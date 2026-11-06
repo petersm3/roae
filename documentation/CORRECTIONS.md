@@ -38805,3 +38805,128 @@ No canonical sha, record count, certificate value or verdict changed in CX-36S-A
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch FV2-G1; the defects were found by Codex
 (gpt-6-astra) in its fix-verification round and triaged by Fable.
+
+## CX-36V-A — SOLVE_SUMMARY.md: a cascade entropy range no position has, and a funnel step quoted from a 5-hit sample (documentation/SOLVE_SUMMARY.md; tests.py)
+
+**2026-11-06.** **Source.** Codex (gpt-6-astra), fix-verification round, F07-013#1 (with F08-001#26 and F08-003#39)
+and F07-013#6; Fable's slice triage (rows D455 and D456, held as published figures; released for dated correction
+2026-10-29); batch Q1037. Each site now carries the corrected value with a dated note that keeps the old one.
+
+**What was published, and what it says now.**
+- Two sentences gave the cascade region's per-position entropy as "0.3-1.9 bits at d3", one of them naming the
+  region as positions 3-20. The archived d3 10T analysis (`runs/20260418_10T_d3_fresh/analyze_output.log.gz`,
+  §[2]) gives H = 4.5234 bits at position 3 and 4.5029 at position 4, and 0.4796 to 1.8500 bits at positions 5-20.
+  No position carries 0.3 bits. Both now say that positions 5-20 carry 0.48-1.85 bits each at d3 10T and positions
+  3-4 carry 4.5 bits each, as the next bullet of the same page already did.
+- The funnel table gave step 4 (start with Heaven/Earth) as "~0.005% of step 1". That is the 5 hits in 100,000 draws
+  of the seeded `solve.py --narrow` run recorded in SOLVE.md, whose own 95% interval is wide. A re-estimate with
+  `solve.py`'s own predicates (`has_no_five`, `mean_complement_distance`, `xor_products`), conditioning on the
+  [63, 0] start (probability 1/64) and drawing the other 31 pairs and 32 orientations uniformly, found 7,800
+  successes in 2×10⁶ draws (seed 20261106): **0.00609%**, 95% interval [0.00596%, 0.00623%]. Codex's estimate by the
+  same method under another seed was 0.00604%. Now "~0.006%". SOLVE.md's record of the 100,000-draw run is unchanged;
+  it states what that run printed.
+
+No sha, record count or verdict changes.
+
+**Tests.** `TestBatchQ1037.test_cx36v_a_cascade_entropy` reads the §[2] table from the archived log and requires the
+corrected range and the dated note at both sites. `test_cx36v_a_step4_rate` repeats the conditional draw (2×10⁵
+draws, fixed seed) and requires its 95% interval to lie inside [0.0055%, 0.0065%) and the table to read ~0.006%.
+Both fail on the parent, which prints the old values.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch Q1037; the sites were found by Codex
+(gpt-6-astra), fix-verification round, F07-013#1 and F07-013#6.
+
+## CX-36V-B — LEADERBOARD.md: six branch rows with 54 sub-branches where the checkpoint has 55 (enumeration/LEADERBOARD.md; tests.py)
+
+**2026-11-06.** **Source.** Codex (gpt-6-astra), fix-verification round, F07-014#3; Fable's slice triage (row D499,
+held as published figures; released for dated correction 2026-10-29); batch Q1037.
+
+The branch-detail rows for pairs 3, 7 and 11, both orientations, gave "Sub-branches complete" as 0/54. The archived
+2026-04-18 d2 10T checkpoint (`runs/20260418_10T_d2_fresh/checkpoint.txt.gz`) lists **55** distinct second-level
+sub-branches (pair2, orient2) for each of those six branches and 54 for every other branch. Codex's count from the
+solver's eligibility rules gives 55 as well. The six cells now read 0/55 with a dated marker, and a third dated note
+at the end of the page keeps the old value and names the checkpoint. The numerators and the other per-branch counters
+are unchanged; note (2) there, which says those counters cannot be reproduced from this repository, still applies to
+them.
+
+No sha, record count or verdict changes.
+
+**Tests.** `TestBatchQ1037.test_cx36v_b_subbranch_denominators` counts the distinct sub-branches of every first-level
+branch in the archived checkpoint and requires each branch-detail row's denominator to match; it fails on the parent
+at the six rows.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch Q1037; the defect was found by Codex
+(gpt-6-astra), fix-verification round, F07-014#3.
+
+## CX-36V-C — f11 RESULTS.md: the k = 6 share of the numerator, and two bounds stated beyond what was shown (reports/evidence/f11/RESULTS.md; tests.py)
+
+**2026-11-06.** **Source.** Codex (gpt-6-astra), fix-verification round, F02-012#2; Fable's slice triage (row D841,
+held as a published figure; released for dated correction 2026-10-29); batch Q1037.
+
+§3 (M_corr) said "Numerator truncation error is small anyway: the k = 6 term carries 0.4–0.9% of the numerator
+across the p_c grid". From `compute_f11_bf.py`'s own `geom` and `w_num`, the k = 6 share of the retained numerator is
+0.8692% at p_c = 0.05, 0.3864% at 0.3 and **0.0014%** at 0.9 (variant U; variant A runs from 0.7833% to 0.0013%):
+the published 0.4–0.9% holds, after rounding, for variant U at p_c ≤ 0.3 only (0.39–0.87%); variant A there runs 0.34–0.78%. And the last retained term does not bound the omitted k > 6 tail, so it does not
+show that the truncation error is small. The same paragraph called D's vf_6 continuation "an upper bound, since vf_k
+is monotonically decreasing"; the decrease is observed over the enumerated k = 1..6 only. The paragraph now gives
+the grid-wide range (0.001–0.9%, and 0.3–0.9% for p_c ≤ 0.3), says the k = 6 term is not a bound on the tail, and
+says the decrease beyond k = 6 is assumed; a dated note keeps the old text. The same claim in §Caveats item 6 ("<1% on the
+numerator (k = 6 carries 0.4–0.9%); the denominator tail is bounded above by construction"), the line Codex's
+finding quotes, now reads the same way, with its own dated note.
+
+No likelihood, Bayes factor or verdict changes; the omitted tail still pushes against M_corr, as the paragraph's
+refinement (a) says.
+
+**Tests.** `TestBatchQ1037.test_cx36v_c_k6_share` recomputes the share at every grid point from the script's
+functions and requires the corrected range and the dated note; it fails on the parent.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch Q1037; the defect was found by Codex
+(gpt-6-astra), fix-verification round, F02-012#2.
+
+## CX-36V-D — PARTITION_STABILITY_BOUNDARIES.md: the greedy search's eight-step cap (documentation/PARTITION_STABILITY_BOUNDARIES.md; documentation/SOLVE.md; tests.py)
+
+**2026-11-06.** **Source.** Codex (gpt-6-astra), fix-verification round, F12-017#1; Fable's slice triage (row D1430,
+held because lifting the cap could move a published boundary set); batch Q1037.
+
+The Method section said §[6]'s greedy search "terminates when only KW remains". The loop in `solve.c` is
+`for (int step = 0; step < 8 && alive_n > 0; step++)`: it also stops after eight picks, with survivors left if
+there are any. The sentence now names the cap, with a dated note. SOLVE.md §Pipeline step 1 said the same and now
+names the cap. The code is unchanged. Every greedy set the page
+reports stopped with no non-KW survivor in at most five steps (the archived d2 10T, d3 10T and 100T analysis logs end
+at steps 4, 4 and 5 with "0 remain"), inside the cap, so no published boundary set moves.
+
+**Tests.** `TestBatchQ1037.test_cx36v_d_greedy_cap` reads the cap from `solve.c`, the last greedy step from each
+archived analysis log, and requires the Method sentence to name the cap; it fails on the parent.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch Q1037; the defect was found by Codex
+(gpt-6-astra), fix-verification round, F12-017#1.
+
+## CX-36V-E — roae.py and example/: the seed note, the inverse-pair count and the amino-acid count say what they count (roae.py; example/; tests.py)
+
+**2026-11-06.** **Source.** Codex (gpt-6-astra), fix-verification round, F12-021#2, F12-021#1 and F12-021#7; Fable's
+slice triage (rows D896, D887 and D888, held because changing the counting would move published numbers in
+example/); batch Q1037. This entry makes the printed labels true and moves no number; changing the counting itself is
+left for a later decision.
+
+- **Seed note (D896, F12-021#2).** The report's seed line said every randomized section is one draw under `--seed`.
+  The trigram section's three nulls (change rates, pure-hexagram placement, Eight Palaces) draw from
+  `random.Random(42)` whatever `--seed` says. The note now says so.
+- **Inverse pairs (D887, F12-021#1).** The pair analysis defines "inverse" as "toggling all lines of one gives the
+  other", which holds for 8 pairs, but prints "Inverse count pairs: 04/32", because a pair that is both reverse and
+  inverse (11-12, 17-18, 53-54, 63-64) is counted as Reverse only. The XOR-closure test below it lists all 16
+  hexagrams of the 8 pairs. The key now says how a pair that is both is counted, and a new line names those four
+  pairs and the total of 8. The 04/32 figure stays.
+- **Amino acids (D888, F12-021#7).** "Unique amino acids in King Wen order: 21" counts Stop as one of them, and the
+  preserving-move counts (138/576 and 100/384) count a Stop-to-Stop move as preserving. Both labels now say so.
+  Counting Stop out gives 20 amino acids, 134/576 and 96/384 (computed from the same codon table); those figures are
+  not printed.
+
+example/ was regenerated under `--seed 20260904`. Only these lines changed; every number in report.txt, report.md,
+README.md and report.html is as before, and the CSV, JSON, SVG, DOT and MIDI exports are byte-identical.
+
+**Tests.** `TestBatchQ1037.test_cx36v_e_roae_labels` checks the three labels in roae.py's output and in example/
+against values recomputed from roae.py's tables (the both-relation pairs, the fixed seed at the trigram nulls, Stop
+in the codon table); it fails on the parent.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch Q1037; the defects were found by Codex
+(gpt-6-astra), fix-verification round, F12-021#2, F12-021#1 and F12-021#7.

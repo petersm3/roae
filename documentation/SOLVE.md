@@ -348,7 +348,7 @@ For comparison, the d2 greedy-optimal set is {2, 21, 25, 27}. The four boundarie
 
 The minimum-boundary structure was discovered and verified in a specific pipeline, in this order, within the [`--analyze`](SOLVE_C_CLI.md#--analyze) code path:
 
-1. **Greedy minimum-boundary search** (`analyze.log` section [6]): picks one boundary at a time, each choice maximizing elimination of non-KW survivors. Terminates when only KW remains. Produces ONE working 4-subset as a fast heuristic.
+1. **Greedy minimum-boundary search** (`analyze.log` section [6]): picks one boundary at a time, each choice maximizing elimination of non-KW survivors. Terminates when only KW remains or after eight boundaries, whichever comes first *(corrected 2026-11-06: this read "Terminates when only KW remains"; the loop in `solve.c` §[6] is capped at eight picks — see [PARTITION_STABILITY_BOUNDARIES.md](PARTITION_STABILITY_BOUNDARIES.md) §Method and [CORRECTIONS.md](CORRECTIONS.md) CX-36V-D)*. Produces ONE working 4-subset as a fast heuristic.
 2. **Exhaustive 3-subset disproof** (`analyze.log` section [7]): tests all C(31,3) = 4,495 triples of boundaries. Confirms no triple suffices (best triple leaves ≥2 survivors at d3, ≥7 at d2). Proves the 4-minimum is tight.
 3. **Exhaustive 4-subset enumeration** (`analyze.log` section [8]): tests all C(31,4) = 31,465 quadruples. Lists every working 4-subset that uniquely identifies KW. Produces the complete family (4 sets at d2, 8 at d3).
 
