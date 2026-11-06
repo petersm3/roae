@@ -630,7 +630,14 @@ With `--expect N` (the reference count, e.g. from
 C binary itself) it prints `PASS`/`FAIL` and exits non-zero on `FAIL`.
 With `--keep DIR` the `instance.cnf` / `instance.nnf` /
 `instance.cpog` artifacts are preserved in `DIR` instead of a deleted
-temp directory.
+temp directory, together with `d4.tail`, `cpog-gen.tail` and
+`cpog-check.tail`: the last 1 MiB of each tool's merged stdout/stderr,
+which is where the verdict lines (`CHECK: FULL-PROOF SUCCESS`, `CHECK:
+Regular model count = N`) are. `sat.py` keeps only that tail in memory
+(since 2026-11-05, CX-36T): `cpog-check` prints two `Looking for
+clause` lines per clause lookup, 7.7 GB for the n=9 certificate, and
+until then `sat.py` captured all of it, so the n=9 run needed about
+22 GB of RAM although `cpog-check` itself peaks below 1 GB.
 
 ## MODIFIERS
 
@@ -642,7 +649,7 @@ temp directory.
 | `--not-kw` | Exclude every ordering whose pair-slot **layout** matches King Wen's (slot s = pair s for all s) — KW itself and all its within-pair orientation variants. Since the excluded set contains KW, any witness is ≠ KW, and stronger: it places at least one pair in a non-KW slot (G is orientation-blind, so an orientation-only variant would tie G trivially). |
 | `--f1-pairs N` | Build the reduced C1∩C2∩C4∩C5 instance for the group-closed N-pair orbit union (`N ∈ {3,4,6,7,9,10,12,13,15,16,18,19,21,22,24,25,27,28}`, `solve.c`'s `f1c5_unions[]`; nine of these were missing from `sat.py`'s table until 2026-11-02, CX-36K) instead of the full-31 system — the object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts. Applies to `--emit-cnf`, `--decode` and `--certify-count` (not `--witness`). `TARGET` must be `f1c5` (any other is refused since 2026-09-21; it was silently ignored before — see §`--emit-cnf … --f1-pairs N`). The C5 budget `B0` is derived per subset. Refuses combination with `--with-c3`/`--c3-max`/`--c3-min`/`--not-kw`: the subset instances encode C1&C2&C4&C5 only (before 2026-08-27 those flags were silently ignored here). Consumes the following token as the integer `N`. |
 | `--expect N` | (`--certify-count` only) Assert the certified count equals `N` (the caller-supplied native reference count); prints `PASS`/`FAIL` and exits non-zero on `FAIL`. Consumes the following token as the integer `N`. |
-| `--keep DIR` | (`--certify-count` only) Preserve the `instance.cnf`/`.nnf`/`.cpog` artifacts in `DIR` (created if needed) instead of a removed temporary directory. Consumes the following token as the directory path. |
+| `--keep DIR` | (`--certify-count` only) Preserve the `instance.cnf`/`.nnf`/`.cpog` artifacts in `DIR` (created if needed) instead of a removed temporary directory, with the three `*.tail` files (the last 1 MiB of each tool's output; since 2026-11-05). Consumes the following token as the directory path. |
 
 All modifiers may precede or follow the subcommand tokens — they are
 stripped from `argv` before the subcommand is dispatched.

@@ -12128,3 +12128,15 @@ Q-686=DONE
   queued.
 - No canonical sha, count, certificate or verdict changed. `TestBatchFV2T` holds each fix and fails on the parent
   tree.
+
+## 2026-11-05 — push group Q1055: `--certify-count` keeps a bounded tail of each tool's output
+
+- **The capture (CX-36T).** `sat.py` ran `cpog-check` with `capture_output=True` and held its whole stdout: 7.7 GB
+  of `Looking for clause` lines for the n=9 certificate, which is the 21.7 GB peak the n=9 runs recorded and the
+  reason the 2026-11-03 re-certification on a 15 GiB host was OOM-killed although `cpog-check` itself peaks below
+  1 GB. `_run_tool` now streams the merged output in 1 MiB chunks and keeps the last 1 MiB; with `--keep DIR` the
+  tails are written as `d4.tail`, `cpog-gen.tail` and `cpog-check.tail`, so the verdict lines stay on record beside
+  the artifacts. Tool argv, verdict rules and the `--expect` gate are unchanged.
+- No canonical sha, count, certificate or verdict changed; the n=9 hashes are untouched. `TestBatchQ1055` drives
+  this tree's `sat.py` and b4dbd9a7's through a stub `cpog-check` printing 400 MB of chatter under a 640 MiB
+  address-space cap: the base fails with `MemoryError`, this tree prints PASS.

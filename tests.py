@@ -640,7 +640,7 @@ class TestSatInputGuards(unittest.TestCase):
     raised: `certify_count` can also exit with the missing-tools message
     (_CERTIFY_TOOLS_MSG), so a bare assertRaises would pass on a host without d4
     while proving nothing about the guard. Verified 2026-09-19 that the --keep
-    guard fires BEFORE any tool use (sat.py:2404 precedes the d4 call at :2432),
+    guard fires BEFORE any tool use (sat.py:2449 precedes the d4 call at :2477),
     so these are green on a host with no SAT toolchain installed."""
 
     def test_keep_dir_uncreatable_is_refused_before_the_work(self):
@@ -57314,6 +57314,156 @@ class TestBatchQ54(unittest.TestCase):
         self.assertIn("`instance.cnf` (71,429 B)", doc)
 
 # end class TestBatchQ54 (push group Q54, CX-36K)
+
+
+class TestBatchQ1055(unittest.TestCase):
+    """Push group Q1055 (CX-36T): sat.py --certify-count no longer holds a tool's whole stdout in memory.
+    cpog-check (CPOG a97ed854) prints two `Looking for clause` lines per clause lookup -- 7,722,643,808 B for the
+    n=9 certificate (measured 2026-11-03) -- and _run_keep_cr's capture_output collected all of it, so python's
+    RSS reached 15.8 GB and the run was OOM-killed on a 15 GiB host although cpog-check itself peaks at 0.83 GB.
+    _run_tool now streams the merged stdout+stderr in 1 MiB chunks and keeps a 1 MiB tail; with --keep the tails
+    are written beside the artifacts. test_q1055_certify_count_under_an_address_space_cap drives this tree's
+    sat.py and the sat.py of b4dbd9a7 (public main) through a stub toolchain whose cpog-check prints 400 MB of
+    chatter before its verdict, each under a 640 MiB RLIMIT_AS: the base MUST fail there (the precondition is
+    asserted, not assumed) and this tree MUST print `expect=48 certified=48  PASS`. The CR contract of 2026-10-29
+    (F12-012#6) is re-pinned on the streamed path: a CR-prefixed verdict line is still refused, a CR-terminated
+    one still accepted. Developed with AI assistance (Claude, Anthropic): claude-fable-5-1 (pinned)."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    BASE = "b4dbd9a7"
+    CHATTER = 400 * 1000 * 1000          # bytes of `Looking for clause` lines before the verdict
+    AS_CAP = 640 * 1024 * 1024           # RLIMIT_AS for the sat.py subprocess: > 2x what sat.py needs, < 2x CHATTER
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = os.path.realpath(tempfile.mkdtemp(prefix="q1055_"))
+        r = subprocess.run(["git", "-C", cls.ROOT, "show", cls.BASE + ":sat.py"], capture_output=True, text=True)
+        cls.base_ok = r.returncode == 0
+        if cls.base_ok:
+            with open(os.path.join(cls.tmp, "sat_base.py"), "w") as fh:
+                fh.write(r.stdout)
+
+    @classmethod
+    def tearDownClass(cls):
+        t = getattr(cls, "tmp", None)
+        if t and os.path.basename(t).startswith("q1055_"):
+            shutil.rmtree(t, ignore_errors=True)
+
+    def _stubs(self, name, verdict_prefix="", verdict_eol="\n", chatter=None):
+        """A PATH dir with stub d4 / cpog-gen / cpog-check; cpog-check prints `chatter` bytes of the real
+        tool's debug line, then its verdict lines (count 48 = the n=3 reference TestSatC5Subset pins)."""
+        d = os.path.join(self.tmp, name); os.makedirs(d, exist_ok=True)
+        chatter = self.CHATTER if chatter is None else chatter
+        stubs = {
+            "d4": "#!/bin/sh\nout=${3#-out=}; echo 'c stub d4' > \"$out\"; echo 's 48'\n",
+            "cpog-gen": "#!/bin/sh\necho 'c stub cpog' > \"$3\"; echo 'GEN: stub'\n",
+            "cpog-check": ("#!/bin/sh\n"
+                           "if [ %d -gt 0 ]; then yes 'Looking for clause 1.  lid = 0, rid = 0, bid = 0, sense = 0' | head -c %d; echo; fi\n"
+                           "printf '%%s' '%sCHECK: FULL-PROOF SUCCESS.  CPOG representation verified'; printf '%s'\n"
+                           "printf '%%s' 'CHECK: Regular model count = 48'; printf '%s'\n"
+                           % (chatter, chatter, verdict_prefix.encode("unicode_escape").decode(),
+                              verdict_eol.encode("unicode_escape").decode(), verdict_eol.encode("unicode_escape").decode())),
+        }
+        for tool, body in stubs.items():
+            p = os.path.join(d, tool)
+            with open(p, "w") as fh:
+                fh.write(body)
+            os.chmod(p, 0o755)
+        return d
+
+    def _certify(self, script, path_dir, keep):
+        import resource
+        cap = self.AS_CAP
+        def limit():
+            resource.setrlimit(resource.RLIMIT_AS, (cap, cap))
+        env = dict(os.environ, PYTHONPATH=self.ROOT, PATH=path_dir + os.pathsep + os.environ.get("PATH", ""))
+        return subprocess.run([sys.executable, script, "--certify-count", "f1c5", "--f1-pairs", "3",
+                               "--expect", "48", "--keep", keep], capture_output=True, text=True,
+                              env=env, cwd=self.ROOT, timeout=600, preexec_fn=limit)
+
+    def test_q1055_certify_count_under_an_address_space_cap(self):
+        """400 MB of cpog-check chatter under a 640 MiB address space: the base sat.py (capture_output) cannot
+        finish; this tree's prints PASS and keeps the verdict lines in DIR/cpog-check.tail."""
+        self.assertTrue(self.base_ok, "git show %s:sat.py failed; the red half cannot run" % self.BASE)
+        stubs = self._stubs("stubs")
+        # the stubs are usable at all (no cap, tiny chatter) -- a positive control for the fixture itself
+        r0 = subprocess.run([sys.executable, os.path.join(self.ROOT, "sat.py"), "--certify-count", "f1c5",
+                             "--f1-pairs", "3", "--expect", "48"], capture_output=True, text=True, cwd=self.ROOT,
+                            env=dict(os.environ, PATH=self._stubs("stubs0", chatter=0) + os.pathsep + os.environ["PATH"]), timeout=600)
+        self.assertEqual(r0.returncode, 0, r0.stdout + r0.stderr[-800:])
+        self.assertIn("expect=48 certified=48  PASS", r0.stdout.splitlines())
+        # RED: the base under the cap
+        rb = self._certify(os.path.join(self.tmp, "sat_base.py"), stubs, os.path.join(self.tmp, "keep_base"))
+        self.assertNotEqual(rb.returncode, 0, "the base sat.py finished under the cap; this is not the pre-fix text:\n" + rb.stdout)
+        self.assertNotIn("expect=48 certified=48  PASS", rb.stdout.splitlines())
+        self.assertTrue("MemoryError" in rb.stderr or rb.returncode < 0 or "Killed" in rb.stderr,
+                        "base failed for another reason: rc=%d\n%s" % (rb.returncode, rb.stderr[-800:]))
+        # GREEN: this tree under the same cap
+        keep = os.path.join(self.tmp, "keep_cur")
+        rc = self._certify(os.path.join(self.ROOT, "sat.py"), stubs, keep)
+        self.assertEqual(rc.returncode, 0, rc.stdout + rc.stderr[-800:])
+        self.assertIn("expect=48 certified=48  PASS", rc.stdout.splitlines())
+        self.assertIn("CERTIFIED count=48", rc.stdout)
+        self.assertIn("artifacts kept in %s (instance.cnf/.nnf/.cpog; d4/cpog-gen/cpog-check .tail)" % keep, rc.stdout.splitlines())
+        for f in ("instance.cnf", "instance.nnf", "instance.cpog", "d4.tail", "cpog-gen.tail", "cpog-check.tail"):
+            self.assertTrue(os.path.exists(os.path.join(keep, f)), f)
+        with open(os.path.join(keep, "cpog-check.tail"), newline="") as fh:
+            tail = fh.read()
+        self.assertLessEqual(len(tail), (1 << 20) + 64)
+        lines = tail.split("\n")
+        self.assertEqual(lines[0], "[rc=0]")
+        self.assertIn("CHECK: FULL-PROOF SUCCESS.  CPOG representation verified", lines)
+        self.assertIn("CHECK: Regular model count = 48", lines)
+        self.assertTrue(lines[1].startswith("Looking for clause 1.  lid = 0"), "the first kept line is a whole line: %r" % lines[1][:60])
+        with open(os.path.join(keep, "d4.tail"), newline="") as fh:
+            self.assertEqual(fh.read(), "[rc=0]\ns 48\n")
+
+    def test_q1055_streamed_verdict_keeps_the_cr_contract(self):
+        """On the streamed path a verdict line that begins with a bare CR is still not a verdict (refused with
+        'without FULL-PROOF SUCCESS'), and a CR-terminated verdict is still accepted (2026-10-29, F12-012#6)."""
+        cur = os.path.join(self.ROOT, "sat.py")
+        r = self._certify(cur, self._stubs("cr_prefixed", verdict_prefix="\r", chatter=0), os.path.join(self.tmp, "k1"))
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("without FULL-PROOF SUCCESS", r.stderr)
+        r = self._certify(cur, self._stubs("cr_terminated", verdict_eol="\r\n", chatter=0), os.path.join(self.tmp, "k2"))
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr[-800:])
+        self.assertIn("expect=48 certified=48  PASS", r.stdout.splitlines())
+        with open(os.path.join(self.tmp, "k2", "cpog-check.tail"), newline="") as fh:
+            self.assertIn("CHECK: Regular model count = 48\r\n", fh.read(), "the tail file keeps the CR (no newline translation)")
+
+    def test_q1055_tail_write_cannot_fail_a_certification_under_a_non_utf8_locale(self):
+        """2026-11-05 (Fable pre-publication review, fix 2): the tail is decoded with errors='replace', so a
+        non-UTF-8 byte in a tool's output becomes U+FFFD; written with the locale's preferred encoding (ASCII
+        under `PYTHONCOERCECLOCALE=0 PYTHONUTF8=0 LC_ALL=C`) that raised UnicodeEncodeError -- a ValueError the
+        `except OSError` guard did not catch -- and the run exited 1 after cpog-check had certified. The tail is
+        now written as UTF-8 and the guard is `except (OSError, ValueError)`: the record write never fails the run."""
+        env = dict(os.environ, PYTHONCOERCECLOCALE="0", PYTHONUTF8="0", LC_ALL="C")
+        env.pop("PYTHONIOENCODING", None)
+        # precondition: this environment really gives python a non-UTF-8 preferred encoding
+        pe = subprocess.run([sys.executable, "-c", "import locale; print(locale.getpreferredencoding(False))"],
+                            capture_output=True, text=True, env=env)
+        self.assertEqual(pe.returncode, 0, pe.stderr)
+        self.assertNotIn(pe.stdout.strip().lower().replace("-", ""), ("utf8",),
+                         "LC_ALL=C still yields UTF-8 here; the case cannot be reproduced: %r" % pe.stdout)
+        d = self._stubs("non_utf8", chatter=0)
+        with open(os.path.join(d, "cpog-check"), "w") as fh:
+            fh.write("#!/bin/sh\nprintf 'c stub \\377 byte\\n'\n"
+                     "echo 'CHECK: FULL-PROOF SUCCESS.  CPOG representation verified'\n"
+                     "echo 'CHECK: Regular model count = 48'\n")
+        keep = os.path.join(self.tmp, "k_non_utf8")
+        env["PYTHONPATH"] = self.ROOT
+        env["PATH"] = d + os.pathsep + os.environ.get("PATH", "")
+        r = subprocess.run([sys.executable, os.path.join(self.ROOT, "sat.py"), "--certify-count", "f1c5", "--f1-pairs", "3",
+                            "--expect", "48", "--keep", keep], capture_output=True, env=env, cwd=self.ROOT, timeout=600)
+        out = r.stdout.decode("utf-8", "replace"); err = r.stderr.decode("utf-8", "replace")
+        self.assertEqual(r.returncode, 0, out + err[-800:])
+        self.assertIn("expect=48 certified=48  PASS", out.splitlines())
+        with open(os.path.join(keep, "cpog-check.tail"), encoding="utf-8", newline="") as fh:
+            tail = fh.read()
+        self.assertIn("c stub \ufffd byte\n", tail, "the tail is written as UTF-8 with the replacement character")
+        self.assertIn("CHECK: Regular model count = 48", tail.split("\n"))
+
+# end class TestBatchQ1055 (push group Q1055, CX-36T)
 
 
 

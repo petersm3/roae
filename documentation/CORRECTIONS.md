@@ -38552,3 +38552,37 @@ No canonical sha, record count, certificate value or verdict changed in CX-36R-A
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch FV2-T; the defects were found by Codex
 (gpt-6-astra) in its fix-verification round and triaged by Fable.
+
+## CX-36T — `--certify-count` held the whole of `cpog-check`'s output in memory, so the n=9 certificate needed about 22 GB of RAM for a checker that uses less than 1 GB (sat.py; documentation/SAT_CLI.md; tests.py)
+
+**2026-11-05.** **Source.** Backlog row Q-1055, from the 2026-11-03 re-certification of n=9 on a 15 GiB host, where
+the run was OOM-killed at 15.8 GB of python RSS (rc 137) with all three artifacts already written and matching the
+published hashes; it completed only with a temporary swapfile. Same defect class as Q-424's harness defect (b),
+cured in that harness on 2026-09-27 by piping `cpog-check` to `tail`. Found by the Opus ops lane, cured by Fable.
+
+**What the code did, and what it does now.**
+- **The capture.** `_run_tool` ran each toolchain binary with `subprocess.run(capture_output=True)` and decoded the
+  result. `cpog-check` (CPOG `a97ed854`) prints two `Looking for clause …` lines per clause lookup, unconditionally
+  (`src/cpog-check.c`, `clause_locate` / `clause_locate_within`, not under its `-v` level): 7,722,643,808 B for the
+  n=9 certificate, about 120 M lines. Held as bytes and again as text, that stream is the 21.7 GB peak the 2026-08-20
+  and 2026-08-26 n=9 runs recorded, not the checker's own footprint (0.83 GB). `_run_tool` now streams the merged
+  stdout+stderr in 1 MiB chunks and keeps the last 1 MiB, dropping the first partial line when the stream was
+  longer, so the whole-line verdict rules of 2026-10-29 read complete lines; bytes are split on LF only and decoded
+  without newline translation, as before. Python's footprint for `--certify-count` is now the CNF build plus 2 MiB.
+- **The record.** With `--keep DIR` the tails are written as `DIR/d4.tail`, `DIR/cpog-gen.tail` and
+  `DIR/cpog-check.tail` (first line `[rc=N]`), so the lines that make the count a certificate — `CHECK: FULL-PROOF
+  SUCCESS` and `CHECK: Regular model count = N` — stay beside the artifacts they certify; until now `sat.py`
+  discarded them after parsing, and the 2026-11-03 re-certification had to re-run `cpog-check` by hand to put the
+  verdict line on record. The `artifacts kept in …` line names them.
+- **What did not change.** The argv of every tool, the verdict rules, the `--expect` gate, the d4/CPOG count
+  cross-check, the CNF written, and the n=9 hashes `800fde57…` / `2317b6c2…` / `b311715f…`, which identify artifacts
+  `sat.py` writes before any output is read. No count, certificate or verdict changed.
+
+**Tests.** `TestBatchQ1055.test_q1055_certify_count_under_an_address_space_cap` runs this tree's `sat.py` and the
+`sat.py` of b4dbd9a7 through a stub toolchain whose `cpog-check` prints 400 MB of the real debug line before its
+verdict, each under a 640 MiB address-space limit: the base fails with `MemoryError` (asserted, not assumed) and
+this tree prints `expect=48 certified=48  PASS` and keeps the tails; `test_q1055_streamed_verdict_keeps_the_cr_contract`
+re-pins the 2026-10-29 CR rule on the streamed path. `TestBatchFV2L`'s stubbed-`_run_tool` tests pass unchanged.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1 (pinned), push group Q1055; the measurement is
+the Opus ops lane's (2026-11-03).

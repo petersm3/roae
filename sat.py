@@ -2382,17 +2382,62 @@ def _run_keep_cr(argv):
                                        r.stdout.decode("utf-8", "replace"),
                                        r.stderr.decode("utf-8", "replace"))
 
+_TOOL_TAIL_BYTES = 1 << 20      # what certify_count keeps of a tool's merged stdout/stderr
+
+def _run_tool_bounded(argv, tail_bytes=_TOOL_TAIL_BYTES):
+    """subprocess for the certificate toolchain that never holds a tool's whole output (2026-11-05,
+    Q-1055). `cpog-check` prints two `Looking for clause` lines per clause lookup -- 7,722,643,808 B
+    at n=9 (measured 2026-11-03) -- and `_run_keep_cr`'s capture_output held all of it: python's RSS
+    reached 15.8 GB and the run was OOM-killed on a 15 GiB host, while cpog-check itself peaks at
+    0.83 GB. This reader consumes the merged stdout+stderr stream in 1 MiB chunks and keeps only the
+    last `tail_bytes`, dropping the first (possibly partial) line when the stream was longer than
+    that, so every whole-line verdict rule below reads complete lines. The CR contract of
+    `_run_keep_cr` is kept: bytes are split on LF only and decoded without newline translation.
+    Returns a CompletedProcess whose .stdout is the tail text and whose .stderr is empty (stderr is
+    merged into the stream, where `_tool_tail` already showed it)."""
+    p = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                         stdin=subprocess.DEVNULL)
+    total, tail = 0, b""
+    try:
+        fd = p.stdout.fileno()
+        while True:
+            chunk = os.read(fd, 1 << 20)
+            if not chunk:
+                break
+            total += len(chunk)
+            tail = (tail + chunk)[-tail_bytes:]
+    finally:
+        p.stdout.close()
+        rc = p.wait()
+    if total > tail_bytes:
+        nl = tail.find(b"\n")
+        if nl >= 0:
+            tail = tail[nl + 1:]
+    return subprocess.CompletedProcess(argv, rc, tail.decode("utf-8", "replace"), "")
+
 def _run_tool(argv):
     """Run one external certificate-toolchain binary. Graceful-absence idiom
     (roae.py Graphviz `dot`): a missing binary exits with a clear install
-    message instead of an unhandled FileNotFoundError traceback."""
+    message instead of an unhandled FileNotFoundError traceback. Bounded
+    capture since 2026-11-05 (Q-1055): see _run_tool_bounded."""
     try:
-        return _run_keep_cr(argv)
+        return _run_tool_bounded(argv)
     except FileNotFoundError:
         raise SystemExit(_CERTIFY_TOOLS_MSG % argv[0])
 
 def _tool_tail(r):
     return (r.stdout + r.stderr)[-600:]
+
+def _keep_tail(wd, tool, r):
+    """Write the bounded tail of a tool's output to WD/<tool>.tail (2026-11-05, Q-1055): with --keep
+    the verdict lines (`CHECK: FULL-PROOF SUCCESS`, `CHECK: Regular model count = N`) stay on record
+    beside the artifacts they certify, without the O(proof) chatter in front of them."""
+    try:
+        with open(os.path.join(wd, tool + ".tail"), "w", encoding="utf-8", newline="") as fh:
+            fh.write("[rc=%s]\n" % r.returncode)
+            fh.write(r.stdout + r.stderr)
+    except (OSError, ValueError):
+        pass
 
 def certify_count(cnf_obj, label, keep_dir=None):
     """Compile `cnf_obj` with D4, then generate and verify a CPOG certificate,
@@ -2430,6 +2475,7 @@ def certify_count(cnf_obj, label, keep_dir=None):
         # 1) D4 v1: compile to Decision-DNNF (argv per D4 v1 README; the CPOG
         #    toolchain consumes D4 v1 .nnf — run-validated, see section header)
         r_d4 = _run_tool(["d4", "-dDNNF", cnf_path, "-out=" + nnf_path])
+        _keep_tail(wd, "d4", r_d4)
         if r_d4.returncode != 0:
             raise SystemExit("d4 failed (rc=%s); no d-DNNF is trusted from a failed compile"
                              "\n--- d4 output tail ---\n%s" % (r_d4.returncode, _tool_tail(r_d4)))
@@ -2443,12 +2489,14 @@ def certify_count(cnf_obj, label, keep_dir=None):
         d4_count = int(m[-1]) if m else None
         # 2) cpog-gen: CNF + d-DNNF -> CPOG certificate
         r_gen = _run_tool(["cpog-gen", cnf_path, nnf_path, cpog_path])
+        _keep_tail(wd, "cpog-gen", r_gen)
         if r_gen.returncode != 0 or not os.path.exists(cpog_path):
             raise SystemExit("cpog-gen failed (rc=%s)\n--- output tail ---\n%s"
                              % (r_gen.returncode, _tool_tail(r_gen)))
         # 3) cpog-check: verify the certificate against the ORIGINAL CNF; the
         #    count it reports is the CERTIFIED model count
         r_chk = _run_tool(["cpog-check", cnf_path, cpog_path])
+        _keep_tail(wd, "cpog-check", r_chk)
         # LF-delimited lines, trailing CR only (the solver rule below): the count and the
         # verdict are read from WHOLE lines of stdout, never from the stream as one string
         chk_lines = [ln.rstrip("\r") for ln in r_chk.stdout.split("\n")]
@@ -2763,7 +2811,7 @@ if __name__ == "__main__":
         if d4_count is not None:
             print("d4 uncertified count agrees: %d" % d4_count)
         if keep_dir:
-            print("artifacts kept in %s (instance.cnf/.nnf/.cpog)" % keep_dir)
+            print("artifacts kept in %s (instance.cnf/.nnf/.cpog; d4/cpog-gen/cpog-check .tail)" % keep_dir)
         if expect is not None:
             ok = certified == expect
             print("expect=%d certified=%d  %s" % (expect, certified, "PASS" if ok else "FAIL"))
