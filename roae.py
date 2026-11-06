@@ -1521,8 +1521,8 @@ def print_markov():
     print("---")
     print("Markov chain analysis")
     print("If we treat each difference value as a 'state', we can ask: does the current")
-    print("difference predict the next one? In a random sequence, knowing that the last")
-    print("transition changed 2 lines tells you nothing about the next transition. But if")
+    print("difference predict the next one? In a random ordering of the 64 hexagrams the")
+    print("transitions are only weakly dependent (the shuffle baseline below is simulated). But if")
     print("certain patterns like '6 is always followed by 2' emerge, it reveals hidden")
     print("rules in the King Wen ordering. The matrix shows the probability of each")
     print("transition between difference values.")
@@ -1687,8 +1687,8 @@ def print_symmetry():
     print("by toggling their differing lines always produces another valid hexagram. This is")
     print("like mixing colors — every combination is itself a color. Under this algebra,")
     print("certain sets of hexagrams form 'subgroups' (closed sets where combining any two")
-    print("members stays in the set). This section checks whether the King Wen pairs, inverse")
-    print("pairs, and the canonical divisions correspond to meaningful algebraic subgroups.")
+    print("members stays in the set). This section lists the XOR products of the King Wen")
+    print("pairs and checks whether the inverse-pair hexagrams are closed under XOR.")
     print("---")
 
     # Check which XOR subgroups exist among the 64 hexagrams
@@ -2716,7 +2716,7 @@ def print_mutual_info():
     print("(Expected: 0.0 — since all 64 combinations appear exactly once,")
     print("the trigrams are perfectly independent in the static set.)")
     print("Note: with all 64 upper/lower trigram combinations present exactly once,")
-    print("independence is expected by construction (complete Latin square).")
+    print("independence is expected by construction (the full 8x8 Cartesian product).")
 
 def print_bootstrap(trials=100000):
     """Bootstrap confidence intervals for Monte Carlo results."""
@@ -2958,7 +2958,7 @@ def print_neighborhoods():
     _reseed(13)
     print("---")
     print("Hexagram neighborhoods")
-    print("For each hexagram, which others are 'nearby' (differ by only 1 or 2 lines)?")
+    print("For each hexagram, which others are 'nearby' (differ by exactly 1 line)?")
     print("Dense neighborhoods mean a hexagram has many close relatives; sparse ones are")
     print("more isolated. This also shows whether King Wen places neighbors near each")
     print("other in the sequence or scatters them.")
@@ -3544,7 +3544,7 @@ def export_svg(filename="hexagrams.svg"):
         f.write("\n".join(lines) + "\n")
     print(f"SVG written to {filename}")
 
-def export_html(filename="report.html"):
+def export_html(filename="report.html", trials=10000):
     """Generate a self-contained HTML report with all analyses."""
     import io
     from contextlib import redirect_stdout
@@ -3612,8 +3612,8 @@ def export_html(filename="report.html"):
         ("Shannon entropy analysis", print_entropy),
         ("Path analysis (graph theory)", print_path),
         ("Constraint satisfaction analysis", print_constraints),
-        ("Bootstrap confidence intervals", lambda: print_bootstrap(trials=10000)),
-        ("Monte Carlo analysis", lambda: print_stats(trials=10000)),
+        ("Bootstrap confidence intervals", lambda: print_bootstrap(trials=trials)),   # FV2-P D889, Codex F12-021#3
+        ("Monte Carlo analysis", lambda: print_stats(trials=trials)),
     ]
 
     import re
@@ -3656,7 +3656,7 @@ def export_html(filename="report.html"):
     # report.html is unaffected: it NAMES font families in CSS, which is a reference and not
     # redistribution. Anyone wanting a PDF can still make one from it with a single command.
 
-def export_markdown(filename="report.md"):
+def export_markdown(filename="report.md", trials=10000):
     """Generate a Markdown report with all analyses."""
     import io
     import re
@@ -3689,8 +3689,8 @@ def export_markdown(filename="report.md"):
         ("Shannon entropy analysis", print_entropy),
         ("Path analysis (graph theory)", print_path),
         ("Constraint satisfaction analysis", print_constraints),
-        ("Bootstrap confidence intervals", lambda: print_bootstrap(trials=10000)),
-        ("Monte Carlo analysis", lambda: print_stats(trials=10000)),
+        ("Bootstrap confidence intervals", lambda: print_bootstrap(trials=trials)),   # FV2-P D889, Codex F12-021#3
+        ("Monte Carlo analysis", lambda: print_stats(trials=trials)),
     ]
 
     def convert_section(raw):
@@ -4414,7 +4414,7 @@ def run_grammar_search(nsamp, nprobe, workers, batches, seed,
             break
         jobs.append((seed + 100 + w, want))
         left -= want
-    with Pool(workers) as pool:
+    with _mp_fork_ctx().Pool(workers) as pool:   # FV2-P D890, Codex F09-H04#13: fork pinned (3.14 defaults to forkserver)
         res = pool.map(_gs_probe_worker, jobs)
     probe = [s for r in res for s in r[0]][:nprobe]
     trials = sum(r[1] for r in res)
@@ -4451,7 +4451,7 @@ def run_grammar_search(nsamp, nprobe, workers, batches, seed,
     ranges = [(i, min(i + chunk, n_syn)) for i in range(0, n_syn, chunk)]
     best = {}          # (kw, sig) -> candidate idx of min-L representative
     kw_true_syn = 0
-    with Pool(workers) as pool:
+    with _mp_fork_ctx().Pool(workers) as pool:   # FV2-P D890, Codex F09-H04#13: fork pinned (3.14 defaults to forkserver)
         for out in pool.imap(_gs_sig_worker, ranges):
             for idx, kw, sig in out:
                 if kw:
@@ -4536,9 +4536,9 @@ def run_grammar_search(nsamp, nprobe, workers, batches, seed,
                 if not line:
                     continue
                 try:
-                    rec = json.loads(line)
-                except ValueError:
-                    rejected["unparsable row"] = rejected.get("unparsable row", 0) + 1
+                    rec = _gs_ck_json_obj(line)   # FV2-P D894, Codex F12-012#8: "[1,2]" was an AttributeError
+                except ValueError as e:
+                    rejected[str(e)] = rejected.get(str(e), 0) + 1
                     continue
                 # A row written before this fix has no `seed`; it cannot be shown to belong to this
                 # run, so it is refused rather than trusted. Silently accepting it is the defect.
@@ -4558,9 +4558,9 @@ def run_grammar_search(nsamp, nprobe, workers, batches, seed,
             print(f"[D] checkpoint: {len(done)} batches already complete")
     todo = [j for j in jobs if j[0] not in done]
     t0 = time.time()
-    ck = open(ckpt_path, "a") if ckpt_path else None
+    ck = _ck_open_append(ckpt_path) if ckpt_path else None
     nb_done = len(done)
-    with Pool(workers) as pool:
+    with _mp_fork_ctx().Pool(workers) as pool:   # FV2-P D890, Codex F09-H04#13: fork pinned (3.14 defaults to forkserver)
         for batch_idx, n_b, trials_b, hits_b, cpu_b in \
                 pool.imap(_gs_rarity_batch, todo):
             done[batch_idx] = (n_b, hits_b)
@@ -4875,9 +4875,9 @@ def _ph_run_stream(label, seed, seed_off, ntotal, workers, batches,
                   f"complete")
     todo = [j for j in jobs if j[0] not in done]
     t0 = time.time()
-    ck = open(ckpt_path, "a") if ckpt_path else None
+    ck = _ck_open_append(ckpt_path) if ckpt_path else None
     nb_done = len(done)
-    with Pool(workers) as pool:
+    with _mp_fork_ctx().Pool(workers) as pool:   # FV2-P D890, Codex F09-H04#13: fork pinned (3.14 defaults to forkserver)
         for (batch_idx, n_b, trials_b, ha, hp, hq, pv, cpu_b) in \
                 pool.imap(_ph_batch, todo):
             rec = dict(phase=phase_tag, seed=seed, seed_off=seed_off, batches=len(jobs), want=dict((j[0], j[3]) for j in jobs).get(batch_idx), batch=batch_idx, n=n_b,   # G5b: the partition is part of the identity
@@ -5363,14 +5363,14 @@ def main():
                              "structural predicates (depth <= 2) for candidate "
                              "constraints beyond C1-C5 (see the section banner "
                              "in the source for the full design)")
-    parser.add_argument("--gs-samples", type=int, default=1000000,
+    parser.add_argument("--gs-samples", type=_g5b_pos_int, default=1000000,   # FV2-P D899, Codex F12-012#7
                         help="grammar search: rarity sample size (default 1000000)")
-    parser.add_argument("--gs-probe", type=int, default=256,
+    parser.add_argument("--gs-probe", type=_g5b_pos_int, default=256,   # FV2-P D899, Codex F12-012#7
                         help="grammar search: probe-set size for signature dedup "
                              "(default 256; disjoint from the rarity sample)")
     parser.add_argument("--gs-workers", type=int, default=0,
                         help="grammar search: worker processes (default: all cores)")
-    parser.add_argument("--gs-batches", type=int, default=100,
+    parser.add_argument("--gs-batches", type=_g5b_pos_int, default=100,   # FV2-P D899, Codex F12-012#7
                         help="grammar search: checkpointable rarity batches (default 100)")
     parser.add_argument("--gs-json", type=str, default="u2_report.json",
                         help="grammar search: JSON report path")
@@ -5386,7 +5386,7 @@ def main():
                              "2026-07-26 spec; reuses --gs-samples as N_eval, "
                              "--gs-workers, --gs-batches, --gs-json, "
                              "--gs-checkpoint, --seed)")
-    parser.add_argument("--ph-thr-samples", type=int, default=100000,
+    parser.add_argument("--ph-thr-samples", type=_g5b_pos_int, default=100000,   # FV2-P D899, Codex F12-012#7
                         help="prereg-h1h3: threshold-derivation stream sample "
                              "size (default 100000; KW held out)")
     parser.add_argument("--self-test", action="store_true",
@@ -5474,6 +5474,7 @@ def main():
         # exit non-zero when checks fail, so `roae.py --self-test` can gate CI
         return 1 if print_self_test() else 0
     if args.grammar_search:
+        _refuse_report_over_checkpoint(args.gs_json, args.gs_checkpoint, "--grammar-search")
         run_grammar_search(
             nsamp=args.gs_samples, nprobe=args.gs_probe,
             workers=args.gs_workers or (os.cpu_count() or 1),
@@ -5489,6 +5490,7 @@ def main():
         ph_ckpt = ("prereg_h1h3_ckpt.jsonl"
                    if args.gs_checkpoint == "u2_checkpoint.jsonl"
                    else args.gs_checkpoint)
+        _refuse_report_over_checkpoint(ph_json, ph_ckpt, "--prereg-h1h3")
         run_prereg_h1h3(
             n_eval=args.gs_samples, n_thr=args.ph_thr_samples,
             workers=args.gs_workers or (os.cpu_count() or 1),
@@ -5524,11 +5526,14 @@ def main():
     if args.svg:
         export_svg()
         return
+    # FV2-P D889: the exporters ran 10,000 trials whatever --trials said; an explicit --trials now
+    # reaches them, and without one they keep their 10,000 (the shipped example/ is unchanged).
+    _ex_trials = args.trials if any(a == "--trials" or a.startswith("--trials=") for a in sys.argv[1:]) else 10000
     if args.html:
-        export_html()
+        export_html(trials=_ex_trials)
         return
     if args.markdown:
-        export_markdown()
+        export_markdown(trials=_ex_trials)
         return
     if args.midi:
         export_midi()
@@ -5646,6 +5651,40 @@ def _g5b_pos_int(v):
     return n
 
 
+def _refuse_report_over_checkpoint(json_path, ckpt_path, mode):
+    """--gs-json naming the checkpoint file would overwrite the resumable rows with the report
+    (FV2-P D897, Codex F04-014#2): refused, exit 2."""
+    if not (json_path and ckpt_path):
+        return
+    same = os.path.realpath(json_path) == os.path.realpath(ckpt_path)
+    if not same and os.path.exists(json_path) and os.path.exists(ckpt_path):
+        same = os.path.samefile(json_path, ckpt_path)
+    if same:
+        print(f"ERROR: {mode}: the report path {json_path!r} is the checkpoint file {ckpt_path!r}; "
+              f"writing the report would destroy the resumable rows", file=sys.stderr)
+        sys.exit(2)
+
+
+def _ck_open_append(path):
+    """Open a JSONL checkpoint for append, first terminating a torn (unterminated) final row, so the
+    next row is not glued onto it and lost with it at the next reload (FV2-P D895, Codex F04-014#3)."""
+    try:
+        with open(path, "rb") as fh:
+            fh.seek(0, os.SEEK_END)
+            if fh.tell():
+                fh.seek(-1, os.SEEK_END)
+                torn = fh.read(1) != b"\n"
+            else:
+                torn = False
+    except FileNotFoundError:
+        torn = False
+    ck = open(path, "a")
+    if torn:
+        ck.write("\n")
+        ck.flush()
+    return ck
+
+
 def _ph_ck_row(line, label):
     """One H1/H3 checkpoint row, or None for a blank or torn (unparsable) row -- the typical state
     after an interrupted append. Until G5b one torn tail made the whole checkpoint unreadable and
@@ -5674,11 +5713,29 @@ def _ph_ck_ok(rec, phase_tag, seed, seed_off, jobs, label):
     ok = (want is not None and rec.get("seed_off") == seed_off and rec.get("batches") == len(jobs)
           and rec.get("want") == want and rec.get("n") == want
           and all(isinstance(rec.get(k), dict) and sum(rec[k].values()) == want
+                  and all(type(v) is int and v >= 0 for v in rec[k].values())   # FV2-P D900, Codex F04-014#1
                   for k in ("hist_a", "hist_p", "hist_q")))
     if not ok:
         print(f"[{label}] checkpoint: IGNORED batch {rec.get('batch')!r} -- its partition or shape is "
               f"not this run's (batches={len(jobs)}, want={want}); it is re-run")
     return ok
+
+def _mp_fork_ctx():
+    """The `fork` multiprocessing context: the --gs / --ph workers inherit _GS state by fork."""
+    import multiprocessing
+    return multiprocessing.get_context("fork")
+
+
+def _gs_ck_json_obj(line):
+    """One --grammar-search checkpoint row as a JSON object, or ValueError naming why it is ignored (FV2-P D894)."""
+    try:
+        rec = json.loads(line)
+    except ValueError:
+        raise ValueError("unparsable row")
+    if not isinstance(rec, dict):
+        raise ValueError("not an object")
+    return rec
+
 
 if __name__ == "__main__":
     # main() returns None on every path except --self-test, and sys.exit(None) is exit 0, so this

@@ -213,7 +213,7 @@ reference population (exact rejection sampling: uniform over C1∧C4
 orderings — 31 free pair slots × 2³¹ orientations, first pair pinned
 (63, 0) — accepted iff the transition multiset equals C5's, which implies
 C2). Both run and exit (they do not combine with the analysis sections),
-fan out across worker processes — **forked** ones: workers inherit the shared search state through `fork` (`roae.py`, the "Shared state for forked worker processes" block), so these modes need the `fork` start method; where the default is `spawn` or `forkserver` (macOS and Windows, and Linux from Python 3.14) they are unsupported as shipped — and are **much heavier** than the
+fan out across worker processes — **forked** ones: workers inherit the shared search state through `fork` (`roae.py`, the "Shared state for forked worker processes" block), so these modes need the `fork` start method, and since 2026-11-03 they request it explicitly (`multiprocessing.get_context("fork")`; FV2-P D890, Codex F09-H04#13), so a `spawn`/`forkserver` default (macOS, Linux from Python 3.14) no longer changes them; where `fork` does not exist (Windows) they are unsupported — and are **much heavier** than the
 descriptive analyses at their default sample sizes — size the machine
 accordingly. Both are report-only: they produce no sha-anchored
 artifacts and change no constraint definitions.
@@ -454,7 +454,9 @@ so U2 artifacts are never clobbered.
 --wrap             Include the 64→1 wrap-around transition in the wave
 --order N          Compute Nth-order difference of the wave (default: 1)
 --trials N         Number of Monte Carlo trials (default: 100,000; an integer >= 1, else exit 2 since 2026-10-22, CX-35V-G). Consumed by
-                   --stats and --bootstrap ONLY. --constraints does NOT read it:
+                   --stats and --bootstrap, and (since 2026-11-03, FV2-P D889) by the
+                   --html / --markdown exporters when given explicitly (without it
+                   they keep 10,000). --constraints does NOT read it:
                    that mode hard-codes 10,000 unconstrained permutation trials
                    and 100,000 pair-constrained trials, so passing --trials
                    alongside --constraints has no effect on its output.

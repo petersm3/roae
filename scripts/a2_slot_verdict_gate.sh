@@ -116,7 +116,7 @@ def atlas(slot2_pct, slot3_pct, slot32_pct=0.0785, n=31):
     # every synthetic fixture, and the fixture is what must move, because the alternative
     # is a consumer that accepts an atlas carrying no verdict at all.
     return {"type": solve._ATLAS_TYPE, "n": n, "N_total": str(N),
-            "space": "a2-slot-gate-fixture",
+            "space": "a2-slot-gate-fixture", "fixture": True,   # FV2-P D1494: a hand-built atlas, named as one
             "semantics": "synthetic fixture for the A2 pair-slot gate; not a measurement",
             "gates": {"fails": 0},
             "tail_checks": {"vertical_raw_eq_N": "PASS",
@@ -274,7 +274,7 @@ def xa_atlas(perturb_flow=False, perturb_sol=False, perturb_t=False, n=9,
     # F3-rule tail verdict is absent, not-run, internally inconsistent or FAIL, so a fixture is
     # "minimal but LOADABLE" only if it carries one.
     return {"type": solve._ATLAS_TYPE, "n": n, "N_total": str(NX),
-            "space": "a2-slot-gate-fixture",
+            "space": "a2-slot-gate-fixture", "fixture": True,   # FV2-P D1494: a hand-built atlas, named as one
             "semantics": "synthetic fixture for the verdict-honesty legs; not a measurement",
             "gates": {"fails": 0},
             "tail_checks": {"vertical_raw_eq_N": "PASS",

@@ -402,7 +402,7 @@ documentation/ROAE_PY_CLI.md	297	marker	CORRECTED	1	-	reviewed:row-already-lists
 documentation/ROAE_PY_CLI.md	302	marker	Corrected	1	-	reviewed:paragraph-already-says-negative-seeds-are-refused	56e82d36e5cb
 documentation/ROAE_PY_CLI.md	355	ledger-link	CORRECTION	n/a	-	not-a-marker	fa5d2ed2020a
 documentation/ROAE_PY_CLI.md	382	marker	CORRECTED	1	-	reviewed:following-text-already-states-the-Wilson-bound-rule	1a9d70c8317f
-documentation/ROAE_PY_CLI.md	823	marker	CORRECTED	1	-	reviewed:following-text-already-states-one-file-per-role	bff6cf9f9f63
+documentation/ROAE_PY_CLI.md	825	marker	CORRECTED	1	-	reviewed:following-text-already-states-one-file-per-role	bff6cf9f9f63
 documentation/SAT_CLI.md	84	ledger-link	CORRECTION	n/a	-	not-a-marker	134457b932e4
 documentation/SAT_CLI.md	99	marker	SUPERSEDED	2	-	reviewed:the-stale-2026-09-01-caveat-it-supersedes-is-still-above-it	a6342c40e3e4
 documentation/SAT_CLI.md	322	marker	Corrected	1	-	reviewed:Q54-dated-correction;sentence-already-gives-the-eighteen-size-domain	d51d9aa40437
@@ -526,13 +526,13 @@ documentation/SOLVE_PY_CLI.md	335	marker	CORRECTED	2	-	reviewed:only-statement-t
 documentation/SOLVE_PY_CLI.md	403	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	8b35a66b7c6f
 documentation/SOLVE_PY_CLI.md	434	marker	Corrected	1	-	reviewed:dated-label;sentence-already-reads-correctly	69dfe1571f39
 documentation/SOLVE_PY_CLI.md	570	marker	CORRECTED	1	-	reviewed:sentence-already-true-since-the-gate-moved-to-the-emitter	388d511cb961
-documentation/SOLVE_PY_CLI.md	1163	marker	Corrected	1	-	reviewed:row-already-names-flow_div_24	07976c4b6454
-documentation/SOLVE_PY_CLI.md	1469	ledger-link	CORRECTION	n/a	-	not-a-marker	2b526e83b072
-documentation/SOLVE_PY_CLI.md	1469	marker	Corrected	1	-	reviewed:paragraph-already-gives-the-measured-4.349-percent	2b526e83b072
-documentation/SOLVE_PY_CLI.md	1471	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	f4d16d863d12
-documentation/SOLVE_PY_CLI.md	1598	marker	Corrected	3	GATE 18	reanchored:GATE-18=ruling-token	dd82609b73e9
-documentation/SOLVE_PY_CLI.md	1675	marker	CORRECTED	1	-	reviewed:paragraph-above-already-omits-F5	adef18abb0c4
-documentation/SOLVE_PY_CLI.md	1735	ledger-link	CORRECTION	n/a	-	not-a-marker	468da51ea775
+documentation/SOLVE_PY_CLI.md	1167	marker	Corrected	1	-	reviewed:row-already-names-flow_div_24	07976c4b6454
+documentation/SOLVE_PY_CLI.md	1473	ledger-link	CORRECTION	n/a	-	not-a-marker	2b526e83b072
+documentation/SOLVE_PY_CLI.md	1473	marker	Corrected	1	-	reviewed:paragraph-already-gives-the-measured-4.349-percent	2b526e83b072
+documentation/SOLVE_PY_CLI.md	1475	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	f4d16d863d12
+documentation/SOLVE_PY_CLI.md	1602	marker	Corrected	3	GATE 18	reanchored:GATE-18=ruling-token	dd82609b73e9
+documentation/SOLVE_PY_CLI.md	1679	marker	CORRECTED	1	-	reviewed:paragraph-above-already-omits-F5	adef18abb0c4
+documentation/SOLVE_PY_CLI.md	1739	ledger-link	CORRECTION	n/a	-	not-a-marker	468da51ea775
 documentation/SOLVE_SUMMARY.md	85	marker	CORRECTED	1	-	reviewed:sentence-already-names-the-distance-5-block	ee32cf8d5224
 documentation/SOLVE_SUMMARY.md	178	ledger-link	CORRECTION	n/a	-	not-a-marker	9db47b8ca8fc
 documentation/SOLVE_SUMMARY.md	191	marker	CORRECTED	1	-	reviewed:table-text-already-re-derived-from-the-logs	3c5b8586e07b

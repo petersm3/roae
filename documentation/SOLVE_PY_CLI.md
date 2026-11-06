@@ -185,7 +185,7 @@ producer. A reader with the 3.29 TB f-ladder can draw a sample with this tree's 
 
 | Flag | Description |
 |---|---|
-| `--joint-density-v2 CHUNKS_DIR OUT_MD` | Joint density with an automatic variance filter and CV bandwidth selection; sampled by default (`--joint-density-exhaustive` for exact). Documented alongside `--joint-density` in [SOLVE_C_CLI.md](SOLVE_C_CLI.md#--joint-density-solvepy-only). |
+| `--joint-density-v2 CHUNKS_DIR OUT_MD` | Joint density with an automatic variance filter and CV bandwidth selection; sampled by default (`--joint-density-exhaustive` for exact). Documented alongside `--joint-density` in [SOLVE_C_CLI.md](SOLVE_C_CLI.md#--joint-density-solvepy-only). Since 2026-11-03 (FV2-P D1490, Codex F02-H05#17) `--joint-density-dims DIM[,DIM...]` (default: the 7 informative dims; each a P2 column) and `--joint-density-seed N` (default 42) set the fit, so the multi-seed 2-D audit can be re-run from the public surface. |
 | `--joint-density-bandwidth cv\|silverman` | v2 bandwidth method (default `cv`). |
 | `--joint-density-exhaustive` | v2: stream every record through the fitted KDE (slow in pure Python; ~10× faster with `--native-solve-binary`). |
 | `--stratified-by-position-2-pair CHUNKS_DIR OUT_MD` | v2: per-stratum (`position_2_pair`) recomputation of KW's percentile (sampled by default). *(Fixed 2026-09-25, V3A-135#7: with `--stratified-exhaustive`, both scoring arms read the unfiltered columns against means and spreads fitted on the variance-filtered ones, so any column the filter dropped crashed the run after the fit; both now read the filtered set. Latent: whether the real corpus ever drops a column is not determined, and no stratified result is published.)* |
@@ -682,6 +682,10 @@ had been claiming.]
                              14 and 5 on the n=31 atlas; `{"fails": 0}` alone
                              would satisfy both verdicts, so the count is printed
                              beside them), INTERIOR_LAYER_WINDOW (slots 1..n-2);
+                             BY_CLASS_KEYS_EQ_REGISTRY_EVERY_LAYER (added
+                             2026-11-03, FV2-P D1483, Codex F04-012#2: an
+                             extra by_class key carrying mass N passed every
+                             conservation gate, which iterate d1..d6 only);
                              B0_COLUMN_SUMS_EXACT_MULTIPLES_OF_N,
                              B0_FROM_COLUMN_SUMS (the run's C5 budget, recovered
                              from the by_class column sums / N), B0_SUM_EQ_N,

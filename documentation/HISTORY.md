@@ -12096,3 +12096,21 @@ Q-686=DONE
   verdict file's writes are checked. No cited line moved, and no golden changed. D1270 stays held.
 - No canonical sha, count, certificate or verdict changed. `TestBatchFV2R` holds each cure and fails on the parent
   tree.
+
+## 2026-11-03 — batch FV2-P: the solve.py, roae.py and viz rows from Codex's fix-verification round
+
+- **solve.py (CX-36P-A).** Codex (gpt-6-astra) found readers and gates that accepted bad input: a TR-8 bank digest
+  blind below six decimals, an atlas probe blind to an extra class key, depth-profile and H2 dumps with missing or
+  repeated fields, a header with non-zero reserved bytes, and P2 reports that said "canonical" or "exhaustive" when
+  they were not. Each is refused or labelled correctly now, and `--joint-density-v2` takes its dimensions and
+  seed from the command line.
+- **roae.py (CX-36P-B).** Four sentences the sections did not support are corrected and example/ regenerated (no
+  number moved); the exporters honour an explicit `--trials`; the workers ask for fork; checkpoints refuse
+  non-object rows, torn tails, a report written over them, and negative histogram cells.
+- **viz (CX-36P-C).** The figures now check King Wen's marks against solve.py, measure the co-monotone title, run
+  the receipt comparison and the one-alternative rule in V4, and check V3 against the pinned N; the loader checks
+  every record width. Every committed PNG re-renders byte for byte.
+- **Comments, and what was held (CX-36P-D).** Six docstrings, help lines and orientation flags are corrected. D1508
+  is held for a measured reference digest; the seven HEADLINE-OR-COUNT rows stay held.
+- No canonical sha, count, golden or published figure changed. `TestBatchFV2P` holds each cure and fails on the
+  parent tree.

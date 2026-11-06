@@ -98,13 +98,13 @@ def load_solutions(filename):
         # Q-898 (Codex VIZ A4-20): the legacy headerless branches read the whole file, bypassing
         # MAX_RECORDS -- the bounded-memory reservoir path is format-v1 only. Refuse, before the
         # read, a legacy file holding more records than MAX_RECORDS instead of loading it whole.
-        _rec = (32 if file_size % 32 == 0 and file_size % 64 != 0 and file_size % 68 != 0
-                else 68 if file_size % 68 == 0 and file_size % 64 != 0
-                else 64 if file_size % 64 == 0 else None)   # the branch order below
-        if _rec and file_size // _rec > MAX_RECORDS:
-            raise ValueError("%s is a legacy headerless file of %d %d-byte records, more than "
-                             "MAX_RECORDS=%d; only format v1 is read with bounded memory -- convert it "
-                             "to format v1 first" % (filename, file_size // _rec, _rec, MAX_RECORDS))
+        # FV2-P D1604, Codex F11-009#2, F12-022#3: the width was picked by divisibility, so a 32-byte
+        # packed file of 2*MAX_RECORDS records (a multiple of 64) passed as MAX_RECORDS 64-byte ones,
+        # and a 68-byte file whose size is a multiple of 64 was capped at the wrong count. Before the
+        # read: refuse when even the WIDEST admissible width holds more than MAX_RECORDS (the read is
+        # then bounded by 68 * MAX_RECORDS bytes); after the width is decided below, the count is
+        # checked again against that width.
+        _legacy_cap_check(filename, file_size)
         with open(filename, 'rb') as f:
             data = f.read()
 
@@ -253,21 +253,32 @@ def load_solutions(filename):
             raise ValueError(f"{filename} is empty (no ROAE magic, no records)")
         sizes = [w for w in (32, 68, 64) if len(data) % w == 0]
         fits = []
-        if len(sizes) == 1:
-            fits = sizes                  # one size-compatible format: its own checks speak below
-        elif len(data) % 32 == 0:
+        # FV2-P D1603, Codex F04-019#1: a single size-compatible width skipped every content check, and
+        # the 64/68-byte branches never checked pair membership. Every candidate width is now held to
+        # the record invariants (packed: valid bytes and each pair once; 64/68: a permutation of 0..63
+        # whose slots 2i, 2i+1 are King Wen pairs).
+        _partner = np.zeros(64, dtype=np.uint8)
+        for a, b in kw_pairs:
+            _partner[a], _partner[b] = b, a
+        if len(data) % 32 == 0:
             r32 = u8.reshape(-1, 32)
             if not (r32 & 0x81).any() and (np.sort(r32 >> 2, axis=1) == np.arange(32, dtype=np.uint8)).all():
                 fits.append(32)
-        for w in ((68, 64) if len(sizes) > 1 else ()):
-            if len(data) % w == 0 and (np.sort(u8.reshape(-1, w)[:, :64], axis=1) == np.arange(64, dtype=np.uint8)).all():
-                fits.append(w)
+        for w in (68, 64):
+            if len(data) % w == 0:
+                h = u8.reshape(-1, w)[:, :64]
+                if (np.sort(h, axis=1) == np.arange(64, dtype=np.uint8)).all() and \
+                        (h[:, 1::2] == _partner[h[:, 0::2]]).all():
+                    fits.append(w)
         if not sizes:
             raise ValueError(f"File size {len(data)} does not match any known format (no ROAE magic; not divisible by 32, 68, or 64)")
         if len(fits) != 1:
             raise ValueError(f"File size {len(data)} (no ROAE magic) fits "
                              + ("no known headerless format: not every record is a valid 32-byte packed, 68-byte or 64-byte record" if not fits
                                 else "more than one headerless format (%s bytes per record); refusing to guess" % ", ".join(map(str, fits))))
+        if len(data) // fits[0] > MAX_RECORDS:   # FV2-P D1604: re-checked against the decided width
+            raise ValueError("%s holds %d %d-byte records, more than MAX_RECORDS=%d; convert it to format v1"
+                             % (filename, len(data) // fits[0], fits[0], MAX_RECORDS))
         if fits[0] == 32:
             # Pre-v1 packed 32-byte records, no header
             n_solutions = len(data) // 32
@@ -292,6 +303,36 @@ def load_solutions(filename):
             solutions = u8.reshape(n_solutions, 64)
             print(f"  Loaded {n_solutions:,} solutions from {filename} (64-byte legacy records)")
     return solutions
+
+def _eviction_regime(t_evict, t_resume):
+    """The relaunch-policy regime of one eviction -> (key, legend, tag, colour), from BOTH ends.
+
+    FV2-P D1602, Codex F04-019#9: the regime was read from the eviction time alone, so a weekday-daytime
+    eviction that resumed at 10:00 was still captioned "deferred to 18:01 PT". A regime is now named only
+    when the observed resume is consistent with it: defer = weekday 06:00-18:00 PT eviction resumed at or
+    after 18:01 PT the same day; retry = otherwise, with a downtime of 60-135 minutes (one 75-minute retry
+    and its relaunch). Anything else is the observed downtime, labelled policy-inconsistent."""
+    from datetime import timezone as _tz, timedelta as _td
+    PT = _tz(_td(hours=-7))
+    a, b = t_evict.astimezone(PT), t_resume.astimezone(PT)
+    down_h = (t_resume - t_evict).total_seconds() / 3600.0
+    if a.weekday() <= 4 and 6 <= a.hour < 18:        # Mon–Fri 06:00–18:00 PT
+        if b.date() == a.date() and (b.hour, b.minute) >= (18, 1):
+            return ('defer', 'VM off — weekday-daytime → deferred to 18:01 PT', 'weekday-defer', 'tab:purple')
+    elif 60.0 <= down_h * 60.0 <= 135.0:
+        return ('retry', 'VM off — off-hours/weekend → 75-min retry', 'off-hrs/wkend 75-min', 'tab:cyan')
+    return ('other', 'VM off — downtime consistent with neither policy regime',
+            f'observed downtime {down_h:.1f}h (policy-inconsistent)', 'tab:gray')
+
+
+def _legacy_cap_check(filename, file_size):
+    """load_solutions (FV2-P D1604): refuse a headerless file whose WIDEST admissible width holds > MAX_RECORDS."""
+    _ws = [w for w in (68, 64, 32) if file_size % w == 0]
+    if _ws and file_size // _ws[0] > MAX_RECORDS:
+        raise ValueError("%s is a legacy headerless file of at least %d records (%d bytes each), more "
+                         "than MAX_RECORDS=%d; only format v1 is read with bounded memory -- convert it "
+                         "to format v1 first" % (filename, file_size // _ws[0], _ws[0], MAX_RECORDS))
+
 
 def compute_features(solutions):
     """Convert each solution to a 32-element feature vector (pair index at each position).
@@ -1019,11 +1060,8 @@ def plot_telemetry(csv_path, outdir='.'):
         # what explains the bar LENGTHS — the operator's first question: weekday-daytime evictions are
         # DEFERRED to 18:01 PT (long bar, by design), off-hours/weekend ones use a 75-min retry (sliver).
         PT = timezone(timedelta(hours=-7))
-        def _regime(a_h):
-            d = (t0 + timedelta(hours=a_h)).astimezone(PT)
-            if d.weekday() <= 4 and 6 <= d.hour < 18:        # Mon–Fri 06:00–18:00 PT
-                return ('defer', 'VM off — weekday-daytime → deferred to 18:01 PT', 'weekday-defer', 'tab:purple')
-            return ('retry', 'VM off — off-hours/weekend → 75-min retry', 'off-hrs/wkend 75-min', 'tab:cyan')
+        def _regime(a_h, b_h):
+            return _eviction_regime(t0 + timedelta(hours=a_h), t0 + timedelta(hours=b_h))
         # Light weekend (PT Sat/Sun) backdrop so each eviction reads against the calendar.
         _xmax = hrs[-1] * 1.30
         _day = t0.astimezone(PT).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -1041,7 +1079,7 @@ def plot_telemetry(csv_path, outdir='.'):
             _day = _day + timedelta(days=1)
         _seen = set()
         for idx, (a, b, seg, dh, rc) in enumerate(evs):
-            rk, rleg, rtag, rcol = _regime(a)
+            rk, rleg, rtag, rcol = _regime(a, b)
             axr.barh(idx, b - a, left=a, height=0.5, color=rcol, alpha=0.5,
                      label=(rleg if rk not in _seen else '_nolegend_')); _seen.add(rk)
             if rc == rc and rc > 0:                          # visible warmup, if any
@@ -1061,16 +1099,17 @@ def plot_telemetry(csv_path, outdir='.'):
                       f'REGIME (steady≈{steady:,.0f} M/s, recovery = time back to ≥95%)'
                       + (f'\n{sub_vm}' if sub_vm else ''), fontsize=11)
         axr.legend(loc='upper right', fontsize=8, ncol=2)
-        POLICY = ('Bar length = the relaunch policy, NOT Spot scarcity: M–F 06:00–18:00 PT eviction → defer relaunch '
-                  'to 18:01 PT (long purple bar); M–F off-hours + Sat/Sun → 75-min retry (short cyan bar). '
-                  'Light-blue background = weekend (PT).')
+        POLICY = ('Bar colour = the relaunch policy the observed resume is consistent with: M–F 06:00–18:00 PT eviction → '
+                  'defer relaunch to 18:01 PT (long purple bar); M–F off-hours + Sat/Sun → 75-min retry (short cyan bar); '
+                  'gray = consistent with neither. Light-blue background = weekend (PT).')
         figr.subplots_adjust(bottom=0.30)                    # room for xlabel + policy footnote
         figr.text(0.5, 0.04, POLICY, ha='center', va='bottom', fontsize=8, color='0.35')
         figr.savefig(os.path.join(outdir, 'eviction_recovery.png'), dpi=140); plt.close(figr)
         manifest.append(('eviction_recovery.png', 'Eviction timeline',
             'One horizontal bar per Spot eviction at its real time on the elapsed-hours axis, spanning the VM-off '
             'downtime and COLORED BY RELAUNCH-POLICY REGIME: purple = weekday-daytime eviction deferred to 18:01 PT '
-            '(long by design), cyan = off-hours/weekend 75-min retry (short). Light-blue background marks weekends (PT). '
+            '(long by design), cyan = off-hours/weekend 75-min retry (short), gray = an observed downtime consistent '
+            'with neither regime (labelled policy-inconsistent). Light-blue background marks weekends (PT). '
             'A green <span style="color:#2ca02c">&#9654;</span> marks resume; label gives downtime + minutes to recover to ≥95% steady throughput ("instant" = first '
             'sample). Directly answers why some VM-off blocks are ~10h and others ~75min. Appears once evictions occur.'))
 

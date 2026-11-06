@@ -774,7 +774,7 @@ def _tr8_header(seed_root, pool, n_pool, n_shards, n_pred, klist, calib_draws, b
         "b_raw": len(bank),
         "b_admitted": len(admitted),
         "admitted_family_counts": fam,
-        "admitted_bank_sha256": bank_digest,
+        "admitted_bank_sha256": bank_digest, "admitted_bank_sha256_exact": _tr8_bank_digest_exact(bank, marg, admitted),   # FV2-P D1475
         "solve_py_sha256": _tr8_sha256_file(__file__),
         "r_kw": "47/445740",
     }
@@ -1048,7 +1048,7 @@ def tr8_dof_merge(out_dir, quiet=False, replicate=None):
         raise SystemExit("bank.json does not match the run header: admitted_bank_sha256 declared "
                          "%r, recomputed %s — refusing to merge against a bank that has changed "
                          "since the shards were drawn (%s)" % (_declared, _recomputed, out_dir))
-    return _tr8_merge_tail(_tr8_finish(out_dir, header, hits, hb, drawn, header["k_ladder"],
+    _tr8_exact_check(header, bank, marg, admitted, out_dir); return _tr8_merge_tail(_tr8_finish(out_dir, header, hits, hb, drawn, header["k_ladder"],
                                        header["n_pred"], marg, admitted, bank, quiet), out_dir, replicate, quiet)
 
 
@@ -2206,7 +2206,7 @@ def print_trigram_paths():
         print(f"Self-transitions (same trigram consecutive): {self_trans}/63")
 
         # Unique transitions used
-        print(f"Unique transitions used: {len(trans)}/56 possible (8x7)")
+        print(f"Unique directed transitions used: {len(trans)}/64 possible (8x8, incl. self)")   # FV2-P D1495, Codex F04-010#10
 
         # Most common transitions
         sorted_trans = sorted(trans.items(), key=lambda x: -x[1])
@@ -2823,7 +2823,7 @@ def print_differential_analysis(max_nodes=10_000_000, time_limit=300, apply_c3=F
     print()
     print(f"SCOPE: population = {'C1+C2+C3+C4+C5 (C3 APPLIED — KW is at the ceiling BY CONSTRUCTION; extremality in complement distance is a tautology here)' if apply_c3 else 'C1+C2+C4+C5 (C3 NOT applied — the published 3.9th-percentile scope)'}")
     print()
-    print("Step 1: Generate solutions satisfying all 6 rules.")
+    print("Step 1: Generate solutions satisfying %s." % ("C1-C5 (C3 applied)" if apply_c3 else "C1, C2, C4, C5 (C3 not applied)"))   # FV2-P D1496, Codex F04-010#11
     print("Step 2: De-duplicate by pair ordering.")
     print("Step 3: Compute feature vectors.")
     print("Step 4: Find features where King Wen is extremal.")
@@ -2994,12 +2994,12 @@ def print_differential_analysis(max_nodes=10_000_000, time_limit=300, apply_c3=F
         min_val = all_vals[0]
         max_val = all_vals[-1]
 
-        is_extremal = "constant" if min_val == max_val else ""  # constant across solutions (e.g. a C5 identity): no rank
-        if not is_extremal and (rank == 1 or rank == n_sol):
-            is_extremal = "*** EXTREMAL"
+        # FV2-P D1497, Codex F04-010#1: EXTREMAL keys on the VALUE. rank = #(v <= kw), so a King Wen
+        # value tied with others at the minimum had rank > 1 and was demoted to "near" or nothing.
+        is_extremal = _differential_label(all_vals, kw_val, rank, n_sol)
+        if is_extremal == "*** EXTREMAL":
             extremal_features.append((feat_name, kw_val, rank, n_sol))
-        elif not is_extremal and (rank <= 3 or rank >= n_sol - 2):
-            is_extremal = "* near"
+        elif is_extremal == "* near":
             notable_features.append((feat_name, kw_val, rank, n_sol))
 
         kw_str = f"{kw_val:.3f}" if isinstance(kw_val, float) else str(kw_val)
@@ -3018,12 +3018,12 @@ def print_differential_analysis(max_nodes=10_000_000, time_limit=300, apply_c3=F
         min_val = all_vals[0]
         max_val = all_vals[-1]
 
-        is_extremal = "constant" if min_val == max_val else ""  # constant across solutions (e.g. a C5 identity): no rank
-        if not is_extremal and (rank == 1 or rank == n_sol):
-            is_extremal = "*** EXTREMAL"
+        # FV2-P D1497, Codex F04-010#1: EXTREMAL keys on the VALUE. rank = #(v <= kw), so a King Wen
+        # value tied with others at the minimum had rank > 1 and was demoted to "near" or nothing.
+        is_extremal = _differential_label(all_vals, kw_val, rank, n_sol)
+        if is_extremal == "*** EXTREMAL":
             extremal_features.append((feat_name, kw_val, rank, n_sol))
-        elif not is_extremal and (rank <= 3 or rank >= n_sol - 2):
-            is_extremal = "* near"
+        elif is_extremal == "* near":
             notable_features.append((feat_name, kw_val, rank, n_sol))
 
         print(f"{feat_name:<28} {kw_val:>10.3f} {rank:>6} {'of':>3} "
@@ -4118,7 +4118,7 @@ def _p2_compute_all_stats(records):
 
     # c3_total
     seq = _p2_build_hexagram_sequence(records)
-    n = seq.shape[0]
+    n = seq.shape[0]; _p2_perm_check(pair_idx)   # FV2-P D1498, Codex F04-010#5: each of the 32 pairs once
     pos_of_v = np.empty((n, 64), dtype=np.int16)
     row_idx = np.broadcast_to(np.arange(n).reshape(-1, 1), seq.shape)
     pos_of_v[row_idx, seq] = np.broadcast_to(np.arange(64, dtype=np.int16), seq.shape)
@@ -5502,9 +5502,9 @@ def p2_joint_density_v2(chunks_dir, out_md, samples_per_chunk=30,
             score_sum = score_sum / total_records
             engine_label = "sklearn"
         with open(out_md, "w") as f:
-            f.write("# P2 Joint Density v2 — 100T d3 canonical (EXHAUSTIVE)\n\n")
-            f.write(f"**Total records scored:** {total_records:,} (exhaustive over "
-                    f"{n_chunks} chunks)\n")
+            _jd_head, _jd_note = _p2_jd_labels(total_records); f.write(_jd_head)   # FV2-P D1501, Codex F12-004#2
+            f.write(f"**Total records scored:** {total_records:,} (every record of the "
+                    f"{n_chunks} supplied chunks)\n")
             f.write(f"**Engine:** {engine_label}\n")
             f.write(f"**Fit-sample size:** {len(fit_data):,} rows for KDE fitting\n")
             f.write(f"**Final dimensions ({len(cols)}):** {', '.join(f'`{c}`' for c in cols)}\n")
@@ -5515,8 +5515,8 @@ def p2_joint_density_v2(chunks_dir, out_md, samples_per_chunk=30,
             f.write(f"- KW's log-density: **{kw_score:.4f}**\n")
             f.write(f"- **KW's density-percentile: {kw_pct:.6f}% — "
                     f"{n_below_kw:,} of {total_records:,} records (exact count)**\n\n")
-            f.write("## Notes\n- Exact count over full canonical population. "
-                    "No bootstrap CI needed.\n")
+            f.write(_jd_note)
+            # (FV2-P D1501: the canonical wording needs the d3 100T record count.)
         print(f"[v2-jd] wrote {out_md}", flush=True)
         return
 
@@ -5747,10 +5747,10 @@ def p2_stratified_p2pair(chunks_dir, out_md, samples_per_chunk=30,
             results.append((s, len(scores), n_below, pct, mdl["kw_score"], note))
 
     with open(out_md, "w") as f:
-        mode_label = "exhaustive" if exhaustive else "sampled"
+        unscored, unscored_strata = _p2_strat_unscored(chunks_dir, stratum_models, stratum_counts) if exhaustive else (0, []); mode_label = ("exhaustive" if not unscored else "exhaustive over the fitted strata only") if exhaustive else "sampled"   # FV2-P D1502
         f.write(f"# P2 Stratified Joint Density (by position_2_pair) — {mode_label}\n\n")
         if exhaustive:
-            f.write(f"**Total records:** {sum(stratum_counts.values()):,} ({n_chunks} chunks, exhaustive)\n")
+            f.write(f"**Total records:** {sum(stratum_counts.values()):,} ({n_chunks} chunks, {'exhaustive' if not unscored else 'scored'})\n" + _p2_strat_unscored_line(unscored, unscored_strata))
         else:
             f.write(f"**Mode:** sampled scoring per stratum, bootstrap CI ({bootstrap_n} resamples)\n")
         f.write(f"**Fit-sample size (across all strata):** {len(rest_fit):,} rows\n")
@@ -6365,7 +6365,7 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
         version = struct.unpack("<I", hdr[4:8])[0]
         if version != 1:
             raise ValueError(f"unsupported format version {version} (expected 1)")
-        record_count = struct.unpack("<Q", hdr[8:16])[0]
+        record_count = struct.unpack("<Q", hdr[8:16])[0]; _sol_reserved_check(hdr)   # FV2-P D1504, Codex F04-010#9
         return record_count, 32
 
     def _bucket_counts(path, depth, label=None):
@@ -6467,7 +6467,7 @@ def _branch_yield_report_impl(solutions_bin, baseline_bin, manifest,
             ov_o1 = ov.get("o1")
             if ov_p1 is None or ov_o1 is None:
                 continue
-            if ov_p1 != key[0] or ov_o1 != key[1]:
+            if ov_p1 != key[0] or ov_o1 != key[1] or _by_deeper_override(ov, depth):   # FV2-P D1505, Codex F04-010#6
                 continue
             spec = 1
             if depth >= 2 and "p2" in ov and "o2" in ov:
@@ -6824,11 +6824,11 @@ def _keystone_analysis_impl(solutions_bin, out_md, dump_dir, dump_limit,
     dump_paths = {}
     if dump_dir is not None:
         for m, chunks in interesting_records.items():
-            if not chunks:
+            label = INTERESTING[m][0]; path = os.path.join(dump_dir, f"keystone_mask{m:02d}_{label}.bin")
+            if not chunks:   # FV2-P D1506, Codex F04-010#7: a reused dump_dir kept a stale dump
+                if os.path.exists(path): os.remove(path)
                 continue
             arr = np.concatenate(chunks, axis=0)
-            label = INTERESTING[m][0]
-            path = os.path.join(dump_dir, f"keystone_mask{m:02d}_{label}.bin")
             with open(path, "wb") as fdump:
                 fdump.write(arr.tobytes())
             dump_paths[m] = (path, arr.shape[0])
@@ -6906,9 +6906,9 @@ def _keystone_analysis_impl(solutions_bin, out_md, dump_dir, dump_limit,
                   "uniqueness-determining at this canonical depth — the "
                   "minimum-set claim needs revision (likely growing to a "
                   "6-set).\n")
-        fmd.write("- Compare drop-25 vs drop-27 record families: if they "
-                  "are disjoint, both keystones do independent work; if "
-                  "heavily overlapping, the 'two keystones' framing weakens.\n")
+        fmd.write(_keystone_joint_table(mask_counts))   # FV2-P D1507, Codex F04-010#8: exact-mask families are
+        # disjoint by construction (one exact mask per record); the joint 25/27 boundary-match table replaces
+        # the "disjoint => independent work" reading.
 
     print(f"[keystone] wrote {out_md}", flush=True)
     return mask_counts, dump_paths
@@ -7426,13 +7426,13 @@ def compare_depth_profile(log_a, log_b, threshold=0.005):
 
     Tolerance-based, NOT byte-exact: the parallel per-sub-branch budget cutoff
     overshoots by a thread-timing-dependent amount, so node counts wiggle
-    slightly even on identical inputs (the solution-sha is the byte-exact
-    anchor; this catches GROSS tree-walk divergence across builds / arches /
+    slightly even on identical inputs (the solution-sha is byte-exact for EXHAUSTED and deterministic runs
+    only -- FV2-P D1509, F04-011#11; this catches GROSS tree-walk divergence across builds / arches /
     thread counts). For full (EXHAUSTED) runs the profiles match exactly.
     Accepts .gz logs."""
     import re
     import gzip
-    line_re = re.compile(r'^DEPTH_PROFILE depth=(\d+) nodes=(\d+)')
+    line_re = re.compile(r'^DEPTH_PROFILE depth=(\d+) nodes=(\d+)'); shape_bad = []
 
     def parse(path):
         opener = gzip.open if path.endswith('.gz') else open
@@ -7440,9 +7440,9 @@ def compare_depth_profile(log_a, log_b, threshold=0.005):
         with opener(path, 'rt', errors='replace') as f:
             for line in f:
                 m = line_re.match(line)
-                if m:
-                    prof[int(m.group(1))] = int(m.group(2))
-        return prof
+                if m or line.startswith("DEPTH_PROFILE_TOTAL "):   # FV2-P D1510, Codex F04-011#2
+                    _depth_profile_line(path, line, m, prof, shape_bad)
+        return _depth_profile_shape(path, prof, shape_bad)
 
     # A log that cannot be read is refused in this mode's own shape -- `ERROR: ...`, exit 2,
     # the shape its no-DEPTH_PROFILE-lines refusal below already uses. Until 2026-09-21 a
@@ -7468,8 +7468,8 @@ def compare_depth_profile(log_a, log_b, threshold=0.005):
         print("ERROR: no DEPTH_PROFILE lines (or zero nodes in total) in " + ", ".join(missing) +
               " (re-run solve with SOLVE_DEPTH_PROFILE=1)", flush=True)
         return 2
-    total_a = sum(a.values())
-    total_b = sum(b.values())
+    if shape_bad: return _depth_profile_refuse(shape_bad)   # FV2-P D1510: missing/repeated depths, wrong TOTAL
+    total_a = sum(a.values()); total_b = sum(b.values())
     diff = total_b - total_a
     pct = (100.0 * diff / total_a) if total_a else 0.0
     # Distribution (L1 / total-variation) divergence is the meaningful verdict
@@ -8941,7 +8941,7 @@ def r11_builder_numerator(seq, beta, weights=(1, 1, 1, 1, 1)):
     the 31 per-slot softmax factors P(a_t | state_t, beta, w) along `seq`
     (slot 0 is the forced pure pair). Returns the raw product (float). Raises
     ValueError if `seq` is not a builder-reachable C1..C5 path."""
-    import math
+    import math; _r11_seq_check(seq)   # FV2-P D1512, Codex F04-011#6: seq[64:] was never read
     budget = _r11_kw_budget()
     first0, second0 = seq[0], seq[1]; _r11_first_pair_check(seq)   # G5b F04-011#8
     budget[bit_diff(first0, second0)] -= 1
@@ -9091,7 +9091,7 @@ def r11_builder_verify():
         b = [0] * 7
         for i in range(63):
             b[bit_diff(synth[i], synth[i + 1])] += 1
-        kwb = _r11_kw_budget()
+        kwb = _r11_kw_budget(); fails += _r11_synth_pairs_fail(synth)   # FV2-P D1513, Codex F04-011#5: C1 was never checked
         match = (b == kwb)
         g = r11_axes(synth)
         print(f"builder synthetic draw: C5 multiset == KW's: {match} (C3 not applied by the builder: c3={h2_comp_dist_x64(synth)}) axes={g} "
@@ -9350,7 +9350,7 @@ def h2_parse_dump(path):
                 for tok in ln.split():
                     if tok == "H2LEAF":
                         continue
-                    k, v = tok.split("=", 1)
+                    k, v = tok.split("=", 1); _h2_dup_check(d, k)   # FV2-P D1514, Codex F04-011#4
                     if k == "seq":
                         d[k] = [int(x) for x in v.split(",")]
                     elif k in ("w", "fp", "fc"):
@@ -9359,7 +9359,7 @@ def h2_parse_dump(path):
                         d[k] = int(v)
             except ValueError as e:
                 raise ValueError("%s:%d: malformed H2LEAF line (%s)" % (path, lineno, e))
-            out.append(d)
+            _h2_req_check(d, path, lineno); out.append(d)   # FV2-P D1515, Codex F04-011#8
     return out
 
 
@@ -9449,9 +9449,9 @@ def h2_mass(dump_paths, boot=20000, seed=20260726):
         if bad:
             print(f"h2-mass: {p}: {bad} FAILED brute cross-checks — aborting")
             return 1
+    if _h2_mass_refuse(dump_paths, runs): return 1   # FV2-P D1516, Codex F04-011#3: invalid leaves, zero weight
     allv = [lf for r in runs for lf in r]
-    sw = sum(lf["w"] for lf in allv)
-    sw2 = sum(lf["w"] ** 2 for lf in allv)
+    sw = sum(lf["w"] for lf in allv); sw2 = sum(lf["w"] ** 2 for lf in allv)
     ess = sw * sw / sw2 if sw2 > 0 else 0.0
     n = len(allv)
 
@@ -9619,7 +9619,7 @@ def dav_parallel3040(seq):
     carry sym-tuples ((7),(7),(0,5),(5,0),(5),(5),(2),(2)) and 43-50 carry
     ((7),(7),(0),(0),(2),(2),(5),(5)) — fire/water (Li/Kan) crossed between
     the windows, doubled-sym 35/36 in place of the 40s' single-sym rows.
-    Orientation: (a) YES, (b) NO at pair level."""
+    Orientation: (a) YES, (b) YES: a flip swaps (0,5)<->(5,0) (KW 1, flipped 0; FV2-P D1517, F04-011#9)."""
     if not ((seq[30] ^ 63) == seq[40] and (seq[31] ^ 63) == seq[41]):
         return 0
     ta = ((7,), (7,), (0, 5), (5, 0), (5,), (5,), (2,), (2,))
@@ -9637,7 +9637,7 @@ def dav_palnbr(seq):
     audit's firm values 27->4, 61->2, 62->2 reproduce, and its
     explicitly-deferred '28 -> compute at implementation' resolves to 2:
     N1(#28) sits at positions {31,32,43,44,47,48}, slot-distances 2/8/10).
-    Orientation: (a) YES, (b) NO (sets flip-stable)."""
+    Orientation: (a) NO: slot i -> 31-i keeps every distance (KW 10 both ways; FV2-P D1518), (b) NO."""
     pos = {h: i for i, h in enumerate(seq)}
     total = 0
     for h in (0b100001, 0b011110, 0b110011, 0b001100):
@@ -14662,7 +14662,7 @@ def hoeffding_eps(draws, cells, alpha):
         raise DetectorError("cannot bound a sample of %d draws" % draws)
     if cells <= 0:
         raise DetectorError("atlas declares no class cells")
-    return math.sqrt(math.log(2.0 * cells / alpha) / (2.0 * draws))
+    return _hoeffding_eps_finite(draws, cells, alpha)   # FV2-P D1480, Codex F04-012#1: 2*cells/alpha overflowed
 
 
 def load_atlas(path):
@@ -15427,7 +15427,7 @@ def atlas_a3_external_check(atlas, tol=2e-3):
         return ("FAIL", "pairs with nonzero closing mass that are NOT eligible closers "
                         "under TR-7 T2ii: %s" % unmapped)
     mass = {}
-    for p, v in got.items():
+    for p, v in ((p, v) for p, v in got.items() if v):   # FV2-P D1481, Codex F04-012#4: zero mass was a KeyError
         mass[cmap[p]] = mass.get(cmap[p], 0) + v
     # Exact rationals here for the same reason as A2 above (RCQ04 finding 6): the class masses
     # and N are integers, so the deviation is a rational and the verdict need never see a double.
@@ -15517,9 +15517,9 @@ def atlas_orbit_columns(atlas):
     and it passes. The sentence above about "the step that can silently mis-assign
     pair identities" is therefore true only of mis-assignments that BREAK an orbit's
     column equality; an identity-preserving permutation ACROSS equal-sized orbits is
-    invisible here. Checking membership needs the orbit partition itself, which lives
-    in solve.c's group machinery (`[f1] pair-orbits of the 31 free pairs: ...`) and is
-    not re-derived on this side; wiring it is OWED, not done.
+    invisible here. Checking membership needs the orbit partition itself: it is
+    re-derived on this side by pair_orbit_partition(), and membership is gated by
+    atlas_orbit_membership() (FV2-P D1482, Codex F04-012#7; was "OWED, not done").
 
     Returns (n_columns, sorted_group_sizes, ok, detail).
     """
@@ -15870,7 +15870,7 @@ def atlas_probe(atlas_path):
         tok("INTERIOR_LAYER_WINDOW", "%d,%d" % (lo_w, hi_w))
 
         # ---------------------------------------------------------------- 1. budget b0 from column sums
-        col = [sum(int(l["by_class"][c]) for l in L) for c in CLS]
+        gate("BY_CLASS_KEYS_EQ_REGISTRY_EVERY_LAYER", all(set(l["by_class"]) == set(CLS) for l in L)); col = [sum(int(l["by_class"][c]) for l in L) for c in CLS]
         gate("B0_COLUMN_SUMS_EXACT_MULTIPLES_OF_N", all(x % N == 0 for x in col))
         b0 = [x // N for x in col]
         tok("B0_FROM_COLUMN_SUMS", ",".join(str(x) for x in b0))
@@ -17417,8 +17417,8 @@ def extraction_null(n_draw, seed, probes=None):
     "the additional d=0 exclusion" — wrong twice over: an extra rejection cannot raise an acceptance
     rate, and d=0 between two distinct hexagrams is impossible, so that clause rejects nothing.)
 
-    🔴 SCOPE — C4 IS NOT RESAMPLED. The opening pair stays King Wen's throughout, because the
-    estimator pins it. So the null this feeds asks: *holding the pair set and the opening fixed, is
+    🔴 SCOPE — the DRAWS resample the full pair order and every orientation, opening included;
+    the ESTIMATOR that consumes these histograms holds C4 fixed (FV2-P D1484). So the null this feeds asks: *holding the pair set and the opening fixed, is
     King Wen's difference-wave signature unusually restrictive?* King Wen's own value in that null is
     the exact published |C1∩C2∩C4∩C5|, which is what makes the comparison apples-to-apples instead of
     an estimate against an estimate. A null that also resampled C4 would be a different and larger
@@ -17437,8 +17437,8 @@ def extraction_null(n_draw, seed, probes=None):
     if len(kw) != 64:
         print("EXTRACTION_NULL=ERROR verify.KW is %d long, expected 64" % len(kw))
         return 2
-    pairs = [(kw[i], kw[i + 1]) for i in range(0, 64, 2)]
-    hd = lambda a, b: bin(a ^ b).count("1")
+    pairs = [(kw[i], kw[i + 1]) for i in range(0, 64, 2)]; hd = lambda a, b: bin(a ^ b).count("1")
+    if not isinstance(n_draw, int) or n_draw <= 0: return _xnull_bad_n(n_draw)   # FV2-P D1485, Codex F04-012#6
     rng = _random.Random(seed)
     drawn = 0
     tries = 0
@@ -17768,6 +17768,8 @@ def _kc_x_check_cert(cert):
     if cert.get("version") != 1:
         return "FAIL-unknown-version", "version=%r" % cert.get("version")
     func = cert.get("functional")
+    if not isinstance(func, str):   # FV2-P D1486, Codex F04-012#5: null raised AttributeError in kc_x_phi
+        return "FAIL-functional", "functional=%r" % (func,)
     direction = cert.get("direction")
     n = cert.get("n")
     start_exit = cert.get("start_exit")
@@ -17861,7 +17863,7 @@ def _kc_x_check_cert(cert):
                 % ([seen[d] for d in KC_X_DVALS], [budget[d] for d in KC_X_DVALS]))
     try:
         phi = kc_x_phi(func, walk, start_exit)
-    except (ValueError, KeyError, TypeError) as e:
+    except (ValueError, KeyError, TypeError, AttributeError) as e:
         return "FAIL-unevaluable", str(e)
     ev, wv = cert.get("extreme_value"), cert.get("witness_value")
     detail = ("functional=%s direction=%s n=%s start_exit=%s phi_py=%d extreme_value=%s "
@@ -18737,7 +18739,7 @@ def main():
     parser.add_argument("--fingerprint", action="store_true",
                         help="Fingerprint analysis: free positions, edit distances, minimum constraints")
     parser.add_argument("--reconstruct", action="store_true",
-                        help="Reconstruct King Wen step by step, verifying uniqueness at each step")
+                        help="Replay King Wen step by step, counting the locally admissible alternatives at each step (no completion lookahead)")
     parser.add_argument("--null-debruijn", action="store_true",
                         help="Null-model comparison: test C1-C3 against sampled de Bruijn B(2,6) permutations (addresses CRITIQUE.md structured-permutation gap)")
     parser.add_argument("--encode-solutions", nargs="+", metavar="PATH",
@@ -18789,6 +18791,10 @@ def main():
                         help="P2 v2: joint density with auto variance-filter and CV bandwidth selection (sampled by default; --joint-density-exhaustive for exact)")
     parser.add_argument("--joint-density-bandwidth", choices=("silverman", "cv"), default="cv",
                         help="P2 v2: bandwidth method (default: cv)")
+    parser.add_argument("--joint-density-dims", metavar="DIM[,DIM...]", default=None,
+                        help="P2 v2: comma list of dimensions to fit (default: the 7 informative dims)")
+    parser.add_argument("--joint-density-seed", type=int, default=42,
+                        help="P2 v2: sampling seed (default: 42)")
     parser.add_argument("--joint-density-exhaustive", action="store_true",
                         help="P2 v2: stream every record through the fitted KDE (slow in pure Python; ~10× faster with --native-solve-binary)")
     parser.add_argument("--native-solve-binary", metavar="PATH",
@@ -19391,7 +19397,9 @@ def main():
                             bandwidth_method=args.joint_density_bandwidth,
                             exhaustive=args.joint_density_exhaustive,
                             native_solve_binary=args.native_solve_binary,
-                            bootstrap_n=args.joint_density_bootstrap_n))
+                            bootstrap_n=args.joint_density_bootstrap_n,
+                            seed=args.joint_density_seed,   # FV2-P D1490, Codex F02-H05#17: dims/seed reachable from the CLI
+                            dims=_jd_dims_arg(args.joint_density_dims)))
         return
 
     if args.stratified_by_position_2_pair:
@@ -20425,7 +20433,7 @@ def tr8_replication_gate(a_dir, b_dir, quiet=False, k_head=16):
                              "replication gate" % (p, getattr(e, "strerror", None) or e, name))
     hA, hB = res["A"]["header"], res["B"]["header"]; _tr8_replication_draws_check(res)   # G5b
     for key in ("seed_root", "n_pool", "n_shards", "n_pred", "k_ladder", "calibration_draws",
-                "admission_band", "b_raw", "b_admitted", "admitted_bank_sha256",
+                "admission_band", "b_raw", "b_admitted", "admitted_bank_sha256", "admitted_bank_sha256_exact",
                 "solve_py_sha256", "r_kw"):   # r_kw: G5b, Codex F12-005#9
         if hA.get(key) != hB.get(key):
             raise SystemExit("replication gate: the two pools disagree on header field %r (%r vs "
@@ -20612,9 +20620,19 @@ def _atlas_shape_check(A, path):
         for req in ("k", "flow", "by_class"):
             if req not in L:
                 raise AtlasError("%s: layers[%d] is missing required field %r" % (path, i, req))
+        if not isinstance(L["by_class"], dict):   # FV2-P D1493, Codex F04-011#7: null was a traceback
+            raise AtlasError("%s: layers[%d].by_class is %s, not a JSON object" % (path, i, type(L["by_class"]).__name__))
+        for tab in ("marginal_quotient", "marginal_raw", "kwrank", "kernel"):
+            if L.get(tab) is not None and not isinstance(L[tab], dict):
+                raise AtlasError("%s: layers[%d].%s is %s, not a JSON object" % (path, i, tab, type(L[tab]).__name__))
+    _BR = ("solutions", "global_pair", "entry", "exit")   # FV2-P D1493: the fields _atlas_branch_rows indexes
     if not isinstance(A.get("branch_atlas"), list) or not all(
-            isinstance(b, dict) and "solutions" in b for b in A["branch_atlas"]):
-        raise AtlasError("%s: branch_atlas is not an array of objects carrying `solutions`" % path)
+            isinstance(b, dict) and all(f in b for f in _BR) for b in A["branch_atlas"]):
+        raise AtlasError("%s: branch_atlas is not an array of objects carrying %s" % (path, "/".join(_BR)))
+    for i, b in enumerate(A["branch_atlas"]):
+        for f in ("global_pair", "entry", "exit"):
+            if isinstance(b[f], bool) or not isinstance(b[f], int):
+                raise AtlasError("%s: branch_atlas[%d].%s=%r is not an integer" % (path, i, f, b[f]))
     return None
 
 
@@ -20622,10 +20640,11 @@ def _atlas_t_gate_absent(gates, n, A=None):
     """atlas_load: a PRODUCER atlas (one carrying the scan's top-level `engine_source_sha`) at n >= 15
     must carry the t-identity gate (Codex F04-011#13, F04-015#1). The refusal keyed on an explicit
     "not-run" string, so deleting the key, or replacing gates with {"fails": 0}, loaded the published
-    n = 31 atlas without --atlas-allow-t-not-run. Hand-built fixtures without producer provenance keep
-    their minimal gates (the DENYLIST note in atlas_load); that residual is stated, not closed. An
-    absent gate is treated exactly as one that did not run."""
-    if n >= 15 and "engine_source_sha" in (A or {}) and "t_root_eq_f_layer_sum" not in gates:
+    n = 31 atlas without --atlas-allow-t-not-run. CLOSED 2026-11-03 (FV2-P D1494, Codex F04-011#1): the
+    refusal keyed on `engine_source_sha` being present, so stripping that key also stripped the gate; it
+    now keys on n alone, and a hand-built fixture opts out only by carrying an explicit top-level
+    `"fixture": true`. An absent gate is treated exactly as one that did not run."""
+    if n >= 15 and (A or {}).get("fixture") is not True and "t_root_eq_f_layer_sum" not in gates:
         return ["t_root_eq_f_layer_sum (ABSENT)"]
     return []
 
@@ -20881,6 +20900,260 @@ def _g6_atlas_t_warn(A, path):
             print("[atlas] WARNING: %s: gate(s) %s did not run (the scan had no t ladder); this atlas is "
                   "UNVERIFIED ACROSS CHUNKS" % (path, ", ".join(nr)), file=sys.stderr)
 
+
+
+# ---------------------------------------------------------------------------
+# FV2-P (2026-11-03): helpers for the fix-verification rows (Codex, triaged by Fable), placed here so the
+# hunks above stay line-neutral and every `solve.py:NNNN` citation elsewhere keeps its line.
+# ---------------------------------------------------------------------------
+def _tr8_bank_digest_exact(bank, marg, admitted):
+    """The admitted-bank digest with each marginal as repr(float) (FV2-P D1475, Codex F05-017#14): the
+    archived `admitted_bank_sha256` serialises marginals with %.6f, so a marginal moved by < 5e-7 kept it.
+    That field is kept unchanged (archived headers carry it); this one is the exact companion."""
+    import hashlib
+    return hashlib.sha256(
+        "\n".join("%s%d|%s|%s|%s" % (bank[i][0], bank[i][1], bank[i][2], bank[i][3], repr(float(marg[i])))
+                  for i in admitted).encode("utf-8")).hexdigest()
+
+
+def _differential_label(all_vals, kw_val, rank, n_sol):
+    """--differential: "constant", "*** EXTREMAL", "* near" or "". EXTREMAL keys on VALUE, not rank
+    (FV2-P D1497, Codex F04-010#1): rank = #(v <= kw), so a King Wen value tied with others at the
+    minimum had rank > 1 and was demoted to "near" or nothing."""
+    min_val, max_val = min(all_vals), max(all_vals)
+    if min_val == max_val:
+        return "constant"   # constant across solutions (e.g. a C5 identity): no rank
+    if kw_val == min_val or kw_val == max_val:
+        return "*** EXTREMAL"
+    if rank <= 3 or rank >= n_sol - 2:
+        return "* near"
+    return ""
+
+
+def _p2_canonical_100T_records():
+    """The d3 100T canonical record count from documentation/CANONICAL_HASHES.md (never a literal), or None."""
+    import re
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "documentation", "CANONICAL_HASHES.md")
+    try:
+        with open(p, encoding="utf-8") as fh:
+            for line in fh:
+                m = re.match(r"\|\s*d3 100T\s*\|[^|]*\|\s*([0-9,]+)\s*\|", line)
+                if m:
+                    return int(m.group(1).replace(",", ""))
+    except OSError:
+        return None
+    return None
+
+
+def _jd_dims_arg(spec):
+    """--joint-density-dims: None -> default dims; else a comma list, each a known P2 column (FV2-P D1490)."""
+    if spec is None:
+        return None
+    dims = [d.strip() for d in spec.split(",") if d.strip()]
+    bad = [d for d in dims if d not in _P2_KW_VALUES]
+    if not dims or bad or len(set(dims)) != len(dims):
+        raise SystemExit("--joint-density-dims %r: need distinct names from %s" % (spec, ",".join(sorted(_P2_KW_VALUES))))
+    return dims
+
+
+_H2LEAF_REQ = ("seq", "w", "fp", "fc", "nvp", "nvc", "ck")
+
+
+def _h2_leaf_invalid(lf):
+    """--h2-mass: why a parsed leaf cannot enter the estimate, or None (FV2-P D1516, Codex F04-011#3)."""
+    if not lf["w"] >= 0:
+        return "w=%r < 0" % lf["w"]
+    for c in ("nvp", "nvc"):
+        if not 0 <= lf[c] <= H2_BALL:
+            return "%s=%r outside 0..%d" % (c, lf[c], H2_BALL)
+    if not 0 <= lf["fp"] <= lf["nvp"]:
+        return "fp=%r outside 0..nvp=%r" % (lf["fp"], lf["nvp"])
+    if not 0 <= lf["fc"] <= lf["nvc"]:
+        return "fc=%r outside 0..nvc=%r" % (lf["fc"], lf["nvc"])
+    return None
+
+
+def _tr8_exact_check(header, bank, marg, admitted, out_dir):
+    """--tr8-dof-merge: admitted_bank_sha256_exact is required whenever the header carries it (FV2-P D1475)."""
+    if "admitted_bank_sha256_exact" in header:
+        _dx, _rx = header["admitted_bank_sha256_exact"], _tr8_bank_digest_exact(bank, marg, admitted)
+        if not isinstance(_dx, str) or _dx != _rx:
+            raise SystemExit("bank.json does not match the run header: admitted_bank_sha256_exact declared "
+                             "%r, recomputed %s — a marginal changed below the %%.6f digest's resolution; "
+                             "refusing to merge (%s)" % (_dx, _rx, out_dir))
+
+
+def _p2_perm_check(pair_idx):
+    """_p2_compute_all_stats (FV2-P D1498, Codex F04-010#5): a record repeating a pair index left pos_of_v
+    uninitialised for the missing values (np.empty), so c3 was garbage. Every record must use each of the 32
+    pairs once."""
+    import numpy as np
+    _pm = np.bitwise_or.reduce(np.left_shift(np.uint64(1), pair_idx.astype(np.uint64)), axis=1)
+    if len(_pm) and not (_pm == np.uint64(0xFFFFFFFF)).all():
+        raise ValueError("record %d is not a permutation of the 32 pairs (0..63 hexagrams)"
+                         % int(np.argmax(_pm != np.uint64(0xFFFFFFFF))))
+
+
+def _p2_jd_labels(total_records):
+    """--joint-density-v2 exhaustive report: (heading, note). FV2-P D1501, Codex F12-004#2: "100T d3 canonical
+    (EXHAUSTIVE)" was written for whatever chunk directory was given; it now needs the record total to equal the
+    d3 100T canonical count in documentation/CANONICAL_HASHES.md."""
+    canon = _p2_canonical_100T_records()
+    if canon is not None and total_records == canon:
+        return ("# P2 Joint Density v2 — 100T d3 canonical (EXHAUSTIVE)\n\n",
+                "## Notes\n- Exact count over full canonical population. No bootstrap CI needed.\n")
+    return ("# P2 Joint Density v2 — count over the %s supplied records (not verified canonical)\n\n"
+            % format(total_records, ","),
+            "## Notes\n- Exact count over the supplied records; the record total does not equal the d3 100T "
+            "canonical count in documentation/CANONICAL_HASHES.md (%s), so no canonical or population claim "
+            "is made.\n" % (canon,))
+
+
+def _p2_strat_unscored(chunks_dir, stratum_models, stratum_counts):
+    """--stratified-exhaustive (FV2-P D1502, Codex F04-010#4): strata come from the FIT SAMPLE, so a population
+    stratum absent from it (or below the fit floor) was never scored while the report said exhaustive. One pass over
+    the stratifier column counts the population per stratum; returns (unscored records, their strata)."""
+    import glob
+    import numpy as np
+    import pyarrow.parquet as pq
+    pop = {}
+    for f in sorted(glob.glob(f"{chunks_dir}/chunk_*.parquet")):
+        v, c = np.unique(pq.read_table(f, columns=["position_2_pair"]).column(0).to_numpy().astype(int),
+                         return_counts=True)
+        for a, b in zip(v.tolist(), c.tolist()):
+            pop[a] = pop.get(a, 0) + b
+    unscored, strata = 0, []
+    for st in sorted(pop):
+        miss = pop[st] - (stratum_counts.get(st, 0) if stratum_models.get(st) else 0)
+        if miss > 0:
+            unscored += miss
+            strata.append(st)
+    print(f"[v2-strat] unscored records: {unscored:,} (strata {strata})", flush=True)
+    return unscored, strata
+
+
+def _p2_strat_unscored_line(unscored, strata):
+    return (f"**Unscored records:** {unscored:,}"
+            + (f" (strata absent from, or below the fit floor in, the fit sample: {strata})" if unscored else "") + "\n")
+
+
+def _sol_reserved_check(hdr):
+    """SOLUTIONS_FORMAT.md: header bytes 16-31 are reserved and MUST be zero (FV2-P D1504, Codex F04-010#9)."""
+    if hdr[16:32] != b"\0" * 16:
+        raise ValueError("reserved header bytes 16-31 are not zero")
+
+
+def _by_deeper_override(ov, depth):
+    """--branch-yield-report: True when a depth-2/3 override would be applied to a shallower bucket (FV2-P D1505)."""
+    return (depth < 2 and ("p2" in ov or "o2" in ov)) or (depth < 3 and ("p3" in ov or "o3" in ov))
+
+
+def _keystone_joint_table(mask_counts):
+    """--keystone-analysis guide (FV2-P D1507, Codex F04-010#8): the exact-mask drop-25 / drop-27 families are
+    disjoint BY CONSTRUCTION (one exact mask per record), so their disjointness says nothing; the joint
+    boundary-match contingency of boundaries 25 and 27 is what can."""
+    b25, b27 = 1 << _KEYSTONE_BDRYS_1IDX.index(25), 1 << _KEYSTONE_BDRYS_1IDX.index(27)
+    jt = {(a, b): int(sum(int(mask_counts[m]) for m in range(32) if bool(m & b25) == a and bool(m & b27) == b))
+          for a in (True, False) for b in (True, False)}
+    return ("- The exact-mask drop-25 and drop-27 families are disjoint by construction "
+            "(each record has exactly one mask), so their disjointness is not evidence of "
+            "independent work. The joint boundary-match contingency is:\n\n"
+            "| | boundary 27 matches | boundary 27 does not |\n|---|---:|---:|\n"
+            f"| boundary 25 matches | {jt[(True, True)]:,} | {jt[(True, False)]:,} |\n"
+            f"| boundary 25 does not | {jt[(False, True)]:,} | {jt[(False, False)]:,} |\n")
+
+
+def _depth_profile_line(path, line, m, prof, shape_bad):
+    """--compare-depth-profile (FV2-P D1510, Codex F04-011#2): one DEPTH_PROFILE / _TOTAL line. A repeated depth
+    overwrote the earlier count; the TOTAL line is kept to be checked against the sum."""
+    if m:
+        d = int(m.group(1))
+        if d in prof:
+            shape_bad.append("%s: depth %d appears twice" % (path, d))
+        prof[d] = int(m.group(2))
+        return
+    import re
+    t = re.match(r'^DEPTH_PROFILE_TOTAL sum=(\d+)', line)
+    if t:
+        prof.setdefault("_declared", []).append(int(t.group(1)))
+
+
+def _depth_profile_shape(path, prof, shape_bad):
+    """A truncated log (any subset of depths) or a declared total unequal to the sum compared PASS. Depths must run
+    0..max contiguously, and a DEPTH_PROFILE_TOTAL must agree with the sum. Returns the depth -> nodes map."""
+    declared = prof.pop("_declared", [])
+    if prof:
+        gaps = [d for d in range(max(prof) + 1) if d not in prof]
+        if gaps:
+            shape_bad.append("%s: missing depth(s) %s" % (path, ",".join(map(str, gaps))))
+        for t in declared:
+            if t != sum(prof.values()):
+                shape_bad.append("%s: DEPTH_PROFILE_TOTAL sum=%d != %d summed" % (path, t, sum(prof.values())))
+    return prof
+
+
+def _depth_profile_refuse(shape_bad):
+    for why in shape_bad:
+        print("  XX " + why)
+    print("\nVERDICT: FAIL (incomplete or inconsistent DEPTH_PROFILE: %s)" % "; ".join(shape_bad))
+    return 1
+
+
+def _r11_seq_check(seq):
+    if len(seq) != 64 or len(set(seq)) != 64:   # FV2-P D1512
+        raise ValueError("seq is not a 64-hexagram path (len %d, %d distinct)" % (len(seq), len(set(seq))))
+
+
+def _r11_synth_pairs_fail(synth):
+    """r11_builder_verify (FV2-P D1513): 1, with a FAIL line, when slots 2i, 2i+1 are not all King Wen pairs."""
+    ps = {frozenset(q) for q in _r11_pairs()}
+    if all(frozenset(synth[2 * i:2 * i + 2]) in ps for i in range(32)):
+        return 0
+    print("builder synthetic draw: FAIL (slots 2i,2i+1 are not all King Wen pairs: C1 broken)")
+    return 1
+
+
+def _h2_dup_check(d, k):
+    if k in d:   # FV2-P D1514: a later duplicate overwrote "ck=-1"
+        raise ValueError("duplicate key %s" % k)
+
+
+def _h2_req_check(d, path, lineno):
+    missing = [k for k in _H2LEAF_REQ if k not in d]   # FV2-P D1515: a missing field was a KeyError later
+    if missing:
+        raise ValueError("%s:%d: H2LEAF missing %s" % (path, lineno, ",".join(missing)))
+
+
+def _h2_mass_refuse(dump_paths, runs):
+    """--h2-mass (FV2-P D1516, Codex F04-011#3): w < 0, fp > nvp, counts above the ball and a run whose weights sum
+    to zero reached the estimate. True (with an abort line) when any leaf or run is invalid."""
+    for p, r in zip(dump_paths, runs):
+        for i, lf in enumerate(r):
+            why = _h2_leaf_invalid(lf)
+            if why:
+                print(f"h2-mass: {p}: invalid leaf {i + 1} ({why}) — aborting")
+                return True
+        if not sum(lf["w"] for lf in r) > 0:
+            print(f"h2-mass: {p}: the run's leaf weights sum to zero — aborting")
+            return True
+    return False
+
+
+def _hoeffding_eps_finite(draws, cells, alpha):
+    """hoeffding_eps (FV2-P D1480, Codex F04-012#1): log(2*cells/alpha) overflowed to inf for alpha below ~1e-306,
+    so eps = inf and every sample read CLEAN. Computed as a log difference; a non-finite result is refused."""
+    if not (alpha > 0) or not math.isfinite(alpha):
+        raise DetectorError("alpha=%r is not a positive finite level" % (alpha,))
+    v = math.sqrt((math.log(2.0 * cells) - math.log(alpha)) / (2.0 * draws))
+    if not math.isfinite(v):
+        raise DetectorError("Hoeffding eps is not finite (draws=%r cells=%r alpha=%r)" % (draws, cells, alpha))
+    return v
+
+
+def _xnull_bad_n(n_draw):
+    """--extraction-null (FV2-P D1485): n_draw <= 0 reached 100*drawn/tries -> ZeroDivisionError."""
+    print("EXTRACTION_NULL=ERROR n_draw must be a positive integer (got %r)" % (n_draw,))
+    return 1
 
 
 if __name__ == "__main__":

@@ -65,7 +65,7 @@ def _require(cond, msg):
 # Import solve.py (repo root) for the King Wen sequence — single source of truth.
 _REPO_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.insert(0, _REPO_ROOT)
-from solve import binary_hexagrams, reverse_6bit, _tsv_int, atlas_q3_trace_is_king_wen  # noqa: E402
+from solve import binary_hexagrams, reverse_6bit, _tsv_int, atlas_q3_trace_is_king_wen, _atlas_kw_overlay  # noqa: E402
 
 # 🔴 MINIMUM LEGIBLE TEXT (VIZ1 F18, 2026-09-26). THE FLOOR IS A DISPLAYED SIZE, NOT A POINT SIZE.
 # These figures are read inline in rendered Markdown, where the viewer scales the WHOLE image to
@@ -242,7 +242,7 @@ FIGURE_LABEL_MANIFEST = {
         "KEY — d = number of lines that differ across a pair boundary (the exit hexagram of one pair\nagainst the entry hexagram of the next). King Wen's line marks which class it is in at each\nlayer; its height inside the band is not a probability. A branch is one first free placement:\na pair j and its orientation, named pair : entry, the entry hexagram's six-bit code (0–63).\nOne t-unit is one valid oriented prefix, not one production-DFS node.",
         "V2 — mass river: exact per-layer boundary-distance class mass over\nC1C2C4C5-SUPERSPACE; C3 not imposed. Each layer is a unit-width bin, so a band's\nAREA is its class total, fixed by the C1+C5 theorem; only the shape across k is informative",
         'branch = pair j : entry hexagram code (0–63), sorted by mass',
-        'branch panel — solution mass (bars) vs exhaustion cost (line);\nmeasured at n=31 the two are CO-MONOTONE: no branch is small-but-expensive',
+        'branch panel — solution mass (bars) vs exhaustion cost (line)', 'branch panel — solution mass (bars) vs exhaustion cost (line);\nNOT co-monotone in this table: some branch has less mass but a higher cost', 'branch panel — solution mass (bars) vs exhaustion cost (line);\nmeasured at n=31 the two are CO-MONOTONE: no branch is small-but-expensive',
         'branch share of N',
         'exhaustion cost unavailable: every prefixes_t_units\ncell reads PENDING_T_LADDER (no t-ladder was given)',
         'layer k (fills pair-slot k+2); each layer is a unit-width bin',
@@ -346,7 +346,7 @@ FIGURE_LABEL_MANIFEST = {
         'log10 of the exact count',
         'one layer k —\na cut across every walk',
         "step i — King Wen's 31 free placements (C4 pins the first pair-slot);\nstep i arrives at ladder layer k = i",
-        "the same two quantities as PUBLISHED EXACT INTEGERS, along King Wen's own\nwalk — f rises as prefixes accumulate, g falls as freedom is spent",
+        'step i — the traced walk\'s free placements (this table is not shown to be King Wen\'s);\nstep i arrives at ladder layer k = i', 'the same two quantities as EXACT INTEGERS, along the traced walk\n— f rises as prefixes accumulate, g falls as freedom is spent', "the same two quantities as PUBLISHED EXACT INTEGERS, along King Wen's own\nwalk — f rises as prefixes accumulate, g falls as freedom is spent",
         'Σ over EVERY state s in layer k:   orbit(mask(s)) · f(s) · g(s)   =   N',
         '— and this holds at every one of the 32 layers, k = 0 … 31',
         '⚠ This panel is ONE walk. For a single state, f(s)·g(s)\nis the number of walks THROUGH THAT STATE — it is not N.\nOnly the sum over the whole layer, in the panel above,\nequals N.',
@@ -665,7 +665,7 @@ def fig_tr5_orbit_collapse():
                                    gridspec_kw={"width_ratios": [1.2, 1.0]})
     fig.subplots_adjust(left=0.01, right=0.99, top=0.92, bottom=0.02, wspace=0.02)
     box = dict(boxstyle="round,pad=0.45", facecolor="#eef3fa", edgecolor="#4a6fa5", lw=1.3)
-    kw_txt = dict(ha="center", va="center", fontsize=12, color="#111111", bbox=box)
+    kw_txt = dict(ha="center", va="center", fontsize=12, color="#111111", bbox=box); _tr5_contrast(kw_txt, box)   # FV2-P D1601
     axl.text(0.5, 0.90, "B₃, order 48\nsigned line-permutations preserving C1–C5", **kw_txt)
     axl.text(0.5, 0.52, "S₄, order 24\nacting faithfully and freely on\ncanonical pair-order records",
              **kw_txt)
@@ -1085,6 +1085,13 @@ def _scale_inputs(path, registry=None, n_source=None):
     if n is None or len(scales) != 3 or scales != sorted(scales):
         raise TsvShapeError(f"{path}: want three canonical rows in rising budget order and one N "
                             f"row; got {len(scales)} canonical row(s), N {'present' if n else 'absent'}")
+    # FV2-P D1592, Codex F04-019#3: sorted() of a list with a repeated row equals itself, so a
+    # duplicated 560T row passed and the recent exponent became 0/0. Strictly rising budgets and
+    # counts, and the three expected series labels in order.
+    if (any(scales[i][0] >= scales[i + 1][0] or scales[i][1] >= scales[i + 1][1] for i in range(2))
+            or [lab for _, _, lab, _ in scales] != ["11.2T", "100T", "560T"]):
+        raise TsvShapeError(f"{path}: the canonical rows must be 11.2T, 100T, 560T with strictly rising "
+                            f"budgets and counts; got {[(lab, b, c) for b, c, lab, _ in scales]}")
     if registry is not None:
         with open(registry, encoding="utf-8") as fh:
             reg = fh.read()
@@ -1692,6 +1699,43 @@ def _shape_guarded(label):
     return deco
 
 
+def _require_text_contrast(fg, bg, what):
+    """Refuse a figure whose text colour `fg` on background `bg` is below MIN_TEXT_CONTRAST (the helper the
+    self-test's contrast arm exercises; FV2-P D1599/D1601)."""
+    _require(_wcag_contrast(fg, bg) >= MIN_TEXT_CONTRAST, "%s contrast %.2f:1 < %.1f:1"
+             % (what, _wcag_contrast(fg, bg), MIN_TEXT_CONTRAST))
+
+
+def _tr5_contrast(kw_txt, box):
+    """FV2-P D1601, Codex F07-012#3: TR-5's labels were the one text/background pairs not routed through the
+    contrast preflight (measured ~17:1, so a guarantee gap, not a visible failure)."""
+    _require_text_contrast(kw_txt["color"], box["facecolor"], "TR-5 box label")
+    _require_text_contrast("#8b1a1a", "#ffffff", "TR-5 King Wen label")
+    _require_text_contrast("#2c4a73", "#ffffff", "TR-5 orbit note")
+
+
+def _expect_kw_overlay(tsv, ks, by_k, fields):
+    """FV2-P D1593, Codex F04-019#4: the V1/V2/V5 King Wen marks were the table's own kw columns, so a
+    mislabelled table drew wrong cells as King Wen. They are compared with solve.py's King Wen overlay
+    (_atlas_kw_overlay: King Wen exists only in the full-31 world, so a reduced-n table must carry the
+    'absent' placeholders). `by_k` maps each layer k to the tuple of the table's values for `fields`
+    (any of 'pair', 'kw_d', 'kw_w'); a layer with no value (V1: no kw = 1 row) maps to None."""
+    if not by_k:   # V1 with no kw = 1 cell draws no King Wen mark (lane VR3's neutral title); only drawn marks are compared
+        return
+    full = len(ks) == 31 and list(ks) == list(range(31))
+    kw_d, kw_w, kw_pair = _atlas_kw_overlay(31) if full else ([-1] * len(ks),) * 3
+    ref = {"pair": kw_pair, "kw_d": kw_d, "kw_w": kw_w}
+    for j, k in enumerate(ks):
+        want = tuple(ref[f][j] for f in fields)
+        got = by_k.get(k)
+        if got is None and all(v < 0 for v in want):
+            continue
+        if got != want:
+            raise TsvShapeError(f"{tsv}: layer k={k}: King Wen columns {dict(zip(fields, got or ()))} are not "
+                                f"solve.py's King Wen overlay {dict(zip(fields, want))} -- refusing to "
+                                f"draw them as King Wen")
+
+
 # --- V1 -- the positional-marginal field (viz/viz_kc_field.md) -------------
 @_shape_guarded("V1 field")
 def fig_tr12_kc_field(tsv, n=None):
@@ -1715,6 +1759,12 @@ def fig_tr12_kc_field(tsv, n=None):
         mass[(i, j)] = _tsv_cell_int(r, "mass")
         if r["kw"] == "1":
             kw.append((i, j))
+    _kwk = {}
+    for i, j in kw:
+        if ks[j] in _kwk:
+            raise TsvShapeError(f"{tsv}: layer k={ks[j]} carries more than one kw = 1 cell")
+        _kwk[ks[j]] = (ps[i],)
+    _expect_kw_overlay(tsv, ks, _kwk, ("pair",))                                # FV2-P D1593
     # Q-899 (Codex VIZ H04, 2026-09-28): THE ROWS REPEAT BY SYMMETRY, AND THE FIGURE NOW SAYS SO.
     # SUPER is closed under the order-24 group, so two pairs in one orbit have EQUAL rows at every
     # slot (viz_kc_field.md, "SEVEN distinct non-pinned rows"). Counted here from the exact integer
@@ -1828,6 +1878,7 @@ def fig_tr12_kc_river(river_tsv, branches_tsv, n=None):
     for r in rows:
         band[_tsv_cell_int(r, "d")][ks.index(_tsv_cell_int(r, "k"))] = float(r["p"])
         kw_d[ks.index(_tsv_cell_int(r, "k"))] = _tsv_cell_int(r, "kw_d")
+    _expect_kw_overlay(river_tsv, ks, {k: (v,) for k, v in zip(ks, kw_d)}, ("kw_d",))   # FV2-P D1593
     have_b = os.path.exists(branches_tsv)
     if not have_b and n == 31:
         # Q-894 (2026-09-28): the publication figure silently lost its branch panel (and its
@@ -1958,9 +2009,23 @@ def fig_tr12_kc_river(river_tsv, branches_tsv, n=None):
         # reports/tr12/scan/v2_branches.tsv: 0 of 1,540 branch pairs are discordant (a smaller mass
         # with a larger cost); the 56 branches fall into 7 mass levels mapping one-to-one onto
         # 7 cost levels; cost/mass spans 7.65-8.20.  The title now states what is drawn.
-        ax2.set_title("branch panel — solution mass (bars) vs exhaustion cost (line);\n"
-                      "measured at n=31 the two are CO-MONOTONE: no branch is small-but-expensive",
-                      fontsize=11.5)
+        # FV2-P D1594, Codex F04-019#5: the co-monotone title was a 2026-09-24 measurement of one table
+        # and was drawn over any table. It is now counted from the drawn table (integer masses and
+        # costs), and the measured sentence is drawn only when no pair is discordant at n = 31.
+        disc = None
+        if all(digits):
+            mc = [(int(r["solutions"]), int(t)) for r, t in zip(br, tvals)]
+            disc = sum(1 for a in mc for b in mc if a[0] < b[0] and a[1] > b[1])
+        if disc == 0 and len(ks) == 31:
+            ax2.set_title("branch panel — solution mass (bars) vs exhaustion cost (line);\n"
+                          "measured at n=31 the two are CO-MONOTONE: no branch is small-but-expensive",
+                          fontsize=11.5)
+        elif disc:
+            ax2.set_title("branch panel — solution mass (bars) vs exhaustion cost (line);\n"
+                          "NOT co-monotone in this table: some branch has less mass but a higher cost",
+                          fontsize=11.5)
+        else:
+            ax2.set_title("branch panel — solution mass (bars) vs exhaustion cost (line)", fontsize=11.5)
     fig.tight_layout()
     # Q-899 (Codex VIZ H07): the figure used d, "t-units" and "entry hexagram" without defining any of
     # them, and did not say how to read King Wen's line against the stack. The key is placed under
@@ -2006,6 +2071,12 @@ def fig_tr12_kc_grammar(tsv, n=None):
     _expect_inventory(tsv, "(d, w)", cls, [(d, w) for d in _V_D for w in ((-1,) if reduced else _V_W)],
                       "every class d in {1,2,3,4,6} x w in {2,4,6} (reduced form: w = -1)")
     _expect_probabilities(tsv, rows, "p_cond")                                  # lane VR4 (A4-04)
+    _v5kw = {}
+    for r in rows:
+        _t = (_tsv_cell_int(r, "kw_d"), -1 if reduced else _tsv_cell_int(r, "kw_w"))
+        if _v5kw.setdefault(_tsv_cell_int(r, "k"), _t) != _t:
+            raise TsvShapeError(f"{tsv}: layer k={r['k']}: kw_d/kw_w differ between rows of one layer")
+    _expect_kw_overlay(tsv, ks, _v5kw, ("kw_d",) if reduced else ("kw_d", "kw_w"))   # FV2-P D1593
     M = np.zeros((len(cls), len(ks)))
     marks = []
     for r in rows:
@@ -2185,6 +2256,41 @@ def _v4_band(rows, alts_path, curve_path=None, disagree=None):
         if disagree is not None:
             disagree.append(why)
     by_step = {_tsv_cell_int(r, "step"): r for r in rows}
+
+    def _receipt(lead="V4 band omitted"):
+        """The published receipt joined to the curve step by step, or None (reason printed, and
+        recorded in `disagree` when the receipt is this n but not this walk's profile)."""
+        if alts_path is None:
+            return None
+        if not os.path.exists(alts_path):
+            print(f"{lead}: receipt absent {alts_path}")
+            return None
+        try:
+            n, arows = _read_q3_alts(alts_path)
+        except TsvShapeError as e:
+            print(f"{lead}: {e}")
+            return None
+        if n != len(rows):
+            return None
+        src = {_tsv_cell_int(a, "step"): a for a in arows}
+        if sorted(src) != sorted(by_step):
+            _no("the receipt covers other steps")
+            print(f"{lead}: {os.path.basename(alts_path)} covers steps "
+                  f"{min(src)}..{max(src)}, the curve {min(by_step)}..{max(by_step)}")
+            return None
+        for s in sorted(by_step):
+            for c in _Q3_ALT_JOIN:
+                if c not in by_step[s]:
+                    _no("the curve has no %r column to join on" % c)
+                    print(f"{lead}: the curve's table has no {c!r} column to join on")
+                    return None
+                if _tsv_cell_int(src[s], c) != _tsv_cell_int(by_step[s], c):
+                    _no("step %d, column %r" % (s, c))
+                    print(f"{lead}: {os.path.basename(alts_path)} disagrees with the "
+                          f"curve at step {s}, column {c!r} -- it is not this walk's profile")
+                    return None
+        return src
+
     if "g_alt_min" in rows[0] and "g_alt_max" in rows[0]:
         status = None
         side = None if curve_path is None else curve_path + ".provenance.txt"
@@ -2198,38 +2304,17 @@ def _v4_band(rows, alts_path, curve_path=None, disagree=None):
             print(f"V4 band omitted: the curve's table carries its own g_alt_min / g_alt_max, and "
                   f"its sidecar reads q3_alts_status={status} -- only REPRODUCED bounds are drawn "
                   f"from the table itself; attested bounds come from the published receipt")
+            # FV2-P D1595, Codex F12-022#1, F11-009#1: this return skipped the receipt comparison, so a
+            # table with contradictory profile counts plus alt columns kept King Wen's title. The
+            # comparison now runs (for `disagree`, i.e. the title decision) whatever the status.
+            _receipt()
             return None
         src, source = by_step, None
+        _receipt("V4 receipt check")   # the title decision does not depend on which branch draws the band
     else:
-        if alts_path is None:
+        src = _receipt()
+        if src is None:
             return None
-        if not os.path.exists(alts_path):
-            print(f"V4 band omitted: receipt absent {alts_path}")
-            return None
-        try:
-            n, arows = _read_q3_alts(alts_path)
-        except TsvShapeError as e:
-            print(f"V4 band omitted: {e}")
-            return None
-        if n != len(rows):
-            return None
-        src = {_tsv_cell_int(a, "step"): a for a in arows}
-        if sorted(src) != sorted(by_step):
-            _no("the receipt covers other steps")
-            print(f"V4 band omitted: {os.path.basename(alts_path)} covers steps "
-                  f"{min(src)}..{max(src)}, the curve {min(by_step)}..{max(by_step)}")
-            return None
-        for s in sorted(by_step):
-            for c in _Q3_ALT_JOIN:
-                if c not in by_step[s]:
-                    _no("the curve has no %r column to join on" % c)
-                    print(f"V4 band omitted: the curve's table has no {c!r} column to join on")
-                    return None
-                if _tsv_cell_int(src[s], c) != _tsv_cell_int(by_step[s], c):
-                    _no("step %d, column %r" % (s, c))
-                    print(f"V4 band omitted: {os.path.basename(alts_path)} disagrees with the "
-                          f"curve at step {s}, column {c!r} -- it is not this walk's profile")
-                    return None
         source = alts_path
     lo, hi = [], []
     for s in sorted(by_step):
@@ -2299,6 +2384,10 @@ def fig_tr12_kc_shells(tsv, alts=Q3_ALTS_BANKED, n=None):
         if i and gp_i != _tsv_cell_int(rows[i - 1], "g"):
             raise TsvShapeError(f"{tsv}: step {r['step']}: g_parent = {r['g_parent']} is not step "
                                 f"{rows[i - 1]['step']}'s g = {rows[i - 1]['g']} -- the shells do not nest")
+        if _tsv_cell_int(r, "alts") == 1 and (g_i != gp_i or bits[i] != 0):   # FV2-P D1596, Codex F04-019#7
+            raise TsvShapeError(f"{tsv}: step {r['step']}: alts = 1, but g = {r['g']} != g_parent = "
+                                f"{r['g_parent']} or bits = {r['bits']} != 0 -- a forced step keeps the "
+                                f"whole parent shell")
     alts_n = [_tsv_cell_int(r, "alts") for r in rows]
     # Q-891 (2026-09-28): the titles said "King Wen's 31 free placements" for ANY table, including the
     # n = 9 battery's (whose sidecar reads q3_is_king_wen=SKIP:n=9) and a full-31 trace the consumer
@@ -2424,7 +2513,7 @@ def fig_tr12_kc_shells(tsv, alts=Q3_ALTS_BANKED, n=None):
 
 # --- V3 -- the rank spectrum (viz/viz_kc_spectrum.md) ----------------------
 @_shape_guarded("V3 spectrum")
-def fig_tr12_kc_spectrum(tsv):
+def fig_tr12_kc_spectrum(tsv, n_total=None, pinned_n=False):
     if not os.path.exists(tsv):
         # V3 does NOT ride the atlas: its rows come from a rank grid (the
         # solve --kc-unrank K-loop, row a1_v3 -> v3_rel_grid.tsv) joined to the
@@ -2462,6 +2551,17 @@ def fig_tr12_kc_spectrum(tsv):
     if K < 2 or step <= 0 or any(ranks[i] != i * step for i in range(K)):
         raise TsvShapeError(f"{tsv}: rank is not the lattice r_i = i * floor(N/K) (r_0 = 0, r_i = i * r_1, "
                             f"r_1 > 0) over K = {K} rows")
+    # FV2-P D1597, Codex F04-019#6: N was inferred from r_1 * K, so a rescaled lattice passed and the
+    # abscissa was rank / N for an N the table chose. When the caller passes the authoritative count,
+    # r_1 must be floor(N/K) and every rank must lie in [0, N).
+    if pinned_n and n_total is None:   # tr12_figures: V3 is an n = 31 figure; N from viz_scale_inputs.tsv
+        try:
+            n_total = _scale_inputs(SCALE_INPUTS)[1]
+        except (OSError, TsvShapeError):
+            n_total = None
+    if n_total is not None and (step != n_total // K or ranks[-1] >= n_total):
+        raise TsvShapeError(f"{tsv}: r_1 = {step} is not floor(N/K) = {n_total // K} for the pinned "
+                            f"N = {n_total} (or a rank is >= N) -- the grid is not over this universe")
 
     def _num(r, c):
         try:
@@ -2640,6 +2740,14 @@ def fig_viz_narrative_n2_fg_mechanism(tsv=None):
     rows = _read_tsv(tsv, required=("step", "f", "g"))
     _check_grid(rows, ("step",), tsv)
     steps = [_tsv_cell_int(r, "step") for r in rows]
+    # FV2-P D1598, Codex F04-019#8: any f/g table was drawn under "King Wen's 31 placements". King Wen's
+    # wording now needs steps 1..31 complete and the rows to be King Wen's own walk (the producer's
+    # row-for-row identity, as V4), and a sidecar, when present, that says so; otherwise neutral labels.
+    kw_walk = (sorted(steps) == list(range(1, 32)) and all(c in rows[0] for c in ("pair", "entry", "exit"))
+               and atlas_q3_trace_is_king_wen(rows)[0])
+    if kw_walk and os.path.exists(tsv + ".provenance.txt"):
+        with open(tsv + ".provenance.txt", encoding="utf-8") as fh:
+            kw_walk = "q3_is_king_wen=PASS" in fh.read().splitlines()
     lf = [_log10_bigint(r["f"]) for r in rows]
     lg = [_log10_bigint(r["g"]) for r in rows]
 
@@ -2698,19 +2806,29 @@ def fig_viz_narrative_n2_fg_mechanism(tsv=None):
 
     # ---- panel B: the two ladders as published exact integers -------------
     ax2.plot(steps, lf, "-o", ms=4, lw=1.8, color="#1f77b4",
-             label="f — valid prefixes reaching King Wen's state (exact)")
+             label=("f — valid prefixes reaching King Wen's state (exact)" if kw_walk
+                    else "f — valid prefixes reaching the walk's state (exact)"))
     ax2.plot(steps, lg, "-o", ms=4, lw=1.8, color="#e07b00",
              label="g — completions remaining from it (exact)")
     ax2.set_xlim(0.5, 31.5)
     ax2.set_xticks(range(1, 32))
     ax2.tick_params(axis="x", labelsize=10)
     ax2.tick_params(axis="y", labelsize=10)
-    ax2.set_xlabel("step i — King Wen's 31 free placements (C4 pins the first pair-slot);\n"
-                   "step i arrives at ladder layer k = i", fontsize=11)
+    if kw_walk:
+        ax2.set_xlabel("step i — King Wen's 31 free placements (C4 pins the first pair-slot);\n"
+                       "step i arrives at ladder layer k = i", fontsize=11)
+    else:
+        ax2.set_xlabel("step i — the traced walk's free placements (this table is not shown to be King Wen's);\n"
+                       "step i arrives at ladder layer k = i", fontsize=11)
     ax2.set_ylabel("log10 of the exact count", fontsize=10.5)
-    ax2.set_title("the same two quantities as PUBLISHED EXACT INTEGERS, along King Wen's own\n"
-                  "walk — f rises as prefixes accumulate, g falls as freedom is spent",
-                  fontsize=11.5)
+    if kw_walk:
+        ax2.set_title("the same two quantities as PUBLISHED EXACT INTEGERS, along King Wen's own\n"
+                      "walk — f rises as prefixes accumulate, g falls as freedom is spent",
+                      fontsize=11.5)
+    else:
+        ax2.set_title("the same two quantities as EXACT INTEGERS, along the traced walk\n"
+                      "— f rises as prefixes accumulate, g falls as freedom is spent",
+                      fontsize=11.5)
     ax2.grid(True, ls=":", alpha=0.45)
     ax2.legend(fontsize=10.5, loc="center left")
     ax2.set_facecolor("#f8f8f8")
@@ -2894,7 +3012,7 @@ def tr12_figures(root=None):
     v3 = os.path.join(root, "spectrum", "v3_spectrum.tsv")
     if not os.path.exists(v3) and os.path.exists(os.path.join(root, "v3_spectrum.tsv")):
         v3 = os.path.join(root, "v3_spectrum.tsv")
-    opt = fig_tr12_kc_spectrum(v3)
+    opt = fig_tr12_kc_spectrum(v3, pinned_n=True)   # FV2-P D1597: V3's N is the pinned superspace count
     if opt is False and os.path.exists(v3):
         # Q-893 (2026-09-28): a V3 table that is PRESENT and refused was discarded here like an
         # absent one, so the run returned True over a FIGURE_SHAPE=FAIL (and could leave an older
@@ -2930,7 +3048,7 @@ def _selftest():
     def field_rows(pairs):
         out = ["k\tslot\tpair\tmass\tp\tkw"]
         for k, j in pairs:
-            out.append(f"{k}\t{k+2}\t{j}\t1000\t{1.0/len(PS):.6f}\t{1 if j == k else 0}")
+            out.append(f"{k}\t{k+2}\t{j}\t1000\t{1.0/len(PS):.6f}\t0")   # FV2-P D1593: no King Wen at n = 6
         return "\n".join(out) + "\n"
 
     full = list(itertools.product(KS, PS))
@@ -2966,7 +3084,8 @@ def _selftest():
                   field_rows(full).replace("\t0.031250\t", "\tnan\t", 1), False, "is not finite"))
 
     fails = []
-    d = tempfile.mkdtemp(prefix="viz_selftest_")
+    _td = tempfile.TemporaryDirectory(prefix="viz_selftest_")   # FV2-P D1600, Codex F04-019#11: was never removed
+    d = _td.name
     cwd = os.getcwd()
     try:
         os.chdir(d)
@@ -3034,8 +3153,39 @@ def _selftest():
         if not cond:
             fails.append("V3 all-constant refusal")
             print(f"        {out.strip()[:400]}")
+        # FV2-P D1599, Codex F11-009#8: README promises a text-size and a contrast refusal; neither had
+        # an arm here, so removing either guard left this self-test PASS. RED arm + GREEN control each.
+        for name, fs, want_refused in (("RED  a label below the text floor is refused", 4.0, True),
+                                       ("GREEN the same label at 12 pt is written", 12.0, False)):
+            f_, a_ = plt.subplots(figsize=(6, 4), dpi=150)
+            a_.text(0.5, 0.5, "floor probe", fontsize=fs)
+            try:
+                with contextlib.redirect_stdout(_io.StringIO()):
+                    save(f_, "floor_probe", "source: selftest   (viz/report_figures.py)")
+                refused = False
+            except FigureTextFloorError:
+                refused = True
+            cond = refused == want_refused and os.path.exists("floor_probe.png") != want_refused
+            print(f"  [{'ok' if cond else 'FAIL'}] {name}")
+            if not cond:
+                fails.append(name)
+            for ext in ("png", "svg"):
+                if os.path.exists("floor_probe." + ext):
+                    os.remove("floor_probe." + ext)
+        for name, fg, bg, want_refused in (("RED  text below 4.5:1 contrast is refused", "#9e9e9e", "#ffffff", True),
+                                           ("GREEN text at 4.5:1 or more is accepted", "#111111", "#ffffff", False)):
+            try:
+                _require_text_contrast(fg, bg, "selftest")
+                refused = False
+            except AssertionError as e:
+                refused = "contrast" in str(e)
+            cond = refused == want_refused
+            print(f"  [{'ok' if cond else 'FAIL'}] {name}")
+            if not cond:
+                fails.append(name)
     finally:
         os.chdir(cwd)
+        _td.cleanup()
     print(f"VIZ_SHAPE_SELFTEST={'FAIL' if fails else 'PASS'}")
     return 1 if fails else 0
 

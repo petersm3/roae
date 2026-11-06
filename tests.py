@@ -6935,7 +6935,7 @@ class TestA5RequiresACompleteInventoryAndFailsInvalidPairs(unittest.TestCase):
         # no consumer read them, so atlas_load now refuses an atlas whose tail verdict is
         # absent, not-run, inconsistent or FAIL. Same shape as `gates` above, same reason.
         return {"type": mod._ATLAS_TYPE, "n": n, "N_total": str(self.N),
-                "space": "a5-inventory-fixture",
+                "space": "a5-inventory-fixture", "fixture": True,   # FV2-P D1494: a hand-built atlas opts out of the t-gate refusal by name
                 "semantics": "synthetic fixture for the A-5 inventory gate; not a measurement",
                 "gates": {"fails": 0},
                 "tail_checks": {"vertical_raw_eq_N": "PASS",
@@ -7280,7 +7280,7 @@ class TestQ6ExtremesIsCheckedOnThePathThatRunsAtFull31(unittest.TestCase):
         # tail_checks: required since 2026-09-12 (Codex KCP5 #1, adjudicated by Fable) --
         # atlas_load refuses an atlas whose F3-rule tail verdict is absent or failing.
         A = {"type": "roae-kc-scan-atlas", "n": n, "N_total": str(self.N),
-             "branch_atlas": [], "gates": {"fails": 0},
+             "branch_atlas": [], "gates": {"fails": 0}, "fixture": True,   # FV2-P D1494: hand-built fixture, named as one
              "tail_checks": {"vertical_raw_eq_N": "PASS",
                              "digit_cross_table_eq_cls_prefix": "PASS",
                              "kernel_cross_layer_eq": "PASS",
@@ -10001,7 +10001,7 @@ class TestQ807FftRunsInFloat64OnEveryNumpy(unittest.TestCase):
         from unittest import mock
         S = _load("solve")
         rng = np.random.default_rng(807)
-        recs = rng.integers(0, 128, size=(4, 32)).astype(np.uint8) & 0x7E
+        recs = ((np.array([rng.permutation(32) for _ in range(4)]) << 2) | (rng.integers(0, 4, size=(4, 32)) & 2)).astype(np.uint8)   # FV2-P D1498: records must be pair permutations
         seen = []
         real = np.fft.fft
         def spy(a, *args, **kw):
@@ -25127,7 +25127,7 @@ class TestLaneVR4VizHonesty(unittest.TestCase):
                  # the reservoir path checks EVERY record read, not only the ones it keeps
                  ("resbad.bin", self._v1([kw, alt, bytes(bad)]), 1, "record 2 byte 5"),
                  ("legcap.bin", bytes(V.KW) * 2, 1, "MAX_RECORDS=1"),
-                 ("leg32.bin", bytes(dup) * 1, None, "exactly once")]
+                 ("leg32.bin", bytes(dup) * 1, None, "not every record is a valid 32-byte packed")]   # FV2-P D1603: every width is content-checked, so the refusal now names no fitting format
         for name, data, cap, needle in cases:
             with self.assertRaises(ValueError, msg=name) as cm:
                 load(name, data, cap)
@@ -51037,7 +51037,7 @@ print("RESULT=" + json.dumps({"resumed": H(res), "fresh": H(fresh)}, sort_keys=T
             with open(p, "w") as fh:
                 fh.write(json.dumps(row) + "\n")
             ns = {"ckpt_path": p, "_ck_ident": ident, "jobs_by_batch": [(0, 8)], "ridx": [0, 1], "done": {},
-                  "json": json, "os": os, "_gs_ck_row_mismatch": _load("roae")._gs_ck_row_mismatch}
+                  "json": json, "os": os, "_gs_ck_row_mismatch": _load("roae")._gs_ck_row_mismatch, "_gs_ck_json_obj": _load("roae")._gs_ck_json_obj}   # FV2-P D894: the loader now parses rows through _gs_ck_json_obj
             with contextlib.redirect_stdout(io.StringIO()):
                 exec(code, ns)
             self.assertEqual(ns["done"], {}, "%s row was reused: %r" % (name, ns["done"]))
@@ -60538,6 +60538,674 @@ int main(int argc, char **argv) {
 
 
 # end class TestBatchFV2R (push group FV2-R, CX-36Q-A..CX-36Q-D)
+
+
+class TestBatchFV2P(unittest.TestCase):
+    """Push group FV2-P: the solve.py / roae.py / viz/* rows of Codex's fix-verification round (Fable's slice-2
+    triage, lane FV2-P), CX-36P-A..CX-36P-D. Each behavioural test fails on the defect at the lane's base and passes
+    on the cure; the few structural tests (comment-only rows) read the source and say so. No published figure,
+    count, golden or canonical digest moves: example/ changes in four prose sentences only, and every committed
+    reports/figures/*.png re-renders byte for byte. Developed with AI assistance (Claude, Anthropic): claude-opus-5-5,
+    from Codex (gpt-6-astra) fix-verification findings triaged by Fable."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = os.path.realpath(tempfile.mkdtemp(prefix="fv2p_"))
+        p = os.environ.get("ROAE_TESTS_SOLVEPY_SRC") or os.path.join(cls.ROOT, "solve.py")
+        cls.solve_py = os.path.abspath(p)
+        argv, sys.argv = sys.argv, ["solve.py"]
+        try:
+            spec = importlib.util.spec_from_file_location("solve_fv2p", cls.solve_py)
+            cls.S = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(cls.S)
+            spec = importlib.util.spec_from_file_location("roae_fv2p", os.path.join(cls.ROOT, "roae.py"))
+            cls.R = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(cls.R)
+            spec = importlib.util.spec_from_file_location("visualize_fv2p", os.path.join(cls.ROOT, "viz", "visualize.py"))
+            cls.V = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(cls.V)
+        finally:
+            sys.argv = argv
+        cls.KW = list(cls.S.binary_hexagrams)
+
+    @classmethod
+    def tearDownClass(cls):
+        t = getattr(cls, "tmp", None)
+        if t and os.path.basename(t).startswith("fv2p_"):
+            shutil.rmtree(t, ignore_errors=True)
+
+    # ---- helpers ------------------------------------------------------------------------------------
+    def _need(self, cond, msg):
+        if not cond:
+            raise AssertionError(msg)
+
+    def _d(self):
+        return tempfile.mkdtemp(dir=self.tmp)
+
+    def _src(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _quiet(self, fn, *a, **kw):
+        import io, contextlib
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            r = fn(*a, **kw)
+        return r, buf.getvalue()
+
+    def _py(self, args, cwd=None, timeout=600):
+        return subprocess.run([sys.executable] + args, capture_output=True, text=True, timeout=timeout,
+                              cwd=cwd or self.tmp)
+
+    def _viz(self, body, cwd):
+        """Run `body` with viz/report_figures imported as rf, in `cwd` (figures are written there)."""
+        prog = ("import sys; sys.path[:0] = [%r, %r]\nimport report_figures as rf\n" %
+                (os.path.join(self.ROOT, "viz"), self.ROOT)) + body
+        return subprocess.run([sys.executable, "-c", prog], capture_output=True, text=True, timeout=600, cwd=cwd)
+
+    def _v1(self):
+        return os.path.join(self.ROOT, "reports", "tr12", "scan")
+
+    # ---- solve.py ------------------------------------------------------------------------------------
+    def _tr8_dir(self, marg_bank, marg_hdr):
+        import hashlib
+        d = self._d()
+        bank = [("fam", 0, "le", "tmpl")]
+        dig = hashlib.sha256(("%s%d|%s|%s|%.6f" % (bank[0] + (marg_hdr,))).encode()).hexdigest()
+        exact = hashlib.sha256(("%s%d|%s|%s|%s" % (bank[0] + (repr(float(marg_hdr)),))).encode()).hexdigest()
+        hdr = {"n_shards": 1, "n_pool": 10, "k_ladder": [1], "n_pred": 1, "pool": "p", "seed_root": "r",
+               "calibration_draws": 10, "admission_band": [0.0, 1.0], "b_raw": 1, "b_admitted": 1,
+               "r_kw": 0.25, "seeds": {}, "admitted_bank_sha256": dig, "admitted_bank_sha256_exact": exact}
+        with open(os.path.join(d, "shard_000.json"), "w") as fh:
+            json.dump({"header": hdr, "shard": 0, "hits": {"1": [0]}, "hb_hits": 0, "draws": 10}, fh)
+        with open(os.path.join(d, "bank.json"), "w") as fh:
+            json.dump({"bank": [{"family": "fam", "index": 0, "comparator": "le", "template": "tmpl",
+                                 "marginal": marg_bank, "admitted": True}]}, fh)
+        return d
+
+    def test_d1475_bank_marginal_below_the_6dp_digest_is_refused(self):
+        """D1475 (Codex F05-017#14): %.6f kept admitted_bank_sha256 when a marginal moved by < 5e-7."""
+        ok = self._py([self.solve_py, "--tr8-dof-merge", self._tr8_dir(0.25, 0.25)])
+        self._need(ok.returncode == 0, "precondition: the consistent pool merges:\n" + (ok.stdout + ok.stderr)[-600:])
+        r = self._py([self.solve_py, "--tr8-dof-merge", self._tr8_dir(0.2500004, 0.25)])
+        self._need(r.returncode == 1 and "admitted_bank_sha256_exact" in r.stderr + r.stdout,
+                   "a bank whose marginal moved 0.25 -> 0.2500004 merged (rc %d):\n%s" % (r.returncode, (r.stdout + r.stderr)[-600:]))
+        h = self.S._tr8_header("r", "A", 10, 1, 1, [8], 10, (0.25, 0.75), [("fam", 0, "le", "t")], [0.25], [0])
+        self._need("admitted_bank_sha256_exact" in h and "admitted_bank_sha256" in h, "the header must carry both digests")
+
+    def test_d1480_hoeffding_eps_refuses_an_overflowing_alpha(self):
+        """D1480 (Codex F04-012#1): 2*cells/alpha overflowed to inf, eps = inf, every sample read CLEAN."""
+        self._need(self.S.hoeffding_eps(100, 10, 0.05) > 0, "precondition: an ordinary level works")
+        v = self.S.hoeffding_eps(100, 10, 1e-320)          # was inf: log(2*cells/alpha) overflowed
+        self._need(math.isfinite(v) and v > 0, "hoeffding_eps(100, 10, 1e-320) = %r, not a finite bound" % v)
+        for alpha in (0.0, -1.0, float("nan")):
+            try:
+                v = self.S.hoeffding_eps(100, 10, alpha)
+            except self.S.DetectorError:
+                continue
+            raise AssertionError("hoeffding_eps(100, 10, %r) returned %r instead of refusing" % (alpha, v))
+
+    def test_d1481_zero_mass_ineligible_pair_is_not_a_keyerror(self):
+        """D1481 (Codex F04-012#4): a zero-mass ineligible pair raised KeyError on cmap[p]."""
+        cmap = self.S.atlas_a3_wrap_class_map()
+        el = sorted(cmap)[0]
+        inel = [p for p in range(32) if p not in cmap][1]
+        A = {"n": 31, "N_total": "10", "layers": [{"marginal_raw": {"pair%d" % el: "10", "pair%d" % inel: "0"}}]}
+        st, detail = self.S.atlas_a3_external_check(A)
+        self._need(isinstance(st, str) and isinstance(detail, str), "no (status, detail) verdict")
+
+    def test_d1483_extra_by_class_key_fails_the_probe(self):
+        """D1483 (Codex F04-012#2): an extra by_class key carrying mass N passed every conservation gate."""
+        sbin = os.path.join(self.tmp, "solve_fv2p")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", os.path.join(self.ROOT, "solve.c"))
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", sbin, src, "-lm", "-lz"],
+                           capture_output=True, text=True, timeout=1800)
+        self._need(r.returncode == 0, "solve.c did not build: " + r.stderr[-1500:])
+        d = self._d()
+        f, g, t, atlas = (os.path.join(d, x) for x in ("f", "g", "t", "a9.json"))
+        for argv in ([sbin, "--kc-build", f, "--f1-pairs", "9"], [sbin, "--kc-g-build", g, "--f1-pairs", "9"],
+                     [sbin, "--kc-t-build", f, t], [sbin, "--kc-scan", f, g, atlas, "--kc-tdir", t, "--kc-raw"]):
+            r = subprocess.run(argv, capture_output=True, text=True, timeout=1800)
+            self._need(r.returncode == 0, "%s: rc %d" % (argv[1], r.returncode))
+        ok = self._py([self.solve_py, "--atlas-probe", atlas])
+        self._need("ATLAS_PROBE=PASS" in ok.stdout.splitlines(), "precondition: the real n=9 atlas passes")
+        with open(atlas) as fh:
+            a = json.load(fh)
+        a["layers"][3]["by_class"]["zzz"] = a["N_total"]
+        m = os.path.join(d, "zzz.json")
+        with open(m, "w") as fh:
+            json.dump(a, fh)
+        r = self._py([self.solve_py, "--atlas-probe", m])
+        lines = r.stdout.splitlines()
+        self._need(r.returncode == 1 and "ATLAS_PROBE=FAIL" in lines and "BY_CLASS_KEYS_EQ_REGISTRY_EVERY_LAYER=FAIL" in lines,
+                   "an atlas with an extra by_class key was not refused (rc %d):\n%s" % (r.returncode, r.stdout[-800:]))
+
+    def test_d1485_zero_draws_is_an_error_token(self):
+        """D1485 (Codex F04-012#6): n_draw = 0 reached 100*drawn/tries -> ZeroDivisionError."""
+        rc, out = self._quiet(self.S.extraction_null, 0, 1)
+        self._need(rc == 1 and any(l.startswith("EXTRACTION_NULL=ERROR") for l in out.splitlines()),
+                   "n_draw=0: rc %r, out %r" % (rc, out[-300:]))
+
+    def test_d1486_null_functional_is_a_fail_row(self):
+        """D1486 (Codex F04-012#5): a null functional raised AttributeError in kc_x_phi and aborted the batch."""
+        v, detail = self.S._kc_x_check_cert({"type": "roae-kc-extremal-certificate", "version": 1,
+                                             "functional": None, "g_invariant": True})
+        self._need(v == "FAIL-functional", "verdict %r (%s)" % (v, detail))
+
+    def test_d1490_joint_density_dims_and_seed_reach_the_cli(self):
+        """D1490 (Codex F02-H05#17, F11-020#6): --joint-density-v2 took no dims or seed from the CLI."""
+        r = self._py([self.solve_py, "--help"])
+        flat = " ".join(r.stdout.split())
+        self._need("--joint-density-dims" in flat and "--joint-density-seed" in flat, "flags absent from --help")
+        self._need(self.S._jd_dims_arg("c3_total,edit_dist_kw") == ["c3_total", "edit_dist_kw"], "dims not parsed")
+        for bad in ("nope", "c3_total,c3_total", ""):
+            try:
+                self.S._jd_dims_arg(bad)
+            except SystemExit:
+                continue
+            raise AssertionError("--joint-density-dims %r accepted" % bad)
+
+    def test_d1493_atlas_shape_check_types_the_indexed_fields(self):
+        """D1493 (Codex F04-011#7): by_class: null and branch rows without entry fields reached consumers as tracebacks."""
+        good = {"layers": [{"k": 0, "flow": "1", "by_class": {}}],
+                "branch_atlas": [{"solutions": "1", "global_pair": 1, "entry": 2, "exit": 0}]}
+        self.S._atlas_shape_check(good, "p")
+        bads = ({"layers": [{"k": 0, "flow": "1", "by_class": None}], "branch_atlas": []},
+                {"layers": [{"k": 0, "flow": "1", "by_class": {}}], "branch_atlas": [{"solutions": "1"}]},
+                {"layers": [{"k": 0, "flow": "1", "by_class": {}}],
+                 "branch_atlas": [{"solutions": "1", "global_pair": "1", "entry": 2, "exit": 0}]})
+        for A in bads:
+            try:
+                self.S._atlas_shape_check(A, "p")
+            except self.S.AtlasError:
+                continue
+            raise AssertionError("shape check accepted %r" % (A,))
+
+    def test_d1494_t_gate_keys_on_n_not_on_engine_source_sha(self):
+        """D1494 (Codex F04-011#1): deleting engine_source_sha also deleted the t-identity requirement."""
+        self._need(self.S._atlas_t_gate_absent({"fails": 0}, 31, {}) != [], "n=31 without the t gate and without provenance loaded")
+        self._need(self.S._atlas_t_gate_absent({"fails": 0}, 31, {"fixture": True}) == [], "an explicit fixture marker is the opt-out")
+        self._need(self.S._atlas_t_gate_absent({"fails": 0}, 13, {}) == [], "n < 15 is unchanged")
+
+    def test_d1497_tied_minimum_is_extremal(self):
+        """D1497 (Codex F04-010#1): a King Wen value tied at the minimum had rank > 1 and was demoted."""
+        lab = self.S._differential_label
+        self._need(lab([1, 1, 2], 1, 2, 3) == "*** EXTREMAL", "tied minimum")
+        self._need(lab([1, 2, 2], 2, 3, 3) == "*** EXTREMAL", "tied maximum")
+        self._need(lab([3, 3, 3], 3, 3, 3) == "constant", "constant")
+        self._need(lab(list(range(20)), 10, 11, 20) == "", "interior")
+
+    def test_d1495_d1496_labels(self):
+        """D1495 (F04-010#10) / D1496 (F04-010#11): the /56 label and the unconditional Step 1 line (source text)."""
+        s = self._src("solve.py")
+        self._need("/56 possible (8x7)" not in s and "/64 possible (8x8, incl. self)" in s, "D1495 label")
+        self._need('print("Step 1: Generate solutions satisfying all 6 rules.")' not in s, "D1496 Step 1 line")
+
+    def test_d1498_repeated_pair_record_is_refused(self):
+        """D1498 (Codex F04-010#5): a record repeating a pair left pos_of_v uninitialised and was scored."""
+        np = _g6_import("numpy")  # G6 F04-015#10: skip with the reason when numpy is absent
+        r = np.array([[i << 2 for i in range(32)]], dtype=np.uint8)
+        self._need(int(self.S._p2_compute_all_stats(r)["c3_total"][0]) == 776, "precondition: King Wen scores 776")
+        r[0, 4] = 3 << 2
+        try:
+            self.S._p2_compute_all_stats(r)
+        except ValueError:
+            return
+        raise AssertionError("a record with pair 3 twice was scored")
+
+    def _pq_chunks(self):
+        import numpy as np, pyarrow as pa, pyarrow.parquet as pq
+        d = self._d()
+        rng = np.random.default_rng(1)
+        for c in range(2):
+            t = {k: rng.integers(0, 50, 300).astype(np.float64) for k in self.S._P2_JD_DIMS}
+            p2 = np.ones(300)
+            p2[:5] = 7
+            t["position_2_pair"] = p2
+            pq.write_table(pa.table(t), os.path.join(d, "chunk_%04d.parquet" % c))
+        return d
+
+    @unittest.skipUnless(all(importlib.util.find_spec(m) for m in ("numpy", "pyarrow", "sklearn")),
+                         "needs numpy + pyarrow + sklearn (the joint-density KDE path)")
+    def test_d1501_exhaustive_label_needs_the_canonical_count(self):
+        """D1501 (Codex F12-004#2): "100T d3 canonical (EXHAUSTIVE)" was written for any chunk directory."""
+        d = self._pq_chunks()
+        out = os.path.join(d, "jd.md")
+        self._quiet(self.S.p2_joint_density_v2, d, out, samples_per_chunk=300, bandwidth_method="silverman", exhaustive=True)
+        with open(out) as fh:
+            t = fh.read()
+        self._need("Total records scored:** 600" in t, "precondition: the subset was scored:\n" + t[:400])
+        self._need("canonical (EXHAUSTIVE)" not in t and "full canonical population" not in t,
+                   "a 600-record subset was labelled canonical:\n" + t[:400])
+
+    @unittest.skipUnless(all(importlib.util.find_spec(m) for m in ("numpy", "pyarrow", "sklearn")),
+                         "needs numpy + pyarrow + sklearn (the stratified KDE path)")
+    def test_d1502_unscored_strata_are_reported(self):
+        """D1502 (Codex F04-010#4): a population stratum below the fit floor was never scored, silently."""
+        d = self._pq_chunks()
+        out = os.path.join(d, "st.md")
+        self._quiet(self.S.p2_stratified_p2pair, d, out, samples_per_chunk=300, exhaustive=True)
+        with open(out) as fh:
+            t = fh.read()
+        self._need("**Unscored records:** 10" in t and "— exhaustive\n" not in t, "unscored stratum 7 not reported:\n" + t[:500])
+
+    def _bin(self, d, name, hdr_extra=b"\0" * 16, recs=1):
+        import struct
+        p = os.path.join(d, name)
+        with open(p, "wb") as fh:
+            fh.write(b"ROAE" + struct.pack("<I", 1) + struct.pack("<Q", recs) + hdr_extra + bytes(i << 2 for i in range(32)) * recs)
+        return p
+
+    def test_d1504_reserved_header_bytes_must_be_zero(self):
+        """D1504 (Codex F04-010#9): _read_header never checked bytes 16-31."""
+        d = self._d()
+        ok = self._py([self.solve_py, "--branch-yield-report", self._bin(d, "ok.bin")])
+        self._need(ok.returncode == 0, "precondition: a valid file is read")
+        r = self._py([self.solve_py, "--branch-yield-report", self._bin(d, "bad.bin", b"\0" * 4 + b"\1" + b"\0" * 11)])
+        self._need(r.returncode == 2 and "reserved header bytes" in r.stdout, "byte 20 = 1 accepted:\n" + r.stdout[-300:])
+
+    def test_d1505_deeper_override_does_not_set_a_shallower_budget(self):
+        """D1505 (Codex F04-010#6): a depth-2 override was applied to its depth-1 parent bucket."""
+        d = self._d()
+        man, js = os.path.join(d, "m.json"), os.path.join(d, "o.json")
+        with open(man, "w") as fh:
+            json.dump({"per_sub_branch_budget": {"default": 100, "overrides": [
+                {"p1": 1, "o1": 0, "p2": 2, "o2": 0, "budget": 5}]}}, fh)
+        r = self._py([self.solve_py, "--branch-yield-report", self._bin(d, "s.bin"), "--branch-yield-manifest", man,
+                      "--branch-yield-depth", "1", "--branch-yield-json", js])
+        self._need(r.returncode == 0, "precondition: rc %d" % r.returncode)
+        with open(js) as fh:
+            b = json.load(fh)["buckets"]
+        self._need([x["key"] for x in b] == [[1, 0]], "precondition: one depth-1 bucket (1, 0)")
+        self._need(b[0]["budget"] == 100, "the depth-1 bucket took the depth-2 override's budget %r" % b[0]["budget"])
+
+    def test_d1506_d1507_keystone_dumps_and_guide(self):
+        """D1506 (F04-010#7): a reused dump dir kept stale dumps. D1507 (F04-010#8): "disjoint => independent"."""
+        d = self._d()
+        stale = os.path.join(d, "keystone_mask15_drop-27.bin")
+        with open(stale, "w") as fh:
+            fh.write("stale")
+        self._quiet(self.S.keystone_analysis, self._bin(d, "one.bin"), os.path.join(d, "k.md"), dump_dir=d)
+        self._need(os.path.exists(os.path.join(d, "keystone_mask31_all-5-matched.bin")), "precondition: mask 31 dumped")
+        self._need(not os.path.exists(stale), "the previous run's drop-27 dump survived")
+        with open(os.path.join(d, "k.md")) as fh:
+            t = fh.read()
+        self._need("both keystones do independent work" not in t and "| boundary 25 matches | 1 | 0 |" in t,
+                   "guide: " + t[-600:])
+
+    def test_d1510_truncated_depth_profile_fails(self):
+        """D1510 (Codex F04-011#2): a log missing depths, or with a wrong TOTAL, compared PASS."""
+        d = self._d()
+        full = "".join("DEPTH_PROFILE depth=%d nodes=%d\n" % (k, 10 + k) for k in range(12))
+        a, b = os.path.join(d, "a.log"), os.path.join(d, "b.log")
+        with open(a, "w") as fh:
+            fh.write(full)
+        with open(b, "w") as fh:
+            fh.write(full)
+        rc, out = self._quiet(self.S.compare_depth_profile, a, b)
+        self._need(rc == 0, "precondition: identical logs PASS")
+        with open(b, "w") as fh:
+            fh.write(full.replace("DEPTH_PROFILE depth=7 nodes=17\n", ""))
+        rc, out = self._quiet(self.S.compare_depth_profile, a, b)
+        self._need(rc == 1 and "missing depth(s) 7" in out, "a log without depth 7: rc %r\n%s" % (rc, out[-300:]))
+        with open(b, "w") as fh:
+            fh.write(full + "DEPTH_PROFILE_TOTAL sum=1 total_nodes=1 match=yes\n")
+        rc, out = self._quiet(self.S.compare_depth_profile, a, b)
+        self._need(rc == 1, "a TOTAL unequal to the sum passed")
+
+    def test_d1512_numerator_refuses_a_65_entry_sequence(self):
+        """D1512 (Codex F04-011#6): seq[64:] was never read, so KW + [0] got a likelihood."""
+        self._need(0 < self.S.r11_builder_numerator(self.KW, 1.0) <= 1, "precondition: King Wen scores")
+        try:
+            v = self.S.r11_builder_numerator(self.KW + [0], 1.0)
+        except ValueError:
+            return
+        raise AssertionError("KW + [0] returned %r" % (v,))
+
+    def test_d1513_synthetic_draw_must_keep_the_pairs(self):
+        """D1513 (Codex F04-011#5): a C5-preserving transposition that breaks a pair passed the builder verify."""
+        S, kw = self.S, self.KW
+        hist = lambda s: sorted(bin(s[i] ^ s[i + 1]).count("1") for i in range(63))
+        ps = {frozenset(kw[2 * i:2 * i + 2]) for i in range(32)}
+        bad = None
+        for i in range(64):
+            for j in range(i + 1, 64):
+                s = list(kw)
+                s[i], s[j] = s[j], s[i]
+                if hist(s) == hist(kw) and not all(frozenset(s[2 * k:2 * k + 2]) in ps for k in range(32)):
+                    bad = s
+                    break
+            if bad:
+                break
+        self._need(bad is not None, "precondition: such a transposition exists")
+        saved = (S.r11_builder_synthetic, S.r11_builder_pcomplete)
+        S.r11_builder_synthetic = lambda *a, **k: bad
+        S.r11_builder_pcomplete = lambda *a, **k: (0.5, 0.01, 10)
+        try:
+            rc, out = self._quiet(S.r11_builder_verify)
+        finally:
+            S.r11_builder_synthetic, S.r11_builder_pcomplete = saved
+        self._need(rc == 1 and "C1 broken" in out, "pair-breaking draw passed: rc %r\n%s" % (rc, out[-400:]))
+
+    def _h2(self, line):
+        d = self._d()
+        p = os.path.join(d, "h2.txt")
+        with open(p, "w") as fh:
+            fh.write(line)
+        return p
+
+    LEAF = "H2LEAF w=1.0 c3=776 nvp=10 nvc=10 fp=2.0 fc=1.0 ck=0 seq=0,1\n"
+
+    def test_d1514_d1515_h2_leaf_duplicate_and_missing_keys(self):
+        """D1514 (F04-011#4): ck=-1 ... ck=0 recorded a clean cross-check. D1515 (F04-011#8): a missing field."""
+        self._need(len(self.S.h2_parse_dump(self._h2(self.LEAF))) == 1, "precondition: a full leaf parses")
+        for line, why in ((self.LEAF.replace("ck=0", "ck=-1 ck=0"), "duplicate key ck"),
+                          (self.LEAF.replace(" fp=2.0", ""), "H2LEAF missing fp")):
+            try:
+                self.S.h2_parse_dump(self._h2(line))
+            except ValueError as e:
+                self._need(why in str(e), "%s: message %r" % (why, str(e)))
+                continue
+            raise AssertionError("accepted: %r" % line)
+
+    def test_d1516_h2_mass_refuses_an_invalid_leaf(self):
+        """D1516 (Codex F04-011#3): w < 0, fp > nvp and sum w <= 0 reached the estimate."""
+        rc, out = self._quiet(self.S.h2_mass, [self._h2(self.LEAF * 3)], 50)
+        self._need(rc in (0, None), "precondition: valid leaves estimate (rc %r)\n%s" % (rc, out[-300:]))
+        for bad in (self.LEAF.replace("w=1.0", "w=-1.0"), self.LEAF.replace("fp=2.0", "fp=11.0"),
+                    self.LEAF.replace("w=1.0", "w=0.0")):
+            rc, out = self._quiet(self.S.h2_mass, [self._h2(bad * 3)], 50)
+            self._need(rc == 1, "invalid leaf %r: rc %r\n%s" % (bad, rc, out[-300:]))
+
+    def test_comment_only_rows(self):
+        """D1482 (F04-012#7), D1484 (F04-015#2), D1489 (F12-004#3), D1509 (F04-011#11), D1517 (F04-011#9),
+        D1518 (F04-011#10): stale comments, docstrings and help (source text; the D1517/D1518 claims are measured)."""
+        s = self._src("solve.py")
+        for old in ("not re-derived on this side; wiring it is OWED, not done", "C4 IS NOT RESAMPLED",
+                    "Reconstruct King Wen step by step, verifying uniqueness at each step",
+                    "(the solution-sha is the byte-exact\n    anchor;", "Orientation: (a) YES, (b) NO at pair level.",
+                    "Orientation: (a) YES, (b) NO (sets flip-stable)."):
+            self._need(old not in s, "stale text still present: %r" % old)
+        r6 = lambda h: int(format(h, "06b")[::-1], 2)
+        self._need(self.S.dav_parallel3040(self.KW) == 1 and self.S.dav_parallel3040([r6(h) for h in self.KW]) == 0,
+                   "D1517: parallel3040 is flip-sensitive")
+        self._need(self.S.dav_palnbr(self.KW) == self.S.dav_palnbr(self.KW[::-1]), "D1518: palnbr is reversal-invariant")
+
+    # ---- roae.py -------------------------------------------------------------------------------------
+    def test_roae_prose_rows(self):
+        """D882 (F12-021#6), D883 (F12-021#4), D885 (F12-021#8), D886 (F12-021#5): four sentences the sections
+        do not support, in roae.py and the regenerated example/README.md."""
+        for rel in ("roae.py", "example/README.md"):
+            t = self._src(rel)
+            for old in ("tells you nothing about the next transition", "and the canonical divisions correspond",
+                        "(complete Latin square)", "differ by only 1 or 2 lines"):
+                self._need(old not in t, "%s still says %r" % (rel, old))
+
+    def test_d889_exporters_take_trials(self):
+        """D889 (Codex F12-021#3): both exporters hard-coded trials=10000 whatever --trials said."""
+        import inspect
+        for fn in (self.R.export_html, self.R.export_markdown):
+            p = inspect.signature(fn).parameters
+            self._need("trials" in p and p["trials"].default == 10000, "%s takes no trials" % fn.__name__)
+        self._need("print_bootstrap(trials=10000)" not in self._src("roae.py"), "a hard-coded exporter trials remains")
+
+    def test_d890_workers_use_the_fork_context(self):
+        """D890 (Codex F09-H04#13): the _GS-state workers relied on the platform's default start method."""
+        s = self._src("roae.py")
+        self._need("with Pool(workers)" not in s and s.count("_mp_fork_ctx().Pool(workers)") == 4, "Pool sites")
+        self._need(self.R._mp_fork_ctx().get_start_method() == "fork", "context is not fork")
+
+    def _gs(self, d, extra):
+        return self._py([os.path.join(self.ROOT, "roae.py"), "--grammar-search", "--gs-samples", "8", "--gs-probe", "4",
+                         "--gs-workers", "1", "--gs-batches", "1", "--seed", "7"] + extra, cwd=d, timeout=900)
+
+    def test_d894_non_object_checkpoint_row_is_ignored(self):
+        """D894 (Codex F12-012#8): a JSON row that is not an object raised AttributeError."""
+        d = self._d()
+        with open(os.path.join(d, "ck.jsonl"), "w") as fh:
+            fh.write("[1,2]\n")
+        r = self._gs(d, ["--gs-json", "rep.json", "--gs-checkpoint", "ck.jsonl"])
+        self._need(r.returncode == 0 and "IGNORED 1 row(s) — mismatched not an object" in r.stdout,
+                   "rc %d\n%s" % (r.returncode, (r.stdout + r.stderr)[-600:]))
+
+    def test_d895_torn_checkpoint_tail_is_terminated_before_append(self):
+        """D895 (Codex F04-014#3): the next row was glued onto a torn final row and lost with it."""
+        d = self._d()
+        p = os.path.join(d, "ck.jsonl")
+        with open(p, "w") as fh:
+            fh.write('{"batch": 0}\n{"batch": 1, "tor')
+        ck = self.R._ck_open_append(p)
+        ck.write(json.dumps({"batch": 2}) + "\n")
+        ck.close()
+        with open(p) as fh:
+            lines = fh.read().splitlines()
+        self._need(lines[-1] == '{"batch": 2}', "the new row was not on its own line: %r" % lines)
+
+    def test_d897_report_path_over_the_checkpoint_is_refused(self):
+        """D897 (Codex F04-014#2): --gs-json naming the checkpoint destroyed the resumable rows."""
+        d = self._d()
+        with open(os.path.join(d, "same.jsonl"), "w") as fh:
+            fh.write("keep\n")
+        r = self._gs(d, ["--gs-json", "same.jsonl", "--gs-checkpoint", "same.jsonl"])
+        with open(os.path.join(d, "same.jsonl")) as fh:
+            body = fh.read()
+        self._need(r.returncode == 2 and body == "keep\n", "rc %d, checkpoint now %r" % (r.returncode, body[:80]))
+
+    def test_d899_non_positive_search_sizes_exit_2(self):
+        """D899 (Codex F12-012#7): 0 or negatives died later with ZeroDivisionError/ValueError."""
+        for flag in ("--gs-samples", "--gs-probe", "--gs-batches", "--ph-thr-samples"):
+            r = self._py([os.path.join(self.ROOT, "roae.py"), flag, "0", "--help"], timeout=120)
+            self._need(r.returncode == 2 and "must be >= 1" in r.stderr, "%s 0: rc %d" % (flag, r.returncode))
+
+    def test_d900_negative_histogram_cell_is_not_reused(self):
+        """D900 (Codex F04-014#1): a histogram summing to `want` with a negative cell was reused."""
+        jobs = [(0, 7, 0, 5)]
+        rec = {"phase": "eval", "seed": 7, "seed_off": 0, "batches": 1, "want": 5, "n": 5, "batch": 0,
+               "hist_a": {"600": 5}, "hist_p": {"1": 5}, "hist_q": {"2": 5}}
+        ok, _ = self._quiet(self.R._ph_ck_ok, rec, "eval", 7, 0, jobs, "T")
+        self._need(ok, "precondition: a valid row is reused")
+        rec["hist_a"] = {"600": -1, "601": 6}
+        ok, _ = self._quiet(self.R._ph_ck_ok, rec, "eval", 7, 0, jobs, "T")
+        self._need(not ok, "a histogram with a -1 cell was reused")
+
+    # ---- viz -----------------------------------------------------------------------------------------
+    @unittest.skipUnless(importlib.util.find_spec("matplotlib") and importlib.util.find_spec("numpy"),
+                         "matplotlib/numpy absent (viz/ is an optional external surface)")
+    def test_d1592_duplicated_scale_row_is_refused(self):
+        """D1592 (Codex F04-019#3): sorted() of a list with a repeated row equals itself."""
+        d = self._d()
+        src = os.path.join(self.ROOT, "viz", "viz_scale_inputs.tsv")
+        with open(src) as fh:
+            lines = fh.read().splitlines(True)
+        dup = lines[0] + lines[2] + lines[3] + lines[3] + lines[4]
+        with open(os.path.join(d, "dup.tsv"), "w") as fh:
+            fh.write(dup)
+        r = self._viz("rf._scale_inputs(%r)\nprint('OK')\ntry:\n    rf._scale_inputs('dup.tsv')\n    print('ACCEPTED')\n"
+                      "except rf.TsvShapeError as e:\n    print('REFUSED', e)\n" % src, d)
+        self._need("OK" in r.stdout.splitlines(), "precondition: the committed table reads\n" + r.stderr[-400:])
+        self._need("REFUSED" in r.stdout, "a duplicated 560T row was accepted:\n" + r.stdout[-300:] + r.stderr[-300:])
+
+    @unittest.skipUnless(importlib.util.find_spec("matplotlib") and importlib.util.find_spec("numpy"),
+                         "matplotlib/numpy absent (viz/ is an optional external surface)")
+    def test_d1593_kw_marks_must_be_king_wens(self):
+        """D1593 (Codex F04-019#4): the table's kw column was trusted; a mislabelled table drew wrong cells as King Wen."""
+        d = self._d()
+        with open(os.path.join(self._v1(), "v1_field.tsv")) as fh:
+            t = fh.read()
+        rows = t.splitlines(True)
+        out = [rows[0]]
+        for line in rows[1:]:
+            c = line.rstrip("\n").split("\t")
+            if c[0] == "5":
+                c[5] = "1" if c[2] == "9" else "0"   # move layer 5's mark from pair 6 to pair 9
+            out.append("\t".join(c) + "\n")
+        with open(os.path.join(d, "bad.tsv"), "w") as fh:
+            fh.write("".join(out))
+        r = self._viz("print('GOOD', rf.fig_tr12_kc_field(%r, n=31))\nprint('BAD', rf.fig_tr12_kc_field('bad.tsv', n=31))\n"
+                      % os.path.join(self._v1(), "v1_field.tsv"), d)
+        self._need("GOOD True" in r.stdout, "precondition: the committed V1 table renders\n" + (r.stdout + r.stderr)[-500:])
+        self._need("BAD False" in r.stdout and "King Wen overlay" in r.stdout, "moved KW mark drawn:\n" + r.stdout[-500:])
+
+    @unittest.skipUnless(importlib.util.find_spec("matplotlib") and importlib.util.find_spec("numpy"),
+                         "matplotlib/numpy absent (viz/ is an optional external surface)")
+    def test_d1594_co_monotone_title_is_measured(self):
+        """D1594 (Codex F04-019#5): the CO-MONOTONE title was drawn over any branch table."""
+        d = self._d()
+        with open(os.path.join(self._v1(), "v2_branches.tsv")) as fh:
+            rows = fh.read().splitlines(True)
+        h = rows[0].rstrip("\n").split("\t")
+        ci = h.index("prefixes_t_units")
+        a, b = rows[1].rstrip("\n").split("\t"), rows[-1].rstrip("\n").split("\t")
+        a[ci], b[ci] = b[ci], a[ci]
+        with open(os.path.join(d, "br.tsv"), "w") as fh:
+            fh.write(rows[0] + "\t".join(a) + "\n" + "".join(rows[2:-1]) + "\t".join(b) + "\n")
+        body = ("import matplotlib.axes as A\nT = []\n_o = A.Axes.set_title\n"
+                "def _t(self, s, *a, **k):\n    T.append(s)\n    return _o(self, s, *a, **k)\nA.Axes.set_title = _t\n"
+                "rf.fig_tr12_kc_river(%r, %r, n=31)\nprint('GOOD', any('CO-MONOTONE' in x for x in T))\nT.clear()\n"
+                "rf.fig_tr12_kc_river(%r, 'br.tsv', n=31)\nprint('SWAP', any('CO-MONOTONE' in x for x in T), any('NOT co-monotone' in x for x in T))\n"
+                % (os.path.join(self._v1(), "v2_river.tsv"), os.path.join(self._v1(), "v2_branches.tsv"),
+                   os.path.join(self._v1(), "v2_river.tsv")))
+        r = self._viz(body, d)
+        self._need("GOOD True" in r.stdout, "precondition: the committed table is co-monotone\n" + (r.stdout + r.stderr)[-500:])
+        self._need("SWAP False True" in r.stdout, "swapped costs kept the CO-MONOTONE title:\n" + r.stdout[-400:])
+
+    def _q3(self, d, edit):
+        with open(os.path.join(self.ROOT, "reports", "tr12", "q3_profile_kw.tsv")) as fh:
+            rows = [l.rstrip("\n").split("\t") for l in fh]
+        edit(rows)
+        p = os.path.join(d, "q3_profile_kw.tsv")
+        with open(p, "w") as fh:
+            fh.write("".join("\t".join(r) + "\n" for r in rows))
+        return p
+
+    @unittest.skipUnless(importlib.util.find_spec("matplotlib") and importlib.util.find_spec("numpy"),
+                         "matplotlib/numpy absent (viz/ is an optional external surface)")
+    def test_d1595_receipt_comparison_runs_when_the_table_carries_bounds(self):
+        """D1595 (Codex F12-022#1, F11-009#1): a table with its own bounds skipped the receipt comparison and kept KW's title."""
+        d = self._d()
+
+        def edit(rows):
+            ai = rows[0].index("alts")
+            rows[2][ai] = str(int(rows[2][ai]) + 1)          # step 2: a profile count the receipt contradicts
+            rows[0] += ["g_alt_min", "g_alt_max"]
+            for r in rows[1:]:
+                r += ["1", "1"]
+        p = self._q3(d, edit)
+        r = self._viz("print('RC', rf.fig_tr12_kc_shells(%r, n=31))\n" % p, d)
+        self._need("RC True" in r.stdout, "precondition: the figure is drawn\n" + (r.stdout + r.stderr)[-500:])
+        self._need("King Wen's name is withheld" in r.stdout, "KW title kept over a contradicted table:\n" + r.stdout[-500:])
+
+    @unittest.skipUnless(importlib.util.find_spec("matplotlib") and importlib.util.find_spec("numpy"),
+                         "matplotlib/numpy absent (viz/ is an optional external surface)")
+    def test_d1596_one_alternative_keeps_the_parent_shell(self):
+        """D1596 (Codex F04-019#7): alts = 1 with g < g_parent was drawn as a zero-cost step."""
+        d = self._d()
+
+        def edit(rows):
+            rows[2][rows[0].index("alts")] = "1"
+        p = self._q3(d, edit)
+        r = self._viz("print('RC', rf.fig_tr12_kc_shells(%r, n=31))\n" % p, d)
+        self._need("RC False" in r.stdout and "alts = 1" in r.stdout, "alts=1, g<g_parent drawn:\n" + r.stdout[-400:])
+
+    @unittest.skipUnless(importlib.util.find_spec("matplotlib") and importlib.util.find_spec("numpy"),
+                         "matplotlib/numpy absent (viz/ is an optional external surface)")
+    def test_d1597_spectrum_checks_the_pinned_n(self):
+        """D1597 (Codex F04-019#6): N was inferred from r_1 * K, so a rescaled lattice chose its own N."""
+        d = self._d()
+        v3 = os.path.join(self.ROOT, "reports", "tr12", "v3_spectrum.tsv")
+        N = 1097051278789181790036112071176579186688
+        r = self._viz("print('GOOD', rf.fig_tr12_kc_spectrum(%r, n_total=%d))\nprint('BAD', rf.fig_tr12_kc_spectrum(%r, n_total=%d))\n"
+                      % (v3, N, v3, 2 * N), d)
+        self._need("GOOD True" in r.stdout and "BAD False" in r.stdout, (r.stdout + r.stderr)[-500:])
+
+    @unittest.skipUnless(importlib.util.find_spec("matplotlib") and importlib.util.find_spec("numpy"),
+                         "matplotlib/numpy absent (viz/ is an optional external surface)")
+    def test_d1598_n2_names_king_wen_only_for_king_wens_walk(self):
+        """D1598 (Codex F04-019#8): N-2 drew any f/g table under "King Wen's 31 free placements"."""
+        d = self._d()
+
+        def edit(rows):
+            ei = rows[0].index("entry")
+            rows[5][ei], rows[5][ei + 1] = rows[5][ei + 1], rows[5][ei]   # step 5 entered the other way
+        p = self._q3(d, edit)
+        body = ("import matplotlib.axes as A\nL = []\n_o = A.Axes.set_xlabel\n"
+                "def _x(self, s, *a, **k):\n    L.append(s)\n    return _o(self, s, *a, **k)\nA.Axes.set_xlabel = _x\n"
+                "rf.fig_viz_narrative_n2_fg_mechanism()\nprint('GOOD', any(\"King Wen's 31 free\" in x for x in L))\nL.clear()\n"
+                "rf.fig_viz_narrative_n2_fg_mechanism(%r)\nprint('BAD', any(\"King Wen's 31 free\" in x for x in L))\n" % p)
+        r = self._viz(body, d)
+        self._need("GOOD True" in r.stdout, "precondition: the committed table is King Wen's\n" + (r.stdout + r.stderr)[-500:])
+        self._need("BAD False" in r.stdout, "a non-King-Wen walk kept King Wen's label:\n" + r.stdout[-300:])
+
+    @unittest.skipUnless(importlib.util.find_spec("matplotlib") and importlib.util.find_spec("numpy"),
+                         "matplotlib/numpy absent (viz/ is an optional external surface)")
+    def test_d1599_d1600_selftest_arms_and_cleanup(self):
+        """D1599 (F11-009#8): no text-size / contrast arm. D1600 (F04-019#11): mkdtemp never removed."""
+        d = self._d()
+        env = dict(os.environ, TMPDIR=d)
+        r = subprocess.run([sys.executable, os.path.join(self.ROOT, "viz", "report_figures.py"), "--selftest"],
+                           capture_output=True, text=True, timeout=600, cwd=d, env=env)
+        out = r.stdout.splitlines()
+        self._need("VIZ_SHAPE_SELFTEST=PASS" in out, "selftest:\n" + r.stdout[-500:])
+        for arm in ("RED  a label below the text floor is refused", "RED  text below 4.5:1 contrast is refused"):
+            self._need("  [ok] " + arm in out, "arm absent: %s" % arm)
+        left = [x for x in os.listdir(d) if x.startswith("viz_selftest_")]
+        self._need(not left, "selftest left %s" % left)
+
+    @unittest.skipUnless(importlib.util.find_spec("matplotlib") and importlib.util.find_spec("numpy"),
+                         "matplotlib/numpy absent (viz/ is an optional external surface)")
+    def test_d1601_tr5_labels_pass_the_contrast_preflight(self):
+        """D1601 (Codex F07-012#3): TR-5's box labels were not routed through the contrast preflight."""
+        d = self._d()
+        r = self._viz("rf._wcag_contrast = lambda a, b: 1.0\ntry:\n    rf.fig_tr5_orbit_collapse()\n    print('DRAWN')\n"
+                      "except AssertionError as e:\n    print('REFUSED', e)\n", d)
+        self._need("REFUSED" in r.stdout and "TR-5" in r.stdout, "TR-5 drew under a failing contrast:\n" + (r.stdout + r.stderr)[-300:])
+
+    def test_d1602_regime_needs_a_consistent_resume(self):
+        """D1602 (Codex F04-019#9): a weekday-daytime eviction resumed at 10:00 was captioned "deferred to 18:01"."""
+        from datetime import datetime, timezone, timedelta
+        PT = timezone(timedelta(hours=-7))
+        f = self.V._eviction_regime
+        self._need(f(datetime(2026, 11, 3, 9, 0, tzinfo=PT), datetime(2026, 11, 3, 18, 5, tzinfo=PT))[0] == "defer", "defer")
+        self._need(f(datetime(2026, 11, 1, 9, 0, tzinfo=PT), datetime(2026, 11, 1, 10, 20, tzinfo=PT))[0] == "retry", "retry")
+        self._need(f(datetime(2026, 11, 3, 9, 0, tzinfo=PT), datetime(2026, 11, 3, 10, 0, tzinfo=PT))[0] == "other",
+                   "a 10:00 resume was labelled by policy")
+
+    def _vload(self, data, cap=None):
+        d = self._d()
+        p = os.path.join(d, "s.bin")
+        with open(p, "wb") as fh:
+            fh.write(bytes(data))
+        saved = self.V.MAX_RECORDS
+        if cap is not None:
+            self.V.MAX_RECORDS = cap
+        try:
+            self._quiet(self.V.load_solutions, p)
+            return None
+        except ValueError as e:
+            return str(e)
+        finally:
+            self.V.MAX_RECORDS = saved
+
+    def test_d1603_headerless_records_are_checked_whatever_the_width(self):
+        """D1603 (Codex F04-019#1): a single size-compatible width skipped every check; 64/68 never checked pairs."""
+        kw = self.KW
+        self._need(self._vload(kw) is None, "precondition: King Wen as one 64-byte record loads")
+        bad68 = list(kw)
+        bad68[5] = bad68[4]
+        self._need(self._vload(bad68 + [0, 0, 0, 0]) is not None, "a 68-byte non-permutation record loaded")
+        sw = list(kw)
+        sw[1], sw[2] = sw[2], sw[1]
+        self._need(self._vload(sw) is not None, "a 64-byte record breaking the King Wen pairs loaded")
+
+    def test_d1604_record_cap_uses_the_decided_width(self):
+        """D1604 (Codex F11-009#2, F12-022#3): a packed file of 2*MAX records passed as MAX 64-byte ones."""
+        rec = [i << 2 for i in range(32)]
+        self._need(self._vload(rec * 2, cap=3) is None, "precondition: 2 packed records under a cap of 3 load")
+        e = self._vload(rec * 4, cap=3)
+        self._need(e is not None and "MAX_RECORDS" in e, "4 packed records loaded under a cap of 3")
+
 
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).

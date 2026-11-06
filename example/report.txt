@@ -821,8 +821,8 @@ periodicity may not rise above the noise floor.)
 ---
 Markov chain analysis
 If we treat each difference value as a 'state', we can ask: does the current
-difference predict the next one? In a random sequence, knowing that the last
-transition changed 2 lines tells you nothing about the next transition. But if
+difference predict the next one? In a random ordering of the 64 hexagrams the
+transitions are only weakly dependent (the shuffle baseline below is simulated). But if
 certain patterns like '6 is always followed by 2' emerge, it reveals hidden
 rules in the King Wen ordering. The matrix shows the probability of each
 transition between difference values.
@@ -882,8 +882,8 @@ The 64 hexagrams form a mathematical group under XOR: combining any two hexagram
 by toggling their differing lines always produces another valid hexagram. This is
 like mixing colors — every combination is itself a color. Under this algebra,
 certain sets of hexagrams form 'subgroups' (closed sets where combining any two
-members stays in the set). This section checks whether the King Wen pairs, inverse
-pairs, and the canonical divisions correspond to meaningful algebraic subgroups.
+members stays in the set). This section lists the XOR products of the King Wen
+pairs and checks whether the inverse-pair hexagrams are closed under XOR.
 ---
 XOR identity element: 0b000000 (hexagram 2, all broken)
 
@@ -1072,7 +1072,7 @@ MI(upper, lower) across all 64 hexagrams: 0.000000 bits
 (Expected: 0.0 — since all 64 combinations appear exactly once,
 the trigrams are perfectly independent in the static set.)
 Note: with all 64 upper/lower trigram combinations present exactly once,
-independence is expected by construction (complete Latin square).
+independence is expected by construction (the full 8x8 Cartesian product).
 ---
 Yin-yang balance wave
 Each hexagram has 6 lines that are either yang (solid, 1) or yin (broken, 0).
@@ -1219,7 +1219,7 @@ Neither form is in the formal spec: the weak one is a theorem and adds nothing,
 and the strict one is King Wen's own value, hence data-like by construction.
 ---
 Hexagram neighborhoods
-For each hexagram, which others are 'nearby' (differ by only 1 or 2 lines)?
+For each hexagram, which others are 'nearby' (differ by exactly 1 line)?
 Dense neighborhoods mean a hexagram has many close relatives; sparse ones are
 more isolated. This also shows whether King Wen places neighbors near each
 other in the sequence or scatters them.

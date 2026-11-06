@@ -38312,3 +38312,149 @@ No canonical sha, record count, certificate value or verdict changed in CX-36Q-A
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch FV2-R; the defects were found by Codex
 (gpt-6-astra) in its fix-verification round and triaged by Fable.
+
+## CX-36P-A — solve.py: merge, reader, estimator and gate rows (solve.py; documentation/SOLVE_PY_CLI.md)
+
+**2026-11-03.** **Source.** Codex (gpt-6-astra), fix-verification round; triaged by Fable in FV2 slice 2 (lane
+FV2-P). Batch FV2-P. Finding ids are given per item.
+
+- **TR-8 bank digest (D1475, F05-017#14).** `admitted_bank_sha256` writes each marginal with six decimals, so a
+  marginal moved by less than 5e-7 kept the digest. That field is unchanged, because the published TR-8 run's
+  headers carry it. New headers also carry `admitted_bank_sha256_exact` (each marginal as `repr(float)`), and the
+  merge and the replication gate require it whenever a header carries it.
+- **Hoeffding bound (D1480, F04-012#1).** `log(2*cells/alpha)` overflowed to infinity for a very small alpha, and an
+  infinite bound read every sample as clean. The bound is computed as `log(2*cells) - log(alpha)`; a level that is
+  not positive and finite, or a bound that is not finite, is refused.
+- **A-3 wrap check (D1481, F04-012#4).** An ineligible pair with zero closing mass raised `KeyError` instead of
+  returning a verdict. Zero-mass pairs are skipped in the mass sum, as they already were in the eligibility test.
+- **`--atlas-probe` (D1483, F04-012#2).** The conservation gates read the five classes d1..d6 only, so an extra
+  `by_class` key carrying mass N passed all of them. New gate `BY_CLASS_KEYS_EQ_REGISTRY_EVERY_LAYER`.
+- **`--extraction-null` (D1485, F04-012#6).** A draw count of 0 reached a division by zero. It now prints
+  `EXTRACTION_NULL=ERROR` and exits 1.
+- **`--kc-x-pycheck` (D1486, F04-012#5).** A certificate with `"functional": null` raised `AttributeError` and
+  stopped the batch. It is now a `FAIL-functional` row, and the batch goes on.
+- **`--joint-density-v2` (D1490, F02-H05#17, F11-020#6).** The mode read no dimensions or seed from the command
+  line, so the multi-seed 2-D audit could not be re-run from the public surface. New flags `--joint-density-dims`
+  and `--joint-density-seed`. Whether its receipts are published is the operator's call, not a code change.
+- **Atlas loader (D1493, F04-011#7; D1494, F04-011#1).** `by_class: null` and branch rows without their pair and
+  entry fields reached the consumers as tracebacks; they are now an `AtlasError`. The t-identity requirement keyed
+  on `engine_source_sha` being present, so deleting that key also deleted the requirement. At n >= 15 it now keys
+  on n alone; only a hand-built fixture that says `"fixture": true` is exempt.
+- **`--differential` (D1495, F04-010#10; D1496, F04-010#11; D1497, F04-010#1).** "Unique transitions used: N/56"
+  counted self-transitions against a denominator without them; the label is now N/64 (8x8, including self). The
+  Step 1 line said "all 6 rules" when C3 was not applied; it now follows the run. A King Wen value tied at the
+  minimum or maximum had rank above 1 and was not marked; EXTREMAL now keys on the value. No tracked document
+  quotes any of the three lines.
+- **`--compute-stats` (D1498, F04-010#5).** A record that repeated a pair left part of the position table unset,
+  so its C3 value was garbage. Every record must place each of the 32 pairs once.
+- **Exhaustive P2 labels (D1501, F12-004#2; D1502, F04-010#4).** The joint-density report said "100T d3 canonical
+  (EXHAUSTIVE)" for any chunk directory. The label now needs the record total to equal the d3 100T count read from
+  CANONICAL_HASHES.md; otherwise it says how many records were scored. The stratified report took its strata from
+  the fit sample, so records of a stratum missing from it, or below the fit floor, were never scored. It now
+  counts and reports them, and drops the word exhaustive when any are left. No stratified result is published.
+- **`--branch-yield-report` (D1504, F04-010#9; D1505, F04-010#6).** The header reader never checked that bytes
+  16-31 are zero (SOLUTIONS_FORMAT.md says they must be). A depth-2 or depth-3 budget override was applied to its
+  depth-1 parent bucket. Both are fixed. No branch-yield output is tracked.
+- **`--keystone-analysis` (D1506, F04-010#7; D1507, F04-010#8).** A reused dump directory kept an earlier run's dump
+  for a mask with no records this run; it is removed. The guide said disjoint drop-25 and drop-27 families mean
+  independent work, but one record has exactly one mask, so the families are always disjoint. The report now gives
+  the joint match table for boundaries 25 and 27. No keystone report is tracked.
+- **`--compare-depth-profile` (D1510, F04-011#2).** Any subset of depth lines compared PASS. Depths must now run
+  0..max with none missing or repeated, and a `DEPTH_PROFILE_TOTAL` line must agree with the sum.
+- **R11 builder (D1512, F04-011#6; D1513, F04-011#5).** The path likelihood never looked past 64 entries, so a
+  65-entry sequence got a value. It is refused. The synthetic-draw check did not test that slots 2i and 2i+1 hold
+  King Wen pairs; it does now.
+- **H2 dumps (D1514, F04-011#4; D1515, F04-011#8; D1516, F04-011#3).** A repeated key replaced the earlier one, so
+  `ck=-1 ... ck=0` read as a clean check; a leaf missing a field failed later as `KeyError`; a negative weight,
+  `fp` above `nvp`, or a zero total weight reached the estimate. Each is now refused with a message and rc 1.
+
+**Tests.** `TestBatchFV2P`, one test per item (the D1483 test builds a real n=9 atlas). Each fails on the parent
+tree.
+
+## CX-36P-B — roae.py: four sentences, the exporters' trials, workers and checkpoints (roae.py; example/; documentation/ROAE_PY_CLI.md)
+
+**2026-11-03.** **Source.** Codex (gpt-6-astra), fix-verification round; triaged by Fable in FV2 slice 2. Batch
+FV2-P.
+
+- **Four sentences (D882, F12-021#6; D883, F12-021#4; D885, F12-021#8; D886, F12-021#5).** The Markov section said
+  that in a random sequence the last transition "tells you nothing about the next", which is false for a shuffle
+  of 64 distinct hexagrams; it now says the transitions are weakly dependent, which is why the baseline is
+  simulated. The symmetry section promised a check of "the canonical divisions" that it does not run; it now names
+  what it checks. The 8x8 upper/lower table is a full Cartesian product, not a "complete Latin square". The
+  neighbourhood section promised neighbours at 1 or 2 lines and lists distance 1 only. example/ was regenerated
+  under `--seed 20260904`: only these four sentences changed, and no number moved.
+- **`--html` / `--markdown` trials (D889, F12-021#3).** Both exporters ran 10,000 trials whatever `--trials` said. An
+  explicit `--trials` now reaches them. Without it they keep 10,000, so the shipped example/ is unchanged.
+- **Worker start method (D890, F09-H04#13).** The `--grammar-search` and `--prereg-h1h3` workers inherit shared state
+  by fork. They now ask for the fork context, so a platform default of spawn or forkserver no longer changes them.
+- **Checkpoints (D894, F12-012#8; D895, F04-014#3; D897, F04-014#2; D900, F04-014#1).** A checkpoint row that parsed
+  to a non-object raised `AttributeError`; it is now counted as ignored. A torn final row joined the next append,
+  and both were lost at the next reload; the torn row is ended with a newline before appending. A report path equal
+  to the checkpoint path overwrote the resumable rows; that is refused with exit 2. A histogram with a negative
+  cell that still summed to the batch size was reused; it is not.
+- **Search sizes (D899, F12-012#7).** `--gs-samples`, `--gs-probe`, `--gs-batches` and `--ph-thr-samples` took 0 or a
+  negative and failed later with a traceback. They now exit 2 with the usage message, as ROAE_PY_CLI.md says.
+
+**Tests.** `TestBatchFV2P` (the `test_roae_*` and `test_d8*` / `test_d9*` tests). Each fails on the parent tree.
+
+## CX-36P-C — viz: the figures' own checks (viz/report_figures.py; viz/visualize.py)
+
+**2026-11-03.** **Source.** Codex (gpt-6-astra), fix-verification round; triaged by Fable in FV2 slice 2. Batch
+FV2-P. No committed figure changed: all twelve reports/figures/*.png re-render byte for byte under matplotlib 3.11.0
+(the SVGs differ only in their render date and element ids, as before the batch).
+
+- **Scale table (D1592, F04-019#3).** A repeated 560T row passed the order check, because sorting a list with a
+  repeat returns the same list. The rows must now be 11.2T, 100T and 560T with strictly rising budgets and counts.
+- **King Wen marks in V1, V2 and V5 (D1593, F04-019#4).** The marks came from the table's own `kw` columns, so a
+  mislabelled table drew wrong cells as King Wen's. They are compared with solve.py's King Wen overlay, and a table
+  that disagrees is refused. Below n=31 the table must carry the "absent" placeholders.
+- **V2 branch title (D1594, F04-019#5).** "the two are CO-MONOTONE" was one measurement of one table, drawn over any
+  table. The discordant pairs are now counted from the drawn table; the measured sentence appears only when there
+  are none at n=31.
+- **V4 (D1595, F12-022#1, F11-009#1; D1596, F04-019#7).** When a table carried its own bounds, the comparison with
+  the published receipt was skipped, so a table that contradicts the receipt kept King Wen's title. The comparison
+  now runs either way. A step with one alternative must keep the whole parent shell (g = g_parent, 0 bits).
+- **V3 (D1597, F04-019#6).** N was inferred from the table, so a rescaled lattice chose its own N. The renderer now
+  checks the grid against the pinned N when it is given one, as the n=31 figure run does.
+- **N-2 (D1598, F04-019#8).** The figure said "King Wen's 31 free placements" for any f/g table. That wording now
+  needs King Wen's own 31 steps; another walk gets a neutral label.
+- **Self-test (D1599, F11-009#8; D1600, F04-019#11; D1601, F07-012#3).** The text-size and contrast refusals the
+  README promises had no self-test arm; each now has a red arm and a green control. The self-test's temporary
+  directory is removed. TR-5's box labels go through the contrast check.
+- **viz/visualize.py (D1602, F04-019#9; D1603, F04-019#1; D1604, F11-009#2, F12-022#3).** The eviction timeline named
+  a relaunch regime from the eviction time alone; it now names one only when the observed resume fits it, and
+  otherwise shows the downtime as not matching either. A headerless file with one possible record width skipped
+  every record check, and 64- and 68-byte records were never checked for King Wen pairs; every width is now
+  checked. The record cap was applied with a width picked by divisibility; it is applied with the width actually
+  decoded. The eviction figure in runs/20260608_560T_9a968fa2/viz/ is not re-rendered: its telemetry is not in the
+  repository.
+
+**Tests.** `TestBatchFV2P` (the `test_d159*` and `test_d160*` tests). Each fails on the parent tree.
+
+## CX-36P-D — comments and help; rows held (solve.py)
+
+**2026-11-03.** **Source.** Codex (gpt-6-astra), fix-verification round; triaged by Fable in FV2 slice 2. Batch
+FV2-P.
+
+- **Docstrings and help (D1482, F04-012#7; D1484, F04-015#2; D1489, F12-004#3; D1509, F04-011#11).** The orbit
+  check's docstring said the orbit partition is "not re-derived on this side"; `pair_orbit_partition()` re-derives
+  it and `atlas_orbit_membership()` gates it. `--extraction-null` said "C4 IS NOT RESAMPLED"; the draws shuffle all
+  32 pairs and orientations, and only the estimator that reads them holds C4. (The same sentence in SOLVE_PY_CLI.md's
+  `--extraction-null` row is a reviewed correction-marker line and is left to the documentation rows.) The `--reconstruct` help said
+  "verifying uniqueness"; it counts the locally admissible alternatives with no lookahead, as SOLVE_PY_CLI.md
+  already says. The depth-profile docstring called the solution sha the byte-exact anchor of a budgeted parallel
+  run; it is byte-exact for exhausted runs and the deterministic mode only.
+- **Davis orientation flags (D1517, F04-011#9; D1518, F04-011#10).** `dav_parallel3040` is sensitive to a global
+  hexagram flip (measured: King Wen 1, flipped 0), so its (b) flag is YES. `dav_palnbr` does not change when the
+  sequence is reversed (King Wen 10 both ways), so its (a) flag is NO. No document publishes these flags.
+
+**Held for the operator:** D1508 (F12-009#7): `--extended-selftest` compares its four 200M digests with each other
+but with no reference. DEVELOPMENT.md names `e43f2905…` (measured 2026-05-14) as the 200M single-shot digest, while
+`--selftest-resume` now records `b3862357…`. Which digest subtest 2 must reproduce needs a measured run and a
+documented reference before it is pinned. The HEADLINE-OR-COUNT rows of this lane, D1477, D1499, D1500 (solve.py)
+and D887, D888, D896, D898 (roae.py), stay held as in the triage.
+
+No canonical sha, record count, golden file or published figure changed in CX-36P-A to CX-36P-D.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch FV2-P; the defects were found by Codex
+(gpt-6-astra) in its fix-verification round and triaged by Fable.
