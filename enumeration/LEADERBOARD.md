@@ -1354,9 +1354,10 @@ gcc -O3 -pthread -fopenmp -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -o solv
 ./solve --list-branches              # Show all branches
 SOLVE_NODE_LIMIT=10000000000 SOLVE_THREADS=64 ./solve --branch 24 0 0  # Run one branch. SOLVE_NODE_LIMIT is REQUIRED:
                                       # without a budget --branch prints "No time limit - running to completion" and does not return.
-./solve --merge                       # Combine sub-branch results -> <layer_root>/_merged_/solutions.bin
-./solve --validate _merged_/solutions.bin  # Verify all constraints. NOT "solutions_merged.bin" - that name was published
-                                      # for months and --merge has never written it (solve.c:40528, :43702).
+./solve --merge                       # Combine the sub_*.bin shards in the CURRENT directory -> ./solutions.bin + solutions.sha256 (cd to the run-dir first)
+./solve --validate solutions.bin      # Verify all constraints. NOT "solutions_merged.bin" - that name was published
+                                      # for months and --merge has never written it (solve.c:40454-40456).
+                                      # A layered run uses ./solve --merge-layers ROOT instead, which writes ROOT/_merged_/solutions.bin.
 ```
 
 See [solve.c](../solve.c) source for full documentation.

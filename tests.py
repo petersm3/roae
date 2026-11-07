@@ -62729,6 +62729,139 @@ class TestBatchQ1037b(unittest.TestCase):
                       "TR-8 revision row")
 
 
+class TestBatchQ576(unittest.TestCase):
+    """Backlog Q-576 (citation repair T1; CX-36W-A..CX-36W-C). The ten public documents with the most
+    census-stale `solve.c`/`solve.py` line citations were read citation by citation. Two live repairs and one
+    appended repair landed: LEADERBOARD's run block said `--merge` writes `<layer_root>/_merged_/solutions.bin`
+    and cited two `--merge-layers` lines for it (CX-36W-A); TR-3's v1.13 revision row cited a line two edits had
+    moved off `total_fail` (CX-36W-C); three coordinates inside append-only CORRECTIONS entries are repaired by
+    appending CX-36W-B. Every test fails on the parent tree and passes on this one. Line numbers of the live
+    tree are never pinned here: each citation is resolved and its cited text checked. Developed with AI
+    assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    LB = "enumeration/LEADERBOARD.md"
+    TR3 = "reports/TR3_REPRODUCIBLE_ENUMERATION.md"
+    CORR = "documentation/CORRECTIONS.md"
+    GPC = "scripts/gate_published_consistency.sh"
+    # (sha, line) -> text that line must carry; the CX-36W-B/C pins, each checked against git history.
+    PINS = {
+        ("12bef2b7", 42171): "g_expect_kw && !kw_found_v",
+        ("12bef2b7", 42184): "int total_fail = ",
+        ("b224b627", 37923): "int total_fail = ",
+        ("b224b627", 37910): "g_expect_kw && !kw_found_v",
+        ("63385ba8", 39757): "sum_p H(pair at p)",
+        ("12bef2b7", 44211): "sum_p H(pair at p)",
+        ("6d0694c4", 37077): "fkc->ooc != NULL",
+        ("0e8cacc3", 37923): "int total_fail = ",
+    }
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _span(self, text):
+        m = re.fullmatch(r"(\d+)(?:-(\d+))?", text)
+        if m is None:
+            raise AssertionError("not a line span: %r" % text)
+        a, b = int(m.group(1)), int(m.group(2) or m.group(1))
+        src = self._r("solve.c").split("\n")
+        self.assertLessEqual(b, len(src), "precondition: span inside solve.c")
+        return "\n".join(src[a - 1:b])
+
+    def _git_line(self, sha, n):
+        r = subprocess.run(["git", "show", "%s:solve.c" % sha], cwd=self.ROOT, capture_output=True)
+        if r.returncode != 0:
+            return None
+        lines = r.stdout.decode("utf-8", "replace").split("\n")
+        return lines[n - 1] if 0 < n <= len(lines) else ""
+
+    def test_leaderboard_merge_line_names_the_real_output(self):
+        t = self._r(self.LB)
+        merge = [l for l in t.split("\n") if l.startswith("./solve --merge ")]
+        self.assertEqual(len(merge), 1, "precondition: one published ./solve --merge line")
+        if "_merged_" in merge[0]:
+            raise AssertionError("LEADERBOARD still says --merge writes the _merged_ directory: %s" % merge[0])
+        if "CURRENT directory" not in merge[0] or "solutions.bin" not in merge[0]:
+            raise AssertionError("the --merge line does not say where --merge writes: %s" % merge[0])
+        val = [l for l in t.split("\n") if l.startswith("./solve --validate ")]
+        self.assertEqual(len(val), 1, "precondition: one published ./solve --validate line")
+        if "_merged_/" in val[0]:
+            raise AssertionError("--validate names a path --merge does not write: %s" % val[0])
+
+    def test_leaderboard_citation_lands_on_the_merge_refusal_text(self):
+        t = self._r(self.LB)
+        cite = [l for l in t.split("\n") if "--merge has never written it" in l]
+        self.assertEqual(len(cite), 1, "precondition: the never-written sentence")
+        m = re.search(r"\(solve\.c:(\d+(?:-\d+)?)\)", cite[0])
+        if m is None:
+            raise AssertionError("the sentence carries no single solve.c span: %s" % cite[0])
+        span = self._span(m.group(1))
+        for want in ("--merge takes NO arguments", "CURRENT directory and writes solutions.bin"):
+            if want not in span:
+                raise AssertionError("cited span solve.c:%s lacks %r" % (m.group(1), want))
+
+    def test_gate_comment_no_longer_repeats_the_claim(self):
+        g = self._r(self.GPC)
+        self.assertIn("# ---- G9:", g, "precondition: the G9 leg")
+        if "output is <layer_root>/_merged_/solutions.bin" in g:
+            raise AssertionError("G9's comment still says --merge writes <layer_root>/_merged_/solutions.bin")
+        if "CX-36W-A" not in g:
+            raise AssertionError("G9's comment does not name its correction")
+
+    def test_tr3_v113_row_cites_total_fail_at_its_own_tree(self):
+        rows = [l for l in self._r(self.TR3).split("\n") if l.startswith("| v1.13 | 2026-09-07 |")]
+        self.assertEqual(len(rows), 1, "precondition: the v1.13 revision row")
+        if "omitted from `total_fail` (`0e8cacc3:solve.c:37923`" not in rows[0]:
+            raise AssertionError("v1.13 does not cite total_fail at the tree it was written against")
+        got = self._git_line("0e8cacc3", 37923)
+        if got is None:
+            sys.stderr.write("NOTE: history leg not run (commit 0e8cacc3 not in this clone)\n")
+        elif "int total_fail = " not in got:
+            raise AssertionError("0e8cacc3:solve.c:37923 is not the total_fail sum: %r" % got)
+
+    def _cx36w(self):
+        t = self._r(self.CORR)
+        a = t.find("\n## CX-36W-A ")
+        if a < 0:
+            raise AssertionError("CX-36W-A is not in the ledger")
+        self.assertGreater(a, t.find("\n## CX-36S-H "), "precondition: CX-36W is appended after CX-36S-H")
+        for h in ("\n## CX-36W-B ", "\n## CX-36W-C "):
+            if t.find(h) < a:
+                raise AssertionError("%s missing or out of order" % h.strip())
+        return t[a:]
+
+    def test_cx36w_every_pin_is_one_we_checked(self):
+        block = self._cx36w()
+        pins = {(m.group(1), int(m.group(2))) for m in re.finditer(r"\b([0-9a-f]{8}):solve\.c:(\d+)", block)}
+        self.assertGreater(len(pins), 0, "precondition: the block carries sha-pinned citations")
+        if pins != set(self.PINS):
+            raise AssertionError("pins in CX-36W differ from the checked set: %s" % sorted(pins ^ set(self.PINS)))
+
+    def test_cx36w_pins_resolve_to_the_text_they_claim(self):
+        self._cx36w()
+        missing = 0
+        for (sha, n), want in sorted(self.PINS.items()):
+            got = self._git_line(sha, n)
+            if got is None:
+                missing += 1
+                continue
+            if want not in got:
+                raise AssertionError("%s:solve.c:%d is %r, not %r" % (sha, n, got.strip(), want))
+        if missing:
+            sys.stderr.write("NOTE: %d history pin(s) not checked (commit not in this clone)\n" % missing)
+
+    def test_cx36w_adds_no_unpinned_solve_citation(self):
+        # A bare `solve.c:N` in an append-only entry is read against the live tree by the census and goes
+        # stale on the next edit of solve.c; CX-36W writes every coordinate pinned or as "line N".
+        block = self._cx36w()
+        for li, line in enumerate(block.split("\n"), 1):
+            for m in re.finditer(r"(?<![\w./:-])solve\.(?:c|py)`?:(\d+)", line):
+                raise AssertionError("unpinned citation in CX-36W line %d: %s" % (li, line))
+
+# end class TestBatchQ576 (backlog Q-576, CX-36W-A..CX-36W-C)
+
+
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))

@@ -12201,3 +12201,19 @@ Q-686=DONE
   note only, and the renderer change is held.
 - Eight other held rows of Q-1037 stay held. No canonical sha, record count or certificate changed. `TestBatchQ1037b`
   holds each change and fails on the parent tree.
+
+## 2026-11-07 — batch Q576 T1: public citation repair T1, under Q-576's method; Q-576 proper stays OPEN
+
+- **What was checked.** The ten public documents with the most census-stale `solve.c`/`solve.py` line citations
+  were read citation by citation, 206 in all. Each citation in a live document was read against the line it names.
+  Each one in the two append-only documents, CORRECTIONS.md and HISTORY.md, was read against the commit that wrote it.
+  198 were already correct.
+- **Repaired (CX-36W-A to CX-36W-C).** LEADERBOARD's run block said `--merge` writes `<layer_root>/_merged_/solutions.bin`
+  and cited two `--merge-layers` lines for it. `--merge` writes `solutions.bin` in the current directory, and the
+  block and a gate comment now say so (CX-36W-A). Three coordinates inside earlier CORRECTIONS entries are repaired
+  by a new appended entry, with no earlier line edited (CX-36W-B). A coordinate in TR-3's v1.13 revision row, moved
+  three times onto wrong lines, is pinned back to the tree the row was written against (CX-36W-C).
+- **Scope.** This is public citation repair T1, done under Q-576's method. Q-576's own population is the private
+  documents, and its proof is a private budget pin; this batch touches neither, so Q-576 proper stays OPEN.
+- No canonical sha, record count, certificate, figure or verdict changed. `TestBatchQ576` holds each repair and
+  fails on the parent tree.

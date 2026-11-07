@@ -419,8 +419,9 @@ fi
 # ---- G9: a published --branch recipe must carry a budget, and --validate a real path ----------
 # 🔴 LB-A6/LB-A7, 2026-09-07. LEADERBOARD published `./solve --branch 24 0 0` with no budget: run as
 # printed it prints "No time limit - running to completion" and does not return (measured -- killed
-# at 20 s). And `--validate solutions_merged.bin` named a file --merge has NEVER written; the merge
-# output is <layer_root>/_merged_/solutions.bin (solve.c:40528, :43702). A reader who pastes the
+# at 20 s). And `--validate solutions_merged.bin` named a file --merge has NEVER written; --merge
+# writes solutions.bin in the CURRENT directory (solve.c:40454-40456; --merge-layers is the mode that
+# writes <layer_root>/_merged_/solutions.bin; corrected 2026-11-06, CX-36W-A). A reader who pastes the
 # block gets a hang and then a missing file. exec_lane runs commands but checks neither, so this is
 # a static leg over the published text.
 G9=0

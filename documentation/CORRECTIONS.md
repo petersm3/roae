@@ -39117,3 +39117,68 @@ limit, and requires the note at both sites. It fails on the parent.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch Q1037b; the defect was found by Codex
 (gpt-6-astra), fix-verification round, F02-005#1 and the findings named above; triaged by Fable.
+
+## CX-36W-A — LEADERBOARD's run block said `--merge` writes `<layer_root>/_merged_/solutions.bin`
+
+**2026-11-06.** **Source.** Citation repair T1 (backlog Q-576): each `solve.c` line citation in the ten public
+documents with the most census-stale citations was opened and read against the line it names.
+
+**Before.** The "Running the solver" block in [LEADERBOARD.md](../enumeration/LEADERBOARD.md) read
+`./solve --merge  # Combine sub-branch results -> <layer_root>/_merged_/solutions.bin`, then
+`./solve --validate _merged_/solutions.bin`, and cited two lines for where the merge writes. Both cited lines
+belong to other modes: the first builds the `_merged_` directory of `--merge-layers`, the second is the
+double-regression test reading that directory. The same wording and citation were in a comment in
+`scripts/gate_published_consistency.sh` (leg G9).
+
+**After.** `--merge` merges the `sub_*.bin` shards in the current directory and writes `solutions.bin` and
+`solutions.sha256` there. The binary says so in its own refusal text for `--merge` with arguments, which is what
+both places now cite. The block now validates `solutions.bin` and names `--merge-layers ROOT` as the mode that
+writes `ROOT/_merged_/solutions.bin`. The point the block was making still stands: no mode writes
+`solutions_merged.bin`.
+
+**Scope.** Operator instructions only. No canonical sha, record count, certificate value or verdict changed.
+
+## CX-36W-B — three coordinates inside earlier entries of this file, repaired by appending
+
+**2026-11-06.** **Source.** Citation repair T1 (Q-576). This file is append-only, so the lines stay as they are
+and the repair is this entry. Each coordinate below was checked against `solve.c` at the commit named with it.
+
+- **CX-42, the `--verify` King Wen coordinates.** The 2026-09-12 entry above ("An append-only ledger was edited
+  in place") records that a +15 sweep changed this entry's coordinates in place, and it keeps the original
+  wording verbatim. It does not give the right lines for this entry. At the commit that made the shift,
+  `fail_kw` is set only under `--expect-kw` at `12bef2b7:solve.c:42171` and `total_fail` is summed at
+  `12bef2b7:solve.c:42184`. Neither shifted coordinate is either line. The original wording's
+  "summed at" coordinate was also off when it was written: at `b224b627:solve.c:37923` is the
+  `int total_fail` sum, and the line it named (three lines further on) is a comment. Its first coordinate,
+  `b224b627:solve.c:37910`, was right.
+- **CX-36, the sum-of-marginals statement.** The original coordinate was right when it was written
+  (`63385ba8:solve.c:39757`). By the 2026-09-12 sweep the statement had moved to `12bef2b7:solve.c:44211`,
+  as the entry above says. So the shifted coordinate was the error; the original had drifted.
+- **CX-85, the Q5 reason text.** It says `tr12_repro.sh`'s `TR12_Q5_REASON` text "now cites" a line that no
+  version of `tr12_repro.sh` has ever cited. At the commit that landed CX-85, the reason text cites
+  `6d0694c4:solve.c:37077`, which is the right line: `kc_extremal_main`'s refusal of an out-of-core f ladder.
+
+No finding, number, sha, record count or verdict in CX-36, CX-42 or CX-85 is affected.
+
+## CX-36W-C — a coordinate in TR-3's v1.13 revision row was moved three times, each time to a wrong line
+
+**2026-11-06.** **Source.** Citation repair T1 (Q-576). The v1.13 row of
+[TR-3](../reports/TR3_REPRODUCIBLE_ENUMERATION.md) (2026-09-07) cites where `total_fail` is summed. When it was
+written the coordinate was right (`0e8cacc3:solve.c:37923`). Three later edits moved it: to line 38105 and then to
+line 38152, both on 2026-09-11, then by the +15 sweep to line 38167 on 2026-09-12. None of the three is the
+`total_fail` line at the commit that made the move. The
+row now cites the original line, pinned to the tree the row was written against. This changes a pointer only.
+The row's wording and every published figure are unchanged.
+
+**Measured, CX-36W-A to CX-36W-C.** 36 census-stale `solve.c`/`solve.py` citations in the eight live documents
+of the ten were read against their lines. 33 were already correct. Some name a past tree in words the census does
+not read as a pin; others are flagged because the census mines one symbol list for a whole line, so a correct
+citation fails when its symbol sits on the next line or belongs to another citation on the same line (Q-579).
+3 were wrong and are repaired: the two on the LEADERBOARD line (CX-36W-A) and TR-3 v1.13 (CX-36W-C). The 170 in
+the two append-only documents, this file and HISTORY.md, were checked against the commit that wrote each one.
+165 were right at that commit or quote an older coordinate on purpose. The other 5 are the three items of
+CX-36W-B, which repairs them by appending.
+
+**Test.** `TestBatchQ576` (tests.py). Each test fails on the parent tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, backlog Q-576.
