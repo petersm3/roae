@@ -110,6 +110,11 @@ EXCLUDE = re.compile(r'(^|/)(CORRECTIONS|HISTORY)\.md$')
 # reported on stderr (the line changed, so its verdict must be re-read), never silently applied.
 # Values are (class, review) and the review is one token (no spaces, no tab): what was decided.
 REVIEWED = {
+    # Q1037b (2026-11-06, CX-36X-A, CX-36X-C): withdrawals that keep the original text beside the note.
+    ('reports/TR1_EIGHT_CENTURIES_MEASURED.md', 'ba2fbf00faab'):
+        ('2', 'reviewed:Q1037b-withdrawal-beside-the-original-text;without-it-the-withdrawn-lower-bound-reads-as-current'),
+    ('runs/20260422_passA_10T_d64_laggard/README.md', 'ddd43038ce0e'):
+        ('2', 'reviewed:Q1037b-withdrawal-beside-the-original-text;without-it-the-withdrawn-estimate-reads-as-current'),
     # Q1037 (2026-11-06, CX-36V-A..D): dated in-place corrections; each line states the corrected value.
     ('documentation/PARTITION_STABILITY_BOUNDARIES.md', 'b080bf30e732'):
         ('1', 'reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),

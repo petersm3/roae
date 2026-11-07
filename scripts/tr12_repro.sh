@@ -1283,7 +1283,7 @@ print("event_is_kw_level\t%s" % ("YES" if kw == 2 else "NO"))
 # family it belongs to, not against 0.05: TR-8 "Look-elsewhere context (F-32)" freezes that ledger at 91.
 # (This block sits inside a single-quoted shell string: no apostrophes here.)
 print("threshold_label\tKW-anchored: the event level 2 is the rc4_violations value of KW itself (tail at the observed value)")
-print("correction_family\t91 observables (TR-8 F-32; METHODS.md Global observable ledger); Bonferroni bar 0.05/91 = 5.5e-4, cleared by ~5x")
+print("correction_family\tfrozen 91-observable ledger (TR-8 F-32; METHODS.md Global observable ledger): Bonferroni bar 0.05/91 = 5.5e-4, cleared (5.2x below); registered family now >= 1,446 (reports/METHODS.md counting rule, LEDGER SCOPED 2026-10-16): bar 0.05/1446 = 3.5e-5, NOT cleared (3.0x above)")
 ' ) >>"$RAW" 2>&1; rc=$?
     row_end TR12_LS_W0 $rc
 elif [ -f "$REPO_ROOT/solve.py" ] && [ "$_PYS_LSW" = BROKEN ]; then row_broken a0_ls_w0 TR12_LS_W0 "import solve"; else   # Q-983

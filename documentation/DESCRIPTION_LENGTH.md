@@ -162,7 +162,7 @@ variant unchanged, so the envelope narrows from below only) — nearly all of it
 pairing (now known optimal), a marginal 4.5 bits (≈ break-even once its statement cost is charged) by the
 no-five rule, and essentially nothing by C5, whose statement costs 1.7–2.5× what it explains (net −6 to −14
 bits depending on the stated coding convention; measured 2026-07-03, bracket derived 2026-07-10): the
-transition histogram is confirmed description, not explanation. The rest of the sequence is explained
+transition histogram is confirmed description, not explanation *(qualified 2026-11-06, CX-36X-E: under the declared codes; an alternative code in TR-9 §Sections item 5(b) nets C5 slightly positive, so the verdict depends on the code. [CORRECTIONS.md](CORRECTIONS.md) CX-36X-E.)*. The rest of the sequence is explained
 by none of the C1–C7 layers** (known rules outside them, such as the gender row, are priced in the ledger but not conditioned on; "by nothing known today" until 2026-10-17, CX-35T-J; "are not in the ledger" until 2026-10-22).
 
 **This residual is quantified to ±0.02 bits, not a gap in the analysis** (the 105.4 endpoint rests on

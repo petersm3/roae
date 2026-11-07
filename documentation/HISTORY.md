@@ -636,7 +636,7 @@ Three distinct threads of work landed across ~6 hours.
 - 10T P1-parallel: 16,431,733 sols (Pass 1)
 - Yield ratio 3.35× for 10× budget → **α ≈ 0.52 (sub-linear)**
 
-Sub-linear means the branch is approaching exhaustion, not running away from it. Tree size estimate for yield-16 laggards drops from **10^16+** to **10^14–10^15**. Exhaustion feasible at **100T–1000T on Azure D64 spot ([cost redacted])**, not 10,000T on Mac Mini ([cost redacted] + 11 months). The MAC_MINI_10000T_FEASIBILITY.md premise is deprecated. Full correction in `roae-private/PASS1_FINDINGS.md` (private staging repo) Addendum B and `roae-private/DEPTH_PROFILE_CALIBRATION.md` (private staging repo).
+Sub-linear means the branch is approaching exhaustion, not running away from it. Tree size estimate for yield-16 laggards drops from **10^16+** to **10^14–10^15**. Exhaustion feasible at **100T–1000T on Azure D64 spot ([cost redacted])**, not 10,000T on Mac Mini ([cost redacted] + 11 months). The MAC_MINI_10000T_FEASIBILITY.md premise is deprecated. Full correction in `roae-private/PASS1_FINDINGS.md` (private staging repo) Addendum B and `roae-private/DEPTH_PROFILE_CALIBRATION.md` (private staging repo). ⚠ **[WITHDRAWN 2026-11-06 — "approaching exhaustion", the 10^14–10^15 estimate and "feasible at 100T–1000T" are withdrawn: two yield points do not bound the tree, and the branch stayed BUDGETED at 10T and 100T; see documentation/CORRECTIONS.md CX-36X-C]**
 
 **2. solve.c observability + durability additions** (commits `b9ff72d`, `e591e1c`, `e9c151d`, `f73c3ed`; selftest sha unchanged; zero impact on scientific output):
 
@@ -9098,7 +9098,7 @@ day's tip only until mid-afternoon and is not the day's closing state.
 infeasibility conclusion on it. The α-correction entry dated 2026-04-23 above withdrew exactly that:
 the 960-solution baseline came from a legacy single-threaded probe, the comparable P1-parallel 1T
 figure is 4,899,772, and the ratio is 3.35× for 10× budget — **sub-linear**, which means the branch
-is approaching exhaustion rather than escaping it. The entry dated 2026-05-15 above nevertheless
+is approaching exhaustion rather than escaping it. ⚠ **[WITHDRAWN 2026-11-06 — the inference from sub-linear growth to "approaching exhaustion" is withdrawn (CX-36X-C); the α correction itself stands]** The entry dated 2026-05-15 above nevertheless
 states "Super-linear growth (1,700× from 1T→10T) rules out exhaustion-via-budget for this class."
 **That sentence is superseded.** Nothing above is reworded — this file's convention is annotate,
 never rewrite — but a reader arriving at the later entry first would take the withdrawn figure as
@@ -9107,7 +9107,7 @@ current, which is how the same claim survived into a run README maintained as re
 
 **The α figure itself is off in its last digit.** The 2026-04-23 entry states α ≈ 0.52. Recomputed
 two ways, log₁₀(16,431,733 / 4,899,772) = 0.5255, which rounds to **0.53**. Both values are
-sub-linear and the conclusion drawn from it is unchanged; the digit is corrected here for the
+sub-linear and the conclusion drawn from it is unchanged; ⚠ **[WITHDRAWN 2026-11-06 — "the conclusion drawn from it is unchanged" is withdrawn, CX-36X-C]** the digit is corrected here for the
 record rather than left to be re-derived by the next reader.
 
 **A lower bound was described as falsified when it never was, and the error was ours in the
@@ -12178,3 +12178,26 @@ Q-686=DONE
   verdict, or needs a first-hand source check or a re-run that moves published outputs.
 - No canonical sha, record count, certificate or verdict changed. `TestBatchQ1037` holds each correction and fails on
   the parent tree.
+
+## 2026-11-06 — batch Q1037b: three withdrawals, three scopings and two TR-12/TR-8 fixes from Q-1037's held rows
+
+- **Withdrawn, with dated notes beside the original text (CX-36X-A to CX-36X-C).** Codex (gpt-6-astra) found them in
+  its fix-verification round; Fable's triage held them, Fable's pre-publication review recommended withdrawal, and
+  the operator approved on 2026-11-06. TR-1's "≥ ~14 bits after discounting" fails on its own caveat, which leaves
+  about 8.2 or 6.2 bits; the ≈17.1-bit undiscounted figure stands. TR-4's conclusion that the synergy caveat
+  "resolves in the anti-synergy direction" is withdrawn: the one same-boundary comparison (boundary 30, 7.21 then
+  8.64 bits) runs the other way. The passA run README's "approaching exhaustion", 10¹⁴–10¹⁵ and "feasible at
+  100T–1000T" are withdrawn; the branch was BUDGETED at 10T (16,431,733) and at 100T (664,086,250). The 2026-04-23
+  entry above states the same estimate, and its 2026-09-19 entry — the source of the run README's inverted conclusion —
+  asserts the "approaching exhaustion" reading as its corrected position; both now carry dated inline withdrawal
+  markers, nothing reworded, and this section records the withdrawal.
+- **Scoped, not withdrawn (CX-36X-D to CX-36X-F).** The eight forced rules: seven are asserted in the literature and
+  s1 is this project's; the count stays eight. TR-9's C5 verdict holds under the ledger's declared codes; an
+  alternative code in its own §Sections item 5(b) nets +0.1 or +0.4 bits. The f11 "<×1.01" figure compares Z variants
+  only; at λ = 2 one cell carries 85.5% of Z.
+- **TR-12 and TR-8 (CX-36X-G, CX-36X-H).** The battery's LS-w0 row now prints both Bonferroni readings (frozen 91:
+  cleared; registered family ≥ 1,446: not cleared); its n=9 golden block was regenerated and the gate re-stamped.
+  The "< 1.000e-07" cells of the TR-8 dof-sampler tables are zero-hit draws, bounded above at 3.0×10⁻⁷; that is a
+  note only, and the renderer change is held.
+- Eight other held rows of Q-1037 stay held. No canonical sha, record count or certificate changed. `TestBatchQ1037b`
+  holds each change and fails on the parent tree.

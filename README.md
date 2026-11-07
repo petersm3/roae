@@ -205,7 +205,7 @@ Headlines only — each links to its full treatment (technical reports in [repor
   comparison.) A 47-year-old proposal to replace the sequence is re-examined along the way: its premise is
   measured, and a *fully smooth* variant is proven impossible. The hybrid ordering its authors actually
   published is feasible, and nothing here refutes it. [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md), [TR-2](reports/TR2_THE_RULES_CONFLICT.md), [TR-8](reports/TR8_REORDERING_REVISITED.md)
-- **Eight rules asserted as design are proven forced.** Each is a theorem, machine-checked in Lean 4 modulo a transcription step (scope below)
+- **Eight rules asserted as design are proven forced.** *(qualified 2026-11-06, CX-36X-D: seven of the eight are asserted in the literature; s1 is this project's rule, an algebraic consequence of Schöter's definitions that his paper does not apply to the King Wen ordering. The count stays eight. [CORRECTIONS.md](documentation/CORRECTIONS.md) CX-36X-D.)* Each is a theorem, machine-checked in Lean 4 modulo a transcription step (scope below)
   ([lean/C1RuleConstants.lean](lean/C1RuleConstants.lean)): constant on the entire C1 space, so every valid
   ordering inherits King Wen's value — consequences of the constraint system, not choices. *(Scope: Lean
   proves constancy of the `countP` forms defined in that file; identifying them with the registry rules as
@@ -246,7 +246,7 @@ Headlines only — each links to its full treatment (technical reports in [repor
   *("Accounted for", not "explained": which layers are **granted** explanatory standing is a choice made
   below.)* The classical pairing carries
   nearly all the explanatory weight (and is provably optimal among comp/rev matchings); the transition histogram is confirmed
-  description, not explanation; **between about 105 and 139 bits** remain open — the exact figure
+  description, not explanation *(qualified 2026-11-06, CX-36X-E: under the declared codes; an alternative code in TR-9 §Sections item 5(b) nets C5 slightly positive, so the verdict depends on the code. [CORRECTIONS.md](documentation/CORRECTIONS.md) CX-36X-E.)*; **between about 105 and 139 bits** remain open — the exact figure
   depends on which layers are granted explanatory standing (105.4 bits = log₂|C1–C7|, the most conservative reading, resting on the C1–C7 estimate — ±0.022 bits at 95%;
   139.1 bits = log₂|C1∩C2∩C4|, the residual against the claimed-explanatory layers alone — a logarithm of an exact
   count; the intermediate C1–C5 reading ~126.6 rests on an estimate, ±0.00049 bits at 95%).

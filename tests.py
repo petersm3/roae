@@ -56017,6 +56017,35 @@ class TestBatchFV2H(unittest.TestCase):
             self.fail("git show %s:%s failed, so the red arm measured nothing: %s" % (self.BASE, rel, r.stderr[-300:]))
         return r.stdout
 
+    # HISTORY.md's convention is annotate-never-rewrite (its :9103; 20 inline precedents before BASE). Append-only
+    # therefore means: strip every dated inline withdrawal marker span that BASE does not already contain, and what
+    # remains must start with BASE byte-for-byte. Rewording, deleting or reordering base text fails; so does editing
+    # a marker BASE carries, or a span that is not exactly ` ⚠ **[WITHDRAWN YYYY-MM-DD — …]**`. Fable ruling 2026-11-07
+    # (roae-private reviews/review_2026_09_27/FABLE_Q1037B_HISTORY_RULE.md, option C). CORRECTIONS.md stays strict-prefix.
+    HISTORY_MARKER = re.compile(r" ⚠ \*\*\[WITHDRAWN \d{4}-\d{2}-\d{2} — [^\]\n]*\]\*\*")
+
+    @classmethod
+    def _history_append_only(cls, cur, base):
+        return cls.HISTORY_MARKER.sub(lambda m: "" if m.group(0) not in base else m.group(0), cur).startswith(base)
+
+    def test_fv2h_history_append_only_rule(self):
+        """Marker-stripping prefix rule: a marker-only insertion passes; any edit of base text fails."""
+        base = "a line\nx then y\nkept. ⚠ **[WITHDRAWN 2026-08-24 — old]** more\nlast\n"
+        mk = " ⚠ **[WITHDRAWN 2026-11-06 — new, CX-36X-C]**"
+        ok = self._history_append_only
+        self.assertTrue(ok(base, base))
+        self.assertTrue(ok(base.replace("a line\n", "a line" + mk + "\n") + "\n## appended\n", base))   # end of line + appended section
+        self.assertTrue(ok(base.replace("x then", "x" + mk + " then"), base))                            # mid-line
+        self.assertFalse(ok(base.replace("a line", "a  line"), base))                                    # reworded byte
+        self.assertFalse(ok(base.replace("last\n", ""), base))                                           # deleted line
+        self.assertFalse(ok(base.replace("x then y\nkept.", "kept.").replace("more\nlast", "more\nx then y\nlast"), base))  # reordered
+        self.assertFalse(ok(base.replace("2026-08-24 — old", "2026-08-24 — new"), base))                 # a marker BASE carries is edited
+        self.assertFalse(ok(base.replace("a line", "a line " + mk), base))                               # malformed span (two spaces) is not stripped
+        self.assertFalse(ok(base.replace("x then", "x ⚠ **[2026-11-06: note]** then"), base))             # non-canonical marker form is not stripped
+        h = self._read("documentation/HISTORY.md"); b = self._base("documentation/HISTORY.md")
+        self.assertFalse(h.startswith(b), "precondition: the tree carries inline markers BASE lacks")
+        self.assertTrue(ok(h, b)); self.assertTrue(ok(b, b))
+
     @staticmethod
     def _flat(t):
         return " ".join(t.split())
@@ -56168,7 +56197,7 @@ class TestBatchFV2H(unittest.TestCase):
         self.assertEqual(("%.2f" % lo, "%.2f" % hi), ("1.19", "1.33"))
         self.assertTrue(self._read("documentation/CORRECTIONS.md").startswith(self._base("documentation/CORRECTIONS.md")),
                         "CORRECTIONS.md is append-only")
-        self.assertTrue(h.startswith(self._base("documentation/HISTORY.md")), "HISTORY.md is append-only")
+        self.assertTrue(self._history_append_only(h, self._base("documentation/HISTORY.md")), "HISTORY.md is append-only")
 
         def chk(x):
             e = re.search(r"^## CX-36J-E — .*?(?=^## )", x + "\n## ", re.M | re.S)
@@ -56295,7 +56324,7 @@ class TestBatchFV2H(unittest.TestCase):
         self.assertIn("Codex V2-F06 #1", self._read("documentation/RETRACTED_PHRASES.tsv"), "precondition")
         self._discriminates(lambda x: self._needs(x, need=(
             "audit. The three-rung ladder validation stands.]** ⚠ *(Pointer corrected 2026-11-01, CX-36J-J:",
-            "| v1.47 *(current)* | 2026-11-01 |")) + ([] if len(re.findall(r"(?m)^\| v[\d.]+ \*\(current\)\* \|", x)) == 1 else ["current rows"]), rel)
+            "| v1.47 | 2026-11-01 |")) + ([] if len(re.findall(r"(?m)^\| v[\d.]+ \*\(current\)\* \|", x)) == 1 else ["current rows"]), rel)
 
 
 class TestBatchFV2E1(unittest.TestCase):
@@ -58030,7 +58059,7 @@ class TestBatchFV2A(unittest.TestCase):
                   "re-derives the M′, M₂ and M₄ terms", "3. **McKenna's 3:1 is forced by C4 + C5.**", "| v2.14 *(current)* |")
         self._has("reports/TR8_REORDERING_REVISITED.md", "theirs was, to our knowledge, the first proposal",
                   "drew one published reply that we have located", "went unmeasured against constraint-defined populations",
-                  "conditional on the frozen n = 91 ledger, and no other family is registered for it", "| v1.26 *(current)* |")
+                  "conditional on the frozen n = 91 ledger, and no other family is registered for it", "| v1.26 |")
 
     # ---- CX-36C-G ---------------------------------------------------------------------------------------------------
     def test_reports_tr9_tr11(self):
@@ -58041,7 +58070,7 @@ class TestBatchFV2A(unittest.TestCase):
                   "log₂(2·|C1∩C2∩C4|) = 140.1 bits", "fixed without reference to which member is the target",
                   "holds across the stated 10–15-bit bracket (net −1.5 to +3.5 bits)", "reproduces it to 0.011%",
                   "the escrow digest was published 2026-09-04, after the run", "no rule in this battery",
-                  "the control counts C4-opened orderings", "| v1.38 *(current)* |")
+                  "the control counts C4-opened orderings", "| v1.38 |")
         self._lacks(t9, "that tolerates ±5 bits either way", "it is the only cost figure in this ledger")
         t11 = "reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md"
         self.assertIn("    24: 7477248378538061907099648,", self._r("reports/evidence/f1/f3_rung_b0_cleanroom.py"),
@@ -62477,6 +62506,228 @@ class TestBatchQ1037(unittest.TestCase):
         for needle in (line, "Unique amino acids in King Wen order (Stop counted as a class): 21",
                        "(Stop is counted as a class here too: a Stop-to-Stop move counts as preserving it.)"):
             self.assertIn(needle, out.stdout)
+
+class TestBatchQ1037b(unittest.TestCase):
+    """Batch Q1037b (CX-36X-A..CX-36X-H): eight of Q-1037's held rows, applied as Fable's pre-publication review
+    recommended and the operator approved on 2026-11-06 (Codex, gpt-6-astra, fix-verification round; Fable's
+    slice triage). Three withdrawals (TR-1's "≥ ~14 bits", TR-4's conclusion (3), the passA run README's
+    feasibility estimate), three scopings (the eight literature rules, TR-9's C5 verdict, f11's "<×1.01"), the
+    TR-12 LS-w0 Bonferroni line with its golden, and a note on TR-8's zero-hit cells. Each test re-derives the
+    value from the tree's own data or code, then requires the dated note; the original text stays beside it.
+    Every test fails on the parent tree (2ecc3062, tree 4cb6d6f0). Developed with AI assistance (Claude,
+    Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    # ---- CX-36X-A (D671) ----
+    def test_cx36x_a_tr1_discount(self):
+        import math
+        full = math.log2(1720320 / 12)
+        w32, w64 = math.log2(math.comb(32, 2)), math.log2(math.comb(64, 2))
+        self.assertEqual(("%.2f" % full, "%.2f" % w32, "%.2f" % w64), ("17.13", "8.95", "10.98"))
+        self.assertEqual(("%.1f" % (full - w32), "%.1f" % (full - w64)), ("8.2", "6.2"))
+        self.assertLess(full - w32, 14, "the MDL-consistent residual is below the published lower bound")
+        t = self._r("reports/TR1_EIGHT_CENTURIES_MEASURED.md")
+        self.assertIn("exactly 12 vectors reach 29", t, "precondition: the page's own count of 12")
+        self.assertIn("(≥ ~14 after discounting the rule's ~2–3 fitted degrees", t, "the original text is kept")
+        self.assertIn("⚠ *(Withdrawn 2026-11-06, CX-36X-A: the lower bound", t)
+        self.assertIn("leaves about 8.2 bits (17.13 − 8.95, endpoints among the 32 pair slots) or 6.2 bits "
+                      "(17.13 − 10.98, among the 64 positions)", t)
+        self.assertIn("| v1.45 *(current)* | 2026-11-06 |", t, "TR-1 revision row")
+
+    # ---- CX-36X-B (D745) ----
+    def test_cx36x_b_tr4_synergy(self):
+        import math
+        out = self._r("reports/evidence/sk/sk5_7_rounds.out")
+        c30 = re.search(r"cand 30: est=([0-9.e+]+)", out)
+        s5 = re.search(r"round 5 S\(5 \) VALUE est=([0-9.e+]+)", out)
+        s6 = re.search(r"S\(6\)=([0-9.e+]+) PICK=30", out)
+        self.assertTrue(c30 and s5 and s6, "precondition: the three estimates are in the archived rounds")
+        t = self._r("reports/TR4_SIZE_OF_THE_SPACE.md")
+        self.assertIn("N(4) = S(4)·1.3287×10³⁸ = 8.4240×10²⁵", t, "precondition: the page's N(4)")
+        g5 = math.log2(8.4240e25 / float(c30.group(1)))
+        g6 = math.log2(float(s5.group(1)) / float(s6.group(1)))
+        self.assertEqual(("%.2f" % g5, "%.2f" % g6), ("7.21", "8.64"))
+        self.assertGreater(g6, g5, "the same boundary gains more after conditioning")
+        self.assertIn("v1.7 resolves in the anti-synergy direction", t, "the original text is kept")
+        self.assertIn("⚠ *(Conclusion (3) withdrawn 2026-11-06, CX-36X-B:", t)
+        self.assertIn("boundary 30 would gain 7.21 bits after the first four boundaries", t)
+        self.assertIn("gains 8.64 bits once boundary 2 has joined", t)
+        self.assertIn("| v1.48 *(current)* | 2026-11-06 |", t, "TR-4 revision row")
+
+    # ---- CX-36X-C (D908) ----
+    def test_cx36x_c_passa_feasibility(self):
+        import json
+        d = "runs/20260422_passA_10T_d64_laggard"
+        got = {}
+        for b in ("22_0_30_1_20_0", "22_1_30_1_20_0"):
+            m = json.loads(self._r("%s/%s/sub_%s.meta.json" % (d, b, b)))
+            got[b] = (m["status"], m["solutions_canonical"], m["budget_nodes"])
+        self.assertEqual(got, {"22_0_30_1_20_0": ("BUDGETED", 16431733, 10 ** 13),
+                               "22_1_30_1_20_0": ("BUDGETED", 16433267, 10 ** 13)})
+        h = self._r("documentation/HISTORY.md")
+        self.assertIn("- 1T P1-parallel: 4,899,772 sols", h, "precondition: the 1T count")
+        self.assertIn("(20 GB), 664,086,250 unique canonical orderings", h, "precondition: the 100T count")
+        self.assertIn("**Pilot completed 2026-04-29 04:46 UTC** with the BUDGETED status", h)
+        self.assertEqual(h.count("⚠ **[WITHDRAWN 2026-11-06 — \"approaching exhaustion\""), 1)
+        self.assertIn('⚠ **[WITHDRAWN 2026-11-06 — "the conclusion drawn from it is unchanged" is withdrawn, CX-36X-C]**', h)
+        t = self._r(d + "/README.md")
+        self.assertIn("10¹⁶⁺ to **10¹⁴–10¹⁵**, and exhaustion becomes feasible", t, "the original text is kept")
+        self.assertIn("⚠ *(Withdrawn 2026-11-06, CX-36X-C:", t)
+        self.assertIn("What was measured on `22_0_30_1_20_0`: 4,899,772 canonical solutions at 1T and 16,431,733 "
+                      "at 10T, BUDGETED", t)
+        self.assertIn("664,086,250 at 100T, still BUDGETED", t)
+
+    # ---- CX-36X-D (D676) ----
+    def test_cx36x_d_s1_attribution(self):
+        c = self._r("solve.c")
+        s1 = [l for l in c.split("\n") if "/* 23: s1 " in l]
+        self.assertEqual(len(s1), 1, "precondition: one registry comment for s1")
+        self.assertIn("the rule is ours, the algebra is not", s1[0])
+        self.assertIn("does not address the King Wen ordering", self._r("documentation/CITATIONS.md"))
+        self.assertIn("ATTRIBUTION: Schoter 1998", self._r("solve.py"))
+        note = ("*(qualified 2026-11-06, CX-36X-D: seven of the eight are asserted in the literature; s1 is this "
+                "project's rule, an algebraic consequence of Schöter's definitions that his paper does not apply to "
+                "the King Wen ordering. The count stays eight.")
+        sites = {"reports/TR1_EIGHT_CENTURIES_MEASURED.md": 3, "README.md": 1,
+                 "documentation/LITERATURE_RULES_POPULATION_TESTS.md": 1, "documentation/SOLVE_SUMMARY.md": 1,
+                 "documentation/CLAIMS_DECIDED.md": 1, "lean/README.md": 1}
+        for rel, n in sites.items():
+            self.assertEqual(self._r(rel).count(note), n, rel)
+        t = self._r("reports/TR1_EIGHT_CENTURIES_MEASURED.md")
+        self.assertIn("**proven forced** (eight literature rules", t, "the count stays eight")
+
+    # ---- CX-36X-E (D815) ----
+    def test_cx36x_e_tr9_c5_code(self):
+        import math, heapq
+        ds = (1, 2, 3, 4, 6)
+        p = [math.comb(6, d) / 57 for d in ds]
+        self.assertEqual(sum(math.comb(6, d) for d in ds), 57)
+
+        def lp(h):
+            m = math.lgamma(32) - sum(math.lgamma(n + 1) for n in h)
+            return m + sum(n * math.log(q) for n, q in zip(h, p))
+        comps = [c + (31 - sum(c),) for c in itertools.product(range(32), repeat=4) if sum(c) <= 31]
+        self.assertEqual(len(comps), 52360)
+        kw = (2, 8, 13, 7, 1)
+        self.assertEqual("%.2f" % (-lp(kw) / math.log(2)), "9.33")
+        # Huffman codeword length of KW's histogram: parent pointers, then depth
+        pr = [math.exp(lp(c)) for c in comps]
+        heap = [(v, i) for i, v in enumerate(pr)]
+        heapq.heapify(heap)
+        parent, nxt = {}, len(pr)
+        while len(heap) > 1:
+            a, b = heapq.heappop(heap), heapq.heappop(heap)
+            parent[a[1]] = parent[b[1]] = nxt
+            heapq.heappush(heap, (a[0] + b[0], nxt))
+            nxt += 1
+        i, depth = comps.index(kw), 0
+        while i in parent:
+            i, depth = parent[i], depth + 1
+        self.assertEqual(depth, 9)
+        comp = math.log2(690.0850)
+        self.assertEqual("%.2f" % comp, "9.43")
+        self.assertEqual(("%.1f" % (comp + lp(kw) / math.log(2)), "%.1f" % (comp - 9)), ("0.1", "0.4"))
+        t = self._r("reports/TR9_PRICING_THE_CONSTRAINTS.md")
+        self.assertIn("C1∩C2∩C4 = ×690.0850… (9.4306 bits)", t, "precondition: the compression figure")
+        self.assertIn("is **description, not explanation** *(qualified 2026-11-06, CX-36X-E: under the ledger's "
+                      "declared codes.", t)
+        self.assertEqual(t.count("*(qualified 2026-11-06, CX-36X-E: under the declared codes; an alternative code in "
+                                 "TR-9 §Sections item 5(b) nets C5 slightly positive"), 2)
+        self.assertIn("*(qualified 2026-11-06, CX-36X-E: there are two language-dependent cells, not one:", t)
+        self.assertIn("the single genuinely\n   language-dependent cell", t, "the original text is kept")
+        for rel in ("README.md", "documentation/DESCRIPTION_LENGTH.md"):
+            self.assertIn("confirmed description, not explanation *(qualified 2026-11-06, CX-36X-E:"
+                          if rel.startswith("doc") else "description, not explanation *(qualified 2026-11-06, CX-36X-E:",
+                          self._r(rel), rel)
+        self.assertIn("| v1.39 *(current)* | 2026-11-06 |", t, "TR-9 revision row")
+
+    # ---- CX-36X-F (D844) ----
+    def test_cx36x_f_f11_z_cells(self):
+        import math
+        d = os.path.join(self.ROOT, "reports/evidence/f11")
+        spec = importlib.util.spec_from_file_location("f11_bf_q1037b", os.path.join(d, "compute_f11_bf.py"))
+        m = importlib.util.module_from_spec(spec)
+        cwd, argv = os.getcwd(), sys.argv
+        try:
+            os.chdir(d)
+            sys.argv = ["compute_f11_bf.py"]
+            spec.loader.exec_module(m)
+        finally:
+            os.chdir(cwd)
+            sys.argv = argv
+        cells = m.z_cells("aug", m.N_GS_C)
+        w = {c: n * math.exp(-2.0 * sum(c)) for c, n in cells.items()}
+        z = sum(w.values())
+        self.assertEqual("%.1f" % (100 * w[(1, 1, 0)] / z), "85.5")
+        self.assertEqual("%.1f" % (100 * sum(v for c, v in w.items() if sum(c) <= 4) / z), "97.6")
+        c2 = dict(cells)
+        c2[(1, 1, 0)] *= 2
+        mv0, mv1 = m.mass_by_V(cells), m.mass_by_V(c2)
+        self.assertEqual(("%.2f" % (m.Z(2.0, mv1) / m.Z(2.0, mv0)), "%.2f" % (m.L_tend(2.0, mv1) / m.L_tend(2.0, mv0))),
+                         ("1.85", "0.54"))
+        marg = lambda mv: sum(m.L_tend(l, mv) for l in m.LAM_GRID)
+        self.assertEqual("%.2f" % (marg(mv0) / marg(mv1)), "1.16")
+        mt = {}
+        for zv in ("hist", "aug", "bridge"):
+            lt, _ = m.tend_table(zv, m.N_GS_C)
+            mt[zv] = sum(lt.values())
+        self.assertLess(max(mt.values()) / min(mt.values()), 1.01, "the <×1.01 Z-variant comparison itself holds")
+        self.assertEqual("%.3f" % (max(mt.values()) / min(mt.values())), "1.002")
+        t = self._r("reports/evidence/f11/RESULTS.md")
+        self.assertIn("4. **Z variant (hist / aug / bridge)**: <×1.01 — Z is dominated by the mid-V bulk", t,
+                      "the original text is kept")
+        self.assertIn("⚠ *(qualified 2026-11-06, CX-36X-F: \"<×1.01\" compares the three Z variants only", t)
+        self.assertIn("the single cell (1,1,0) carries 85.5%", t)
+
+    # ---- CX-36X-G (D1270) ----
+    def test_cx36x_g_tr12_bonferroni(self):
+        import fractions
+        self.assertEqual(91 + 4 + 2 + 1349, 1446)
+        p = float(fractions.Fraction(47, 445740))
+        self.assertEqual("%.6e" % p, "1.054426e-04")
+        self.assertEqual(("%.1e" % (0.05 / 91), "%.1f" % (0.05 / 91 / p)), ("5.5e-04", "5.2"))
+        self.assertEqual(("%.1e" % (0.05 / 1446), "%.1f" % (p / (0.05 / 1446))), ("3.5e-05", "3.0"))
+        self.assertIn("That is at least 1,446 on the published convention", self._r("reports/METHODS.md"))
+        line = ("correction_family\tfrozen 91-observable ledger (TR-8 F-32; METHODS.md Global observable ledger): "
+                "Bonferroni bar 0.05/91 = 5.5e-4, cleared (5.2x below); registered family now >= 1,446 "
+                "(reports/METHODS.md counting rule, LEDGER SCOPED 2026-10-16): bar 0.05/1446 = 3.5e-5, NOT cleared "
+                "(3.0x above)")
+        sh = self._r("scripts/tr12_repro.sh")
+        self.assertIn('print("%s")' % line.replace("\t", "\\t"), sh)
+        self.assertNotIn("cleared by ~5x", sh)
+        g = self._r("scripts/tr12_expected/n9/a0_ls_w0.txt")
+        self.assertEqual(g.split("\n")[8], line)
+        with open(os.path.join(self.ROOT, "scripts/tr12_expected/n9/a0_ls_w0.txt"), "rb") as fh:
+            h = hashlib.sha256(fh.read()).hexdigest()
+        self.assertIn("  %s  a0_ls_w0.txt" % h, self._r("scripts/tr12_expected/n9/_MANIFEST.txt"))
+        self.assertIn("\na0_ls_w0        %s\n" % h, self._r("scripts/tr12_n31_golden_gate.sh"))
+
+    # ---- CX-36X-H (D1477) ----
+    def test_cx36x_h_zero_hit_cells(self):
+        import json
+        d = "runs/20261003_tr8_dof_sampler_35782834"
+        for pool in ("A", "B"):
+            s = json.loads(self._r("%s/pool%s/results.json" % (d, pool)))["statistics"]
+            self.assertEqual(s["n_pool"], 10 ** 7)
+            k = s["by_k"]["24"]
+            self.assertEqual((k["median"], k["median_ci"]), (0.0, [0.0, 0.0]), "pool %s K=24 cells are zero-hit" % pool)
+            self.assertIn("| 24 | 1.0000 | [0.9963, 1.0000] | < 1.000e-07 (CENSORED) | [< 1.000e-07, < 1.000e-07] |",
+                          self._r("%s/pool%s/RESULTS.md" % (d, pool)), "precondition: the shipped cell")
+        self.assertEqual("%.1e" % (1 - 0.05 ** (1 / 10 ** 7)), "3.0e-07")
+        note = ("*(2026-11-06, CX-36X-H: every \"< 1.000e-07\" cell in the shipped pool A and pool B RESULTS.md "
+                "tables, the K = 24 medians and both ends of their intervals, is a predicate with zero hits in 10⁷ "
+                "draws. Zero hits bound a rarity from above, not from below: the one-sided 95% Clopper–Pearson upper "
+                "limit is 3.0×10⁻⁷, about 3/N_pool.")
+        for rel in ("reports/TR8_REORDERING_REVISITED.md", d + "/README.md"):
+            self.assertEqual(self._r(rel).count(note), 1, rel)
+        self.assertIn("| v1.27 *(current)* | 2026-11-06 |", self._r("reports/TR8_REORDERING_REVISITED.md"),
+                      "TR-8 revision row")
+
 
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).

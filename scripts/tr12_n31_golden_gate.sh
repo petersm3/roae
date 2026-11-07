@@ -130,13 +130,16 @@ Q8_BUCKETS='71,55,64,59,75,58,53,74,51,49,64,60,58,81,60,68'
 # f_layer_masses at n=9 and n=13, per_state); no gate verdict and no pre-existing value changed, and
 # the new value is from a fresh `tr12_repro.sh --n9 --regen` of this tree (only a0_xa_iii moved). An
 # n=31 set minted before this reads [WRONG] on a0_xa_iii until that one row is re-minted (Q-947 shape).
+# RE-PINNED 2026-11-06 (Q1037b, CX-36X-G; Codex F02-001#1, F07-004#1): a0_ls_w0 bf1593a8 -> 1640a9af. The row's
+# correction_family line now prints both Bonferroni readings (frozen 91: cleared; registered family >= 1,446:
+# not cleared); the new value is from a fresh `tr12_repro.sh --n9 --regen` of this tree (only a0_ls_w0 moved).
 TIER1_ROWS='
 a0_build        bfc2153cb595d9700c3614355ed1b4c37502cde0c0f1594cfc0157051edbbd1b
 a0_gates        897a2d168f60890a29f0d4c242a06e96398bac7a3de82a1c7807617c30ccd496
 a0_xa_iii       ac6218c9055c18e5a649ee61545b6468275bb6b13a80ea5fae0a54688215ee89
 a0_q7_kw        baecd37f936b5fdb891f1b90a595270e8fe49eb854241195dd5c172d52da0aaf
 a0_q7_hist      6076b14937dba09eb07dcc75518a4724a335d457f28f6f90aa2e4d68f02ad213
-a0_ls_w0        bf1593a820d9e2da157d3da538523dead0b177dce8d87231e6d09a0dc959b810
+a0_ls_w0        1640a9af3f7982879fde9169755e7fa04d4a0b37ea495a3792cc4653564d4844
 a0_ls_w0_mc     00dcd5eebc9237d6722d35f3f5e15e9fb3cedf8ce1d4ce4874ef8ee77859354e
 a0_q4b          fd501f7b497b4582f427657281356d822dd9e6384c1260f71f3f05decaf66312
 a1_q8_midn13    565d5c4ffc39bcba232135b29536da5f82f53db3b8dcf1041f7acd559ac22a49

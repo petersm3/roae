@@ -31,7 +31,7 @@
 > cited**: the **Answer** line above ("super-linear growth persists … Exhaustion-via-budget is
 > infeasible for this class"); the "**~1,700× super-linear**" growth figure; the Pass-2/Pass-3
 > yield projections in *Implication for single-branch exhaustion*; and "Pass 2 … is **NOT
-> recommended**" under *Next steps*.
+> recommended**" under *Next steps*. ⚠ *(Withdrawn 2026-11-06, CX-36X-C: so is the inverted conclusion in the paragraph above. Two yield points one decade apart (α ≈ 0.53) say nothing about how large the rest of the tree is, so "approaching exhaustion", the 10¹⁴–10¹⁵ tree-size estimate and "exhaustion becomes feasible at 100T–1000T" are withdrawn, and no estimate replaces them. What was measured on `22_0_30_1_20_0`: 4,899,772 canonical solutions at 1T and 16,431,733 at 10T, BUDGETED (`sub_22_0_30_1_20_0.meta.json` here; the other branch is also BUDGETED at 10T), and 664,086,250 at 100T, still BUDGETED (`documentation/HISTORY.md`, 2026-04-29 pilot). No budget tried on this branch has exhausted it. Codex F12-020#6, F07-010#1; [CORRECTIONS.md](../../documentation/CORRECTIONS.md) CX-36X-C.)*
 >
 > **"A very tight lower bound" is also wrong — but not in the direction of a withdrawal.** The
 > 16.4M figure remains a **valid** lower bound; a lower bound is not falsified by the truth turning

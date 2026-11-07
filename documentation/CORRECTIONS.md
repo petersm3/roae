@@ -38930,3 +38930,190 @@ in the codon table); it fails on the parent.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch Q1037; the defects were found by Codex
 (gpt-6-astra), fix-verification round, F12-021#2, F12-021#1 and F12-021#7.
+
+## CX-36X-A — TR-1: the "≥ ~14 bits after discounting" lower bound is withdrawn (reports/TR1_EIGHT_CENTURIES_MEASURED.md; tests.py)
+
+**2026-11-06.** **Source.** Codex (gpt-6-astra), fix-verification round, F11-006#2, F03-H02#10, F08-007#21,
+F03-H05#22 and F03-004#6; Fable's slice triage (row D671, held as a published figure) and Fable's pre-publication
+recommendation (withdraw with a dated note); approved by the operator 2026-11-06; batch Q1037b.
+
+§7 said King Wen's place at the top of its 1,720,320-vector fiber "carries ≈17.1 bits of atypicality (≥ ~14 after
+discounting the rule's ~2–3 fitted degrees of freedom)". The caveat beside it, added 2026-08-01, prices the rule's
+fitted window: naming its two endpoints costs log₂ C(32,2) = 8.95 bits among the 32 pair slots or log₂ C(64,2) =
+10.98 bits among the 64 positions. With log₂(1,720,320 / 12) = 17.13 bits, that leaves about 8.2 or 6.2 bits, so
+~14 is not a lower bound. The lower bound is withdrawn by a dated note beside the original text. The ≈17.1-bit
+undiscounted figure is the exactly enumerated one and stands; the discounted residual depends on the code chosen
+for the window and is not a lower bound.
+
+No sha, record count or verdict changes. TR-1 attaches no p-grading to this placement, and that is unchanged. TR-1 revision row v1.45 added.
+
+**Tests.** `TestBatchQ1037b.test_cx36x_a_tr1_discount` recomputes the two residuals and requires the dated note.
+It fails on the parent.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch Q1037b; the defect was found by Codex
+(gpt-6-astra), fix-verification round, F11-006#2 and the findings named above; triaged by Fable.
+
+## CX-36X-B — TR-4: conclusion (3), "the synergy caveat resolves in the anti-synergy direction", is withdrawn (reports/TR4_SIZE_OF_THE_SPACE.md; tests.py)
+
+**2026-11-06.** **Source.** Codex (gpt-6-astra), fix-verification round, F07-002#2; Fable's slice triage (row
+D745, held as a stated conclusion) and pre-publication recommendation (withdraw with a dated note); approved by
+the operator 2026-11-06; batch Q1037b.
+
+§Update v1.7 concluded "(3) the synergy caveat of v1.7 resolves in the anti-synergy direction — later boundaries
+overlap more with what earlier ones already say", from per-boundary gains that decline as the greedy chain grows.
+Those gains belong to different boundaries, so they do not show which way boundaries interact. The archived rounds
+(`reports/evidence/sk/sk5_7_rounds.out`) hold one comparison of the same boundary at two points of the chain, and
+it runs the other way. Boundary 30 would leave 5.678082×10²³ orderings after the first four boundaries, a gain of
+7.21 bits against N(4) = 8.4240×10²⁵ (round 5 selection sweep). After boundary 2 joins, it leaves 1.879066×10²⁰
+against N(5) = 7.519490×10²², a gain of 8.64 bits (round 6). Both are estimates without error bars, so neither
+direction is established. Conclusion (3) is withdrawn by a dated note beside it, and the synergy caveat of v1.7
+stays open.
+
+No gain, survivor count, projection or verdict changes. TR-4 revision row v1.48 added.
+
+**Tests.** `TestBatchQ1037b.test_cx36x_b_tr4_synergy` reads the three estimates from the archived file, recomputes
+both gains, and requires the dated note. It fails on the parent.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch Q1037b; the defect was found by Codex
+(gpt-6-astra), fix-verification round, F07-002#2; triaged by Fable.
+
+## CX-36X-C — passA run README: the tree-size estimate and the 100T–1000T feasibility statement are withdrawn (runs/20260422_passA_10T_d64_laggard/README.md; tests.py)
+
+**2026-11-06.** **Source.** Codex (gpt-6-astra), fix-verification round, F12-020#6 and F07-010#1; Fable's slice
+triage (row D908, held as a stated estimate) and pre-publication recommendation (withdraw with a dated note, and
+give the measured counts); approved by the operator 2026-11-06; batch Q1037b.
+
+The 2026-09-19 correction on this run record turned the 1T → 10T yield ratio (α ≈ 0.53) into the conclusion that
+the branch is "approaching exhaustion", with a tree-size estimate of 10¹⁴–10¹⁵ and exhaustion "feasible at
+100T–1000T". Two yield points one decade apart do not bound how large the rest of the tree is, so those three
+statements are withdrawn by a dated note, and no estimate replaces them. What was measured on `22_0_30_1_20_0`:
+4,899,772 canonical solutions at 1T (`documentation/HISTORY.md`, 2026-04-23) and 16,431,733 at 10T, with status
+BUDGETED (`sub_22_0_30_1_20_0.meta.json` in the run directory; the second branch is also BUDGETED at 10T), and
+664,086,250 at 100T, still BUDGETED (`documentation/HISTORY.md`, 2026-04-29 pilot). No budget tried on this branch
+has exhausted it. HISTORY.md's 2026-04-23 entry states the same estimate, and its 2026-09-19 entry — the source of
+the run README's inverted conclusion — asserts the "approaching exhaustion" reading as its corrected position; both
+now carry dated inline withdrawal markers, nothing reworded, and the new HISTORY section records the withdrawal.
+
+No sha, record count or measured value changes.
+
+**Tests.** `TestBatchQ1037b.test_cx36x_c_passa_feasibility` reads both branches' archived meta files, requires
+BUDGETED and the 10T counts, and requires the dated note. It fails on the parent.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch Q1037b; the defect was found by Codex
+(gpt-6-astra), fix-verification round, F12-020#6 and F07-010#1; triaged by Fable.
+
+## CX-36X-D — "eight literature rules": seven are asserted in the literature and s1 is this project's (reports/TR1_EIGHT_CENTURIES_MEASURED.md; README.md; documentation/LITERATURE_RULES_POPULATION_TESTS.md; documentation/SOLVE_SUMMARY.md; documentation/CLAIMS_DECIDED.md; lean/README.md; tests.py)
+
+**2026-11-06.** **Source.** Codex (gpt-6-astra), fix-verification round, F03-003#2 and F11-006#4; Fable's slice
+triage (row D676, held because it changes the description of a headline count) and pre-publication recommendation
+(apply as a dated qualification); approved by the operator 2026-11-06; batch Q1037b.
+
+TR-1 and the pages that repeat it call the eight forced registry rules (mmt4, p1c4, s1, s6, r3, r4, r5, c2)
+"literature rules ... asserted in the literature as design features". One of them is not. The registry comment on
+s1 in `solve.c` says "the rule is ours, the algebra is not", and CITATIONS.md says Schöter 1998, whose definitions
+`solve.py`'s `reg_s1` cites, "does not address the King Wen ordering". Each site now carries a dated note: seven of
+the eight are asserted in the literature, and s1 is this project's rule, an algebraic consequence of Schöter's
+definitions that his paper does not apply to the ordering. The count stays eight, and every one of the eight is
+still a theorem. The sites are TR-1's executive summary, abstract and §3(2), the README's findings list,
+LITERATURE_RULES_POPULATION_TESTS.md item 2, SOLVE_SUMMARY.md, CLAIMS_DECIDED.md and lean/README.md.
+
+No count, theorem, sha or verdict changes. TR-1 revision row v1.45 added.
+
+**Tests.** `TestBatchQ1037b.test_cx36x_d_s1_attribution` checks the `solve.c` comment and the CITATIONS.md entry,
+then requires the note at every site. It fails on the parent.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch Q1037b; the defect was found by Codex
+(gpt-6-astra), fix-verification round, F03-003#2 and F11-006#4; triaged by Fable.
+
+## CX-36X-E — TR-9: the C5 verdict holds under the ledger's declared codes (reports/TR9_PRICING_THE_CONSTRAINTS.md; README.md; documentation/DESCRIPTION_LENGTH.md; tests.py)
+
+**2026-11-06.** **Source.** Codex (gpt-6-astra), fix-verification round, F11-016#4, F11-016#8 and F08-016#17;
+Fable's slice triage (row D815, held because it qualifies a report verdict) and pre-publication recommendation
+(apply as a dated qualification); approved by the operator 2026-11-06; batch Q1037b.
+
+TR-9's executive summary and abstract say the transition-count rule C5 "costs more to state than it saves" and is
+"description, not explanation" (net −6.3 to −13.9 bits). TR-9 §Sections item 5(b) already shows a code that does
+not look at King Wen and prices it lower: a multinomial code with p(d) = C(6,d)/57 on the five allowed distances
+gives King Wen's boundary histogram (2, 8, 13, 7, 1) an ideal length of 9.33 bits, and a Huffman code on the same
+distribution gives it a 9-bit codeword (Kraft sum 1). Against 9.43 bits of compression that nets +0.1 or +0.4 bits.
+So the verdict depends on the code. The summary statements, §3's verdict, the README and DESCRIPTION_LENGTH.md now
+say "under the ledger's declared codes" in a dated note. Item 5(g) called the Schulz rule-text estimate "the single
+genuinely language-dependent cell"; a dated note there names C5's statement cost as the second.
+
+No measured count, compression or net figure changes; the verdict is scoped, not withdrawn. TR-9 revision row v1.39 added.
+
+**Tests.** `TestBatchQ1037b.test_cx36x_e_tr9_c5_code` rebuilds the multinomial code over all 52,360 compositions,
+checks 9.33 bits and the 9-bit Huffman codeword, and requires the notes. It fails on the parent.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch Q1037b; the defect was found by Codex
+(gpt-6-astra), fix-verification round, F11-016#4, F11-016#8 and F08-016#17; triaged by Fable.
+
+## CX-36X-F — f11 RESULTS.md: the "<×1.01" Z-variant figure does not show that Z is precise (reports/evidence/f11/RESULTS.md; tests.py)
+
+**2026-11-06.** **Source.** Codex (gpt-6-astra), fix-verification round, F02-012#1; Fable's slice triage (row D844,
+held because it bears on a Bayes factor's sensitivity) and pre-publication recommendation (apply as a dated
+qualification); approved by the operator 2026-11-06; batch Q1037b.
+
+§6 item 4 said the Z variants differ by "<×1.01" because Z "is dominated by the mid-V bulk at the λ values where
+M_tend is competitive (λ ≈ 0.5–2), which RUN A pins to 0.03% relative error", and that the sparse low-V cells
+"affect only the λ ≥ 5 gridpoints". From `compute_f11_bf.py`'s own cells, at λ = 2 under the aug normalisation the
+cells with total V ≤ 4 carry 97.6% of Z, and the single cell (1,1,0) carries 85.5%. Doubling that cell's weight
+scales Z(2) by 1.85, L_tend(2) by 0.54 and the marginal BF by ×1.16. RUN A's 0.03% is the precision of the total
+population, not of those rare cells, and their uncertainty is not propagated. "<×1.01" is true as a comparison of
+the three Z variants (the marginal BF moves by ×1.002 between them), and the dated note now says that is all it
+shows.
+
+No likelihood or Bayes factor changes. The f11 Bayes factor is already withdrawn as a claimed result (CX-25,
+CX-26), so this note scopes the sensitivity of a figure that is no longer claimed.
+
+**Tests.** `TestBatchQ1037b.test_cx36x_f_f11_z_cells` recomputes the cell shares and the doubling factors from the
+script's functions, and requires the note. It fails on the parent.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch Q1037b; the defect was found by Codex
+(gpt-6-astra), fix-verification round, F02-012#1; triaged by Fable.
+
+## CX-36X-G — TR-12 battery: the LS-w0 row prints both Bonferroni readings (scripts/tr12_repro.sh; scripts/tr12_expected/n9/; scripts/tr12_n31_golden_gate.sh; tests.py)
+
+**2026-11-06.** **Source.** Codex (gpt-6-astra), fix-verification round, F02-001#1 and F07-004#1; Fable's slice
+triage (row D1270, held because it changes a golden block) and pre-publication recommendation (apply); approved by
+the operator 2026-11-06; batch Q1037b.
+
+The a0_ls_w0 row printed "Bonferroni bar 0.05/91 = 5.5e-4, cleared by ~5x" for TR-8's exact pair-only rarity
+1.054426×10⁻⁴. METHODS.md's LEDGER SCOPED note (2026-10-16, CX-379) records that under its own counting rule the
+registered family is now at least 1,446 (91 + 4 + 2 + 1,349), so the bar is at most 0.05/1,446 = 3.46×10⁻⁵, which
+the rarity does not clear. The row now prints both readings: the frozen 91-observable ledger, bar 5.5×10⁻⁴,
+cleared (5.2× below); and the registered family of at least 1,446, bar 3.5×10⁻⁵, not cleared (3.0× above). The n=9
+golden block `a0_ls_w0.txt` and its manifest line were regenerated with `tr12_repro.sh --n9 --regen`, which changed
+no other block, and the battery's gate stamp was renewed. The n=31 golden gate pins that block's
+sha in its Tier 1 table; the pin was moved to the new value, with a dated comment.
+
+The exact rarity and every other battery value are unchanged. This is the stale sibling of METHODS.md's scoping;
+the verdict it prints now matches METHODS.md.
+
+**Tests.** `TestBatchQ1037b.test_cx36x_g_tr12_bonferroni` recomputes both bars, requires the new line in the script
+and the golden, and checks the golden's hash in the manifest and in the n=31 gate's Tier 1 table. It fails on
+the parent.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch Q1037b; the defect was found by Codex
+(gpt-6-astra), fix-verification round, F02-001#1 and F07-004#1; triaged by Fable.
+
+## CX-36X-H — TR-8 and the dof-sampler run README: the "< 1.000e-07" cells are zero-hit draws (reports/TR8_REORDERING_REVISITED.md; runs/20261003_tr8_dof_sampler_35782834/README.md; tests.py)
+
+**2026-11-06.** **Source.** Codex (gpt-6-astra), fix-verification round, F02-005#1, F11-015#1, F02-004#3, F02-013#1
+and F04-012#3; Fable's slice triage (row D1477) and pre-publication recommendation (a dated note now; the renderer
+change later); approved by the operator 2026-11-06; batch Q1037b.
+
+The shipped pool A and pool B RESULTS.md tables print "< 1.000e-07" for the K = 24 median and both ends of its
+interval. In both pools' `results.json` those values are 0: each is a predicate with zero hits in 10⁷ draws. Zero
+hits bound a rarity from above, not from below: the one-sided 95% Clopper–Pearson upper limit for zero hits in 10⁷
+draws is 3.0×10⁻⁷, about 3/N_pool. TR-8 and the run README already say the K = 24 median is censored and not a
+bound; a dated note beside each now names the table cells and the upper limit.
+
+This entry is a note only. The renderer in `solve.py` and the shipped tables are not changed in this batch; that
+change is held for later. No figure or verdict changes. TR-8 revision row v1.27 added.
+
+**Tests.** `TestBatchQ1037b.test_cx36x_h_zero_hit_cells` reads both pools' `results.json`, recomputes the upper
+limit, and requires the note at both sites. It fails on the parent.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch Q1037b; the defect was found by Codex
+(gpt-6-astra), fix-verification round, F02-005#1 and the findings named above; triaged by Fable.

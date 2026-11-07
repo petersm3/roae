@@ -6,4 +6,4 @@ decimal	1.054426e-04
 kw_rc4_violations	2
 event_is_kw_level	YES
 threshold_label	KW-anchored: the event level 2 is the rc4_violations value of KW itself (tail at the observed value)
-correction_family	91 observables (TR-8 F-32; METHODS.md Global observable ledger); Bonferroni bar 0.05/91 = 5.5e-4, cleared by ~5x
+correction_family	frozen 91-observable ledger (TR-8 F-32; METHODS.md Global observable ledger): Bonferroni bar 0.05/91 = 5.5e-4, cleared (5.2x below); registered family now >= 1,446 (reports/METHODS.md counting rule, LEDGER SCOPED 2026-10-16): bar 0.05/1446 = 3.5e-5, NOT cleared (3.0x above)

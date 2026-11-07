@@ -309,7 +309,7 @@ in the pooled sense; the numbers stand, their calibration support does not.
 4. **Z variant (hist / aug / bridge)**: <×1.01 — Z is dominated by the mid-V bulk at the λ values
    where M_tend is competitive (λ ≈ 0.5–2), which RUN A pins to 0.03% relative error. The sparse
    low-V cells of RUN A (weighted rare-event estimates) affect only the λ ≥ 5 gridpoints, which
-   are ~10⁵ further suppressed; O(few)× noise there moves nothing.
+   are ~10⁵ further suppressed; O(few)× noise there moves nothing. ⚠ *(qualified 2026-11-06, CX-36X-F: "<×1.01" compares the three Z variants only; between them the marginal BF moves by ×1.002. It does not show that Z is pinned to 0.03%. At λ = 2, one of the competitive points, the cells with total V ≤ 4 carry 97.6% of Z under the aug normalisation, and the single cell (1,1,0) carries 85.5%. Doubling that cell's weight scales Z(2) by 1.85, L_tend(2) by 0.54 and the marginal BF by ×1.16. RUN A's 0.03% is the precision of the total population, not of these rare cells, whose uncertainty is not propagated. The Bayes factor itself is already withdrawn as a claimed result (CX-25, CX-26). Codex F02-012#1; [CORRECTIONS.md](../../../documentation/CORRECTIONS.md) CX-36X-F.)*
 5. **Priors within the declared grids**: the p_c grid spans ×787 (U) / ×748 (A) in L_corr (p_c = 0.05 → 0.9; the table above — "×14" until 2026-10-17, CX-35T-F); the
    λ grid spans ×10⁴ in L_tend among its competitive points (λ = 0.5–2 vs the rest). This is the
    spread a reader re-weighting the grids can exploit — bounded by the gridpoint matrix above
