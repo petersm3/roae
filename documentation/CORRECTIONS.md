@@ -39260,3 +39260,42 @@ against freshly built ladders. That leg reproduces the golden, and goes red when
 changes. Each test fails on the parent tree.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, backlog Q-1005.
+
+## CX-36Z-A — SAT_CLI.md called a `--certify-count` result "an independently certified model count" (documentation/SAT_CLI.md; documentation/CLAIM_TO_ARTIFACT.md)
+
+**2026-11-08.** **Source.** Fable (claude-fable-5-1), scope review of `lean/SatEncodingFidelity.lean` against the
+rung CNFs (Q-1054 registry item K-37, 2026-11-05); backlog Q-1078.
+
+**Before.** The `--certify-count` section of [SAT_CLI.md](SAT_CLI.md) said the subcommand "Produces an
+**independently certified model count**" of the target CNF or reduced instance. Its NOTES said the n=9 run was
+"independently reproduced 2026-08-26 on a separate host".
+
+**Why it was wrong.** The certificate is a model count of the CNF that `sat.py` emits, checked by `cpog-check`, an
+unverified C prototype (with `drat-trim` for pieces that have no models, and a syntactic partition check where a
+count is split into pieces). "Independently certified" read as more than that, and the certificate does not
+cover whether the CNF encodes the problem. That step is a Lean
+theorem about an abstract model of the encoder (`lean/SatEncodingFidelity.lean`), carried to the emitted file by a
+measured correspondence that is not machine-checked. The 2026-08-26 run was a rerun on a second host with the
+toolchain rebuilt from source; "reproduced" says that, "independently" added nothing a reader could check.
+
+**After.** The section says "a **certified model count of the CNF it emits**", names `cpog-check` as an unverified
+C prototype, and points to a new NOTES item, *What a certified count covers*. The 2026-08-26 run now reads
+"reproduced 2026-08-26 on a separate host". The old wording stays in place in this entry and in a dated note beside
+the new sentence.
+
+**Published with it, 2026-11-08.** The certified n=12 count, 133,118,976, in SAT_CLI.md NOTES and as row 18 of
+[CLAIM_TO_ARTIFACT.md](CLAIM_TO_ARTIFACT.md), stated with the same scope. Also the 2026-11-07 result that the
+formally verified Lean 4 checker shipped with CPOG accepts the n=9 certificate (`Model count: 26112`), in SAT_CLI.md
+NOTES and as row 19 of CLAIM_TO_ARTIFACT.md. Also the certified counts at n=3, 4, 6 and 7 (48, 144, 1,920 and
+38,016), with the same scope, and that the formally verified Lean 4 checker shipped with CPOG accepts those four
+certificates too, in SAT_CLI.md NOTES. The driver, partition check, postcheck and correspondence check behind the
+n=12 count ship in `scripts/` in the same change (`decomp_certify_v3.py`, `n12_partition_all.py`,
+`q424_partition_check.py`, `n12_postcheck.sh`, `k37_isclause_port.py`), added to CLAUDE.md's approved separates by
+operator decision 2026-11-08. They are the copies that ran, with docstring and comment lines changed only; SAT_CLI.md
+NOTES gives the sha256 of the driver that ran and the commands to re-run.
+
+**Scope.** Wording only for the correction. No count, sha, certificate or verdict changed: 26,112 at n=9 stands,
+with the scope now stated. "No certified count exists at n=13" stands.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, backlog Q-1078; the overstatement was found by
+Fable (claude-fable-5-1) in its K-37 scope review.

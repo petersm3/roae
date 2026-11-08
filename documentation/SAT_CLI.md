@@ -576,9 +576,15 @@ python3 sat.py --certify-count f1c5 --f1-pairs 9 --expect 26112
 python3 sat.py --certify-count plain --keep certs/plain
 ```
 
-Produces an **independently certified model count** of the `TARGET`
-CNF (or, with `--f1-pairs N`, of the reduced small-n probe instance —
+Produces a **certified model count of the CNF it emits** for `TARGET`
+(or, with `--f1-pairs N`, for the reduced small-n probe instance —
 the object `solve --f1-exact-c1c2c4c5 --f1-pairs N` counts).
+`cpog-check` (an unverified C prototype) checks the certificate against
+that CNF. The certificate covers the CNF's model count only: whether the
+CNF's models are the orderings the instance names is a separate step,
+stated in NOTES (*What a certified count covers*). *(Reworded 2026-11-08:
+this read "an independently certified model count", which claimed more
+than the certificate covers; CORRECTIONS.md CX-36Z-A.)*
 
 > **Model-count-safe targets only:** `--certify-count` refuses
 > `--with-c3` / `--c3-max` / `--c3-min` / `--not-kw` and `*-near-k` targets. The C3 encoding's
@@ -775,7 +781,7 @@ traceback after the build.
   proof-emitting `#SAT` side of the model-count cross-check at these N
   (the C-binary side is `solve --f1-exact-c1c2c4c5 --f1-pairs N`, run
   separately). The D4/CPOG invocation format is
-  **run-validated**: 2026-08-20, and independently reproduced 2026-08-26 on a
+  **run-validated**: 2026-08-20, and reproduced 2026-08-26 on a
   separate host with the toolchain rebuilt from source, giving a **certified
   n=9 count of 26,112**, agreeing with the native reference; the `--expect`
   control has been shown able to fail (2026-08-26, `--expect 26113` →
@@ -793,6 +799,13 @@ traceback after the build.
   Regenerate with `--certify-count f1c5 --f1-pairs 9 --keep DIR` and compare
   the sha. *(Artifact identification added 2026-09-01; the two run dates above
   previously stood without any hash or toolchain pin.)*
+  On 2026-11-07 the certificate was regenerated with the pinned toolchain
+  (all three hashes above matched) and was also accepted by the formally
+  verified Lean 4 checker shipped with CPOG (`VerifiedChecker/` in CPOG
+  `a97ed854`, built with Lean v4.4.0-rc1): `PROOF SUCCESSFUL`,
+  `Model count: 26112`. That checker checks the certificate against the
+  CNF. It does not check the step from the CNF to the orderings, which is
+  unchanged (*What a certified count covers*, below). *(Added 2026-11-08.)*
   **No certified count exists at n=13** — `d4` v1 (crillab `333370cc`, which
   was upstream v1 HEAD when checked on 2026-08-21, so no upstream fix exists)
   overflows a **signed 32-bit index in its DAG storage**: `idxUnitLit` in
@@ -803,6 +816,93 @@ traceback after the build.
   "certified" by proximity. (The absent-tools graceful path is gated in
   `tests.py`.) *(Diagnosis attributed to a named source symbol and a pinned
   commit 2026-09-01; it was previously asserted with neither.)*
+- **Certified counts at n=3, 4, 6 and 7: 48, 144, 1,920 and 38,016**
+  (run 2026-11-05; published 2026-11-08). Each is a certified model count
+  of the CNF `sat.py --emit-cnf f1c5 --f1-pairs N` emits, with the scope
+  stated for n=12 below. These rungs are small enough that each was
+  certified whole, as one CPOG certificate checked by `cpog-check`, by the
+  driver used for n=12 (`scripts/decomp_certify_v3.py` with
+  `--force-split-depth 0` and `--expect` set to the count from
+  `solve --f1-exact-c1c2c4c5 --f1-pairs N`); each run ended with one piece,
+  `DECOMP_RESULT=PASS` and `N12_POSTCHECK=PASS`. The certificate sha256s
+  are `8c38caed85b8b82d9839623afd324c497fb43cbc44048cbe75504aa587192f5e`
+  (n=3), `ecc401e19c06e079e0d0df09dc41f325522ce6156fc090aa522bff2b7441f742`
+  (n=4), `90c4127f9823cb07b7c78e4de79b2933f490c1cd02d09203175c1af8bba71058`
+  (n=6) and `cd972c67cdf9205f4f8ceb120ee43eef3f57c0b71430e70ed2488582bb6fa3b6`
+  (n=7); they were regenerated on 2026-11-08 with the same hashes. The n=3,
+  4, 6 and 7 certificates were also accepted by the formally verified Lean 4
+  checker shipped with CPOG (`VerifiedChecker/`, built at Lean v4.4.0-rc1).
+- **Certified count at n=12: 133,118,976** (run finished 2026-11-07;
+  published 2026-11-08). The count is a certified model count of the CNF
+  `sat.py --emit-cnf f1c5 --f1-pairs 12` emits (sha256
+  `4ef27df3622dbf82be5a1f22fbbe61d73e19082fea315cd32e0713a815427025`,
+  924 variables, 13,816 clauses): `cpog-check` (an unverified C prototype)
+  and `drat-trim` certify each piece and a syntactic partition check
+  witnesses the sum. That this CNF's models correspond one-to-one to the
+  valid walks of the reduced C1∩C2∩C4∩C5 instance is machine-checked for
+  an abstract model of the encoder (`lean/SatEncodingFidelity.lean`,
+  uniform in n) and carried to the emitted file by a measured but not
+  machine-checked correspondence; that the instance is the one
+  `solve --f1-exact-c1c2c4c5 --f1-pairs 12` counts rests on the ported
+  union table and budget derivation, checked by tests and by three
+  agreeing instruments, not by Lean. It is not a certificate of any n=13
+  quantity.
+
+  *How it was done, in plain terms.* The n=12 CNF is too large for one
+  certificate, so it was cut into pieces. Each cut uses one of the CNF's
+  own "exactly one of these" clauses: a piece is the CNF plus one extra
+  one-literal clause per cut, so every model lands in exactly one piece.
+  The run made 529 cuts and ended with 12,168 pieces. Each piece got its
+  own check: the 7,085 pieces that have models went through `d4` →
+  `cpog-gen` → `cpog-check` (`CHECK: FULL-PROOF SUCCESS` plus the count
+  line), and the 5,083 pieces with no models went through `cadical` and
+  `drat-trim` (`s VERIFIED`). No piece was counted without a certificate.
+  A separate program, `scripts/n12_partition_all.py`, which imports
+  nothing from the driver, rebuilt every cut from the source CNF and
+  checked with `scripts/q424_partition_check.py` that the pieces split
+  their parent exactly. It also checked that each certified piece file
+  has the same sha256 as the piece rebuilt from the source CNF.
+  `scripts/n12_postcheck.sh` then re-added the piece counts with `awk` and
+  required every piece's verdict lines: `N12_POSTCHECK=PASS`. Every cut
+  was made for size, never because a check failed: 447 pieces were over
+  the projected certificate-size limit, 57 ran out of memory in `cpog-gen`
+  at the 6 GiB per-tool cap, and 25 cuts at the top two levels were made
+  on purpose. The run took 208,192 s (about 58 h) on an 8-vCPU, 15 GiB
+  host, two pieces at a time, with the toolchain pins of the n=9 run
+  above. The driver is `scripts/decomp_certify_v3.py`; the copy that ran
+  had sha256 `0fdbc5fd5d97f76293ce9e0d7720329e271f35d7c04bd3e666b8586341ceb1e7`,
+  and the shipped copy differs from it only in five lines of its opening
+  docstring (names of internal notes and of the host were taken out; no
+  code changed), so a re-run's log prints the shipped copy's sha256, not
+  this one. The copies of `n12_partition_all.py` and `n12_postcheck.sh`
+  that ran also differ from the shipped ones in docstring or comment lines
+  only, and `q424_partition_check.py` is byte-identical. The
+  certificates are not shipped (the largest piece proof is 4.4 GB). Their
+  hashes are in the run's ledger files, which are not in this repository.
+  The count has been produced by one run on one host.
+
+  ```
+  python3 sat.py --emit-cnf f1c5 n12.cnf --f1-pairs 12        # sha256 4ef27df3…
+  python3 scripts/k37_isclause_port.py 12 n12.cnf              # K37_BRIDGE_N12=MATCH
+  python3 scripts/decomp_certify_v3.py n12.cnf --bin DIR --expect 133118976 \
+      --jobs 2 --vcap-kb 6291456 --timeout 3600 --disk-gate-mb 6000 \
+      --force-split-depth 2 --max-pieces 200000 --workdir n12_work > n12_run.log 2>&1
+  bash scripts/n12_postcheck.sh n12.cnf n12_work n12_run.log 133118976   # N12_POSTCHECK=PASS
+  ```
+
+  `DIR` holds the five pinned binaries (`d4`, `cpog-gen`, `cpog-check`,
+  `cadical`, `drat-trim`). The run log opens with the sha256 of the
+  driver, of each binary and of the CNF, so a log names what produced it.
+  `scripts/k37_isclause_port.py` is the measured correspondence named
+  above: it rebuilds the clause set from the constructors of
+  `lean/SatEncodingFidelity.lean` (a Python port, not Lean) and compares it
+  with the clauses in the emitted file; it matched at n=3, 4, 6, 7, 9 and 12.
+- **What a certified count covers.** A certified count (n=3, 4, 6, 7, 9 and 12
+  above) is a model count of the emitted CNF. The certificate does not
+  show that the CNF encodes the problem; that step is the Lean model
+  theorem for an abstract encoder plus the two non-Lean bridges named in
+  the n=12 paragraph, and the same scope applies at every rung listed here. *(Added
+  2026-11-08 with CX-36Z-A.)*
 - `sat.py` imports `solve.py` as `solve`; if you change constraint
   semantics, change them in `solve.py` — never re-encode them here.
 

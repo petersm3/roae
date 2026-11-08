@@ -360,6 +360,16 @@ measured with `git log --diff-filter=A --format=%ad --date=short -1 -- <path>`:
   whose only reproduction path was a private script would not be reproducible
   at all" ([CORRECTIONS.md](documentation/CORRECTIONS.md)). Folding it into
   `solve.py` would destroy the independence it was created to supply.
+- **`scripts/decomp_certify_v3.py`**, **`scripts/n12_partition_all.py`**,
+  **`scripts/q424_partition_check.py`**, **`scripts/k37_isclause_port.py`**
+  (2026-11-08; operator-approved, operator 2026-11-08), with **`scripts/n12_postcheck.sh`**
+  — the published code behind the certified n=12 and n=3, 4, 6, 7 counts
+  (driver, partition check, postcheck and the K-37 correspondence check;
+  [SAT_CLI.md](documentation/SAT_CLI.md) NOTES, CORRECTIONS.md CX-36Z-A).
+  Shipped because a published count needs its code in the same change;
+  they are frozen run instruments, and folding them into `sat.py` would
+  break the driver's self-sha in the run log and the partition check's
+  independence from the driver.
 - **`reports/evidence/**/*.py`** (**20** files under `c8screen/`, `f1/`, `f5/`, `f11/`, `qoy1_q992/`,
   `r11/` and `q374_se_replicates/`) — evidence instruments shipped and frozen
   alongside the results they produced. ⚠ **[CORRECTED 2026-09-04 — this read
