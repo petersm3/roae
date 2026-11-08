@@ -13619,7 +13619,7 @@ def _w0d_lb_branch_row(r):
             "X_found": int(r["X_found"]), "X_search_depth": int(r["X_search_depth"])}
 
 
-def xa_w0d_lower_bound_cert(out_path, atlas_path=None, prod_uses_b0=False):
+def xa_w0d_lower_bound_cert(out_path, atlas_path=None, prod_uses_b0=False, allow_t_not_run=False):
     """`--xa-w0d-lb-cert OUT.json [ATLAS.json]`: emit the W0-D LOWER-BOUND certificate.
 
     Prints whole-line KEY=value tokens and `XA_W0D_LB_CERT=PASS|FAIL|ERROR:<reason>`; exits
@@ -13642,11 +13642,11 @@ def xa_w0d_lower_bound_cert(out_path, atlas_path=None, prod_uses_b0=False):
         except (OSError, ValueError) as exc:
             tok("XA_W0D_LB_CERT", "ERROR:atlas-unreadable:%s" % type(exc).__name__)
             return 2
-        atlas_sha = hashlib.sha256(raw).hexdigest(); _g6_atlas_t_warn(A, atlas_path)  # G6 FV-B52-G OOS 13392
-        if not isinstance(A, dict) or A.get("n") != 31:
-            tok("W0D_LB_ATLAS_N", A.get("n") if isinstance(A, dict) else "-")
-            tok("XA_W0D_LB_CERT", "ERROR:atlas-is-not-the-n31-production-space")
-            return 2
+        atlas_sha = hashlib.sha256(raw).hexdigest(); A, _rc1006 = _q1006_xa_atlas_gate(A, atlas_path, allow_t_not_run, tok)
+        if _rc1006 is not None:   # Q-1006: the n=31 check, then atlas_load (refusals print their own token)
+            return _rc1006        # G6's _g6_atlas_t_warn here only WARNED; a t-identity-not-run atlas went on to PASS
+        # (Fable B52 prepub D1). The cross-check below now reads the object atlas_load vouched for.
+
     try:
         E = xa_w0d_lower_bound_enumerate(prod_uses_b0=prod_uses_b0)
     except ValueError as exc:
@@ -14665,17 +14665,17 @@ def hoeffding_eps(draws, cells, alpha):
     return _hoeffding_eps_finite(draws, cells, alpha)   # FV2-P D1480, Codex F04-012#1: 2*cells/alpha overflowed
 
 
-def load_atlas(path):
-    """Return (n, N_total, {k: {d: mass}}) from an atlas.json."""
+def load_atlas(path, allow_t_not_run=False):
+    """Return (n, N_total, {k: {d: mass}}) from an atlas.json, loaded through atlas_load (Q-1006)."""
     try:
-        with open(path) as fh:
-            a = json.load(fh)
+        a = _q1006_swap_atlas_load(path, allow_t_not_run)   # Q-1006: was a bare json.load (Fable B52 prepub D1)
+        pass                                                # atlas_load's refusals arrive as DetectorError
     except (OSError, ValueError) as exc:
         raise DetectorError("cannot read atlas %s: %s" % (path, exc))
     try:
         n = _atlas_json_index(a["n"], "n")
         total = _atlas_int(a["N_total"], "N_total")
-        layers = a["layers"]; _g6_atlas_t_warn(a, path)  # G6 FV-B52-G OOS 13392
+        layers = a["layers"]  # Q-1006: G6's warn-only _g6_atlas_t_warn replaced by atlas_load above
     except (KeyError, TypeError, ValueError, AtlasError) as exc:
         raise DetectorError("atlas %s missing n / N_total / layers (%s)"
                             % (path, exc))
@@ -14881,13 +14881,13 @@ def kc_class_swap_detect_cli(argv=None):
                         "%(default)d)")
     p.add_argument("--json", metavar="OUT",
                    help="also write the full result as JSON to OUT")
-    args = p.parse_args(argv)
+    p.add_argument("--atlas-allow-t-not-run", action="store_true", help="load an atlas whose t-identity gate did not run (atlas_load's opt-in; Q-1006)"); args = p.parse_args(argv)
 
     try:
         if not (0.0 < args.alpha < 1.0):
             raise DetectorError("--alpha must be in (0,1), got %r"
                                 % args.alpha)
-        n, total, table = load_atlas(args.atlas)
+        n, total, table = load_atlas(args.atlas, allow_t_not_run=args.atlas_allow_t_not_run)
         counts, draws, records = tally(args.sample, n)
         res = compare(table, counts, n, total, draws, args.alpha, args.exact)
     except DetectorError as exc:
@@ -19197,7 +19197,7 @@ def main():
             sys.exit(2)
         sys.exit(xa_w0d_lower_bound_cert(args.xa_w0d_lb_cert[0],
                                          args.xa_w0d_lb_cert[1]
-                                         if len(args.xa_w0d_lb_cert) == 2 else None))
+                                         if len(args.xa_w0d_lb_cert) == 2 else None, allow_t_not_run=args.atlas_allow_t_not_run))
 
     if args.atlas_selftest:
         sys.exit(atlas_selftest(args.atlas_selftest,
@@ -19850,7 +19850,7 @@ def _atlas_validate_strict(A, path):
 #     loaded -- `_atlas_probe_keys` now checks every key it parses before any token is printed,
 #     and the parse sites call `_atlas_key_int` / `_atlas_kernel_key` themselves;
 #   * three loaders that bypass `atlas_load` (`load_atlas`, `atlas_residual_rank` [loads through it first since Q-1000, batch 52],
-#     `xa_w0d_lower_bound_cert`) read counts, keys, `n`, `k` and hexagram fields with int(),
+#     `xa_w0d_lower_bound_cert` [these two load through it since Q-1006, 2026-11-07]) read counts, keys, `n`, `k` and hexagram fields with int(),
 #     which accepts "+5", " 5", "1_0", "05" (keys) and 3.9 (a float, truncated);
 #   * the readers that parse this program's OWN TSVs back off disk (and viz/report_figures.py)
 #     read every integer cell with int(), so "+5", " 5", "1_0" and non-ASCII digits were read as
@@ -21154,6 +21154,40 @@ def _xnull_bad_n(n_draw):
     """--extraction-null (FV2-P D1485): n_draw <= 0 reached 100*drawn/tries -> ZeroDivisionError."""
     print("EXTRACTION_NULL=ERROR n_draw must be a positive integer (got %r)" % (n_draw,))
     return 1
+
+
+def _q1006_xa_atlas_gate(A, atlas_path, allow_t_not_run, tok):
+    """--xa-w0d-lb-cert's atlas, through atlas_load (Q-1006; Fable B52 prepub D1, 2026-10-15). Returns (A, None) on
+    success, with A the object atlas_load returned, or (A, 2) after printing the refusal token. The n=31 check comes
+    first and keeps its token. A t-identity gate that did not run is ERROR:atlas-t-identity-not-run unless
+    --atlas-allow-t-not-run, which loads it with atlas_load's WARNING on stderr; it is never a silent PASS. Any other
+    atlas_load refusal is ERROR:atlas-malformed:<type>, its reason on stderr. G6 (80292605) only warned here."""
+    if not isinstance(A, dict) or A.get("n") != 31:
+        tok("W0D_LB_ATLAS_N", A.get("n") if isinstance(A, dict) else "-")
+        tok("XA_W0D_LB_CERT", "ERROR:atlas-is-not-the-n31-production-space")
+        return A, 2
+    try:
+        return atlas_load(atlas_path, allow_t_not_run=allow_t_not_run), None
+    except AtlasTNotRunError as exc:
+        print("ERROR: [xa-w0d-lb-cert] refused atlas %s: %s: %s" % (atlas_path, type(exc).__name__, exc),
+              file=sys.stderr)
+        tok("XA_W0D_LB_CERT", "ERROR:atlas-t-identity-not-run")
+        return A, 2
+    except AtlasError as exc:
+        tok("XA_W0D_LB_CERT", "ERROR:atlas-malformed:%s" % _atlas_named_refusal("xa-w0d-lb-cert", exc))
+        return A, 2
+
+
+def _q1006_swap_atlas_load(path, allow_t_not_run):
+    """--kc-class-swap-detect's atlas, through atlas_load (Q-1006): every refusal of the consumer applies, and a
+    t-identity gate that did not run is refused unless --atlas-allow-t-not-run. AtlasError -> DetectorError, so
+    the CLI prints its own KC_CLASS_SWAP_DETECT=ERROR line with the loader's reason."""
+    try:
+        return atlas_load(path, allow_t_not_run=allow_t_not_run)
+    except AtlasTNotRunError as exc:
+        raise DetectorError("atlas %s refused (t-identity-not-run): %s" % (path, exc))
+    except AtlasError as exc:
+        raise DetectorError("atlas %s refused by atlas_load: %s" % (path, exc))
 
 
 if __name__ == "__main__":

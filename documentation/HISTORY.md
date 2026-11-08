@@ -12217,3 +12217,21 @@ Q-686=DONE
   documents, and its proof is a private budget pin; this batch touches neither, so Q-576 proper stays OPEN.
 - No canonical sha, record count, certificate, figure or verdict changed. `TestBatchQ576` holds each repair and
   fails on the parent tree.
+
+## 2026-11-07 — engine batch 1: two atlas readers refuse an unchecked atlas, the S5 selftest checks order, and the S5 battery row lands
+
+- **Atlas readers (CX-36Y-A).** `--xa-w0d-lb-cert` printed `XA_W0D_LB_CERT=PASS` and wrote its certificate on an
+  atlas whose t-identity check never ran, and `--kc-class-swap-detect --atlas` checked no gate. Both now load the
+  atlas through `atlas_load`, so such an atlas is refused unless `--atlas-allow-t-not-run` is given. The
+  published certificate used an atlas whose check ran, so it and the XA verdict are unaffected. Fable found it in
+  the batch 52 pre-publication review.
+- **S5 selftest (CX-36Y-B).** `--kc-midjoin-selftest` compared every count with its brute force but not the order
+  of tied masks, so a mutant that reversed the tie order passed it. It now checks the order and the walk mask's
+  rank too, and that mutant (MJ-M6) is red. Fable noted the gap in the S5 M2 review.
+- **S5 battery row (CX-36Y-C).** The TR-12 battery row `a0_midjoin`, deferred on 2026-10-15, is added. It runs the
+  mode at n = 9 and n = 13 and checks both with `verify.py --check-midjoin`.
+- **Not in this batch.** The MIDJOIN resume key still binds layer names and sizes, not their content (backlog
+  Q-1074). The scope note in SOLVE_C_CLI.md under `--kc-midjoin` stands: after any change to the inputs,
+  recompute with `--kc-force`.
+- No canonical sha, record count, certificate, figure or verdict changed. The `--selftest` sha is unchanged.
+  `TestBatchEngine1` holds each fix and fails on the parent tree.

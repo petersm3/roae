@@ -53699,7 +53699,7 @@ static int q941_gate_unrecognized_rc(int r, const char *ctx) {
  *
  * GATE. --kc-midjoin-selftest: G1 n=9 against an independent forward brute force over the whole
  * prefix tree (every W_k(cm), every triple under all three weightings, the histogram, the dead
- * count, the walk's f/g/w/t and the per-mask f*t marginal); G2 the identities (SUM W = N, dead ==
+ * count, the walk's f/g/w/t, the per-mask f*t marginal, and since Q-1004 the order fields: top-K order, n_gt/n_eq/rank); G2 the identities (SUM W = N, dead ==
  * --kc-dead-census, lt+eq+gt == the f entry count, joined + g-only == the g entry count); G3 the
  * in-memory reader (kc_load arrays) against the streaming reader, gated JSON byte-identical, n=9
  * and n=13; G4 the same over v2 ladders re-blocked at 61 entries per block with a 4 KB window,
@@ -54314,7 +54314,7 @@ static int mj_sort_cmp(const void *a, const void *b) {   /* descending value, ti
     const uint32_t i = *(const uint32_t *)a, j = *(const uint32_t *)b;
     const int c = f1_cmp(&mj_sort_V[j], &mj_sort_V[i]);
     if (c) return c;
-    return i < j ? -1 : (i > j);
+    return i < j ? -1 : (i > j);   /* MJ-M6: ties by ascending index (= mask); the selftest checks this order (Q-1004) */
 }
 
 static long double mj_ld(const F1U192 *v) {
@@ -55327,7 +55327,7 @@ static int mjb_compare(const KC *kc, const MjRes *R, const MjBrLayer *B) {
     if (R->n_f != B->n_f || R->dead != B->dead) return 6;
     if (!mjb_u(&R->fK, B->fK) || !mjb_u(&R->gK, B->gK) || !mjb_u(&R->wK, B->wK)) return 7;
     if (R->has_t && !mjb_u(&R->tK, B->tK)) return 8;
-    return 0;
+    { int q1004_mjb_order(const MjRes *, const MjBrLayer *); return q1004_mjb_order(R, B); }   /* Q-1004: the order fields too (defined at end of file) */
 }
 
 /* the in-memory reader: kc_load arrays, kc_flookup / kc_glookup point reads */
@@ -56285,4 +56285,46 @@ static int e2_hex64(const char *s) {
     int i = 0;
     for (; s[i]; i++) if (!((s[i] >= '0' && s[i] <= '9') || (s[i] >= 'a' && s[i] <= 'f'))) return 0;
     return i == 64;
+}
+
+/* q1004_mjb_order (Q-1004; Fable S5 M2 review N1, 2026-10-15): mjb_compare checked every count against the n=9 brute
+ * force but none of the ORDER fields, so a mutant reversing mj_sort_cmp's tie order (MJ-M6) passed
+ * --kc-midjoin-selftest; only verify.py --check-midjoin saw it (layer 2, masks.top). For W, and for the f*t marginal
+ * when t is present, this recomputes from the brute values alone the descending order with ties by ascending index
+ * (= mask), and the walk mask's n_gt, n_eq and rank, and compares them with mj_mask_stats on the engine's values.
+ * O(nm^2) per layer: the brute is n=9 only. Returns 0 when everything agrees, 9 on an order mismatch, 10 on a rank
+ * mismatch (mjb_compare's class codes continue). Test-only path; no production code calls it. */
+int q1004_mjb_order(const MjRes *R, const MjBrLayer *B) {
+    const F1U192 *V[2] = {R->W, R->FT};
+    const uint64_t *BV[2] = {B->W, B->FT};
+    for (int x = 0; x < (R->has_t ? 2 : 1); x++) {
+        F1U192 tot = {0, 0, 0};
+        for (uint64_t i = 0; i < R->nm; i++) f1_add(&tot, &V[x][i]);
+        MjMaskStats S;
+        if (mj_mask_stats(V[x], R->nm, R->w_mi, &tot, &S) != 0) return 9;
+        int bad = 0;
+        for (uint64_t i = 0; i < R->nm && !bad; i++) {
+            const uint64_t bi = BV[x][R->masks[i]];
+            uint64_t pos = 0;
+            for (uint64_t j = 0; j < R->nm; j++) {
+                const uint64_t bj = BV[x][R->masks[j]];
+                pos += bj > bi || (bj == bi && j < i);
+            }
+            if (S.idx[pos] != (uint32_t)i) bad = 9;
+        }
+        if (!bad && R->w_mi >= 0) {
+            const uint64_t bw = BV[x][R->masks[R->w_mi]];
+            uint64_t gt = 0, eq = 0, before = 0;
+            for (uint64_t j = 0; j < R->nm; j++) {
+                const uint64_t bj = BV[x][R->masks[j]];
+                gt += bj > bw;
+                eq += bj == bw;
+                before += bj == bw && j < (uint64_t)R->w_mi;
+            }
+            if (S.n_gt != gt || S.n_eq != eq || S.rank != gt + before + 1) bad = 10;
+        }
+        free(S.idx);
+        if (bad) return bad;
+    }
+    return 0;
 }

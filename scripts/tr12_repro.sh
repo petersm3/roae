@@ -4098,6 +4098,57 @@ agg TR12_V5 TR12_V5_TSV TR12_VIZ
 # i.e. a real failure still dominates a skip.
 agg TR12_Q2 TR12_Q2 TR12_GCHECK TR12_GSHA
 
+# ---- A0.9  MIDJOIN: the S5 mid-ladder per-state marginals (--kc-midjoin), Q-1005 -------------------
+# Deferred by the S5 M2 build (Fable's S5 M2 review, deviation 9; HISTORY 2026-10-15) and added here.
+# PLACED AFTER THE AGGREGATION on purpose: it is a leg of no parent token, and inserting it among the A0 rows
+# would move every line cited below them (QUERY_INVENTORY.md cites :4075/:4080 above). It runs after Group C,
+# which changes nothing it reads: it reads only the f/g/t ladders.
+# At n <= 13 it runs --kc-midjoin on this battery's ladders with the anchor walk and the t ladder, and at n = 9
+# a second leg on n = 13 ladders it builds itself (the selftest's anchor walk W13). Each leg is re-checked by
+# verify.py --check-midjoin (the independent Python recomputation). The n = 9 record is the full JSON of every
+# layer minus the five run-describing lines the selftest also leaves out (resume_key, inputs, provenance,
+# masks_dump, summary_row); the n = 13 record is one sha256 per layer of that same gated JSON. Both print the
+# summary table with its two timing columns (wall_s, MB_s) masked. Above n = 13 the row is a named skip: the
+# full-31 pass is a separate run (estimated at roughly 30 h; not yet made), never a battery row.
+a0_midjoin_leg(){   # a0_midjoin_leg LABEL FDIR GDIR TDIR WALK OUT FULL -> the record; rc 0 iff MIDJOIN=OK and MIDJOIN_CHECK=PASS
+    local lbl="$1" f="$2" g="$3" t="$4" w="$5" o="$6" full="$7" mrc vrc j
+    echo "### $lbl"
+    "$SOLVE" --kc-midjoin "$f" "$g" "$o" --kc-walk "$w" --kc-tdir "$t" > "$WORK/mj_$lbl.out" 2>&1 < /dev/null; mrc=$?
+    grep -E '^MIDJOIN(_LAYER|_CUT_IDENTITY|_KW_F_PIN)?=' "$WORK/mj_$lbl.out"
+    echo "midjoin_rc=$mrc"
+    for j in "$o"/midjoin_layer_*.json; do
+        [ -f "$j" ] || { echo "MIDJOIN_ROW_FAIL	$lbl: no layer JSON was written"; return 1; }
+        if [ "$full" = 1 ]; then echo "## $(basename "$j")"; grep -v -E '^  "(resume_key|inputs|provenance|masks_dump|summary_row)"' "$j"
+        else printf '%s\t%s\n' "$(basename "$j")" "$(grep -v -E '^  "(resume_key|inputs|provenance|masks_dump|summary_row)"' "$j" | sha256sum | cut -c1-64)"; fi
+    done
+    echo "## midjoin_summary.tsv (wall_s and MB_s masked)"
+    awk -F'\t' 'BEGIN{OFS="\t"} /^#/ || $1=="k" {print; next} NF>=2 {$(NF-1)="-"; $NF="-"} {print}' "$o/midjoin_summary.tsv" || return 1
+    python3 "$REPO_ROOT/verify.py" --check-midjoin "$f" "$g" "$o" --midjoin-tdir "$t" > "$WORK/mjv_$lbl.out" 2>&1 < /dev/null; vrc=$?
+    grep -E '^MIDJOIN_CHECK(_LAYERS|_BRUTE)?=' "$WORK/mjv_$lbl.out"
+    echo "verify_rc=$vrc"
+    [ "$mrc" -eq 0 ] && grep -qx 'MIDJOIN=OK' "$WORK/mj_$lbl.out" && [ "$vrc" -eq 0 ] && grep -qx 'MIDJOIN_CHECK=PASS' "$WORK/mjv_$lbl.out"
+}
+if [ "$N_PAIRS" -le 13 ]; then
+    row_begin a0_midjoin
+    (
+      [ -n "$TDIR" ] || { echo "MIDJOIN_ROW_FAIL	no t ladder (--tdir): the row checks the f*t marginal too"; exit 1; }
+      command -v python3 >/dev/null 2>&1 && [ -f "$REPO_ROOT/verify.py" ] || { echo "MIDJOIN_ROW_FAIL	python3 and verify.py are required (the independent leg)"; exit 1; }
+      a0_midjoin_leg "n$N_PAIRS" "$FDIR" "$GDIR" "$TDIR" "$ANCHOR" "$WORK/mj_out" 1 || exit 1
+      if [ "$N_PAIRS" -eq 9 ]; then
+          M13="$WORK/mj13"; mkdir -p "$M13" || exit 1
+          { "$SOLVE" --kc-build "$M13/f" --f1-pairs 13 && "$SOLVE" --kc-g-build "$M13/g" --f1-pairs 13 \
+            && "$SOLVE" --kc-t-build "$M13/f" "$M13/t"; } > "$WORK/mj13_build.out" 2>&1 < /dev/null \
+            || { echo "MIDJOIN_ROW_FAIL	the n=13 f/g/t build failed"; exit 1; }
+          a0_midjoin_leg n13 "$M13/f" "$M13/g" "$M13/t" \
+            "8,4,49,35,16,2,25,38,13,44,41,37,42,21,7,56,32,1,19,50,11,52,22,26,28,14" "$M13/out" 0 || exit 1
+      fi
+    ) >>"$RAW" 2>&1; rc=$?
+    row_end TR12_MIDJOIN $rc
+else
+    row_skip a0_midjoin TR12_MIDJOIN "SKIP:full-pass-is-a-separate-run" \
+      "--kc-midjoin over full-31 ladders is a separate pass, estimated at roughly 30 h, never inside this battery; the mode is gated at n=9 and n=13 by this row, --kc-midjoin-selftest and verify.py --check-midjoin"
+fi
+
 {
   echo "# TR-12 reproduction battery verdicts — one KEY=value line per row, matched with grep -qx."
   echo "# universe n=$N_PAIRS  N=$N_TOTAL  expected-blocks=$EXPECTDIR"

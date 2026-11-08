@@ -29899,7 +29899,7 @@ class TestQ884TR12GoldenSet(unittest.TestCase):
     ROOT = os.path.dirname(os.path.abspath(__file__))
     GATE = os.path.join("scripts", "tr12_golden_set_gate.sh")
     KNOWN_ROWS = 77
-    KNOWN_GOLDENS = 60
+    KNOWN_GOLDENS = 61   # 60 -> 61: a0_midjoin (Q-1005, CX-36Y-C, 2026-11-07)
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix="q884_gs_")
@@ -60797,7 +60797,7 @@ int main(int argc, char **argv) {
             self.assertIn(pin, s, "%s: the cure is absent" % row)
         self.assertNotIn("t is never copied, so t rests on this row alone", s, "D1274: the old claim stands")
         self.assertIn("VWF=$VHW", s, "D1291: a failed verdict-file write does not reach the exit")
-        self.assertEqual(s.count("\n"), 4243, "tr12_repro.sh changed length: its cited lines moved")
+        self.assertEqual(s.count("\n"), 4294, "tr12_repro.sh changed length: its cited lines moved")   # 4243 -> 4294 (CX-36Y-C, Q-1005, 2026-11-07): the a0_midjoin row is 51 lines inserted after the aggregation block, below every cited line (the highest is :4075); citation_line_gate passes in all three modes
 
 
 # end class TestBatchFV2R (push group FV2-R, CX-36Q-A..CX-36Q-D)
@@ -62861,6 +62861,245 @@ class TestBatchQ576(unittest.TestCase):
 
 # end class TestBatchQ576 (backlog Q-576, CX-36W-A..CX-36W-C)
 
+
+class TestBatchEngine1(unittest.TestCase):
+    """Engine batch 1 (CX-36Y-A..CX-36Y-C), from the 2026-11-07 open-row triage:
+      Q-1006 (CX-36Y-A; Fable B52 prepub D1): `--xa-w0d-lb-cert` printed XA_W0D_LB_CERT=PASS and wrote its
+        certificate on an atlas whose t-identity gate did not run, and `--kc-class-swap-detect --atlas` read
+        `by_class` with no gate; both now load through `atlas_load`. The red fixture is batch 52's
+        (`TestBatch52._not_run_atlas`: the committed n=31 atlas with t_root_eq_f_layer_sum set to the producer's
+        own "not-run (requires --kc-tdir)" string).
+      Q-1004 (CX-36Y-B; Fable S5 M2 review N1): `--kc-midjoin-selftest` could not see the sort's tie order; the
+        mutant MJ-M6 (ties reversed) passed it. mjb_compare now also checks the order fields against the brute.
+      Q-1005 (CX-36Y-C): the TR-12 battery row `a0_midjoin` with its n=9/n=13 golden.
+    Every test fails on the parent tree (Citation T1). Developed with AI assistance (Claude, Anthropic):
+    claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    ATLAS = os.path.join("runs", "20260906_kc_ladders_n31", "atlas_n31.json")
+    GOLDEN = os.path.join("scripts", "tr12_expected", "n9", "a0_midjoin.txt")
+    W9 = "1,32,8,4,2,16,31,62,55,59,61,47,45,18,33,30,12,51"
+    M6_OLD = "    return i < j ? -1 : (i > j);   /* MJ-M6: ties by ascending index (= mask); the selftest checks this order (Q-1004) */"
+    M6_NEW = "    return i < j ? 1 : -(i > j);"
+    _E = None
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="engine1_")
+        cls.S = _load("solve")
+
+    @classmethod
+    def tearDownClass(cls):
+        if os.path.basename(cls.tmp).startswith("engine1_"):
+            shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    # ------------------------------------------------------------------ Q-1006
+    def _not_run_atlas(self):
+        A = json.loads(self._r(self.ATLAS))
+        g = A["gates"]
+        self.assertEqual(g["fails"], 0, "precondition")
+        self.assertTrue(all(v is True for k, v in g.items() if k != "fails"), "precondition: every other gate reads true")
+        g["t_root_eq_f_layer_sum"] = "not-run (requires --kc-tdir)"   # the producer's own string
+        p = os.path.join(self.tmp, "atlas_t_not_run.json")
+        with open(p, "w", encoding="utf-8") as fh:
+            json.dump(A, fh)
+        with self.assertRaises(self.S.AtlasTNotRunError):
+            self.S.atlas_load(p)                     # precondition: the consumer refuses it
+        self.S.atlas_load(os.path.join(self.ROOT, self.ATLAS))   # positive control: the published atlas loads
+        return p
+
+    def _xa(self, atlas, **kw):
+        import copy
+        S = self.S
+        if TestBatchEngine1._E is None:
+            TestBatchEngine1._E = S.xa_w0d_lower_bound_enumerate(prod_uses_b0=False)
+        real, E = S.xa_w0d_lower_bound_enumerate, TestBatchEngine1._E
+        S.xa_w0d_lower_bound_enumerate = lambda **k: copy.deepcopy(E)
+        out = os.path.join(self.tmp, "xa_cert.json")
+        if os.path.exists(out):
+            os.remove(out)
+        o, e = io.StringIO(), io.StringIO()
+        try:
+            with contextlib.redirect_stdout(o), contextlib.redirect_stderr(e):
+                rc = S.xa_w0d_lower_bound_cert(out, atlas, **kw)
+        finally:
+            S.xa_w0d_lower_bound_enumerate = real
+        return rc, o.getvalue().splitlines(), e.getvalue(), os.path.exists(out)
+
+    def test_q1006_xa_cert_refuses_a_t_identity_not_run_atlas(self):
+        rc, out, err, wrote = self._xa(os.path.join(self.ROOT, self.ATLAS))
+        self.assertEqual((rc, wrote), (0, True), "positive control: the published atlas still certifies")
+        self.assertIn("XA_W0D_LB_CERT=PASS", out)
+        rc, out, err, wrote = self._xa(self._not_run_atlas())
+        self.assertEqual(rc, 2, out[-6:])
+        self.assertIn("XA_W0D_LB_CERT=ERROR:atlas-t-identity-not-run", out)
+        self.assertNotIn("XA_W0D_LB_CERT=PASS", out)
+        self.assertFalse(wrote, "no certificate may be written for an atlas the consumer refuses")
+        self.assertIn("did NOT RUN", err)
+
+    def test_q1006_xa_cert_opt_in_loads_with_the_loader_warning(self):
+        rc, out, err, wrote = self._xa(self._not_run_atlas(), allow_t_not_run=True)
+        self.assertEqual((rc, wrote), (0, True), out[-6:])
+        self.assertIn("UNVERIFIED ACROSS CHUNKS", err)
+        self.assertIn("--atlas-allow-t-not-run was given", err)
+
+    def test_q1006_xa_cert_cli_refuses_before_enumerating(self):
+        p = self._not_run_atlas()
+        out = os.path.join(self.tmp, "xa_cli.json")
+        r = subprocess.run([sys.executable, _py_src("solve"), "--xa-w0d-lb-cert", out, p],
+                           capture_output=True, text=True, timeout=900, cwd=self.ROOT)
+        self.assertEqual(r.returncode, 2, r.stdout[-600:])
+        self.assertEqual([l for l in r.stdout.splitlines() if l.startswith("XA_W0D_LB_CERT=")],
+                         ["XA_W0D_LB_CERT=ERROR:atlas-t-identity-not-run"])
+        self.assertFalse([l for l in r.stdout.splitlines() if l.startswith("W0D_LB_B0=")],
+                         "the refusal comes before the enumeration")
+        self.assertFalse(os.path.exists(out))
+
+    def test_q1006_class_swap_loader_refuses_a_t_identity_not_run_atlas(self):
+        p = self._not_run_atlas()
+        n, total, table = self.S.load_atlas(os.path.join(self.ROOT, self.ATLAS))
+        self.assertEqual(n, 31, "positive control")
+        with self.assertRaises(self.S.DetectorError) as cm:
+            self.S.load_atlas(p)
+        self.assertIn("t-identity-not-run", str(cm.exception))
+        e = io.StringIO()
+        with contextlib.redirect_stderr(e):
+            n2, total2, table2 = self.S.load_atlas(p, allow_t_not_run=True)
+        self.assertEqual((n2, total2, table2), (n, total, table))
+        self.assertIn("UNVERIFIED ACROSS CHUNKS", e.getvalue())
+
+    def test_q1006_class_swap_cli_flag(self):
+        p = self._not_run_atlas()
+        w = os.path.join(self.tmp, "no_walks.txt")
+        open(w, "w").close()
+
+        def run(extra):
+            o = io.StringIO()
+            with contextlib.redirect_stdout(o), contextlib.redirect_stderr(io.StringIO()):
+                try:
+                    rc = self.S.kc_class_swap_detect_cli(["--atlas", p, w] + extra)
+                except SystemExit as exc:
+                    rc = exc.code
+            return rc, o.getvalue().splitlines()
+        rc, lines = run([])
+        self.assertEqual(rc, 2)
+        self.assertIn("KC_CLASS_SWAP_DETECT=ERROR", lines)
+        self.assertTrue(any("t-identity-not-run" in l for l in lines), lines[:3])
+        rc, lines = run(["--atlas-allow-t-not-run"])    # the atlas now loads; the empty sample is what fails
+        self.assertFalse(any("t-identity-not-run" in l for l in lines), lines[:3])
+        self.assertFalse(any("bad invocation" in l for l in lines), "the flag is accepted: %r" % lines[:3])
+
+    # ------------------------------------------------------------------ Q-1004
+    def _cc(self, name, src_text):
+        c = os.path.join(self.tmp, name + ".c")
+        with open(c, "w", encoding="utf-8") as fh:
+            fh.write(src_text)
+        b = os.path.join(self.tmp, name)
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", b, c, "-lm", "-lz"],
+                           capture_output=True, text=True, timeout=900)
+        self.assertEqual(r.returncode, 0, "%s did not build: %s" % (name, r.stderr[-1500:]))
+        return b
+
+    def test_q1004_m6_tie_order_mutant_is_red_in_the_selftest_and_in_verify_py(self):
+        src = self._r(os.environ.get("ROAE_TESTS_SOLVE_SRC", "solve.c"))
+        self.assertEqual(src.count(self.M6_OLD), 1, "the MJ-M6 marker line must occur exactly once")
+        mut = self._cc("solve_m6", src.replace(self.M6_OLD, self.M6_NEW))
+        env = dict(os.environ, SOLVE_KC_SCRATCH=self.tmp)
+        r = subprocess.run([mut, "--kc-midjoin-selftest"], capture_output=True, text=True, timeout=900, env=env)
+        self.assertNotEqual(r.returncode, 0, "MJ-M6 survived the selftest:\n" + r.stdout[-2000:])
+        self.assertIn("KC_MIDJOIN_SELFTEST=FAIL", r.stdout.splitlines())
+        red = [l for l in r.stdout.splitlines() if l.startswith("[kc-midjoin-selftest] G1 n=9") and l.endswith(" FAIL")]
+        self.assertTrue(red, r.stdout[-1500:])
+        self.assertIn("[kc-midjoin-selftest] brute disagreement at layer 2 (class 9)", r.stdout.splitlines())
+        # and the independent leg: verify.py --check-midjoin on the mutant's own n=9 output
+        d = os.path.join(self.tmp, "m6run")
+        os.makedirs(d, exist_ok=True)
+        f, g, t, o = (os.path.join(d, x) for x in ("f", "g", "t", "out"))
+        for argv in ([mut, "--kc-build", f, "--f1-pairs", "9"], [mut, "--kc-g-build", g, "--f1-pairs", "9"],
+                     [mut, "--kc-t-build", f, t]):
+            rr = subprocess.run(argv, capture_output=True, text=True, timeout=900)
+            self.assertEqual(rr.returncode, 0, "%s: %s" % (argv[1], rr.stdout[-600:]))
+        rr = subprocess.run([mut, "--kc-midjoin", f, g, o, "--kc-walk", self.W9, "--kc-tdir", t],
+                            capture_output=True, text=True, timeout=900)
+        self.assertIn("MIDJOIN=OK", rr.stdout.splitlines(), "precondition: the mutant's own run completes")
+        v = subprocess.run([sys.executable, "verify.py", "--check-midjoin", f, g, o, "--midjoin-tdir", t],
+                           capture_output=True, text=True, timeout=900, cwd=self.ROOT)
+        self.assertIn("MIDJOIN_CHECK=FAIL", v.stdout.splitlines(), v.stdout[-800:])
+        self.assertIn("masks.top", v.stdout + v.stderr)
+
+    def test_q1004_mjb_compare_reaches_the_order_check(self):
+        src = self._r("solve.c")
+        body = src[src.index("static int mjb_compare("):]
+        body = body[:body.index("\n}\n")]
+        self.assertIn("return q1004_mjb_order(R, B);", body)
+        self.assertIn("int q1004_mjb_order(const MjRes *R, const MjBrLayer *B) {", src)
+
+    # ------------------------------------------------------------------ Q-1005
+    def test_q1005_a0_midjoin_row_golden_and_manifest(self):
+        bat = self._r(os.path.join("scripts", "tr12_repro.sh"))
+        self.assertIn("\n    row_begin a0_midjoin\n", bat)
+        self.assertIn("\n    row_end TR12_MIDJOIN $rc\n", bat)
+        self.assertIn('row_skip a0_midjoin TR12_MIDJOIN "SKIP:full-pass-is-a-separate-run"', bat)
+        gold = self._r(self.GOLDEN)
+        L = gold.split("\n")
+        self.assertEqual([l for l in L if l.startswith("### ")], ["### n9", "### n13"])
+        self.assertEqual(L.count("MIDJOIN=OK"), 2)
+        self.assertEqual(L.count("MIDJOIN_CHECK=PASS"), 2)
+        self.assertEqual(L.count("MIDJOIN_CUT_IDENTITY=OK"), 2)
+        self.assertEqual(L.count("MIDJOIN_CHECK_BRUTE=PASS"), 1, "the n=9 leg is checked against verify.py's brute")
+        self.assertEqual(sum(l.startswith("## midjoin_layer_") for l in L), 10, "n=9: every layer, in full")
+        self.assertEqual(sum(bool(re.fullmatch(r"midjoin_layer_\d\d\.json\t[0-9a-f]{64}", l)) for l in L), 14,
+                         "n=13: one gated-JSON digest per layer")
+        for run_line in ('"resume_key"', '"inputs"', '"provenance"', '"masks_dump"', '"summary_row"'):
+            self.assertNotIn(run_line, gold, "the five run-describing lines are masked")
+        self.assertFalse([l for l in L if re.match(r"^\d+\t", l) and not l.endswith("\t-\t-")],
+                         "the summary's wall_s and MB_s are masked on every row")
+        man = self._r(os.path.join("scripts", "tr12_expected", "n9", "_MANIFEST.txt"))
+        sha = hashlib.sha256(gold.encode("utf-8")).hexdigest()
+        self.assertIn("  %s  a0_midjoin.txt" % sha, man.split("\n"))
+        r = subprocess.run(["bash", os.path.join("scripts", "tr12_golden_set_gate.sh")],
+                           capture_output=True, text=True, timeout=300, cwd=self.ROOT)
+        self.assertIn("TR12_GOLDEN_SET=PASS", r.stdout.splitlines(), r.stdout[-800:])
+
+    def test_q1005_the_row_reproduces_the_golden_and_goes_red_on_a_changed_layer(self):
+        bat = self._r(os.path.join("scripts", "tr12_repro.sh"))
+        self.assertIn("a0_midjoin_leg(){", bat, "the battery defines the row's leg function")
+        a = bat.index("a0_midjoin_leg(){")
+        fn = bat[a:bat.index("\n}\n", a) + 3]
+        sb = self._cc("solve_e1", self._r("solve.c"))
+        d = os.path.join(self.tmp, "leg9")
+        os.makedirs(d, exist_ok=True)
+        f, g, t = (os.path.join(d, x) for x in ("f", "g", "t"))
+        for argv in ([sb, "--kc-build", f, "--f1-pairs", "9"], [sb, "--kc-g-build", g, "--f1-pairs", "9"],
+                     [sb, "--kc-t-build", f, t]):
+            rr = subprocess.run(argv, capture_output=True, text=True, timeout=900)
+            self.assertEqual(rr.returncode, 0, rr.stdout[-600:])
+        gold = self._r(self.GOLDEN)
+        want = gold[:gold.index("### n13\n")]
+
+        def leg(out):
+            sh = fn + 'a0_midjoin_leg n9 "$1" "$2" "$3" "$4" "$5" 1\n'
+            return subprocess.run(["bash", "-c", sh, "leg", f, g, t, self.W9, out],
+                                  capture_output=True, text=True, timeout=900, cwd=self.ROOT,
+                                  env=dict(os.environ, SOLVE=sb, WORK=d, REPO_ROOT=self.ROOT))
+        r = leg(os.path.join(d, "out_a"))
+        self.assertEqual(r.returncode, 0, r.stdout[-800:] + r.stderr[-800:])
+        self.assertEqual(r.stdout, want, "the row's n=9 leg reproduces the committed golden block")
+        lp = os.path.join(f, "f1c5_layer_09.bin")
+        with open(lp, "r+b") as fh:                    # one value byte of the last layer, same size
+            fh.seek(os.path.getsize(lp) - 24)
+            b0 = fh.read(1)
+            fh.seek(-1, 1)
+            fh.write(bytes([b0[0] ^ 1]))
+        r = leg(os.path.join(d, "out_b"))
+        self.assertTrue(r.returncode != 0 or r.stdout != want, "a changed ladder must not reproduce the golden")
+        self.assertNotEqual(r.returncode, 0, r.stdout[-600:])
+
+# end class TestBatchEngine1 (engine batch 1: Q-1006, Q-1004, Q-1005; CX-36Y-A..CX-36Y-C)
 
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).

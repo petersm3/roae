@@ -616,7 +616,7 @@ had been claiming.]
                              recounts against. Without it the verdict is
                              SKIP:no-brute-force-walks — never PASS.
 --atlas-keep DIR             --atlas-selftest: keep the emitted tables in DIR.
---atlas-allow-t-not-run      --atlas-queries/--atlas-selftest/--atlas-residual-rank: load an atlas whose
+--atlas-allow-t-not-run      --atlas-queries/--atlas-selftest/--atlas-residual-rank (and, since 2026-11-07, --xa-w0d-lb-cert and --kc-class-swap-detect; Q-1006, CX-36Y-A): load an atlas whose
                              t-identity gate did not run (its gates carry
                              "not-run (requires --kc-tdir)": the scan had no t
                              ladder). WITHOUT THIS FLAG SUCH AN ATLAS IS REFUSED
@@ -1113,7 +1113,7 @@ had been claiming.]
                              W0D_LB_K_SUBSET_P_VIOLATIONS,
                              W0D_LB_BRANCHES_X_GE_T_SOLVE_DEPTH_2|3,
                              W0D_LB_X_SEARCH_DEPTH_MAX, and with ATLAS (must be
-                             n=31; anything else is ERROR before enumerating)
+                             n=31; anything else is ERROR before enumerating; then loaded through `atlas_load`, so a t-identity gate that did not run is `ERROR:atlas-t-identity-not-run` unless `--atlas-allow-t-not-run` and any other refusal is `ERROR:atlas-malformed:<type>`, both before enumerating and with no certificate written — Q-1006, CX-36Y-A, 2026-11-07; until then a t-identity-not-run atlas printed PASS and the certificate was written)
                              W0D_LB_ATLAS_FMASS_1_2_3_EQ_K and
                              W0D_LB_ATLAS_BRANCH_SET_EQ. Verdict
                              XA_W0D_LB_CERT=PASS|FAIL:<why>|ERROR:<why>, exit
@@ -1178,7 +1178,7 @@ deliberately not cited here**: a backticked path that resolves nowhere is a dang
 
 ```
 solve.py --kc-class-swap-detect --atlas ATLAS.json [--alpha A] [--exact]
-                                [--show K] [--json OUT] SAMPLE [SAMPLE ...]
+                                [--show K] [--json OUT] [--atlas-allow-t-not-run] SAMPLE [SAMPLE ...]
 ```
 
 🔴 **Its argv is split off BEFORE `argparse` runs, deliberately.** The detector takes `--atlas`, and
@@ -1189,7 +1189,7 @@ fold: the first wiring produced `error: ambiguous option: --atlas could match --
 
 | flag | meaning |
 |---|---|
-| `--atlas ATLAS.json` | the atlas under test; its `by_class` table is the reference distribution |
+| `--atlas ATLAS.json` | the atlas under test; its `by_class` table is the reference distribution. Since 2026-11-07 (Q-1006, CX-36Y-A) it is loaded through `atlas_load`, so every refusal of the consumer applies (`ERROR`, rc 2, with the loader's reason), and an atlas whose t-identity gate did not run is refused unless `--atlas-allow-t-not-run` is also given, which loads it with the loader's WARNING. Until then it was read with a bare `json.load` and checked no gate |
 | `--alpha A` | simultaneous error probability for the Hoeffding bound (default 0.001, i.e. 99.9 % simultaneous confidence); must lie in (0, 1). ⚠ *Corrected 2026-10-02 (Q-410, batch 32): this read "simultaneous confidence level (default 0.001 …)"; `A` is the error probability, as `solve.py`'s own help says, and the confidence is 1 − `A`.* |
 | `--exact` | the SAMPLE is a complete `--kc-enum` enumeration, not a draw; compares cell-for-cell |
 | `--show K` | print the K worst cells |

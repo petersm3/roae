@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 9 place(s) over all 234 dated sections, 8 of them among the 158 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 9 place(s) over all 235 dated sections, 8 of them among the 159 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -258,6 +258,7 @@
 | 232 | 2026-11-06 | iso | 12166 | [open](HISTORY.md#2026-11-06--batch-q1037-dated-corrections-to-published-figures-groups-c-d-f-and-g) 2026-11-06 — batch Q1037: dated corrections to published figures, groups C, D, F and G |
 | 233 | 2026-11-06 | iso | 12182 | [open](HISTORY.md#2026-11-06--batch-q1037b-three-withdrawals-three-scopings-and-two-tr-12tr-8-fixes-from-q-1037s-held-rows) 2026-11-06 — batch Q1037b: three withdrawals, three scopings and two TR-12/TR-8 fixes from Q-1037's held rows |
 | 234 | 2026-11-07 | iso | 12205 | [open](HISTORY.md#2026-11-07--batch-q576-t1-public-citation-repair-t1-under-q-576s-method-q-576-proper-stays-open) 2026-11-07 — batch Q576 T1: public citation repair T1, under Q-576's method; Q-576 proper stays OPEN |
+| 235 | 2026-11-07 | iso | 12221 | [open](HISTORY.md#2026-11-07--engine-batch-1-two-atlas-readers-refuse-an-unchecked-atlas-the-s5-selftest-checks-order-and-the-s5-battery-row-lands) 2026-11-07 — engine batch 1: two atlas readers refuse an unchecked atlas, the S5 selftest checks order, and the S5 battery row lands |
 
 ## Sections with no date in the heading, in file order
 

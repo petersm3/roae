@@ -4177,7 +4177,7 @@ or a walk that is not a member. Unknown, repeated or non-numeric options are ref
 - **G1**, at n=9: every `W_k(cm)`, every triple (f, g and w under all three weightings), the
   histogram, the dead count, the walk's f, g, w and t, and the per-mask f·t marginal, against an
   **independent forward brute force** over the whole prefix tree. The brute force has its own
-  residual arithmetic and reads no ladder.
+  residual arithmetic and reads no ladder. Since 2026-11-07 (Q-1004, CX-36Y-B) G1 also checks the ORDER fields from the brute values alone: the descending order of the masks with ties by ascending mask (the order `masks.top` prints) and the walk mask's `n_gt`, `n_eq` and rank, for `W` and for the f·t marginal. Until then a mutant that reversed the tie order passed the selftest, and only `verify.py --check-midjoin` caught it (Fable's S5 M2 review, note N1).
 - **G2**: `Σ W = N`, dead equals `--kc-dead-census`, `lt+eq+gt` equals the f entry count, and
   joined plus g-only equals the g entry count.
 - **G3**, at n=9 and n=13: the streaming reader against an in-memory reader of the same layers
@@ -4198,7 +4198,7 @@ context mismatch, a truncated layer, a pin off by one, and a `SIGKILL` mid-layer
 byte-identical resume) and the argv refusals. `tests.py::TestS5MidjoinMutants` compiles five
 source mutants of the accumulator (orbit weight dropped from `W`, the g cursor left in place on
 an equal key, ties folded into `lt`, the walk's key built without its hexagram lift, the orbit
-dropped from the mass weight). Each one turns the selftest red.
+dropped from the mass weight). Each one turns the selftest red. A sixth, MJ-M6 (the sort's tie order reversed), is in `tests.py::TestBatchEngine1` and must turn both the selftest and `verify.py --check-midjoin` red (Q-1004, 2026-11-07). The TR-12 battery runs the mode itself as row `a0_midjoin` (`TR12_MIDJOIN`, CX-36Y-C, Q-1005): at n=9 on its own ladders, with a second leg on n=13 ladders it builds, each re-checked by `verify.py --check-midjoin`; above n=13 the row is `SKIP:full-pass-is-a-separate-run`.
 
 **JSON schema (`midjoin_v1`).** Every key the files carry:
 

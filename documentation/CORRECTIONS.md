@@ -39182,3 +39182,81 @@ CX-36W-B, which repairs them by appending.
 **Test.** `TestBatchQ576` (tests.py). Each test fails on the parent tree.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, backlog Q-576.
+
+## CX-36Y-A — `--xa-w0d-lb-cert` printed PASS and wrote its certificate on an atlas whose t-identity check never ran, and `--kc-class-swap-detect --atlas` checked no gate
+
+**2026-11-07.** **Source.** Fable's pre-publication review of batch 52 (2026-10-15), deferred item D1, which
+measured the first half; backlog Q-1006.
+
+**Before.** Since Q-564 (2026-10-11), `atlas_load` refuses an atlas whose t-identity gate reads
+"not-run (requires --kc-tdir)" unless `--atlas-allow-t-not-run` is given, and Q-1000 routed
+`--atlas-residual-rank` through it. Two other readers still opened the atlas with a bare `json.load`.
+`solve.py --xa-w0d-lb-cert OUT ATLAS` on such an atlas printed `W0D_LB_ATLAS_FMASS_1_2_3_EQ_K=PASS`,
+`W0D_LB_ATLAS_BRANCH_SET_EQ=PASS` and `XA_W0D_LB_CERT=PASS`, exit 0, and wrote the certificate.
+`--kc-class-swap-detect --atlas` read `by_class` as its reference distribution and checked no gate at all.
+Push group G6 (80292605, 2026-10-31) added a stderr warning to both; neither refused.
+
+**After.** Both load the atlas through `atlas_load`. `--xa-w0d-lb-cert` keeps its n=31 check first, then
+prints `XA_W0D_LB_CERT=ERROR:atlas-t-identity-not-run`, exit 2, before enumerating and with no certificate
+written, unless `--atlas-allow-t-not-run` is given. With the flag the atlas loads with the loader's warning.
+Any other refusal of the loader is `XA_W0D_LB_CERT=ERROR:atlas-malformed:<type>`. The cross-check now reads
+the object `atlas_load` returned. `--kc-class-swap-detect` gains `--atlas-allow-t-not-run`; without it such an
+atlas is `KC_CLASS_SWAP_DETECT=ERROR`, exit 2, with the loader's reason. Every other refusal of `atlas_load`
+now applies to both readers too.
+
+**Scope.** In `--xa-w0d-lb-cert` the atlas is only a positive control: its first three `fmass` layers are
+compared with the K totals the producer counts itself, and its branch set with the producer's. It is not the
+source of the bound. The published W0-D lower-bound certificate was made with the published atlas, whose
+t-identity gate ran and which still loads. So that certificate and the one-sided XA verdict (CX-348, CX-349)
+are unaffected. No count, sha, figure or verdict changed.
+
+**Test.** `TestBatchEngine1` (tests.py), on batch 52's fixture. Each test fails on the parent tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, backlog Q-1006.
+
+## CX-36Y-B — `--kc-midjoin-selftest` could not see the order of tied masks
+
+**2026-11-07.** **Source.** Fable's S5 M2 review (2026-10-15), non-blocking note N1; backlog Q-1004.
+
+**Before.** The selftest's G1 gate compares every count of the S5 same-layer join with an independent brute
+force at n=9, but none of the order fields. A source mutant that reverses the sort's tie order (equal `W`
+listed by descending mask instead of ascending) changes the order of `masks.top` in the layer JSON and passed
+the selftest, `KC_MIDJOIN_SELFTEST=PASS`. Only `verify.py --check-midjoin` caught it (layer 2, `masks.top`).
+
+**After.** G1 also recomputes the order fields from the brute-force values alone and compares them with the
+engine's: the descending order of the masks with ties by ascending mask, and the walk mask's `n_gt`, `n_eq` and
+rank, for `W` and for the f·t marginal. The mutant, now named MJ-M6, turns the selftest red at layer 2. A test
+also requires `verify.py --check-midjoin` to fail on the mutant's own output.
+
+**Scope.** Gate only. The added check is in the selftest path; the `--kc-midjoin` computation, its output
+and the `--selftest` sha are unchanged.
+
+**Test.** `TestBatchEngine1` (tests.py): MJ-M6 is red in both legs. Each test fails on the parent tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, backlog Q-1004.
+
+## CX-36Y-C — the TR-12 battery row for `--kc-midjoin`, deferred when the mode landed, is added
+
+**2026-11-07.** **Source.** Fable's S5 M2 review (2026-10-15) accepted the row's deferral only on condition
+that it was filed; HISTORY's 2026-10-15 entry records it as deferred; backlog Q-1005.
+
+**Before.** `--kc-midjoin` was gated by its selftest and by tests.py, but `tr12_repro.sh` did not run it.
+
+**After.** Row `a0_midjoin` (token `TR12_MIDJOIN`). At n ≤ 13 it runs `--kc-midjoin` on the battery's own
+ladders with the anchor walk and the t ladder. At n = 9 it adds a second leg on n = 13 ladders it builds,
+with the selftest's n = 13 walk. Each leg is re-checked by `verify.py --check-midjoin`. The n = 9 golden
+holds the full JSON of every layer except the five lines that describe the run (`resume_key`, `inputs`,
+`provenance`, `masks_dump`, `summary_row`). For n = 13 it holds one sha256 per layer of that same filtered
+JSON. Both legs print the summary table with its two timing columns masked. Above n = 13 the row is
+`SKIP:full-pass-is-a-separate-run`; the full-31 pass is a separate run, estimated at roughly 30 hours and not yet made. The row sits after the
+battery's aggregation block so that no cited line of `tr12_repro.sh` moves. The n=9 golden set grows from 60 to 61
+files, and `TestQ884TR12GoldenSet`'s pin moves with it.
+
+**Scope.** A new regression row. No published number changed. The full-31 pass has not been run, and nothing
+from it is published.
+
+**Test.** `TestBatchEngine1` (tests.py): the row, its golden and manifest entry, and the row's n=9 leg run
+against freshly built ladders. That leg reproduces the golden, and goes red when one value byte of a layer
+changes. Each test fails on the parent tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, backlog Q-1005.
