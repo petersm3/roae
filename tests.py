@@ -47303,7 +47303,7 @@ class TestBatchFT2b1(unittest.TestCase):
          "Five population-exact figures over all ~1.1×10³⁹ members."),
         ("Every figure §12.9 maps to a token is a MEASURED quantity over\nSUPER — walk-uniform, N-weighted, except the doomed-prefix share, which is in t-units (§3) — read off the n=31 atlas; §12.7's cost figures are derived, not measured, and §12.10's C3 attribution is an inference, as that section says.",
          "Everything in this section is a MEASURED quantity over\nSUPER — walk-uniform, N-weighted — read off the n=31 atlas."),
-        ("is stationary across the walk and is not shown to distinguish King Wen — a negative result",
+        ("is stationary across the interior of the walk (layers 6–23) and is not shown to distinguish King Wen — a negative result",
          "is stationary across the walk and does not distinguish King Wen — a negative result"),
     )
 
@@ -61773,11 +61773,13 @@ class TestBatchQ1056(unittest.TestCase):
     def test_q1056_revision_row_v137_is_the_single_current_row(self):
         t = self._r(self.TR12)
         cur = re.findall(r"(?m)^\| v[\d.]+ \*\(current\)\* \|", t)
-        self.assertEqual(cur, ["| v1.37 *(current)* |"])
-        self.assertIn("| v1.37 *(current)* | 2026-11-05 | **Two items of §10, this report's DONE-contract section", t)
+        # Q1049R (CX-37C-A) appended v1.38 and moved the marker; v1.37 stays the row after v1.36 either way
+        self.assertEqual(len(cur), 1, cur)
+        self.assertIn(cur[0], ("| v1.37 *(current)* |", "| v1.38 *(current)* |"))
+        self.assertRegex(t, r"\| v1\.37(?: \*\(current\)\*)? \| 2026-11-05 \| \*\*Two items of §10, this report's DONE-contract section")
         self.assertIn("| v1.36 | 2026-11-01 |", t)
         self.assertNotIn("| v1.36 *(current)* |", t)
-        v137 = [l for l in t.split("\n") if l.startswith("| v1.37 *(current)* |")][0]
+        v137 = [l for l in t.split("\n") if re.match(r"\| v1\.37(?: \*\(current\)\*)? \| 2026-11-05 \|", l)][0]
         self.assertIn("CORRECTIONS.md CX-36U", v137)
         self.assertIn("No figure, token, count or verdict moves", v137)
 
@@ -61796,7 +61798,7 @@ class TestBatchQ1056(unittest.TestCase):
 
     def test_q1056_new_text_carries_no_cost_figure_private_path_or_cloud_name(self):
         t = self._r(self.TR12)
-        v137 = [l for l in t.split("\n") if l.startswith("| v1.37 *(current)* |")]
+        v137 = [l for l in t.split("\n") if re.match(r"\| v1\.37(?: \*\(current\)\*)? \| 2026-11-05 \|", l)]
         self.assertEqual(len(v137), 1)
         cx = self._r("documentation/CORRECTIONS.md"); cx = cx[cx.find("\n## CX-36U — "):]
         hist = self._r("documentation/HISTORY.md"); hist = hist[hist.find("\n## 2026-11-05 — push group Q1056"):]
@@ -63448,6 +63450,173 @@ class TestBatchQ1037c(unittest.TestCase):
             t = self._r(rel)
             self.assertIn("⚠ **[M_C NORMALISER RECORDED 2026-11-10 (CX-37B-F)", t, rel)
             self.assertIn("M_C's own first-rank rate stays between 72 and 89 of 100 (84 as executed)", t, rel)
+
+
+class TestBatchQ1049R(unittest.TestCase):
+    """Push group Q1049R (CX-37C-A): twenty-four TR-12 rows of Fable's FV2 slice-1 adjudication of Codex's final
+    review (backlog Q-1049), each checked against the code, the data or another part of the report before it was
+    changed. PAIRS holds (row, sentence as published, sentence now) for every edit; the cured test requires each new
+    sentence once and each old one nowhere, and the red test puts every old sentence back and requires every pair to
+    be reported. Four rows are also held to the data they cite: the k = 1 orbit sizes (D622), the exact pair-only
+    null (D605), the archived Knuth estimate's ratio (D621) and the A2 replicate's standard error (D633). Every test except the three data checks (D605, D621, D633) fails on the parent tree 99839fcd; those three bind the
+    new numbers to their sources. Row D635 (the TR-7 3:1 ledger cell) is held: see CX-37C-A. Developed with AI assistance (Claude,
+    Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    TR12 = "reports/TR12_QUERY_PROGRAM.md"
+    PAIRS = (
+        ('D615',
+         'the check a reader can re-run. **The program was then built and executed.**',
+         'the check a reader can re-run (Q9 is the exception: the TR-5, TR-6 and TR-7 results it restates were published on 2026-07-04, before the specification, and are imported, not answered here). **The program was then built and executed.**'),
+        ('D641',
+         '`TR12_A2_SLOT=FAIL` and `TR12_A3_EXTERNAL=FAIL` (§12.10). **That FAIL is the measurement, not a\ndefect** — the two sides count different populations, differing by exactly C3 — but this program has',
+         "`TR12_A2_SLOT=FAIL` and `TR12_A3_EXTERNAL=FAIL` (§12.10). **That FAIL is read as the measurement, not\nas a defect** (a FAIL alone is equally consistent with a fault, and only each instrument's own gates speak to that, §12.10) — the two sides count different populations, differing by exactly C3 — but this program has"),
+        ('D648',
+         'every result is a query against a three-stage out-of-core ladder — f (membership), g (exact',
+         'every catalog result is a query against a three-stage out-of-core ladder (Q4b, Q7 and Q9 need no ladder at all, §R) — f (membership), g (exact'),
+        ('D610',
+         'answers to Q1–Q10 are not stated in §0–§11**; §12 states,',
+         "answers to Q1–Q10 are not collected in §0–§11**, which are the specification; the full-31 figures they do carry (dated additions of 2026-09-27, Q-857: Q1's rank, Q2's endpoint certificates, Q3's profile transcript, Q4's census, Q8's galleries, Q10(a)'s mask-orbit census) stand beside their receipts, and §12 states,"),
+        ('D638',
+         'wave-0–2 query has since run; **realized costs',
+         "wave-0–2 query has since run, except the CAP-7 slices (not built, §8 item 10) and the O3 ranks of Q7's pinned witnesses (the n = 31 run of 2026-09-22 predates that row, §Q7); **realized costs"),
+        ('D642',
+         'capping/no-lumping — cited\n  here as the reason exact C3 state-tracking is blocked, i.e. the honest wall), NOT a',
+         "capping/no-lumping — cited\n  here until 2026-11-10 as the reason exact C3 state-tracking is blocked; since TR-11 §10(ii) that block is a cost, not a structure: `--f1-c3-hist --with-c5` carries C3's G channel beside C5's state, the full-31 run is what was priced and declined (§9), and the f/g/t ladders carry no G channel), NOT a"),
+        ('D646',
+         '(previous data was enumeration-slice-scoped; this is uniform over ALL of SUPER). (b): SAT',
+         "(previous data was enumeration-slice-scoped; this samples SUPER as a whole, exact-uniform in §10.C's sense — uniform given the pseudo-random stream, one seed reaching at most 2⁶⁴ of the ≈10³⁹ ranks). (b): SAT"),
+        ('D650',
+         '*What V5 adds over V2 is **the per-layer `P(w|k)` marginal, not a measured dependence**. On layers',
+         '*What V5 adds over V2 is **the per-layer `P(w|k)` marginal, and the dependence it measures is small**. On layers'),
+        ('D604',
+         'ST-POS/ST-ADJ station rules (Schulz\n  gender ×11,364, rs1/rs2,',
+         "ST-POS/ST-ADJ station rules (Schulz\n  gender in this project's ≤2-violations-anywhere relaxation, ×11,364 — TR-9 fn⁸, the source-stated rule being ≈11× rarer; rs1/rs2,"),
+        ('D604',
+         '(4) the ×11,364 gender fraction and the first-wave scoreboard',
+         '(4) the ×11,364 relaxed-gender fraction (≤2 violations anywhere, TR-9 fn⁸) and the first-wave scoreboard'),
+        ('D605',
+         "(5) TR-8's pair-only null (10⁻⁴ from 10⁵ seeded samples — a C1-only-space count,\n  CHEAP, near-closed-form);",
+         "(5) TR-8's pair-only null (10⁻⁴ from 10⁵ seeded samples — a C1-only-space count,\n  CHEAP, near-closed-form) — ALREADY exact since 2026-07-21: 47/445740 = 1.054426×10⁻⁴ (`solve.pair_null_gender_le2_exact()`, TR-8 v1.6; battery row `a0_ls_w0`), so this item is closed;"),
+        ('D606',
+         "exactly: 129.689 = Σᵢ −log₂ p_i over KW's 31 choices. Deliverable: the exact per-choice\n  surprise spectrum (31 bars, exact rationals)",
+         "exactly: Σᵢ −log₂ p_i = log₂ N over KW's 31 choices (129.689 is that sum rounded). Deliverable: the exact per-choice\n  surprise spectrum (31 bars: each p_i an exact rational, each bar its −log₂, printed to six decimals)"),
+        ('D607',
+         '+ the **interpretation contract, fixed before\n  looking**:',
+         '+ the **interpretation contract, fixed before\n  looking** (operator-attested: the ruling, `documentation/QUERY_INVENTORY.md` §9.4, entered the public history on 2026-09-05, after the n=9 rehearsal it quotes; no third-party timestamp):'),
+        ('D609',
+         'per-branch exhaustion number (XA, CAP-3/5/7).',
+         'per-branch exhaustion number (XA). CAP-3, CAP-5 and CAP-7 need no t ladder (§6: CAP-3\'s IDs and CAP-7\'s slices ride the f/g unrank and enumeration paths, and each CAP-5 point is a fresh count-only DP re-run); "XA, CAP-3/5/7" until 2026-11-10.'),
+        ('D648s',
+         '1.097×10³⁹ solution space is never materialized; every TR-12 result is a *query against this\ncatalog*,',
+         '1.097×10³⁹ solution space is never materialized; every TR-12 catalog result (Q4b, Q7 and Q9, above, are not among them) is a *query against this\ncatalog*,'),
+        ('D617',
+         'Every **per-query** Q1–Q10 output specified in this report is\n  **single-instrument**: no second engine computes it.',
+         "Every **per-query** Q1–Q10 count or distribution specified in this report is\n  **single-instrument**: no second engine computes it (Q7's witness *properties* are re-checked in C and in Python by the battery, and `verify.c --brute-g` recounts the deep-step g and shallow-step f values of Q3's King Wen profile by exhaustive search — checks of a witness or a slice, not a second producer)."),
+        ('D620',
+         'under EXACT-uniform `--kc-sample` over SUPER (the prior versions are enumeration-slice-scoped).',
+         "under EXACT-uniform `--kc-sample` over SUPER (the prior versions are enumeration-slice-scoped or, for TR-1's rule statistics, weighted-Knuth estimates over C1–C5 — in either case a different population from SUPER)."),
+        ('D621',
+         'cell (the ratio 0.999956 is a five-significant-figure rounding gap, TR-11 v1.4). It **validates**',
+         'cell (the ratio is 0.99997 against the committed estimate 1.097088×10³⁹, `reports/evidence/knuth_whole_tree_5e10.out`, a 0.0033 % deviation; *corrected 2026-11-10, CX-37C-A: this read "the ratio 0.999956 is a five-significant-figure rounding gap, TR-11 v1.4" — 0.999956 is the ratio against the rounded 1.0971×10³⁹, and most of its gap is the estimator\'s, not rounding\'s*). It **validates**'),
+        ('D622',
+         '*masses* are not G-closed and need not be divisible by 24 (FULL31_EXACT_AGGREGATES',
+         '*masses* are G-closed, but the action on prefixes is not free — short prefixes have non-trivial stabilizers, so orbit sizes vary (3, 3, 6, 8, 12, 12, 12 over the 56 prefixes at k = 1) — and need not be divisible by 24 ("are not G-closed" until 2026-11-10; FULL31_EXACT_AGGREGATES'),
+        ('D623',
+         'in the scan pass) — the /24 orbit counts are a projection of numbers the ladder already produces; no',
+         'in the scan pass) — the per-layer `flow_div_24` column (flow / 24, an integrality check and not an orbit count, as above; "the /24 orbit counts" until 2026-11-10) is a projection of numbers the ladder already produces; no'),
+        ('D625',
+         '(P(KW-record) ≤ 1/24 for any G-invariant generator with rational output probabilities (`KingWen.lean`, kernel-only); the real-valued case follows from the equal-orbit-mass argument in prose) as a strong new negative — no G-invariant scoring can concentrate on KW beyond 1/24.',
+         '(P(KW-record) ≤ 1/24 for any generator whose output law is a function of a G-invariant score (`KingWen.lean` `equivariance_ceiling`, kernel-only, for natural-number weights; rational output probabilities by rescaling, and the real-valued case from the equal-orbit-mass argument, in prose) as a strong new negative — no generator whose output law is a function of a G-invariant score can concentrate on KW beyond 1/24 (a G-invariant score with a tie-break by enumeration order is not covered; lean/README §The equivariance ceiling).'),
+        ('D626',
+         '### 12.4 The raw one-step kernel is stationary across the walk and is not shown to distinguish King Wen — a negative result',
+         '### 12.4 The raw one-step kernel is stationary across the interior of the walk (layers 6–23) and is not shown to distinguish King Wen — a negative result'),
+        ('D627',
+         'that needs the per-walk score\ndistribution (one f+g point-lookup per gallery walk, the 12.7(i) class), which is not computed\nhere.',
+         'that needs the per-walk score\ndistribution — estimable from the atlas\'s committed `kernel` tables and the 1,000 committed Q8 gallery walks alone, with no ladder lookup ("one f+g point-lookup per gallery walk, the 12.7(i) class" until 2026-11-10) — which is not computed\nhere.'),
+        ('D629',
+         'G-invariance; the between-orbit spread inside the popcount-2 and popcount-4 classes is the only',
+         'G-invariance; the between-orbit spread inside the popcount-2, popcount-3 and popcount-4 classes (popcount 3 is two orbits, of 8 and 12 values) is the only'),
+        ('D633',
+         'gap of 0.0249 is roughly **260 standard errors**. What changes',
+         'gap of 0.0249 is roughly **260 standard errors**; for A2, an independent-seed replicate of the same 2×10¹⁰-probe estimator measures the slot-32 share at 0.078420 ± 0.000071 (`reports/evidence/wrap_mass_reseed/`, the seed-20260904 run), so the A2 slot-32 gap of 0.0149 is roughly **210 standard errors**. What changes'),
+        ('D634',
+         'A2 pair-slot position\ncarries no interior structure here. A3',
+         'A2 pair-slot position\ncarries no interior structure here beyond a ripple of 0.0297–0.0326 across slots 3–31 (max/min ≈ 1.10). A3'),
+    )
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _problems(self, t):
+        probs = []
+        for row, old, new in self.PAIRS:
+            if t.count(new) != 1:
+                probs.append("%s: new sentence present %d times" % (row, t.count(new)))
+            elif old in t:
+                probs.append("%s: old sentence still present" % row)
+        return probs
+
+    def test_q1049r_tr12_sentences_cured(self):
+        self.assertEqual(self._problems(self._r(self.TR12)), [])
+
+    def test_q1049r_tr12_red_on_old(self):
+        t = self._r(self.TR12)
+        for row, old, new in self.PAIRS:
+            self.assertEqual(t.count(new), 1, "precondition: %s new sentence present once" % row)
+            t = t.replace(new, old)
+        self.assertEqual(len(self._problems(t)), len(self.PAIRS))
+
+    def test_q1049r_revision_row_and_ledger_entry(self):
+        t = self._r(self.TR12)
+        rows = [l for l in t.split("\n") if l.startswith("| v1.3")]
+        self.assertTrue(rows[-1].startswith("| v1.38 *(current)* | 2026-11-10 |"), rows[-1][:60])
+        self.assertEqual(sum("*(current)*" in l for l in rows), 1, "one current revision row")
+        self.assertIn("CX-37C-A", rows[-1])
+        c = self._r("documentation/CORRECTIONS.md")
+        self.assertEqual(c.count("\n## CX-37C-A — "), 1)
+
+    def test_q1049r_d622_k1_prefix_orbit_sizes(self):
+        # the order-48 group: bit permutations of the six lines that commute with reversal (i -> 5 - i); C4 pins
+        # (63, 0), so a first-layer prefix is fixed by its first hexagram a, with a not 0 or 63 and popcount(a) != 5 (C2)
+        g = [p for p in itertools.permutations(range(6)) if all(p[5 - i] == 5 - p[i] for i in range(6))]
+        self.assertEqual(len(g), 48)
+        act = lambda p, x: sum(((x >> i) & 1) << p[i] for i in range(6))
+        s = [a for a in range(64) if a not in (0, 63) and bin(a).count("1") != 5]
+        self.assertEqual(len(s), 56, "the published k = 1 mass (FULL31_EXACT_AGGREGATES)")
+        self.assertTrue(all(act(p, a) in s for p in g for a in s), "the k = 1 prefix set is G-closed")
+        seen, sizes = set(), []
+        for a in s:
+            if a not in seen:
+                o = {act(p, a) for p in g}
+                seen |= o
+                sizes.append(len(o))
+        self.assertEqual(sorted(sizes), [3, 3, 6, 8, 12, 12, 12])
+        self.assertIn("orbit sizes vary (3, 3, 6, 8, 12, 12, 12 over the 56 prefixes at k = 1)", self._r(self.TR12))
+
+    def test_q1049r_d605_pair_null_is_exact(self):
+        sys.path.insert(0, self.ROOT)
+        import solve
+        from fractions import Fraction
+        self.assertEqual(Fraction(solve.pair_null_gender_le2_exact()), Fraction(47, 445740))
+        self.assertIn("pair_null_gender_le2_exact\t47/445740", self._r("scripts/tr12_expected/n9/a0_ls_w0.txt"))
+
+    def test_q1049r_d621_ratio_against_the_archived_estimate(self):
+        m = re.search(r"leaves_C1C2C4C5\s*: est=([0-9.e+]+)", self._r("reports/evidence/knuth_whole_tree_5e10.out"))
+        self.assertIsNotNone(m, "precondition: the archived estimate line")
+        n = 1097051278789181790036112071176579186688
+        self.assertEqual(round(n / float(m.group(1)), 5), 0.99997)
+        self.assertEqual(round(n / 1.0971e39, 6), 0.999956)
+        self.assertEqual(round(100 * (1 - n / float(m.group(1))), 4), 0.0033)
+
+    def test_q1049r_d633_a2_replicate_standard_error(self):
+        t = self._r("reports/evidence/wrap_mass_reseed/wrap_reseed_seed20260904.out")
+        m = re.search(r"R-C1 final-pair-anchor\s*: ([0-9.]+) of canonical mass se=([0-9.e-]+)", t)
+        self.assertIsNotNone(m, "precondition: the replicate's slot-32 line")
+        self.assertEqual((m.group(1), m.group(2)), ("0.078420", "7.128e-05"))
+        self.assertEqual(round(0.0149 / float(m.group(2)), -1), 210.0)
+        self.assertIn("| A2, anchor pair at slot 32 | **0.0636** | 0.0785 | 0.0149 |", self._r(self.TR12))
 
 
 if __name__ == "__main__":

@@ -12251,3 +12251,21 @@ Q-686=DONE
   errata file of 2026-11-01 and in ROAE_PY_CLI.md.
 - No canonical sha, record count, certificate or verdict changed. `TestBatchQ1037c` holds each correction and fails
   on the parent tree. Found by Codex (gpt-6-astra), fix-verification round; triaged and adjudicated by Fable.
+
+## 2026-11-10 — batch Q1049R: twenty-four TR-12 sentences from the FV2 slice-1 adjudication
+
+- **TR-12 (CX-37C-A).** The first report-by-report batch of backlog Q-1049, the FV2 slice-1 prose rows that FV2-A
+  did not carry. Each of TR-12's 25 rows was checked against the code, the data or another part of the report
+  before it was changed. Scoped: the ×11,364 gender figure, the ladder needs, the specification's "before any of
+  them could be answered", "every wave-0–2 query has since run", the summary's reading of the two external FAILs,
+  the sampler's uniformity, the single-instrument sentence, the equivariance ceiling's hypothesis and §12.4's
+  window. Corrected: TR-8's pair-only null is exact (47/445740) and its upgrade item closed; FH-1's wall is a cost,
+  not a structure; per-layer masses are G-closed and the prefix action is not free (orbits 3, 3, 6, 8, 12, 12, 12 at
+  k = 1, recomputed). The §10.G ratio is restated beside its old value, and the A2 slot-32 gap gains its
+  standard error from a committed replicate. Every TR-12 edit keeps its line count; revision row v1.38. One row, the confidence ledger's TR-7 3:1 cell, is held for a Lean batch: citing
+  `circular_ratio_3_to_1` needs its `#print axioms` directive, which moves the published directive count.
+- **Not in this batch.** Q-1049's other 57 report rows (TR-1, TR-2, TR-4, TR-10, METHODS, CAPSTONE_GUIDE,
+  FULL31_EXACT_AGGREGATES) and its documentation and root rows stay open.
+- No canonical sha, count, certificate, token or verdict changed. `TestBatchQ1049R` holds each sentence and fails
+  on the parent tree. Found by Codex (gpt-6-astra), final review; adjudicated by Fable, who also reviewed this batch
+  before it was committed.

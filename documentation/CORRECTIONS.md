@@ -39513,3 +39513,82 @@ No canonical sha, record count, certificate or verdict changed in this batch.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch Q1037c; the defects were found by Codex
 (gpt-6-astra), fix-verification round; triaged and adjudicated by Fable (claude-fable-5-1).
+
+## CX-37C-A — TR-12: twenty-four sentences said more than the code, the data or the report's own later sections (reports/TR12_QUERY_PROGRAM.md; tests.py)
+
+**2026-11-10.** **Source.** Codex (gpt-6-astra), final review, in the numbering of its 2026-10-26 re-pinned run
+(F11-004#2/#3/#4/#5/#6/#7/#8/#9/#10/#11/#12, F11-005#1/#2/#3/#4/#5/#6/#9, F07-004#2/#3/#4/#5, F07-005#1/#2/#3,
+F08-006#5/#16, F02-008#1, F02-H03#15/#16/#17, CRZ-009#1; ids shared with CX-382's run name different findings);
+adjudicated by Fable (FV2 slice 1). Backlog Q-1049, push group Q1049R.
+
+**What was published, and what it says now.** Each line was checked against the code, the data or another part of
+the report before it was changed.
+- **Schulz gender ×11,364** (§4, the decomposability list and the upgrade order). TR-9 fn⁸ and the confidence ledger
+  measure the ×11,364 under this project's ≤2-violations-anywhere relaxation; the source-stated rule is ≈11× rarer.
+  Both sites now name the relaxation.
+- **TR-8's pair-only null** was listed as a sampled quantity (10⁻⁴ from 10⁵ samples) still awaiting an exact upgrade.
+  It has been exact since 2026-07-21: 47/445740 = 1.054426×10⁻⁴ (`solve.pair_null_gender_le2_exact()`, battery
+  row `a0_ls_w0`). The item is marked closed; the sampled figure stays beside it.
+- **EW-1's identity** read "129.689 = Σᵢ −log₂ p_i" and its bars "exact rationals". The identity is Σᵢ −log₂ p_i =
+  log₂ N; 129.689 is that sum rounded, and the p_i are the exact rationals, not their logarithms. "Fixed before
+  looking" is now marked operator-attested, with the date the §9.4 ruling entered the public history (2026-09-05).
+- **The ladder needs.** "f + g + t are needed for … (XA, CAP-3/5/7)": CAP-3 and CAP-7 ride the f/g unrank and
+  enumeration paths and each CAP-5 point is a fresh count-only DP run, so only XA needs t. The abstract's "every result is a query against a three-stage out-of-core ladder" and §R's "every TR-12 result is a
+  *query against this catalog*" are narrowed to the catalog results; Q4b, Q7 and Q9 need no ladder,
+  as §R already said.
+- **§"What this document is".** "The full-31 answers to Q1–Q10 are not stated in §0–§11": §1 carries the full-31
+  figures added on 2026-09-27 (Q-857) — Q1's rank, Q2's endpoint certificates, Q3's profile transcript, Q4's census, Q8's galleries, Q10(a)'s mask-orbit census. It now
+  says those sections are not where the answers are collected, and that the figures they carry stand beside receipts.
+- **The executive summary** said the 2026-07-17 specification fixed every query "before any of them could be
+  answered"; Q9 restates TR-5, TR-6 and TR-7 results published on 2026-07-04. Q9 is named as the exception. It also
+  said "That FAIL is the measurement, not a defect"; §12.10 (CX-71) already says a FAIL is equally consistent with a
+  fault. The summary now says the FAIL is read as the measurement and points to the gates.
+- **The note on §0's 2026-07-17 estimates** said every wave-0–2 query had run. Two had not: the CAP-7 slices (not built, §8 item 10) and
+  the O3 ranks of Q7's pinned witnesses (the n = 31 run predates that row).
+- **Q4's FH-1 note** called FH-1 "the reason exact C3 state-tracking is blocked, i.e. the honest wall". Since TR-11
+  §10(ii) the block is a cost: `--f1-c3-hist --with-c5` carries C3's G channel beside C5's state, the full-31 run was
+  priced and declined (§9), and the f/g/t ladders carry no G channel.
+- **Q4(a)'s sampler** was "uniform over ALL of SUPER". It is exact-uniform in §10.C's sense: uniform given the
+  pseudo-random stream, one seed reaching at most 2⁶⁴ of the ≈10³⁹ ranks.
+- **V5** "adds … not a measured dependence". The 0.0097 maximum deviation of the joint from the product of marginals
+  is an exact population quantity, so V5 measures a dependence; it is small. The sentence says so.
+- **§R's independence-ladder labels (Tier A)** said every per-query output is single-instrument. The counts and distributions are; Q7's witness
+  properties are re-checked in C and Python by the battery, and `verify.c --brute-g` recounts slices of Q3's
+  profile. Both are named, as checks and not second producers.
+- **§10.C** said its prior versions were all enumeration-slice-scoped; TR-1's rule statistics are weighted-Knuth
+  estimates over C1–C5.
+- **§10.G** read "the ratio 0.999956 is a five-significant-figure rounding gap, TR-11 v1.4". 0.999956 divides by the
+  rounded 1.0971×10³⁹; against the committed 1.097088×10³⁹ (`reports/evidence/knuth_whole_tree_5e10.out`) the ratio is
+  0.99997, a 0.0033 % deviation, so most of the gap is the estimator's. A dated note in the line keeps the old wording.
+- **§11's Q10 definition** said per-layer masses "are not G-closed". They are G-closed; the action on prefixes is not
+  free. At k = 1 the 56 prefixes fall into orbits of sizes 3, 3, 6, 8, 12, 12, 12 under the order-48 group (recomputed
+  for this entry: the bit permutations that commute with reversal, acting on the 56 hexagrams of popcount 1–4).
+  Its mechanism called the /24 column "orbit counts"; it is `flow_div_24`, an integrality check, as the definition
+  above it already says.
+- **§11's Q9 refinement row** said the equivariance ceiling holds for "any G-invariant generator with rational output
+  probabilities (kernel-only)" and that "no G-invariant scoring" can beat 1/24. `equivariance_ceiling` takes
+  natural-number weights and an output law that is a function of a G-invariant score; a tie-break by enumeration
+  order is not covered (lean/README, CX-35T-G). The row now says that.
+- **§12.4.** The heading said the kernel is stationary "across the walk"; the body measures layers 6–23. The body
+  said the per-walk score distribution needs "one f+g point-lookup per gallery walk"; the score needs only the atlas's
+  `kernel` tables and a walk, and the 1,000 gallery walks are committed. This entry does not compute that
+  distribution. The step census left popcount 3 (two orbits, of 8 and 12) out of the classes with between-orbit spread.
+- **§12.10.** "A2 pair-slot position carries no interior structure here" now gives the ripple it has (0.0297–0.0326,
+  max/min ≈ 1.10). Beside A3's 260 standard errors, the A2 slot-32 gap of 0.0149 is roughly 210 standard errors,
+  from the committed independent-seed replicate (0.078420 ± 0.000071, `reports/evidence/wrap_mass_reseed/`, seed 20260904).
+- **Held, not changed: the confidence ledger's TR-7 3:1 row.** It says the ratio is "proven — a corollary, carrying no
+  certificate of its own", and `lean/KingWen.lean` has had its own theorem, `circular_ratio_3_to_1`, since 2026-07-31.
+  Citing that theorem by name needs its `#print axioms` directive under the file's 2026-09-29 rule, which moves the
+  directive count that lean/README, TR-5, TR-6 and TR-7 publish (46). That is a Lean batch with a Lean run, not this
+  one, so the row is unchanged here (Codex F11-005#7; Fable's adjudication of this batch confirmed the defect).
+
+Every TR-12 edit keeps its line count, so no line number in TR-12 moves; the revision row v1.38 is appended at the end.
+
+**Tests.** `TestBatchQ1049R` holds each new sentence and the absence of each old one outside the dated notes and the
+revision table; its red half puts the old sentences back and the check fails. `TestBatchFT2b1`'s §12.4 needle follows
+the heading.
+
+No canonical sha, count, certificate, token or verdict changed.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group Q1049R; the defects were found by Codex
+(gpt-6-astra), final review; adjudicated by Fable (claude-fable-5-1), FV2 slice 1.

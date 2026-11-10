@@ -941,7 +941,9 @@ REVIEWED = {
     ('reports/TR12_QUERY_PROGRAM.md', '205d798de93b'):
         ('1', 'reviewed:parenthetical-already-gives-the-Bonferroni-arithmetic'),
     # re-keyed batch 35 (was 2b2404425aa0): Q-944 added the replay check to the cell; re-read, still class 1.
-    ('reports/TR12_QUERY_PROGRAM.md', '15f88f5e990f'):
+    # re-keyed 2026-11-10, push group Q1049R (was 15f88f5e990f): CX-37C-A scoped the equivariance-ceiling clause of
+    # the same cell; the marker sentences are unchanged; re-read, still class 1.
+    ('reports/TR12_QUERY_PROGRAM.md', '5b94d2067942'):
         ('1', 'reviewed:cell-already-says-the-2026-07-21-run-is-attested-and-names-its-replay-check'),
     ('reports/TR12_QUERY_PROGRAM.md', '2e4dad3aee80'):
         ('1', 'reviewed:text-already-describes-what-the-row-delivers'),

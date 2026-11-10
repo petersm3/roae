@@ -17,7 +17,7 @@ re-run is not a result. This report is the question set written to query it, and
 came back. Drafted 2026-07-17 as a specification, it fixed for each of nine query families (Q1–Q9),
 five figures, an Exhaustion Atlas and a reproduction spine the same four things *before* any of them
 could be answered (Q10 joined on 2026-07-31 in §11, Q10(b) is still undefined, and V5's new-pair category was pinned on 2026-09-23): the exact definition, the space the quantity is scoped to, the instrument, and
-the check a reader can re-run. **The program was then built and executed.** The three-stage compiled
+the check a reader can re-run (Q9 is the exception: the TR-5, TR-6 and TR-7 results it restates were published on 2026-07-04, before the specification, and are imported, not answered here). **The program was then built and executed.** The three-stage compiled
 catalog — the f, g and t ladders, **15.05 TB** — was built in 2026-09 and checked against its
 published per-layer registries (96 of 96 logical digests over f, g and t; 65 of 65 container digests
 over **t**, with f and g re-read 130 of 130 at copy-in; §R Tier B) ⚠ *(corrected 2026-09-24: this read
@@ -42,8 +42,8 @@ walk (TV ≤ 0.00099 over layers 6–23) and scores King Wen just **0.10 bits** 
 expects most of its answers to land. At every layer the residual C5 budget sits within TV
 **0.04151** of the exchangeable null (the token's 0.0415 is the exact 0.0415012 to four decimals) *(corrected 2026-11-01: was "0.0415", CX-36J-D)* — a bound per layer, not on the whole spending order (§12.6). Finally, the two checks that compare this compiler
 against numbers **published from a different instrument** disagree, by about twelve times tolerance:
-`TR12_A2_SLOT=FAIL` and `TR12_A3_EXTERNAL=FAIL` (§12.10). **That FAIL is the measurement, not a
-defect** — the two sides count different populations, differing by exactly C3 — but this program has
+`TR12_A2_SLOT=FAIL` and `TR12_A3_EXTERNAL=FAIL` (§12.10). **That FAIL is read as the measurement, not
+as a defect** (a FAIL alone is equally consistent with a fault, and only each instrument's own gates speak to that, §12.10) — the two sides count different populations, differing by exactly C3 — but this program has
 no C3 channel, so the attribution is an inference from two instruments each being right about what
 it measured, and **not a measurement of C3 by this program**.
 
@@ -66,7 +66,7 @@ restated (§0 "Cost basis").
 
 We specify and execute a query program over a compiled catalog of the C1∩C2∩C4∩C5 solution space
 (**SUPER**, |SUPER| = N ≈ 1.097051×10³⁹, an exact integer, TR-11), in which the space is never materialized:
-every result is a query against a three-stage out-of-core ladder — f (membership), g (exact
+every catalog result is a query against a three-stage out-of-core ladder (Q4b, Q7 and Q9 need no ladder at all, §R) — f (membership), g (exact
 completions) and t (exhaustion cost) — totalling 15.05 TB, whose per-layer digests are published as
 the reproduction fingerprint while the ladder data itself is not distributed. The specification
 (§0–§10, 2026-07-17; §11's Q10, 2026-07-31) fixes for each query its exact definition, its space label under a mandatory
@@ -145,7 +145,7 @@ budgeted and did not run.
 **It is a question set (§0–§11) with a results section (§12).** This is the specification of a query
 program against the compiled solution catalog: for each query, the exact definition, the space label,
 the instrument, the cost band, the output shape, and the check a reader can re-run. **The full-31
-answers to Q1–Q10 are not stated in §0–§11**; §12 states, for the rows it names, what the n=31 atlas
+answers to Q1–Q10 are not collected in §0–§11**, which are the specification; the full-31 figures they do carry (dated additions of 2026-09-27, Q-857: Q1's rank, Q2's endpoint certificates, Q3's profile transcript, Q4's census, Q8's galleries, Q10(a)'s mask-orbit census) stand beside their receipts, and §12 states, for the rows it names, what the n=31 atlas
 establishes, each beside the command that reproduces it. Where a number appears it is one of
 three things, and never a fourth: (i) a quantity already published in TR-1…TR-11 or
 `documentation/`, cited; (ii) a quantity with a public reproduction command, printed beside it;
@@ -351,7 +351,7 @@ VM-hours by SKU, disk-months, closeout. Heavy ops on Spot workers, never the orc
 
 > **⚠ The cost bands in this section and in every per-query `Cost:` line below are the 2026-07-17
 > estimates**, made before Stage G existed and before any query was executed. Every stage and every
-> wave-0–2 query has since run; **realized costs are not restated** (`documentation/CAMPAIGN_METHODOLOGY.md`
+> wave-0–2 query has since run, except the CAP-7 slices (not built, §8 item 10) and the O3 ranks of Q7's pinned witnesses (the n = 31 run of 2026-09-22 predates that row, §Q7); **realized costs are not restated** (`documentation/CAMPAIGN_METHODOLOGY.md`
 > §7 rule 9 bars putting a cost total in a published document without an itemized ledger), and the
 > measured wall times and hardware are in `documentation/VERIFY.md` §"TR-12 query program". The bands
 > are redacted, not restated; **their implied wall times are not current.** Wave 3 was never
@@ -477,7 +477,7 @@ Q10(b) coset census.
 
 ### Q4. The C3 census — ceiling count, min, extremes
 - **Correction adopted from research: FH-1 is C5-residual machinery** (capping/no-lumping — cited
-  here as the reason exact C3 state-tracking is blocked, i.e. the honest wall), NOT a
+  here until 2026-11-10 as the reason exact C3 state-tracking is blocked; since TR-11 §10(ii) that block is a cost, not a structure: `--f1-c3-hist --with-c5` carries C3's G channel beside C5's state, the full-31 run is what was priced and declined (§9), and the f/g/t ladders carry no G channel), NOT a
   C3-range instrument. **The C3-range record is public and needs no internal note.**
   `documentation/SPECIFICATION.md` §C3 states that at the C1–C5 canonical scope King Wen sits
   **at the C3 ceiling, 12.125 exactly**; that the AT-ceiling tie fraction is measured per
@@ -581,7 +581,7 @@ QSET external review, which the external review itself missed; see
   table over the histogram** (`cd  count  wilson95_lo  wilson95_hi`), row `a1_q4ac` of
   `scripts/tr12_repro.sh`, landed battery F-5 D8 2026-09-08 and pinned in
   `scripts/tr12_expected/n9/a1_q4ac.txt`) — an estimator UPGRADE over all prior C3 histograms known to us: this project's own `--analyze`/`--c3-dist` tabulations over enumeration slices (the "C3 distribution" line of `runs/20260419_100T_d3_d128westus3/README.md`; `documentation/SOLVE_C_CLI.md` §`--c3-dist`), and none in the literature, where no source cited in `documentation/CITATIONS.md` tabulates a C3 distribution over orderings that we have found
-  (previous data was enumeration-slice-scoped; this is uniform over ALL of SUPER). (b): SAT
+  (previous data was enumeration-slice-scoped; this samples SUPER as a whole, exact-uniform in §10.C's sense — uniform given the pseudo-random stream, one seed reaching at most 2⁶⁴ of the ≈10³⁹ ranks). (b): SAT
   binary search — `sat.py` C3 encoding — **[I1 correction, C3 adversarial review 2026-07-22:
   bisect on integer G, not on cd×64 units.** By the
   machine-checked `c3_slot_decomposition` (lean/C3Decomposition.lean), C3 = 16 + 8·G universally
@@ -938,7 +938,7 @@ The table goes from 155 rows to **465** (31 layers × 5 distance classes × 3 wi
 
 </details>
 
-*What V5 adds over V2 is **the per-layer `P(w|k)` marginal, not a measured dependence**. On layers 1–30 the joint `P(d,w|k)` is within **≈0.0097** (0.00972) of `P(d|k)·P(w|k)` (maximum at k=1, d=3, w=4;
+*What V5 adds over V2 is **the per-layer `P(w|k)` marginal, and the dependence it measures is small**. On layers 1–30 the joint `P(d,w|k)` is within **≈0.0097** (0.00972) of `P(d|k)·P(w|k)` (maximum at k=1, d=3, w=4;
 `V5_FACTORISATION_MAX_DEV_K_GE_1=0.0097`), so the cross-tab is reconstructible from its two marginals
 with maximum absolute cell error about 0.00972, or 0.972 percentage points, on layers 1–30 (6.4 % relative to the joint at that cell). The all-layer maximum **0.173** (`V5_FACTORISATION_MAX_DEV_ALL=0.1732`) is a layer-0
 artefact: C4 pins the exit to hexagram 0, so only 7 of the 15 `(d,w)` cells are admissible
@@ -1131,7 +1131,7 @@ execution ticket; classes verified against `solve.py` definitions):
   DP must track: per-step indicator sums / violation counters (bounded), i.e. a small product
   channel on the (mask, last, rid) state.
 - **DECOMPOSABLE-WITH-EXTENDED-STATE (feasible at cost):** ST-POS/ST-ADJ station rules (Schulz
-  gender ×11,364, rs1/rs2, ccn2/3/4/7/8, c2011n2) — need the 36-station first-appearance
+  gender in this project's ≤2-violations-anywhere relaxation, ×11,364 — TR-9 fn⁸, the source-stated rule being ≈11× rarer; rs1/rs2, ccn2/3/4/7/8, c2011n2) — need the 36-station first-appearance
   counter (+ violation counter ≤3); sizing per rule BEFORE launch (the FH-1 no-lumping lesson:
   do NOT assume state collapses; measure at reduced n first). Cost per exact count: a full-31
   extended-state DP run [cost redacted] each [ESTIMATED, sizing-gated].
@@ -1165,9 +1165,9 @@ execution ticket; classes verified against `solve.py` definitions):
   (= N) or a counterexample settles each; several may fall to PROOF instead (cheaper — try
   Lean/pen-and-paper first, DP second) — all eight did, on 2026-07-21 (TR-1, `lean/C1RuleConstants.lean`), so this item is closed; (2) **N_gs** (see (c)); (3) the deep tails ccn4
   (~2×10⁻⁸), ccn8 (~2.6×10⁻⁷), c2011n1 (0 hits — starvation) — exact counts replace
-  order-of-magnitude flags; (4) the ×11,364 gender fraction and the first-wave scoreboard
+  order-of-magnitude flags; (4) the ×11,364 relaxed-gender fraction (≤2 violations anywhere, TR-9 fn⁸) and the first-wave scoreboard
   fractions; (5) TR-8's pair-only null (10⁻⁴ from 10⁵ seeded samples — a C1-only-space count,
-  CHEAP, near-closed-form); (6) the orientation fiber rows are ALREADY exact — no action.
+  CHEAP, near-closed-form) — ALREADY exact since 2026-07-21: 47/445740 = 1.054426×10⁻⁴ (`solve.pair_null_gender_le2_exact()`, TR-8 v1.6; battery row `a0_ls_w0`), so this item is closed; (6) the orientation fiber rows are ALREADY exact — no action.
 - **(b) Per-upgrade bookkeeping:** each executed upgrade names the doc row it converts
   (estimate→exact): hub table rows; TR-1 scoreboard/§3; TR-9 ledger rows where a rule enters
   pricing. Query definitions carry the space label (population fractions are of raw, fiber-weighted C15
@@ -1218,9 +1218,9 @@ well-bounded null as a publishable finding.
 
 - **EW-1. The surprise-localization ledger (lead instrument).** From Q3: KW's within-SUPER
   improbability is exactly log₂ N ≈ **129.689 bits**, and the rarity profile decomposes it
-  exactly: 129.689 = Σᵢ −log₂ p_i over KW's 31 choices. Deliverable: the exact per-choice
-  surprise spectrum (31 bars, exact rationals) + the **interpretation contract, fixed before
-  looking**: **hypothesis under test (calibrated null, `documentation/QUERY_INVENTORY.md` §9.4) — KW's surprise is more concentrated
+  exactly: Σᵢ −log₂ p_i = log₂ N over KW's 31 choices (129.689 is that sum rounded). Deliverable: the exact per-choice
+  surprise spectrum (31 bars: each p_i an exact rational, each bar its −log₂, printed to six decimals) + the **interpretation contract, fixed before
+  looking** (operator-attested: the ruling, `documentation/QUERY_INVENTORY.md` §9.4, entered the public history on 2026-09-05, after the n=9 rehearsal it quotes; no third-party timestamp): **hypothesis under test (calibrated null, `documentation/QUERY_INVENTORY.md` §9.4) — KW's surprise is more concentrated
   than a uniform SUPER member's.** `localized-constraint-candidate` is a **lead** (where to look for
   a per-step prefix-state rule), not evidence that a rule exists; `typicality-bound` bounds nothing
   outside the named class; `anti-concentration` is reportable as-is.
@@ -1391,7 +1391,7 @@ own anchors contradict. `solve --kc-count FDIR` returns the exact N **from f alo
 (`documentation/VERIFY.md`), REL rank/unrank works "from forward layers alone" (§0 above), and the
 inventory's own ladders column carries `f` for Q1b, Q2b, Q2c/d, Q4a/c and Q8 and `—` for Q4b, Q7
 and Q9 — which need no ladder at all. R.0 should reproduce that table, not contradict it.)* the
-1.097×10³⁹ solution space is never materialized; every TR-12 result is a *query against this
+1.097×10³⁹ solution space is never materialized; every TR-12 catalog result (Q4b, Q7 and Q9, above, are not among them) is a *query against this
 catalog*, so the catalog IS the reproduction artifact. The three stages must be built **in
 dependency order** — **CORRECTED 2026-08-13: this is a FAN, NOT A CHAIN.** `f -> {g, t}`: both `g` and `t`
 read `f`, and **NEITHER `g` NOR `t` READS THE OTHER** (verified in code and from the recurrence
@@ -1444,7 +1444,7 @@ Stage T`. Both are wrong. `g` and `t` are siblings; the arrows below are the cor
   §5 already classed it `DERIVED, no compute` — "Rides Q3 — needs f+g, NOT the scan" — and the
   battery builds it from a `--kc-profile FDIR GDIR` artifact with no `--kc-tdir` anywhere.)*
 - **f + g + t** are needed for the Exhaustion Atlas — the headline TR-12 section — and every
-  per-branch exhaustion number (XA, CAP-3/5/7).
+  per-branch exhaustion number (XA). CAP-3, CAP-5 and CAP-7 need no t ladder (§6: CAP-3's IDs and CAP-7's slices ride the f/g unrank and enumeration paths, and each CAP-5 point is a fresh count-only DP re-run); "XA, CAP-3/5/7" until 2026-11-10.
 
 <!-- RESOLVED 2026-09-23 (v1.11). The REPRO-TAG placeholder that stood here (V3B-03#28, Fable
      adjudication 2026-09-11) has been replaced by the real tag name, `tr12-v1.10`, which is
@@ -1729,8 +1729,8 @@ and the reproduction battery itself — at a scale a reader runs on a laptop in 
   full scale on 2026-07-25 by `verify.c`'s inclusion–exclusion transfer-walk engine — a different
   algorithm class sharing no code and no state with `solve.c` — exact MATCH, mod-24 gated
   ([TR-11](TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §10(vi); [METHODS.md](METHODS.md)
-  §"Canonical quantities"). Every **per-query** Q1–Q10 output specified in this report is
-  **single-instrument**: no second engine computes it. So the TR-11 §10(vi) single-instrument
+  §"Canonical quantities"). Every **per-query** Q1–Q10 count or distribution specified in this report is
+  **single-instrument**: no second engine computes it (Q7's witness *properties* are re-checked in C and in Python by the battery, and `verify.c --brute-g` recounts the deep-step g and shallow-step f values of Q3's King Wen profile by exhaustive search — checks of a witness or a slice, not a second producer). So the TR-11 §10(vi) single-instrument
   caveat is INHERITED BY BOTH TIERS **for the per-query outputs, and for those only** — not for the
   totals — and stated in the section body, not the margins (an independent reimplementation from
   the published recurrences is the only true second instrument; the H8 two-language boundary
@@ -1976,7 +1976,7 @@ links to its source; the hostile-referee pass audits this table first.
 
 ### C. Distributional upgrade — exact-uniform observable battery — MUST
 "Exact-uniform" here means exact rejection sampling of ranks, uniform given the pseudo-random stream; the candidate rank is built from three consecutive outputs of a 64-bit-state splitmix64 generator, so one seed can reach at most 2⁶⁴ of the ≈10³⁹ ranks (definition added 2026-09-29, Codex KCV R6, CX-241). Re-run the standard observable battery (DISTRIBUTIONAL_ANALYSIS.md set + TR-1/2 rule stats)
-under EXACT-uniform `--kc-sample` over SUPER (the prior versions are enumeration-slice-scoped).
+under EXACT-uniform `--kc-sample` over SUPER (the prior versions are enumeration-slice-scoped or, for TR-1's rule statistics, weighted-Knuth estimates over C1–C5 — in either case a different population from SUPER).
 KW's joint/marginal percentiles under the true measure; retires the slice-bias objection.
 **Stage:** post-F. **Cost:** [cost redacted] (rides Q4's sampling infrastructure; same walks, more
 evaluators). **Verification:** two-language evaluation (solve.py) on a sub-sample; CIs stated;
@@ -2018,7 +2018,7 @@ cert per the Fable-work rule).
 
 ### G. TR-4 v-next: estimator recalibration — versioned update (not TR-12)
 TR-11's exact count falls inside the Knuth estimator's stated ±0.01 % envelope at the C1∩C2∩C4∩C5
-cell (the ratio 0.999956 is a five-significant-figure rounding gap, TR-11 v1.4). It **validates**
+cell (the ratio is 0.99997 against the committed estimate 1.097088×10³⁹, `reports/evidence/knuth_whole_tree_5e10.out`, a 0.0033 % deviation; *corrected 2026-11-10, CX-37C-A: this read "the ratio 0.999956 is a five-significant-figure rounding gap, TR-11 v1.4" — 0.999956 is the ratio against the rounded 1.0971×10³⁹, and most of its gap is the estimator's, not rounding's*). It **validates**
 that envelope; it does **not** tighten any interval, and nothing licenses a tightened error bar on
 the uncalibrated C3 layer — TR-4 §"Three points are consistency, not an error model" says so in
 terms. ⚠ *(Corrected 2026-09-12, V3A-086#6: this read "retroactively tightens every published
@@ -2047,7 +2047,7 @@ query family and refines four existing items. All items below are labeled by spa
 ### Q10 (NEW). Orbit / (ℤ/2)⁶-coset census — the Ouyang-framing query
 - **Definition (SUPER, exact part).** The order-48 action on orientation-explicit sequences is free (TR-5, paper-proved), so |SUPER| and every per-layer *flow* are divisible by 48
   and a fortiori by 24; `twenty_four_dvd_*` (kernel-only, #32) proves the record-level 24 ∣ count. Per-layer
-  *masses* are not G-closed and need not be divisible by 24 (FULL31_EXACT_AGGREGATES k = 1, 2, 3: 56, 3030, 158364 ≡ 8, 6, 12 mod 24). (a) **Orbit census:** per g-ladder layer, the exact number of distinct 24-orbits,
+  *masses* are G-closed, but the action on prefixes is not free — short prefixes have non-trivial stabilizers, so orbit sizes vary (3, 3, 6, 8, 12, 12, 12 over the 56 prefixes at k = 1) — and need not be divisible by 24 ("are not G-closed" until 2026-11-10; FULL31_EXACT_AGGREGATES k = 1, 2, 3: 56, 3030, 158364 ≡ 8, 6, 12 mod 24). (a) **Orbit census:** per g-ladder layer, the exact number of distinct 24-orbits,
   **computed by canonical-form census — NOT by dividing the layer mass by 24**. ⚠ *(Matched to the
   battery 2026-09-12, V3B-03#41. This promised "the exact number of distinct 24-orbits per layer …
   **and KW's orbit's rank among them**", and the run produces neither as written. What row `c_q10a`
@@ -2087,7 +2087,7 @@ query family and refines four existing items. All items below are labeled by spa
   (EW-class, FRONTIER discipline)** — it may reveal a real concentration or may be flat, and "flat"
   is a reportable negative (feeds Q9), NOT a failure. No structural claim is pre-committed.
 - **Mechanism.** (a) rides the existing `--kc-g-check` mass identity (Σ orbit·f·g = N already computed
-  in the scan pass) — the /24 orbit counts are a projection of numbers the ladder already produces; no
+  in the scan pass) — the per-layer `flow_div_24` column (flow / 24, an integrality check and not an orbit count, as above; "the /24 orbit counts" until 2026-11-10) is a projection of numbers the ladder already produces; no
   new subcommand strictly needed (a thin `--kc-orbit-census` wrapper at most). (b) **TO-BUILD** light:
   a coset-labeling of the transversal (map each canonical mask to its (ℤ/2)⁶ coset id via the XOR
   structure — but NOT via `applyPerm`/`pairKey`.
@@ -2158,7 +2158,7 @@ query family and refines four existing items. All items below are labeled by spa
 | Query | Refinement (source) | Action |
 |---|---|---|
 | **Q4** (C3 census) | C3 = 16 + 8·G identity CLOSED (kernel, `C3Decomposition.lean`). Beyond the already-adopted "bisect on integer G / bracket [12,47] / mod-8 lattice" correction, publish an **EXACT** G-channel companion to the (estimated) C15 histogram: the C1∩C4 null law of G — support **[12, 228]**, **E[G] = 128** (⇒ E[C3] = 1040), **P(G ≤ 95) = 641983711307479/7919632354008375 ≈ 8.106%** — **exact of the DP-defined law** via the G-channel DP (kernel-checked, `C3Decomposition.lean`). ⚠ **[CORRECTED 2026-09-19, V3B-03#42 — this read "exact via the G-channel DP", with no qualifier. The number is not wrong; the **label** was. What is kernel-proved is a fact about the **DP-defined law**: at production size (12 couples, 31 slots) there is **no theorem asserting that bin g of the DP histogram counts the permutations whose G equals g** — the DP→permutation-count bridge is machine-checked only at the toy sizes (2,1,5), (2,3,7) and (3,1,7), so reading the figure as a probability over the 31! pair-orders rests on that bridge plus the DP-free E[G] = 128 linearity cross-check, not on a production-size semantic theorem. That argument is already stated in full at [lean/README.md](../lean/README.md) (the "What is NOT kernel-proved, stated plainly" note, lines 90-99), which this report never cited: it carried `DP-defined` **zero times**, so a reader of this row saw "exact" with no pointer. The rational and the ≈8.106% are **unchanged** and are published in nine public files; `verify.py --check-null-g` agreeing is a re-implementation check, not the missing theorem *(qualified 2026-09-26, Q-832: it read "independent corroboration"; `verify.py --check-null-g` runs the **same** (o, c) recurrence as `C3Decomposition.lean`, with the same weights and G increments, so its bin-for-bin match corroborates the literal, not the production-size DP→permutation bridge; the checks independent of the DP are the DP-free `null_mean_linearity` (E[G] = 128) and the small-size brute-force bridge `nullHist_matches_brute_*`)*. See [CORRECTIONS.md](../documentation/CORRECTIONS.md).]** One column moves estimate→exact **at the DP-law layer**; the C15-conditioned histogram stays labeled ESTIMATE. | Add exact-G companion table + the ceiling-is-KW-defined circularity note (already in Q4). |
-| **Q9** (reportable negatives) | (i) Add the **equivariance ceiling** (P(KW-record) ≤ 1/24 for any G-invariant generator with rational output probabilities (`KingWen.lean`, kernel-only); the real-valued case follows from the equal-orbit-mass argument in prose) as a strong new negative — no G-invariant scoring can concentrate on KW beyond 1/24. (ii) The **8 forced literature rules** (Find 1 → `C1RuleConstants.lean`) are now PROVEN constants of the entire C1 space — **Lean-proven modulo a transcription step whose numerical check is `python3 solve.py --c1-constants-check`** *(updated 2026-10-02, Q-944: this read "whose check is attested only")*, a qualifier that is load-bearing here: Lean proves constancy of the `countP` **forms** defined in that file, and identifying those forms with the executable registry rules (`reg_*` in `solve.py`, `score_registry` in `solve.c`) is a **NON-Lean step**. Its one numerical check, a drive of the repo's own `reg_*` over 5,449 structured C1 sequences, is **attested, not reproducible**: the script is not in the repo. *(Added 2026-10-02, Q-944: its design is now replayed by `python3 solve.py --c1-constants-check` — 5,455 C1 orderings, 0 deviations, with a non-C1 control and a cross-pair r4 mutant; the 2026-07-21 run itself stays attested.)* The limitation is stated in [lean/README.md](../lean/README.md), in the bullet "The eight 'forced' literature rules are proven, not just measured" (lines 61-72 at this revision). ⚠ **[CORRECTED 2026-09-24 (Q-780) — this read "Lean-proven modulo a validated transcription" and "validated numerically by driving the repo's own `reg_*` …", and cited lean/README.md "(lines 62-70)". lean/README.md dropped "validated" on 2026-09-24 (Q-778, CX-84), because the check behind it is a scratchpad script that is not in the repo, and its bullet now sits at lines 61-72. The 2026-09-19 note below and the v1.5 revision row quote the README as it read on 2026-09-19. They are kept as written.]** The theorem itself is kernel-checked. ⚠ **[CORRECTED 2026-09-19, V3B-03#43 — this read "are now PROVEN constants of the entire C1 space", unqualified, and "PROVEN" so written reaches further than the artifact supports. The Lean theorem is real and kernel-checked, but it is a theorem about the `countP` forms; carrying it to the eight executable registry rules is the non-Lean transcription step above, which [lean/README.md](../lean/README.md) discloses at lines 62-70 as "Lean-proven **modulo a validated transcription**". The validator for that step — a 5,449-sequence drive of the repo's own `reg_*` — is a **scratchpad script with zero occurrences in the public tree** (measured against a positive control of one for `verify.py`, which proves the search could find a tracked script), so the check that carries the theorem to the executable rules is **not reproducible by a reader today**. This is a **label and reproducibility** defect: no count, rate or verdict moves, and the eight rules still measure at rate 1.0 under enumeration. See [CORRECTIONS.md](../documentation/CORRECTIONS.md).]** So they move from Q9's "candidates for proof upgrade (LS-1)" into the theorem class **with that transcription caveat attached**. | Promote the 8 rules; add the ceiling negative with its hypothesis-class scope stated. |
+| **Q9** (reportable negatives) | (i) Add the **equivariance ceiling** (P(KW-record) ≤ 1/24 for any generator whose output law is a function of a G-invariant score (`KingWen.lean` `equivariance_ceiling`, kernel-only, for natural-number weights; rational output probabilities by rescaling, and the real-valued case from the equal-orbit-mass argument, in prose) as a strong new negative — no generator whose output law is a function of a G-invariant score can concentrate on KW beyond 1/24 (a G-invariant score with a tie-break by enumeration order is not covered; lean/README §The equivariance ceiling). (ii) The **8 forced literature rules** (Find 1 → `C1RuleConstants.lean`) are now PROVEN constants of the entire C1 space — **Lean-proven modulo a transcription step whose numerical check is `python3 solve.py --c1-constants-check`** *(updated 2026-10-02, Q-944: this read "whose check is attested only")*, a qualifier that is load-bearing here: Lean proves constancy of the `countP` **forms** defined in that file, and identifying those forms with the executable registry rules (`reg_*` in `solve.py`, `score_registry` in `solve.c`) is a **NON-Lean step**. Its one numerical check, a drive of the repo's own `reg_*` over 5,449 structured C1 sequences, is **attested, not reproducible**: the script is not in the repo. *(Added 2026-10-02, Q-944: its design is now replayed by `python3 solve.py --c1-constants-check` — 5,455 C1 orderings, 0 deviations, with a non-C1 control and a cross-pair r4 mutant; the 2026-07-21 run itself stays attested.)* The limitation is stated in [lean/README.md](../lean/README.md), in the bullet "The eight 'forced' literature rules are proven, not just measured" (lines 61-72 at this revision). ⚠ **[CORRECTED 2026-09-24 (Q-780) — this read "Lean-proven modulo a validated transcription" and "validated numerically by driving the repo's own `reg_*` …", and cited lean/README.md "(lines 62-70)". lean/README.md dropped "validated" on 2026-09-24 (Q-778, CX-84), because the check behind it is a scratchpad script that is not in the repo, and its bullet now sits at lines 61-72. The 2026-09-19 note below and the v1.5 revision row quote the README as it read on 2026-09-19. They are kept as written.]** The theorem itself is kernel-checked. ⚠ **[CORRECTED 2026-09-19, V3B-03#43 — this read "are now PROVEN constants of the entire C1 space", unqualified, and "PROVEN" so written reaches further than the artifact supports. The Lean theorem is real and kernel-checked, but it is a theorem about the `countP` forms; carrying it to the eight executable registry rules is the non-Lean transcription step above, which [lean/README.md](../lean/README.md) discloses at lines 62-70 as "Lean-proven **modulo a validated transcription**". The validator for that step — a 5,449-sequence drive of the repo's own `reg_*` — is a **scratchpad script with zero occurrences in the public tree** (measured against a positive control of one for `verify.py`, which proves the search could find a tracked script), so the check that carries the theorem to the executable rules is **not reproducible by a reader today**. This is a **label and reproducibility** defect: no count, rate or verdict moves, and the eight rules still measure at rate 1.0 under enumeration. See [CORRECTIONS.md](../documentation/CORRECTIONS.md).]** So they move from Q9's "candidates for proof upgrade (LS-1)" into the theorem class **with that transcription caveat attached**. | Promote the 8 rules; add the ceiling negative with its hypothesis-class scope stated. |
 | **XA** (Exhaustion Atlas) | Add an explicit **24-divisibility integrity self-check** on every **G-closed** headline count (⚠ NOT on every count: per-branch masses are not G-closed — measured, branch 0 = 2368 ≡ 16 (mod 24) — so extending this gate as first written makes a *correct* atlas fail) — backed by the paper-proved free order-48 action (TR-5); `twenty_four_dvd_*` (kernel-only, #32) covers the record level. Cheap, dispositive, and it hardens the whole count cascade. | Add the mod-24 gate row to XA's integrity block; cite the kernel theorem. |
 | **LS / XA framing** | Express the counting cascade in the **Gaussian-binomial / [6,3]₂ lineage** which Suenaga 2012 exhibits (1395 = [6,3]₂), so the Atlas visibly EXTENDS a known partial count rather than presenting a bare number. | Add the q-binomial framing note + Ouyang 1992 / Suenaga 2012 citations to LS and XA provenance. |
 
@@ -2325,7 +2325,7 @@ effect (King Wen's prefixes reached by few orderings) or a g-side one, which the
 separate; and whether King Wen's C3-compactness already predicts a low f, which would make the
 profile a restatement.
 
-### 12.4 The raw one-step kernel is stationary across the walk and is not shown to distinguish King Wen — a negative result
+### 12.4 The raw one-step kernel is stationary across the interior of the walk (layers 6–23) and is not shown to distinguish King Wen — a negative result
 
 The `kernel` table is the per-layer 64×64 matrix M_k[a][b] of walk mass through the transition
 exit-a → entry-b (`KERNEL_EVERY_LAYER_SUMS_TO_N=PASS`). **Stationarity:** the total-variation
@@ -2359,7 +2359,7 @@ independent, and one-step marginals fix neither the score's distribution nor its
 that its SD is at most **10.794 bits** (`KERNEL_SCORE_SD_UPPER_BOUND_ANY_DEPENDENCE_BITS`, a
 Minkowski bound, rigorous under any dependence). So the atlas does not show the one-step kernel
 distinguishing King Wen, and **cannot show that it does not**: that needs the per-walk score
-distribution (one f+g point-lookup per gallery walk, the 12.7(i) class), which is not computed
+distribution — estimable from the atlas's committed `kernel` tables and the 1,000 committed Q8 gallery walks alone, with no ladder lookup ("one f+g point-lookup per gallery walk, the 12.7(i) class" until 2026-11-10) — which is not computed
 here. This is a Q9-class reportable negative and is entered there **as "not distinguished at the
 one-step scale measured", not as "cannot tell"**. ⚠ *Corrected 2026-09-22 (v1.8, CX-68): this read
 "the one-step hexagram-to-hexagram kernel cannot tell King Wen from a typical member of SUPER" — a
@@ -2384,7 +2384,7 @@ atlas's `kernel_g_invariance` tail check holds; popcount 3, twenty values, 0.649
 popcount 2, fifteen values, 0.479–0.547; popcount 4, fifteen values, 0.416–0.479; popcount 6, one
 value, 1.0 (`STEP_XOR_POPCOUNT<p>_SHARE_MIN_MAX`; the token's name says "share" but the quantity is
 the per-walk expectation just described). Within-orbit equality is forced by
-G-invariance; the between-orbit spread inside the popcount-2 and popcount-4 classes is the only
+G-invariance; the between-orbit spread inside the popcount-2, popcount-3 and popcount-4 classes (popcount 3 is two orbits, of 8 and 12 values) is the only
 content here that is not.
 
 ### 12.5 The interior positional pair field is within total-variation 0.0329 of uniform — the reading of V1, and it is negative
@@ -2589,14 +2589,14 @@ previously stated: **on SUPER the A2 slot histogram is flat away from the two ci
 slots** — interior slots 3–31 sit between 0.0297 and 0.0326 against 1/31 = 0.0323 — so TR-7's
 published U-shape is not a property of SUPER, and under this section's own inference rule it is
 attributable to C3. That is a *negative* for the SUPER side in the Q9 sense: A2 pair-slot position
-carries no interior structure here. A3 moves instead: mass flows *into*
+carries no interior structure here beyond a ripple of 0.0297–0.0326 across slots 3–31 (max/min ≈ 1.10). A3 moves instead: mass flows *into*
 d3 (×1.040) and *out of* d1 and d5 (×0.929, ×0.943). Atlas masses sum to exactly 1, and all 16
 eligible closers are realised.
 
 **No published figure is contradicted.** TR-7's quantities are C1–C5 quantities and remain so — and
 nothing here tests that side. Estimator error on the C1–C5 side is excluded as the explanation: TR-7
 publishes the wrap masses as 17.4647 ± 0.0077, 65.1504 ± 0.0096 and 17.3849 ± 0.0077 pp, so the A3
-gap of 0.0249 is roughly **260 standard errors**. What changes
+gap of 0.0249 is roughly **260 standard errors**; for A2, an independent-seed replicate of the same 2×10¹⁰-probe estimator measures the slot-32 share at 0.078420 ± 0.000071 (`reports/evidence/wrap_mass_reseed/`, the seed-20260904 run), so the A2 slot-32 gap of 0.0149 is roughly **210 standard errors**. What changes
 is that the SUPER-side values are now measured rather than assumed to track the published ones, and a reader may no longer treat a SUPER-side measurement as corroborating a C1–C5
 published number at this tolerance.
 
@@ -2857,4 +2857,5 @@ recomputation of anything in this report exists.
 | v1.34 | 2026-10-27 | **A pointer to the capstone guide under the header, and one measured share beside §12.10's table (push group D1; Q-1028).** The guide is named at the top for a reader who wants to run something first. §12.10 gains the slot-32 share under C1–C7 with C3 dropped, 0.0741 exact by two routes with both commands, credited to Cook 2006 (the rule) and Van den Berghe (the framing); the table, its tolerance and both tokens are unchanged. Every earlier line keeps its line number. No published figure, token or verdict moves. See HISTORY.md, 2026-10-27. |
 | v1.35 | 2026-10-28 | **Reproduction commands that failed as written (Codex's fix-verification pass, gpt-6-astra; triaged by Fable; push group G7; FV-G23-C4#8, FV-G4-C2:OOS:12032).** Five atlas commands named `atlas_n31.json` with no path and failed from the repository root (`ATLAS_PROBE=ERROR:cannot-read-atlas`); they name `runs/20260906_kc_ladders_n31/atlas_n31.json`. The ledger's two-instrument IE recipe omitted `--ie-count`, so verify.c read `--ie-pin-c6c7` as a run-file argument; it carries the mode. CORRECTIONS.md CX-36B-D |
 | v1.36 | 2026-11-01 | **The §12.6 exchangeability bound given to five decimals (Codex's fix-verification pass, gpt-6-astra; triaged by Fable; push group FV2-H; F07-004#6).** The abstract, the summary and §12.6 said the residual C5 budget lies within total variation 0.0415 of the exchangeable null at every layer. The exact layer-4 maximum is 0.04150117 (to eight decimals), above 0.0415 at the sixth decimal (its fifth significant figure), so the bound now reads 0.04151 (0.0415012 exact) with a dated note keeping the old value. The emitted token `EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS=0.0415` is a four-decimal rounding of the same number and is unchanged. See CORRECTIONS.md CX-36J-D. |
-| v1.37 *(current)* | 2026-11-05 | **Two items of §10, this report's DONE-contract section, that §Open Problems did not list (push group Q1056; backlog Q-1056, from the Q-1054 catalog pass of 2026-11-03).** §10.C, the exact-uniform observable battery, is labelled MUST in §10 and was run in part, privately, on 2026-08-20 — the `--marginals` observable set and a uniform-scoped summary over the 10⁶-draw exact-uniform T5 mega-sample, of which this report publishes one figure (§Q4's 12.1288%) and the tree the summariser — and never delivered as the battery: its table, King Wen's uniform percentiles, the TR-1/TR-2 rule statistics and the two-language sub-sample check are unpublished or unrun. §10.E, the constraint lattice (SHOULD), had its sizing pass done privately on 2026-07-18 and its C3-free kill-factor chain published in `DESCRIPTION_LENGTH.md`; the lattice table and its remaining exact and estimator cells were never run. Both are now rows 13 and 14 of §Open Problems, with their classes stated against §10.A's own list. No figure, token, count or verdict moves; nothing in §10 is reworded. CORRECTIONS.md CX-36U. |
+| v1.37 | 2026-11-05 | **Two items of §10, this report's DONE-contract section, that §Open Problems did not list (push group Q1056; backlog Q-1056, from the Q-1054 catalog pass of 2026-11-03).** §10.C, the exact-uniform observable battery, is labelled MUST in §10 and was run in part, privately, on 2026-08-20 — the `--marginals` observable set and a uniform-scoped summary over the 10⁶-draw exact-uniform T5 mega-sample, of which this report publishes one figure (§Q4's 12.1288%) and the tree the summariser — and never delivered as the battery: its table, King Wen's uniform percentiles, the TR-1/TR-2 rule statistics and the two-language sub-sample check are unpublished or unrun. §10.E, the constraint lattice (SHOULD), had its sizing pass done privately on 2026-07-18 and its C3-free kill-factor chain published in `DESCRIPTION_LENGTH.md`; the lattice table and its remaining exact and estimator cells were never run. Both are now rows 13 and 14 of §Open Problems, with their classes stated against §10.A's own list. No figure, token, count or verdict moves; nothing in §10 is reworded. CORRECTIONS.md CX-36U. |
+| v1.38 *(current)* | 2026-11-10 | **Twenty-four sentences that said more than the code, the data or the report's own later sections (Codex's final review, gpt-6-astra; adjudicated by Fable, FV2 slice 1; backlog Q-1049, push group Q1049R).** Scoped: the ×11,364 gender figure names the ≤2-violations relaxation; the ladder needs (CAP-3/5/7 need no t ladder; Q4b, Q7 and Q9 no ladder); the specification's "before any of them could be answered" (Q9 excepted); "every wave-0–2 query has since run" (the CAP-7 slices and the Q7 witness ranks excepted); the summary's reading of the two FAILs; the sampler's uniformity; the single-instrument sentence; the equivariance ceiling's hypothesis; §12.4's stationarity window. Corrected: TR-8's pair-only null is exact and its upgrade item closed; EW-1's identity; "fixed before looking" is operator-attested; FH-1's wall is a cost, not a structure; V5 measures a small dependence; per-layer masses are G-closed and the prefix action is not free; the /24 column is not an orbit count; the gallery score distribution needs no ladder; popcount 3 has between-orbit spread; the A2 interior ripple is stated. One figure is restated beside its old value (§10.G: 0.99997 against the committed estimate, 0.999956 against the rounded one) and one is added (the A2 slot-32 gap, roughly 210 standard errors, from a committed replicate). The confidence ledger's TR-7 3:1 row (FV2 row D635) is held for a separate Lean batch. Every earlier line keeps its line number. No count, token or verdict changes. See CORRECTIONS.md CX-37C-A. |
