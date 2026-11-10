@@ -1994,10 +1994,10 @@ certified-counting checks rest on this stack.)*
   Propagation Redundancy Checking in CakeML." In *Tools and Algorithms for the Construction and
   Analysis of Systems (TACAS 2021)*, LNCS 12652, 223–241.
   [doi:10.1007/978-3-030-72013-1_12](https://doi.org/10.1007/978-3-030-72013-1_12). The formally
-  verified LRAT checker behind every "verified checker" claim in this repository: its
+  verified LRAT checker behind the "verified checker" claims for the archived certificates in `reports/certificates/`: its
   `machine_code_sound` theorem, machine-checked in HOL4 down to the x64 machine code, is what is
-  being cited whenever a certificate is said to rest on a *formally verified* checker, and is what
-  makes drat-trim an **untrusted elaborator** in the `drat-trim … -L <lrat>` → `cake_lpr` chain.
+  being cited whenever an archived certificate is said to rest on a *formally verified* checker, and is what
+  makes drat-trim an **untrusted elaborator** in the `drat-trim … -L <lrat>` → `cake_lpr` chain. *(Reworded 2026-11-10: this read "behind every "verified checker" claim in this repository" and "whenever a certificate is said to rest on a *formally verified* checker". Two other formally verified checkers are now cited for the certified counts in [SAT_CLI.md](SAT_CLI.md) NOTES: the Lean 4 checker shipped with CPOG ([Bryant et al. 2023](#cpog2023)) and the LRAT checker shipped with Lean 4 ([de Moura and Ullrich 2021](#demoura-ullrich2021)); CORRECTIONS.md CX-37A-A.)*
   The theorem's conclusion is about the CNF the checker parses, so it does not speak to whether
   that CNF encodes the intended claim. Journal version: *International Journal on Software Tools
   for Technology Transfer* 25(2):167–184 (2023),
@@ -2019,7 +2019,7 @@ certified-counting checks rest on this stack.)*
   assistant checking every machine-verified theorem in `lean/`
   ([lean/README.md](../lean/README.md); [METHODS.md](../reports/METHODS.md) §Environment). *(Added
   2026-08-06, citation audit — the proof assistant itself had gone uncited while the tools it
-  checks were cited.)*
+  checks were cited.)* Its v4.31.0 toolchain also ships the LRAT checker `Std.Tactic.BVDecide.LRAT.check`, with the soundness theorem `check_sound`, that `scripts/lratcheck/` runs for the n=12 and n=10 pieces with no models and for their cover certificates ([SAT_CLI.md](SAT_CLI.md) NOTES). *(Added 2026-11-10.)*
 
 ### Information theory (description length / MDL)
 

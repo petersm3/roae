@@ -625,11 +625,11 @@ Pipeline: (1) emit the DIMACS CNF (the same `build()` /
 compiles it to Decision-DNNF; (3) `cpog-gen` derives a CPOG
 certificate from the CNF + d-DNNF; (4) `cpog-check` verifies the
 certificate **against the original CNF** and reports the model count.
-The count printed as `CERTIFIED count=…` is `cpog-check`'s — it is
-trusted because the certificate is checked independently of the
-compiler, the same trust model as the DRAT/LRAT-checked UNSAT
+The count printed as `CERTIFIED count=…` is `cpog-check`'s: the certificate is
+checked against the original CNF by a checker that does not read the compiler's output (`cpog-check` reads the CNF and
+`cpog-gen`'s certificate, not `d4`'s d-DNNF, and is an unverified C prototype, as above), the same trust model as the DRAT/LRAT-checked UNSAT
 verdicts. D4's own (uncertified) count is cross-checked against it
-when parseable; a disagreement is a hard error.
+when parseable; a disagreement is a hard error. *(Reworded 2026-11-10: this read "it is trusted because the certificate is checked independently of the compiler", which claimed more than the check gives; CORRECTIONS.md CX-37A-B.)*
 
 With `--expect N` (the reference count, e.g. from
 `solve --f1-exact-c1c2c4c5 --f1-pairs N` — `sat.py` never invokes the
@@ -903,6 +903,124 @@ traceback after the build.
   theorem for an abstract encoder plus the two non-Lean bridges named in
   the n=12 paragraph, and the same scope applies at every rung listed here. *(Added
   2026-11-08 with CX-36Z-A.)*
+- **Certified count at n=10: 123,677,568** (run 2026-11-08; published
+  2026-11-10). It is a certified model count of the CNF
+  `sat.py --emit-cnf f1c5 --f1-pairs 10` emits (sha256
+  `271e80a6c264bfb31a2e373b7119945467adb68dbe8f3408f3a6afdb976bf5a0`,
+  550 variables, 7,834 clauses), with the scope stated for n=12 above;
+  `scripts/k37_isclause_port.py 10` gives `K37_BRIDGE_N10=MATCH`. The
+  method is the n=12 one. The run made 1,050 cuts and ended with 19,951
+  pieces: `cpog-check` certified the 9,497 pieces that have models and
+  `cadical` + `drat-trim` the 10,454 that have none, and
+  `scripts/n12_postcheck.sh` gave `N12_POSTCHECK=PASS`. It took about
+  3.7 h on a 128-vCPU host, with the toolchain pins of the n=9 run. The
+  run was stopped once, after 15 minutes and 225 piece attempts made by
+  the n=12 driver, and resumed with a variant of it,
+  `scripts/decomp_certify_v3_pipe.py`. The variant changes two things:
+  it drops `cpog-check`'s `Looking for clause` lines in a `grep` filter
+  before Python reads the output (they had slowed the driver; no verdict
+  line can be dropped), and, when `SATCERT_PIECE_TMP` is set, it writes
+  the piece files to that directory (here a RAM disk). Piece
+  construction, gates, verdict parsing, ledgers and resume are the n=12
+  driver's code. The copy that ran had sha256
+  `0dd18fa92e78843ebc50dc5b8f2a44116b29dd501b0f7a478234a9b96720ce81`;
+  the shipped copy differs from it in docstring and comment lines only.
+  The command below is the resumed run's (the first 15 minutes used
+  `--jobs 28 --vcap-kb 8388608 --disk-gate-mb 6000`). A fresh run may
+  cut the CNF differently; the total it must reach is the same.
+
+  ```
+  python3 sat.py --emit-cnf f1c5 n10.cnf --f1-pairs 10        # sha256 271e80a6…
+  python3 scripts/k37_isclause_port.py 10 n10.cnf              # K37_BRIDGE_N10=MATCH
+  SATCERT_PIECE_TMP=/dev/shm/n10_pieces python3 scripts/decomp_certify_v3_pipe.py n10.cnf \
+      --bin DIR --expect 123677568 --jobs 32 --vcap-kb 4194304 --timeout 1800 \
+      --disk-gate-mb 12000 --force-split-depth 3 --max-pieces 400000 --workdir n10_work > n10_run.log 2>&1
+  bash scripts/n12_postcheck.sh n10.cnf n10_work n10_run.log 123677568   # N12_POSTCHECK=PASS
+  ```
+- **The n=12 and n=10 pieces, checked again by formally verified
+  checkers** (runs 2026-11-08 and 2026-11-09; published 2026-11-10).
+  Every piece with models (7,085 at n=12, 9,497 at n=10) was also
+  accepted by the formally verified Lean 4 checker shipped with CPOG
+  (`VerifiedChecker/` in CPOG `a97ed854`, built with Lean v4.4.0-rc1),
+  and the counts it printed sum to 133,118,976 and 123,677,568. Every
+  piece with no models (5,083 at n=12, 10,454 at n=10) was also accepted
+  by the formally verified LRAT checker shipped with Lean 4 (v4.31.0).
+  The cut tree has its own certificate (below). Every piece was accepted
+  on its first attempt (the n=10 LRAT pass had one false start, with a
+  time cap set too low, that checked no piece). Each pass ran once, on
+  one host.
+
+  *How.* The run had deleted its certificates, so each piece was rebuilt
+  from the source CNF. Its CNF had to have the sha256 the run recorded.
+  For a piece with models, the pinned `d4` and `cpog-gen` rebuilt the CPOG
+  certificate, whose sha256 and size had to equal the run's record; then
+  `checker --count piece.cnf piece.cpog` had to print `PROOF SUCCESSFUL`
+  and a `Model count:` equal to the run's count. The runners are
+  `scripts/n12lean_run.py` and, for n=10, `scripts/n10lean_run.py`,
+  which imports it with n=10 defaults and two fixes to its lock and
+  signal handling. For a piece with no models, the pinned `cadical` made
+  a new proof in LRAT form (`cadical --no-binary --lrat --unsat`), and
+  `scripts/lratcheck/` checked it. That is a small Lean program that
+  runs the Lean 4 library function `Std.Tactic.BVDecide.LRAT.check`; its
+  theorem `check_sound` says that when it returns true the CNF is
+  unsatisfiable. So the verified checker judged a new LRAT proof, not the
+  DRAT proof that `drat-trim` checked in the run. Runner:
+  `scripts/lrat_run.py`.
+
+  *The cover certificate.* From the source CNF F and the run's ledger,
+  `scripts/cover_cert_emit.py` writes a CNF that is F plus one clause per
+  piece ("not in this piece"), and an LRAT proof, built from the cut tree,
+  that this CNF has no models. The formally verified LRAT checker shipped
+  with Lean 4 (v4.31.0) accepted it at n=12 (25,984 clauses, 529 proof
+  steps) and at n=10 (27,785 clauses, 1,050 steps). That shows every
+  model of F lies in at least one piece. That no model lies in two pieces
+  is not part of that certificate. `scripts/cover_cert_check.py`, a
+  second program that shares no code with the emitter, checks it
+  syntactically: for every cut, each pair of literals in the cut clause
+  is ruled out by a two-literal clause that is in F (146,004 pairs at
+  n=12 and 199,500 at n=10, none missing). It also rebuilds the tree from
+  the ledger and checks the certificate's layout. No machine-checked
+  proof says the pieces split F's models exactly; that step rests on this
+  check and on `scripts/n12_partition_all.py`.
+
+  *What is not verified.* The tools that make the proofs (`d4`,
+  `cpog-gen`, `cadical`); the claims do not rest on them, because the
+  checkers judge what they produce. The Python that builds each piece
+  CNF from F (gated on the run's sha256), the sum of the piece counts
+  (Python and `awk`), and the two syntactic checks above. The checkers'
+  own trust base: for the LRAT checker, the DIMACS parser in
+  `scripts/lratcheck/Main.lean`, the library's LRAT parser, and the Lean
+  compiler and runtime; for the CPOG checker, its Lean 4 toolchain and
+  whatever its own proof leaves out, which was not audited here. And, as
+  for every certified count here, the step from the CNF to the orderings
+  (*What a certified count covers*): the verified checkers check
+  certificates against CNFs, nothing more.
+
+  ```
+  python3 scripts/n12lean_run.py --src n12.cnf --proofs n12_work/proofs.tsv --route CPOG \
+      --expect-sum 133118976 --d4 DIR/d4 --cpog-gen DIR/cpog-gen --checker VC/checker --out lean12
+  python3 scripts/n10lean_run.py --src n10.cnf --proofs n10_work/proofs.tsv \
+      --d4 DIR/d4 --cpog-gen DIR/cpog-gen --checker VC/checker --out lean10     # N10_LEAN_FULL=PASS
+  (cd scripts/lratcheck && lake build)                                        # Lean v4.31.0, no packages
+  python3 scripts/lrat_run.py --run-name n12 --source n12.cnf --proofs n12_work/proofs.tsv \
+      --bin DIR --lean scripts/lratcheck/.lake/build/bin/lratcheck --out lrat12  # UNSAT_LEAN_FULL=PASS
+  python3 scripts/cover_cert_emit.py --cnf n12.cnf --ledger n12_work/ledger.tsv --out cover12
+  scripts/lratcheck/.lake/build/bin/lratcheck cover12/cover.cnf cover12/cover.lrat \
+      > cover12/lratcheck.out; echo $? > cover12/lratcheck.rc                # LRAT_LEAN=VERIFIED
+  python3 scripts/cover_cert_check.py --cnf n12.cnf --ledger n12_work/ledger.tsv \
+      --dir cover12 --label n12                                               # COVER_CERT_n12=PASS
+  ```
+
+  `VC` is CPOG's `VerifiedChecker/.lake/build/bin`. The n=12 runner's
+  token is `N12_LEAN_FULL=PASS`; the LRAT runner's is the last line of
+  its `run.log`. The n=10 commands are the same with n10 names. The
+  copies of `n12lean_run.py`, `lrat_run.py` and `cover_cert_emit.py`
+  that ran differ from the shipped ones in docstring and comment lines
+  only, except one `--help` string in `lrat_run.py`; `n10lean_run.py`
+  also pins the shipped `n12lean_run.py` by sha256, so that one constant
+  changed with it. `cover_cert_check.py` and `scripts/lratcheck/` are
+  byte-identical to what ran. The certificates are not shipped. *(Added
+  2026-11-10.)*
 - `sat.py` imports `solve.py` as `solve`; if you change constraint
   semantics, change them in `solve.py` — never re-encode them here.
 

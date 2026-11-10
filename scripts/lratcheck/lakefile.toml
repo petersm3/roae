@@ -1,0 +1,6 @@
+name = "lratcheck"
+defaultTargets = ["lratcheck"]
+
+[[lean_exe]]
+name = "lratcheck"
+root = "Main"

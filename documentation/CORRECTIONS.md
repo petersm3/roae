@@ -39299,3 +39299,63 @@ with the scope now stated. "No certified count exists at n=13" stands.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, backlog Q-1078; the overstatement was found by
 Fable (claude-fable-5-1) in its K-37 scope review.
+
+## CX-37A-A — CITATIONS.md called cake_lpr the checker "behind every "verified checker" claim in this repository" (documentation/CITATIONS.md)
+
+**2026-11-10.** **Source.** Found by Opus (claude-opus-5-5) while drafting the n=10 and verified-checker
+publication below.
+
+**Before.** The cake_lpr entry of [CITATIONS.md](CITATIONS.md) said it is "The formally verified LRAT checker
+behind every "verified checker" claim in this repository", and that its theorem "is what is being cited whenever a
+certificate is said to rest on a *formally verified* checker".
+
+**Why it was wrong.** Since 2026-11-08 (CX-36Z-A) [SAT_CLI.md](SAT_CLI.md) NOTES has also cited the formally
+verified Lean 4 checker shipped with CPOG, and from this change it cites the formally verified LRAT checker shipped
+with Lean 4 (v4.31.0). cake_lpr is behind neither. The sentence was true of the archived certificates in
+`reports/certificates/`, which is what it was written for.
+
+**After.** The entry says cake_lpr is the checker behind the "verified checker" claims for the archived
+certificates, and that its theorem is cited whenever an *archived* certificate is said to rest on a formally
+verified checker. A dated note there keeps the old words and names the two other checkers. The Lean 4 entry
+(`#demoura-ullrich2021`) gains a sentence naming the LRAT checker its v4.31.0 toolchain ships.
+
+**Published with it, 2026-11-10.** In SAT_CLI.md NOTES and as rows 20 and 21 of
+[CLAIM_TO_ARTIFACT.md](CLAIM_TO_ARTIFACT.md): the certified n=10 count, 123,677,568, with the scope stated for n=12
+(a model count of the emitted CNF); and, for n=12 and n=10, that every piece with models was also accepted by the
+formally verified Lean 4 checker shipped with CPOG, that every piece with no models was also accepted by the
+formally verified LRAT checker shipped with Lean 4 (v4.31.0), and that each cut tree has an LRAT certificate that
+every model lies in some piece, accepted by the same checker, with the no-overlap side checked syntactically. The
+code ships in `scripts/` in the same change (`decomp_certify_v3_pipe.py`, `n12lean_run.py`, `n10lean_run.py`,
+`lrat_run.py`, `cover_cert_emit.py`, `cover_cert_check.py`, and the Lake project `lratcheck/`), added to
+CLAUDE.md's approved separates. They are the copies that ran with docstring and comment lines changed only (names
+of internal notes and of hosts taken out), except one `--help` string in `lrat_run.py` and the sha256 pin in
+`n10lean_run.py`, which now names the shipped `n12lean_run.py`. `cover_cert_check.py` and `lratcheck/` are
+byte-identical.
+
+**Scope.** Wording only for the correction. No count, sha, certificate or verdict changed. The certified n=12 count
+133,118,976 and its scope stand. "No certified count exists at n=13" stands.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5. The n=10 run, the driver variant, the n=12 Lean
+runner, the LRAT checker program and runner, and the cover certificate are Fable's (claude-fable-5-1) work;
+`n10lean_run.py` is claude-opus-5-5's. Fable adjudicated the verified-checker results from the per-piece tables.
+
+## CX-37A-B — SAT_CLI.md said a `--certify-count` result "is trusted because the certificate is checked independently of the compiler" (documentation/SAT_CLI.md)
+
+**2026-11-10.** **Source.** Fable (claude-fable-5-1), coverage review (backlog Q-1078, amend of 2026-11-08); found
+again by the 2026-11-10 triage. This is the second half of Q-1078; the first half is CX-36Z-A.
+
+**Before.** The Pipeline paragraph of `--certify-count` in [SAT_CLI.md](SAT_CLI.md) said the `CERTIFIED count=…`
+"is trusted because the certificate is checked independently of the compiler".
+
+**Why it was wrong.** "Independently" claimed more than the check gives. `cpog-check` reads the original CNF and
+the certificate that `cpog-gen` derives from `d4`'s output; it does not read `d4`'s d-DNNF, but it is an unverified
+C prototype, as the paragraph above it already says.
+
+**After.** The sentence says the certificate is "checked against the original CNF by a checker that does not read
+the compiler's output", names what `cpog-check` reads and calls it an unverified C prototype. A dated note beside it
+keeps the old words. The edit is line-neutral.
+
+**Scope.** Wording only. No count, sha, certificate or verdict changed.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, backlog Q-1078; the overstatement was found by
+Fable (claude-fable-5-1) in its coverage review.

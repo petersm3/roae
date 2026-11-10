@@ -63101,6 +63101,155 @@ class TestBatchEngine1(unittest.TestCase):
 
 # end class TestBatchEngine1 (engine batch 1: Q-1006, Q-1004, Q-1005; CX-36Y-A..CX-36Y-C)
 
+
+class TestBatchN12Pub2(unittest.TestCase):
+    """N12PUB-2 (CX-37A-A): the code behind the certified n=10 count and the verified-checker results ships in
+    scripts/ (decomp_certify_v3_pipe.py, n12lean_run.py, n10lean_run.py, lrat_run.py, cover_cert_emit.py,
+    cover_cert_check.py, lratcheck/). These legs need no SAT tool and no Lean: they pin what SAT_CLI.md NOTES says
+    about the shipped copies (the driver variant changes `run` and `attempt_piece` only; n10lean_run.py pins the
+    shipped n12lean_run.py; the runners build pieces as n12_partition_all.py does), run both runners' verdict-parser
+    selftests, and run the cover-certificate emitter and checker on a three-piece tree with a drop mutant. The
+    lratcheck build leg runs only where `lake` is installed. Every test fails on the parent tree.
+    Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    def _p(self, rel):
+        return os.path.join(self.ROOT, rel)
+
+    def _py(self, *args, cwd=None):
+        return subprocess.run([sys.executable, "-I"] + list(args), capture_output=True, text=True,
+                              timeout=300, cwd=cwd or self.ROOT)
+
+    def _mod(self, rel, name):
+        spec = importlib.util.spec_from_file_location(name, self._p(rel))
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        return m
+
+    def test_pipe_variant_changes_run_and_attempt_piece_only(self):
+        import ast
+
+        def parts(rel):
+            with open(self._p(rel), encoding="utf-8") as fh:
+                tree = ast.parse(fh.read())
+            defs = {n.name: ast.dump(n) for n in tree.body if isinstance(n, (ast.FunctionDef, ast.ClassDef))}
+            rest = [ast.dump(n) for n in tree.body if not isinstance(n, (ast.FunctionDef, ast.ClassDef))]
+            return defs, rest[1:]                     # rest[0] is the module docstring
+        a, ra = parts("scripts/decomp_certify_v3.py")
+        b, rb = parts("scripts/decomp_certify_v3_pipe.py")
+        self.assertEqual(sorted(a), sorted(b), "the variant defines exactly the driver's functions")
+        self.assertEqual(sorted(k for k in a if a[k] != b[k]), ["attempt_piece", "run"])
+        self.assertEqual(ra, rb, "module-level code other than the docstring is the driver's")
+        with open(self._p("scripts/decomp_certify_v3_pipe.py"), encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertIn('"grep", "-a", "-v", "^Looking for clause"', src)
+        self.assertIn('os.environ.get("SATCERT_PIECE_TMP")', src)
+
+    def test_n10_runner_pins_the_shipped_n12_runner(self):
+        with open(self._p("scripts/n12lean_run.py"), "rb") as fh:
+            want = hashlib.sha256(fh.read()).hexdigest()
+        with open(self._p("scripts/n10lean_run.py"), encoding="utf-8") as fh:
+            pins = re.findall(r'^N12_RUNNER_SHA = "([0-9a-f]{64})"$', fh.read(), re.M)
+        self.assertEqual(pins, [want], "n10lean_run.py must pin the shipped n12lean_run.py, or it refuses to start")
+
+    def test_runner_selftests_pass(self):
+        for rel in ("scripts/n12lean_run.py", "scripts/n10lean_run.py"):
+            r = self._py(rel, "--selftest", "--out", os.devnull)
+            self.assertEqual(r.returncode, 0, rel + ": " + r.stdout[-400:] + r.stderr[-400:])
+            self.assertIn("SELFTEST=PASS", r.stdout.split("\n"), rel)
+
+    def test_runners_build_pieces_as_the_partition_check_does(self):
+        ref = self._mod("scripts/n12_partition_all.py", "n12pub2_partition")
+        clauses = [[1, 2, 3], [-1, -2], [-1, -3], [-2, -3], [4, -1]]
+        tags = ("proot", "p1", "p2_m4", "p3_4")
+        for rel, name in (("scripts/n12lean_run.py", "n12pub2_lean"), ("scripts/lrat_run.py", "n12pub2_lrat")):
+            m = self._mod(rel, name)
+            for tag in tags:
+                self.assertEqual(tuple(m.tag_units(tag)), tuple(ref.tag_units(tag)), (rel, tag))
+                self.assertEqual(m.piece_text(4, clauses, m.tag_units(tag)),
+                                 ref.piece_text(4, clauses, ref.tag_units(tag)), (rel, tag))
+
+    def _tree(self, d):
+        cnf = os.path.join(d, "f.cnf")
+        with open(cnf, "w") as fh:          # x1 + x2 + x3 = 1, and x4 free: four models
+            fh.write("p cnf 4 4\n1 2 3 0\n-1 -2 0\n-1 -3 0\n-2 -3 0\n")
+        led = os.path.join(d, "ledger.tsv")
+        with open(led, "w") as fh:
+            fh.write("SPLIT\tproot\tclause#1\t-\nLEAF\tp1\tCPOG\t2\nLEAF\tp2\tCPOG\t2\nLEAF\tp3\tDRAT0\t0\n")
+        return cnf, led
+
+    def _check(self, cnf, led, out, verdict):
+        with open(os.path.join(out, "lratcheck.out"), "w") as fh:
+            fh.write("c vars=4 clauses=7 lrat_actions=1\n%s\n" % verdict)
+        with open(os.path.join(out, "lratcheck.rc"), "w") as fh:
+            fh.write("0\n" if verdict == "LRAT_LEAN=VERIFIED" else "1\n")
+        return self._py("scripts/cover_cert_check.py", "--cnf", cnf, "--ledger", led, "--dir", out, "--label", "t")
+
+    def test_cover_certificate_emit_and_check(self):
+        d = tempfile.mkdtemp(prefix="n12pub2_cover_")
+        try:
+            cnf, led = self._tree(d)
+            real = os.path.join(d, "real")
+            r = self._py("scripts/cover_cert_emit.py", "--cnf", cnf, "--ledger", led, "--out", real)
+            lines = r.stdout.split("\n")
+            self.assertEqual(r.returncode, 0, r.stdout[-600:] + r.stderr[-600:])
+            self.assertIn("EMIT_COVER=OK", lines)
+            self.assertIn("EMIT_RUP_SIM=PASS", lines)
+            with open(os.path.join(real, "cover.cnf")) as fh:
+                self.assertEqual(fh.readline().split(), ["p", "cnf", "4", "7"], "F plus one clause per piece")
+            with open(os.path.join(real, "cover.lrat")) as fh:
+                lrat = [l.split() for l in fh if l.strip()]
+            self.assertEqual(len(lrat), 1, "one lemma per cut")
+            self.assertEqual(lrat[0][:2], ["8", "0"], "the root lemma is the empty clause, id |F| + #pieces + 1")
+            c = self._check(cnf, led, real, "LRAT_LEAN=VERIFIED")
+            self.assertIn("COVER_CERT_t=PASS", c.stdout.split("\n"), c.stdout[-800:] + c.stderr[-400:])
+            c = self._check(cnf, led, real, "LRAT_LEAN=REJECTED")
+            self.assertIn("COVER_CERT_t=FAIL", c.stdout.split("\n"), "a rejected LRAT must fail the certificate")
+            mut = os.path.join(d, "drop")
+            r = self._py("scripts/cover_cert_emit.py", "--cnf", cnf, "--ledger", led, "--out", mut,
+                         "--mutant", "drop:p3")
+            self.assertIn("EMIT_RUP_SIM=FAIL", r.stdout.split("\n"), "a hole in the cover must fail the replay")
+            c = self._check(cnf, led, mut, "LRAT_LEAN=VERIFIED")
+            self.assertIn("COVER_CERT_t=FAIL", c.stdout.split("\n"), "a dropped piece must fail the structural legs")
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    def test_lratcheck_project_is_pinned(self):
+        with open(self._p("scripts/lratcheck/lean-toolchain")) as fh:
+            self.assertEqual(fh.read().strip(), "leanprover/lean4:v4.31.0")
+        with open(self._p("scripts/lratcheck/lake-manifest.json")) as fh:
+            import json
+            self.assertEqual(json.load(fh)["packages"], [], "no packages: only the toolchain's own library")
+        with open(self._p("scripts/lratcheck/Main.lean"), encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertIn("LRAT.check proof cnf = true → cnf.Unsat :=\n  LRAT.check_sound proof cnf", src)
+        self.assertIn("let ok := LRAT.check proof d.cnf", src, "the executable runs the function the theorem is about")
+
+    @unittest.skipUnless(shutil.which("lake"), "lake absent (the lratcheck build needs a Lean 4 v4.31.0 toolchain)")
+    def test_lratcheck_builds_and_judges(self):
+        d = tempfile.mkdtemp(prefix="n12pub2_lrat_")
+        try:
+            w = os.path.join(d, "lratcheck")
+            shutil.copytree(self._p("scripts/lratcheck"), w)
+            b = subprocess.run(["lake", "build"], cwd=w, capture_output=True, text=True, timeout=1800)
+            self.assertEqual(b.returncode, 0, b.stdout[-800:] + b.stderr[-800:])
+            exe = os.path.join(w, ".lake", "build", "bin", "lratcheck")
+            cases = (("p cnf 1 2\n1 0\n-1 0\n", "3 0 1 2 0\n", 0, "LRAT_LEAN=VERIFIED"),
+                     ("p cnf 2 2\n1 2 0\n-1 2 0\n", "3 0 1 2 0\n", 1, "LRAT_LEAN=REJECTED"))
+            for k, (cnf, lrat, rc, tok) in enumerate(cases):
+                cp, lp = os.path.join(d, "c%d.cnf" % k), os.path.join(d, "c%d.lrat" % k)
+                with open(cp, "w") as fh:
+                    fh.write(cnf)
+                with open(lp, "w") as fh:
+                    fh.write(lrat)
+                r = subprocess.run([exe, cp, lp], capture_output=True, text=True, timeout=120)
+                self.assertEqual((r.returncode, tok in r.stdout.split("\n")), (rc, True), r.stdout + r.stderr)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+# end class TestBatchN12Pub2 (N12PUB-2: certified n=10 and the verified-checker results; CX-37A-A)
+
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))

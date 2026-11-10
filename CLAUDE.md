@@ -370,6 +370,16 @@ measured with `git log --diff-filter=A --format=%ad --date=short -1 -- <path>`:
   they are frozen run instruments, and folding them into `sat.py` would
   break the driver's self-sha in the run log and the partition check's
   independence from the driver.
+- **`scripts/decomp_certify_v3_pipe.py`**, **`scripts/n12lean_run.py`**,
+  **`scripts/n10lean_run.py`**, **`scripts/lrat_run.py`**, **`scripts/cover_cert_emit.py`**,
+  **`scripts/cover_cert_check.py`** (2026-11-10; operator approval 2026-11-10), with the Lake
+  project **`scripts/lratcheck/`** — the published code behind the certified n=10 count and
+  the verified-checker results for the n=12 and n=10 pieces (driver variant, the two
+  verified-checker runners, the LRAT runner, and the cover-certificate emitter and its
+  separate checker; [SAT_CLI.md](documentation/SAT_CLI.md) NOTES, CORRECTIONS.md CX-37A-A).
+  Shipped because a published result needs its code in the same change; they are frozen run
+  instruments: `n10lean_run.py` pins `n12lean_run.py` by sha256, and `cover_cert_check.py`
+  must share no code with `cover_cert_emit.py`, so neither can be folded into `sat.py`.
 - **`reports/evidence/**/*.py`** (**20** files under `c8screen/`, `f1/`, `f5/`, `f11/`, `qoy1_q992/`,
   `r11/` and `q374_se_replicates/`) — evidence instruments shipped and frozen
   alongside the results they produced. ⚠ **[CORRECTED 2026-09-04 — this read
