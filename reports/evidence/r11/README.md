@@ -31,7 +31,7 @@ queued. Checkable from the committed artifacts: the per-beta completion counts a
 `phat × 32000` = 446/450/455/434/379/266/271 from `pcomplete.json`, and rescoring from
 `r11_builder_numerator` reproduces the archived `LG` to ~1 part in 10¹⁵ and every archived confusion matrix
 cell for cell. See [CORRECTIONS.md](../../../documentation/CORRECTIONS.md) CX-54 and
-[TR-2](../../TR2_THE_RULES_CONFLICT.md) v1.33.
+[TR-2](../../TR2_THE_RULES_CONFLICT.md) v1.33. ⚠ **[M_C NORMALISER RECORDED 2026-11-10 (CX-37B-F) — the M_C likelihood divides by acceptance rates measured around ONE sequence.** `l_corr` in `r11_calibration.py` uses `vf[k]`, the valid fraction of k-edit events around the grand-strict witness (`f11_events.json`, "GRAND"). The M_C generator (`mc_draw`) keeps its drawn precursor and redraws the edit until the result is valid, so the exact normaliser is that precursor's own acceptance rate, which was not measured. Every precursor's rate lies between p_c and 1 (an edit of size 0 is always valid), and that bound is enough to settle the table: in the primary and `corrA` readings no per-precursor rates can change the M0, M_G or M_D rows, and M_C's own first-rank rate stays between 72 and 89 of 100 (84 as executed); in `histZ` nothing can change, and `uncond` has no normaliser. So the veto and every pass or fail are unaffected, and the figures are kept as executed. Codex, fix-verification round, F11-007#1; [CORRECTIONS.md](../../../documentation/CORRECTIONS.md) CX-37B-F.]
 
 **The full sensitivity grid, for every class (added 2026-08-02).** Until this date the four-variant
 grid was quoted only for M_G, the class that failed; the passing classes were reported at their

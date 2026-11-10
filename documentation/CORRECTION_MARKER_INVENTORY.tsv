@@ -124,8 +124,9 @@ documentation/CITATIONS.md	919	ledger-link	CORRECTION	n/a	-	not-a-marker	ac180d2
 documentation/CITATIONS.md	1007	marker	CORRECTED	2	-	reviewed:the-1781-sentence-alone-still-implies-the-withdrawn-no-access-inference	a2de01656b7f
 documentation/CITATIONS.md	1032	marker	CORRECTED	1	-	reviewed:sentence-already-cedes-priority-to-Zhu-Yuansheng	d37205177895
 documentation/CITATIONS.md	1173	ledger-link	CORRECTION	n/a	-	not-a-marker	2cfe9bb0e823
-documentation/CITATIONS.md	1192	ledger-link	CORRECTION	n/a	-	not-a-marker	4b372583ff85
-documentation/CITATIONS.md	1192	marker	Corrected	1	-	reviewed:sentence-already-reads-3-testable-pairs	4b372583ff85
+documentation/CITATIONS.md	1192	ledger-link	CORRECTION	n/a	-	not-a-marker	2f0fa1017157
+documentation/CITATIONS.md	1192	marker	CORRECTED	1	-	reviewed:dated-note-CX-37B-B-gives-4-testable-pairs	2f0fa1017157
+documentation/CITATIONS.md	1192	marker	Corrected	1	-	reviewed:dated-note-CX-37B-B-gives-4-testable-pairs	2f0fa1017157
 documentation/CITATIONS.md	1703	marker	CORRECTED	1	-	reviewed:entries-above-already-carry-anchors	21630a1867e8
 documentation/CITATIONS.md	1828	ledger-link	CORRECTION	n/a	-	not-a-marker	86a2b580a24c
 documentation/CITATIONS.md	1837	ledger-link	CORRECTION	n/a	-	not-a-marker	82a7e893f3e6
@@ -177,6 +178,8 @@ documentation/CRITIQUE.md	367	marker	Corrected	1	-	reviewed:sentence-already-giv
 documentation/CRITIQUE.md	395	marker	Corrected	2	-	reviewed:marker-holds-the-only-statement-of-the-rerun-result-Mawangdui-9-of-11	12cf3ecada50
 documentation/CRITIQUE.md	490	marker	Corrected	1	-	reviewed:sentence-now-gives-the-measured-octet-pattern	3e6748823c1e
 documentation/CRITIQUE.md	544	marker	CORRECTED	1	-	reviewed:sentence-already-gives-the-3.4th-4.8th-percentile	508d410785a6
+documentation/CRITIQUE.md	551	ledger-link	CORRECTION	n/a	-	not-a-marker	dd648106ba08
+documentation/CRITIQUE.md	551	marker	CORRECTED	1	-	reviewed:dated-note-CX-37B-C-explains-the-f4p-labels	dd648106ba08
 documentation/CRITIQUE.md	679	marker	Corrected	1	-	reviewed:label-only;the-section-already-reports-the-calibration-outcome	3ce53bd6ba9a
 documentation/CRITIQUE.md	710	ledger-link	CORRECTION	n/a	-	not-a-marker	ff5c80e84578
 documentation/CRITIQUE.md	718	marker	Corrected	1	-	reviewed:sentence-now-says-only-the-KW-facing-integration-never-ran	c7e9ca794979
@@ -227,6 +230,7 @@ documentation/DISTRIBUTIONAL_ANALYSIS.md	11	marker	Corrected	1	-	reviewed:dated-
 documentation/DISTRIBUTIONAL_ANALYSIS.md	37	marker	Corrected	1	-	reviewed:dated-label;following-sentences-carry-the-withdrawal	a3904a2f87ba
 documentation/DISTRIBUTIONAL_ANALYSIS.md	81	marker	CORRECTED	1	-	reviewed:paragraph-already-carries-the-float64-amplitudes	9863174beb75
 documentation/DISTRIBUTIONAL_ANALYSIS.md	150	marker	Corrected	1	-	reviewed:bullet-already-credits-C5	0a25a691f691
+documentation/DISTRIBUTIONAL_ANALYSIS.md	228	ledger-link	CORRECTION	n/a	-	not-a-marker	431dae7fe19f
 documentation/DISTRIBUTIONAL_ANALYSIS.md	277	marker	Corrected	1	-	reviewed:dated-label;item-already-states-the-withdrawal	9cb52cb48ee0
 documentation/DISTRIBUTIONAL_ANALYSIS.md	297	marker	Corrected	1	-	reviewed:item-already-credits-C5	9036153ccd7d
 documentation/DISTRIBUTIONAL_ANALYSIS.md	479	marker	Corrected	1	-	reviewed:text-already-reads-Nyquist	62856d90b93b
@@ -261,6 +265,9 @@ documentation/KING_WEN_PROVENANCE.md	119	marker	CORRECTED	1	-	reviewed:sentence-
 documentation/KING_WEN_PROVENANCE.md	125	marker	Corrected	1	-	reviewed:parenthetical-already-gives-the-16-and-8-split	8d31a7ebfff4
 documentation/KING_WEN_PROVENANCE.md	197	ledger-link	CORRECTION	n/a	-	not-a-marker	177483df3350
 documentation/KING_WEN_PROVENANCE.md	228	marker	Corrected	2	-	reviewed:the-next-paragraph-refers-to-the-correction-above-for-the-3-testable-split	9ed102c86ec7
+documentation/KING_WEN_PROVENANCE.md	234	ledger-link	CORRECTION	n/a	-	not-a-marker	db633b710d00
+documentation/KING_WEN_PROVENANCE.md	234	marker	CORRECTED	1	-	reviewed:dated-note-CX-37B-B-gives-the-new-counts	db633b710d00
+documentation/KING_WEN_PROVENANCE.md	234	narration	now reads	1	-	reviewed:dated-note-CX-37B-B-gives-the-new-counts	db633b710d00
 documentation/KING_WEN_PROVENANCE.md	244	marker	Corrected	1	-	reviewed:passage-already-reads-correctly;gating-rule-is-in-VERIFY.md	fea6292056fb
 documentation/LARGE_SCALE_CAMPAIGNS.md	214	marker	CORRECTED	3	GATE 53(file)	gate-anchored	5bb8dd2d7db7
 documentation/LARGE_SCALE_CAMPAIGNS.md	252	marker	CORRECTED	3	GATE 53(file)	gate-anchored	1eb38121d2c9
@@ -422,6 +429,8 @@ documentation/SEARCH_SPACE_SIZE.md	122	marker	Corrected	1	-	reviewed:paragraph-a
 documentation/SEARCH_SPACE_SIZE.md	156	marker	Withdrawn	2	-	reviewed:tag-is-what-qualifies-the-15-20-figure-in-the-same-sentence	046d3091ca0b
 documentation/SEARCH_SPACE_SIZE.md	159	ledger-link	CORRECTION	n/a	-	not-a-marker	103878a86f9a
 documentation/SEARCH_SPACE_SIZE.md	162	marker	CORRECTED	1	-	reviewed:text-already-says-all-eight-share-King-Wens-pair-ordering;span-unclosed	01b0b7690f9a
+documentation/SEARCH_SPACE_SIZE.md	219	ledger-link	CORRECTION	n/a	-	not-a-marker	2ad65ec87f4e
+documentation/SEARCH_SPACE_SIZE.md	219	marker	CORRECTED	1	-	reviewed:dated-note-CX-37B-A-bounds-k-by-23	2ad65ec87f4e
 documentation/SEARCH_SPACE_SIZE.md	286	marker	Corrected	1	-	reviewed:bullet-already-divides-by-11.10	785a0784b6f8
 documentation/SEARCH_SPACE_SIZE.md	293	marker	Corrected	1	-	reviewed:bullet-already-says-not-the-absence-of-synergy	15f866a22238
 documentation/SOLUTIONS_FORMAT.md	13	marker	Corrected	1	-	reviewed:sentence-already-says-slice-and-lower-bound	71521e90beea
@@ -520,6 +529,8 @@ documentation/SOLVE_C_CLI.md	3203	marker	Corrected	1	-	reviewed:section-above-al
 documentation/SOLVE_C_CLI.md	3217	marker	Corrected	1	-	reviewed:cell-already-says-per-depth-5-task	9ff63678cabd
 documentation/SOLVE_C_CLI.md	3243	marker	CORRECTED	1	-	reviewed:cell-already-gives-the-default-and-report-only	b5c21b0c3aed
 documentation/SOLVE_C_CLI.md	3276	marker	CORRECTED	1	-	reviewed:cell-already-cites-r11-and-the-CI	fa29ec2344cf
+documentation/SOLVE_C_CLI.md	3281	ledger-link	CORRECTION	n/a	-	not-a-marker	73ac60b66b10
+documentation/SOLVE_C_CLI.md	3281	marker	CORRECTED	1	-	reviewed:dated-note-CX-37B-C-explains-the-f4p-labels	73ac60b66b10
 documentation/SOLVE_C_CLI.md	3301	marker	CORRECTED	1	-	reviewed:cell-already-gives-3.29-TB-measured	c679478fb3ba
 documentation/SOLVE_C_CLI.md	3347	marker	CORRECTED	1	-	reviewed:row-already-gives-the-checkpoint-line-deletion	6e7c42db49bc
 documentation/SOLVE_C_CLI.md	3527	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	b87f2ab29b55
@@ -600,6 +611,7 @@ documentation/TRIGRAM_STRUCTURE.md	328	marker	Corrected	3	GATE 66	stays:verbatim
 documentation/TRIGRAM_STRUCTURE.md	332	marker	Corrected	3	GATE 66	stays:verbatim-copy-of-the-lean/TrigramTheorems.lean-header;moves-only-with-the-Lean-file	58a1c902d08a
 documentation/VERIFY.md	15	marker	Corrected	1	-	reviewed:row-already-names-KingWen.lean	c8a94784a806
 documentation/VERIFY.md	16	marker	Corrected	1	-	reviewed:row-already-gives-the-16-MB-requirement	1469cd949612
+documentation/VERIFY.md	75	marker	Corrected	1	-	reviewed:dated-note-CX-37B-B-gives-the-new-counts	6c2ab2403dd5
 documentation/VERIFY.md	76	marker	CORRECTED	1	-	reviewed:row-already-attributes-to-Yu-Fan-and-scopes-the-12-16-band	9afbbe585ef3
 documentation/VERIFY.md	76	marker	Corrected	1	-	reviewed:row-already-attributes-to-Yu-Fan-and-scopes-the-12-16-band	9afbbe585ef3
 documentation/VERIFY.md	78	marker	Corrected	1	-	reviewed:dated-label;row-already-cites-Lemma-1	ccc7478b2a31
@@ -790,7 +802,7 @@ reports/TR2_THE_RULES_CONFLICT.md	552	marker	CORRECTED	1	-	reviewed:text-already
 reports/TR2_THE_RULES_CONFLICT.md	560	marker	Superseded	1	-	reviewed:dated-tag;following-sentences-carry-the-withdrawal	352d885dffbc
 reports/TR2_THE_RULES_CONFLICT.md	561	ledger-link	CORRECTION	n/a	-	not-a-marker	e7a9ea13149f
 reports/TR2_THE_RULES_CONFLICT.md	660	marker	Withdrawn	2	-	reviewed:tag-is-the-only-withdrawal-in-the-sentence-stating-the-comparison-result	cd19d093f284
-reports/TR2_THE_RULES_CONFLICT.md	763	ledger-link	CORRECTION	n/a	-	not-a-marker	6930597daac2
+reports/TR2_THE_RULES_CONFLICT.md	763	ledger-link	CORRECTION	n/a	-	not-a-marker	f52d4b59704c
 reports/TR2_THE_RULES_CONFLICT.md	833	ledger-link	CORRECTION	n/a	-	not-a-marker	c486bbd4659f
 reports/TR2_THE_RULES_CONFLICT.md	886	changelog	CORRECTION	keep	-	revision-row	51b063860c49
 reports/TR2_THE_RULES_CONFLICT.md	888	changelog	CORRECTION	keep	-	revision-row	d3cdae00b662
@@ -813,12 +825,18 @@ reports/TR4_SIZE_OF_THE_SPACE.md	40	ledger-link	RETRACTED	n/a	-	not-a-marker	33c
 reports/TR4_SIZE_OF_THE_SPACE.md	42	marker	WITHDRAWN	2	-	reviewed:the-distinct-vs-raw-pairing-it-withdraws-is-still-in-the-sentence-above	871aa1b5f28c
 reports/TR4_SIZE_OF_THE_SPACE.md	62	ledger-link	CORRECTION	n/a	-	not-a-marker	f404aabc97e5
 reports/TR4_SIZE_OF_THE_SPACE.md	72	ledger-link	CORRECTION	n/a	-	not-a-marker	67a50cb0e341
-reports/TR4_SIZE_OF_THE_SPACE.md	110	ledger-link	CORRECTION	n/a	-	not-a-marker	8f26a6abcd3e
+reports/TR4_SIZE_OF_THE_SPACE.md	109	ledger-link	CORRECTION	n/a	-	not-a-marker	f66ba492e1de
+reports/TR4_SIZE_OF_THE_SPACE.md	109	marker	CORRECTED	1	-	reviewed:dated-note-CX-37B-A-bounds-k-by-23	f66ba492e1de
+reports/TR4_SIZE_OF_THE_SPACE.md	110	ledger-link	CORRECTION	n/a	-	not-a-marker	045d13c5e67c
 reports/TR4_SIZE_OF_THE_SPACE.md	116	marker	Withdrawn	2	-	reviewed:tag-is-what-qualifies-the-15-20-projection-in-the-same-sentence	a040cc46ee1a
 reports/TR4_SIZE_OF_THE_SPACE.md	119	ledger-link	CORRECTION	n/a	-	not-a-marker	476bee50cb8b
 reports/TR4_SIZE_OF_THE_SPACE.md	121	marker	CORRECTED	1	-	reviewed:text-already-says-all-eight-share-King-Wens-pair-ordering;span-unclosed	cfdb5878a857
+reports/TR4_SIZE_OF_THE_SPACE.md	152	ledger-link	CORRECTION	n/a	-	not-a-marker	26a6aeafa5ae
+reports/TR4_SIZE_OF_THE_SPACE.md	152	marker	CORRECTED	3	GATE 56	gate-anchored	26a6aeafa5ae
 reports/TR4_SIZE_OF_THE_SPACE.md	153	ledger-link	CORRECTION	n/a	-	not-a-marker	6587f79d3b64
 reports/TR4_SIZE_OF_THE_SPACE.md	177	ledger-link	CORRECTION	n/a	-	not-a-marker	03a84e0e61cb
+reports/TR4_SIZE_OF_THE_SPACE.md	294	ledger-link	CORRECTION	n/a	-	not-a-marker	fb64cc709b92
+reports/TR4_SIZE_OF_THE_SPACE.md	294	marker	CORRECTED	1	-	reviewed:dated-note-CX-37B-A-bounds-k-by-23	fb64cc709b92
 reports/TR4_SIZE_OF_THE_SPACE.md	302	ledger-link	CORRECTION	n/a	-	not-a-marker	ea7843c8daf2
 reports/TR4_SIZE_OF_THE_SPACE.md	310	ledger-link	CORRECTION	n/a	-	not-a-marker	a59d6aae85f6
 reports/TR4_SIZE_OF_THE_SPACE.md	315	marker	Corrected	1	-	reviewed:paragraph-already-says-refuses-and-exits-1	6335beed5bb4
@@ -873,6 +891,8 @@ reports/TR9_PRICING_THE_CONSTRAINTS.md	336	ledger-link	CORRECTION	n/a	-	not-a-ma
 reports/TR9_PRICING_THE_CONSTRAINTS.md	363	marker	Corrected	1	-	reviewed:sentence-already-says-zero-hits-bound-nothing	d8e1d0becd4b
 reports/TR9_PRICING_THE_CONSTRAINTS.md	372	marker	CORRECTED	1	-	reviewed:text-already-reads-62-bit-primes	b96b726f4220
 reports/TR9_PRICING_THE_CONSTRAINTS.md	391	marker	CORRECTED	3	GATE 3b	reanchored:GATE-3b=allowlist-row	d3a78462a29b
+reports/TR9_PRICING_THE_CONSTRAINTS.md	457	ledger-link	CORRECTION	n/a	-	not-a-marker	a26b0dda3e84
+reports/TR9_PRICING_THE_CONSTRAINTS.md	457	marker	CORRECTED	1	-	reviewed:dated-note-CX-37B-C-explains-the-f4p-labels	a26b0dda3e84
 reports/TR9_PRICING_THE_CONSTRAINTS.md	503	changelog	CORRECTION	keep	-	revision-row	7b4d7668fa0c
 reports/TR9_PRICING_THE_CONSTRAINTS.md	509	changelog	now reads	keep	-	revision-row	af77f7be9d5e
 reports/certificates/README.md	103	marker	CORRECTED	1	-	reviewed:cell-already-describes-the-fixed-check	2052b944c6ed
@@ -903,6 +923,7 @@ reports/evidence/r11/PHASE2_README.md	32	ledger-link	CORRECTION	n/a	-	not-a-mark
 reports/evidence/r11/PHASE2_README.md	32	marker	Superseded	2	-	reviewed:the-not-withdrawn-sentence-it-supersedes-is-still-above-it	3841bb943445
 reports/evidence/r11/PHASE2_README.md	123	marker	Corrected	1	-	reviewed:dated-label;paragraph-already-states-the-convention	eec850ded09d
 reports/evidence/r11/README.md	33	ledger-link	CORRECTION	n/a	-	not-a-marker	23b5f7f75d96
+reports/evidence/r11/README.md	34	ledger-link	CORRECTION	n/a	-	not-a-marker	70a3be2c3393
 reports/evidence/r11/README.md	136	ledger-link	CORRECTION	n/a	-	not-a-marker	7b1275641f53
 reports/evidence/r11/README.md	142	marker	Superseded	2	-	reviewed:the-not-withdrawn-sentence-it-supersedes-is-still-above-it	552e49ec1111
 reports/evidence/r11/README.md	143	ledger-link	CORRECTION	n/a	-	not-a-marker	e4f181fe6220
@@ -955,6 +976,8 @@ viz/viz_scale.md	141	marker	Corrected	1	-	reviewed:item-already-says-week-long-a
 viz/viz_scale.md	186	marker	Corrected	1	-	reviewed:heading-already-reads-decided	ebc0122e15c3
 viz/viz_tr1_rules_tradeoff.md	74	ledger-link	CORRECTION	n/a	-	not-a-marker	3070fa0dd4f0
 viz/viz_tr3_campaign_timeline.md	65	ledger-link	CORRECTION	n/a	-	not-a-marker	19700485ed8b
+viz/viz_tr4_boundary_information.md	44	ledger-link	CORRECTION	n/a	-	not-a-marker	4597c3528c63
+viz/viz_tr4_boundary_information.md	44	marker	CORRECTED	1	-	reviewed:dated-note-CX-37B-A-bounds-k-by-23	4597c3528c63
 viz/viz_tr4_boundary_information.md	77	ledger-link	CORRECTION	n/a	-	not-a-marker	5ae76a22f09d
 -	-	population	-	n/a	CITATION LINE GATE	reviewed:summary-counts-only;legB-all-targets-and-excluded-counts-fall-with-citations-written-inside-deleted-spans;legA-A2-summary-moves-on-any-edit;verdict-tokens-follow-FAILs-already-tied-by-line	-
 documentation/SOLVE.md	-	population	-	n/a	CITATION LINE GATE	reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE.md-one-file-run-prints-it;SOLVE.md-markers-are-class-3-by-line	-

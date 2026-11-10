@@ -5237,8 +5237,8 @@ def _p2_v2_native_kde_count(solve_binary, fit_data_std, bandwidth, kw_score,
         solve_binary, "--kde-score-stream",
         "--fit-file", fit_path,
         "--d", str(d),
-        "--bandwidth", f"{bandwidth:g}",
-        "--threshold", f"{kw_score:.10g}",
+        "--bandwidth", repr(float(bandwidth)),   # CX-37B-E (Codex F04-010#3): all 17 digits; "%g" kept 6
+        "--threshold", repr(float(kw_score)),    # CX-37B-E: was "%.10g"
     ]
     proc = _g5b_popen_or_unlink(cmd, fit_path, stdin=subprocess.PIPE, stdout=subprocess.PIPE,   # G5b F04-010#12
                                 stderr=subprocess.PIPE, bufsize=0)
@@ -5302,8 +5302,8 @@ def _p2_strat_native_count(solve_binary, fit_data_std, bandwidth, kw_score,
         solve_binary, "--kde-score-stream",
         "--fit-file", fit_path,
         "--d", str(d),
-        "--bandwidth", f"{bandwidth:g}",
-        "--threshold", f"{kw_score:.10g}",
+        "--bandwidth", repr(float(bandwidth)),   # CX-37B-E (Codex F04-010#3): all 17 digits; "%g" kept 6
+        "--threshold", repr(float(kw_score)),    # CX-37B-E: was "%.10g"
     ]
     proc = _g5b_popen_or_unlink(cmd, fit_path, stdin=subprocess.PIPE, stdout=subprocess.PIPE,   # G5b F04-010#12
                                 stderr=subprocess.PIPE, bufsize=0)

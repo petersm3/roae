@@ -1082,7 +1082,7 @@ def check_kw_pair_adjacency():
     reconstructs FROM that same invariance (an objection first raised by 王振復 Wang Zhenfu 2005 p. 15; the circularity was stated before us by 何澤恆 He Zeheng 2009 and 吳勇 Wu Yong 2013 -- CITATIONS.md #wangzhenfu2005, #hezeheng2009, #wuyong2013) -- his claim
     holds on every pair that can be tested at all: of 9 claimed pairs,
     3 testable, 3 agreements, 0 disagreements, 6 unobserved. The routine
-    PRINTS those four counts; do not read them from here, run the command.
+    PRINTS those four counts; do not read them from here, run the command. (CORRECTED 2026-11-10, CX-37B-B: 4 testable and 4 agreements -- the hand-written pair list below left out (43,44) 夬+姤, whose symbols are both in the table. That pair is not one of the nine, so the nine still split 3 testable / 6 unobserved; the routine prints the extra pair as SHANGBO_TESTABLE_OUTSIDE_CLAIMED=1.)
 
     🔴 CORRECTED 2026-09-03: this paragraph asserted nine testable pairs and
     nine agreements. That nine was a len() of the hand-written NUMBER-pair list
@@ -1186,8 +1186,8 @@ def check_kw_pair_adjacency():
     def _sym(h):
         v = SHANGBO_OBSERVED_SYMBOL.get(h)
         return v if v not in (None, 'lost') else None
-    testable = [(a, b) for (a, b) in SHANGBO_OBSERVED_PAIRS
-                if _sym(a) is not None and _sym(b) is not None]
+    testable = [(2 * i + 1, 2 * i + 2) for i in range(32)   # CX-37B-B (Codex F03-001#1): read off the symbol table,
+                if _sym(2 * i + 1) is not None and _sym(2 * i + 2) is not None]   # not off the hand-written list
     agreements    = [(a, b) for (a, b) in testable if _sym(a) == _sym(b)]
     disagreements = [(a, b) for (a, b) in testable if _sym(a) != _sym(b)]
     discriminating = [(a, b) for (a, b) in SHANGBO_OBSERVED_PAIRS
@@ -1197,13 +1197,13 @@ def check_kw_pair_adjacency():
     # have both symbols in the observed record -- (39,40) 蹇+解, (47,48) 困+井,
     # (55,56) 豐+旅. The other six lie in slips 1-27, which the roster has not reached,
     # and (31,32) is half-observed (恆 yes, 咸 no). The figure was never wrong about the
-    # DIRECTION of the result; it was wrong about how much evidence stands behind it.
+    # DIRECTION of the result; it was wrong about how much evidence stands behind it. CORRECTED 2026-11-10 (CX-37B-B): FOUR -- (43,44) 夬+姤 also has both symbols (slips 39, 40, 41), but the list above omitted it.
     print("SHANGBO_PAIRS_CLAIMED=%d" % len(SHANGBO_OBSERVED_PAIRS))
-    print("SHANGBO_TESTABLE_PAIRS=%d" % len(testable))
+    print("SHANGBO_TESTABLE_PAIRS=%d" % len(testable)); print("SHANGBO_TESTABLE_OUTSIDE_CLAIMED=%d" % sum(1 for p in testable if p not in SHANGBO_OBSERVED_PAIRS))
     print("SHANGBO_AGREEMENTS=%d" % len(agreements))
     print("SHANGBO_DISAGREEMENTS=%d" % len(disagreements))
     print("SHANGBO_UNOBSERVED_PAIRS=%d"
-          % (len(SHANGBO_OBSERVED_PAIRS) - len(testable)))
+          % sum(1 for p in SHANGBO_OBSERVED_PAIRS if p not in testable))
     print("SHANGBO_SYMBOL_TEST=%s"
           % ("PASS" if testable and not disagreements else
              "VACUOUS" if not testable else "FAIL"))

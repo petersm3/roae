@@ -12235,3 +12235,19 @@ Q-686=DONE
   recompute with `--kc-force`.
 - No canonical sha, record count, certificate, figure or verdict changed. The `--selftest` sha is unchanged.
   `TestBatchEngine1` holds each fix and fails on the parent tree.
+
+## 2026-11-10 — batch Q1037c: the last held rows of the published-figure corrections
+
+- **Corrected with dated notes (CX-37B-A to CX-37B-F).** TR-4's "k ≈ 28 or beyond the 31 pinnable boundaries" cannot
+  happen, and "no far end" is withdrawn: for the measured eight-boundary prefix the pair-ordering floor is reached by k = 23 at the latest
+  (CX-37B-A). The Shangbo symbol census has 4 testable pairs and 4 agreements, not 3: (43,44) 夬·姤 was missing from
+  the hand-written pair list (CX-37B-B). The f4p histogram labels of four functionals are one below their bins
+  (CX-37B-C). King Wen's amplitude reference in `solve.py` is a rounded literal; no published figure moves at its
+  printed precision (CX-37B-D). The native KDE scorer is now handed every digit of the bandwidth and threshold
+  (CX-37B-E). r11's M_C normaliser is one sequence's acceptance rate, and no pass or fail in the calibration table
+  can move because of it (CX-37B-F).
+- **Checked and left as they are.** The r11 M0 normaliser is in the same units as the other three likelihoods. The
+  pre-registered gate of 2026-07-26, which compares populations that differ by C3, was already recorded in the dated
+  errata file of 2026-11-01 and in ROAE_PY_CLI.md.
+- No canonical sha, record count, certificate or verdict changed. `TestBatchQ1037c` holds each correction and fails
+  on the parent tree. Found by Codex (gpt-6-astra), fix-verification round; triaged and adjudicated by Fable.

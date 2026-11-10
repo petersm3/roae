@@ -231,7 +231,7 @@ members — (39,40) 蹇+解, (47,48) 困+井, (55,56) 豐+旅. Five more — (5,
 (25,26) — lie in slips 1–27, which the transcription roster has not reached, and (31,32) is
 half-observed (恆 yes, 咸 no). The nine are Pu's roster of King Wen *number* pairs; the number of them
 this repository can actually test against symbol values is three. `verify.py` prints the split as
-`SHANGBO_PAIRS_CLAIMED=9`, `SHANGBO_TESTABLE_PAIRS=3`, `SHANGBO_UNOBSERVED_PAIRS=6`.)*
+`SHANGBO_PAIRS_CLAIMED=9`, `SHANGBO_TESTABLE_PAIRS=3`, `SHANGBO_UNOBSERVED_PAIRS=6`.)* ⚠ *[CORRECTED 2026-11-10 — one pair outside the nine is also observed at both members: (43,44) 夬+姤 (夬's tail on slip 39; 姤's head and tail on slips 40 and 41). `verify.py` now reads the testable pairs off its symbol table instead of off the nine, and prints `SHANGBO_TESTABLE_PAIRS=4` and `SHANGBO_TESTABLE_OUTSIDE_CLAIMED=1`; `SHANGBO_PAIRS_CLAIMED=9` and `SHANGBO_UNOBSERVED_PAIRS=6` are unchanged. The pair agrees. [CORRECTIONS.md](CORRECTIONS.md) CX-37B-B.]*
 
 That exclusion of 附錄二's reconstructions has a
 published predecessor: [王振復 (2005, p. 15)](CITATIONS.md#wangzhenfu2005) named the five positions — the

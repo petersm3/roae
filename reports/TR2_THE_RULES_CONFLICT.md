@@ -760,7 +760,7 @@ decisive: the `uncond` reading sets the denominator to 1 by construction, so it 
 to this defect and stays at **45/100** — below the bar — under every estimate tried. M_G still fails the
 design's own declared sensitivity readings, and the §6.3 veto stands **exactly as executed: 67/100, FAIL**.
 Whether to re-freeze §2.2 and re-run is an **operator decision and is not queued**. See
-[CORRECTIONS.md](../documentation/CORRECTIONS.md) CX-54.
+[CORRECTIONS.md](../documentation/CORRECTIONS.md) CX-54. ⚠ **[M_C NORMALISER RECORDED 2026-11-10 (CX-37B-F) — the M_C likelihood divides by acceptance rates measured around ONE sequence.** `l_corr` in `r11_calibration.py` uses `vf[k]`, the valid fraction of k-edit events around the grand-strict witness (`f11_events.json`, "GRAND"). The M_C generator (`mc_draw`) keeps its drawn precursor and redraws the edit until the result is valid, so the exact normaliser is that precursor's own acceptance rate, which was not measured. Every precursor's rate lies between p_c and 1 (an edit of size 0 is always valid), and that bound is enough to settle the table: in the primary and `corrA` readings no per-precursor rates can change the M0, M_G or M_D rows, and M_C's own first-rank rate stays between 72 and 89 of 100 (84 as executed); in `histZ` nothing can change, and `uncond` has no normaliser. So the veto and every pass or fail are unaffected, and the figures are kept as executed. Codex, fix-verification round, F11-007#1; [CORRECTIONS.md](../documentation/CORRECTIONS.md) CX-37B-F.]
 
 **M_G is exactly the rival this extension existed to test.** Its failure is not marginal and not an
 artifact of one configuration: it clears 70 in none of the pre-committed sensitivity readings, scoring

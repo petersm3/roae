@@ -454,7 +454,7 @@ class* (principled rules stated ahead of the data), not a run scale: this is the
 estimator run named in the same sentence, not the campaign "Tier 1" 11.2T canonical of
 [LARGE_SCALE_CAMPAIGNS.md](../documentation/LARGE_SCALE_CAMPAIGNS.md) and not the "Tier 1"
 determinism-hardening level of [CANONICAL_HASHES.md](../documentation/CANONICAL_HASHES.md)** (all 13 scoreboard rows + full per-functional
-value histograms); rerun via `SOLVE_KNUTH_SCORE_F4P=1 SOLVE_KNUTH_F4P_HIST=1 SOLVE_THREADS=32 ./solve --estimate-knuth
+value histograms; ⚠ *[CORRECTED 2026-11-10 (CX-37B-C) — for `yang_drift`, `dist_autocorr`, `front_load` and `value_trend` the histogram has 512 equal-width bins, and in every bin but the first the printed value is one below the smallest value the bin holds, so it names no value in that bin (read such a row as the bin that starts at the printed value + 1). All 244 such rows in the archived file are labelled this way; its first `front_load` row reads 78, while the same file's scoreboard gives min=79. The scoreboard rows and every below/at/above mass are computed leaf by leaf, not from the bins, and do not change. Codex, fix-verification round, F02-005#2; [CORRECTIONS.md](../documentation/CORRECTIONS.md) CX-37B-C.]*); rerun via `SOLVE_KNUTH_SCORE_F4P=1 SOLVE_KNUTH_F4P_HIST=1 SOLVE_THREADS=32 ./solve --estimate-knuth
 2000000000` with the two-language KW gate `./solve --f4p-verify` vs `solve.py --f4p-verify`
 (flags and gates documented in SOLVE_C_CLI.md). ⚠ **[THREAD PIN ADDED 2026-09-24 (v1.29; Codex V3B-14#13,
 Q-742) — the command carried no `SOLVE_THREADS`. The archived output names it: the first line of

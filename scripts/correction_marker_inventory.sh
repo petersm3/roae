@@ -111,8 +111,26 @@ EXCLUDE = re.compile(r'(^|/)(CORRECTIONS|HISTORY)\.md$')
 # Values are (class, review) and the review is one token (no spaces, no tab): what was decided.
 REVIEWED = {
     # Q1037b (2026-11-06, CX-36X-A, CX-36X-C): withdrawals that keep the original text beside the note.
+    ('documentation/CITATIONS.md', '2f0fa1017157'):
+        ('1', 'reviewed:dated-note-CX-37B-B-gives-4-testable-pairs'),
+    ('documentation/CRITIQUE.md', 'dd648106ba08'):
+        ('1', 'reviewed:dated-note-CX-37B-C-explains-the-f4p-labels'),
+    ('documentation/KING_WEN_PROVENANCE.md', 'db633b710d00'):
+        ('1', 'reviewed:dated-note-CX-37B-B-gives-the-new-counts'),
+    ('documentation/SEARCH_SPACE_SIZE.md', '2ad65ec87f4e'):
+        ('1', 'reviewed:dated-note-CX-37B-A-bounds-k-by-23'),
+    ('documentation/SOLVE_C_CLI.md', '73ac60b66b10'):
+        ('1', 'reviewed:dated-note-CX-37B-C-explains-the-f4p-labels'),
+    ('documentation/VERIFY.md', '6c2ab2403dd5'):
+        ('1', 'reviewed:dated-note-CX-37B-B-gives-the-new-counts'),
     ('reports/TR1_EIGHT_CENTURIES_MEASURED.md', 'ba2fbf00faab'):
         ('2', 'reviewed:Q1037b-withdrawal-beside-the-original-text;without-it-the-withdrawn-lower-bound-reads-as-current'),
+    ('reports/TR4_SIZE_OF_THE_SPACE.md', 'f66ba492e1de'):
+        ('1', 'reviewed:dated-note-CX-37B-A-bounds-k-by-23'),
+    ('reports/TR4_SIZE_OF_THE_SPACE.md', 'fb64cc709b92'):
+        ('1', 'reviewed:dated-note-CX-37B-A-bounds-k-by-23'),
+    ('reports/TR9_PRICING_THE_CONSTRAINTS.md', 'a26b0dda3e84'):
+        ('1', 'reviewed:dated-note-CX-37B-C-explains-the-f4p-labels'),
     ('runs/20260422_passA_10T_d64_laggard/README.md', 'ddd43038ce0e'):
         ('2', 'reviewed:Q1037b-withdrawal-beside-the-original-text;without-it-the-withdrawn-estimate-reads-as-current'),
     # Q1037 (2026-11-06, CX-36V-A..D): dated in-place corrections; each line states the corrected value.
@@ -291,8 +309,6 @@ REVIEWED = {
         ('1', 'reviewed:entries-above-already-carry-anchors'),
     ('documentation/CITATIONS.md', '266b8291222d'):
         ('1', 'reviewed:sentence-already-reads-correctly'),
-    ('documentation/CITATIONS.md', '4b372583ff85'):
-        ('1', 'reviewed:sentence-already-reads-3-testable-pairs'),
     ('documentation/CITATIONS.md', '4c6cd6c76ff9'):
         ('1', 'reviewed:sentence-already-records-the-first-hand-read'),
     ('documentation/CITATIONS.md', '534aabe4016a'):
@@ -1361,6 +1377,8 @@ REVIEWED = {
         ('1', 'reviewed:bullet-now-names-the-shipped-command'),
     ('reports/evidence/f11halfb/RESULTS.md', '01b9f5cba659'):
         ('1', 'reviewed:bullets-now-read-precursor-set-and-observed'),
+    ('viz/viz_tr4_boundary_information.md', '4597c3528c63'):
+        ('1', 'reviewed:dated-note-CX-37B-A-bounds-k-by-23'),
 }
 
 # SOLO_ANCHORED — markers a one-file ablation (Q-936 (a)) named for a gate finding that cites no

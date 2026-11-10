@@ -39359,3 +39359,157 @@ keeps the old words. The edit is line-neutral.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, backlog Q-1078; the overstatement was found by
 Fable (claude-fable-5-1) in its coverage review.
+
+## CX-37B-A — TR-4: "k ≈ 28 or beyond the 31 pinnable boundaries" cannot happen, and "no far end" is withdrawn; the floor is reached by k = 23 for this prefix (reports/TR4_SIZE_OF_THE_SPACE.md; documentation/SEARCH_SPACE_SIZE.md; documentation/SPECIFICATION.md; documentation/CLAIMS_DECIDED.md; viz/viz_tr4_boundary_information.md; tests.py)
+
+**2026-11-10.** **Source.** Codex (gpt-6-astra), final review, F11-002#2, confirmed in the fix-verification round;
+Fable's slice triage (row D724, held as a published figure) and Fable's adjudication, which also found the
+unnumbered "no far end" sites; batch Q1037c.
+
+**Before.** Five sentences said that if the per-boundary gains keep declining, the pair-ordering floor is reached at
+"k ≈ 28 or beyond the 31 pinnable boundaries": TR-4 :109, :152 and :294, SEARCH_SPACE_SIZE.md :219 and
+viz/viz_tr4_boundary_information.md :43. Eight more said, without the number, that the data set no far end: TR-4
+:28, :110, :284 (the figure's alt text) and :402, SEARCH_SPACE_SIZE.md :145, SPECIFICATION.md :138 and
+CLAIMS_DECIDED.md :34.
+
+**Why it was wrong.** The curve is measured with `SOLVE_KNUTH_PIN_SLOTS`. A pinned slot admits only King Wen's pair
+(`solve.c`, `p != step`), the flag accepts slots 1–31, and the walk starts at slot 1 with slot 0 already placed.
+Boundary c pins slots c − 1 and c: the archived rounds append pins 1,2 for pick 2 and 4,5 for pick 5
+(`reports/evidence/sk/`). The eight measured boundaries (`sk8_round.out`,
+`pins=3,4,26,27,24,25,20,21,1,2,29,30,11,12,4,5`) pin 15 of the 31 pinnable slots, which with slot 0 leaves 16 of
+the 32 free. A boundary whose two slots are already fixed adds nothing; every other boundary pins at least one free
+slot; and once 31 of the 32 slots hold King Wen's pairs the last is forced, because each pair is used once. With
+every slot fixed the survivors are King Wen's pair-ordering class, the floor. So the floor is reached after at most
+15 further boundaries that add anything: 8 + 16 − 1 = 23. The k ≈ 28 and "beyond 31" figures are the arithmetic of a
+geometric continuation of the gains (TR-4 §Update keeps that computation), which the pin structure cuts off; the far
+end comes from the structure, not from the measured gains.
+
+**After.** A dated note beside each of the thirteen sentences gives the bound; the full argument is at TR-4 :152.
+The original sentences stay. TR-4 revision row v1.49 added. No measurement, gain, S(k) value, floor or oriented level
+changed; the k ≈ 14 marker and "a scale marker, not a bound" stand.
+
+**Not cured.** `figures/fig_tr4_boundary_information.png`, its SVG and the annotation text in `viz/report_figures.py`
+still read "no far end set by the data"; curing them requires regenerating the figure, a separate executed change
+(v1.30 / v1.35 precedent).
+
+**Tests.** `TestBatchQ1037c.test_cx37b_a_tr4_floor_by_k23` re-derives the 15 pinned and 16 free slots from the
+archived pin list and the pin code, and requires the notes at every site with the old sentences kept. It fails on
+the parent.
+
+## CX-37B-B — the Shangbo symbol census has 4 testable pairs, not 3: (43,44) 夬·姤 was missing (verify.py; documentation/CITATIONS.md; documentation/KING_WEN_PROVENANCE.md; documentation/VERIFY.md; tests.py)
+
+**2026-11-10.** **Source.** Codex (gpt-6-astra), final review, F03-001#1 (with F03-H01#38 and F04-013#11), confirmed in the fix-verification round;
+Fable's slice triage (row D1563, held as a published count) and Fable's adjudication; batch Q1037c.
+
+**Before.** `verify.py --check-kw-pair-adjacency` printed `SHANGBO_TESTABLE_PAIRS=3` and `SHANGBO_AGREEMENTS=3`, and
+CITATIONS.md said "3 testable pairs, 3 agreements, 0 disagreements … only three pairs have **both** symbols in the
+transcribed record".
+
+**Why it was wrong.** The routine's own symbol table, page-cited to Pu Maozuo's per-slip 考釋, holds both 43 夬
+(tail, slip 39) and 44 姤 (head and tail, slips 40 and 41) as observed. The testable pairs were filtered from a
+hand-written list of nine pairs, and that list omits (43,44). Pu's 考釋 reports 夬's tail symbol on slip 39
+(p. 189), a symbol his 附錄二 table omits, as [Li Shangxin 2004](CITATIONS.md#lishangxin2004), p. 23, noted.
+
+**After.** `verify.py` reads the testable pairs off its symbol table over all 32 King Wen pairs. It prints
+`SHANGBO_TESTABLE_PAIRS=4`, `SHANGBO_AGREEMENTS=4`, `SHANGBO_DISAGREEMENTS=0` and a new
+`SHANGBO_TESTABLE_OUTSIDE_CLAIMED=1`. `SHANGBO_PAIRS_CLAIMED=9`, `SHANGBO_UNOBSERVED_PAIRS=6` (the nine minus their
+three testable members), `SHANGBO_DISCRIMINATING_PAIRS=0` and the exit status are unchanged. Dated notes beside
+CITATIONS.md, KING_WEN_PROVENANCE.md and VERIFY.md give the new counts; the old text stays. The added pair agrees
+and sits inside one King Wen block, so the routine's conclusion, that this evidence cannot tell reversal invariance
+from block constancy, is unchanged. The table records one coarse value per hexagram (`red_square`) and compares only
+that, as before.
+
+**Tests.** `TestBatchQ1037c.test_cx37b_b_shangbo_four_testable` runs the command and requires the notes. It fails
+on the parent.
+
+## CX-37B-C — the f4p histogram labels of the four wide functionals are one below their bins (reports/TR9_PRICING_THE_CONSTRAINTS.md; documentation/CRITIQUE.md; documentation/SOLVE_C_CLI.md; tests.py)
+
+**2026-11-10.** **Source.** Codex (gpt-6-astra), fix-verification round, F02-005#2; Fable's slice triage (row D1455)
+and Fable's adjudication; batch Q1037c.
+
+**Before.** TR-9, CRITIQUE.md and SOLVE_C_CLI.md describe the `f4p_hist` lines (`SOLVE_KNUTH_F4P_HIST=1`, archived
+in `reports/evidence/f4p_tier1.out`) as full per-functional value histograms.
+
+**Why it was wrong for four of the thirteen.** For `yang_drift`, `dist_autocorr`, `front_load` and `value_trend`
+the histogram has 512 equal-width bins: the bin is ⌊(x − lo)·512/N⌋ and the printed value is lo + ⌊b·N/512⌋. N is
+odd for all four, so in every bin but the first that value is one below the smallest value the bin holds. All 244
+rows of those four functionals in the archived file are labelled that way; its first `front_load` row reads 78,
+while the same file's scoreboard gives min=79.
+
+**After.** A dated note at each of the three descriptions says how to read those rows. The scoreboard rows and
+every below/at/above mass, including the 4.789% the pre-registration of 2026-07-26 cites, are computed leaf by leaf,
+not from the bins, and do not change. The code is unchanged in this batch: correcting the label in `solve.c` would
+make a rerun disagree with the archived file, so it waits for a regeneration of that file.
+
+**Tests.** `TestBatchQ1037c.test_cx37b_c_f4p_wide_labels` re-derives the labels from the constants in `solve.c`,
+counts the archived rows, and requires the notes. It fails on the parent.
+
+## CX-37B-D — King Wen's amplitude reference in solve.py is the rounded 374.77, while the records are float32 (documentation/DISTRIBUTIONAL_ANALYSIS.md; tests.py)
+
+**2026-11-10.** **Source.** Codex (gpt-6-astra), fix-verification round, F04-010#2; Fable's slice triage (row D1499)
+and Fable's adjudication; batch Q1037c.
+
+**What is true.** `solve.py`'s frozen battery holds King Wen's `fft_peak_amplitude` as the literal 374.77 and its
+`mean_transition_hamming` as 3.3492064, while `--compute-stats` stores every record, King Wen's own included, as a
+float32 value: 374.7666 and 3.3492064476. A record between the two values sits on the wrong side of a comparison
+with the literal.
+
+**What it moves.** None of the published figures at its printed precision. The `--marginals` row (~95.48%, the
+95.476th percentile) is binned, and both amplitude values fall in the same bin; the transition-Hamming column is
+the same for every record and also stays in one bin. The 0.757% joint tail and the 2-D histogram percentages were
+computed with King Wen's own computed value. Only the KDE runs behind the 28.6–32.1% seed range placed King Wen at
+the literal, which moves its standardized point by about 10⁻⁴ of a standard deviation. Those runs have not been
+re-run, as the 2026-10-15 note in DISTRIBUTIONAL_ANALYSIS.md already records.
+
+**After.** A dated note in DISTRIBUTIONAL_ANALYSIS.md says this. The literal stays in the code for now: the
+published figures were computed with it, and changing it belongs with any recompute of them.
+
+**Tests.** `TestBatchQ1037c.test_cx37b_d_amplitude_reference` (the float32 leg needs numpy) checks the value and the
+shared bin, and requires the note. It fails on the parent.
+
+## CX-37B-E — solve.py handed the native KDE scorer a 6-digit bandwidth (solve.py; tests.py)
+
+**2026-11-10.** **Source.** Codex (gpt-6-astra), fix-verification round, F04-010#3; Fable's slice triage (row D1500)
+and Fable's adjudication; batch Q1037c.
+
+**Before.** Both wrappers of `solve --kde-score-stream` (`_p2_v2_native_kde_count`, `_p2_strat_native_count`)
+passed `--bandwidth` as `%g`, six significant digits, and `--threshold` as `%.10g`. The scorer therefore used a
+slightly different bandwidth from the Python fit that set King Wen's threshold.
+
+**After.** Both pass `repr(float(...))`, which a C `strtod` reads back exactly. The edit keeps every line in place.
+No published figure comes from this path: it runs only in the `exhaustive=True` modes, the published joint-density
+figures are sampled runs, and no public document quotes an exhaustive native count.
+
+**Tests.** `TestBatchQ1037c.test_cx37b_e_native_scorer_gets_every_digit` checks both call sites and, where numpy
+and pyarrow are installed, runs both wrappers against a stand-in scorer and reads back the exact values. It fails on
+the parent.
+
+## CX-37B-F — r11: the M_C likelihood's normaliser is one sequence's acceptance rate, and no pass or fail depends on it (reports/evidence/r11/README.md; reports/TR2_THE_RULES_CONFLICT.md; tests.py)
+
+**2026-11-10.** **Source.** Codex (gpt-6-astra), fix-verification round, F11-007#1; Fable's slice triage (row D868)
+and Fable's adjudication; batch Q1037c.
+
+**What is true.** `l_corr` in `reports/evidence/r11/r11_calibration.py` divides by acceptance rates `vf[k]` measured
+around one sequence, the grand-strict witness (`f11_events.json`, "GRAND"). The M_C generator (`mc_draw`) keeps its
+drawn precursor and redraws the edit until the result is valid, so the exact normaliser is that precursor's own
+acceptance rate. That rate was not measured.
+
+**What it moves.** Nothing that is published as a pass or fail. Every precursor's acceptance lies between p_c and 1,
+because an edit of size 0 is always valid, and the shared value lies in the same range. Re-ranking the archived
+`scores.json` with each M_C term at either end of that range (the M_C likelihoods re-derived from `hits.json` match
+the archived ones for all 393 draws): in the primary and `corrA` readings the M0, M_G and M_D rows (99, 67, 81) cannot
+change, and M_C's own rate stays between 72 and 89 of 100 (84 as executed); in `histZ` nothing changes; `uncond`
+has no normaliser. So the §6.3 veto, which rests on M_G's 67, and every row's pass or fail are unaffected.
+
+**After.** A dated note beside the 2026-09-19 annotation in the r11 README and in TR-2's outcome section. The
+instrument is frozen evidence and is not edited; the table is kept as executed. The M0 normaliser, 1 / N over the
+orientation-explicit C1–C5 count, is consistent with the other three likelihoods, which are also per oriented
+sequence, and stays as it is.
+
+**Tests.** `TestBatchQ1037c.test_cx37b_f_r11_mc_normaliser_bound` repeats the re-ranking and requires both notes.
+It fails on the parent.
+
+No canonical sha, record count, certificate or verdict changed in this batch.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, batch Q1037c; the defects were found by Codex
+(gpt-6-astra), fix-verification round; triaged and adjudicated by Fable (claude-fable-5-1).

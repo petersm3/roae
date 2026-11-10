@@ -41,7 +41,7 @@ King Wen on its first k boundaries, taken in the greedy identifying order {4, 27
   k = 1–4 ([TR-4 §Figure](../reports/TR4_SIZE_OF_THE_SPACE.md#figure), §5).
 - **Does not establish.** How many boundaries identify King Wen in the full space. The data set no
   far end: under a continued decline the k = 14 marker moves to k ≈ 28 or beyond the 31 pinnable
-  boundaries. The boundary pins fix pair identity only, so with all 31 fixed, **1,720,320** orderings
+  boundaries. ⚠ *[CORRECTED 2026-11-10 (CX-37B-A): "k ≈ 28 or beyond the 31 pinnable boundaries" cannot happen for this prefix, and "no far end" is withdrawn. The eight measured boundaries leave 16 of the 32 slots free, every boundary that adds anything pins at least one of them, and the last slot is forced, so the pair-ordering floor is reached by k = 23 at the latest. See [TR-4](../reports/TR4_SIZE_OF_THE_SPACE.md) §Sections item 5 and [CORRECTIONS.md](../documentation/CORRECTIONS.md) CX-37B-A.]* The boundary pins fix pair identity only, so with all 31 fixed, **1,720,320** orderings
   remain (King Wen's orientation fibre, TR-1 §7); the curve can reach one pair-ordering class, never
   one ordering. A shaded "extrapolated range" at k = 15–20 that this figure used to carry is
   withdrawn (Q-827), because no continuation rule reproduces it.

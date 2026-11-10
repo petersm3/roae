@@ -62557,7 +62557,7 @@ class TestBatchQ1037b(unittest.TestCase):
         self.assertIn("⚠ *(Conclusion (3) withdrawn 2026-11-06, CX-36X-B:", t)
         self.assertIn("boundary 30 would gain 7.21 bits after the first four boundaries", t)
         self.assertIn("gains 8.64 bits once boundary 2 has joined", t)
-        self.assertIn("| v1.48 *(current)* | 2026-11-06 |", t, "TR-4 revision row")
+        self.assertIn("| v1.48 | 2026-11-06 |", t, "TR-4 revision row (current moved to v1.49 by CX-37B-A)")
 
     # ---- CX-36X-C (D908) ----
     def test_cx36x_c_passa_feasibility(self):
@@ -63249,6 +63249,206 @@ class TestBatchN12Pub2(unittest.TestCase):
             shutil.rmtree(d, ignore_errors=True)
 
 # end class TestBatchN12Pub2 (N12PUB-2: certified n=10 and the verified-checker results; CX-37A-A)
+
+class TestBatchQ1037c(unittest.TestCase):
+    """Batch Q1037c (CX-37B-A..CX-37B-F): the last held rows of Q-1037 (Codex, gpt-6-astra, fix-verification round;
+    Fable's slice triage and adjudication). TR-4's k ≈ 28 is bounded by k = 23 from the pin structure; the Shangbo
+    census gains (43,44) 夬·姤 (3 → 4 testable pairs); the f4p histogram labels of the four wide functionals are one
+    below their bins; King Wen's amplitude reference is a rounded literal; the native KDE scorer is handed every digit
+    of the bandwidth and threshold; and r11's M_C normaliser is bounded so that no pass or fail can move. Each test
+    re-derives the value from the tree's own code or data, then requires the dated note beside the kept original.
+    Every test fails on the parent tree (a79a90ae). Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    # ---- CX-37B-A (D724) ----
+    def test_cx37b_a_tr4_floor_by_k23(self):
+        src = self._r("solve.c")
+        self.assertRegex(src, r"if \(v >= 1 && v <= 31\) knuth_pin_mask \|= \(1u << v\);", "precondition: slots 1..31 pinnable")
+        self.assertIn("if (((knuth_pin_mask >> step) & 1u) && p != step) continue;", src, "precondition: a pin admits KW's pair only")
+        self.assertIn("int prev_tail = seq[step*2 - 1];", src, "precondition: the walk starts at step 1, slot 0 placed")
+        out = self._r("reports/evidence/sk/sk8_round.out")
+        m = re.search(r"round 8 PICK=(\d+) VALUE est=[0-9.e+]+ pins=([0-9,]+)", out)
+        self.assertTrue(m, "precondition: the round-8 pin list is archived")
+        pins = [int(x) for x in m.group(2).split(",")]
+        self.assertEqual(len(pins), 16, "eight boundaries, two slots each")
+        self.assertTrue(all(pins[2 * i + 1] == pins[2 * i] + 1 for i in range(8)), "a boundary pins two adjacent slots")
+        self.assertEqual(int(m.group(1)), pins[-1], "boundary c pins slots c-1 and c")
+        free = set(range(1, 32)) - set(pins)
+        self.assertEqual((len(set(pins)), len(free)), (15, 16))
+        self.assertEqual(8 + len(free) - 1, 23, "one more slot per non-implied boundary; the last free slot is forced")
+        sites = {"reports/TR4_SIZE_OF_THE_SPACE.md": (7, 7, 8, ["with no far end set by the data (§Sections item 4, §Update).",
+                     "re-derived; the data set no far end.", "and the data set no far end*"]),
+                 "documentation/SEARCH_SPACE_SIZE.md": (2, 2, 2, ['and the data set no far end (see §"An information-rate']),
+                 "documentation/SPECIFICATION.md": (0, 1, 1, ["with no far end set by the data"]),
+                 "documentation/CLAIMS_DECIDED.md": (0, 1, 1, ["with no far end set by the data"]),
+                 "viz/viz_tr4_boundary_information.md": (2, 1, 1, ["moves to k ≈ 28 or beyond the 31 pinnable\n  boundaries."])}
+        for rel, (n28, n, n23, kept) in sites.items():
+            t = self._r(rel)
+            self.assertEqual(t.count("k ≈ 28 or beyond the 31 pinnable"), n28, "originals kept beside their notes: " + rel)
+            for k in kept:
+                self.assertIn(k, t, "the original text is kept: " + rel)
+            self.assertEqual(t.count("(CX-37B-A)"), n, rel)
+            self.assertEqual(t.count("by k = 23 at the latest"), n23, rel)
+        tr4 = self._r("reports/TR4_SIZE_OF_THE_SPACE.md")
+        self.assertIn("the floor is reached by k = 23 at the latest, however slowly the gains decline", tr4)
+        self.assertIn("| v1.49 *(current)* | 2026-11-10 |", tr4)
+
+    # ---- CX-37B-B (D1563) ----
+    def test_cx37b_b_shangbo_four_testable(self):
+        src = self._r("verify.py")
+        for h in (43, 44):
+            self.assertRegex(src, r"\n        %d: 'red_square'," % h, "precondition: the table holds %d as observed" % h)
+        roster = re.search(r"SHANGBO_OBSERVED_PAIRS = (\[[^\]]*\])", src).group(1)
+        self.assertNotIn("(43, 44)", roster, "precondition: the hand-written list omits the pair")
+        r = subprocess.run([sys.executable, "-I", os.path.join(self.ROOT, "verify.py"), "--check-kw-pair-adjacency"],
+                           capture_output=True, text=True, timeout=300, cwd=self.ROOT)
+        self.assertEqual(r.returncode, 0, r.stderr[-500:])
+        lines = set(r.stdout.splitlines())
+        for tok in ("SHANGBO_PAIRS_CLAIMED=9", "SHANGBO_TESTABLE_PAIRS=4", "SHANGBO_TESTABLE_OUTSIDE_CLAIMED=1",
+                    "SHANGBO_AGREEMENTS=4", "SHANGBO_DISAGREEMENTS=0", "SHANGBO_UNOBSERVED_PAIRS=6",
+                    "SHANGBO_SYMBOL_TEST=PASS", "SHANGBO_DISCRIMINATING_PAIRS=0", "KW_PARTNER_ADJACENCY=PASS"):
+            self.assertIn(tok, lines, tok)
+        c = self._r("documentation/CITATIONS.md")
+        self.assertIn("**3 testable pairs, 3 agreements, 0 disagreements** (corrected 2026-09-03", c, "original kept")
+        self.assertIn("⚠ *[CORRECTED 2026-11-10 — **4 testable pairs, 4 agreements, 0 disagreements**. A fourth pair, "
+                      "(43,44) 夬·姤,", c)
+        k = self._r("documentation/KING_WEN_PROVENANCE.md")
+        self.assertIn("`SHANGBO_TESTABLE_PAIRS=3`, `SHANGBO_UNOBSERVED_PAIRS=6`.)*", k, "original kept")
+        self.assertIn("prints `SHANGBO_TESTABLE_PAIRS=4` and `SHANGBO_TESTABLE_OUTSIDE_CLAIMED=1`", k)
+        v = self._r("documentation/VERIFY.md")
+        self.assertIn("It reports `SHANGBO_TESTABLE_PAIRS=3`, `SHANGBO_AGREEMENTS=3`", v, "original kept")
+        self.assertIn("*(Corrected 2026-11-10, CX-37B-B: it now reports `SHANGBO_TESTABLE_PAIRS=4`", v)
+
+    # ---- CX-37B-C (D1455) ----
+    def test_cx37b_c_f4p_wide_labels(self):
+        src = self._r("solve.c")
+        arr = lambda name: [int(x) for x in re.search(r"static const (?:int|unsigned char) %s\[13\] = \{([^}]*)\};" % name,
+                                                      src).group(1).split(",")]
+        lo, hi, wide = arr("f4p_lo"), arr("f4p_hi"), arr("f4p_wide")
+        self.assertIn("if (f4p_wide[k]) b = (int)(((long)(x - lo) * 512) / (hi - lo + 1));", src, "precondition: bin")
+        self.assertIn("if (f4p_wide[k]) return f4p_lo[k] + (int)(((long)b * (f4p_hi[k] - f4p_lo[k] + 1)) / 512);", src,
+                      "precondition: printed label")
+        names = ["housedisp", "trigram_runs", "nuclear_adj", "yang_drift", "dist_runs", "palspan", "comp_adj",
+                 "house_balance", "par_switch", "dist_autocorr", "front_load", "value_trend", "wrap_class"]
+        self.assertEqual([names[k] for k in range(13) if wide[k]], ["yang_drift", "dist_autocorr", "front_load", "value_trend"])
+        for k in range(13):
+            if not wide[k]:
+                continue
+            n = hi[k] - lo[k] + 1
+            first = {}
+            for x in range(lo[k], hi[k] + 1):
+                first.setdefault((x - lo[k]) * 512 // n, x)
+            for b, x0 in first.items():
+                self.assertEqual(lo[k] + b * n // 512, x0 - (1 if b else 0), (names[k], b))
+        ev = self._r("reports/evidence/f4p_tier1.out")
+        rows = re.findall(r"^f4p_hist (yang_drift|dist_autocorr|front_load|value_trend) (\d+) ", ev, re.M)
+        self.assertEqual(len(rows), 244)
+        self.assertEqual(rows[[r[0] for r in rows].index("front_load")][1], "78")
+        self.assertRegex(ev, r"\[f4p 11 front_load   \] mean=[0-9.]+ min=79 ")
+        for rel in ("reports/TR9_PRICING_THE_CONSTRAINTS.md", "documentation/CRITIQUE.md", "documentation/SOLVE_C_CLI.md"):
+            t = self._r(rel)
+            self.assertIn("in every bin but the first the printed value is one below the smallest value the bin holds", t, rel)
+            self.assertEqual(t.count("CX-37B-C.]*"), 1, rel)
+        self.assertIn("full per-functional\nvalue histograms; ⚠ *[CORRECTED 2026-11-10 (CX-37B-C)",
+                      self._r("reports/TR9_PRICING_THE_CONSTRAINTS.md"), "original kept, note beside it")
+
+    # ---- CX-37B-D (D1499) ----
+    def test_cx37b_d_amplitude_reference(self):
+        self.assertIn('    "fft_peak_amplitude": 374.77,\n', self._r("solve.py"), "precondition: the rounded literal")
+        if importlib.util.find_spec("numpy") is not None:
+            import numpy as np
+            kw = np.array([[(p << 2) for p in range(32)]], dtype=np.uint8)
+            got = solve._p2_compute_all_stats(kw)["fft_peak_amplitude"]
+            self.assertEqual(got.dtype, np.float32)
+            v = float(got[0])
+            self.assertEqual("%.4f" % v, "374.7666")
+            b = lambda a: int(np.clip(((np.float32(a) - 0.0) / (500.0 - 0.0) * 9999), 0, 9999))
+            self.assertEqual(b(v), b(374.77), "the --marginals row cannot move: same bin")
+        t = self._r("documentation/DISTRIBUTIONAL_ANALYSIS.md")
+        self.assertIn("⚠ **[Reference value 2026-11-10 (CX-37B-D): `solve.py` holds King Wen's amplitude as the rounded "
+                      "literal 374.77", t)
+        self.assertIn("374.77 and 374.7666 fall in the same bin", t)
+
+    # ---- CX-37B-E (D1500) ----
+    def test_cx37b_e_native_scorer_gets_every_digit(self):
+        src = self._r("solve.py")
+        self.assertNotIn('f"{bandwidth:g}"', src)
+        self.assertNotIn('f"{kw_score:.10g}"', src)
+        self.assertEqual(src.count('"--bandwidth", repr(float(bandwidth)),'), 2)
+        self.assertEqual(src.count('"--threshold", repr(float(kw_score)),'), 2)
+        if importlib.util.find_spec("numpy") is None or importlib.util.find_spec("pyarrow") is None:
+            return
+        np = importlib.import_module("numpy")   # guarded above (find_spec); TestBatchG6 bars a bare import here
+        d = tempfile.mkdtemp(prefix="q1037c_")
+        try:
+            argv_path = os.path.join(d, "argv.txt")
+            fake = os.path.join(d, "fake_solve")
+            with open(fake, "w") as fh:
+                fh.write("#!%s\nimport sys\nopen(%r, 'w').write('\\n'.join(sys.argv[1:]))\nsys.stdin.buffer.read()\n"
+                         "print('0 0')\n" % (sys.executable, argv_path))
+            os.chmod(fake, 0o755)
+            bw, thr = 0.14677992676220694, -5.6712345678901234
+            for call in (lambda: solve._p2_v2_native_kde_count(fake, np.zeros((3, 2)), bw, thr, d, ["a", "b"],
+                                                               np.zeros(2), np.ones(2)),
+                         lambda: solve._p2_strat_native_count(fake, np.zeros((3, 2)), bw, thr, d, ["s", "a", "b"],
+                                                              np.zeros(2), np.ones(2), 1)):
+                if os.path.exists(argv_path):
+                    os.unlink(argv_path)
+                res = call()
+                self.assertEqual(tuple(res)[:2], (0, 0))
+                with open(argv_path) as fh:
+                    av = fh.read().split("\n")
+                self.assertEqual(float(av[av.index("--bandwidth") + 1]), bw)
+                self.assertEqual(float(av[av.index("--threshold") + 1]), thr)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    # ---- CX-37B-F (D868) ----
+    def test_cx37b_f_r11_mc_normaliser_bound(self):
+        import json, collections
+        ev = json.loads(self._r("reports/evidence/f11/f11_events.json"))["GRAND"]
+        sc = json.loads(self._r("reports/evidence/r11/scores.json"))
+        hits = {(h["cls"], h["i"]): h for h in json.loads(self._r("reports/evidence/r11/hits.json"))}
+        n_gs = sc["meta"]["n_gs_pooled"]
+        pcs = [0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9]
+        geom = lambda k, p: (1.0 - p) ** k * p
+        self.assertIn("ls_c.append(num / (n_gs * den))", self._r("reports/evidence/r11/r11_calibration.py"),
+                      "precondition: one shared normaliser")
+        cls = ["M0", "MG", "MD", "MC"]
+        asrun, lo_r, hi_r = collections.Counter(), collections.Counter(), collections.Counter()
+        for s in sc["scores"]:
+            h = hits[(s["cls"], s["i"])]
+            hu = {int(k): v for k, v in h["hitsU"].items()}
+            code, lo, hi = [], [], []
+            for p in pcs:
+                num = geom(0, p) * (1.0 if h["in_gs"] else 0.0) + sum(
+                    geom(k, p) * hu[k] / ev[str(k)]["events"] for k in range(1, 7))
+                den = geom(0, p) + sum(geom(k, p) * ev[str(k)]["valid"] / ev[str(k)]["events"] for k in range(1, 7)) \
+                    + (1.0 - p) ** 7 * ev["6"]["valid"] / ev["6"]["events"]
+                self.assertTrue(p <= den <= 1.0)
+                code.append(num / (n_gs * den)); lo.append(num / n_gs); hi.append(num / (n_gs * p))
+            self.assertAlmostEqual(sum(code) / 7, s["LC"], delta=1e-9 * max(s["LC"], 1e-300))
+            def first(lc):
+                ls = {"M0": s["L0"], "MG": s["LG"], "MD": s["LD"], "MC": lc}
+                return max(cls, key=lambda c: ls[c]) == s["cls"]
+            asrun[s["cls"]] += first(sum(code) / 7)
+            a, b = first(sum(lo) / 7), first(sum(hi) / 7)
+            lo_r[s["cls"]] += a and b
+            hi_r[s["cls"]] += a or b
+        self.assertEqual(dict(asrun), {"M0": 99, "MG": 67, "MD": 81, "MC": 84}, "precondition: the archived table")
+        for c, v in (("M0", 99), ("MG", 67), ("MD", 81)):
+            self.assertEqual((lo_r[c], hi_r[c]), (v, v), c + " cannot move")
+        self.assertEqual((lo_r["MC"], hi_r["MC"]), (72, 89))
+        for rel in ("reports/evidence/r11/README.md", "reports/TR2_THE_RULES_CONFLICT.md"):
+            t = self._r(rel)
+            self.assertIn("⚠ **[M_C NORMALISER RECORDED 2026-11-10 (CX-37B-F)", t, rel)
+            self.assertIn("M_C's own first-rank rate stays between 72 and 89 of 100 (84 as executed)", t, rel)
+
 
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
