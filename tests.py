@@ -60321,6 +60321,86 @@ class TestBatchFV2R(unittest.TestCase):
         self._wr(p, body, 0o755)
         return os.path.join(d, "bin")
 
+    # ---- Q-1112: the two signal tests (D1114, D1167) ------------------------------------------------
+    @staticmethod
+    def _default_signals():
+        """preexec_fn for the runs the D1114 and D1167 tests interrupt (Q-1112; the Q-997 cure in
+        TestQ994Q995Batch47, applied here). A signal that is IGNORED when bash starts cannot be trapped
+        (bash(1), SIGNALS), and the ignore is inherited through exec. A script's background job ignores
+        INT and QUIT and `nohup` ignores HUP, so a suite started under a chain launched as
+        `setsid nohup nice bash chain.sh &` sent INT to a script whose INT trap could not exist: the stub
+        ran out its sleep and the test read the cured script as uncured. `timeout CMD` hides this (it
+        installs handlers, which exec resets to the default), so the chain's own `timeout ... tests.py`
+        passed while verify_all's bare `python3 tests.py` failed. Restoring the default disposition in
+        the child makes the tests measure the trap, not how the suite was launched."""
+        for s in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP, signal.SIGQUIT):
+            signal.signal(s, signal.SIG_DFL)
+
+    @staticmethod
+    def _sig_ignored(pid, sig):
+        """True when `sig` is in /proc/<pid>/status SigIgn (None when the file cannot be read)."""
+        try:
+            with open("/proc/%d/status" % pid) as fh:
+                for line in fh:
+                    if line.startswith("SigIgn:"):
+                        return bool(int(line.split()[1], 16) >> (int(sig) - 1) & 1)
+        except (OSError, ValueError):
+            return None
+        return None
+
+    @staticmethod
+    def _comm(pid):
+        try:
+            with open("/proc/%d/comm" % pid) as fh:
+                return fh.read().strip()
+        except OSError:
+            return ""
+
+    @staticmethod
+    def _children(pid):
+        kids = []
+        for e in os.listdir("/proc"):
+            if e.isdigit():
+                try:
+                    with open("/proc/%s/stat" % e) as fh:
+                        if int(fh.read().rsplit(")", 1)[1].split()[1]) == pid:
+                            kids.append(int(e))
+                except (OSError, ValueError, IndexError):
+                    pass
+        return kids
+
+    def _need_proc(self):
+        if not (os.path.exists("/proc/self/status") and os.path.exists("/proc/self/comm")):
+            self.skipTest("needs /proc/<pid>/status and /comm to see the stub's phase and the script's SigIgn")
+
+    def _await_stub(self, p, pidfile, ready, budget):
+        """Bounded wait (no fixed delay) for the stub whose pid it wrote to `pidfile` to reach the phase the
+        test interrupts, i.e. until ready(stub_pid) holds. Returns True when ready, False on budget or if
+        the run under test exited first."""
+        t0 = time.time()
+        while time.time() - t0 < budget and p.poll() is None:
+            try:
+                with open(pidfile) as fh:
+                    sp = int(fh.read().split()[0])
+                if ready(sp):
+                    return True
+            except (OSError, ValueError, IndexError):
+                pass
+            time.sleep(0.05)
+        return False
+
+    def _interrupt(self, p, ready):
+        """SIGINT the run's process group once the stub is ready and the run can trap SIGINT; otherwise
+        SIGKILL it (so a failed precondition fails at once instead of waiting out the stub's sleep).
+        Returns (output, sigint_was_ignored)."""
+        ign = self._sig_ignored(p.pid, signal.SIGINT)
+        os.killpg(p.pid, signal.SIGINT if (ready and ign is False) else signal.SIGKILL)
+        try:
+            out, _ = p.communicate(timeout=60)
+        except subprocess.TimeoutExpired:
+            os.killpg(p.pid, signal.SIGKILL); out, _ = p.communicate()
+        return out, ign
+
     def _git(self, d, *args):
         r = subprocess.run(["git", "-C", d] + list(args), capture_output=True, text=True, env=self._env())
         self.assertEqual(r.returncode, 0, "git %s: %s" % (" ".join(args), r.stderr))
@@ -60480,28 +60560,25 @@ int main(int argc, char **argv) {
     # perf_bench.sh (D1167 F04-022#10, D1168 F04-022#3, D1169 F04-022#13; D1170 ALREADY) -- CX-36Q-A
     # ================================================================================================
     def test_d1167_interrupt_after_provisioning_tears_down(self):
+        self._need_proc()
         d = self._d()
         azlog = os.path.join(d, "az.log")
         mark = os.path.join(d, "vnet.started")
-        sd = self._bin(d, "az", "#!/bin/bash\necho \"$*\" >> %s\ncase \"$*\" in \"network vnet create\"*) touch %s; exec /bin/sleep 60;; esac\nexit 0\n"
+        sd = self._bin(d, "az", "#!/bin/bash\necho \"$*\" >> %s\ncase \"$*\" in \"network vnet create\"*) echo $$ > %s; exec /bin/sleep 60;; esac\nexit 0\n"
                        % (shlex.quote(azlog), shlex.quote(mark)))
         e = self._env(PB_SESSION_LOG=os.path.join(d, "session.txt"))
         e["PATH"] = sd + os.pathsep + e["PATH"]
         p = subprocess.Popen(["bash", self._sp("perf_bench.sh"), "--control-commit", "HEAD", "--treatment-commit", "HEAD",
                               "--scale", "1B", "--burn-seconds", "30", "--throttle-min-mhz", "0"],
                              cwd=self.ROOT, env=e, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-                             start_new_session=True)
-        t0 = time.time()
-        while not os.path.exists(mark) and time.time() - t0 < 60 and p.poll() is None:
-            time.sleep(0.2)
-        started = os.path.exists(mark)
-        time.sleep(0.5)                                   # let the stub settle into its wait
-        os.killpg(p.pid, signal.SIGINT)
-        try:
-            out, _ = p.communicate(timeout=60)
-        except subprocess.TimeoutExpired:
-            os.killpg(p.pid, signal.SIGKILL); out, _ = p.communicate()
-        self.assertTrue(started, "precondition: provisioning reached the vnet step: " + out[-1500:])
+                             start_new_session=True, preexec_fn=self._default_signals)
+        # Ready marker, not a fixed delay (Q-1112): the vnet stub has exec'd its sleep, i.e. the bench is
+        # blocked in the provisioning step this test interrupts.
+        started = self._await_stub(p, mark, lambda sp: self._comm(sp) == "sleep", 120)
+        out, ign = self._interrupt(p, started)
+        self.assertTrue(started, "precondition: provisioning reached the vnet step (stub asleep within 120 s): " + out[-1500:])
+        self.assertIs(ign, False, "precondition: perf_bench.sh can trap SIGINT (SigIgn says ignored=%r; an "
+                      "ignore inherited from the suite's launch cannot be trapped, Q-1112)" % ign)
         calls = open(azlog).read()
         self.assertIn("group create", calls, "precondition: the resource container was created")
         self.assertIn("group delete", calls, "an interrupted bench left its host allocated: " + calls + out[-800:])
@@ -60672,28 +60749,41 @@ int main(int argc, char **argv) {
         self.assertIn("deps=1:/tmp/fv2r_in.txt", chain, "D1116: an attached `<` operand did not connect: " + chain)
 
     def test_d1114_signal_during_extraction_is_reported(self):
+        self._need_proc()
         d = self._lane_fixture("# t\n\n```bash\nprintf ok\n```\n")
         mark = os.path.join(d, "py.started")
         real = shutil.which("python3")
-        sd = self._bin(d, "python3", "#!/bin/bash\ntouch %s\n/bin/sleep 20\nexec %s \"$@\"\n" % (shlex.quote(mark), shlex.quote(real)))
+        sd = self._bin(d, "python3", "#!/bin/bash\n[ -e %s ] || echo $$ > %s\n/bin/sleep 20\nexec %s \"$@\"\n"
+                       % (shlex.quote(mark), shlex.quote(mark), shlex.quote(real)))
         e = self._env()
         e["PATH"] = sd + os.pathsep + e["PATH"]
         for k in [k for k in e if k.startswith("BASH_FUNC_")]:
             e.pop(k)                                      # an exported python3() wrapper would shadow the shim
         p = subprocess.Popen(["bash", self._sp("exec_lane.sh"), "--tree", "."], cwd=d, env=e, stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT, text=True, start_new_session=True)
-        t0 = time.time()
-        while not os.path.exists(mark) and time.time() - t0 < 30 and p.poll() is None:
-            time.sleep(0.1)
-        started = os.path.exists(mark)
-        time.sleep(0.5)                                   # let the stub settle into its wait
-        os.killpg(p.pid, signal.SIGINT)
-        try:
-            out, _ = p.communicate(timeout=60)
-        except subprocess.TimeoutExpired:
-            os.killpg(p.pid, signal.SIGKILL); out, _ = p.communicate()
-        self.assertTrue(started, "precondition: the extraction python was reached: " + out[-800:])
+                             stderr=subprocess.STDOUT, text=True, start_new_session=True, preexec_fn=self._default_signals)
+        # Ready marker, not a fixed delay (Q-1112): the extraction shim is blocked in its own sleep child.
+        started = self._await_stub(p, mark, lambda sp: any(self._comm(k) == "sleep" for k in self._children(sp)), 60)
+        out, ign = self._interrupt(p, started)
+        self.assertTrue(started, "precondition: the extraction python was reached (shim asleep within 60 s): " + out[-800:])
+        self.assertIs(ign, False, "precondition: exec_lane.sh can trap SIGINT (SigIgn says ignored=%r; an "
+                      "ignore inherited from the suite's launch cannot be trapped, Q-1112)" % ign)
         self.assertIn("EXEC_LANE=INTERRUPTED", out, "a signal during extraction printed no INTERRUPTED report: " + out[-800:])
+
+    def test_q1112_an_inherited_ignore_of_int_does_not_decide_the_signal_tests(self):
+        """Q-1112: the suite's own launch must not decide D1114 and D1167. With INT, QUIT and HUP ignored in
+        THIS process (as under `setsid nohup nice bash chain.sh &`, then verify_all's bare
+        `python3 tests.py`), both still interrupt the run under test. Red without `_default_signals`: the
+        precondition that the script can trap SIGINT fails (it used to be the INTERRUPTED / teardown
+        assertion, after the stub ran out its sleep)."""
+        saved = {s: signal.getsignal(s) for s in (signal.SIGINT, signal.SIGQUIT, signal.SIGHUP)}
+        try:
+            for s in saved:
+                signal.signal(s, signal.SIG_IGN)
+            self.test_d1114_signal_during_extraction_is_reported()
+            self.test_d1167_interrupt_after_provisioning_tears_down()
+        finally:
+            for s, h in saved.items():
+                signal.signal(s, h)
 
     # ================================================================================================
     # tr12_repro.sh (D1267, D1268, D1269, D1272, D1274, D1277, D1278, D1279, D1280, D1281, D1282, D1286,

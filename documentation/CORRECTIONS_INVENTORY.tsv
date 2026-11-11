@@ -3710,6 +3710,7 @@ INL-1dbfba98	-	C3	corrections	inline	viz/viz_tr5_orbit_collapse.md	88	theory is 
 INL-34469d7c	-	C3	corrections	inline	viz/viz_tr6_parity_alternations.md	76	is claimed novel. Developed with AI assistance (Claude, Anthropic); corrections invited.*
 INL-59b1cb3	-	C3	corrected	inline	viz/viz_tr7_circular_cycle.md	63	picture, and no renderer existed; the documents were corrected to say so. CX-191.
 INL-13a1de3a	-	C3	corrections	inline	viz/viz_tr7_circular_cycle.md	75	Developed with AI assistance (Claude, Anthropic); corrections invited.*
+GIT-23cabcf7	2026-11-11	C3	corrections	git	49d4f1e7	-	Q-1106: TestBatchG5b.test_native_kde_wrappers_write_all_and_clean_up skips without pyarrow
 GIT-1814e1c4	2026-10-02	C3	corrections	git	25618095	-	TODO-1: placed-pair membership of every entry's last as a counted line in --check-layers, --scan-layers and --check-t-ladder
 GIT-19444a1d	2026-11-10	C3	corrected	git	c6d2fdb5	-	Q-1049 batch 1: twenty-four TR-12 sentences from the FV2 slice-1 adjudication (CX-37C-A)
 GIT-1097bc43	2026-11-10	C1	withdrawn	git	99839fcd	-	Q-1037c: the last held published-figure corrections (CX-37B-A..CX-37B-F)
