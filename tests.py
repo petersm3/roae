@@ -50659,6 +50659,10 @@ exit 0
                 exec(l, ns)
             self.assertEqual(ns["pct"], want, "support [%g, %g]: KW 374.77 ranked %r%%" % (a, b, ns["pct"]))
 
+    # Q-1106: both wrappers import pyarrow.parquet before they launch the scorer, so without pyarrow
+    # this ERRORED (ModuleNotFoundError) instead of skipping; same guard as the stratified KDE test.
+    @unittest.skipUnless(all(importlib.util.find_spec(m) for m in ("numpy", "pyarrow")),
+                         "needs numpy + pyarrow (both native KDE wrappers import pyarrow.parquet)")
     def test_native_kde_wrappers_write_all_and_clean_up(self):
         # F04-010#11: a short raw write() dropped the rest of the chunk; F04-010#12: the fit file leaked
         # when the scorer failed to launch.
