@@ -12286,3 +12286,21 @@ Q-686=DONE
   FULL31_EXACT_AGGREGATES) and its documentation and root rows stay open.
 - No canonical sha, count, certificate, token or verdict changed. `TestBatchQ1049R2` holds each sentence and fails
   on the parent tree. Found by Codex (gpt-6-astra), final review; adjudicated by Fable.
+
+## 2026-11-11 — batch Q1049R3: eleven TR-1 sentences from the FV2 slice-1 adjudication
+
+- **TR-1 (CX-37C-C).** The third report-by-report batch of backlog Q-1049. Each of TR-1's 11 rows was checked
+  against the code, the evidence files or another part of the report before it was changed. Scoped: the
+  literature's inspection-only method names McKenna & Mair's and Chan's exceptions; the C1 constants' 1.0 readings
+  are a consistency check, not a validation of the instrument; only the gender rule has a TR-9 description-length
+  entry; the F5 freeze is operator-attested; the orientation layer is silent on every tested axis but one; the Van
+  den Berghe exception is forced within King Wen's pair order (another pair order scores 30/30 under the same
+  opening, recomputed). Corrected: the Moore repair recipe names the slots its flips land in; §3's per-probe caveat
+  is no longer applied to a weighted fraction; the registry command gains `python3`. Disclosed: the ~1-in-25-million
+  figure is marked unreproduced where it is stated; `f11_runA.out` corroborates the first-wave fractions and the
+  ×11,364 factor. Sibling sentences in LITERATURE_RULES_POPULATION_TESTS.md, CITATIONS.md and CLAIMS_DECIDED.md
+  follow. Every edit keeps its line count; revision row v1.46.
+- **Not in this batch.** Q-1049's other report rows (TR-4, TR-10, METHODS, CAPSTONE_GUIDE,
+  FULL31_EXACT_AGGREGATES) and its documentation and root rows stay open.
+- No canonical sha, count, certificate, token or verdict changed. `TestBatchQ1049R3` holds each sentence and fails
+  on the parent tree. Found by Codex (gpt-6-astra), final review; adjudicated by Fable.

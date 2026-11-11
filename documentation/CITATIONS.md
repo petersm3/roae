@@ -2805,7 +2805,7 @@ document (icrea site, Belgium; later fourpillars.net). [Archived](https://web.ar
   the rule perfect up to impossibility rather than "almost perfect". On the pair-only-C4 fiber
   (2,703,360 vectors, both openings; re-checked 2026-07-26) exactly 2 vectors attain 30/30, both
   opening (0, 63) — the minimal one reverses precisely the opening pair and his own exception pair
-  3/4 — so the exception traces to the classical opening, not to pair geometry alone
+  3/4 — so, for King Wen's pair order, the exception traces to the classical opening, not to pair geometry alone (another pair order scores 30/30 under the same opening; scoped 2026-11-11, CX-37C-C)
   (fiber-wide P(X ≥ 29) = 1.1097×10⁻⁵ one-sided). The rule was derived from King Wen, so this is exact
   population atypicality of his description, not independent confirmation; see TR-1 §7 for the full scoping.
   His broader reconstruction also audits cleanly: 17 of 19 checkable claim-groups verify exactly,

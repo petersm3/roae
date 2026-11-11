@@ -62633,7 +62633,7 @@ class TestBatchQ1037b(unittest.TestCase):
         self.assertIn("⚠ *(Withdrawn 2026-11-06, CX-36X-A: the lower bound", t)
         self.assertIn("leaves about 8.2 bits (17.13 − 8.95, endpoints among the 32 pair slots) or 6.2 bits "
                       "(17.13 − 10.98, among the 64 positions)", t)
-        self.assertIn("| v1.45 *(current)* | 2026-11-06 |", t, "TR-1 revision row")
+        self.assertRegex(t, r"\| v1\.45 (\*\(current\)\* )?\| 2026-11-06 \|", "TR-1 revision row")   # current until Q1049R3's v1.46
 
     # ---- CX-36X-B (D745) ----
     def test_cx36x_b_tr4_synergy(self):
@@ -64059,6 +64059,149 @@ class TestBatchQ1049R2(unittest.TestCase):
 
 # end class TestBatchQ1049R2
 
+
+class TestBatchQ1049R3(unittest.TestCase):
+    """Push group Q1049R3 (CX-37C-C): the eleven TR-1 rows of Fable's FV2 slice-1 adjudication of Codex's final
+    review (backlog Q-1049, batch 3), each checked against the code, the data or the report's own sections before it
+    was changed, with the sibling sentences in LITERATURE_RULES_POPULATION_TESTS.md, CITATIONS.md and
+    CLAIMS_DECIDED.md. PAIRS holds (row, file, fragment as published, fragment now); the cured test requires each new
+    fragment once in its file and each old one nowhere, and the red test puts every old fragment back and requires
+    every pair to be reported. Four rows are also held to their sources: the Moore recipe read by slot reproduces the
+    published witness and read by King Wen's pair 23 breaks C2 and C5 (D654); an ordering with the (63, 0) opening
+    and another pair order scores 30/30 on the nuclear rule (D668); f11_runA.out prints the first-wave fractions and
+    the 0.000088 gender mass (D674); and solve.py is not executable (D678). Every test except the four data checks
+    fails on the parent tree 83638f41. Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    T1 = "reports/TR1_EIGHT_CENTURIES_MEASURED.md"
+    LR = "documentation/LITERATURE_RULES_POPULATION_TESTS.md"
+    CI = "documentation/CITATIONS.md"
+    CD = "documentation/CLAIMS_DECIDED.md"
+    PAIRS = (
+        ('D680', T1, "The literature's rules were established by inspection of one",
+         "with few exceptions (McKenna & Mair's constructed alternatives, §6; [Chan 2026]"),
+        ('D652', T1, "now validate the\n   instrument end-to-end rather than carry the claim.",
+         "are a consistency check of the predicate code, not a validation of the\n   instrument: a predicate constant on every leaf reads 1.0 under any weighting"),
+        ('D652s', LR, "now validate the instrument end-to-end rather than carry the\nclaim.",
+         "are a consistency check of the predicate code, not a validation of the instrument: a predicate constant"),
+        ('D654', T1, "swapping pairs 22↔23 (his anomaly) and\n   flipping two within-pair orientations (pairs 8 and 23), complement",
+         "reversing the within-pair order of the pairs that end in slots 8 and 23 — King Wen's pairs 8 and 22"),
+        ('D654s', LR, "flipping two within-pair orientations (pairs 8 and 23):",
+         "(the pairs that end in slots 8 and 23 — King Wen's pairs 8 and 22;"),
+        ('D656', T1, "~1-in-25-million figure **describes**",
+         "~1-in-25-million figure (unreproduced — see the sourcing flag that follows; qualified 2026-11-11, CX-37C-C) **describes**"),
+        ('D658', T1, "masses; it also sits below the ~10⁻⁷ per-probe hit rate at\n",
+         "a weighted fraction is not a per-probe hit rate, so\n   §3's deep-tail caveat (stated in per-probe hit rates) cannot be applied to it either way"),
+        ('D663', T1, "with\n   description-length and attestation recorded for each (see",
+         "of these rules only the Schulz gender rule has a description-length entry"),
+        ('D665', T1, "frozen before measurement ([Bonferroni]",
+         "frozen before measurement (operator-attested: the protocol is private, and its 2026-09-04 escrow"),
+        ('D667', T1, "it is silent\n   on every axis but one.",
+         "on every tested axis but one: of the eleven frozen functionals, seven are null, three forced"),
+        ('D668', T1, "forced **by the received Heaven-first opening**, not by",
+         "forced **within King Wen's pair order by the received Heaven-first opening**, not by"),
+        ('D668c', CI, "3/4 — so the exception traces to the classical opening",
+         "3/4 — so, for King Wen's pair order, the exception traces to the classical opening"),
+        ('D668d', CD, "so the exception is forced by the classical opening",
+         "so, for King Wen's pair order, the exception is forced by the classical opening"),
+        ('D674', T1, "reproduce the published digits.]**\n",
+         "prints each first-wave fraction of §2 to the digits shown there, and its `R-C4 gender/valence <=2 viol` mass, 0.000088"),
+        ('D678', T1, "KW-value reproduction: `solve.py --registry-verify`;",
+         "KW-value reproduction: `python3 solve.py --registry-verify` (`solve.py` is not executable"),
+    )
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _problems(self, texts):
+        probs = []
+        for row, rel, old, new in self.PAIRS:
+            t = texts[rel]
+            if t.count(new) != 1:
+                probs.append("%s: new fragment present %d times" % (row, t.count(new)))
+            elif old in t:
+                probs.append("%s: old fragment still present" % row)
+        return probs
+
+    def _texts(self):
+        return {rel: self._r(rel) for rel in {p[1] for p in self.PAIRS}}
+
+    def test_q1049r3_tr1_sentences_cured(self):
+        self.assertEqual(self._problems(self._texts()), [])
+
+    def test_q1049r3_tr1_red_on_old(self):
+        texts = self._texts()
+        for row, rel, old, new in self.PAIRS:
+            self.assertEqual(texts[rel].count(new), 1, "precondition: %s new fragment present once" % row)
+            texts[rel] = texts[rel].replace(new, old)
+        self.assertEqual(len(self._problems(texts)), len(self.PAIRS))
+
+    def test_q1049r3_revision_row_and_ledger_entry(self):
+        t = self._r(self.T1)
+        rows = [l for l in t.split("\n") if l.startswith("| v1.")]
+        self.assertTrue(rows[-1].startswith("| v1.46 *(current)* | 2026-11-11 |"), rows[-1][:60])
+        self.assertEqual(sum("*(current)*" in l.split("|")[1] for l in rows), 1, "one current revision row (version cell)")
+        self.assertIn("CX-37C-C", rows[-1])
+        self.assertTrue("\n## CX-37C-C — " in self._r("documentation/CORRECTIONS.md"), "the CX-37C-C entry exists")
+
+    def _swap_flip(self, seq, swaps, flips):
+        m = list(seq)
+        for p, q in swaps:
+            m[2 * p:2 * p + 2], m[2 * q:2 * q + 2] = m[2 * q:2 * q + 2], m[2 * p:2 * p + 2]
+        for p in flips:
+            m[2 * p], m[2 * p + 1] = m[2 * p + 1], m[2 * p]
+        return m
+
+    def test_d654_recipe_by_slot_reproduces_the_witness(self):
+        import sat, solve, verify
+        lr = self._r(self.LR)
+        m = re.search(r"orientations \([^\n]*\):\n   `(63,0,[0-9,]+)\n   ([0-9,]+)`", lr)
+        self.assertTrue(m, "precondition: the published witness follows the recipe")
+        wit = [int(x) for x in (m.group(1) + m.group(2)).split(",")]
+        self.assertEqual(sat.verify_seq(wit), (True, 776, (0, 0, 0)), "precondition: the witness is valid and compliant")
+        kw = list(verify.KW)
+        by_slot = self._swap_flip(kw, [(21, 22)], [7, 22])      # slots 22<->23, then the pairs ending in slots 8, 23
+        self.assertEqual(by_slot, wit)
+        by_pair = self._swap_flip(kw, [(21, 22)], [7, 21])      # King Wen's pair 23 now sits in slot 22
+        self.assertFalse(solve.has_no_five(by_pair), "the pair-identity reading has a distance-5 step (C2)")
+        self.assertFalse(solve.h2_pop_valid(by_pair), "and breaks C5")
+        d = [bin(by_pair[i] ^ by_pair[i + 1]).count("1") for i in range(63)]
+        self.assertEqual([i + 1 for i, x in enumerate(d) if x == 5], [42], "at positions 42 -> 43")
+
+    def test_d668_another_pair_order_scores_30_under_the_same_opening(self):
+        import sat, solve, verify
+        kw = list(verify.KW)
+        self.assertEqual(kw[:6], [63, 0, 17, 34, 23, 58], "precondition: King Wen's first three pairs")
+        alt = [63, 0, 23, 58, 34, 17] + kw[6:]
+        ok, c3, _ = sat.verify_seq(alt)
+        self.assertTrue(ok, "C1, C2 and C5 hold")
+        self.assertEqual(c3, 776)
+        self.assertEqual(alt[:2], [63, 0], "the received (63, 0) opening")
+        self.assertEqual((solve.vdb_nucorient(kw), solve.vdb_nucorient(alt)), (29, 30))
+
+    def test_d674_f11_runA_prints_the_first_wave_fractions(self):
+        out = self._r("reports/evidence/f11/f11_runA.out")
+        self.assertTrue(out.startswith("KNUTH-ESTIMATE probes=20000000000 threads=32 "))
+        for needle in ("R-M1 Moore-parity strict : 0.000005 ", "R-M1 Moore-parity >=16/18: 0.000734 ",
+                       "R-M2 Moore-1989 R/F <=2 breaks: 0.038507 ", "R-M2 strict 0 breaks     : 0.000626 ",
+                       "Moore joint (M1>=16 & M2<=2): 0.00001853 ", "R-C1 final-pair-anchor  : 0.078447 ",
+                       "R-C2 first7-level-cover : 0.120316 ", "R-C5 18:18-HEC-split    : 0.364265 ",
+                       "R-C4 gender/valence <=2 viol : 0.000088 "):
+            self.assertIn(needle, out)
+        self.assertEqual(round(1 / 0.000088), 11364)
+        t = self._r(self.T1)
+        for shown in ("| 5×10⁻⁶ |", "| 1.85×10⁻⁵ |", "| 7.3×10⁻⁴ |", "| 6.3×10⁻⁴ |", "| 3.85% |", "| 7.84% |",
+                      "| 12.03% |", "| 36.4% |"):
+            self.assertIn(shown, t, "precondition: §2 shows %s" % shown)
+
+    def test_d678_solve_py_is_not_executable(self):
+        r = subprocess.run(["git", "ls-files", "-s", "solve.py"], cwd=self.ROOT, capture_output=True, text=True)
+        if r.returncode != 0 or not r.stdout:
+            self.skipTest("not a git checkout")
+        self.assertTrue(r.stdout.startswith("100644 "), r.stdout)
+
+# end class TestBatchQ1049R3
 
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).

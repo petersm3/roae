@@ -66,7 +66,7 @@ KW-descriptive, so scoring well on all four at once is expected rather than an e
 result — see §5.)
 
 ## Sections
-1. **The question and the instrument.** The literature's rules were established by inspection of one
+1. **The question and the instrument.** The literature's rules were, with few exceptions (McKenna & Mair's constructed alternatives, §6; [Chan 2026](../documentation/CITATIONS.md#chan2026)'s 100,000 random permutations; scoped 2026-11-11, CX-37C-C), established by inspection of one
    object; population measurement asks how much of the C1–C5-satisfying space (≈1.33×10³⁸ orderings —
    [SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md)) shares each property. Method: weighted Knuth random probes
    (`SOLVE_KNUTH_SCORE=1`, 2×10¹⁰ probes) — each probe descends by a uniform random child choice and
@@ -188,8 +188,8 @@ result — see §5.)
    r4/r5 threshold forms hold because the C1-fixed within-pair HD histogram {2:12, 4:12, 6:8} (which is
    c2) sums to a total pairing cost of exactly 120 (= r4's ≤120 threshold, met with equality). Their
    zero-violation 2×10¹⁰-probe readings — previously reported only as "empirically forced to the
-   estimator's precision", since sampling cannot distinguish mass 1 from mass 1−ε — now validate the
-   instrument end-to-end rather than carry the claim. A separate, additional analytic theorem — the no-5
+   estimator's precision", since sampling cannot distinguish mass 1 from mass 1−ε — are a consistency check of the predicate code, not a validation of the
+   instrument: a predicate constant on every leaf reads 1.0 under any weighting, so these readings test neither the sampler's coverage nor its weights (the estimator's calibration against exact counts is [TR-4](TR4_SIZE_OF_THE_SPACE.md) §"Estimator calibration against exact ground truth"; "now validate the instrument end-to-end" until 2026-11-11, CX-37C-C). They do not carry the claim. A separate, additional analytic theorem — the no-5
    rule's implication chain, behind [McKenna's](../documentation/CITATIONS.md#mckenna-mckenna1975) 3:1
    even:odd transition ratio, the first literature rule proven forced — is distinct from these eight and
    stands unchanged. Several more rules are near-forced (0.95–0.9998); those remain sampling results. **(3) The xiaoxi-placement row `d7` is DATA-LIKE, and its "maximality" is
@@ -230,8 +230,8 @@ result — see §5.)
    SAT layer (`sat.py`, encoding derived from solve.py's constraint definitions, external kissat solver,
    DRAT certificates) adds *exact* decisions. (a) **Moore's conjectured fully-compliant ordering exists —
    here is one:** an explicit C1–C5-valid sequence satisfying his 2005 parity rule 18/18 AND his 1989
-   rhythm rule with 0 breaks, differing from King Wen only by swapping pairs 22↔23 (his anomaly) and
-   flipping two within-pair orientations (pairs 8 and 23), complement-distance sum 776 — C3 at the same
+   rhythm rule with 0 breaks, differing from King Wen only by swapping the pairs in slots 22 and 23 (his anomaly; slots counted from 1) and then
+   reversing the within-pair order of the pairs that end in slots 8 and 23 — King Wen's pairs 8 and 22 ("flipping two within-pair orientations (pairs 8 and 23)" until 2026-11-11, CX-37C-C; read as King Wen's pair 23, the recipe breaks C2 and C5), complement-distance sum 776 — C3 at the same
    ceiling as KW. Moore (1989) judged the bare 22/23 swap "too simplistic" because it leaves the rhythm
    broken; the two orientation flips complete the repair. (b) **The minimal repair is exactly 3
    slot-edits** — SAT-decided: no ordering within 2 slot-edits of KW achieves joint compliance (UNSAT, a
@@ -292,12 +292,12 @@ result — see §5.)
    too). All four rules are KW-derived — selected because King Wen exhibits them, even
    where their form is general — so King Wen
    scoring well on all four at once is expected rather than an efficiency result (nearness to their joint Pareto frontier is unverified: no extremal check exists); the
-   ~1-in-25-million figure **describes** how population-atypical that joint profile is under KW-fitted
+   ~1-in-25-million figure (unreproduced — see the sourcing flag that follows; qualified 2026-11-11, CX-37C-C) **describes** how population-atypical that joint profile is under KW-fitted
    rules, and is not a measure of design efficiency (no arbitrary-rule-bundle baseline exists to read it
    against). *(Sourcing flag, added 2026-08-01: the ~1-in-25-million figure (≈4×10⁻⁸) is carried from the
    v1.14 pass with **no derivation, probe count, CI or verification command anywhere in the repo**, and it
-   is not reconstructible from the published masses; it also sits below the ~10⁻⁷ per-probe hit rate at
-   which §3's deep-tail caveat says to read figures as order-of-magnitude only, so the two significant
+   is not reconstructible from the published masses. No probe or hit count is recorded for it, and a weighted fraction is not a per-probe hit rate, so
+   §3's deep-tail caveat (stated in per-probe hit rates) cannot be applied to it either way ("it also sits below the ~10⁻⁷ per-probe hit rate at which §3's deep-tail caveat says to read figures as order-of-magnitude only" until 2026-11-11, CX-37C-C); with no CI on record, the two significant
    figures are unearned. Treat it as an unreproduced figure until a regeneration command is published;
    what would settle it is a stated joint-profile predicate plus a run of
    `SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth <probes>` reporting its mass with a CI.)* The usual caveat travels with this: the trigram configuration is a
@@ -332,7 +332,7 @@ result — see §5.)
    headline 3) carry rarity that is partly specification, not principle; no single rule approaches uniqueness, and neither does any joint measurement made — Moore's two strict rules (§4's joint-strict population, `SOLVE_KNUTH_MOORE_STRICT`, still holds ≈1.13×10²⁹ orientation-explicit (raw) orderings), both Moore rules at King Wen's level (§2, 1.85×10⁻⁵ of C1–C5 mass) and TR-2's triple-strict population
    (≈4.5×10²⁵); for scale, the full C1–C7 space holds ≈5.2×10³¹ orderings; no joint measurement over the whole inventory exists. Accordingly **none is promoted into the formal constraint
    system**; they are measured properties of King Wen's position in the population, with
-   description-length and attestation recorded for each (see [TR-9](TR9_PRICING_THE_CONSTRAINTS.md)).
+   attestation recorded for each; of these rules only the Schulz gender rule has a description-length entry, in [TR-9](TR9_PRICING_THE_CONSTRAINTS.md) §2, whose statement cost TR-9 labels underived (fn⁹) ("with description-length and attestation recorded for each" until 2026-11-11, CX-37C-C).
 7. **The orientation layer, measured (2026-07-05; re-scoped + pair-only re-check 2026-07-26).**
    Everything above concerns which pair goes where — the population fractions range over both orientations of every placed pair (§1(b)), while King Wen's own rule values are read at its received orientations, on which the Moore rhythm and CC-N4 scores do depend. A
    final pre-registered battery measures the layer the literature has almost entirely ignored — **which
@@ -351,7 +351,7 @@ result — see §5.)
    fiber on 2026-07-26 — the seven null verdicts and two of the three forced rows survive unchanged,
    and the changes are confined to rows 8 and 11 (detailed below). This already corrects our own earlier
    gloss that orientation "appears to be a free choice at each pair": the freedom is real but coupled and
-   ~20.7 bits, not 31. Eleven functionals were frozen before measurement ([Bonferroni](../documentation/CITATIONS.md#bonferroni1936) N = 11; two-sided
+   ~20.7 bits, not 31. Eleven functionals were frozen before measurement (operator-attested: the protocol is private, and its 2026-09-04 escrow in [PREREGISTRATION_ESCROW.md](../documentation/PREREGISTRATION_ESCROW.md) fixes its bytes at the freeze commit, not its timing; qualified 2026-11-11, CX-37C-C) ([Bonferroni](../documentation/CITATIONS.md#bonferroni1936) N = 11; two-sided
    atom-inclusive p; the exact fiber is the dispositive null; all results published regardless of
    outcome), each anchored to a named author's idea:
 
@@ -404,7 +404,7 @@ result — see §5.)
    literature) through Moore's rising/falling system (our count reproduces his published 10R/8F exactly)
    to the classical yang-precedence reading, are all **null** — typical of the choices actually (two-sided exact-fiber p ≥ 0.09 on both fibers, table above; ⚠ 2026-09-25, Codex v3 review, V3B-04#28: this read "dead-typical", which was not defined)
    available. The orientation layer is not decorated with weak echoes of the ordering rules; it is silent
-   on every axis but one.
+   on every tested axis but one: of the eleven frozen functionals, seven are null, three forced (constant on the C4-oriented fiber), and one, Van den Berghe's fitted nuclear rule, sits at that fiber's maximum ("on every axis but one" until 2026-11-11, CX-37C-C).
 
    **The one non-null axis: a fitted description at the fiber ceiling — Van den Berghe's nuclear rule.**
    Around the turn of the millennium, D.H. Van den Berghe — working independently and
@@ -423,8 +423,8 @@ result — see §5.)
    30/30** — both open (0, 63), and the minimal one is King Wen with precisely the opening pair and
    pair 3/4 (**his own declared exception**) orientation-reversed (the second additionally reverses the
    final pair); fiber-wide P(X ≥ 29) = 30/2,703,360 = 1.1097×10⁻⁵ one-sided. The exception is therefore
-   forced **by the received Heaven-first opening**, not by the pair geometry alone — the received
-   text's one deviation from his rule is exactly what C4's definitional orientation makes unavoidable.
+   forced **within King Wen's pair order by the received Heaven-first opening**, not by the pair geometry alone — another pair order under the same (63, 0) opening scores 30/30 (King Wen's second and third pairs exchanged, the second reversed in its new slot: C1–C5-valid, C3 = 776; "forced **by the received Heaven-first opening**" until 2026-11-11, CX-37C-C) — the received
+   text's one deviation from his rule is exactly what C4's definitional orientation makes unavoidable *for King Wen's pair sequence*.
    That clarifies the
    rule's standing — under the received opening it is not "almost perfect"; it is **perfect up to
    impossibility**. The unconditional
@@ -529,10 +529,10 @@ All values are the reports' stated numbers; generated by
   ccn4 included. **Thread count not recorded (Codex V3B-14#13):** a sampled draw reproduces only at the
   same (probes, threads), and no archived output or record in this repository names the run behind these
   fractions or its thread count. No `SOLVE_THREADS` value is added, because one would be a guess. Any
-  thread count gives an estimate of the same quantity; none is claimed to reproduce the published digits.]**
+  thread count gives an estimate of the same quantity; none is claimed to reproduce the published digits.]** *(Cross-check added 2026-11-11, CX-37C-C: the archived [`evidence/f11/f11_runA.out`](evidence/f11/f11_runA.out), 20×10⁹ probes at 32 threads, prints each first-wave fraction of §2 to the digits shown there, and its `R-C4 gender/valence <=2 viol` mass, 0.000088, is the one behind the ×11,364 gender factor (1/0.000088 ≈ 11,364). It is not recorded as the run behind these fractions, so it corroborates them without naming their source.)*
   (consistency check vs the total-space size *estimate* in documentation/SEARCH_SPACE_SIZE.md, agreement
   0.03% — same estimator family, so this is consistency, not independent validation; cf. v1.18) ⚠ **[2026-09-25, Codex v3 review, V3B-04#4: the run's own total estimate is not printed in this report or archived, so this 0.03% cannot be recomputed from the tree. It is the figure as recorded at the time.]**
-- Per-rule registry, formalizations, attributions, KW-value reproduction: `solve.py --registry-verify`;
+- Per-rule registry, formalizations, attributions, KW-value reproduction: `python3 solve.py --registry-verify` (`solve.py` is not executable, so the bare name printed here until 2026-11-11, CX-37C-C exits 127);
   [documentation/LITERATURE_RULES_POPULATION_TESTS.md](../documentation/LITERATURE_RULES_POPULATION_TESTS.md); documentation/CITATIONS.md §Attributed candidate
   rules
 - Moore joint witness: `python3 sat.py --witness moore-strict` (explicit sequence in
@@ -616,4 +616,5 @@ All values are the reports' stated numbers; generated by
 | v1.42 | 2026-10-17 | **The abstract names the suite's own formalisations, c2's proxy status, and the orientation the pair-order layer holds fixed (Codex's final review, gpt-6-astra; triaged by Fable; push group G4; F03-003#2/#4, F03-004#4/#5/#7, F04-007#8, F03-008#10, F03-H02#9, F03-H05#21).** The abstract's "none of them ROAE discoveries" now says the structural observations are not ROAE's while d7's positional form and c2's proxy statistic are this suite's formalisations; the proven-forced list marks c2 as the registry proxy for Chan's statistic; §7's "Everything above concerns which pair goes where" adds that every within-pair orientation is held at King Wen's. No figure changes. See CORRECTIONS.md CX-35T-B. |
 | v1.43 | 2026-10-22 | **Two sentences put back to their sources (Codex's fix-verification pass, gpt-6-astra; triaged by Fable; push group FV1; FV-FT2A-C2#3, FV-G23-C3#3).** §7's opening no longer says every within-pair orientation is held at King Wen's: the population fractions range over both orientations of every placed pair (§1(b)), and only King Wen's own rule values are read at its received orientations. §6's closing caveat names the joint measurements made — Moore's two strict rules, both Moore rules at King Wen's level, TR-2's triple-strict population — where it said "the one joint measurement made". No figure changes. See CORRECTIONS.md CX-35Y-B. |
 | v1.44 | 2026-10-28 | **Three attributions put back to their sources (Codex's final review, gpt-6-astra; triaged by Fable; push group G7; AIF-001#1, F03-004#1, F03-H02#1/#4/#6).** §3's `ccn4` headline credits Li Shangxin 2000 (p. 53, crediting Gu Boxu 1997) beside Schulz, as §6 already did; the Schulz & Cunningham link reaches the joint paper's anchor; Hu Yigui is dated by his birth year as such ("b. 1247"). The v1.28 row above says the 孔穎達 rule was "verified from the primary text"; CITATIONS.md holds it at attribution level, with the verbatim wording pending, and that is the standing statement (the row is history and is not edited). CORRECTIONS.md CX-36B-B |
-| v1.45 *(current)* | 2026-11-06 | **§7's "≥ ~14 bits after discounting" withdrawn; "eight literature rules" scoped (batch Q1037b, CX-36X-A, CX-36X-D; Codex gpt-6-astra, fix-verification round; triaged by Fable).** The caveat beside it leaves 8.2 or 6.2 bits; ≈17.1 undiscounted stands. Seven of the eight rules are asserted in the literature, s1 is this project's; the count stays eight. |
+| v1.45 | 2026-11-06 | **§7's "≥ ~14 bits after discounting" withdrawn; "eight literature rules" scoped (batch Q1037b, CX-36X-A, CX-36X-D; Codex gpt-6-astra, fix-verification round; triaged by Fable).** The caveat beside it leaves 8.2 or 6.2 bits; ≈17.1 undiscounted stands. Seven of the eight rules are asserted in the literature, s1 is this project's; the count stays eight. |
+| v1.46 *(current)* | 2026-11-11 | **Eleven sentences put back to their sources (Codex's final review, gpt-6-astra; adjudicated by Fable, FV2 slice 1; push group Q1049R3, CX-37C-C; F11-006#1/#3/#5/#6/#7/#8/#9/#10/#11, F03-H03#12, F08-007#16/#19, F03-H02#8, F08-012#8).** The literature's rules were established by inspection with few exceptions, McKenna & Mair's and Chan's; the C1 constants' 1.0 readings are a consistency check of the predicate code, not a validation of the instrument; the Moore repair recipe names the slots its flips land in; the ~1-in-25-million figure is marked unreproduced where it is stated, and §3's per-probe caveat is no longer applied to a weighted fraction; only the gender rule has a TR-9 description-length entry; the F5 freeze is operator-attested; the orientation layer is silent on every *tested* axis but one; the Van den Berghe exception is forced within King Wen's pair order (another pair order scores 30/30 under the same opening); `f11_runA.out` is named as a cross-check of the first-wave fractions and the ×11,364 factor; the registry command is `python3 solve.py --registry-verify`. Old wordings are quoted in dated notes at their sites. No figure, verdict or certificate changes. See CORRECTIONS.md (CX-37C-C). |

@@ -39665,3 +39665,65 @@ No canonical sha, count, certificate, token or verdict changed.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group Q1049R2; the defects were found by Codex
 (gpt-6-astra), final review; adjudicated by Fable (claude-fable-5-1), FV2 slice 1.
+
+## CX-37C-C — TR-1: eleven sentences said more than the code, the evidence or the report's own later sections (reports/TR1_EIGHT_CENTURIES_MEASURED.md; documentation/LITERATURE_RULES_POPULATION_TESTS.md; documentation/CITATIONS.md; documentation/CLAIMS_DECIDED.md; tests.py)
+
+**2026-11-11.** **Source.** Codex (gpt-6-astra), final review, in the numbering of its 2026-10-26 re-pinned run
+(F11-006#1/#3/#5/#7/#8/#9/#10/#11, F03-H03#12, F03-H02#8, F08-007#16/#19, F11-006#6, F08-012#8); adjudicated by
+Fable (FV2 slice 1). Backlog Q-1049, batch 3, push group Q1049R3. The same numbers in TR-1's v1.40 and v1.41 rows
+belong to an earlier run and name different findings.
+
+**What was published, and what it says now.** Each line was checked against the code, the evidence files or another
+part of the report before it was changed. Where an adjudicated wording was wrong in detail, the source was followed.
+- **"The literature's rules were established by inspection of one object"** (§1). The report's own §6 credits
+  McKenna & Mair with evaluating King Wen against constructed alternatives, and CITATIONS.md records Chan's
+  comparison with 100,000 random permutations. The sentence now names both as exceptions.
+- **The eight C1 constants' zero-violation readings "now validate the instrument end-to-end"** (§3(2)). A predicate
+  that is 1 on every leaf reads 1.0 under any weighting, so the readings test neither the sampler's coverage nor its
+  weights. They are a consistency check of the predicate code; the estimator's calibration against exact counts is
+  TR-4's. The same sentence in LITERATURE_RULES_POPULATION_TESTS.md is corrected the same way.
+- **The Moore repair recipe** (§4(a)) said "swapping pairs 22↔23 … and flipping two within-pair orientations (pairs
+  8 and 23)". Executed against the published witness: the flips land on the pairs that end in slots 8 and 23
+  (counted from 1), which are King Wen's pairs 8 and 22. Read as King Wen's pair 23, the recipe gives an ordering
+  with a distance-5 step at positions 42→43 that breaks C2 and C5 (`sat.verify_seq`, `solve.has_no_five`,
+  `solve.h2_pop_valid`). TR-1 now names the slots; the LITERATURE_RULES_POPULATION_TESTS.md copy, which prints the
+  sequence, gains the same parenthesis. (The adjudicated wording used zero-based slots 21 and 22 for the swap; the
+  report counts from 1, so the edit does too.)
+- **The ~1-in-25-million figure** (§5) was stated flatly before the sourcing flag that calls it unreproduced. It now
+  carries "unreproduced" where it is stated. Inside the flag, "it also sits below the ~10⁻⁷ per-probe hit rate at
+  which §3's deep-tail caveat says to read figures as order-of-magnitude only" compared a weighted population
+  fraction with a per-probe hit rate, which can differ arbitrarily. No probe or hit count is recorded for the figure,
+  so the caveat cannot be applied either way; the two significant figures stay unearned because no CI is on record.
+- **"Description-length and attestation recorded for each"** (§6). TR-9 prices the formal constraint layers and,
+  among the literature rules, only the Schulz gender rule, whose statement cost it labels underived (fn⁹). `ccn4`,
+  `ccn8`, Moore's rules and the other registry rules have no entry. The sentence now says so.
+- **"Eleven functionals were frozen before measurement"** (§7). The F5 protocol is private. Its 2026-09-04 escrow
+  row in PREREGISTRATION_ESCROW.md fixes the bytes at the named freeze commit and, as that page says, does not
+  convert freeze timing for an outside reader. The sentence now says the timing is operator-attested.
+- **"Silent on every axis but one"** (§7) now names its scope: of the eleven frozen functionals, seven are null,
+  three forced on the C4-oriented fiber, and one, Van den Berghe's fitted rule, at that fiber's maximum.
+- **"The exception is therefore forced by the received Heaven-first opening"** (§7). Recomputed for this entry: King
+  Wen with its second and third pairs exchanged and the second reversed in its new slot,
+  `63,0,23,58,34,17` followed by King Wen's positions 7–64, is C1–C5-valid (the same transition histogram,
+  {1:2, 2:20, 3:13, 4:19, 6:9}; C3 = 776), keeps the (63, 0) opening, and scores 30 on `solve.vdb_nucorient` (King
+  Wen 29). So the opening forces an exception only within King Wen's pair order. TR-1 says so; the same sentence in
+  CLAIMS_DECIDED.md's Van den Berghe row and CITATIONS.md's Van den Berghe entry gains the same scope.
+- **The scoreboard's provenance** (Verification Guide). The thread-count note says no record names the run behind
+  the fractions; that stands. Added beside it: the archived `reports/evidence/f11/f11_runA.out` (20×10⁹ probes,
+  32 threads) prints each first-wave fraction of §2 to the digits shown, and its `R-C4 gender/valence <=2 viol`
+  mass, 0.000088, is the one behind ×11,364. It corroborates the figures without naming their source.
+- **`solve.py --registry-verify`** (Verification Guide). `solve.py` is mode 100644, so the bare command exits 127.
+  It now reads `python3 solve.py --registry-verify`.
+
+Every edit keeps its line count, so no line number in these files moves; TR-1's revision row v1.46 is appended at the
+end. Old wordings of published claims are quoted in dated notes at their sites.
+
+**Tests.** `TestBatchQ1049R3` holds each new fragment and the absence of each old one; its red half puts the old
+fragments back and the check fails. Four checks bind the corrections to their sources: the recipe read by slot
+reproduces the witness and read by King Wen's pair 23 breaks C2 and C5; the 30/30 ordering is valid with the (63, 0)
+opening; f11_runA.out prints the first-wave fractions and the 0.000088 mass; and `solve.py` is not executable.
+
+No canonical sha, count, certificate, token or verdict changed.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group Q1049R3; the defects were found by Codex
+(gpt-6-astra), final review; adjudicated by Fable (claude-fable-5-1), FV2 slice 1.

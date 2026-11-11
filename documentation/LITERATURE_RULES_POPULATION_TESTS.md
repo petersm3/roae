@@ -157,7 +157,7 @@ constraint definitions, external kissat solver, DRAT certificates) adds *exact* 
 
 1. **Moore's conjectured fully-compliant ordering exists — here is one.** An explicit C1–C5-valid sequence
    satisfying his 2005 parity rule 18/18 AND his 1989 rhythm rule with 0 breaks, differing from King Wen
-   only by swapping pairs 22↔23 (his anomaly) and flipping two within-pair orientations (pairs 8 and 23):
+   only by swapping pairs 22↔23 (his anomaly) and flipping two within-pair orientations (the pairs that end in slots 8 and 23 — King Wen's pairs 8 and 22; "(pairs 8 and 23)" until 2026-11-11, CX-37C-C):
    `63,0,17,34,23,58,2,16,55,59,7,56,61,47,8,4,25,38,3,48,41,37,32,1,57,39,33,30,18,45,28,14,60,15,40,5,
    53,43,20,10,35,49,24,6,62,31,26,22,29,46,9,36,52,11,13,44,54,27,50,19,51,12,21,42` (complement-distance
    sum 776 — it satisfies C3 at the same ceiling as KW). Moore (1989) judged the bare 22/23 swap "too
@@ -323,7 +323,7 @@ population, hence a fortiori equal to King Wen's value on every C1–C5 ordering
 C1-fixed within-pair HD histogram {2:12, 4:12, 6:8} — which is c2 — sums to a total pairing cost of
 exactly 120, meeting r4's ≤120 threshold with equality). Their zero-violation readings in 2×10¹⁰ weighted
 probes — previously reported only as "empirically forced to the estimator's precision", since sampling
-cannot distinguish mass 1 from mass 1−ε — now validate the instrument end-to-end rather than carry the
+cannot distinguish mass 1 from mass 1−ε — are a consistency check of the predicate code, not a validation of the instrument: a predicate constant on every leaf reads 1.0 under any weighting ("now validate the instrument end-to-end" until 2026-11-11, CX-37C-C). They no longer carry the
 claim. A separate, additional analytic theorem — the no-5 rule's implication chain, behind McKenna's 3:1
 even:odd transition ratio, the first literature rule proven forced — is distinct from these eight and
 stands unchanged. Several more rules are near-forced (0.95–0.9998); those remain sampling results. The
