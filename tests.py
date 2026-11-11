@@ -63915,6 +63915,151 @@ class TestBatchTodo1PlacedPairCount(unittest.TestCase):
 # end class TestBatchTodo1PlacedPairCount
 
 
+class TestBatchQ1049R2(unittest.TestCase):
+    """Push group Q1049R2 (CX-37C-B): the fourteen TR-2 rows of Fable's FV2 slice-1 adjudication of Codex's final
+    review (backlog Q-1049, batch 2), each checked against the code, the data or the report's own evidence before it
+    was changed, with the sibling sentences in the r11, f11 and f11halfb evidence notes. PAIRS holds (row, file,
+    fragment as published, fragment now); the cured test requires each new fragment once in its file and each old one
+    nowhere, and the red test puts every old fragment back and requires every pair to be reported. Four rows are also
+    held to their sources: the pinned grand-strict witness has C3 = 776 while a C3 = 712 grand-strict model exists
+    (D687), the battery log has two starts and the seed outputs carry no self-test sha (D694), the leaf re-scorer's
+    counter sits inside the C3 <= 776 branch (D695), and the derived-CI gate is 2.5 sigma (D703). Every test except
+    the four data checks fails on the parent tree 03d5b558. Developed with AI assistance (Claude, Anthropic):
+    claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    T2 = "reports/TR2_THE_RULES_CONFLICT.md"
+    R11 = "reports/evidence/r11/README.md"
+    P2 = "reports/evidence/r11/PHASE2_README.md"
+    F11 = "reports/evidence/f11/RESULTS.md"
+    HB = "reports/evidence/f11halfb/README.md"
+    PAIRS = (
+        ('D684', T2, 'For centuries these were read as mistakes, corruption, or lost meaning.',
+         'They have been read as damage: Moore ('),
+        ('D683', T2, "Schulz's 2011 principle vindicated in\n   exact form;",
+         "Schulz's 2011 reading (intentional exceptions) is *consistent with* the\n   exact trade-off, not established by it"),
+        ('D683m', T2, 'which is the reading this report itself calls vindicated in exact form',
+         'a reading this report finds consistent with the exact trade-off but cannot establish'),
+        ('D683a', T2, '— precisely the reading Schulz proposed on interpretive grounds',
+         'his further claim, that the exceptions are intentional, is consistent with that content and not established by it.'),
+        ('D687', T2, 'with 0 violations, and complement-distance sum C3 = 776.',
+         'complement-distance sum C3 ≤ 776 — the command accepts any such model; the pinned witness'),
+        ('D688', T2, 'What excludes a fragile encoding is the separate CC-N4\nvalidation battery:',
+         'What narrows a fragile encoding — it does not exclude one: four planted mis-encodings pass its King Wen gates'),
+        ('D688b', T2, 'and on the three mutants.)*',
+         'and on the three mutants. They test the face derivation, not the clauses `sat.py` emits.)*'),
+        ('D693', T2, 'instrument that could restore the claim is already named',
+         'by its own registration it cannot lift the veto or make the Bayes factor calibrated'),
+        ('D693s', T2, 'assert no verdict pending the V-matched gate above.',
+         'the V-matched gate above could not restore one'),
+        ('D694', T2, "every run reproduces the build's self-test sha",
+         'pass at each start of the battery (two starts in `battery.log`; checked per start, not per run)'),
+        ('D695', T2, 'every reached leaf in all four runs;',
+         'every reached leaf with C3 ≤ 776 in all four runs'),
+        ('D696', T2, 'in all 24\npre-committed configurations',
+         'configurations, declared at computation time ("pre-committed" until 2026-11-11, CX-37C-B), and conditional'),
+        ('D696b', T2, 'of the 24\npre-committed sensitivity configurations',
+         'sensitivity configurations (declared at computation time; "pre-committed" until 2026-11-11, CX-37C-B), whose floor'),
+        ('D697', T2, 'A reader who wants a single sentence: this result narrows the',
+         'A reader who wants a single sentence: the comparison is recorded, not asserted, and eliminates no rival (CX-26).'),
+        ('D699', T2, 'its design frozen BEFORE any measurement, in the',
+         'its design summary committed publicly (v1.9, 2026-07-10) before any measurement'),
+        ('D700', T2, '**77 and 93 of 100**. What',
+         '(the estimate family and its rescoring are not published, so the range is attested, not reproducible'),
+        ('D701', T2, 'deterministic). Two pre-gates',
+         'deterministic given its inputs — one input, the unconditioned histogram dump behind'),
+        ('D702', T2, 'were written to eliminate —',
+         'only `fb356a9` (2026-08-01, the scope propagation to README, CLAIMS_DECIDED and TR-1'),
+        ('D703', T2, 'and the live one as inside it. Nothing is deleted',
+         'so both 2.0σ and 1.9σ lie inside it, and the figure replacement stands.'),
+        ('D693v', T2, 'followed by a dated revision. Propagated',
+         "that gate's own registration forbids reporting its result as lifting the veto, so it is not a reinstatement path."),
+        ('D700r', R11, 'estimates it ranges 77–93, so',
+         'estimates it ranges 77–93 (the estimate family is not archived'),
+        ('D696r', R11, 'every one of the 24 pre-committed sensitivity configurations;',
+         'every one of the 24 sensitivity configurations (declared at computation time;'),
+        ('D694p', P2, '## Additional correctness evidence (in every run)',
+         'reproduces where it is logged: once per battery start (two starts in `battery.log`)'),
+        ('D694q', P2, 'reproduces (×4);', 'and once in `stratified_repair.log`'),
+        ('D695p', P2, 'agrees at every reached leaf.', 'agrees at every reached leaf with C3 ≤ 776'),
+        ('D696p', P2, 'any of the 24 pre-committed BF',
+         'configurations (declared at computation time; "pre-committed" until 2026-11-11, CX-37C-B) below'),
+        ('D693f', F11, 'verdict pending\n> the V-matched gate.',
+         'the V-matched gate could not restore one (by its own registration; CX-37C-B)'),
+        ('D693h', HB, '— pending the\nV-matched gate below.)*',
+         'V-matched gate below could not restore them, by its own registration (CX-37C-B)'),
+    )
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _problems(self, texts):
+        probs = []
+        for row, rel, old, new in self.PAIRS:
+            t = texts[rel]
+            if t.count(new) != 1:
+                probs.append("%s: new fragment present %d times" % (row, t.count(new)))
+            elif old in t:
+                probs.append("%s: old fragment still present" % row)
+        return probs
+
+    def _texts(self):
+        return {rel: self._r(rel) for rel in {p[1] for p in self.PAIRS}}
+
+    def test_q1049r2_tr2_sentences_cured(self):
+        self.assertEqual(self._problems(self._texts()), [])
+
+    def test_q1049r2_tr2_red_on_old(self):
+        texts = self._texts()
+        for row, rel, old, new in self.PAIRS:
+            self.assertEqual(texts[rel].count(new), 1, "precondition: %s new fragment present once" % row)
+            texts[rel] = texts[rel].replace(new, old)
+        self.assertEqual(len(self._problems(texts)), len(self.PAIRS))
+
+    def test_q1049r2_revision_row_and_ledger_entry(self):
+        t = self._r(self.T2)
+        rows = [l for l in t.split("\n") if l.startswith("| v1.")]
+        self.assertTrue(rows[-1].startswith("| v1.46 *(current)* | 2026-11-11 |"), rows[-1][:60])
+        self.assertEqual(sum("*(current)*" in l for l in rows), 1, "one current revision row")
+        self.assertIn("CX-37C-B", rows[-1])
+        self.assertTrue("\n## CX-37C-B — " in self._r("documentation/CORRECTIONS.md"), "the CX-37C-B entry exists")
+
+    def test_d687_witness_c3_is_a_property_of_the_pinned_witness(self):
+        import sat
+        txt = self._r("reports/evidence/q7_witnesses/grand-strict.txt")
+        seq = [int(x) for x in re.search(r"^SEQ=([0-9,]+)", txt, re.M).group(1).split(",")]
+        self.assertEqual(sat.target_verdict(seq, "grand-strict")["c3"], 776, "precondition: the pinned witness has 776")
+        pairs = [seq[2 * i:2 * i + 2] for i in range(32)]
+        pairs[5], pairs[23] = pairs[23], pairs[5]
+        v = sat.target_verdict(sum(pairs, []), "grand-strict")
+        self.assertTrue(v["ok"], v)
+        self.assertEqual(v["c3"], 712, "a grand-strict model below the ceiling exists, so 776 is not guaranteed")
+
+    def test_d694_gates_ran_per_battery_start(self):
+        log = self._r("reports/evidence/r11/battery.log")
+        self.assertEqual(len(re.findall(r"^=== R11 Phase-2 battery start ", log, re.M)), 2)
+        self.assertEqual(log.count("selftest sha=403f7202"), 2)
+        for name in ("seed1_1001", "seed2_2003", "seed3_3011", "seed4_4013"):
+            out = self._r("reports/evidence/r11/%s.out" % name)
+            self.assertNotIn("403f7202", out, "%s: the seed outputs carry no self-test sha" % name)
+            self.assertIn("gender-strict leaf cross-check mismatches (must be 0): 0", out)
+
+    def test_d695_rescorer_runs_inside_the_c3_branch(self):
+        src = self._r("solve.c")
+        inc = src.index("if (knuth_gender_strict && viol != 0) a->f11_gs_mismatch++;")
+        gate = src.rfind("if (compute_comp_dist_x64(seq) <= kw_comp_dist_x64) {", 0, inc)
+        self.assertGreater(gate, 0, "the mismatch counter follows the C3 <= 776 test")
+        self.assertGreater(gate, src.rfind("if (step == 32){", 0, inc), "inside the leaf block, after the leaf test")
+
+    def test_d703_derived_ci_gate_is_two_point_five_sigma(self):
+        p2 = self._r(self.P2)
+        self.assertRegex(p2, r"\| 3 — derived-CI cross-path \| CI'd derived path within 2\.5σ \|")
+        self.assertRegex(p2, r"\| 2 — repaired stratified \| pooled stratified within 2σ")
+
+# end class TestBatchQ1049R2
+
+
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))

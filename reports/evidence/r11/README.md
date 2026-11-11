@@ -24,7 +24,7 @@ path in this same file, however, redraws until `c3_val(seq) <= 776` and asserts 
 So the normalizer spans completions the sampler rejects. **The 67/100 above stands exactly as executed and
 the §6.3 veto is unaffected** — re-scored with matched denominators the primary rises above 70, but the
 size of the rise depends on P(C3 \| complete), which no artifact here records, and across a wide family of
-estimates it ranges 77–93, so no corrected integer is published. The `uncond` column sets the denominator
+estimates it ranges 77–93 (the estimate family is not archived, so the range is attested, not reproducible; CX-37C-B), so no corrected integer is published. The `uncond` column sets the denominator
 to 1 and cannot move at all: it stays at **45/100**, below the bar, so M_G still fails the frozen
 sensitivity readings. Whether to re-freeze the design's §2.2 and re-run is an operator decision and is not
 queued. Checkable from the committed artifacts: the per-beta completion counts are exactly
@@ -127,7 +127,7 @@ convergence gates pass:
 
 Under the directly measured N_gs the headline Bayes factor becomes ≈ 5.2×10³ (variant U)
 / 6.3×10³ (variant A) — still an order of magnitude above the frozen "strong" band in
-every one of the 24 pre-committed sensitivity configurations; the flip threshold is ≈ 52×
+every one of the 24 sensitivity configurations (declared at computation time; "pre-committed" until 2026-11-11, CX-37C-B); the flip threshold is ≈ 52×
 the measured value. The correction moves *against* the published winner (the BF got
 smaller); what improved is the evidential footing, from a derived ingredient with
 unpropagated error to a directly measured one with stated error.

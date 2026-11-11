@@ -39592,3 +39592,76 @@ No canonical sha, count, certificate, token or verdict changed.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group Q1049R; the defects were found by Codex
 (gpt-6-astra), final review; adjudicated by Fable (claude-fable-5-1), FV2 slice 1.
+
+## CX-37C-B — TR-2: fourteen sentences said more than the code, the evidence or the report's own later sections (reports/TR2_THE_RULES_CONFLICT.md; reports/evidence/r11/README.md; reports/evidence/r11/PHASE2_README.md; reports/evidence/f11/RESULTS.md; reports/evidence/f11halfb/README.md; tests.py)
+
+**2026-11-11.** **Source.** Codex (gpt-6-astra), final review, in the numbering of its 2026-10-26 re-pinned run
+(F03-005#1/#6, F03-H03#6/#18/#19/#21/#22, F01-002#3, F11-007#2/#3/#4/#7/#8/#9, F08-008#7/#11/#12/#13, AIF-001#2,
+F06-012#10); adjudicated by Fable (FV2 slice 1). Backlog Q-1049, batch 2, push group Q1049R2.
+
+**What was published, and what it says now.** Each line was checked against the code, the evidence files or another
+part of the report before it was changed. Where an adjudicated wording was wrong in detail, the source was followed.
+- **"For centuries these were read as mistakes, corruption, or lost meaning"** (executive summary). No dated source
+  in the report supports the span. The sentence now names the reading the report documents: Moore (1989, 2005)
+  conjectured a once-compliant order later altered.
+- **Schulz's reading.** The structure list said the result vindicates "Schulz's 2011 principle … in exact form", and
+  the M_corr bullet repeated it. Joint unsatisfiability shows the exceptions are consistent with a forced trade-off;
+  it cannot show they are intentional, which is Schulz's reading. Both sites, and the abstract's "precisely the
+  reading Schulz proposed", now say the intentional-exception claim is consistent with the trade-off and not
+  established by it.
+- **The V-matched gate.** The executive summary called it "the instrument that could restore the claim", and the
+  sensitivity bullet withheld a verdict "pending" it. Its own registration
+  (`reports/evidence/f11halfb/PREREGISTRATION_VMATCHED.md`, "Explicitly forbidden") says it cannot lift the pooled
+  veto and may not be used to call the Bayes factor calibrated; a pass may be published only as "the pooled
+  confusability gate vetoed; a V-matched gate … did not". The gate has not run. Both sites say so, and so do the
+  same "pending" phrases in the f11 results note and the f11halfb README. The v1.27 revision row, which called the
+  gate a "reinstatement path", keeps its text and gains a dated note.
+- **`--witness grand-strict`** was said to return a model with "C3 = 776". The command encodes C3 ≤ 776 and blocks
+  only models above it; swapping pair slots 5 and 23 (0-based) of the pinned witness gives a grand-strict model with
+  C3 = 712 (recomputed for this entry with `sat.target_verdict`). The sentence now gives the guarantee, C3 ≤ 776, and
+  names 776 as a property of the pinned witness, `reports/evidence/q7_witnesses/grand-strict.txt`.
+- **The CC-N4 battery** was said to "exclude" a fragile encoding. Its import-time checks compare `solve.reg_ccn4`
+  with a replica of the face derivation, not with the clauses `sat.py` emits, and four planted mis-encodings pass
+  its King Wen gates (the report's own 2026-10-02 note, Q-934). It now "narrows" one, and the import-check note
+  says what those checks test.
+- **The N_gs runs' correctness evidence.** "Every run reproduces the build's self-test sha and the two-language KW
+  axis-reproduction gate": `r11_phase2_battery.sh` runs both gates once per battery start, `battery.log` records two
+  starts, and the four seed outputs carry no self-test sha. And "zero mismatches on every reached leaf": the
+  re-scorer and its counter run only inside `solve.c`'s C3 ≤ 776 leaf branch. TR-2 and PHASE2_README now say once
+  per start and leaves with C3 ≤ 776. PHASE2_README's "(×4)" for the sha is not supported by the committed logs
+  (two lines in `battery.log`, one in `stratified_repair.log`), and its heading's "in every run" is removed. (The
+  adjudication placed this sibling in the r11 README; it is in PHASE2_README.)
+- **"The 24 pre-committed configurations."** CX-35T-F corrected the sensitivity bullet; two more TR-2 sites (the
+  executive summary's v1.12 update and the stop-flag resolution), the r11 README and PHASE2_README still said
+  "pre-committed". The registration's grids are symbolic and it names no 24-member set; the numeric grids and the
+  configurations were declared at computation time (`reports/evidence/f11/RESULTS.md` §0). Each site now says so.
+- **The single-sentence summary** (§"What this does NOT say") still offered "this result narrows the field by one
+  rival", with CX-26's withdrawal after it. The offered sentence is now the current one — the comparison is recorded,
+  not asserted, and eliminates no rival — and the old one is quoted in the note.
+- **The four-class design** was "frozen BEFORE any measurement". The report's own STATUS block records that the
+  ingredient runs preceded the design's formal freeze stamp and that only the public design summary (v1.9,
+  2026-07-10) predates every measurement. The sentence now gives that order.
+- **The 77–93 range** for M_G's matched-denominator recovery rests on a family of estimates of P(C3 | complete) that
+  is not published. TR-2 and the r11 README now say the range is attested, not reproducible, and that no value in it
+  is claimed. CX-54's own text is unchanged, as this file requires.
+- **The four-class evidence** was "deterministic". The `score` phase also reads an unconditioned histogram dump that
+  is not committed and whose thread count is not recorded (r11 README, 2026-09-24 note), so M_D's likelihoods,
+  `scores.json` and the confusion matrices do not regenerate digit for digit from the bundle. The sentence says so.
+- **Revision rows.** v1.20 credited `fb565a7`/`fb356a9` with the alt-text fix. `fb356a9` (2026-08-01) is the scope
+  propagation that fixed it; `fb565a7` (2026-07-24) changed Lean trust-base wording in three documentation files.
+  v1.24 said the gate behind the 1.9σ figure is 2σ; it is gate 3, the derived-CI cross-path, at 2.5σ
+  (`reports/evidence/r11/PHASE2_README.md`), so both the figure v1.24 retired and 1.9σ lie inside it. Both rows keep their text and gain
+  a dated note, as CX-35T-E did for the v1.12 and v1.19 rows.
+
+Every edit keeps its line count, so no line number in these files moves; TR-2's revision row v1.46 is appended at the
+end. Old wordings of published claims are quoted in dated notes at their sites.
+
+**Tests.** `TestBatchQ1049R2` holds each new fragment and the absence of each old one; its red half puts the old
+fragments back and the check fails. Four checks bind the corrections to their sources: the pinned witness has
+C3 = 776 and a C3 = 712 grand-strict model exists; `battery.log` has two starts and the seed outputs no sha; the
+mismatch counter sits inside the C3 ≤ 776 branch; and gate 3 is 2.5σ.
+
+No canonical sha, count, certificate, token or verdict changed.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group Q1049R2; the defects were found by Codex
+(gpt-6-astra), final review; adjudicated by Fable (claude-fable-5-1), FV2 slice 1.

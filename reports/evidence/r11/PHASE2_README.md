@@ -92,14 +92,14 @@ self-test sha is unchanged. The repaired run (`stratified_repaired.out`) correct
 the **15 of 56 branches** whose fixed prefix violates a strict predicate and pools to
 **4.34×10²⁵ ± 1.31×10²⁵ (30.2% relerr)** — 0.12σ from the pooled direct value.
 
-## Additional correctness evidence (in every run)
+## Additional correctness evidence
 
 - **Self-test / axis gates** (`battery.log`, `r11_verify.out`, `smoke.out`): the build
-  self-test sha `403f7202…` reproduces (×4); the two-language `--r11-verify` KW
+  self-test sha `403f7202…` reproduces where it is logged: once per battery start (two starts in `battery.log`), and once in `stratified_repair.log` ("(×4)", under a heading that said "in every run", until 2026-11-11, CX-37C-B); the two-language `--r11-verify` KW
   axis-reproduction gate returns "R11 VERIFY: PASS" (all 8 axes OK); a 2×10⁹-probe
   instrument smoke run passes.
 - **In-walk full-scan re-scorer** (all four seed files): "gender-strict leaf cross-check
-  mismatches (must be 0): 0" — an independent re-scorer agrees at every reached leaf.
+  mismatches (must be 0): 0" — an independent re-scorer agrees at every reached leaf with C3 ≤ 776 (the re-scorer is called only inside that branch).
 - **Exact-count audits** (`exact_audit.tsv`, `battery.log`): 24 deep-prefix subtrees
   (depths 20/22/24 × 8 seeds), Knuth estimate vs brute-force `exact_count`. Three subtrees
   are non-empty and reproduced by the estimator machinery to ≤0.11%: 253,232
@@ -117,8 +117,8 @@ the **15 of 56 branches** whose fixed prefix violates a strict predicate and poo
 The direct estimator's CI rests on ~300 effective samples pooled, so its far tails are not
 guaranteed — hence the conservative error convention. The pooled value 4.50×10²⁵ is **0.57σ
 below** the single Phase-1 run it re-checks (5.00×10²⁵ ± 16.7%, from `r11_ngs.out`) —
-consistent. No value across the conservative CI moves any of the 24 pre-committed BF
-configurations below the "strong" band; the flip threshold is ≈ 52× the measured value.
+consistent. No value across the conservative CI moves any of the 24 BF
+configurations (declared at computation time; "pre-committed" until 2026-11-11, CX-37C-B) below the "strong" band; the flip threshold is ≈ 52× the measured value.
 
 **σ convention in this file, stated explicitly (corrected 2026-08-02).** Every σ quoted here is
 |Δ| ⁄ √(SE₁² + SE₂²), using the *adopted* conservative CLT SE of the pooled value (2.77×10²⁴)

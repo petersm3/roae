@@ -12269,3 +12269,20 @@ Q-686=DONE
 - No canonical sha, count, certificate, token or verdict changed. `TestBatchQ1049R` holds each sentence and fails
   on the parent tree. Found by Codex (gpt-6-astra), final review; adjudicated by Fable, who also reviewed this batch
   before it was committed.
+
+## 2026-11-11 — batch Q1049R2: fourteen TR-2 sentences from the FV2 slice-1 adjudication
+
+- **TR-2 (CX-37C-B).** The second report-by-report batch of backlog Q-1049. Each of TR-2's 14 rows was checked
+  against the code, the evidence files or another part of the report before it was changed. Scoped: "for
+  centuries" becomes Moore's documented reading; Schulz's intentional-exception reading is consistent with the
+  exact trade-off, not vindicated by it; the V-matched gate is registered, has not run and cannot restore the
+  withdrawn claim; `--witness grand-strict` guarantees C3 ≤ 776 (a C3 = 712 model exists), and 776 is the pinned
+  witness's value; the CC-N4 battery narrows a fragile encoding and does not exclude one; the self-test and axis
+  gates ran once per battery start, and the leaf re-scorer covers leaves with C3 ≤ 776; two more "24 pre-committed
+  configurations" sites; the four-class chronology; the 77–93 range and the four-class likelihoods are marked not
+  reproducible from the bundle. The v1.20, v1.24 and v1.27 revision rows gain dated notes. Sibling sentences in
+  the r11, f11 and f11halfb evidence notes follow. Every edit keeps its line count; revision row v1.46.
+- **Not in this batch.** Q-1049's other report rows (TR-1, TR-4, TR-10, METHODS, CAPSTONE_GUIDE,
+  FULL31_EXACT_AGGREGATES) and its documentation and root rows stay open.
+- No canonical sha, count, certificate, token or verdict changed. `TestBatchQ1049R2` holds each sentence and fails
+  on the parent tree. Found by Codex (gpt-6-astra), final review; adjudicated by Fable.

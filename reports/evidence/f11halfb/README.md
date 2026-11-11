@@ -27,8 +27,8 @@ sense**. They are unchanged and not withdrawn; their *calibration support* is. S
 [CORRECTIONS](../../../documentation/CORRECTIONS.md) CX-25 and
 [TR-2](../../TR2_THE_RULES_CONFLICT.md) §"The result". *(Superseded 2026-08-07 — CX-26: the
 "not withdrawn" half of that sentence no longer holds. The BF and posterior are now **withdrawn as
-claimed results** — retained as the as-computed record, recorded, not claimed — pending the
-V-matched gate below.)*
+claimed results** — retained as the as-computed record, recorded, not claimed; the
+V-matched gate below could not restore them, by its own registration (CX-37C-B).)*
 
 **What it does NOT license**: calling the pair calibrated on the strength of the V≥5 stratum. The
 extension's registration defines **no bar at n=1000 and cannot produce a PASS**. The question the

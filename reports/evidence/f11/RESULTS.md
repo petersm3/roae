@@ -32,8 +32,8 @@
 > **Withdrawal (2026-08-07 — [CORRECTIONS CX-26](../../../documentation/CORRECTIONS.md)).** The
 > note above stopped at withdrawing calibration support; that split is superseded. The BF and the
 > ≈0.9998 posterior are **withdrawn as claimed results**: everything below is the as-computed
-> 2026-07-04 record — recorded, not claimed — and asserts no corruption-vs-tendency verdict pending
-> the V-matched gate. See [TR-2](../../TR2_THE_RULES_CONFLICT.md) v1.27.
+> 2026-07-04 record — recorded, not claimed — and asserts no corruption-vs-tendency verdict, and
+> the V-matched gate could not restore one (by its own registration; CX-37C-B). See [TR-2](../../TR2_THE_RULES_CONFLICT.md) v1.27.
 
 **Executed 2026-07-04** under the frozen pre-registration [PREREGISTRATION.md](PREREGISTRATION.md)
 (FROZEN 2026-07-04, operator approval "approve F11 defaults" — PROOF_PROGRAM UPDATE 32). Model forms,
