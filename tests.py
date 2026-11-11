@@ -63619,6 +63619,208 @@ class TestBatchQ1049R(unittest.TestCase):
         self.assertIn("| A2, anchor pair at slot 32 | **0.0636** | 0.0785 | 0.0149 |", self._r(self.TR12))
 
 
+class TestBatchTodo1PlacedPairCount(unittest.TestCase):
+    """TODO-1 (backlog Q-902, the f-ladder structural pass), 2026-11-10: placed-pair membership as a COUNTED line.
+
+    `verify --check-layers` / `--scan-layers` (f) and `--check-t-ladder` (t) already rejected an entry whose
+    `last` is not an element of a pair its mask selects (A11R #4, G5b F12-014#1), but said so only on failure:
+    a pass printed nothing about it, and with the test switched off a clean ladder passed the same way. Now
+    each mode prints LAST_IN_PLACED_PAIR_CHECKED= (entries tested) and LAST_NOT_IN_PLACED_PAIR=, and a layer
+    whose entries were not ALL tested FAILS. The LC_RESUME record is LC_RESUME_V4 (each row carries dom=, the
+    entries it tested); a V3 record is refused by name. The mutant here is the runbook's acceptance case: one
+    entry's `last` rewritten to a hexagram of a pair its mask does NOT select (not the anchor pair), with the
+    key still strictly ascending in its span and rid, value and mass untouched, so every other check holds --
+    a verify.c with the membership test removed passes it (asserted, the precondition). Real n=9 ladders.
+    ROAE_TESTS_VERIFY_SRC swaps the verifier source under test."""
+
+    HS = struct.calcsize("<8sIIIIQQQ5II")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="todo1_")
+        cls.err = ""
+        src = os.environ.get("ROAE_TESTS_VERIFY_SRC", "verify.c")
+        cls.vbin = cls._gcc(src, "verify_todo1", [])
+        with open(src, encoding="utf-8") as fh:
+            vsrc = fh.read()
+        off = "    return allow && last < 64 && !((allow >> last) & 1);"
+        cls.has_site = off in vsrc
+        msrc = os.path.join(cls.tmp, "verify_nomember.c")
+        with open(msrc, "w", encoding="utf-8") as fh:   # the membership test removed (f) and always true (t)
+            fh.write(vsrc.replace(off, "    (void)allow; (void)last; return 0;").replace(
+                "    if (k == 0) return last == se;\n", "    (void)m; (void)k; (void)se; (void)pl; (void)n; (void)last; return 1;\n", 1))
+        cls.mbin = cls._gcc(msrc, "verify_nomember", [])
+        cls.sbin = cls._gcc("solve.c", "solve_todo1", ["-fopenmp"])
+        cls.f, cls.t = os.path.join(cls.tmp, "f"), os.path.join(cls.tmp, "t")
+        cls.ok = bool(cls.vbin and cls.mbin and cls.sbin)
+        if cls.ok:
+            for argv in ([cls.sbin, "--kc-build", cls.f, "--f1-pairs", "9"], [cls.sbin, "--kc-t-build", cls.f, cls.t]):
+                r = subprocess.run(argv, capture_output=True, text=True, timeout=1200)
+                if r.returncode != 0:
+                    cls.ok = False
+                    cls.err += "%s rc %d\n%s" % (argv[1], r.returncode, (r.stdout + r.stderr)[-1500:])
+                    break
+
+    @classmethod
+    def _gcc(cls, src, name, extra):
+        out = os.path.join(cls.tmp, name)
+        r = subprocess.run(["gcc", "-O1", "-pthread"] + extra + ["-o", out, src, "-lm", "-lz"],
+                           capture_output=True, text=True, timeout=1200)
+        if r.returncode != 0 or not os.path.exists(out):
+            cls.err += "gcc %s: %s\n" % (src, r.stderr[-1500:])
+            return None
+        return out
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def setUp(self):
+        self.assertTrue(self.ok, self.err)
+
+    def _run(self, binp, args, env=None):
+        e = dict(os.environ)
+        for v in ("LC_RESUME", "LC_LAYERS_COMPLETE", "LC_SCAN_LANES"):
+            e.pop(v, None)
+        e.update(env or {})
+        r = subprocess.run([binp] + list(args), capture_output=True, text=True, env=e, timeout=900)
+        return r.returncode, r.stdout
+
+    def _tok(self, out, name):
+        v = [l.split("=", 1)[1] for l in out.splitlines() if l.startswith(name + "=")]
+        self.assertEqual(len(v), 1, "%s= printed %d times:\n%s" % (name, len(v), out[-1500:]))
+        return int(v[0])
+
+    def _pairs(self):
+        with open(os.path.join(self.f, "f1c5_manifest.txt")) as fh:
+            pl = [int(x) for x in [l for l in fh.read().splitlines() if l.startswith("pl=")][0][3:].split(",")]
+        return pl, [(KW[2 * p], KW[2 * p + 1]) for p in pl]
+
+    def _ne_total(self, out):
+        return sum(int(m.group(1)) for m in re.finditer(r"^\s+k=\s*\d+\s+nm=\d+\s+ne=(\d+)\s", out, re.M))
+
+    def _mutate(self, name):
+        """Copy f and t; rewrite ONE entry's last (same index in both) to a hexagram of an unplaced, non-anchor
+        pair with the key still strictly inside its neighbours. Returns (fdir, tdir, k)."""
+        pl, pairs = self._pairs()
+        fd, td = os.path.join(self.tmp, name + "_f"), os.path.join(self.tmp, name + "_t")
+        shutil.copytree(self.f, fd)
+        shutil.copytree(self.t, td)
+        anchor = {KW[0], KW[1]}
+        for k in range(2, 9):
+            p = os.path.join(fd, "f1c5_layer_%02d.bin" % k)
+            with open(p, "rb") as fh:
+                b = bytearray(fh.read())
+            self.assertEqual(bytes(b[:8]), b"F1C5LAY1", "precondition: the n=9 f layer is v1 (raw keys)")
+            nm, ne = struct.unpack_from("<8sIIIIQQQ5II", b, 0)[6:8]
+            masks = struct.unpack_from("<%dI" % nm, b, self.HS)
+            off = struct.unpack_from("<%dQ" % (nm + 1), b, self.HS + 4 * nm)
+            ko = self.HS + 4 * nm + 8 * (nm + 1)
+            keys = struct.unpack_from("<%dI" % ne, b, ko)
+            for i in range(nm):
+                placed = set()
+                for bit in range(len(pl)):
+                    if (masks[i] >> bit) & 1:
+                        placed.update(pairs[bit])
+                for j in range(off[i], off[i + 1]):
+                    lo = keys[j - 1] if j > off[i] else -1
+                    hi = keys[j + 1] if j + 1 < off[i + 1] else 1 << 22
+                    for h in range(64):
+                        nk = (h << 16) | (keys[j] & 0xFFFF)
+                        if h in placed or h in anchor or not (lo < nk < hi):
+                            continue
+                        for path in (p, os.path.join(td, "t_layer_%02d.bin" % k)):
+                            with open(path, "rb") as fh:
+                                bb = bytearray(fh.read())
+                            self.assertEqual(struct.unpack_from("<I", bb, ko + 4 * j)[0], keys[j], "precondition: t mirrors f")
+                            struct.pack_into("<I", bb, ko + 4 * j, nk)
+                            with open(path, "wb") as fh:
+                                fh.write(bb)
+                        return fd, td, k
+        self.fail("precondition: no entry of the n=9 ladder admits an unplaced-pair last in key order")
+
+    def test_f_clean_ladder_counts_every_entry(self):
+        rc, out = self._run(self.vbin, ["--check-layers", self.f, "9"], {"LC_LAYERS_COMPLETE": "1"})
+        self.assertEqual(rc, 0, out[-1500:])
+        ne = self._ne_total(out)
+        self.assertGreater(ne, 0, "precondition: per-layer ne lines parsed")
+        self.assertEqual(self._tok(out, "LAST_IN_PLACED_PAIR_CHECKED"), ne)
+        self.assertEqual(self._tok(out, "LAST_IN_PLACED_PAIR_REPLAYED"), 0)
+        self.assertEqual(self._tok(out, "LAST_NOT_IN_PLACED_PAIR"), 0)
+        rc2, out2 = self._run(self.vbin, ["--scan-layers", self.f, "9"], {"LC_LAYERS_COMPLETE": "1", "LC_SCAN_LANES": "2"})
+        self.assertEqual(rc2, 0)
+        self.assertEqual("\n".join(l for l in out2.splitlines() if not l.startswith("[scan]")), out.rstrip("\n"),
+                         "the scan identity contract: unprefixed --scan-layers output == --check-layers")
+
+    def test_f_unplaced_pair_mutant_fails_with_the_counted_line(self):
+        self.assertTrue(self.has_site, "precondition: the membership site the mutant removes exists in verify.c")
+        fd, td, k = self._mutate("fm")
+        rc, out = self._run(self.mbin, ["--check-layers", fd, "9"])
+        self.assertEqual(rc, 0, "precondition: with the membership test removed the mutant passes every other check\n" + out[-1500:])
+        for mode in ("--check-layers", "--scan-layers"):
+            with self.subTest(mode=mode):
+                rc, out = self._run(self.vbin, [mode, fd, "9"], {"LC_LAYERS_COMPLETE": "1"})
+                self.assertEqual(rc, 1, out[-1500:])
+                self.assertIn("  k=%2d  *** FAIL: 1 entries whose last is not an element of a pair in their mask" % k, out)
+                self.assertEqual(self._tok(out, "LAST_NOT_IN_PLACED_PAIR"), 1)
+                self.assertIn("RESULT: *** ", out)
+
+    def test_t_counts_and_rejects_the_unplaced_pair_mutant(self):
+        rc, out = self._run(self.vbin, ["--check-t-ladder", self.f, self.t])
+        self.assertIn("TLADDER_RESULT=PASS", out.splitlines(), out[-1500:])
+        self.assertEqual(self._tok(out, "LAST_NOT_IN_PLACED_PAIR"), 0)
+        rc, fout = self._run(self.vbin, ["--check-layers", self.f, "9"])
+        self.assertEqual(self._tok(out, "LAST_IN_PLACED_PAIR_CHECKED"), self._ne_total(fout), "t mirrors f geometry")
+        fd, td, k = self._mutate("tm")
+        rc, out = self._run(self.mbin, ["--check-t-ladder", fd, td])
+        self.assertIn("TLADDER_RESULT=PASS", out.splitlines(), "precondition: without the membership test it passes\n" + out[-1500:])
+        rc, out = self._run(self.vbin, ["--check-t-ladder", fd, td])
+        self.assertIn("TLADDER_RESULT=FAIL", out.splitlines(), out[-1500:])
+        self.assertIn("  [t] k=%2d  *** FAIL: 1 entries whose last is not an element of a pair in their mask" % k, out)
+        self.assertNotIn("differs from the f layer", out, "the mutant keeps f and t keys equal and ascending")
+        self.assertEqual(self._tok(out, "LAST_NOT_IN_PLACED_PAIR"), 1)
+
+    def test_resume_record_is_v4_and_v3_is_refused(self):
+        rec = os.path.join(self.tmp, "r.lcresume")
+        rc, full = self._run(self.vbin, ["--check-layers", self.f, "9"], {"LC_RESUME": rec})
+        self.assertEqual(rc, 0, full[-1500:])
+        with open(rec) as fh:
+            lines = fh.read().splitlines()
+        self.assertTrue(lines[0].startswith("LC_RESUME_V4 "), lines[0])
+        self.assertTrue(all(re.search(r" ne=(\d+) .* dom=\1 h=", l) for l in lines[1:]), lines[1:3])
+        with open(rec, "w") as fh:
+            fh.write("\n".join(l for l in lines if not l.startswith("k=9 ")) + "\n")
+        rc, out = self._run(self.vbin, ["--check-layers", self.f, "9"], {"LC_RESUME": rec, "LC_LAYERS_COMPLETE": "1"})
+        self.assertEqual(rc, 0, out[-1500:])
+        self.assertEqual(self._tok(out, "LAYERS_REPLAYED"), 9)
+        self.assertEqual(self._tok(out, "LAST_IN_PLACED_PAIR_CHECKED") + self._tok(out, "LAST_IN_PLACED_PAIR_REPLAYED"),
+                         self._ne_total(full), "re-derived + replayed covers every entry")
+        v3 = os.path.join(self.tmp, "v3.lcresume")
+        body = lines[0].replace("LC_RESUME_V4 ", "LC_RESUME_V3 ") + "\n"
+        with open(v3, "w") as fh:
+            fh.write(body)
+        rc, out = self._run(self.vbin, ["--check-layers", self.f, "9"], {"LC_RESUME": v3})
+        self.assertEqual(rc, 1, out[-1500:])
+        self.assertIn("LC_RESUME=OLD_VERSION", out.splitlines())
+        with open(v3) as fh:
+            self.assertEqual(fh.read(), body, "a refused V3 record is left as it was")
+        bad = os.path.join(self.tmp, "dom.lcresume")   # a V4 row claiming fewer tested entries than ne
+        with open(bad, "w") as fh:
+            fh.write(lines[0] + "\n" + re.sub(r"dom=(\d+)", "dom=0", lines[1]) + "\n")
+        rc, out = self._run(self.vbin, ["--check-layers", self.f, "9"], {"LC_RESUME": bad})
+        self.assertIn("LC_RESUME=CORRUPT", out.splitlines(), out[-800:])
+
+    def test_selftest_holds_the_new_legs(self):
+        rc, out = self._run(self.vbin, ["--check-layers-selftest"])
+        self.assertEqual(rc, 0, out[-2000:])
+        self.assertIn("placed-pair count (one outside=Y all counted=Y check-off caught=Y V3 resume refused=Y)", out)
+        self.assertIn("LCSELFTEST_RESULT=PASS", out.splitlines())
+        rc, out = self._run(self.mbin, ["--check-layers-selftest"])
+        self.assertIn("LCSELFTEST_RESULT=FAIL", out.splitlines(), "the selftest goes red without the membership test")
+
+# end class TestBatchTodo1PlacedPairCount
+
+
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))

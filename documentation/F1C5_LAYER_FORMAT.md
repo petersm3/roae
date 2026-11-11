@@ -478,7 +478,7 @@ Structural (no group needed):
   selects (layer 0: the start exit) — `verify.c --check-layers` /
   `--scan-layers` check this since 2026-10-02 (batch 34, Codex review A11R
   #4; before that a final-layer entry with `last = 63`, the anchor pair,
-  passed both); `rid < R`; **rid digit sum = k** and each digit ≤ its
+  passed both; since 2026-11-10 they and `--check-t-ladder` print it as the counted lines `LAST_IN_PLACED_PAIR_CHECKED=` / `LAST_NOT_IN_PLACED_PAIR=`, VERIFY.md); `rid < R`; **rid digit sum = k** and each digit ≤ its
   `b0[c]` (the sum invariant — a strong per-entry check);
   values nonzero.
 - v1: `pad = 0`; file size `= 80 + 12·nm + 28·ne`.

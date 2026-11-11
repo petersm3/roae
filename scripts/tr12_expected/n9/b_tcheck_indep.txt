@@ -27,6 +27,8 @@ RESULT: 10 t layer(s) verified — headers, byte-exact f-geometry mirror,
         checked layer(s) (0 skipped).
 IDENTITIES_CHECKED=10
 IDENTITIES_SKIPPED=0
+LAST_IN_PLACED_PAIR_CHECKED=950
+LAST_NOT_IN_PLACED_PAIR=0
 TLADDER_RESULT=PASS
 ======================================================================
 verify_rc=0 identities_wanted=10

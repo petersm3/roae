@@ -1186,8 +1186,16 @@ static uint64_t lc_rec_hash(const char *s) {
 static uint64_t LC_ALLOW_PE[32];
 static uint32_t LC_ALLOW_N = 0, LC_ALLOW_SE = 0;
 static int LC_ALLOW_ON = 0;
+/* TODO-1 (Q-902, 2026-11-10): the per-layer COUNT of the check above, published by both layer readers
+ * (lc_check_layer, lcs_scan_layer) once every entry has streamed: entries whose `last` WAS tested against
+ * their mask's placed pairs (allow != 0), and entries that failed it. The driver sums them into the
+ * counted lines LAST_IN_PLACED_PAIR_CHECKED= / LAST_NOT_IN_PLACED_PAIR= and fails a re-derived layer on
+ * which the check did not run on every entry (a silent off-switch is a FAIL, not a pass). */
+static uint64_t LC_DOM_CHK = 0, LC_DOM_BAD = 0, LC_DOM_NE = 0;   /* LC_DOM_NE: the t reader's ne */
+static uint64_t LC_RUN_DOM_CHK = 0, LC_RUN_DOM_BAD = 0;   /* the last driver run's sums (read by --check-layers-selftest) */
+static int LC_DOM_SELFTEST_OFF = 0, LC_DOM_SELFTEST_R18 = 0, LC_RESUME_OLD_SEEN = 0;   /* --check-layers-selftest leg [16] only: switch the membership test off */
 static uint64_t lc_last_allow(uint32_t m, int k) {
-    if (!LC_ALLOW_ON) return 0;
+    if (!LC_ALLOW_ON || LC_DOM_SELFTEST_OFF) return 0;
     if (k == 0) return 1ull << LC_ALLOW_SE;
     uint64_t a = 0;
     for (uint32_t b = 0; b < LC_ALLOW_N; b++) if ((m >> b) & 1) a |= LC_ALLOW_PE[b];
@@ -1311,7 +1319,7 @@ static int lc_check_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
     /* stream entries in global order, attributing each to its mask span via off[] */
     u192 grand = {{0,0,0}}, mass = {{0,0,0}}, span_sum = {{0,0,0}};
     uint64_t bad_last=0, bad_rid=0, bad_sum=0, bad_zero=0, bad_order=0, bad_finalrid=0, ovf=0, movf=0;
-    uint64_t bad_dom=0, allow_mi=UINT64_MAX, allow=0;   /* A11R #4: stored-last domain */
+    uint64_t bad_dom=0, allow_mi=UINT64_MAX, allow=0, dom_chk=0;   /* A11R #4: stored-last domain (+ TODO-1 count) */
     uint64_t e = 0, mi = 0; uint32_t prev_key = 0, first_key = 0; int have_prev = 0;
     long keys_base=0, vals_base=0, kidx_off=0, vidx_off=0, kblk_base=0, vblk_base=0;
     uint64_t nblk=0, *kidx=NULL, *vidx=NULL;
@@ -1382,6 +1390,7 @@ static int lc_check_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
             if (e == 0) first_key = key;  /* layer 0: the root key (lc_root_check) */
             if (key >> 22) bad_last++;   /* last = key>>16 must fit 0..63 */
             if (mi < nm && mi != allow_mi) { allow = lc_last_allow(masks[mi], k); allow_mi = mi; }
+            if (allow) dom_chk++;   /* TODO-1: the membership test ran on this entry */
             if (lc_last_outside(allow, key)) bad_dom++;
             if (rid >= R) { bad_rid++; }
             else if (lc_rid_digits(rid, exp_b0, rad) != k) bad_sum++;
@@ -1404,6 +1413,9 @@ static int lc_check_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
     LCF(e==ne, "streamed %llu entries != ne=%llu", (unsigned long long)e,(unsigned long long)ne);
     LCF(bad_last==0,  "%llu entries with nonzero key bits 22-31", (unsigned long long)bad_last);
     LCF(bad_dom==0,   "%llu entries whose last is not an element of a pair in their mask (layer 0: the start exit)", (unsigned long long)bad_dom);
+    if (e == ne) {   /* TODO-1: publish the count only for a fully streamed layer (the scan path's lanes stop on a failure) */
+        LCF(dom_chk == ne, "placed-pair membership of last tested on %llu of %llu entries", (unsigned long long)dom_chk, (unsigned long long)ne);
+        LC_DOM_CHK = dom_chk; LC_DOM_BAD = bad_dom; }
     LCF(bad_rid==0,   "%llu entries with rid >= R", (unsigned long long)bad_rid);
     LCF(bad_sum==0,   "%llu entries where rid digit-sum != k (SUM INVARIANT)", (unsigned long long)bad_sum);
     LCF(bad_order==0, "%llu non-ascending keys within a mask span", (unsigned long long)bad_order);
@@ -1596,32 +1608,42 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
      * compare. Failing layers are never recorded. */
     const char *rf_path = getenv("LC_RESUME");
     FILE *rf = NULL;
-    int rk_got[32]; uint64_t rk_nm[32], rk_ne[32];
+    int rk_got[32]; uint64_t rk_nm[32], rk_ne[32], rk_dom[32];   /* rk_dom: TODO-1, V4 rows */
     static char rk_codec[32][4], rk_grand[32][64], rk_mass[32][64];
     for (int k = 0; k < 32; k++) rk_got[k] = 0;
     if (rf_path) {
         FILE *in = fopen(rf_path, "r");
         if (in) {
             char line[512]; uint32_t hn = 0, hse = 0; unsigned long long hh = 0; int hdr_ok = 0, hb[5] = {0, 0, 0, 0, 0};
-            if (fgets(line, sizeof line, in) &&   /* G5b (Codex F12-006#1): V3 pins start_exit and the budget b0 too */
-                sscanf(line, "LC_RESUME_V3 n=%u pl_hash=%llx se=%u b0=%d,%d,%d,%d,%d", &hn, &hh, &hse, &hb[0], &hb[1], &hb[2], &hb[3], &hb[4]) == 8 &&
+            int got_line = fgets(line, sizeof line, in) != NULL;
+            if (got_line &&   /* G5b (Codex F12-006#1): V3 pins start_exit and the budget b0 too; V4 (TODO-1) is V3 + a dom= row field */
+                sscanf(line, "LC_RESUME_V4 n=%u pl_hash=%llx se=%u b0=%d,%d,%d,%d,%d", &hn, &hh, &hse, &hb[0], &hb[1], &hb[2], &hb[3], &hb[4]) == 8 &&
                 hn == mn && hh == (unsigned long long)m_plhash && hse == mse && memcmp(hb, b0v, sizeof hb) == 0) hdr_ok = 1;
+            if (!hdr_ok && got_line && strncmp(line, "LC_RESUME_V3 ", 13) == 0) {
+                /* TODO-1 (2026-11-10): a V3 record has no per-row placed-pair count, so its replayed layers could not
+                 * enter LAST_IN_PLACED_PAIR_REPLAYED=. Refused by name, never silently re-read or half-replayed. */
+                printf("*** FAIL: LC_RESUME file %s is an LC_RESUME_V3 record (written before the placed-pair\n"
+                       "          membership count); this binary writes and reads LC_RESUME_V4 only. Delete the file\n"
+                       "          (or point LC_RESUME at a new path) to re-derive every layer from bytes\n", rf_path);
+                printf("LC_RESUME=OLD_VERSION\n"); LC_RESUME_OLD_SEEN = 1;
+                fclose(in); return 1;
+            }
             if (!hdr_ok) {
                 printf("*** FAIL: LC_RESUME file %s does not match this run (n/pl_hash/start_exit/b0 header;\n"
-                       "          a V1 or V2 file (no row hashes, or no budget in its identity) is refused)\n",
+                       "          a V1, V2 or V3 file (no row hashes, no budget, or no placed-pair count) is refused)\n",
                        rf_path);
                 fclose(in); return 1;
             }
             int rows_bad = 0;
             while (fgets(line, sizeof line, in)) {
-                int k; unsigned long long lnm, lne, lh; char cod[4], gd[64], md[64];
-                if (sscanf(line, "k=%d nm=%llu ne=%llu codec=%3s grand=%63s mass=%63s h=%llx",
-                           &k, &lnm, &lne, cod, gd, md, &lh) == 7 && k >= 0 && k < 32) {
+                int k; unsigned long long lnm, lne, lh, ldom; char cod[4], gd[64], md[64];
+                if (sscanf(line, "k=%d nm=%llu ne=%llu codec=%3s grand=%63s mass=%63s dom=%llu h=%llx",
+                           &k, &lnm, &lne, cod, gd, md, &ldom, &lh) == 8 && k >= 0 && k < 32) {
                     char rec[256];
-                    snprintf(rec, sizeof rec, "k=%d nm=%llu ne=%llu codec=%s grand=%s mass=%s",
-                             k, lnm, lne, cod, gd, md);
-                    if (lh != lc_rec_hash(rec)) { rows_bad++; continue; }
-                    rk_got[k] = 1; rk_nm[k] = lnm; rk_ne[k] = lne;
+                    snprintf(rec, sizeof rec, "k=%d nm=%llu ne=%llu codec=%s grand=%s mass=%s dom=%llu",
+                             k, lnm, lne, cod, gd, md, ldom);
+                    if (lh != lc_rec_hash(rec) || ldom != lne) { rows_bad++; continue; }   /* TODO-1: a clean row tested every entry */
+                    rk_got[k] = 1; rk_nm[k] = lnm; rk_ne[k] = lne; rk_dom[k] = ldom;
                     snprintf(rk_codec[k], 4, "%s", cod);
                     snprintf(rk_grand[k], 64, "%s", gd);
                     snprintf(rk_mass[k], 64, "%s", md);
@@ -1639,13 +1661,14 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
         rf = fopen(rf_path, "a");
         if (!rf) { printf("*** FAIL: cannot open LC_RESUME file %s for append\n", rf_path); return 1; }
         if (ftell(rf) == 0) {
-            fprintf(rf, "LC_RESUME_V3 n=%u pl_hash=%016llx se=%u b0=%d,%d,%d,%d,%d\n", mn, (unsigned long long)m_plhash, mse, b0v[0], b0v[1], b0v[2], b0v[3], b0v[4]);
+            fprintf(rf, "LC_RESUME_V4 n=%u pl_hash=%016llx se=%u b0=%d,%d,%d,%d,%d\n", mn, (unsigned long long)m_plhash, mse, b0v[0], b0v[1], b0v[2], b0v[3], b0v[4]);
             if (fflush(rf) != 0 || fsync(fileno(rf)) != 0) { printf("*** FAIL: cannot write the LC_RESUME header to %s\n", rf_path); fclose(rf); return 1; }   /* G6 F04-009#7 */
         }
     }
 
     int hi = last_k; if (maxk < hi) hi = maxk;
     int fails = !plhash_ok + !kw_ok + !geff_ok, checked = 0, replayed = 0, absent = 0;
+    uint64_t dom_chk_sum = 0, dom_bad_sum = 0, dom_rep_sum = 0, dom_ne_ok = 0;   /* TODO-1 counted lines */
     /* COMPLETENESS CONTRACT (Codex KCV R5, triaged by Fable, 2026-09-29). An absent
      * layer file is skipped, because a rolling-window build prunes old layers, so
      * without a flag rc 0 can mean "every PRESENT layer checked", not "every layer
@@ -1676,18 +1699,20 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
             fflush(stdout);
             if (cfg)
                 printf("[scan] k=%2d riders skipped (layer replayed from LC_RESUME record, not re-read)\n", k);
-            lmass[k] = u192_dec(rk_mass[k]); lgot[k] = 1; checked++; replayed++;
+            lmass[k] = u192_dec(rk_mass[k]); lgot[k] = 1; checked++; replayed++; dom_rep_sum += rk_dom[k];
             if (is_final) { finalgrand = u192_dec(rk_grand[k]); saw_final = 1; }
             continue;
         }
         u192 g, ms; uint64_t onm = 0, one = 0; int ov2 = 0;
+        LC_DOM_CHK = 0; LC_DOM_BAD = 0;   /* TODO-1: set by the reader only for a fully streamed layer */
         int r = cfg
               ? lcs_scan_layer(dir, k, mn, mse, m_plhash, b0v, is_final,
                                rp, geff, &g, &ms, &onm, &one, &ov2, cfg, &riders)
               : lc_check_layer(dir, k, mn, mse, m_plhash, b0v, is_final,
                                rp, geff, &g, &ms, &onm, &one, &ov2);
         fails += r; checked++;
-        if (!r) {
+        dom_bad_sum += LC_DOM_BAD;
+        if (!r) { dom_chk_sum += LC_DOM_CHK; dom_ne_ok += one;
             char gd[64], md[64]; u192_print(g, gd); u192_print(ms, md);
             printf("  k=%2d  nm=%-9llu ne=%-13llu %s  Σval=%s  mass=%s\n", k,
                    (unsigned long long)onm, (unsigned long long)one, ov2?"v2":"v1", gd, md);
@@ -1719,9 +1744,9 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
             lmass[k] = ms; lgot[k] = 1;
             if (rf) {
                 char rec[256];
-                snprintf(rec, sizeof rec, "k=%d nm=%llu ne=%llu codec=%s grand=%s mass=%s",
+                snprintf(rec, sizeof rec, "k=%d nm=%llu ne=%llu codec=%s grand=%s mass=%s dom=%llu",
                          k, (unsigned long long)onm, (unsigned long long)one,
-                         ov2?"v2":"v1", gd, md);
+                         ov2?"v2":"v1", gd, md, (unsigned long long)LC_DOM_CHK);
                 fprintf(rf, "%s h=%016llx\n", rec, (unsigned long long)lc_rec_hash(rec));
                 if (fflush(rf) != 0 || fsync(fileno(rf)) != 0 || ferror(rf)) { printf("*** FAIL: an LC_RESUME row could not be written or fsynced; refusing to report a resumable record\n"); fclose(rf); return 1; }   /* G6 F04-009#7 */
             }
@@ -1772,6 +1797,18 @@ static int lc_check_layers_impl(const char *dir, int maxk, const char *run_out,
     printf("LAYERS_REDERIVED=%d\n", checked - replayed);
     printf("LAYERS_REPLAYED=%d\n", replayed);
     printf("LAYERS_ABSENT=%d\n", absent);
+    /* TODO-1 (Q-902): the placed-pair membership of every entry's `last`, as counted lines. CHECKED = entries
+     * re-derived from bytes in this run whose last was tested; REPLAYED = entries of LC_RESUME_V4 rows (tested
+     * by the run that wrote them, asserted here); NOT_IN = entries that failed (each also FAILs its layer). */
+    printf("LAST_IN_PLACED_PAIR_CHECKED=%llu\n", (unsigned long long)dom_chk_sum);
+    printf("LAST_IN_PLACED_PAIR_REPLAYED=%llu\n", (unsigned long long)dom_rep_sum);
+    printf("LAST_NOT_IN_PLACED_PAIR=%llu\n", (unsigned long long)dom_bad_sum);
+    LC_RUN_DOM_CHK = dom_chk_sum; LC_RUN_DOM_BAD = dom_bad_sum;
+    if (dom_chk_sum != dom_ne_ok) {
+        printf("*** FAIL: placed-pair membership tested on %llu entries of the %llu in clean re-derived layers\n",
+               (unsigned long long)dom_chk_sum, (unsigned long long)dom_ne_ok);
+        fails++;
+    }
     if (want_complete) {
         int mass_missing = 0;                   /* checked layers k >= 1 with no mass compared */
         if (rm) for (int k = 1; k < 32; k++) if (lgot[k] && !rm[k][0]) mass_missing++;
@@ -1998,6 +2035,36 @@ static int lc_selftest(void) {
     printf("\n[15] v1 layer 1 with one entry at last=5, outside its mask's pair {17,34} (spec:\n"
            "     last is an element of a pair its mask selects) — MUST be rejected:\n");
     int r15 = lc_check_layers(dir, 31, NULL);
+    int r15n = (r15 != 0 && LC_RUN_DOM_BAD == 1);   /* TODO-1: the counted line names exactly that one entry */
+
+    /* ---- TODO-1 legs (Q-902, 2026-11-10): the placed-pair membership COUNT. [16] restores the valid
+     * layer 1 and requires LAST_IN_PLACED_PAIR_CHECKED = every entry (layer 0: 1, layer 1: 3) with zero
+     * outside; [17] switches the membership test OFF on that same valid fixture -- the per-entry legs all
+     * still hold, so before the count gate the run PASSED with the check silently skipped -- and must FAIL;
+     * [18] an LC_RESUME_V3 record (the format before the count) must be REFUSED by name. ---- */
+    snprintf(path,sizeof path,"%s/f1c5_layer_01.bin",dir); f=fopen(path,"wb");
+    lc_wr(f,hd,72); lc_wr(f,masks,nm*4); lc_wr(f,off,(nm+1)*8);
+    lc_wr(f,keys,ne*4); for(uint64_t i=0;i<ne;i++) lc_wr(f,&vals[i],24); fclose(f);
+    printf("\n[16] valid v1 fixture again — must PASS with LAST_IN_PLACED_PAIR_CHECKED=4, LAST_NOT_IN_PLACED_PAIR=0:\n");
+    int r16 = lc_check_layers(dir, 31, NULL);
+    int r16n = (r16 == 0 && LC_RUN_DOM_CHK == 4 && LC_RUN_DOM_BAD == 0);
+    printf("\n[17] the same valid fixture with the membership test switched OFF — the count gate MUST reject it:\n");
+    LC_DOM_SELFTEST_OFF = 1;
+    int r17 = lc_check_layers(dir, 31, NULL);
+    LC_DOM_SELFTEST_OFF = 0;
+    int r17n = (r17 != 0 && LC_RUN_DOM_CHK == 0);
+    { char rpath[512]; snprintf(rpath, sizeof rpath, "%s/v3.lcresume", dir);
+      FILE *rv = fopen(rpath, "w");
+      if (rv) { fprintf(rv, "LC_RESUME_V3 n=%u pl_hash=%016llx se=%u b0=1,1,0,0,0\n", n, (unsigned long long)plhash, se); fclose(rv); }
+      const char *old = getenv("LC_RESUME"); char oldv[512]; int had = old != NULL; if (had) snprintf(oldv, sizeof oldv, "%s", old);
+      setenv("LC_RESUME", rpath, 1);
+      printf("\n[18] the valid fixture with an LC_RESUME_V3 record — MUST be refused (LC_RESUME=OLD_VERSION):\n");
+      LC_RESUME_OLD_SEEN = 0;
+      int r18 = lc_check_layers(dir, 31, NULL);
+      if (had) setenv("LC_RESUME", oldv, 1); else unsetenv("LC_RESUME");
+      rv = fopen(rpath, "r"); char l1[256] = ""; if (rv) { if (!fgets(l1, sizeof l1, rv)) l1[0] = 0; fclose(rv); }
+      r18 = (r18 != 0 && LC_RESUME_OLD_SEEN && strncmp(l1, "LC_RESUME_V3 ", 13) == 0);   /* refused BY NAME, and the V3 file left as it was */
+      LC_DOM_SELFTEST_R18 = r18; }
 
     #undef PUT
 
@@ -2115,16 +2182,18 @@ static int lc_selftest(void) {
     int layout_ok = (r8!=0 && r9!=0 && r10!=0 && r11!=0);
     int root_ok = (r12!=0 && r13!=0 && r14==0);
     int ok = (r1==0 && r2==0 && r3!=0 && grp_ok && r5==0 && r6!=0 && r7!=0 && layout_ok && root_ok
-              && r15!=0);
+              && r15!=0 && r15n && r16n && r17n && LC_DOM_SELFTEST_R18);
     printf("SELFTEST: v1 pass=%s  v2 pass=%s  corruption caught=%s  group-math=%s\n"
            "          nontrivial-stab mass pass=%s  wrong-mass caught=%s  non-canonical caught=%s\n"
            "          layout caught (v2 trailing=%s v2 kidx=%s v1 trailing=%s v1 pad=%s)\n"
            "          root caught (value=%s key=%s; restored pass=%s)  stored-last caught=%s\n"
+           "          placed-pair count (one outside=%s all counted=%s check-off caught=%s V3 resume refused=%s)\n"
            "          =>  %s\n",
            r1==0?"Y":"N", r2==0?"Y":"N", r3!=0?"Y":"N", grp_ok?"Y":"N",
            r5==0?"Y":"N", r6!=0?"Y":"N", r7!=0?"Y":"N",
            r8!=0?"Y":"N", r9!=0?"Y":"N", r10!=0?"Y":"N", r11!=0?"Y":"N",
            r12!=0?"Y":"N", r13!=0?"Y":"N", r14==0?"Y":"N", r15!=0?"Y":"N",
+           r15n?"Y":"N", r16n?"Y":"N", r17n?"Y":"N", LC_DOM_SELFTEST_R18?"Y":"N",
            ok?"PASS":"*** FAIL ***");
     if (ok) { g6v_rmtree(dir); g6v_rmtree(dir2); }   /* G6: a passing run removes its private fixtures (a failing one keeps them) */ printf("LCSELFTEST_RESULT=%s\n", ok ? "PASS" : "FAIL");
     printf("======================================================================\n");
@@ -2285,7 +2354,7 @@ typedef struct {
     uint64_t part_mi[2]; u192 part_sum[2]; int nparts;
     uint64_t e_cnt;
     uint64_t bad_last, bad_rid, bad_sum, bad_zero, bad_order, bad_finalrid, ovf, movf;
-    uint64_t bad_dom;                               /* A11R #4 */
+    uint64_t bad_dom, dom_chk;                      /* A11R #4 (+ TODO-1 count) */
     uint64_t first_mi, last_mi; uint32_t first_key, last_key; int nonempty;
     uint64_t t6_n[64]; u192 t6_v[64]; uint64_t t6_ovf;
     int fail; char msg[192];
@@ -2404,6 +2473,7 @@ static void *lcs_lane_worker(void *arg) {
             uint32_t rid = key & 0xffff;
             if (key >> 22) L->bad_last++;
             if (mi < L->nm && mi != allow_mi) { allow = lc_last_allow(L->masks[mi], L->k); allow_mi = mi; }
+            if (allow) L->dom_chk++;   /* TODO-1 */
             if (lc_last_outside(allow, key)) L->bad_dom++;
             if (rid >= L->R) { L->bad_rid++; }
             else if (lc_rid_digits(rid, L->b0, L->rad) != L->k) L->bad_sum++;
@@ -2581,7 +2651,7 @@ static int lcs_scan_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
     uint32_t root_key = 0; int have_root = 0;        /* the globally first entry's key */
     u192 grand = {{0,0,0}}, mass = {{0,0,0}};
     uint64_t bad_last=0, bad_rid=0, bad_sum=0, bad_zero=0, bad_order=0, bad_finalrid=0, ovf=0, movf=0;
-    uint64_t bad_dom=0;                                /* A11R #4: stored-last domain */
+    uint64_t bad_dom=0, dom_chk=0;                     /* A11R #4: stored-last domain (+ TODO-1 count) */
     {
         int Lc = cfg->lanes; if ((uint64_t)Lc > nblocks) Lc = nblocks ? (int)nblocks : 1;
         static LcsLane ln[64];
@@ -2625,7 +2695,7 @@ static int lcs_scan_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
             LcsLane *L = &ln[t];
             if (!have_root && L->nonempty && L->e_cnt) { root_key = L->first_key; have_root = 1; }
             e_total += L->e_cnt;
-            bad_last += L->bad_last; bad_rid += L->bad_rid; bad_sum += L->bad_sum; bad_dom += L->bad_dom;
+            bad_last += L->bad_last; bad_rid += L->bad_rid; bad_sum += L->bad_sum; bad_dom += L->bad_dom; dom_chk += L->dom_chk;
             bad_zero += L->bad_zero; bad_order += L->bad_order;
             bad_finalrid += L->bad_finalrid; ovf += L->ovf; movf += L->movf;
             if (u192_add(&grand, L->grand)) ovf++;
@@ -2678,6 +2748,9 @@ static int lcs_scan_layer(const char *dir, int k, uint32_t exp_n, uint32_t exp_s
     LCF(e_total==ne, "streamed %llu entries != ne=%llu", (unsigned long long)e_total,(unsigned long long)ne);
     LCF(bad_last==0,  "%llu entries with nonzero key bits 22-31", (unsigned long long)bad_last);
     LCF(bad_dom==0,   "%llu entries whose last is not an element of a pair in their mask (layer 0: the start exit)", (unsigned long long)bad_dom);
+    if (e_total == ne) {   /* TODO-1: the same count and gate as lc_check_layer, same text (scan identity contract) */
+        LCF(dom_chk == ne, "placed-pair membership of last tested on %llu of %llu entries", (unsigned long long)dom_chk, (unsigned long long)ne);
+        LC_DOM_CHK = dom_chk; LC_DOM_BAD = bad_dom; }
     LCF(bad_rid==0,   "%llu entries with rid >= R", (unsigned long long)bad_rid);
     LCF(bad_sum==0,   "%llu entries where rid digit-sum != k (SUM INVARIANT)", (unsigned long long)bad_sum);
     LCF(bad_order==0, "%llu non-ascending keys within a mask span", (unsigned long long)bad_order);
@@ -3570,6 +3643,7 @@ static int lc_t_layer(const char *fdir, const char *tdir, int k, uint32_t n, uin
     u192 acc = {{0,0,0}};
     int ovf = 0;
     uint64_t bad_key = 0, bad_rid = 0, bad_zero = 0, bad_seed = 0;
+    uint64_t bad_tdom = 0, tdom_chk = 0, t_streamed = 0;   /* TODO-1 (Q-902): placed-pair membership, its own counted line */
     uint32_t troot_key = 0;
     for (uint64_t i = 0; i < tc.nm && !fail; i++) {
         u192 msum = {{0,0,0}}; uint32_t prev_tk = 0;
@@ -3577,7 +3651,8 @@ static int lc_t_layer(const char *fdir, const char *tdir, int k, uint32_t n, uin
         for (uint64_t j = 0; j < cnt; j++) {
             uint32_t fk, tk; u192 fv, tv; int g5b_last_in_mask(uint32_t, uint32_t, int, uint32_t, const uint32_t *, uint32_t);
             if (gt_next(&fc, &fk, &fv) != 1 || gt_next(&tc, &tk, &tv) != 1) { fail = 1; break; }
-            if (fk != tk || (tk >> 22) || (j && tk <= prev_tk) || !g5b_last_in_mask(tk >> 16, tc.masks[i], k, se, pl, n)) { bad_key++; } prev_tk = tk;   /* G5b F12-014#1: the gt_span_checks guards (ascending keys, last in the mask's pairs) */
+            if (fk != tk || (tk >> 22) || (j && tk <= prev_tk)) { bad_key++; } prev_tk = tk;   /* G5b F12-014#1: the gt_span_checks guards (ascending keys) */
+            tdom_chk++; t_streamed++; if (!g5b_last_in_mask(tk >> 16, tc.masks[i], k, se, pl, n)) bad_tdom++;   /* G5b F12-014#1 / TODO-1: last in the mask's placed pairs, counted */
             uint32_t rid = tk & 0xffff;
             if (rid >= R || lc_rid_digits(rid, b0v, rad) != k) bad_rid++;
             if (u192_zero(tv)) bad_zero++;
@@ -3590,7 +3665,10 @@ static int lc_t_layer(const char *fdir, const char *tdir, int k, uint32_t n, uin
         if (u192_add(&acc, msum)) ovf = 1;
     }
     #define TCF(cnt,msg) do{ if (cnt) { printf("  [t] k=%2d  *** FAIL: %llu %s\n", k, (unsigned long long)(cnt), msg); fail=1; } }while(0)
-    TCF(bad_key,  "entries whose key differs from the f layer, is not strictly ascending in its span, or names a last outside its mask's pairs");
+    TCF(bad_key,  "entries whose key differs from the f layer or is not strictly ascending in its span");
+    TCF(bad_tdom, "entries whose last is not an element of a pair in their mask (layer 0: the start exit)");
+    LC_DOM_CHK = (t_streamed == tc.ne) ? tdom_chk : 0; LC_DOM_BAD = bad_tdom; LC_DOM_NE = tc.ne;   /* TODO-1: read by lc_check_t */
+    if (t_streamed == tc.ne && tdom_chk != tc.ne) { printf("  [t] k=%2d  *** FAIL: placed-pair membership of last tested on %llu of %llu entries\n", k, (unsigned long long)tdom_chk, (unsigned long long)tc.ne); fail = 1; }
     TCF(bad_rid,  "entries with rid >= R or digit-sum != k (SUM INVARIANT)");
     TCF(bad_zero, "zero t values (every node count is >= 1)");
     TCF(bad_seed, "seed-layer values != 1");
@@ -3674,6 +3752,7 @@ static int lc_check_t(const char *fdir, const char *tdir, int maxk) {
     printf("----------------------------------------------------------------------\n");
     u192 troot = {{0,0,0}}; int troot_got = 0, checked = 0;
     int ident_checked = 0, ident_skipped = 0, absent_ok = 0;
+    uint64_t tdom_sum = 0, tdom_bad = 0, tne_ok = 0;   /* TODO-1 counted lines */
     int hi = (maxk < (int)n) ? maxk : (int)n;
     for (int k = 0; k <= hi; k++) {
         char p[1024]; snprintf(p, sizeof p, "%s/t_layer_%02d.bin", tdir, k);
@@ -3685,8 +3764,12 @@ static int lc_check_t(const char *fdir, const char *tdir, int maxk) {
         }
         fclose(t);
         int idone = 0;
-        fails += lc_t_layer(fdir, tdir, k, n, se, pl, plh, b0v, rad, R, rp, geff,
+        LC_DOM_CHK = 0; LC_DOM_BAD = 0; LC_DOM_NE = 0;
+        int tr = lc_t_layer(fdir, tdir, k, n, se, pl, plh, b0v, rad, R, rp, geff,
                             have_S ? &S[k] : NULL, have_S, &troot, &troot_got, &idone);
+        fails += tr;
+        tdom_bad += LC_DOM_BAD;
+        if (!tr) { tdom_sum += LC_DOM_CHK; tne_ok += LC_DOM_NE; }
         checked++;
         if (idone) ident_checked++; else ident_skipped++;
     }
@@ -3717,6 +3800,11 @@ static int lc_check_t(const char *fdir, const char *tdir, int maxk) {
                "          absent f layer, even beyond max_k) must be a failure, not a skip\n");
         fails++;
     }
+    if (tdom_sum != tne_ok) {   /* TODO-1: the membership test ran on every entry of every clean t layer */
+        printf("*** FAIL: placed-pair membership tested on %llu entries of the %llu in clean t layers\n",
+               (unsigned long long)tdom_sum, (unsigned long long)tne_ok);
+        fails++;
+    }
     if (ident_skipped > 0) {
         printf("*** FAIL: the f·t node identity was SKIPPED at %d present layer(s) inside the\n"
                "          requested range (M_j incomplete)\n", ident_skipped);
@@ -3731,6 +3819,8 @@ static int lc_check_t(const char *fdir, const char *tdir, int maxk) {
         printf("RESULT: *** %d FAILURE(S) *** — a finding. Report it; do not patch around it.\n", fails);
     printf("IDENTITIES_CHECKED=%d\n", ident_checked);
     printf("IDENTITIES_SKIPPED=%d\n", ident_skipped);
+    printf("LAST_IN_PLACED_PAIR_CHECKED=%llu\n", (unsigned long long)tdom_sum);   /* TODO-1 (Q-902) */
+    printf("LAST_NOT_IN_PLACED_PAIR=%llu\n", (unsigned long long)tdom_bad);
     printf("TLADDER_RESULT=%s\n", fails ? "FAIL" : "PASS");
     printf("======================================================================\n");
     return fails ? 1 : 0;
