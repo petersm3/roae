@@ -39727,3 +39727,30 @@ No canonical sha, count, certificate, token or verdict changed.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group Q1049R3; the defects were found by Codex
 (gpt-6-astra), final review; adjudicated by Fable (claude-fable-5-1), FV2 slice 1.
+
+## CX-37C-D — the four-class comparison: "frozen BEFORE any measurement" and "has not been run" (documentation/CRITIQUE.md; reports/TR2_THE_RULES_CONFLICT.md; tests.py)
+
+**2026-11-11.** **Source.** Two siblings found while batch Q1049R2 was adjudicated by Fable; backlog Q-1116. The
+parent findings are Codex's (gpt-6-astra), final review, F03-H03#18 (the chronology, CX-37C-B) and F11-007#7 (the
+single-sentence summary beside the second site).
+
+**What was published, and what it says now.**
+- **CRITIQUE.md** said the four-class comparison "has been frozen BEFORE any measurement". TR-2's §Extension STATUS
+  block records that the ingredient runs were executed before the design's formal freeze stamp, and that only the
+  design summary committed publicly (TR-2 v1.9, 2026-07-10) predates every measurement. CX-37C-B corrected TR-2's
+  own copy of the sentence; CRITIQUE.md's now gives the same order.
+- **TR-2's scope note** said ruling out the greedy-builder and rules-epiphenomenal rivals "requires the four-class
+  comparison registered below, which has not been run". Its synthetic-draw calibration ran on 2026-07-20 and failed
+  its confusability gate, which forbids computing the King Wen comparison (§Extension STATUS). The sentence now says
+  the calibration ran and vetoed it, so the King Wen comparison has not been run and will not be.
+
+Both edits keep their line count; TR-2's revision row v1.47 is appended. The old wordings are quoted in dated notes.
+
+**Tests.** `TestBatchQ1116` holds both new fragments and the absence of the old ones, with a red half and a check
+that TR-2's STATUS block says what the two sentences now rely on. `TestBatchQ1049R2`'s revision-row pin accepts
+v1.46 without the current marker.
+
+No canonical sha, count, certificate, token or verdict changed.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group Q1049R3; the siblings were found by
+Fable (claude-fable-5-1) during the Q1049R2 adjudication of Codex's (gpt-6-astra) findings.

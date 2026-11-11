@@ -12304,3 +12304,7 @@ Q-686=DONE
   FULL31_EXACT_AGGREGATES) and its documentation and root rows stay open.
 - No canonical sha, count, certificate, token or verdict changed. `TestBatchQ1049R3` holds each sentence and fails
   on the parent tree. Found by Codex (gpt-6-astra), final review; adjudicated by Fable.
+- **Q-1116 (CX-37C-D).** Two siblings of batch Q1049R2's chronology fix: CRITIQUE.md's "frozen BEFORE any
+  measurement" now gives the order TR-2's STATUS block records, and TR-2's scope note no longer says the four-class
+  comparison "has not been run" — its calibration ran and vetoed it, so the King Wen comparison will not be run.
+  TR-2 revision row v1.47. `TestBatchQ1116` holds both sentences. Found by Fable while adjudicating batch Q1049R2.

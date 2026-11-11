@@ -64020,9 +64020,10 @@ class TestBatchQ1049R2(unittest.TestCase):
     def test_q1049r2_revision_row_and_ledger_entry(self):
         t = self._r(self.T2)
         rows = [l for l in t.split("\n") if l.startswith("| v1.")]
-        self.assertTrue(rows[-1].startswith("| v1.46 *(current)* | 2026-11-11 |"), rows[-1][:60])
+        mine = [l for l in rows if re.match(r"\| v1\.46 (\*\(current\)\* )?\| 2026-11-11 \|", l)]   # current until Q-1116's v1.47
+        self.assertEqual(len(mine), 1, "the v1.46 row")
         self.assertEqual(sum("*(current)*" in l for l in rows), 1, "one current revision row")
-        self.assertIn("CX-37C-B", rows[-1])
+        self.assertIn("CX-37C-B", mine[0])
         self.assertTrue("\n## CX-37C-B — " in self._r("documentation/CORRECTIONS.md"), "the CX-37C-B entry exists")
 
     def test_d687_witness_c3_is_a_property_of_the_pinned_witness(self):
@@ -64202,6 +64203,69 @@ class TestBatchQ1049R3(unittest.TestCase):
         self.assertTrue(r.stdout.startswith("100644 "), r.stdout)
 
 # end class TestBatchQ1049R3
+
+class TestBatchQ1116(unittest.TestCase):
+    """Backlog Q-1116 (CX-37C-D): two wording siblings found by Q-1049 batch 2. CRITIQUE.md said the four-class
+    comparison "has been frozen BEFORE any measurement" (TR-2's own STATUS block records that the ingredient runs
+    preceded the design's formal freeze stamp; CX-37C-B fixed TR-2's copy), and TR-2's scope note said the
+    four-class comparison "has not been run" although its calibration ran and vetoed it. The cured test requires
+    the new fragments and the dated notes; the red test puts the old fragments back. The source check binds both to
+    TR-2's STATUS block. The three text tests fail on the parent tree. Developed with AI assistance (Claude,
+    Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    CR = "documentation/CRITIQUE.md"
+    T2 = "reports/TR2_THE_RULES_CONFLICT.md"
+    PAIRS = (
+        ('Q1116a', CR, "canonical-mass population has been frozen BEFORE any measurement. The classes",
+         "the ingredient runs preceded that design's formal freeze stamp (TR-2 §Extension STATUS;"),
+        ('Q1116b', T2, "registered below, which has not been run. A reader",
+         "its synthetic-draw calibration ran and failed its confusability gate (§Extension STATUS), so the King Wen comparison has not been run and will not be"),
+    )
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _problems(self, texts):
+        probs = []
+        for row, rel, old, new in self.PAIRS:
+            t = texts[rel]
+            if t.count(new) != 1:
+                probs.append("%s: new fragment present %d times" % (row, t.count(new)))
+            elif old in t:
+                probs.append("%s: old fragment still present" % row)
+        return probs
+
+    def _texts(self):
+        return {rel: self._r(rel) for rel in {p[1] for p in self.PAIRS}}
+
+    def test_q1116_sentences_cured(self):
+        self.assertEqual(self._problems(self._texts()), [])
+        self.assertIn("\"has been frozen BEFORE any measurement\" until 2026-11-11, CX-37C-D", self._r(self.CR))
+        self.assertIn("(\"which has not been run\" until 2026-11-11, CX-37C-D)", self._r(self.T2))
+
+    def test_q1116_red_on_old(self):
+        texts = self._texts()
+        for row, rel, old, new in self.PAIRS:
+            self.assertEqual(texts[rel].count(new), 1, "precondition: %s new fragment present once" % row)
+            texts[rel] = texts[rel].replace(new, old)
+        self.assertEqual(len(self._problems(texts)), len(self.PAIRS))
+
+    def test_q1116_status_block_supports_both(self):
+        t = self._r(self.T2)
+        self.assertIn("**STATUS (v1.14, 2026-07-20): calibration RUN; verdict VETOED; nothing further will be published.**", t)
+        self.assertIn("ingredient runs (population measurements, blind to any KW-facing verdict) were executed before the\n"
+                      "design's formal operator freeze stamp", t)
+
+    def test_q1116_revision_row_and_ledger_entry(self):
+        rows = [l for l in self._r(self.T2).split("\n") if l.startswith("| v1.")]
+        self.assertTrue(rows[-1].startswith("| v1.47 *(current)* | 2026-11-11 |"), rows[-1][:60])
+        self.assertEqual(sum("*(current)*" in l.split("|")[1] for l in rows), 1, "one current revision row")
+        self.assertIn("CX-37C-D", rows[-1])
+        self.assertIn("\n## CX-37C-D — ", self._r("documentation/CORRECTIONS.md"))
+
+# end class TestBatchQ1116
 
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).

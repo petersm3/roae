@@ -685,7 +685,7 @@ descriptive-by-construction handling already applied to C5 above. Nothing promot
 > veto is the honest outcome of a gate we froze in advance precisely so it could stop us.
 
 Following the F4′/permutation pre-registration discipline, a four-class Bayesian model comparison over
-the C1–C5 canonical-mass population has been frozen BEFORE any measurement. The classes: **M0**
+the C1–C5 canonical-mass population has been pre-registered: its design summary was committed publicly (TR-2 v1.9, 2026-07-10) before any measurement, the full design was frozen privately, and the ingredient runs preceded that design's formal freeze stamp (TR-2 §Extension STATUS; "has been frozen BEFORE any measurement" until 2026-11-11, CX-37C-D). The classes: **M0**
 uniform-valid (null), **M_G** greedy-builder (a sequential softmax arranger), **M_D** global-design
 (Gibbs energy over the frozen literature-rule bundle, per-axis strengths), and **M_C** corrupted-precursor
 (the [TR-2](../reports/TR2_THE_RULES_CONFLICT.md) v1.7 corruption model, unchanged, with the grand-strict
