@@ -64267,6 +64267,135 @@ class TestBatchQ1116(unittest.TestCase):
 
 # end class TestBatchQ1116
 
+class TestBatchQ1049R4(unittest.TestCase):
+    """Push group Q1049R4 (CX-37C-E): the eleven TR-10 rows of Fable's FV2 slice-1 adjudication of Codex's final
+    review (backlog Q-1049, batch 4), each checked against the code, the commit order or the cited report before it
+    was changed. PAIRS holds (row, fragment as published, fragment now); the cured test requires each new fragment
+    once and each old one nowhere, and the red test puts every old fragment back and requires every pair to be
+    reported. Five checks hold the corrections to their sources: dav_termruns returns the run count alone (D571);
+    rows 4 and 8 have zero hits in dav_tier1.out (D572); TR-8 section 2 says "conservative" of the C1-C5 null and
+    gives the two gender-rule masses (D573); Drasny's room c ties another window (D580); and the registration
+    commit precedes the scorers, which precede the results (D576/D585). Every test except the five data checks
+    fails on the parent tree 22899e07. Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    T10 = "reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md"
+    PAIRS = (
+        ('D575', "published the most detailed structural reading of the King Wen\nsequence in decades",
+         "published a detailed, book-length structural reading (\"the most detailed … in decades\" until 2026-11-12"),
+        ('D576', "**publicly pre-registered before any measurement**, then measured",
+         "**publicly pre-registered before any measurement** (their names and decision thresholds, at commit `2d19a3f`"),
+        ('D579', "a concrete counterexample he did not scan for;",
+         "a concrete counterexample his book does not report checking (\"he did not scan for\" until 2026-11-12"),
+        ('D585a', "CX-35T-J) before any population number was observed.",
+         "CX-35T-J) before any population number was published (that none was observed privately first is operator-attested"),
+        ('D585', "**before any population number had been observed**, with decision",
+         "**before any population number had been published** (the registration precedes the scorers and the results"),
+        ('D571', "population mean 5.2 runs) | **NULL** |",
+         "| **NULL** (run count only: the registration's \"+ exact-union template\" is not scored"),
+        ('D572', "| extreme / data-like class |",
+         "| unresolved at 2×10⁹ probes (zero hits are starvation, not a bound; \"extreme\" until 2026-11-12, CX-37C-E) / data-like class |"),
+        ('D573', "§2 measures against it, noting\n   that \"C2/C5",
+         "of its *other* null, C1–C5, that \"C2/C5 are themselves regularities"),
+        ('D574', "**The population-informative findings are the nulls.**",
+         "**The population-informative findings are the nulls**, with one family-scoped exception, the #43–50 trigram array"),
+        ('D578', "**(iii)** Selective\n   reporting is excluded in public:",
+         "reporting *within the declared bank* is excluded in public (a measurement made privately before `09e2107` is not"),
+        ('D580', "is exactly the **maximum-coverage decade window for its group's King Wen positions** — the",
+         "is a **maximum-coverage decade window for its group's King Wen positions** (room c ties another window"),
+        ('D582', "remain unexplained after all known rules (TR-9), and",
+         "remain unexplained by the layers each reading conditions on (TR-9: 105.4 = log₂|C1–C7|, 139.1 = log₂|C1∩C2∩C4|"),
+        ('D585b', "(2026-07-04) before any population number existed;",
+         "(2026-07-04) before any population number was published (the timing is operator-attested, §2"),
+    )
+    NEW_COUNT = {'D572': 2}
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _problems(self, t):
+        probs = []
+        for row, old, new in self.PAIRS:
+            want = self.NEW_COUNT.get(row, 1)
+            if t.count(new) != want:
+                probs.append("%s: new fragment present %d times" % (row, t.count(new)))
+            elif old in t:
+                probs.append("%s: old fragment still present" % row)
+        return probs
+
+    def test_q1049r4_tr10_sentences_cured(self):
+        self.assertEqual(self._problems(self._r(self.T10)), [])
+
+    def test_q1049r4_tr10_red_on_old(self):
+        t = self._r(self.T10)
+        for row, old, new in self.PAIRS:
+            self.assertEqual(t.count(new), self.NEW_COUNT.get(row, 1), "precondition: %s new fragment present" % row)
+        for row, old, new in self.PAIRS:
+            t = t.replace(new, old)
+        self.assertEqual(len(self._problems(t)), len(self.PAIRS))
+
+    def test_q1049r4_revision_row_and_ledger_entry(self):
+        t = self._r(self.T10)
+        rows = [l for l in t.split("\n") if l.startswith("| v1.")]
+        self.assertTrue(rows[-1].startswith("| v1.25 *(current)* | 2026-11-12 |"), rows[-1][:60])
+        self.assertEqual(sum("*(current)*" in l for l in rows), 1, "one current revision row")
+        self.assertIn("CX-37C-E", rows[-1])
+        self.assertIn("\n## CX-37C-E — ", self._r("documentation/CORRECTIONS.md"), "the CX-37C-E entry exists")
+
+    def test_d571_termruns_scores_the_run_count_only(self):
+        import solve, verify
+        self.assertIn("(n_runs; KW=3) +\nexact-union template", self._r("documentation/CRITIQUE.md"),
+                      "precondition: the registration names the template component")
+        self.assertEqual(solve.dav_termruns(list(verify.KW)), 3)
+        self.assertEqual(solve.DAV_KW_EXPECTED["termruns"], 3)
+        self.assertIn("the exact-union template is a sub-event of the at-KW", solve.dav_termruns.__doc__.replace("\n    ", " "))
+
+    def test_d572_rows_4_and_8_have_zero_hits(self):
+        out = self._r("reports/evidence/dav_tier1.out")
+        for name in ("parallel3040", "eccplace"):
+            line = [l for l in out.split("\n") if ("] mean=" in l and " %s " % name in l.replace("]", " ]"))]
+            self.assertEqual(len(line), 1, name)
+            for f in ("mean=0.000000", "max=0", "kw=1", "at=0.00000000", "above=0.00000000"):
+                self.assertIn(f, line[0], name)
+        self.assertIn("reported as starvation, not as bounds", self._r("reports/METHODS.md"))
+
+    def test_d573_tr8_says_conservative_of_the_c1c5_null(self):
+        t8 = self._r("reports/TR8_REORDERING_REVISITED.md")
+        i = t8.index("(a) the C1–C5 constraint-satisfying population")
+        j = t8.index("(b) the pair-only (C1) space")
+        seg = t8[i:j]
+        self.assertIn("so this null is\n   conservative, not \"undisputed\"", seg)
+        self.assertIn("\"conservative\" is not argued", seg)
+        self.assertIn("8.80×10⁻⁵ of C1–C5 mass and 1.054×10⁻⁴ of the pair-only null", seg)
+
+    def test_d580_room_c_ties_another_window(self):
+        import solve
+        q = list(solve.binary_hexagrams)
+        g = [solve.db1_group(q[2 * k]) for k in range(32)]
+        c = [k + 1 for k in range(32) if g[k] == 2]
+        self.assertEqual(c, [10, 12, 17, 22])
+        room_c = [s + 1 for s in range(32) if solve.DB1_ROOM_LO[s] == 2]
+        self.assertEqual(room_c, [7, 12, 17, 22], "precondition: room c")
+        cov = {a: sum(x in c for x in range(a, a + 20, 5)) for a in range(1, 18)}
+        self.assertEqual(max(cov.values()), 3)
+        self.assertEqual(sorted(a for a, v in cov.items() if v == 3), [7, 12])
+
+    def test_d576_d585_public_commit_order(self):
+        def anc(a, b):
+            return subprocess.run(["git", "merge-base", "--is-ancestor", a, b], cwd=self.ROOT,
+                                  capture_output=True).returncode
+        r = subprocess.run(["git", "cat-file", "-e", "2d19a3f^{commit}"], cwd=self.ROOT, capture_output=True)
+        if r.returncode != 0:
+            self.skipTest("history not available")
+        self.assertEqual(anc("2d19a3f", "e46c9410"), 0, "registration before the scorers")
+        self.assertEqual(anc("e46c9410", "019cea86"), 0, "scorers before the results")
+        self.assertNotEqual(anc("e46c9410", "2d19a3f"), 0)
+        self.assertEqual(anc("09e2107", "5ace541"), 0, "wave-2 bank before its results")
+
+# end class TestBatchQ1049R4
+
+
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))

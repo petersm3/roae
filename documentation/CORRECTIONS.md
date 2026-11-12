@@ -39754,3 +39754,70 @@ No canonical sha, count, certificate, token or verdict changed.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group Q1049R3; the siblings were found by
 Fable (claude-fable-5-1) during the Q1049R2 adjudication of Codex's (gpt-6-astra) findings.
+
+## CX-37C-E — TR-10: eleven sentences said more than the code, the commit order or the cited reports (reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md; tests.py)
+
+**2026-11-12.** **Source.** Codex (gpt-6-astra), final review, in the numbering of its 2026-10-26 re-pinned run
+(F03-006#2, F02-H04#31, AIF-001#5/#6, F11-017#1/#2/#3/#4/#5/#6/#7, F08-017#5/#8/#10, F03-H01#31, F03-H04#3/#5,
+F02-H05#22, F03-H05#24); adjudicated by Fable (FV2 slice 1). Backlog Q-1049, batch 4, push group Q1049R4. The same
+numbers in TR-10's v1.22 row (F03-006#2, F11-017#6/#7) belong to an earlier run and name different findings.
+
+**What was published, and what it says now.** Each line was checked against the code, the commit order or the cited
+report before it was changed. Where an adjudicated wording was wrong in detail, the source was followed.
+- **"The most detailed structural reading of the King Wen sequence in decades"** (summary). No survey or criterion
+  supports the comparison, and other book-length treatments exist (Cook 2006). It now reads "a detailed,
+  book-length structural reading".
+- **"Publicly pre-registered before any measurement"** (summary), **"before any population number had been
+  observed"** (§2), and the same timing in the abstract and the Verification Guide. The public order is checkable:
+  the registration `2d19a3f` lands before the scorers (`e46c9410`, which first fix operational choices such as the
+  palindrome-neighborhood radius of ±4 pair-slots) and before the results (`019cea86`). That nothing was measured
+  privately first cannot be seen in the public record. The four sites now say "published", give the order, and call
+  the absence of a private look operator-attested; the summary names what the registration fixed (names and
+  thresholds).
+- **"A concrete counterexample he did not scan for"** (summary). §4 supports only that the book does not report
+  checking the other pairs. It now says so.
+- **Row 1, `termruns`.** The registration names the statistic as the run count "+ exact-union template";
+  `solve.py`'s `dav_termruns` returns the run count only, and its docstring calls the template a sub-event of the
+  at-King-Wen mass. Row 1's verdict cell now says the template component is not scored, a registration gap. Rows 3
+  and 4's registered extras (the count of qualifying windows, the chiasmus template) are scored and need no note.
+- **Rows 4 and 8, "extreme / data-like class".** Both have zero hits in 2×10⁹ probes (`dav_tier1.out`: `mean=0`,
+  `at=0`, `above=0`). METHODS reports zero hits as starvation, not a bound, and this report's own rule labels an
+  unresolved verdict "unresolved at N probes". The cells now read "unresolved at 2×10⁹ probes (zero hits are
+  starvation, not a bound)", with "data-like class" kept. "Extreme" was not a registered verdict category; nothing
+  promotes either way.
+- **TR-8's "this null is conservative"** (§3 null-sensitivity note). TR-10 quoted it as if TR-8 said it of the
+  pair-preserving null. In TR-8 §2 it is said of null (a), C1–C5, and marked there as unargued: the gender rule, the
+  one rule TR-8 measures under both nulls, is rarer under C1–C5 (8.80×10⁻⁵) than under the pair-only null
+  (1.054×10⁻⁴). The note now says which null the remark is about, carries TR-8's flag, and adds that this report's
+  rows 6 and 7 go the other way (rarer under the pair-preserving null, in the table that follows). The adjudicated
+  wording, "the direction depends on the statistic", did not name the misattribution; the edit does.
+- **"The population-informative findings are the nulls"** (§3). Row 3 is family-notable, as §3 says a few lines
+  later. The sentence now names that one exception.
+- **"Selective reporting is excluded in public"** (§3b(iii)). The public commit order shows the wave-2 bank before
+  its results; it cannot exclude a measurement made privately before `09e2107`, whose freeze the paragraph above
+  calls attested. The sentence is now scoped to selective reporting within the declared bank.
+- **Every Drasny room "is exactly the maximum-coverage decade window"** (§3b, D-B1). The public scorer checks only
+  the fixed rooms; the window family is not restated; and the Verification Guide's own note shows room c tied with
+  another window (group C's slots 10, 12, 17, 22 give coverage 3 for the windows starting at slots 7 and 12,
+  recomputed). The sentence now says "a maximum-coverage window", names the tie and the unstated family. The
+  conformity count 22 and "equals the fitted argmax total by construction" stand.
+- **"~105–139 bits of the sequence remain unexplained after all known rules"** (§5(a)). TR-9's endpoints condition
+  on C1–C7 (105.4) and C1∩C2∩C4 (139.1); the gender rule and the other literature rules are not among those layers,
+  as TR-9 itself says since CX-35T-J. TR-10 now uses TR-9's wording. (The adjudicated wording, "after the C1–C7
+  layers", fits 105.4 only.)
+
+Every edit keeps its line count, so no line number in the report moves; TR-10's revision row v1.25 is appended at
+the end. Old wordings of published claims are quoted in dated notes at their sites, except where a phrase was only
+added to. No mass, threshold, certificate or canonical sha changes, and nothing promotes.
+
+**Not changed here (siblings).** The same "verifiably the maximum-coverage decade window" sentence is in
+CRITIQUE.md's D-B1 record, CITATIONS.md's Drasny entry and CLAIMS_DECIDED.md's Drasny row;
+they are left for one sweep with TR-12 §4, which quotes the CLAIMS_DECIDED.md row.
+
+**Tests.** `TestBatchQ1049R4` holds each new fragment and the absence of each old one; its red half puts the old
+fragments back and the check fails. Four checks bind the corrections to their sources: `dav_termruns` returns a run
+count, rows 4 and 8 have zero hits in `dav_tier1.out`, TR-8 §2 says "conservative" of null (a) with the two
+gender-rule masses, and room c ties another window.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group Q1049R4; the defects were found by Codex
+(gpt-6-astra), final review; adjudicated by Fable (claude-fable-5-1), FV2 slice 1.

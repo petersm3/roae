@@ -14,18 +14,18 @@ Methods, environment pinning, statistics conventions, and artifact access: see [
 
 ## Executive summary
 
-In 2012 the anthropologist [Scott Davis](../documentation/CITATIONS.md#davis2012) published the most detailed structural reading of the King Wen
-sequence in decades — arguing that the received ordering is a deliberate, holistic design built from
+In 2012 the anthropologist [Scott Davis](../documentation/CITATIONS.md#davis2012) published a detailed, book-length structural reading ("the most detailed … in decades" until 2026-11-12, CX-37C-E) of the King Wen
+sequence — arguing that the received ordering is a deliberate, holistic design built from
 mid-scale compositional units, and that the centuries-old hunt for a global generating algorithm misses
 how its composers actually worked. Unusually for this literature, Davis made **concrete, checkable
 claims**: specific blocks, specific placements, specific "found nowhere else" assertions. That is to
 his credit — it is precisely what made this report possible. Nine composites operationalized from his
-claims were **publicly pre-registered before any measurement**, then measured against the ≈1.33×10³⁸
+claims were **publicly pre-registered before any measurement** (their names and decision thresholds, at commit `2d19a3f`, ahead of the scorers and the results in the public history; operational choices such as the palindrome-neighborhood radius were first published with the scorers, and that nothing was measured privately first is operator-attested, §2; scoped 2026-11-12, CX-37C-E), then measured against the ≈1.33×10³⁸
 valid orderings. The headline is the nulls: Davis's flagship compositional units — including the showcase
 segment of the group he calls "undeniably designed" — turn out to be **typical-to-mildly-uncommon** among valid orderings.
 His exact configurations are rare, but only in the way *every* exact configuration extracted from a
 specific sequence is rare — rarity by construction, not evidence of design. One specific uniqueness
-claim is refuted with a concrete counterexample he did not scan for; a second candidate refutation was
+claim is refuted with a concrete counterexample his book does not report checking ("he did not scan for" until 2026-11-12, CX-37C-E); a second candidate refutation was
 **withdrawn under our own hostile review** — his claim survives its fairest reading. Nothing promotes
 to a constraint; the unexplained residual of **~105–139 bits** ([TR-9](TR9_PRICING_THE_CONSTRAINTS.md); the figure depends on which layers are granted explanatory standing — ~126.6 bits is the intermediate C1–C5 reading, not the whole range) survives its second literature-guided attack.
 
@@ -36,7 +36,7 @@ symmetric blocks, coordinated placements of notation-defined hexagram classes, a
 transformation structure — while arguing explicitly against global algorithmic explanation. His claims
 were formalized in the pair representation (operationalizations ours; each verified to reproduce his
 stated King Wen facts before measurement), and nine composites were pre-registered in the public record
-([CRITIQUE](../documentation/CRITIQUE.md), commit `2d19a3f`, thresholds frozen "as F4'": two-sided p < 0.05/9 "notable"; "candidate rule" additionally requires the corpus-control specificity gate — the < 10⁻⁴ candidate-level bar is inherited from the F4' family's own registration (worded "< 10⁻⁴ after Bonferroni"; sidedness unstated there), not restated verbatim in 2d19a3f; this report reads the registration's 10⁻⁴ as the per-test bar (no further ÷n); under the ÷n reading no row reaches it — stated 2026-10-17, CX-35T-J) before any population number was observed.
+([CRITIQUE](../documentation/CRITIQUE.md), commit `2d19a3f`, thresholds frozen "as F4'": two-sided p < 0.05/9 "notable"; "candidate rule" additionally requires the corpus-control specificity gate — the < 10⁻⁴ candidate-level bar is inherited from the F4' family's own registration (worded "< 10⁻⁴ after Bonferroni"; sidedness unstated there), not restated verbatim in 2d19a3f; this report reads the registration's 10⁻⁴ as the per-test bar (no further ÷n); under the ÷n reading no row reaches it — stated 2026-10-17, CX-35T-J) before any population number was published (that none was observed privately first is operator-attested, §2; scoped 2026-11-12, CX-37C-E).
 Measurement by weighted-Knuth estimation (2×10⁹ probes; the instrument reproduced the
 previously-published C1–C5 space size *estimate* to 0.09% in the same run — a consistency check within
 the same estimator family, since that figure is itself a Knuth estimate; corrected 2026-08-01 from
@@ -76,7 +76,7 @@ notational scoring — is accepted and stated.
    population question his method could not ask.
 2. **The pre-registration discipline.** Following the F4' protocol, the nine composites were registered
    in the public record (documentation/CRITIQUE.md §"Pre-registered tests: Davis (2012)",
-   commit `2d19a3f`, 2026-07-04) **before any population number had been observed**, with decision
+   commit `2d19a3f`, 2026-07-04) **before any population number had been published** (the registration precedes the scorers and the results in the public history; that none was observed privately first is operator-attested; "observed" until 2026-11-12, CX-37C-E), with decision
    thresholds frozen in advance: "notable" = two-sided p < 0.05/9 ([Bonferroni](../documentation/CITATIONS.md#bonferroni1936), 5.56×10⁻³); "candidate
    rule" = < 10⁻⁴ AND passing the corpus-control specificity gate (the same functional must not flag on
    [Jing Fang](../documentation/CITATIONS.md#jingfang)'s Eight Palaces or the Mawangdui ordering); all nine reported regardless of outcome; and —
@@ -108,14 +108,14 @@ notational scoring — is accepted and stated.
 
    | # | Candidate (Davis claim, pages) | KW | Population | Pre-registered verdict |
    |---|---|---|---|---|
-   | 1 | `termruns` — terminal-pair one-line-neighborhood contiguity (flagship, pp. 251–255) | 3 runs | P(≤3) = 2.7×10⁻² (two-sided ~5.4×10⁻²; population mean 5.2 runs) | **NULL** |
+   | 1 | `termruns` — terminal-pair one-line-neighborhood contiguity (flagship, pp. 251–255) | 3 runs | P(≤3) = 2.7×10⁻² (two-sided ~5.4×10⁻²; population mean 5.2 runs) | **NULL** (run count only: the registration's "+ exact-union template" is not scored — `dav_termruns` returns the run count, of which the template is a sub-event; a registration gap, recorded 2026-11-12, CX-37C-E) |
    | 2 | `compmirror` — the 7–16 complement-mirror block (pp. 81–82, 92, 95–96) | 1 block | P(≥1) = 1.12×10⁻² (~1 in 89 orderings); **two-sided 2.24×10⁻²** | **NULL** |
    | 3 | `trigarray` — the #43–50 regular trigram array (pp. 76–77, 112) | 1 window | P(≥1) = 6.8×10⁻⁴; **two-sided 1.36×10⁻³** | notable (below candidate gate; does not survive the global 91-observable ledger **under Bonferroni** — would under BH-FDR, see §3 note) ⚠ [SIDEDNESS FLAG 2026-09-01: that BH counterfactual is computed on the ONE-SIDED masses (trigarray 6.8×10⁻⁴, `rotinv` 6.5×10⁻⁵). Under this table's own declared two-sided convention the same rank-2 comparison is 1.36×10⁻³ against 2·(0.05/91) = 1.10×10⁻³, so "would under BH-FDR" does not hold two-sided. The **published** verdict is unchanged either way — 1.36×10⁻³ still exceeds the global Bonferroni bar 0.05/91 = 5.49×10⁻⁴. Flagged for adjudication together with [METHODS.md](METHODS.md) §"Global observable ledger"; deliberately NOT restated here.] |
-   | 4 | `parallel3040` — 30s/40s parallel with chiasmus (pp. 78, 253–254) | 1 | no hits in 2×10⁹ probes (not a bound) | extreme / data-like class |
+   | 4 | `parallel3040` — 30s/40s parallel with chiasmus (pp. 78, 253–254) | 1 | no hits in 2×10⁹ probes (not a bound) | unresolved at 2×10⁹ probes (zero hits are starvation, not a bound; "extreme" until 2026-11-12, CX-37C-E) / data-like class |
    | 5 | `palnbr` — palindrome-neighborhood adjacency mass (pp. 121–128) | 10 | P(≥10) = 7.9×10⁻² (mean 4.9); **two-sided 1.57×10⁻¹** | **NULL** |
    | 6 | `rotinv` — rotation≡inversion pairs at 11/12, 17/18, 53/54, 63/64 (p. 68, 118 n14) | 1 | one-sided P = 6.5×10⁻⁵; **two-sided P = 1.31×10⁻⁴** | **data-like; does not promote — and does NOT meet the candidate bar under the C1–C5 null. `null-sensitive` — see the null-sensitivity note below the table.** ⚠ [CORRECTED 2026-08-28: this read "meets candidate-rule numerically". The suite applies a two-sided convention throughout — row 1 of this same table already doubles — so this row is read two-sided: the published 6.5×10⁻⁵ is the one-sided upper tail (`at`+`above` from `dav_tier1.out`), and 2 × 6.531×10⁻⁵ = 1.306×10⁻⁴ **exceeds** 10⁻⁴. The one-sided value is retained above because downstream BH ranking in METHODS/TR-8 cites it.] ⚠ [SIDEDNESS ATTRIBUTION CORRECTED 2026-09-01: the 2026-08-28 note above read "The bar declared at §3 is **two-sided** p < 10⁻⁴". That contradicts this report's own Abstract. §3's *notable* bar is declared two-sided (0.05/9); the < 10⁻⁴ *candidate* bar is **inherited** from the F4′ family's registration, worded there "< 10⁻⁴ after Bonferroni" with **sidedness unstated**, and is not restated verbatim in `2d19a3f`. The two-sided reading is retained as the suite's operating convention — but it is a convention applied here, not a sidedness the candidate bar's own registration fixed, and under a one-sided reading of the inherited bar this row would meet it numerically (6.5×10⁻⁵ < 10⁻⁴). Nothing turns on the resolution: the row does not promote under either reading, because it is a KW-extracted exact template — the data-like class the pre-registration bars from promoting whatever its rarity.] |
    | 7 | `pureplace` — pure-hexagram placement (pp. 80, 82, 183) | 1 | one-sided P = 5.56×10⁻³; **two-sided P = 1.11×10⁻²** | **NULL** under the C1–C5 null. `null-sensitive` — see the null-sensitivity note below the table. ⚠ [CORRECTED 2026-08-28: this read "borderline (at the 0.05/9 threshold to reported precision)". It is not borderline under either reading — the declared bar is **two-sided** p < 0.05/9 = 5.5556×10⁻³, and the **one-sided** value 5.56152×10⁻³ already exceeds it before doubling — but that is a **≈0.1-SE gap**, true of the printed estimate and far too close to carry weight, so it is recorded and NOT relied on. The NULL rests on the two-sided reading, which is **≈42 SE** clear *(≈45 until 2026-10-17, CX-35T-J: (2·0.00556152 − 0.05/9)/(2·6.558×10⁻⁵) = 42.45, from `evidence/dav_tier1_se_2026_09_25.out`)*.] |
-   | 8 | `eccplace` — eccentric-class placements incl. 23/24–43/44 at distance 20 (pp. 124–125, 117 n10, 172, 211) | 1 | no hits in 2×10⁹ probes (not a bound) | extreme / data-like class |
+   | 8 | `eccplace` — eccentric-class placements incl. 23/24–43/44 at distance 20 (pp. 124–125, 117 n10, 172, 211) | 1 | no hits in 2×10⁹ probes (not a bound) | unresolved at 2×10⁹ probes (zero hits are starvation, not a bound; "extreme" until 2026-11-12, CX-37C-E) / data-like class |
    | 9 | `asymhalf` — both-asymmetric-trigram half-split (pp. 111–112) | 4 of 16 | P(≤4) = 1.9×10⁻¹ (mean 7.3); **two-sided 3.90×10⁻¹** | **NULL** |
 
    **Null-sensitivity of rows 6 and 7 (added 2026-09-01; a disclosure gap, not an arithmetic error).**
@@ -124,8 +124,8 @@ notational scoring — is accepted and stated.
    defensible null this suite maintains: [METHODS.md](METHODS.md) §"Permutation-test nulls" also defines the
    **pair-preserving** null — "shuffle the 32 canonical pairs + independent uniform orientation flips, first
    pair fixed by C4 where stated" — and [TR-8](TR8_REORDERING_REVISITED.md) §2 measures against it, noting
-   that "C2/C5 are themselves regularities read off the received order, so this null is conservative, not
-   'undisputed'", and re-deriving the Schulz gender rule under it in closed form (47/445740). Two of the nine
+   of its *other* null, C1–C5, that "C2/C5 are themselves regularities read off the received order, so this null is conservative, not
+   'undisputed'" (a remark TR-8 marks as unargued: the gender rule, the one rule it measures under both nulls, is rarer under C1–C5, 8.80×10⁻⁵, than under the pair-only null, 1.054×10⁻⁴, while rows 6 and 7 below are rarer under the pair-preserving null; this sentence read until 2026-11-12, CX-37C-E, as if the remark were about the pair-preserving null), and re-deriving the Schulz gender rule under it in closed form (47/445740). Two of the nine
    rows above change classification under that null, and this report did not previously say so. Both
    predicates are functions of *pair-slot placement only* — `dav_rotinv` compares a position **set**, and
    `dav_pureplace` reads positions that come in whole slots — so both are invariant to the orientation-flip
@@ -161,7 +161,7 @@ notational scoring — is accepted and stated.
    Corpus control: every flagged predicate evaluates to zero on both Jing Fang and Mawangdui — the
    specificity gate passes *(re-verified 2026-07-05 on the corrected Mawangdui array — see the v1.2
    revision row; all flagged predicates remain zero)*; nothing here is an artifact of the instrument lighting up on any
-   structured ordering. **The population-informative findings are the nulls.** Davis's flagship
+   structured ordering. **The population-informative findings are the nulls**, with one family-scoped exception, the #43–50 trigram array (row 3, below; exception named here 2026-11-12, CX-37C-E). Davis's flagship
    compositional claims — the terminal contiguity his final chapter builds toward, the 7–16 mirror he
    describes as laid out in "strictest symmetry", the palindrome-neighborhood device of his central
    chapter 6, the asymmetric-trigram half-split — are *not* population-notable: they are
@@ -239,7 +239,7 @@ notational scoring — is accepted and stated.
    verdict sits near a threshold that tuning could have tipped: at Davis's own compactness the
    quartet configuration is *common* (~88% of valid orderings) with King Wen below the
    population mean, and loosening the window can only make it more common. **(iii)** Selective
-   reporting is excluded in public: the source at `09e2107` itself declares the measured bank to
+   reporting *within the declared bank* is excluded in public (a measurement made privately before `09e2107` is not: the freeze before that commit is attested, as above; scoped 2026-11-12, CX-37C-E): the source at `09e2107` itself declares the measured bank to
    be exactly these two functionals with C-D5 declined, this addendum dispositions all four
    queue items regardless of outcome (two measured — both null and both reported — one subsumed,
    one declined), and the power note below shows the declined test could never have registered
@@ -329,8 +329,8 @@ notational scoring — is accepted and stated.
    (Table 4.1 reproduced 64/64 with Drasny's G1 and G2 merged into one class (as the conformity score needs; `solve.py --db1-verify`); two-language [`--db1-verify`](../documentation/SOLVE_C_CLI.md#--db1-verify) gate), and King Wen's conformity
    count is X = 22 of 32 pair-slots, with his ten deviant pairs reproducing exactly. But the
    rooms are King-Wen-derived: Drasny's own derivation (pp. 76–77) reads each room off the
-   listed KW ordinals of each group's members, and mechanical re-verification shows every room
-   is exactly the **maximum-coverage decade window for its group's King Wen positions** — the
+   listed KW ordinals of each group's members, and mechanical re-verification (over a window family not restated here; the public scorer checks only the fixed rooms, Verification Guide) shows every room
+   is a **maximum-coverage decade window for its group's King Wen positions** (room c ties another window; "is exactly the" until 2026-11-12, CX-37C-E) — the
    one group whose best single window covers only 2 is the only group granted two windows, and
    the leftover cells are swept into a residue room — so the fitted per-group coverages sum to
    3+3+3+3+4+5+1 = 22: **KW's conformity count equals the fitted argmax total by construction.**
@@ -389,7 +389,7 @@ notational scoring — is accepted and stated.
    to purely notational scoring (pp. xvii–xix, 67–68, 96, 256). The measurement splits cleanly across
    them. **On (a), the record to date is with him**: no global generator is known, the celebrated
    transition recipe prices as description rather than explanation, ~105–139 bits of the sequence
-   remain unexplained after all known rules (TR-9), and both systematic literature-guided attacks on
+   remain unexplained by the layers each reading conditions on (TR-9: 105.4 = log₂|C1–C7|, 139.1 = log₂|C1∩C2∩C4|; known rules outside those layers, such as the Schulz gender rule, are not among them; "after all known rules" until 2026-11-12, CX-37C-E), and both systematic literature-guided attacks on
    that residual — the 13-functional F4' battery (all thirteen null) and now this 9-candidate battery
    (one Bonferroni-notable survivor, nothing past the candidate gate) — left it standing.
    The measurement also *agrees* with him in a subtler way: the rarity of his exact configurations
@@ -477,7 +477,7 @@ first landing.)*
   self-validation: same run's raw C1–C5 leaf estimate 1.3275×10³⁸ vs [SEARCH_SPACE_SIZE.md](../documentation/SEARCH_SPACE_SIZE.md)'s
   1.3287×10³⁸, 0.09%)
 - Pre-registration prior to measurement: documentation/CRITIQUE.md §"Pre-registered tests … Davis
-  (2012)" — registered at commit `2d19a3f` (2026-07-04) before any population number existed;
+  (2012)" — registered at commit `2d19a3f` (2026-07-04) before any population number was published (the timing is operator-attested, §2; scoped 2026-11-12, CX-37C-E);
   thresholds and the nothing-promotes policy are in the registration text
 - Corpus-control specificity gate: evaluate the `dav_*` predicates (solve.py) on the Jing Fang and
   Mawangdui orderings (the `--null-historical` data) → 0 on every flagged predicate (holds on both the
@@ -562,4 +562,5 @@ first landing.)*
 | v1.21 | 2026-10-17 | The execution-lane note says `scripts/exec_lane.sh` executes every command it classifies as runnable, not every documented command (the lane never runs its OPS, placeholder or fragment classes; Codex's final review, gpt-6-astra, CAL-009#62, CAL-010#97; triaged by Fable; fast-track batch FT2b-2). No figure changes. See CORRECTIONS.md (fast-track batches FT2b-2..4). |
 | v1.22 | 2026-10-17 | **The BH rank re-derived, and five wording fixes (Codex's final review, gpt-6-astra; triaged by Fable; push group G4; F02-006#4 class with F03-006#1, CAL-018#88; F03-006#2/#6/#8, CAL-018#84/#86/#90/#96/#98/#101, F11-017#6/#7, F08-017#14).** A dated note says two-sided `trigarray` holds BH rank ≥ 3 behind C1 and `dav_rotinv`, so the FDR counterfactual holds on both masses (at least one verdict moves; the Bonferroni verdict is unchanged); the Rule of Ten reproduction names its G1/G2 merge; one sentence states how the registration's 10⁻⁴ is read; ≈42 SE replaces ≈45; the power note names its null; the closing sentence carries the `trigarray` exception; the subsumed trisection names `rs1`. No published verdict changes. See CORRECTIONS.md CX-35T-A and CX-35T-J. |
 | v1.23 | 2026-10-22 | **The abstract's BH sentence brought in line with §3's RANK RE-DERIVED note (Codex's fix-verification pass, gpt-6-astra; triaged by Fable; push group FV1; FV-G4-C1#1).** Under BH-FDR the 91-observable ledger would be cleared on either mass, rank ≥ 3 behind C1 and `dav_rotinv`; "by this one-sided mass only" is withdrawn. The published FWER verdict is unchanged. See CORRECTIONS.md CX-35Y-C. |
-| v1.24 *(current)* | 2026-10-28 | **Gardner quoted, not paraphrased (Codex's final review, gpt-6-astra; triaged by Fable; push group G7; F03-006#3).** Both sites that cite Gardner (1974) through Davis for the absence of global pattern now give Gardner's own words, "This is an unsolved problem" — an open question, not a verdict. CORRECTIONS.md CX-36B-B |
+| v1.24 | 2026-10-28 | **Gardner quoted, not paraphrased (Codex's final review, gpt-6-astra; triaged by Fable; push group G7; F03-006#3).** Both sites that cite Gardner (1974) through Davis for the absence of global pattern now give Gardner's own words, "This is an unsolved problem" — an open question, not a verdict. CORRECTIONS.md CX-36B-B |
+| v1.25 *(current)* | 2026-11-12 | **Eleven sentences put back to their sources (Codex's final review, gpt-6-astra; adjudicated by Fable, FV2 slice 1; push group Q1049R4, CX-37C-E; F03-006#2, F02-H04#31, AIF-001#5/#6, F11-017#1/#2/#3/#4/#5/#6/#7, F08-017#5/#8/#10, F03-H01#31, F03-H04#3/#5, F02-H05#22, F03-H05#24).** The summary calls Davis's book a detailed, book-length structural reading rather than the most detailed in decades, and the counterexample one his book does not report checking; the registration fixed names and thresholds ahead of the scorers and results in the public history, operational choices such as the palindrome radius came with the scorers, and the order before any population number is public while the absence of a private look is operator-attested (summary, abstract, §2, Verification Guide); row 1 states that the registered exact-union template is not scored; rows 4 and 8 read "unresolved at 2×10⁹ probes", zero hits being starvation, not "extreme"; the TR-8 remark about a conservative null is about C1–C5, and TR-8 marks it unargued; the nulls are the population-informative findings with the #43–50 array excepted; §3b(iii) excludes selective reporting within the declared bank only; every Drasny room is a maximum-coverage window over a family not restated, room c tied; the 105–139-bit residual is unexplained by the layers each reading conditions on, not by all known rules. Old wordings are quoted in dated notes at their sites. No mass, threshold or certificate changes and nothing promotes; rows 4 and 8 stay in the data-like class. See CORRECTIONS.md (CX-37C-E). |

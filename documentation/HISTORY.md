@@ -12308,3 +12308,20 @@ Q-686=DONE
   measurement" now gives the order TR-2's STATUS block records, and TR-2's scope note no longer says the four-class
   comparison "has not been run" — its calibration ran and vetoed it, so the King Wen comparison will not be run.
   TR-2 revision row v1.47. `TestBatchQ1116` holds both sentences. Found by Fable while adjudicating batch Q1049R2.
+
+## 2026-11-12 — batch Q1049R4: eleven TR-10 sentences from the FV2 slice-1 adjudication
+
+- **TR-10 (CX-37C-E).** The fourth report-by-report batch of backlog Q-1049. Each of TR-10's 11 rows was checked
+  against the code, the commit order or the cited report before it was changed. Scoped: Davis's book is a detailed,
+  book-length reading, not the most detailed in decades; his book does not report checking the counterexample; the
+  wave-1 registration's public order is shown and the absence of a private look is operator-attested (four sites);
+  the registered exact-union template of row 1 is not scored; the nulls are the population-informative findings
+  with row 3 excepted; §3b(iii) excludes selective reporting within the declared bank; the Drasny rooms are
+  maximum-coverage windows over an unstated family, room c tied; the 105–139-bit residual is unexplained by the
+  layers each reading conditions on. Corrected: rows 4 and 8 read "unresolved at 2×10⁹ probes", not "extreme"; the
+  TR-8 "conservative" remark is about C1–C5 and is unargued there. Every edit keeps its line count; revision row
+  v1.25.
+- **Not in this batch.** Q-1049's other report rows (TR-4, METHODS, CAPSTONE_GUIDE, FULL31_EXACT_AGGREGATES) and
+  its documentation and root rows stay open.
+- No mass, threshold, certificate or canonical sha changed. `TestBatchQ1049R4` holds each sentence and fails on the
+  parent tree. Found by Codex (gpt-6-astra), final review; adjudicated by Fable.
