@@ -39821,3 +39821,70 @@ gender-rule masses, and room c ties another window.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group Q1049R4; the defects were found by Codex
 (gpt-6-astra), final review; adjudicated by Fable (claude-fable-5-1), FV2 slice 1.
+
+## CX-37C-F — METHODS: ten sentences said more than the code, the commit record or the method itself (reports/METHODS.md; reports/TR8_REORDERING_REVISITED.md; tests.py)
+
+**2026-11-12.** **Source.** Codex (gpt-6-astra), final review, in the numbering of its 2026-10-26 re-pinned run
+(F02-006#4, F02-007#2/#3, F02-H04#3, F08-009#3/#16/#17, F11-001#2, F11-018#1/#2/#3/#4/#6); adjudicated by Fable
+(FV2 slice 1). Backlog Q-1049, batch 5, push group Q1049R5. METHODS' earlier notes cite F02-006#4 and F02-H02#16
+from an earlier run; those numbers name different findings.
+
+**What was published, and what it says now.** Each sentence was checked against the code, the commit record or the
+method before it was changed. Where an adjudicated wording was wrong in detail, the source was followed.
+- **The ratio-estimator bias "of order 1/n_eff,rel", "percent-scale" at the deep-tail rows** (§"Knuth estimator
+  CIs"). 1/n_eff,rel is the numerator's relative variance. To leading order the bias of ΣWX/ΣW is set by the
+  denominator's relative variance and the numerator–denominator covariance; with a constant weight the ratio is an
+  unbiased sample mean at any n_eff,rel. The sentence now says this, and still says the bias is not quantified and
+  the fractions are not bias-corrected. The RULE CORRECTED note's back-reference at :248, which named the bias
+  '~1/n_eff,rel', is dated the same way.
+- **"A BH reading at that count needs the rarity to cross its own BH line"** (§"Global observable ledger", LEDGER
+  SCOPED note; the same sentence in TR-8's executive summary). Benjamini–Hochberg rejects every hypothesis up to the
+  largest rank whose p-value passes its line, so the rarity is rejected if any rank at or beyond its own passes.
+  Crossing its own line is sufficient, not necessary. Both copies now say so and mark the worked ranks (≥ 4
+  one-sided, ≥ 7 two-sided) as the own-line case. No figure, bar or verdict changes.
+- **"That TR-8 rarity is itself a literature-rule registry mass, the same class the narrowing excludes."**
+  1.054426×10⁻⁴ is the exact pair-only (C1) null value 47/445740 (`solve.pair_null_gender_le2_exact()`, re-run),
+  not the gender rule's C1–C5 registry mass (≈8.80×10⁻⁵, the ×11,364 figure); TR-8 separated the two in its own
+  text earlier. The sentence now names the quantity, and says that whether the pair-null restatement escapes the
+  narrowing's exclusion is not decided here or in TR-8.
+- **"Each cert pairs with the exact `sat.py --emit-cnf <target>` regeneration command"** (§"Artifact access"). The
+  TR-5 rigidity kernel regenerates with `sat.py --rigidity-cnf`; `--emit-cnf` has no rigidity target
+  (`target_rules` rejects it), and `verify_all.sh` and the certificates README use `--rigidity-cnf`. The sentence
+  now names the exception and points at the per-certificate table.
+- **"Everything a rung-4 examiner needs is public"** (§"Independence ladder"). The rebuild material is public; some
+  inputs an auditor of the process would want are not: the pre-registrations escrowed by digest only (among them
+  the frozen TR-8 sampler registration), the full four-class design, and the discovery-phase ledger. The sentence
+  now lists them. (The adjudicated wording named only the TR-8 registration; PREREGISTRATION_ESCROW.md lists
+  several files published by digest only.)
+- **"Where a test could have been graded after the fact, the design was frozen first and published"**
+  (§"Pre-registration, honestly scoped"). The same paragraph says earlier results were not pre-registered. The
+  sentence is now scoped to tests registered in advance. (The adjudicated wording, "for the recent
+  model-comparison work", would have left out the pre-registered testing families.)
+- **"All fixed before the numbers existed"** (same paragraph). F11's registration and results entered the public
+  history in one commit, `c0b0ef6`, and TR-2 calls that freeze operator-attested. The sentence now says so.
+- **`[TR-4]`, `[TR-5]`, `[TR-11]`** in §"Canonical quantities" and two later sites, and `[TR-2]` once. They had no
+  link definitions and rendered as bracketed text. All fifteen are now inline links.
+- **The direct mask-DP recount "sharing only the problem spec"** (§"Canonical quantities", the C1–C7-with-C3-dropped
+  row). Route D shares with the IE route the problem spec (pair table, class map, the B0 budget derivation,
+  rung-spec parsing, the C6/C7 pin cross-check) and its scalar arithmetic (modular arithmetic, prime selection,
+  `ie_crt3`), but none of the counting code, as `verify.c`'s Route D INDEPENDENCE note says. The cell now says so.
+  (The adjudicated wording left out the B0 derivation and the pair table.)
+- **"The only constraint in this system without an exact full-scale instrument is C3"** (§"Why these two remain
+  estimates"). Four lines later the same section says the exact instrument for C3 exists and is built. The sentence
+  now says that no exact full-scale count has been run under C3, and that the run was priced and declined.
+
+Every METHODS edit keeps its line count, so no line number in the report moves; METHODS has no revision table.
+TR-8's edit is line-neutral and its revision row v1.28 is appended. Old wordings of published claims are quoted in
+dated notes at their sites, except where a phrase was only added to and the link repairs. No count, mass, bar,
+certificate, verdict or canonical sha changes.
+
+**Not changed here.** The same paragraph's "pre-registration governs the recent model-comparison work, not the
+suite retrospectively" is narrower than the pre-registered testing families; it is left for review.
+
+**Tests.** `TestBatchQ1049R5` holds each new fragment and the absence of each old one; its red half puts the old
+fragments back and the check fails. Data checks bind the corrections to their sources: the step-up rule on a
+seven-value vector, 47/445740, `sat.py`'s rigidity flag and target list, the shared helpers in `verify.c`'s Route
+D, and the single public commit that carries F11's registration and results.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group Q1049R5; the defects were found by Codex
+(gpt-6-astra), final review; adjudicated by Fable (claude-fable-5-1), FV2 slice 1.

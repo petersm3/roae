@@ -12325,3 +12325,20 @@ Q-686=DONE
   its documentation and root rows stay open.
 - No mass, threshold, certificate or canonical sha changed. `TestBatchQ1049R4` holds each sentence and fails on the
   parent tree. Found by Codex (gpt-6-astra), final review; adjudicated by Fable.
+
+## 2026-11-12 — batch Q1049R5: ten METHODS sentences from the FV2 slice-1 adjudication
+
+- **METHODS (CX-37C-F).** The fifth report-by-report batch of backlog Q-1049. Each of METHODS' 10 rows was checked
+  against the code, the commit record or the method before it was changed. Corrected: the ratio-estimator bias is
+  set by the denominator's relative variance and the covariance, not by 1/n_eff,rel; a BH rejection of TR-8's
+  rarity needs some rank at or beyond its own to pass, not its own line (also in TR-8's executive summary, revision
+  row v1.28); that rarity is the exact pair-only null value 47/445740, not a registry mass; the rigidity certificate
+  regenerates with `sat.py --rigidity-cnf`; Route D shares the problem spec and the scalar arithmetic with the IE
+  route, not the spec only; C3 has an exact instrument, and only its full-scale run is missing. Scoped: the inputs a
+  process auditor would want that are not public are listed; the pre-registration sentence covers tests registered
+  in advance, and F11's freeze is operator-attested. Fifteen bracketed TR references with no link definition are
+  now links. Every METHODS edit keeps its line count.
+- **Not in this batch.** Q-1049's other report rows (TR-4, CAPSTONE_GUIDE, FULL31_EXACT_AGGREGATES) and its
+  documentation and root rows stay open.
+- No count, mass, bar, certificate, verdict or canonical sha changed. `TestBatchQ1049R5` holds each sentence and
+  fails on the parent tree. Found by Codex (gpt-6-astra), final review; adjudicated by Fable.

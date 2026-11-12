@@ -47063,7 +47063,7 @@ class TestBatchFT2a(unittest.TestCase):
             t = self._norm("\n".join(l for l in text.splitlines() if not l.startswith("| v1.")))
             i = t.find(self.NOTE_ANCHOR)
             self.assertGreaterEqual(i, 0, "precondition: %s carries the 2026-09-24 sentence" % rel)
-            w = t[i:i + 2000]  # the note is ~2,150 characters since FV1 (CX-35Y-C); its verdict clause sits ~1,850 in
+            w = t[i:i + 2400]  # the note is ~2,150 characters since FV1 (CX-35Y-C); its verdict clause sits ~1,850 in (~2,100 since Q1049R5's BH clause, CX-37C-F)
             probs += ["%s lacks %r" % (rel, s) for s in self.NOTE_NEEDS if s not in w]
         return probs
 
@@ -62821,8 +62821,8 @@ class TestBatchQ1037b(unittest.TestCase):
                 "limit is 3.0×10⁻⁷, about 3/N_pool.")
         for rel in ("reports/TR8_REORDERING_REVISITED.md", d + "/README.md"):
             self.assertEqual(self._r(rel).count(note), 1, rel)
-        self.assertIn("| v1.27 *(current)* | 2026-11-06 |", self._r("reports/TR8_REORDERING_REVISITED.md"),
-                      "TR-8 revision row")
+        self.assertRegex(self._r("reports/TR8_REORDERING_REVISITED.md"), r"\| v1\.27 (\*\(current\)\* )?\| 2026-11-06 \|",
+                         "TR-8 revision row")   # current until Q1049R5's v1.28
 
 
 class TestBatchQ576(unittest.TestCase):
@@ -64394,6 +64394,129 @@ class TestBatchQ1049R4(unittest.TestCase):
         self.assertEqual(anc("09e2107", "5ace541"), 0, "wave-2 bank before its results")
 
 # end class TestBatchQ1049R4
+
+
+class TestBatchQ1049R5(unittest.TestCase):
+    """Push group Q1049R5 (CX-37C-F): the ten METHODS rows of Fable's FV2 slice-1 adjudication of Codex's final
+    review (backlog Q-1049, batch 5), each checked against the code, the commit record or the method before it was
+    changed, plus the same BH sentence in TR-8's executive summary. PAIRS holds (file, row, fragment as published,
+    fragment now); the cured test requires each new fragment once and each old one nowhere, and the red test puts
+    every old fragment back and requires every pair to be reported. The data checks bind the corrections to their
+    sources: BH's step-up rule on a seven-value vector (D548), 47/445740 (D550), sat.py's rigidity flag (D552), the
+    helpers Route D shares in verify.c (D565), and the one public commit that carries F11's registration and results
+    (D562). Every test except the data checks fails on the parent tree a418ebc0. Developed with AI assistance
+    (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    M = "reports/METHODS.md"
+    T8 = "reports/TR8_REORDERING_REVISITED.md"
+    BH_OLD = "A BH reading at that count needs the rarity to cross its own BH line: one-sided"
+    BH_NEW = ("A BH reading at that count needs some rank at or beyond the rarity's to cross its BH line, since BH "
+              "rejects every hypothesis up to the largest passing rank; the rarity crossing its own line is sufficient, "
+              "not necessary")
+    PAIRS = (
+        (M, 'D545', "**bias** of order 1/n_eff,rel that this suite does not quantify;",
+         "**bias**, set to leading order by the denominator's relative variance and the numerator–denominator covariance, not by 1/n_eff,rel"),
+        (M, 'D545b', "the ~1/n_eff,rel ratio bias two\n  sentences above is untouched.", "the ratio bias two\n  sentences above (\"~1/n_eff,rel\" here until 2026-11-12, CX-37C-F"),
+        (M, 'D548', BH_OLD, BH_NEW),
+        (T8, 'D548t', BH_OLD, BH_NEW),
+        (M, 'D550', "that TR-8 rarity is itself a literature-rule\n  registry mass, the same class the narrowing excludes, so it",
+         "that TR-8 rarity is the exact pair-only (C1) null value 47/445740, a different quantity from the gender rule's C1–C5 registry mass"),
+        (M, 'D552', "Each cert pairs with the exact `sat.py --emit-cnf <target>` regeneration\n  command;",
+         "for all but the TR-5 rigidity kernel, which regenerates with `sat.py --rigidity-cnf`"),
+        (M, 'D558', "Everything a rung-4 examiner\nneeds is public",
+         "some inputs an auditor of the *process* would want are not: the pre-registrations escrowed by digest only"),
+        (M, 'D562', "all fixed before the numbers existed.\n",
+         "all fixed before the numbers existed (operator-attested: the registration and the results entered the public history in one commit, `c0b0ef6`"),
+        (M, 'D563', "**Pre-registration, honestly scoped.** Where a test could have been graded after the fact, the\n",
+         "**Pre-registration, honestly scoped.** Where a test was registered in advance — not every test that could have been graded after the fact"),
+        (M, 'D564', "| [TR-4] §3 |", "| [TR-4](TR4_SIZE_OF_THE_SPACE.md) §3 |"),
+        (M, 'D565', "no inclusion–exclusion, sharing only the problem spec)",
+         "sharing with the IE route the problem spec — pair table, class map, the B0 budget derivation, rung-spec parsing, the C6/C7 pin cross-check — and its scalar arithmetic"),
+        (M, 'D566', "system without an exact full-scale instrument is **C3**.",
+         "system under which no exact full-scale count has been run is **C3**: its exact instrument exists and is built (below)"),
+    )
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _problems(self, texts):
+        probs = []
+        for rel, row, old, new in self.PAIRS:
+            t = texts[rel]
+            if t.count(new) != 1:
+                probs.append("%s: new fragment present %d times" % (row, t.count(new)))
+            elif old in t:
+                probs.append("%s: old fragment still present" % row)
+        return probs
+
+    def _texts(self):
+        return {self.M: self._r(self.M), self.T8: self._r(self.T8)}
+
+    def test_q1049r5_methods_sentences_cured(self):
+        self.assertEqual(self._problems(self._texts()), [])
+
+    def test_q1049r5_methods_red_on_old(self):
+        texts = self._texts()
+        for rel, row, old, new in self.PAIRS:
+            self.assertEqual(texts[rel].count(new), 1, "precondition: %s new fragment present" % row)
+        for rel, row, old, new in self.PAIRS:
+            texts[rel] = texts[rel].replace(new, old)
+        self.assertEqual(len(self._problems(texts)), len(self.PAIRS))
+
+    def test_q1049r5_no_bare_tr_references_left(self):
+        import re
+        self.assertEqual(re.findall(r"\[TR-\d+\](?![(:])", self._r(self.M)), [])
+
+    def test_q1049r5_revision_row_and_ledger_entry(self):
+        rows = [l for l in self._r(self.T8).split("\n") if l.startswith("| v1.")]
+        self.assertTrue(rows[-1].startswith("| v1.28 *(current)* | 2026-11-12 |"), rows[-1][:60])
+        self.assertEqual(sum(l.split("|")[1].strip().endswith("*(current)*") for l in rows), 1, "one current revision row")
+        self.assertIn("CX-37C-F", rows[-1])
+        self.assertIn("\n## CX-37C-F — ", self._r("documentation/CORRECTIONS.md"), "the CX-37C-F entry exists")
+
+    def test_d548_bh_rejects_up_to_the_largest_passing_rank(self):
+        p, q = [0.001, 0.002, 0.003, 0.03, 0.04, 0.045, 0.05], 0.05
+        m = len(p)
+        own = [p[i] <= (i + 1) * q / m for i in range(m)]
+        self.assertFalse(own[3], "precondition: rank 4 misses its own line")
+        k = max(i + 1 for i in range(m) if own[i])
+        self.assertEqual(k, 7, "rank 7 passes, so BH rejects all seven, rank 4 included")
+
+    def test_d550_the_rarity_is_the_pair_null_value(self):
+        import solve
+        from fractions import Fraction
+        self.assertEqual(Fraction(solve.pair_null_gender_le2_exact()), Fraction(47, 445740))
+        self.assertEqual("%.6e" % (47 / 445740), "1.054426e-04")
+        self.assertIn("1.054426×10⁻⁴", self._r(self.M))
+
+    def test_d552_rigidity_regenerates_with_its_own_flag(self):
+        import sat
+        with self.assertRaises(SystemExit):
+            sat.target_rules("rigidity")
+        self.assertIn("`python3 sat.py --rigidity-cnf <out.cnf>`", self._r("reports/certificates/README.md"))
+        self.assertIn('GEN="python3 sat.py --rigidity-cnf', self._r("reports/certificates/verify_all.sh"))
+
+    def test_d565_route_d_shares_the_spec_and_the_arithmetic(self):
+        v = self._r("verify.c")
+        i = v.index("static int dp_count_main(int argc, char **argv) {")
+        body = v[i:v.index("\n}\n", i)]
+        for h in ("ie_build_orbits()", "ie_parse_spec(", "ie_b0g_dfs(", "ie_pick_primes(", "ie_crt3("):
+            self.assertIn(h, body, h)
+        self.assertIn("INDEPENDENCE from --ie-count (what IS shared, and why that is sound):", v)
+
+    def test_d562_f11_registration_and_results_share_one_commit(self):
+        r = subprocess.run(["git", "cat-file", "-e", "c0b0ef67^{commit}"], cwd=self.ROOT, capture_output=True)
+        if r.returncode != 0:
+            self.skipTest("history not available")
+        out = subprocess.run(["git", "log", "--diff-filter=A", "--format=%H", "--",
+                              "reports/evidence/f11/PREREGISTRATION.md", "reports/evidence/f11/RESULTS.md"],
+                             cwd=self.ROOT, capture_output=True, text=True).stdout.split()
+        self.assertEqual([h[:8] for h in out], ["c0b0ef67"])
+        self.assertIn("is **operator-attested, not publicly verifiable**", self._r("reports/TR2_THE_RULES_CONFLICT.md"))
+
+# end class TestBatchQ1049R5
 
 
 if __name__ == "__main__":

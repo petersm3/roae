@@ -659,8 +659,8 @@ reports/METHODS.md	6	ledger-link	CORRECTION	n/a	-	not-a-marker	0b88d6e7fd91
 reports/METHODS.md	6	marker	Corrected	1	-	reviewed:sentence-already-points-at-CORRECTIONS-and-names-no-public-archive	0b88d6e7fd91
 reports/METHODS.md	25	marker	CORRECTED	2	-	reviewed:marker-holds-the-only-statement-in-the-C4-bullet-of-what-the-classical-record-attests	7572f71d2e55
 reports/METHODS.md	39	marker	Corrected	1	-	reviewed:bullet-already-defines-C5-as-the-63-transition-multiset	d5cd7e932a31
-reports/METHODS.md	71	ledger-link	CORRECTION	n/a	-	not-a-marker	30d15ac6b932
-reports/METHODS.md	79	ledger-link	CORRECTION	n/a	-	not-a-marker	b1fea22b94e7
+reports/METHODS.md	71	ledger-link	CORRECTION	n/a	-	not-a-marker	01e8d5e76dbc
+reports/METHODS.md	79	ledger-link	CORRECTION	n/a	-	not-a-marker	e1c5a942ca61
 reports/METHODS.md	91	marker	Corrected	1	-	reviewed:sentence-already-says-priced-and-declined-and-cites-TR-12-section-9	06b77b191546
 reports/METHODS.md	114	marker	Corrected	1	-	reviewed:row-already-says-pin-to-a-commit-sha	8dd1ef0fa19f
 reports/METHODS.md	142	marker	Corrected	3	GATE 4b	reanchored:GATE-4b=allowlist-row	bc73b6ca1f60
