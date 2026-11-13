@@ -64519,6 +64519,208 @@ class TestBatchQ1049R5(unittest.TestCase):
 # end class TestBatchQ1049R5
 
 
+class TestBatchPerfBench(unittest.TestCase):
+    """Push group PB (backlog Q-1083, Q-1084, Q-1085; CX-37D-A): three perf_bench.sh rows from Fable's
+    FABLE_RESTACK2_CHECK.md sections 1.4-1.5 and FABLE_RESTACK3_CHECK.md section 4.
+
+    Q-1083: when perf_bench.sh is interrupted inside a FUNCTION call whose stdout is redirected, the INT/TERM/HUP
+    trap runs with that redirect still on fd 1. The orchestrator's environment exports such a function: an `az()`
+    wrapper (the F-series guard) that ends in `command az "$@"`. So at `az network vnet create ... >/dev/null` the
+    trap's INTERRUPTED line and teardown's TEARDOWN line went to /dev/null: not to the terminal and not to
+    /tmp/perf_bench_$$.log. Without the exported function, az is an external command, the redirect applies only in
+    the child, and fd 1 stays on the log pipe. That is why Fable's instrumented run saw /dev/null and a minimal
+    script did not. The test exports the wrapper itself (BASH_FUNC_az%%), so it shows the defect on any host, and it
+    is red on the parent tree 7b1b2f8b. The cure opens fd 3 on the log pipe in the same `exec` that starts the tee,
+    and the traps and teardown write to fd 3.
+
+    Q-1084: test_d1167 interrupts at the vnet step. On a host where fd 1 is /dev/null there, the old script (blob
+    f8763954, commit 3031553f) passes it, because its emit cannot hit the dead tee and raise SIGPIPE. The test here
+    interrupts at `az vm create ... 2>&1 | sed`. A pipeline runs az in a subshell, so the shell's fd 1 stays on the
+    pipe whether az is a function or not. It strips every exported function and asserts first that perf_bench.sh
+    can trap SIGINT. Measured red on the 3031553f script (killed by SIGPIPE, no `group delete`) and green on the
+    a162d942 script, which is byte-identical to the parent tree's. This test is green on the parent tree, since the
+    fix it checks has already landed (FV2-R).
+
+    Q-1085: two wrong cites. perf_bench.sh's comment put the tee on "line 29"; it is on the `exec > >(... tee ...)`
+    line above that comment. RETRACTED_PHRASES.tsv's row RP-5e7da3fc (retracted 2026-09-02) cites perf_bench.sh
+    :104-105, :110 and :118-119 with no tree pinned. Measured at 9fe036ea, the commit that wrote the row, the vnet
+    pair is 105-106 and the SSH/SCP pair is 119-120. A dated note gives the three pinned cites and leaves the row's
+    own words as they are. Both text tests fail on the parent tree; the data check reads 9fe036ea.
+
+    Stubs only: no cloud call and no real VM. Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    PB = "scripts/perf_bench.sh"
+    RP = "documentation/RETRACTED_PHRASES.tsv"
+    RP_KEY = "Recorded in CORRECTIONS.md as RP-5e7da3fc."   # the row is found by its key: the retracted phrase itself would trip GATE 3 here
+    RP_OLD = ("provisions a fresh resource group with its own vnet at 10.0.0.0/16 (" ":104-105) rather than joining "
+              "claude-vnet, then creates the VM with --public-ip-sku Standard --nsg-rule SSH (" ":110) and connects with "
+              "StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null (" ":118-119)")
+    RP_NOTE = ("Note 2026-11-12 (CX-37D-A, Q-1085): this row's three line cites name no tree, and two of "
+               "them are one line early. Measured at 9fe036ea, the commit that wrote this row, they are scripts/perf_bench.sh:105-106@9fe036ea "
+               "(the vnet pair; 104 is az group create), :110@9fe036ea (--public-ip-sku Standard --nsg-rule SSH) and "
+               ":119-120@9fe036ea (the SSH and SCP definitions; 118 is blank).")
+    TEE_OLD = "the process-substitution `tee` on line 29 and is indented by `sed`.)"
+    TEE_NEW = "the process-substitution `tee` in the `exec > >(... tee ...)` line above, and is indented by `sed`.)"
+
+    _default_signals = staticmethod(TestBatchFV2R._default_signals)
+    _sig_ignored = staticmethod(TestBatchFV2R._sig_ignored)
+    _comm = staticmethod(TestBatchFV2R._comm)
+    _need_proc = TestBatchFV2R._need_proc
+    _await_stub = TestBatchFV2R._await_stub
+    _interrupt = TestBatchFV2R._interrupt
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="pbq1083_")
+        cls.n = 0
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _d(self):
+        type(self).n += 1
+        d = os.path.join(self.tmp, "c%d" % self.n)
+        os.makedirs(os.path.join(d, "bin"))
+        return d
+
+    def _bench(self, block_on, wrap_az):
+        """Run perf_bench.sh against a PATH az stub that logs every call, answers `group delete` with one line,
+        and blocks in `exec sleep 60` at the call that starts with `block_on`. With wrap_az, the run's environment
+        exports an az() function of the orchestrator's shape (it logs, then `command az "$@"`); otherwise no
+        function is exported at all. SIGINT the run's process group once the stub sleeps. Returns
+        (started, sigint_ignored, output, log_text or None, az_calls, function_calls)."""
+        self._need_proc()
+        d = self._d()
+        azlog, fnlog, mark = (os.path.join(d, x) for x in ("az.log", "fn.log", "stub.started"))
+        stub = os.path.join(d, "bin", "az")
+        with open(stub, "w") as fh:
+            fh.write("#!/bin/bash\necho \"$*\" >> %s\ncase \"$*\" in\n  %s*) echo $$ > %s; exec /bin/sleep 60;;\n"
+                     "  \"group delete\"*) echo PB-GROUP-DELETE-ACK;;\nesac\nexit 0\n"
+                     % (shlex.quote(azlog), block_on, shlex.quote(mark)))
+        os.chmod(stub, 0o755)
+        e = {k: v for k, v in os.environ.items() if not k.startswith(("GIT_", "BASH_FUNC_"))}
+        e["PATH"] = os.path.join(d, "bin") + os.pathsep + e["PATH"]
+        e["PB_SESSION_LOG"] = os.path.join(d, "session.txt")
+        if wrap_az:
+            e["BASH_FUNC_az%%"] = '() {  echo "$*" >> %s; command az "$@"\n}' % shlex.quote(fnlog)
+        p = subprocess.Popen(["bash", os.path.join(self.ROOT, self.PB), "--control-commit", "HEAD",
+                              "--treatment-commit", "HEAD", "--scale", "1B", "--burn-seconds", "30",
+                              "--throttle-min-mhz", "0"], cwd=self.ROOT, env=e, stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT, text=True, start_new_session=True,
+                             preexec_fn=self._default_signals)
+        log = "/tmp/perf_bench_%d.log" % p.pid
+        try:
+            started = self._await_stub(p, mark, lambda sp: self._comm(sp) == "sleep", 120)
+            out, ign = self._interrupt(p, started)
+            text = self._read_or(log, None)
+        finally:
+            if os.path.exists(log):
+                os.remove(log)
+        return started, ign, out, text, self._read_or(azlog, ""), self._read_or(fnlog, "")
+
+    @staticmethod
+    def _read_or(path, default):
+        if not os.path.exists(path):
+            return default
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            return fh.read()
+
+    # ---- Q-1083 ------------------------------------------------------------------------------------------------
+    def test_q1083_interrupt_inside_a_redirected_function_call_is_reported(self):
+        started, ign, out, log, calls, fn = self._bench('"network vnet create"', wrap_az=True)
+        self.assertTrue(started, "precondition: provisioning reached the vnet step: " + out[-1500:])
+        self.assertIs(ign, False, "precondition: perf_bench.sh can trap SIGINT (SigIgn ignored=%r)" % ign)
+        self.assertIn("network vnet create", fn, "precondition: az ran as the exported function, so the call's "
+                      ">/dev/null applied in the shell itself: " + fn)
+        self.assertIn("group delete", calls, "precondition: the EXIT-trap teardown ran: " + calls)
+        self.assertIsNotNone(log, "precondition: the run wrote /tmp/perf_bench_<pid>.log")
+        for what, text in (("captured output", out), ("perf_bench log", log)):
+            self.assertIn("INTERRUPTED (INT)", text, "the INT trap's line was lost from the %s: %s" % (what, text[-1200:]))
+            self.assertRegex(text, r"\] TEARDOWN RG-PERFBENCH-\S+", "teardown's line was lost from the " + what)
+            self.assertIn("  PB-GROUP-DELETE-ACK", text, "the group delete's own output was lost from the " + what)
+
+    def test_q1083_fd3_is_opened_with_the_tee_and_used_by_the_traps(self):
+        s = self._r(self.PB)
+        lines = s.split("\n")
+        tee = [l for l in lines if l.startswith("exec > >(")]
+        self.assertEqual(len(tee), 1, "precondition: one tee exec")
+        self.assertIn(") 2>&1 3>&1", tee[0], "fd 3 is not opened on the log pipe with the tee")
+        for sig in ("INT", "TERM", "HUP"):
+            self.assertIn('emit "INTERRUPTED (%s)" >&3;' % sig, s, sig)
+        self.assertIn('emit "TEARDOWN $RG" >&3', s)
+        self.assertIn("sed 's/^/  /' >&3 || true", s)
+        self.assertEqual(s.count("\n"), 699, "perf_bench.sh changed length: the unpinned cites to it moved")
+
+    def test_q1083_unpinned_cites_still_land(self):
+        """DEVELOPMENT.md and PERFORMANCE_HISTORY.md cite perf_bench.sh by line with no tree; this batch edits
+        lines in place, so every one of them must still land."""
+        src = self._r(self.PB).split("\n")
+        at = lambda n: src[n - 1]
+        dev, ph = self._r("documentation/DEVELOPMENT.md"), self._r("documentation/PERFORMANCE_HISTORY.md")
+        for cite in ("(`perf_bench.sh" ":193-194`)", "(`" ":198`)", "(`" ":207-208`)"):  # split so citation_line_gate does not read them as cites
+            self.assertIn(cite, dev, "precondition: DEVELOPMENT.md still cites " + cite)
+        self.assertIn("(`scripts/perf_bench.sh" ":126-128`)", ph, "precondition: PERFORMANCE_HISTORY.md's cite")
+        self.assertTrue(at(193).startswith("az network vnet create") and "--subnet-name subnet" in at(194))
+        self.assertIn("--public-ip-sku Standard --nsg-rule SSH", at(198))
+        self.assertTrue(at(207).startswith('SSH="ssh ') and at(208).startswith('SCP="scp '))
+        for n, scale in ((126, "1B)"), (127, "1T)"), (128, "11.2T)")):
+            self.assertTrue(at(n).lstrip().startswith(scale) and "VM_SIZE=" in at(n), n)
+
+    # ---- Q-1084 ------------------------------------------------------------------------------------------------
+    def test_q1084_interrupt_at_an_unredirected_step_tears_down(self):
+        started, ign, out, log, calls, fn = self._bench('"vm create"', wrap_az=False)
+        self.assertTrue(started, "precondition: provisioning reached the vm create step: " + out[-1500:])
+        self.assertIs(ign, False, "precondition: perf_bench.sh can trap SIGINT (SigIgn ignored=%r; Q-1112)" % ign)
+        self.assertEqual(fn, "", "precondition: no exported az function ran")
+        self.assertIn("network vnet create", calls, "precondition: the vnet step ran before the interrupt")
+        self.assertIn("group delete", calls, "an interrupted bench left its host allocated: " + calls + out[-800:])
+        self.assertIn("INTERRUPTED (INT)", out, out[-1200:])
+        self.assertRegex(out, r"\] TEARDOWN RG-PERFBENCH-\S+", out[-1200:])
+
+    # ---- Q-1085 ------------------------------------------------------------------------------------------------
+    def test_q1085_tee_comment_names_the_exec_line(self):
+        s = self._r(self.PB)
+        self.assertNotIn(self.TEE_OLD, s, "the comment still puts the tee on line 29")
+        self.assertEqual(s.count(self.TEE_NEW), 1)
+        lines = s.split("\n")
+        tee = next(i for i, l in enumerate(lines) if l.startswith("exec > >(") and "exec tee " in l)
+        com = next(i for i, l in enumerate(lines) if "`exec > >(... tee ...)` line above" in l)
+        self.assertLess(tee, com, "the line the comment points at is not above it")
+
+    def _rp_row(self):
+        rows = [l for l in self._r(self.RP).split("\n") if self.RP_KEY in l]
+        self.assertEqual(len(rows), 1, "precondition: one RP-5e7da3fc row")
+        return rows[0]
+
+    def test_q1085_retracted_row_carries_the_pinned_cites(self):
+        row = self._rp_row()
+        self.assertIn(self.RP_OLD, row, "append-only: the row's own words are kept")
+        self.assertTrue(row.endswith(" " + self.RP_NOTE), "the dated note with the pinned cites is absent")
+        self.assertIn("Retracted 2026-09-02", row, "precondition: the row stays a dated row for citation_line_gate")
+
+    def test_q1085_pinned_cites_land_at_9fe036ea(self):
+        r = subprocess.run(["git", "show", "9fe036ea:" + self.PB], cwd=self.ROOT, capture_output=True, text=True)
+        if r.returncode != 0:
+            self.skipTest("history not available")
+        src = r.stdout.split("\n")
+        at = lambda n: src[n - 1].strip()
+        self.assertTrue(at(104).startswith("az group create"), "104 is the group create, not the vnet")
+        self.assertTrue(at(105).startswith("az network vnet create") and "10.0.0.0/16" in at(105))
+        self.assertTrue(at(106).startswith("--subnet-name subnet"))
+        self.assertIn("--public-ip-sku Standard --nsg-rule SSH", at(110))
+        self.assertEqual(at(118), "", "118 is blank")
+        self.assertTrue(at(119).startswith('SSH="ssh ') and "StrictHostKeyChecking=no" in at(119))
+        self.assertTrue(at(120).startswith('SCP="scp ') and "UserKnownHostsFile=/dev/null" in at(120))
+
+# end class TestBatchPerfBench
+
+
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))

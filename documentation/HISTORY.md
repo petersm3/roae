@@ -12342,3 +12342,17 @@ Q-686=DONE
   documentation and root rows stay open.
 - No count, mass, bar, certificate, verdict or canonical sha changed. `TestBatchQ1049R5` holds each sentence and
   fails on the parent tree. Found by Codex (gpt-6-astra), final review; adjudicated by Fable.
+
+## 2026-11-12 — batch PB: perf_bench.sh interrupt output, a discriminating teardown test, and two line cites
+
+- **perf_bench.sh (CX-37D-A).** Backlog Q-1083, Q-1084 and Q-1085, from Fable's checks of the restack2 and
+  restack3 stacks. An interrupt inside a function call whose stdout is redirected (an exported `az()` wrapper
+  makes `az ... >/dev/null` one) ran the trap with fd 1 on `/dev/null`, so the INTERRUPTED and TEARDOWN lines were
+  lost. The traps and teardown now write to fd 3, which is opened on the log pipe with the tee. test_d1167 passed
+  the old script wherever az is such a function; a new test interrupts at the `az vm create ... | sed` pipeline,
+  where the shell's fd 1 stays on the pipe, and is red on the old script on every host. A comment's "line 29" now
+  names the tee's `exec` line. RETRACTED_PHRASES.tsv's row RP-5e7da3fc gains a dated note pinning its
+  three cites to 9fe036ea, two of them corrected by one line.
+- perf_bench.sh keeps its line count, so its unpinned cites still land. No bench was run, and no count,
+  certificate, verdict or canonical sha changed. `TestBatchPerfBench` fails on the parent tree. Found by Fable;
+  the parent finding (D1167) is Codex's (gpt-6-astra).

@@ -39888,3 +39888,45 @@ D, and the single public commit that carries F11's registration and results.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group Q1049R5; the defects were found by Codex
 (gpt-6-astra), final review; adjudicated by Fable (claude-fable-5-1), FV2 slice 1.
+
+## CX-37D-A — perf_bench.sh: interrupt lines lost inside a redirected function call, a test that did not discriminate, and two wrong line cites (scripts/perf_bench.sh; documentation/RETRACTED_PHRASES.tsv; tests.py)
+
+**2026-11-12.** **Source.** Fable's (claude-fable-5-1) checks of the restack2 and restack3 public stacks
+(sections 1.4 and 1.5 of the first, section 4 of the second); backlog Q-1083, Q-1084 and Q-1085. The teardown on
+interrupt they build on is Codex's (gpt-6-astra) final-review finding F04-022#10 (FV2 D1167).
+
+**What was wrong, and what it does now.**
+- **Q-1083: the interrupt and teardown lines were lost.** When perf_bench.sh was interrupted during
+  `az group create ... >/dev/null` or `az network vnet create ... >/dev/null`, its "INTERRUPTED" and "TEARDOWN"
+  lines reached neither the terminal nor `/tmp/perf_bench_$$.log`. The teardown itself still ran. Fable measured fd 1
+  as `/dev/null` at trap time and left the cause open. The cause: where the shell exports an `az()` function (here,
+  a guard that ends in `command az "$@"`), the call is a function call, so its `>/dev/null` applies to the shell
+  itself, and a trap that fires inside it runs with that redirect on fd 1. Where az is an external command, the
+  redirect applies only in the child and fd 1 stays on the log pipe. The script now opens fd 3 on the log pipe in
+  the same `exec` that starts the tee, and the INT/TERM/HUP traps and teardown (its two lines and the group delete's
+  output) write to fd 3. The edits are made in place, so perf_bench.sh keeps its 699 lines and every unpinned line
+  cite to it (DEVELOPMENT.md `:193-194`, `:198`, `:207-208`; PERFORMANCE_HISTORY.md `:126-128`) still lands.
+- **Q-1084: test_d1167 did not discriminate on every host.** It interrupts at the vnet step. Where az is an exported
+  function, fd 1 is `/dev/null` there, so the old script (3031553f) could not die of SIGPIPE and passed: measured 3/3
+  OK with the function exported and 3/3 FAILED without it. A new test interrupts at `az vm create ... 2>&1 | sed`,
+  where az runs in a pipeline subshell and the shell's fd 1 stays on the pipe either way. It exports no function, and
+  it first asserts that the script can trap SIGINT. Measured 5/5 red on the 3031553f script (no `group delete`) and
+  green on the a162d942 script, which is byte-identical to the parent tree's.
+- **Q-1085 (1).** A perf_bench.sh comment put the tee "on line 29". That was true only before 41802851, the commit
+  that wrote the comment; the tee was at line 79 on the parent tree. The comment now names "the
+  `exec > >(... tee ...)` line above", which cannot go stale.
+- **Q-1085 (2).** RETRACTED_PHRASES.tsv's row RP-5e7da3fc (retracted 2026-09-02; cited by key) cites
+  perf_bench.sh `:104-105`, `:110` and `:118-119` with no tree. Measured at 9fe036ea, the commit that wrote the row,
+  `:110` is right, but the vnet pair is 105-106 (104 is `az group create`) and the SSH/SCP pair is 119-120 (118 is
+  blank). The row's own words are kept, and a dated note appended to it gives the three cites pinned to 9fe036ea.
+
+**Tests.** `TestBatchPerfBench`. The Q-1083 behaviour test exports the `az()` wrapper itself, so it shows the defect
+on any host. It asserts that the function ran and that teardown ran, then requires the INTERRUPTED line, the TEARDOWN
+line and the group delete's output in both the captured output and the log. It fails on the parent tree 5/5 and
+fails on each of four one-line mutants of the cure. The Q-1085 text tests fail on the parent tree. Data checks read
+the four unpinned cites against the current script and the three pinned cites against 9fe036ea.
+
+No count, certificate, verdict, token or canonical sha changed; no bench was run.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group PB; the defects were found by Fable
+(claude-fable-5-1) in its restack2 and restack3 checks; the parent finding is Codex's (gpt-6-astra), final review.

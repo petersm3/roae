@@ -76,7 +76,7 @@ set -uo pipefail
 # ran, leaving the bench host allocated. The tee now ignores INT/TERM/HUP and exits on EOF when
 # this script exits; the signal traps below also ignore PIPE, so a dead log reader cannot
 # pre-empt the teardown.
-exec > >(trap '' INT TERM HUP; exec tee /tmp/perf_bench_$$.log) 2>&1
+exec > >(trap '' INT TERM HUP; exec tee /tmp/perf_bench_$$.log) 2>&1 3>&1 # Q-1083: fd 3 is the log pipe too; see the traps
 
 # ---------- argparse ----------
 CONTROL_COMMIT=""
@@ -157,9 +157,9 @@ emit() { printf '[%s] %s\n' "$(date -u +%H:%M:%SZ)" "$*"; }
 PB_PROVISIONED=0; PB_TORN_DOWN=0
 teardown() {   # idempotent: the explicit calls below and the EXIT trap may both reach it
     [ "$PB_TORN_DOWN" -eq 1 ] && return; PB_TORN_DOWN=1
-    [ $KEEP_VM -eq 1 ] && { emit "KEEP-VM requested; not tearing down $RG"; return; }
-    emit "TEARDOWN $RG"
-    az group delete -n "$RG" --yes --no-wait 2>&1 | sed 's/^/  /' || true
+    [ $KEEP_VM -eq 1 ] && { emit "KEEP-VM requested; not tearing down $RG" >&3; return; }
+    emit "TEARDOWN $RG" >&3
+    az group delete -n "$RG" --yes --no-wait 2>&1 | sed 's/^/  /' >&3 || true
 }
 
 # Q-851: the two solve.c copies sent to the VM used to be /tmp/solve_ctl_<commit>.c and
@@ -173,10 +173,10 @@ SRC_TMP=$(mktemp -d /tmp/perf_bench_src.XXXXXX) || { echo "FATAL: mktemp failed 
 # allocated. Once STEP 1 starts, every exit path -- normal, error, INT, TERM, HUP -- tears it down
 # (teardown is idempotent and honours --keep-vm).
 pb_on_exit() { if [ "$PB_PROVISIONED" -eq 1 ]; then teardown; fi; rm -rf "${SRC_TMP:?}"; }
-trap pb_on_exit EXIT
-trap 'trap "" PIPE; emit "INTERRUPTED (INT)"; exit 130' INT
-trap 'trap "" PIPE; emit "INTERRUPTED (TERM)"; exit 143' TERM
-trap 'trap "" PIPE; emit "INTERRUPTED (HUP)"; exit 129' HUP
+trap pb_on_exit EXIT # Q-1083: the traps and teardown write to fd 3, not fd 1. A signal that lands inside a function call runs the trap with that call's redirect on fd 1 (an exported az() wrapper makes `az ... >/dev/null` one), so their lines reached neither the terminal nor the log.
+trap 'trap "" PIPE; emit "INTERRUPTED (INT)" >&3; exit 130' INT
+trap 'trap "" PIPE; emit "INTERRUPTED (TERM)" >&3; exit 143' TERM
+trap 'trap "" PIPE; emit "INTERRUPTED (HUP)" >&3; exit 129' HUP
 
 emit "==================================="
 emit "perf_bench.sh — paired solve.c perf bench"
@@ -216,7 +216,7 @@ emit "STEP 2: Install + copy source + build both binaries"
 # fields below: they are written synchronously by `tee`, un-indented, so a
 # whole-line `grep -qx` on a verdict token means what it says. (The previous
 # version grepped /tmp/perf_bench_$$.log, which is written asynchronously by
-# the process-substitution `tee` on line 29 and is indented by `sed`.)
+# the process-substitution `tee` in the `exec > >(... tee ...)` line above, and is indented by `sed`.)
 # Keyed on $$ as well as the minute: two launches in the same minute used to share this
 # directory, and the token parsers below read whatever transcript is there — a stale
 # probe.out from an earlier run would have supplied this run's verdict.
