@@ -254,8 +254,8 @@ it does not do is transfer.
 (1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097051×10³⁹, via the out-of-core
 symmetry-quotient DP — see [reports/TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)). The
 Knuth estimate of the same quantity (1.0971×10³⁹, stated ±0.01%) again contains the exact value inside
-its stated envelope (the 4.4×10⁻⁵ / ratio-0.999956 figure is the estimate's five-sig-fig rounding gap,
-not a resolved estimator error). (The full C1–C5 count remains an estimate — for **cost**, not
+its stated envelope (the 4.4×10⁻⁵ / ratio-0.999956 figure is measured against the rounded numeral; against the archived estimate
+1.097088×10³⁹ the deviation is 0.0033 %, the estimator's own, and rounding adds about 0.0011 %; "is the estimate's five-sig-fig rounding gap, not a resolved estimator error" until 2026-11-12, CX-37C-H). (The full C1–C5 count remains an estimate — for **cost**, not
 structural, reasons: C3's global complement-position sum collapses to the bounded scalar identity
 **C3 = 16 + 8·G** — a machine-checked repo theorem since 2026-07-04, `lean/C3Decomposition.lean`
 `c3_slot_decomposition` — so a bounded-state exact design exists; carrying the G-channel alongside C5's

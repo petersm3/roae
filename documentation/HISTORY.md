@@ -12369,3 +12369,20 @@ Q-686=DONE
 - No mass, certificate, verdict or canonical sha changed; the only count that moves is the directive count.
   `TestBatchQ1113` holds the directive, binds the four published counts to the file, and fails on the parent tree.
   Found by Codex (gpt-6-astra), final review; adjudicated by Fable; built in the Fable lane.
+
+## 2026-11-12 — batch SIBLINGS: three wording siblings of the Q-1049 batches
+
+- **Q-1114 (CX-37C-H).** TR-11 called the C5-layer anchor's ~0.0044 % (ratio 0.999956, against the rounded
+  numeral 1.0971×10³⁹) a rounding gap, not a resolved estimator error. Against the archived estimate 1.097088×10³⁹
+  the exact value is 0.0033 % low (ratio 0.99997) and rounding adds about 0.0011 %, so most of the gap is the
+  estimator's. The executive summary, the abstract and §9 say so (revision row v1.40), as do the same sentences in
+  DESCRIPTION_LENGTH.md, SEARCH_SPACE_SIZE.md, VERIFY.md, CLAIMS_DECIDED.md and TR-9 (TR-9 revision row v1.40).
+  The exact value still lies inside the stated ±0.01 %.
+- **Q-1118 (CX-37C-I).** SOLVE_C_CLI.md's twelve bare `solve.py --…` command lines now read `python3 solve.py`
+  (`solve.py` is not executable). TR-1's note that the first-wave run's output is not archived now names
+  `f11_runA.out`, a later run that prints the same fractions with no standard errors or hit counts; TR-1 §3's deep-tail caveat no longer
+  reads two weighted fractions against a per-probe threshold (revision row v1.47).
+- **Q-1120 (CX-37C-J).** CRITIQUE.md, CITATIONS.md, CLAIMS_DECIDED.md and TR-12 §4 now call each Drasny room "a"
+  maximum-coverage decade window, with room c's tie noted, as TR-10 does since CX-37C-E (TR-12 revision row v1.40).
+- No count, certificate, token, verdict or canonical sha changed. `TestBatchQ1114Q1118Q1120` holds each sentence and
+  fails on the parent tree. Siblings found by Fable and the Opus lane during the Q-1049 batches.

@@ -1,5 +1,5 @@
 # TR-11 — Exact Counting by Symmetry Quotient: The Orbit-DP, a 42-Digit Integer, and the Exactness Program
-*Technical report — **v1.39** (2026-10-29; the cover line read v1.25 while the history had reached v1.30 — the [Revision history](#revision-history) is authoritative for what each version changed, including v1.25's §6 footprint refill and v1.30's footprint-awk selector.).*
+*Technical report — **v1.40** (2026-11-12; the cover line read v1.25 while the history had reached v1.30 — the [Revision history](#revision-history) is authoritative for what each version changed, including v1.25's §6 footprint refill and v1.30's footprint-awk selector.).*
 *Technical report — not peer-reviewed. Every MEASURED result carries a reproduction command, or says at
 the claim that it has none; every proof cited as machine-checked names its certificate or Lean theorem;
 claims of scope, attribution and interpretation are argued, not verified. One caveat is structural, and
@@ -31,8 +31,8 @@ streamed through disk by an out-of-core mode, so the full exact count runs on ~6
 hardware plus ~4 TB of disk. That run has now **completed** (2026-07-16): the exact integer is
 **1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097×10³⁹** (§9) — divisible by 24 exactly,
 and **inside the prior statistical estimate's stated ±0.01% envelope** (a relative standard error, `relerr=0.01%` at [evidence/knuth_whole_tree_5e10.out](evidence/knuth_whole_tree_5e10.out):4; the ~0.0044% distance to that
-estimate's rounded five-significant-figure numeral 1.0971×10³⁹ is a rounding gap, not a resolved
-estimator error — §9's note). The final constraint (C3) is, as of this
+estimate's rounded five-significant-figure numeral 1.0971×10³⁹ is mostly the estimator's own deviation: the archived estimate on that line, 1.097088×10³⁹, is 0.0033 % from the exact value, and rounding it to five figures adds about 0.0011 % (*corrected 2026-11-12, CX-37C-H: this called the ~0.0044% "a rounding gap, not a resolved
+estimator error"*) — §9's note). The final constraint (C3) is, as of this
 version, no longer described as a structural obstruction: its global sum collapses to a bounded
 scalar (**C3 = 16 + 8·G**, a machine-checked identity — see §10(ii)), so a bounded-state exact
 design exists; what keeps the flagship |C1–C5| an estimate is the estimated ~15–30× (central ~19×;
@@ -63,7 +63,7 @@ nodes exist commercially but were not economically sensible here) — and an out
 2026-07-05) replaces the RAM requirement with ~4 TB of streamed layer files, validated 4/4 exactly
 against the in-RAM path on independent hardware; the full-scale count **landed 2026-07-16 at
 1,097,051,278,789,181,790,036,112,071,176,579,186,688 ≈ 1.097051×10³⁹**, divisible by 24 exactly and
-0.999956× the Knuth estimate), and the honest limits (the flagship 1.3287×10³⁸ remains an estimate;
+0.99997× the archived Knuth estimate 1.097088×10³⁹, 0.999956× its rounded 1.0971×10³⁹ ("0.999956× the Knuth estimate" until 2026-11-12, CX-37C-H)), and the honest limits (the flagship 1.3287×10³⁸ remains an estimate;
 C3's global sum — formerly stated here as an open obstruction — collapses to the bounded scalar
 identity C3 = 16 + 8·G, leaving an estimated ~15–30× (central ~19×; provisional and, on current
 evidence, more likely low than high) cost barrier rather than a
@@ -418,9 +418,9 @@ Luo's question.*
    CX-53.]** (24 is the divisor of the record-level S₄ action, not of this count; at the
    orientation-explicit sequence level orbits have size 48 and N/24 is 2×
    the sequence-orbit count — §2's precision note). Ratio to the pre-existing
-   Knuth estimate (1.0971×10³⁹): **0.999956** — the exact value again falls inside the estimate's stated
+   Knuth estimate: **0.99997** against the archived 1.097088×10³⁹ ([evidence/knuth_whole_tree_5e10.out](evidence/knuth_whole_tree_5e10.out):4), 0.999956 against its rounded 1.0971×10³⁹ ("(1.0971×10³⁹): **0.999956**" until 2026-11-12, CX-37C-H) — the exact value again falls inside the estimate's stated
    ±0.01% envelope, a second full-scale validation (after §4's C2 anchor) at the 10³⁹ scale where nothing
-   exact previously (the 0.0044% figure is the estimate's five-sig-fig rounding gap, not a resolved error)
+   exact previously (the 0.0044% figure is the distance to the rounded numeral: 0.0033 % of it is the estimator's deviation and about 0.0011 % is rounding; "is the estimate's five-sig-fig rounding gap, not a resolved error" until 2026-11-12, CX-37C-H)
    existed. Per-layer canonical-mask integrity: every printed layer matched the Burnside palindrome
    masks(k) = masks(31−k) — terminal tail k23..k31 = 369,823 · 128,414 · 38,262 · 9,707 · 2,087 · 378 ·
    56 · 7 · 1; peak k15 = k16 = 13,047,760. The retained `run.out` carries every layer
@@ -833,4 +833,5 @@ likewise classical systems methodology — no novelty is claimed for it.
 | v1.36 | 2026-10-17 | **The calibration recipe gains its stack prerequisite (Codex's final review, gpt-6-astra; triaged by Fable; push group G4; F08-005#8).** The 10⁷-probe `SOLVE_KNUTH_RELAX_C5` recipe now starts with `ulimit -s 16384`, which the estimator requires. No figure changes. See CORRECTIONS.md CX-35T-J. |
 | v1.37 | 2026-10-18 | **The DP's companion modality is named for what it is (Codex's final review, gpt-6-astra; push group G5a; F06-012#6).** The executive summary called the enumeration TR-3 describes "exhaustive"; it is budget-limited, which is why its counts are exact lower bounds. It now reads "budget-limited enumeration". No count, theorem or exactness claim changed |
 | v1.38 | 2026-10-22 | **The C1∩C2∩C4 anchor's envelope claim made consistent with its caveat (Codex's fix-verification pass, gpt-6-astra; triaged by Fable; push group FV1; FV-FT2A-C3#6).** The executive summary and the calibration bullet no longer say the exact value falls inside the estimate's ±0.01 % envelope: it lies 0.0055 % from the four-figure estimate, one-SE containment of the original draw is unresolved, and the archived re-draw, 0.0108 % above the exact value, lies within its own 95 % CI. No figure changes. See CORRECTIONS.md CX-35Y-F. |
-| v1.39 *(current)* | 2026-10-29 | **Six fixes (Codex's final review, gpt-6-astra; triaged by Fable; push group FV2-A, CX-36C-G; F11-003#1/#2/#3/#4/#5/#6, F07-003#1, F01-005#1, F08-003#35, F06-003#5).** The executive summary now reads "budget-limited enumeration", as v1.37's row said it did; the mode-invariance byte-identity is scoped to v1 outputs; the four Rung-B integers are said to appear in `evidence/f1/` as the clean-room script's reference constants; §4's C2 redraw is stated as 0.0108% off (outside one SE, inside the 95% interval); capping-exactness is cited with its hypotheses; and the plain-DP cross-check is said to run for n ≤ 16 only. No count, theorem or exactness claim changed |
+| v1.39 | 2026-10-29 | **Six fixes (Codex's final review, gpt-6-astra; triaged by Fable; push group FV2-A, CX-36C-G; F11-003#1/#2/#3/#4/#5/#6, F07-003#1, F01-005#1, F08-003#35, F06-003#5).** The executive summary now reads "budget-limited enumeration", as v1.37's row said it did; the mode-invariance byte-identity is scoped to v1 outputs; the four Rung-B integers are said to appear in `evidence/f1/` as the clean-room script's reference constants; §4's C2 redraw is stated as 0.0108% off (outside one SE, inside the 95% interval); capping-exactness is cited with its hypotheses; and the plain-DP cross-check is said to run for n ≤ 16 only. No count, theorem or exactness claim changed |
+| v1.40 *(current)* | 2026-11-12 | **The C5-layer anchor's 0.0044 % is no longer called a rounding gap (backlog Q-1114, CX-37C-H; a sibling Fable found while adjudicating batch Q1049R, of TR-12's CX-37C-A).** The executive summary and §9 called the ~0.0044 % distance (ratio 0.999956) between the exact \|C1∩C2∩C4∩C5\| and the estimate's rounded numeral 1.0971×10³⁹ a rounding gap, not a resolved estimator error, and the abstract gave the ratio against the rounded numeral alone. The archived estimate, 1.097088×10³⁹ (`evidence/knuth_whole_tree_5e10.out`:4, committed 2026-09-03), is 0.0033 % from the exact value (ratio 0.99997); rounding it to 1.0971 adds about 0.0011 %, so most of the gap is the estimator's. The three sites now say so, with the old wordings in dated notes; the v1.4 row's "the full-precision estimator output was never recorded" does not hold for this anchor now that the file is archived, and the row is history and is not edited. The C2 anchor's 5.5×10⁻⁵ (abstract, §4) stands: that draw's unrounded output is not archived. The exact value still lies inside the stated ±0.01 % envelope. No count, theorem or envelope changes. See CORRECTIONS.md (CX-37C-H). |

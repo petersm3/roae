@@ -2380,8 +2380,8 @@ The image of the cosmos in the Yijing* [Book].
   and measured (D-B1; measured 2026-07-11, landed 2026-07-12): the observation is true and
   verified (his Table 4.1 group classifier reproduces 64/64 from pure bit predicates, with his G1 and G2 merged into one class as the conformity score needs,
   two-language `--db1-verify` gate;
-  KW conformity X = 22/32 with his ten deviant pairs exact), but each "room" is verifiably the
-  maximum-coverage decade window for its own group's King Wen positions plus a residue, so the
+  KW conformity X = 22/32 with his ten deviant pairs exact), but each "room" is verifiably a
+  maximum-coverage decade window for its own group's King Wen positions plus a residue (room c ties another window; "verifiably the" until 2026-11-12, CX-37C-J), so the
   count is a fitted description scored against its own source — classified data-like, no p-value
   attached, no design inference ([TR-10 §3b](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md);
   process record in [CRITIQUE.md](CRITIQUE.md)). Unrelated to Davis 2012's separately-named

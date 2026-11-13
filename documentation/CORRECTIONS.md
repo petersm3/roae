@@ -39976,3 +39976,117 @@ appended rows.
 
 Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, push group Q1113; the defect was found by Codex
 (gpt-6-astra), final review, F11-005#7; adjudicated by Fable (claude-fable-5-1), FV2 slice 1.
+
+## CX-37C-H — the C5-layer anchor's 0.0044 % called a rounding gap (reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md; reports/TR9_PRICING_THE_CONSTRAINTS.md; documentation/CLAIMS_DECIDED.md; documentation/DESCRIPTION_LENGTH.md; documentation/SEARCH_SPACE_SIZE.md; documentation/VERIFY.md; tests.py)
+
+**2026-11-12.** **Source.** A sibling Fable found while adjudicating batch Q1049R (CX-37C-A, the TR-12 §10.G
+sentence, FV2 row D621); backlog Q-1114. The parent finding is Codex's (gpt-6-astra), final review.
+
+**What was published, and what it says now.** TR-11 v1.4 (2026-07-21) ruled that the distance between the exact
+|C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688 and the Knuth estimate's rounded numeral
+1.0971×10³⁹ (≈ 0.0044 %, ratio 0.999956) was a rounding gap, not a resolved estimator error, because the
+full-precision estimate was not on record. It is now: `reports/evidence/knuth_whole_tree_5e10.out` line 4, committed
+2026-09-03, prints `est=1.097088e+39`, the estimate TR-11's summary already cites for its `relerr=0.01%`. Against
+it the exact value is 0.0033 % low (ratio 0.99997); rounding 1.097088 to 1.0971 adds about 0.0011 %. Most of the
+0.0044 % is the estimator's, not rounding's. TR-4 has said 0.0033 % since 2026-10-22, and CX-37C-A corrected
+TR-12's copy.
+- **TR-11, executive summary** ("the ~0.0044% distance to that estimate's rounded five-significant-figure numeral
+  1.0971×10³⁹ is a rounding gap, not a resolved estimator error"), **abstract** ("0.999956× the Knuth estimate")
+  and **§9** ("Ratio to the pre-existing Knuth estimate (1.0971×10³⁹): **0.999956**"; "the 0.0044% figure is the
+  estimate's five-sig-fig rounding gap, not a resolved error"). All three now give 0.99997 against the archived
+  estimate and split the 0.0044 % into the estimator's 0.0033 % and rounding's 0.0011 %. TR-11's cover line and
+  revision row v1.40 are updated; the v1.4 row is history and is not edited, and the v1.40 row says why its "the
+  full-precision estimator output was never recorded" no longer holds for this anchor.
+- **Siblings outside TR-11**, carrying the v1.4 wording: DESCRIPTION_LENGTH.md's exactness note and
+  SEARCH_SPACE_SIZE.md's second-anchor paragraph ("the 4.4×10⁻⁵ / ratio 0.999956 figure is the five-sig-fig
+  rounding gap"), VERIFY.md's Knuth-estimator bullet and its note on the landed run's `count_result.json`,
+  CLAIMS_DECIDED.md's C5-layer row and TR-9's C5 ledger row ("the estimate's rounding gap, not a resolved error";
+  TR-9 revision row v1.40). Each now says the same thing as TR-11.
+
+Every edit outside the revision rows keeps its line count. The old wordings are quoted in dated notes. The exact
+value still lies inside the estimate's stated ±0.01 % envelope (0.0033 % is under one relative standard error, as
+TR-4's calibration row states), so the validation statement stands.
+
+**Not changed here.** TR-11's C2 anchor (abstract and §4: "apparent deviation 5.5×10⁻⁵, which is the estimate's
+rounding gap rather than a resolved error"): that draw's unrounded output is not archived, so how much of its
+distance is rounding cannot be said, and the summary already calls its deviation unresolved. The landed run's
+README (`runs/20260716_f1c5_c1c2c4c5_d128westus3/README.md`) attributes the rounding-gap reading to TR-11 v1.4 by
+name, which is what v1.4 said; it is a run record and is left for review.
+
+**Tests.** `TestBatchQ1114Q1118Q1120` holds each new fragment and the absence of each old one, with a red half. A
+data check reads the estimate from the archived file and the exact integer from TR-11 and recomputes 0.99997,
+0.0033 %, 0.0011 % and 0.999956. `TestBatchFV2A`'s TR-11 pin accepts v1.39 without the current marker and either cover line;
+`TestBatchQ1037b`'s TR-9 pin accepts v1.39 without the current marker.
+
+No canonical sha, count, certificate, token or verdict changed.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5; the sibling was found by Fable (claude-fable-5-1)
+during the Q1049R adjudication of Codex's (gpt-6-astra) findings.
+
+## CX-37C-I — bare `solve.py` commands in SOLVE_C_CLI.md, and two TR-1 notes (documentation/SOLVE_C_CLI.md; reports/TR1_EIGHT_CENTURIES_MEASURED.md; tests.py)
+
+**2026-11-12.** **Source.** Three siblings found while batch Q1049R3 (CX-37C-C) was built and adjudicated by
+Fable; backlog Q-1118. The parent findings are Codex's (gpt-6-astra), final review (FV2 rows D678, D674 and D658).
+
+**What was published, and what it says now.**
+- **SOLVE_C_CLI.md printed twelve `solve.py --…` commands bare**: the synopsis line for `--extended-selftest`, and
+  the fenced blocks for `--extended-selftest`, `--compare-depth-profile`, `--vdb-verify`, `--registry-verify`,
+  `--books-verify`, `--r7-verify`, `--r7-corpus`, `--compute-stats`, `--marginals`, `--bivariate` and
+  `--joint-density`. `solve.py` is mode 100644, so the bare name exits 127 from the repository root
+  (`./solve.py` exits 126). This is D678's defect, which CX-37C-C fixed in TR-1. Each now reads
+  `python3 solve.py …`, as SOLVE_PY_CLI.md writes them, with a dated comment on the line; every mode was checked
+  to be dispatched by `solve.py`, and `python3 solve.py --vdb-verify` was run (`VDB VERIFY: PASS`). Prose that names
+  a mode as the ground truth for a C port ("Ground truth is `solve.py --dav-verify`") is not a command line and is
+  not changed.
+- **TR-1 §1(d)**'s note said the first-wave run "predates the estimator's `se=` field and none of its output is
+  archived, so no per-row error or hit count is on record". CX-37C-C added to the Verification Guide that the
+  archived `evidence/f11/f11_runA.out` prints every first-wave fraction to the digits shown. That file is a
+  2026-07-04 run (F11 RESULTS.md, "Executed 2026-07-04"), two days after the first wave, and is not recorded as the
+  first-wave run; its rule lines print fractions only, with no `se=` field and no hit count. So the note's claim
+  stands, and it now names the file and says both things.
+- **TR-1 §3's deep-tail caveat** stated METHODS' threshold in per-probe hit rates ("below ~10⁻⁷ per-probe hit rates
+  the estimator's CIs degrade") and then applied it to `ccn4` (2×10⁻⁸) and `ccn8` (2.6×10⁻⁷), which are weighted
+  fractions of mass. This is D658's mix-up, which CX-37C-C fixed in the sourcing flag. A weighted fraction is not a
+  hit rate, and `ccn8`'s 2.6×10⁻⁷ is above the threshold as a number. No hit count or CI is on record for either
+  figure, so reading them as order-of-magnitude figures still stands, on that ground; the caveat now says so. The
+  old reading erred cautious, and no figure or classification moves.
+
+Every edit keeps its line count; TR-1's revision row v1.47 is appended. The old wordings are quoted in dated notes
+(in SOLVE_C_CLI.md, as a comment on each command line).
+
+**Tests.** `TestBatchQ1114Q1118Q1120` holds the new fragments and the absence of the old ones, with a red half. Data
+checks: `solve.py` is not executable in the index and dispatches each of the eleven modes, and no SOLVE_C_CLI.md line
+starts with a bare `solve.py --`; `f11_runA.out` prints the eight first-wave values and carries no `se=` field;
+METHODS states the threshold per probe. `TestBatchQ1049R3`'s TR-1 revision-row pin accepts v1.46 without the
+current marker.
+
+No canonical sha, count, certificate, token or verdict changed.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5; the siblings were found during the Q1049R3 batch
+(the Opus lane) and its adjudication by Fable (claude-fable-5-1) of Codex's (gpt-6-astra) findings.
+
+## CX-37C-J — "the maximum-coverage decade window" at four more sites (documentation/CRITIQUE.md; documentation/CITATIONS.md; documentation/CLAIMS_DECIDED.md; reports/TR12_QUERY_PROGRAM.md; tests.py)
+
+**2026-11-12.** **Source.** The siblings CX-37C-E's "Not changed here (siblings)" paragraph recorded (TR-10, FV2 row
+D580); backlog Q-1120. The parent finding is Codex's (gpt-6-astra), final review (F03-H01#31 and its duplicates).
+
+**What was published, and what it says now.** CRITIQUE.md's D-B1 record ("every room is exactly the
+maximum-coverage decade window"), CITATIONS.md's Drasny entry, CLAIMS_DECIDED.md's Drasny row and TR-12 §4's
+circularity-audit gate, which restates that row ("each 'room' is verifiably the maximum-coverage decade window"),
+said each room is *the* maximum-coverage window for its group. Room c is not unique: group C sits in slots 10, 12,
+17 and 22 (`solve.binary_hexagrams`, `solve.db1_group`), room c is slots 7, 12, 17 and 22 (`solve.DB1_ROOM_LO`),
+and the windows starting at slots 7 and 12 both cover 3 (recomputed for this entry). Each site now reads "a
+maximum-coverage decade window" and notes the tie, the wording CX-37C-E gave TR-10. X = 22, "by construction" and
+the data-like classification stand: the fitted coverages still sum to 22.
+
+Every edit keeps its line count; TR-12's revision row v1.40 is appended. The old wordings are quoted in dated notes.
+
+**Tests.** `TestBatchQ1114Q1118Q1120` holds the four new fragments and the absence of the old ones, with a red half,
+and recomputes the room-c tie from `solve.py`. `TestBatchQ1049R`'s and `TestBatchQ1056`'s TR-12 revision-row pins
+accept v1.40 as the current row (`TestBatchQ1049R` now reads every v1.x row, not only v1.3x), and `TestBatchQ1113`'s
+accepts v1.39 without the current marker.
+
+No canonical sha, count, certificate, token or verdict changed.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5; the defect was found by Codex (gpt-6-astra),
+final review; adjudicated by Fable (claude-fable-5-1), FV2 slice 1, which ruled the siblings for one sweep.

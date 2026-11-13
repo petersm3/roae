@@ -572,8 +572,8 @@ does **not** rest on this instrument. Its corroboration chain is:
   integer, not a confirmation; the confirmation is the exact two-instrument match.)*
 - **The Knuth estimator.** The exact full-scale integer falls inside the
   independent unbiased random-probe estimate's stated ±0.01% envelope (the
-  0.0044% figure sometimes quoted is the estimate's five-sig-fig rounding gap,
-  not a resolved estimator error).
+  0.0044% figure sometimes quoted is measured against the rounded 1.0971×10³⁹; against the archived 1.097088×10³⁹ the estimator's deviation is 0.0033 %,
+  and rounding adds about 0.0011 %; "is the estimate's five-sig-fig rounding gap, not a resolved estimator error" until 2026-11-12, CX-37C-H).
 
 Method-diverse agreement at Tier-2 here, the ≤28-pair two-engine equivalence,
 the full-31 per-layer masses within `verify.c`'s reach, the mod-24 gate, and
@@ -602,7 +602,7 @@ in the text.) Developed with AI assistance
 its original `"estimate accurate to 0.0044%"` note verbatim: it is a machine-readable record of
 what that run produced, so it is annotated here rather than edited — post-hoc rewriting of a
 landed artifact would damage its provenance value. The hedged reading (that figure is the
-estimate's rounding gap, not a resolved error) is carried in the surrounding prose.
+distance to the estimate's rounded numeral, of which 0.0033 % is the estimator's deviation and about 0.0011 % rounding's; "estimate's rounding gap, not a resolved error" until 2026-11-12, CX-37C-H) is carried in the surrounding prose.
 
 ## `--check-artifact`, and what the 2026-08-15 sweep actually found
 

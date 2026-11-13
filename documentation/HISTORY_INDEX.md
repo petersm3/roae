@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 9 place(s) over all 243 dated sections, 8 of them among the 167 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 9 place(s) over all 244 dated sections, 8 of them among the 168 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -267,6 +267,7 @@
 | 241 | 2026-11-12 | iso | 12329 | [open](HISTORY.md#2026-11-12--batch-q1049r5-ten-methods-sentences-from-the-fv2-slice-1-adjudication) 2026-11-12 — batch Q1049R5: ten METHODS sentences from the FV2 slice-1 adjudication |
 | 242 | 2026-11-12 | iso | 12346 | [open](HISTORY.md#2026-11-12--batch-pb-perf_benchsh-interrupt-output-a-discriminating-teardown-test-and-two-line-cites) 2026-11-12 — batch PB: perf_bench.sh interrupt output, a discriminating teardown test, and two line cites |
 | 243 | 2026-11-12 | iso | 12360 | [open](HISTORY.md#2026-11-12--batch-q1113-the-31-ratios-theorem-gains-its-print-axioms-directive) 2026-11-12 — batch Q1113: the 3:1 ratio's theorem gains its `#print axioms` directive |
+| 244 | 2026-11-12 | iso | 12373 | [open](HISTORY.md#2026-11-12--batch-siblings-three-wording-siblings-of-the-q-1049-batches) 2026-11-12 — batch SIBLINGS: three wording siblings of the Q-1049 batches |
 
 ## Sections with no date in the heading, in file order
 

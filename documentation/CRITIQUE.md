@@ -656,8 +656,8 @@ rather than repaired after the fact; the pre-registration step is mandatory for 
 population measurement. **Classification: data-like (a fitted description), and verifiably so.**
 KW's X = 22 sits above the entire sampled population — but the rooms are King-Wen-derived: Drasny's
 own derivation (pp. 76–77) reads each room off the listed KW ordinals of each group's members, and
-mechanical re-verification shows every room is exactly the maximum-coverage decade window for its
-group's KW positions (the one group whose best single window covers only 2 is the only group granted
+mechanical re-verification shows every room is a maximum-coverage decade window for its
+group's KW positions (room c ties another window; "is exactly the" until 2026-11-12, CX-37C-J; the one group whose best single window covers only 2 is the only group granted
 two windows; the leftover cells form a residue room), so the fitted per-group coverages sum to
 3+3+3+3+4+5+1 = 22 — **the conformity count scores the sequence against a template extracted from
 the sequence, and its population extremity is the predicted signature of that extraction** (the same

@@ -58086,8 +58086,10 @@ class TestBatchFV2A(unittest.TestCase):
                       "precondition: the cleanroom script carries the Rung-B integers")
         self._has(t11, "an exact count from a budget-limited enumeration", "(v1 outputs; the v2 lineage is a separate artifact set",
                   "appear in it only as the `PUBLISHED` reference constants", "outside one standard error (±0.01%) and inside the 95% interval",
-                  "exact under the hypotheses of `capping_exact`", "The plain-DP comparison is run for n ≤ 16 only",
-                  "| v1.39 *(current)* |", "*Technical report — **v1.39** (2026-10-29;")
+                  "exact under the hypotheses of `capping_exact`", "The plain-DP comparison is run for n ≤ 16 only")
+        # Q-1114 (CX-37C-H) appended v1.40 and moved the marker and the cover line; v1.39 stays the 2026-10-29 row
+        self.assertRegex(self._r(t11), r"\| v1\.39(?: \*\(current\)\*)? \| 2026-10-29 \|")
+        self.assertRegex(self._r(t11), r"\*Technical report — \*\*v1\.(?:39\*\* \(2026-10-29;|40\*\* \(2026-11-12; the cover line read v1\.25)")
         self._lacks(t11, "an exact count from an exhaustive enumeration")
 
     # ---- CX-36C-H ---------------------------------------------------------------------------------------------------
@@ -61874,7 +61876,7 @@ class TestBatchQ1056(unittest.TestCase):
         cur = re.findall(r"(?m)^\| v[\d.]+ \*\(current\)\* \|", t)
         # Q1049R (CX-37C-A) appended v1.38 and moved the marker; v1.37 stays the row after v1.36 either way
         self.assertEqual(len(cur), 1, cur)
-        self.assertIn(cur[0], ("| v1.37 *(current)* |", "| v1.38 *(current)* |", "| v1.39 *(current)* |"))  # Q-1113 (CX-37C-G) appended v1.39
+        self.assertIn(cur[0], ("| v1.37 *(current)* |", "| v1.38 *(current)* |", "| v1.39 *(current)* |", "| v1.40 *(current)* |"))  # Q-1113 (CX-37C-G) appended v1.39; v1.40: Q-1120 (CX-37C-J)
         self.assertRegex(t, r"\| v1\.37(?: \*\(current\)\*)? \| 2026-11-05 \| \*\*Two items of §10, this report's DONE-contract section")
         self.assertIn("| v1.36 | 2026-11-01 |", t)
         self.assertNotIn("| v1.36 *(current)* |", t)
@@ -62745,7 +62747,7 @@ class TestBatchQ1037b(unittest.TestCase):
             self.assertIn("confirmed description, not explanation *(qualified 2026-11-06, CX-36X-E:"
                           if rel.startswith("doc") else "description, not explanation *(qualified 2026-11-06, CX-36X-E:",
                           self._r(rel), rel)
-        self.assertIn("| v1.39 *(current)* | 2026-11-06 |", t, "TR-9 revision row")
+        self.assertRegex(t, r"\| v1\.39(?: \*\(current\)\*)? \| 2026-11-06 \|", "TR-9 revision row")   # v1.40: Q-1114 (CX-37C-H)
 
     # ---- CX-36X-F (D844) ----
     def test_cx36x_f_f11_z_cells(self):
@@ -63669,12 +63671,11 @@ class TestBatchQ1049R(unittest.TestCase):
 
     def test_q1049r_revision_row_and_ledger_entry(self):
         t = self._r(self.TR12)
-        rows = [l for l in t.split("\n") if l.startswith("| v1.3")]
-        # Q-1113 (CX-37C-G) appended v1.39 and moved the marker; v1.38 stays the row after v1.37 either way
-        r38 = [l for l in rows if l.startswith("| v1.38 | 2026-11-10 |") or l.startswith("| v1.38 *(current)* | 2026-11-10 |")]
-        self.assertEqual(len(r38), 1, [l[:40] for l in rows])
-        self.assertEqual(sum("*(current)*" in l for l in rows), 1, "one current revision row")
-        self.assertIn("CX-37C-A", r38[0])
+        rows = [l for l in t.split("\n") if l.startswith("| v1.")]   # "| v1.3" until Q-1120's v1.40 (CX-37C-J)
+        mine = [l for l in rows if re.match(r"\| v1\.38 (\*\(current\)\* )?\| 2026-11-10 \|", l)]   # current until Q-1113's v1.39
+        self.assertEqual(len(mine), 1, "the v1.38 row")
+        self.assertEqual(sum("*(current)*" in l.split("|")[1] for l in rows), 1, "one current revision row")
+        self.assertIn("CX-37C-A", mine[0])
         c = self._r("documentation/CORRECTIONS.md")
         self.assertEqual(c.count("\n## CX-37C-A — "), 1)
 
@@ -64148,9 +64149,10 @@ class TestBatchQ1049R3(unittest.TestCase):
     def test_q1049r3_revision_row_and_ledger_entry(self):
         t = self._r(self.T1)
         rows = [l for l in t.split("\n") if l.startswith("| v1.")]
-        self.assertTrue(rows[-1].startswith("| v1.46 *(current)* | 2026-11-11 |"), rows[-1][:60])
+        mine = [l for l in rows if re.match(r"\| v1\.46 (\*\(current\)\* )?\| 2026-11-11 \|", l)]   # current until Q-1118's v1.47
+        self.assertEqual(len(mine), 1, "the v1.46 row")
         self.assertEqual(sum("*(current)*" in l.split("|")[1] for l in rows), 1, "one current revision row (version cell)")
-        self.assertIn("CX-37C-C", rows[-1])
+        self.assertIn("CX-37C-C", mine[0])
         self.assertTrue("\n## CX-37C-C — " in self._r("documentation/CORRECTIONS.md"), "the CX-37C-C entry exists")
 
     def _swap_flip(self, seq, swaps, flips):
@@ -64833,6 +64835,8 @@ class TestBatchQ1113(unittest.TestCase):
                                (self.T7, "| v2.15 *(current)* | 2026-11-12 |", "| v2.14 | 2026-10-29 |")):
             with self.subTest(file=rel):
                 t = self._r(rel)
+                if rel == self.T12 and "\n| v1.39 | 2026-11-12 |" in t:   # Q-1120 (CX-37C-J) appended v1.40 and moved the marker
+                    cur = "| v1.39 | 2026-11-12 |"
                 self.assertEqual(t.count("*(current)*"), 1, rel)
                 self.assertEqual(t.count("\n" + cur), 1, rel)
                 self.assertEqual(t.count("\n" + prev), 1, rel)
@@ -64842,6 +64846,157 @@ class TestBatchQ1113(unittest.TestCase):
         self.assertEqual(self._r("documentation/CORRECTIONS.md").count("\n## CX-37C-G — "), 1)
         self.assertEqual(self._r("documentation/HISTORY.md").count("\n## 2026-11-12 — batch Q1113: "), 1)
 # end class TestBatchQ1113
+
+class TestBatchQ1114Q1118Q1120(unittest.TestCase):
+    """Backlog Q-1114 (CX-37C-H), Q-1118 (CX-37C-I) and Q-1120 (CX-37C-J): wording siblings of the Q-1049 batches.
+    H: TR-11, TR-9 and five documentation sites called the C5-layer anchor's 0.0044 % (ratio 0.999956, against
+    the rounded numeral 1.0971e39) a rounding gap; against the archived estimate 1.097088e39 the deviation is
+    0.0033 %, the estimator's. I: SOLVE_C_CLI.md printed twelve bare `solve.py --` commands (mode 100644, exit 127); TR-1's
+    "none of its output is archived" now names f11_runA.out; TR-1 section 3 applied the per-probe threshold to
+    weighted fractions. J: four sites called each Drasny room "the" maximum-coverage window; room c ties.
+    The cured test requires each new fragment once and no old one; the red test puts the old fragments back; the data
+    checks bind each correction to its source. The text tests fail on the parent tree. Developed with AI assistance
+    (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    T11 = "reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md"
+    T1 = "reports/TR1_EIGHT_CENTURIES_MEASURED.md"
+    T12 = "reports/TR12_QUERY_PROGRAM.md"
+    CLI = "documentation/SOLVE_C_CLI.md"
+    PAIRS = (
+        ('H-summary', T11, "1.0971×10³⁹ is a rounding gap, not a resolved\nestimator error — §9's note)",
+         "is mostly the estimator's own deviation: the archived estimate on that line, 1.097088×10³⁹, is 0.0033 % from the exact value"),
+        ('H-abstract', T11, "0.999956× the Knuth estimate), and the honest limits",
+         "0.99997× the archived Knuth estimate 1.097088×10³⁹, 0.999956× its rounded 1.0971×10³⁹ (\"0.999956× the Knuth estimate\" until 2026-11-12, CX-37C-H))"),
+        ('H-s9-ratio', T11, "   Knuth estimate (1.0971×10³⁹): **0.999956** — the exact value",
+         "   Knuth estimate: **0.99997** against the archived 1.097088×10³⁹"),
+        ('H-s9-gap', T11, "(the 0.0044% figure is the estimate's five-sig-fig rounding gap, not a resolved error)\n",
+         "(the 0.0044% figure is the distance to the rounded numeral: 0.0033 % of it is the estimator's deviation and about 0.0011 % is rounding;"),
+        ('H-DL', "documentation/DESCRIPTION_LENGTH.md", "ratio 0.999956 figure is the five-sig-fig\nrounding gap, not a measured error).",
+         "ratio 0.999956 figure is measured against the rounded numeral;\nagainst the archived estimate 1.097088×10³⁹ the deviation is 0.0033 %, the estimator's own"),
+        ('H-SSS', "documentation/SEARCH_SPACE_SIZE.md", "ratio-0.999956 figure is the estimate's five-sig-fig rounding gap,\nnot a resolved estimator error). (The full",
+         "ratio-0.999956 figure is measured against the rounded numeral; against the archived estimate\n1.097088×10³⁹ the deviation is 0.0033 %"),
+        ('H-VERIFY-a', "documentation/VERIFY.md", "  0.0044% figure sometimes quoted is the estimate's five-sig-fig rounding gap,\n",
+         "  0.0044% figure sometimes quoted is measured against the rounded 1.0971×10³⁹; against the archived 1.097088×10³⁹ the estimator's deviation is 0.0033 %,\n"),
+        ('H-VERIFY-b', "documentation/VERIFY.md", "(that figure is the\nestimate's rounding gap, not a resolved error) is carried",
+         "(that figure is the\ndistance to the estimate's rounded numeral, of which 0.0033 % is the estimator's deviation"),
+        ('H-CLAIMS', "documentation/CLAIMS_DECIDED.md", "(the 0.0044% figure is the estimate's rounding gap, not a resolved error). The flagship",
+         "(the 0.0044% figure is the distance to the estimate's rounded 1.0971×10³⁹; against the archived 1.097088×10³⁹ the estimator's deviation is 0.0033 %"),
+        ('H-TR9', "reports/TR9_PRICING_THE_CONSTRAINTS.md", "the 0.0044% figure is the estimate's rounding gap, not a resolved error) |",
+         "the 0.0044% figure is the distance to the estimate's rounded 1.0971×10³⁹: against the archived 1.097088×10³⁹ the estimator's deviation is 0.0033 %"),
+        ('I-runA', T1, "so no per-row error or hit count is on record.)*\n",
+         "it is not recorded as this run, and its rule lines carry no error or hit count either.)*\n"),
+        ('I-deeptail', T1, "   weights) — read ccn4 (2×10⁻⁸) and ccn8 (2.6×10⁻⁷) as order-of-magnitude figures, not point\n",
+         "are weighted fractions of mass, not per-probe hit rates, so that threshold does not apply to them directly, and no hit count or CI is on record for either"),
+        ('J-CRITIQUE', "documentation/CRITIQUE.md", "every room is exactly the maximum-coverage decade window for its",
+         "every room is a maximum-coverage decade window for its\ngroup's KW positions (room c ties another window; \"is exactly the\" until 2026-11-12, CX-37C-J;"),
+        ('J-CITATIONS', "documentation/CITATIONS.md", "is verifiably the\n  maximum-coverage decade window",
+         "is verifiably a\n  maximum-coverage decade window for its own group's King Wen positions plus a residue (room c ties another window;"),
+        ('J-CLAIMS', "documentation/CLAIMS_DECIDED.md", "is verifiably the maximum-coverage decade window",
+         "is verifiably a maximum-coverage decade window for its own group's KW positions (plus a residue room; room c ties another window;"),
+        ('J-TR12', T12, "is verifiably the maximum-coverage decade window",
+         "is verifiably a maximum-coverage decade window for its own group's KW positions (room c ties another window;"),
+    )
+    MODES = ("extended-selftest", "compare-depth-profile", "vdb-verify", "registry-verify", "books-verify", "r7-verify",
+             "r7-corpus", "compute-stats", "marginals", "bivariate", "joint-density")
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _texts(self):
+        return {rel: self._r(rel) for rel in {p[1] for p in self.PAIRS} | {self.CLI}}
+
+    def _problems(self, texts):
+        probs = []
+        for row, rel, old, new in self.PAIRS:
+            t = texts[rel]
+            if t.count(new) != 1:
+                probs.append("%s: new fragment present %d times" % (row, t.count(new)))
+            elif old in t:
+                probs.append("%s: old fragment still present" % row)
+        bare = re.findall(r"(?m)^solve\.py --", texts[self.CLI])
+        if bare:
+            probs.append("I-cli: %d bare solve.py command lines" % len(bare))
+        return probs
+
+    def test_siblings_cured(self):
+        texts = self._texts()
+        self.assertEqual(self._problems(texts), [])
+        self.assertEqual(len(re.findall(r"(?m)^python3 solve\.py --.*bare \"solve\.py\" until 2026-11-12, CX-37C-I", texts[self.CLI])), 12)
+
+    def test_siblings_red_on_old(self):
+        texts = self._texts()
+        for row, rel, old, new in self.PAIRS:
+            self.assertEqual(texts[rel].count(new), 1, "precondition: %s new fragment present once" % row)
+            texts[rel] = texts[rel].replace(new, old)
+        texts[self.CLI] = re.sub(r"(?m)^python3 (solve\.py --)", r"\1", texts[self.CLI])
+        self.assertEqual(len(self._problems(texts)), len(self.PAIRS) + 1)
+
+    def test_h_ratio_from_the_archived_estimate(self):
+        from fractions import Fraction
+        line4 = self._r("reports/evidence/knuth_whole_tree_5e10.out").split("\n")[3]
+        self.assertIn("leaves_C1C2C4C5", line4, "precondition: line 4 is the C1C2C4C5 estimate")
+        est = Fraction(re.search(r"est=([0-9.e+]+)", line4).group(1).replace("e+", "e"))
+        self.assertEqual(est, Fraction(1097088) * 10 ** 33)
+        m = re.search(r"\*\*\|C1∩C2∩C4∩C5\| = ([0-9,]+) ≈", self._r(self.T11))
+        n = Fraction(int(m.group(1).replace(",", "")))
+        self.assertEqual(n % 24, 0)
+        self.assertEqual(round(float(n / est), 5), 0.99997)
+        self.assertEqual(round(float((est - n) / n * 100), 4), 0.0033)
+        rounded = Fraction(10971) * 10 ** 35
+        self.assertEqual(round(float((rounded - est) / n * 100), 4), 0.0011)
+        self.assertEqual(round(float(n / rounded), 6), 0.999956)
+        self.assertEqual(round(float((rounded - n) / n * 100), 4), 0.0044)
+        self.assertLess((est - n) / n, Fraction(1, 10000), "inside the stated ±0.01 % envelope")
+
+    def test_i_solve_py_is_not_executable_and_dispatches_each_mode(self):
+        src = self._r("solve.py")
+        for m in self.MODES:
+            self.assertIn('"--%s"' % m, src, m)
+        r = subprocess.run(["git", "ls-files", "-s", "solve.py"], cwd=self.ROOT, capture_output=True, text=True)
+        if r.returncode != 0 or not r.stdout:
+            self.skipTest("git index not available")
+        self.assertTrue(r.stdout.startswith("100644 "), r.stdout[:20])
+
+    def test_i_runA_prints_the_first_wave_fractions_without_errors(self):
+        a = self._r("reports/evidence/f11/f11_runA.out")
+        self.assertTrue(a.startswith("KNUTH-ESTIMATE probes=20000000000 threads=32"))
+        for frag in ("R-C1 final-pair-anchor  : 0.078447", "R-C2 first7-level-cover : 0.120316",
+                     "R-C5 18:18-HEC-split    : 0.364265", "R-M1 Moore-parity strict : 0.000005",
+                     "R-M1 Moore-parity >=16/18: 0.000734", "R-M2 Moore-1989 R/F <=2 breaks: 0.038507",
+                     "R-M2 strict 0 breaks     : 0.000626", "Moore joint (M1>=16 & M2<=2): 0.00001853"):
+            self.assertIn(frag, a, frag)
+        self.assertNotIn("se=", a)
+        self.assertIn("**Executed 2026-07-04**", self._r("reports/evidence/f11/RESULTS.md"))
+        self.assertIn("2. **The first-wave scoreboard (2026-07-02).**", self._r(self.T1))
+        self.assertIn("CIs degrade visibly at hit\n  rates below ~10⁻⁷ per probe", self._r("reports/METHODS.md"))
+
+    def test_j_room_c_ties_another_window(self):
+        import solve
+        q = list(solve.binary_hexagrams)
+        g = [solve.db1_group(q[2 * k]) for k in range(32)]
+        group_c = [k + 1 for k in range(32) if g[k] == 2]
+        room_c = [k + 1 for k in range(32) if solve.DB1_ROOM_LO[k] == 2]
+        self.assertEqual(group_c, [10, 12, 17, 22])
+        self.assertEqual(room_c, [7, 12, 17, 22])
+        cov = {s: len(set(group_c) & {s, s + 5, s + 10, s + 15}) for s in range(1, 18)}
+        best = max(cov.values())
+        self.assertEqual(best, 3)
+        self.assertEqual([s for s in cov if cov[s] == best], [7, 12])
+
+    def test_revision_rows_and_ledger_entries(self):
+        c = self._r("documentation/CORRECTIONS.md")
+        for rel, ver, cx in ((self.T11, "v1.40", "CX-37C-H"), (self.T1, "v1.47", "CX-37C-I"), (self.T12, "v1.40", "CX-37C-J"),
+                             ("reports/TR9_PRICING_THE_CONSTRAINTS.md", "v1.40", "CX-37C-H")):
+            rows = [l for l in self._r(rel).split("\n") if l.startswith("| v1.")]
+            self.assertTrue(rows[-1].startswith("| %s *(current)* | 2026-11-12 |" % ver), (rel, rows[-1][:60]))
+            self.assertEqual(sum("*(current)*" in l.split("|")[1] for l in rows), 1, rel)
+            self.assertIn(cx, rows[-1])
+            self.assertEqual(c.count("\n## %s — " % cx), 1, cx)
+        self.assertIn("*Technical report — **v1.40** (2026-11-12;", self._r(self.T11))
+
+# end class TestBatchQ1114Q1118Q1120
 
 
 if __name__ == "__main__":

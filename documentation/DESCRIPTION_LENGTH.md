@@ -198,8 +198,8 @@ estimator error; the true error is unresolved at the published precision but wel
 out-of-core symmetry-quotient dynamic program (`solve --f1-exact-c1c2c4c5 --f1-out-of-core DIR`,
 reproducible on ~64 GB RAM + ~4 TB disk), exactly divisible by 24 as the free-action theorem requires.
 The prior Knuth estimate (1.0971×10³⁹ ±0.01%) contains the exact value inside its stated envelope — the
-estimator's second full-scale validation (the 4.4×10⁻⁵ / ratio 0.999956 figure is the five-sig-fig
-rounding gap, not a measured error). All bits values are unchanged
+estimator's second full-scale validation (the 4.4×10⁻⁵ / ratio 0.999956 figure is measured against the rounded numeral;
+against the archived estimate 1.097088×10³⁹ the deviation is 0.0033 %, the estimator's own, and rounding adds about 0.0011 %; "is the five-sig-fig rounding gap, not a measured error" until 2026-11-12, CX-37C-H, [TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md) §9). All bits values are unchanged
 (log₂ = 129.7). The C3 layer (1.3287×10³⁸) remains an estimate. Full report:
 [reports/TR-11](../reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md).*
 

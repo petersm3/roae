@@ -54,7 +54,7 @@ solve --kde-score-stream --fit-file PATH --d N --bandwidth BW --threshold T
 solve --emit-shard-manifest [manifest_path]             # write a manifest for sub_*.bin in the CWD
 solve --verify-shard-manifest [manifest_path]           # check a manifest vs the CWD's shards
 solve --compare-provenance A.json B.json                # assert two solutions.provenance.json are equivalent
-solve.py --extended-selftest <solve>                    # 9-subtest harness (solve.py command, NOT a solve C subcommand)
+python3 solve.py --extended-selftest <solve>            # 9-subtest harness (solve.py command, NOT a solve C subcommand; bare "solve.py" until 2026-11-12, CX-37C-I)
 solve --preflight [node_limit]                          # run in-process gates (no enum)
 solve --disk-precheck <mount> [gb] [uuid]               # capacity/writability/identity check
 solve --print-config                                    # dump build provenance + SOLVE_* env values
@@ -731,7 +731,7 @@ below threshold, 2 on I/O error.
 ### --extended-selftest (solve.py, NOT a solve C subcommand)
 
 ```
-solve.py --extended-selftest <path-to-solve-binary>
+python3 solve.py --extended-selftest <path-to-solve-binary>  # bare "solve.py" until 2026-11-12, CX-37C-I: the file is not executable, so the bare name exits 127
 ```
 
 A `solve.py` command (the `extended_selftest` function in solve.py) — **not** a `solve`
@@ -743,7 +743,7 @@ and pre-merge gating. *(2026-10-01, Codex R12b #16: subtest 1 now also compares 
 ### --compare-depth-profile (solve.py only)
 
 ```
-solve.py --compare-depth-profile RUN_A.log RUN_B.log [--compare-depth-profile-threshold 0.005]
+python3 solve.py --compare-depth-profile RUN_A.log RUN_B.log [--compare-depth-profile-threshold 0.005]  # bare "solve.py" until 2026-11-12, CX-37C-I: the file is not executable, so the bare name exits 127
 ```
 
 `solve.py` companion command (not a `solve` C subcommand). Tree-walk
@@ -1091,7 +1091,7 @@ explicit-sequence cross-verification hook. *(2026-09-26, Q-849: it takes no argu
 ### --vdb-verify (solve.py only)
 
 ```
-solve.py --vdb-verify
+python3 solve.py --vdb-verify  # bare "solve.py" until 2026-11-12, CX-37C-I: the file is not executable, so the bare name exits 127
 ```
 
 `solve.py` companion command (not a `solve` C subcommand). Verifies the 8 Van
@@ -1106,7 +1106,7 @@ a port of this tool's `vdb_nucorient` (KW=29). Sha-neutral.
 ### --registry-verify (solve.py only)
 
 ```
-solve.py --registry-verify
+python3 solve.py --registry-verify  # bare "solve.py" until 2026-11-12, CX-37C-I: the file is not executable, so the bare name exits 127
 ```
 
 `solve.py` companion command (not a `solve` C subcommand). Ground-truth checker
@@ -1120,7 +1120,7 @@ on full PASS, 1 on any mismatch. This is the ground truth for the per-leaf
 ### --books-verify (solve.py only)
 
 ```
-solve.py --books-verify
+python3 solve.py --books-verify  # bare "solve.py" until 2026-11-12, CX-37C-I: the file is not executable, so the bare name exits 127
 ```
 
 `solve.py` companion command (not a `solve` C subcommand). Book-claims
@@ -1150,7 +1150,7 @@ Attribution per claim function in solve.py; master ledger
 ### --r7-verify (solve.py only)
 
 ```
-solve.py --r7-verify
+python3 solve.py --r7-verify  # bare "solve.py" until 2026-11-12, CX-37C-I: the file is not executable, so the bare name exits 127
 ```
 
 `solve.py` companion command (not a `solve` C subcommand). Deterministic anchor gate for
@@ -1190,7 +1190,7 @@ J/M formalizations are hedged, not claimed novel — see the solve.py `r7_verify
 ### --r7-corpus (solve.py only)
 
 ```
-solve.py --r7-corpus [--r7-n N] [--r7-seed S]
+python3 solve.py --r7-corpus [--r7-n N] [--r7-seed S]  # bare "solve.py" until 2026-11-12, CX-37C-I: the file is not executable, so the bare name exits 127
 ```
 
 `solve.py` companion command (not a `solve` C subcommand). Runs the full R7 battery — the
@@ -1226,7 +1226,7 @@ smoke tests; the canonical measurement uses the frozen defaults. Sha-neutral.
 ### --compute-stats (solve.py only)
 
 ```
-solve.py --compute-stats SOLUTIONS_BIN OUT_DIR
+python3 solve.py --compute-stats SOLUTIONS_BIN OUT_DIR  # bare "solve.py" until 2026-11-12, CX-37C-I: the file is not executable, so the bare name exits 127
 ```
 
 `solve.py` companion command (P2 distributional-analysis pipeline, stage 1). Streams
@@ -1239,7 +1239,7 @@ interpretation.
 ### --marginals (solve.py only)
 
 ```
-solve.py --marginals CHUNKS_DIR OUT_MD
+python3 solve.py --marginals CHUNKS_DIR OUT_MD  # bare "solve.py" until 2026-11-12, CX-37C-I: the file is not executable, so the bare name exits 127
 ```
 
 `solve.py` companion command (P2 stage 2). Computes per-dimension marginal
@@ -1249,7 +1249,7 @@ writes a Markdown report to `OUT_MD`. Consumes the `CHUNKS_DIR` from `--compute-
 ### --bivariate (solve.py only)
 
 ```
-solve.py --bivariate CHUNKS_DIR OUT_DIR
+python3 solve.py --bivariate CHUNKS_DIR OUT_DIR  # bare "solve.py" until 2026-11-12, CX-37C-I: the file is not executable, so the bare name exits 127
 ```
 
 `solve.py` companion command (P2 stage 2). Renders hexbin heatmaps for 5 observable
@@ -1258,7 +1258,7 @@ pairs with King Wen marked, into `OUT_DIR`. Consumes the `--compute-stats` chunk
 ### --joint-density (solve.py only)
 
 ```
-solve.py --joint-density CHUNKS_DIR OUT_MD
+python3 solve.py --joint-density CHUNKS_DIR OUT_MD  # bare "solve.py" until 2026-11-12, CX-37C-I: the file is not executable, so the bare name exits 127
 ```
 
 `solve.py` companion command (P2 stage 3). ⚠ **[CORRECTED 2026-09-22 (V3A-055#1, sibling of the SOLVE_PY_CLI.md entry) — this pipeline reproduces figures WITHDRAWN AS EVIDENCE on 2026-07-26 ([DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md):329-331), and neither this entry nor its `solve.py` counterpart carried that warning. The command and its dimension count are unchanged; the omission was the defect.]** KDE joint density over the 7 informative
