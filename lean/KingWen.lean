@@ -1146,6 +1146,7 @@ theorem orientation_not_forced :
 #print axioms switches_30_general
 #print axioms gray_code_impossible
 #print axioms circular_alternations_16
+#print axioms circular_ratio_3_to_1
 #print axioms kwOrbit_length
 #print axioms nodup_eraseDups
 #print axioms kwOrbit_nodup

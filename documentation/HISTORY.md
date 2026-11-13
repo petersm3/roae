@@ -12356,3 +12356,16 @@ Q-686=DONE
 - perf_bench.sh keeps its line count, so its unpinned cites still land. No bench was run, and no count,
   certificate, verdict or canonical sha changed. `TestBatchPerfBench` fails on the parent tree. Found by Fable;
   the parent finding (D1167) is Codex's (gpt-6-astra).
+
+## 2026-11-12 — batch Q1113: the 3:1 ratio's theorem gains its `#print axioms` directive
+
+- **Lean, lean/README, TR-5, TR-6, TR-7, TR-12 (CX-37C-G).** The one row of Q-1049's TR-12 batch that CX-37C-A held
+  for a Lean run. `circular_ratio_3_to_1`, in `lean/KingWen.lean` since 2026-07-31, now carries its `#print axioms`
+  directive (kernel-only: propext, Classical.choice, Quot.sound). The published count of the module's directive
+  reports moves from 46 to 47 in lean/README, TR-5, TR-6 and TR-7, each keeping the old count in a dated note;
+  TR-12's confidence ledger grades the 16-odd-of-64 ratio machine-checked and names the theorem instead of deriving
+  it from `wrap_parity_general` and C5; TR-7 §3 names it too. Run on the pinned 4.31.0: 47 allowlisted report lines,
+  rc 0; module census 105 constants, 0 hits.
+- No mass, certificate, verdict or canonical sha changed; the only count that moves is the directive count.
+  `TestBatchQ1113` holds the directive, binds the four published counts to the file, and fails on the parent tree.
+  Found by Codex (gpt-6-astra), final review; adjudicated by Fable; built in the Fable lane.

@@ -39930,3 +39930,49 @@ No count, certificate, verdict, token or canonical sha changed; no bench was run
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group PB; the defects were found by Fable
 (claude-fable-5-1) in its restack2 and restack3 checks; the parent finding is Codex's (gpt-6-astra), final review.
+
+## CX-37C-G — The 3:1 ratio's theorem gains its `#print axioms` directive, and the published directive count moves from 46 to 47 (lean/KingWen.lean; lean/README.md; reports/TR5_SYMMETRY.md; reports/TR6_PARITY_SKELETON.md; reports/TR7_CIRCULAR_READING.md; reports/TR12_QUERY_PROGRAM.md; tests.py)
+
+**2026-11-12.** **Source.** Codex (gpt-6-astra), final review, F11-005#7 in the numbering of its 2026-10-26
+re-pinned run; adjudicated by Fable (FV2 slice 1, row D635) and held from CX-37C-A for a Lean run. Backlog Q-1113,
+push group Q1113. Built, run and checked in the Fable lane (claude-fable-5-1).
+
+**What was published, and what it says now.**
+- **TR-12's confidence ledger, the TR-7 3:1 row.** It graded McKenna's 16-odd-of-64 ratio "proven — a corollary,
+  carrying no certificate of its own", derived from `wrap_parity_general` together with C5. `lean/KingWen.lean` has
+  carried the theorem itself, `circular_ratio_3_to_1` (every C4+C5-valid sequence of the 64 hexagrams has exactly 16
+  odd and 48 even circular transition distances), since 2026-07-31. The row now grades the ratio machine-checked and
+  names the theorem; the old grade is kept in the cell.
+- **The directive.** The file's 2026-09-29 rule (Codex LSD R8) is one `#print axioms` per theorem a public document
+  cites by name, so that `reports/certificates/verify_all.sh` leg (B) screens it. `circular_ratio_3_to_1` had none.
+  It now has one, in file order after `circular_alternations_16`.
+- **The count.** lean/README §"Verify yourself", TR-5, TR-6 and TR-7 said success prints "46 `#print axioms`
+  reports". It is 47. Each site now says 47 and keeps 46 in a dated note. TR-7 §3 also names the theorem beside
+  its statement of the forced ratio.
+
+**Lean run** (2026-11-12, `leanprover/lean4:v4.31.0`, Lean commit `68218e87`, an 8-core host). `cd lean && lean
+-DwarningAsError=true KingWen.lean` exits 0 with 47 stdout lines, every one an in-file axiom report within
+[propext, Classical.choice, Quot.sound]; line 24 reads `'circular_ratio_3_to_1' depends on axioms: [propext,
+Classical.choice, Quot.sound]`. The module-wide census from `lean/AxiomCensus.lean.in`, in the shape of
+`verify_all.sh` leg (D): `AXSCAN_COMPLETE KingWen constants=105 hits=0`, 105 `AXSCAN_OK` lines and nothing else on
+stdout, among them `AXSCAN_OK circular_ratio_3_to_1 :: [propext, Classical.choice, Quot.sound]`. The directive adds
+one report line and changes no statement or proof: apart from it the module is byte-identical to its text at
+`512d2d34`.
+
+**Not changed here.** The dated attestations that quote a directive total for the whole suite (lean/README
+§"Verify yourself"'s "123 `#print axioms` lines" and CLAIM_TO_ARTIFACT row 13, both of the 2026-09-10 run) are
+records of that run and are not restated. lean/README's tiered theorem narrative lists neither
+`circular_alternations_16` nor `circular_ratio_3_to_1`; no entry is added.
+
+**Tests.** `TestBatchQ1113` holds the directive (once, right after `circular_alternations_16`), reads the count each
+of the four documents publishes and requires it to equal the number of directives in the file, holds the ledger
+row's new grade and theorem name with the old grade only in the dated note, the four revision rows, and this entry;
+its red half puts the old fragments back and the check fails. Its positive control requires every directive in the
+file to name a declaration of the file, so a misspelled directive fails without Lean. `TestBatchG4`'s precondition
+moves 46 → 47. `TestBatchFV2L`'s comment-only check now measures FV2-L's own commit (`512d2d34`) against its
+parent instead of the live file, which this directive moves, and still requires FV2-L's wording in the live tree.
+Three `*(current)*` pins in `TestBatchFV2A` and one each in `TestBatchQ1056` and `TestBatchQ1049R` accept the
+appended rows.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1, push group Q1113; the defect was found by Codex
+(gpt-6-astra), final review, F11-005#7; adjudicated by Fable (claude-fable-5-1), FV2 slice 1.

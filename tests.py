@@ -48862,7 +48862,7 @@ class TestBatchG4(unittest.TestCase):
         import solve
         b0 = {1: 2, 2: 20, 3: 13, 4: 19, 6: 9}
         self.assertEqual((sum(v for d, v in b0.items() if d % 2), sum(b0.values())), (15, 63), "precondition: C5 has 15 odd of 63")
-        self.assertEqual(self._r("lean/KingWen.lean").count("\n#print axioms"), 46, "precondition: 46 #print axioms in KingWen.lean")
+        self.assertEqual(self._r("lean/KingWen.lean").count("\n#print axioms"), 47, "precondition: 47 #print axioms in KingWen.lean (46 until Q-1113, CX-37C-G, which added circular_ratio_3_to_1's)")
         for a, b in solve.king_wen_pairs():
             self.assertEqual(bin(a).count("1") % 2, bin(b).count("1") % 2, "precondition: C1 partners share popcount parity")
         self.assertEqual(math.comb(35, 4), 52360)
@@ -55610,6 +55610,7 @@ class TestBatchFV2L(unittest.TestCase):
 
     ROOT = os.path.dirname(os.path.abspath(__file__))
     BASE = "802926059dffe8c45b3668414e4be9573b09076e"  # public G6 commit: FV2-L's files are unchanged between it and FV2-L's parent
+    FV2L = "512d2d349977eeb7596485663639bc93ca4041a1"  # FV2-L's own commit (Q-1113: its comment-only Lean diff is measured BASE -> FV2L, not BASE -> the live file)
     VA = "reports/certificates/verify_all.sh"
     _mod_n = [0]
 
@@ -55625,12 +55626,13 @@ class TestBatchFV2L(unittest.TestCase):
         with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
             return fh.read()
 
-    def _base_text(self, rel):
-        r = subprocess.run(["git", "-C", self.ROOT, "show", self.BASE + ":" + rel],
+    def _base_text(self, rel, sha=None):
+        sha = sha or self.BASE
+        r = subprocess.run(["git", "-C", self.ROOT, "show", sha + ":" + rel],
                            capture_output=True, text=True)
         if r.returncode != 0 or not r.stdout:
             self.fail("git show %s:%s failed, so the red arm measured nothing: %s"
-                      % (self.BASE, rel, r.stderr[-400:]))
+                      % (sha, rel, r.stderr[-400:]))
         return r.stdout
 
     def _base_file(self, name):
@@ -55690,12 +55692,15 @@ class TestBatchFV2L(unittest.TestCase):
         }
         for rel, (old, new) in rows.items():
             with self.subTest(file=rel):
-                cur, base = self._read(rel), self._base_text(rel)
+                live, cur, base = self._read(rel), self._base_text(rel, self.FV2L), self._base_text(rel)
                 self.assertIn(old, " ".join(base.split()), "precondition: the parent carries the old wording")
-                norm = " ".join(cur.split())
-                self.assertNotIn(old, norm, rel)
-                self.assertIn(new, norm, rel)
-                # every changed line, in both versions, lies inside a comment: no statement or proof moved
+                for text in (live, cur):   # the wording holds in the live tree and in FV2-L's own commit (Q-1113)
+                    norm = " ".join(text.split())
+                    self.assertNotIn(old, norm, rel)
+                    self.assertIn(new, norm, rel)
+                # every changed line, in both versions, lies inside a comment: no statement or proof moved.
+                # Measured BASE -> FV2-L's commit: later batches may add code lines (Q-1113 added a
+                # `#print axioms` directive to KingWen.lean), and that is not FV2-L's change.
                 bl, cl = base.splitlines(), cur.splitlines()
                 code_b, code_c = self._code_lines(base), self._code_lines(cur)
                 sm = difflib.SequenceMatcher(None, bl, cl, autojunk=False)
@@ -58055,12 +58060,12 @@ class TestBatchFV2A(unittest.TestCase):
                   "(`Argument list too long`, status 126)", "with `SOLVE_SKIP_IOPS_CHECK=1` added", "| v1.21 *(current)* |")
         self._has("reports/TR5_SYMMETRY.md", "no criterion invariant under hexagram relabeling can distinguish",
                   "consistent with a search-orientation effect", "by extrapolation — a verified subset still yields lower bounds",
-                  "apparently independently", "| v2.26 *(current)* |")
+                  "apparently independently", "| v2.26 |")  # marker moved to v2.27 by Q-1113 (CX-37C-G)
         self._has("reports/TR6_PARITY_SKELETON.md", "an even or an odd number of solid lines (popcount parity)",
-                  "| v1.17 *(current)* |")
+                  "| v1.17 |")  # marker moved to v1.18 by Q-1113 (CX-37C-G)
         self._has("reports/TR7_CIRCULAR_READING.md", "not a measurement of run-to-run scatter",
                   "page not pinned in CITATIONS.md", "`SOLVE_THREADS=64 SOLVE_KNUTH_SCORE=1 ./solve --estimate-knuth 20000000000`",
-                  "re-derives the M′, M₂ and M₄ terms", "3. **McKenna's 3:1 is forced by C4 + C5.**", "| v2.14 *(current)* |")
+                  "re-derives the M′, M₂ and M₄ terms", "3. **McKenna's 3:1 is forced by C4 + C5.**", "| v2.14 |")  # marker moved to v2.15 by Q-1113 (CX-37C-G)
         self._has("reports/TR8_REORDERING_REVISITED.md", "theirs was, to our knowledge, the first proposal",
                   "drew one published reply that we have located", "went unmeasured against constraint-defined populations",
                   "conditional on the frozen n = 91 ledger, and no other family is registered for it", "| v1.26 |")
@@ -61869,7 +61874,7 @@ class TestBatchQ1056(unittest.TestCase):
         cur = re.findall(r"(?m)^\| v[\d.]+ \*\(current\)\* \|", t)
         # Q1049R (CX-37C-A) appended v1.38 and moved the marker; v1.37 stays the row after v1.36 either way
         self.assertEqual(len(cur), 1, cur)
-        self.assertIn(cur[0], ("| v1.37 *(current)* |", "| v1.38 *(current)* |"))
+        self.assertIn(cur[0], ("| v1.37 *(current)* |", "| v1.38 *(current)* |", "| v1.39 *(current)* |"))  # Q-1113 (CX-37C-G) appended v1.39
         self.assertRegex(t, r"\| v1\.37(?: \*\(current\)\*)? \| 2026-11-05 \| \*\*Two items of §10, this report's DONE-contract section")
         self.assertIn("| v1.36 | 2026-11-01 |", t)
         self.assertNotIn("| v1.36 *(current)* |", t)
@@ -63665,9 +63670,11 @@ class TestBatchQ1049R(unittest.TestCase):
     def test_q1049r_revision_row_and_ledger_entry(self):
         t = self._r(self.TR12)
         rows = [l for l in t.split("\n") if l.startswith("| v1.3")]
-        self.assertTrue(rows[-1].startswith("| v1.38 *(current)* | 2026-11-10 |"), rows[-1][:60])
+        # Q-1113 (CX-37C-G) appended v1.39 and moved the marker; v1.38 stays the row after v1.37 either way
+        r38 = [l for l in rows if l.startswith("| v1.38 | 2026-11-10 |") or l.startswith("| v1.38 *(current)* | 2026-11-10 |")]
+        self.assertEqual(len(r38), 1, [l[:40] for l in rows])
         self.assertEqual(sum("*(current)*" in l for l in rows), 1, "one current revision row")
-        self.assertIn("CX-37C-A", rows[-1])
+        self.assertIn("CX-37C-A", r38[0])
         c = self._r("documentation/CORRECTIONS.md")
         self.assertEqual(c.count("\n## CX-37C-A — "), 1)
 
@@ -64719,6 +64726,122 @@ class TestBatchPerfBench(unittest.TestCase):
         self.assertTrue(at(120).startswith('SCP="scp ') and "UserKnownHostsFile=/dev/null" in at(120))
 
 # end class TestBatchPerfBench
+
+class TestBatchQ1113(unittest.TestCase):
+    """Push group Q1113 (CX-37C-G): `circular_ratio_3_to_1` (lean/KingWen.lean, in the file since 2026-07-31) gains
+    its `#print axioms` directive; the published count of the module's directive reports moves 46 -> 47 in
+    lean/README, TR-5, TR-6 and TR-7; TR-12's confidence ledger grades the 3:1 ratio machine-checked and names the
+    theorem (FV2 row D635, Codex F11-005#7, held from CX-37C-A); TR-7 §3 names it too. The count test reads the
+    number each document publishes and requires it to equal the directives the file carries, so either side
+    drifting fails it. Every test except the directive-names check fails on the parent tree 10bb6b3d; that check
+    (every directive names a declaration of the file) passes there by design and is the positive control for a
+    misspelled directive. Built in the Fable lane (claude-fable-5-1)."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    KW = "lean/KingWen.lean"
+    T5, T6, T7, T12 = ("reports/TR5_SYMMETRY.md", "reports/TR6_PARITY_SKELETON.md", "reports/TR7_CIRCULAR_READING.md",
+                       "reports/TR12_QUERY_PROGRAM.md")
+    LR = "lean/README.md"
+    DIRECTIVE = "#print axioms circular_ratio_3_to_1"
+    COUNT_SITES = ((LR, r"# success = only its (\d+) `#print axioms` reports"),
+                   (T5, r"success prints only the module's (\d+) `#print axioms` reports"),
+                   (T6, r"success prints only the module's (\d+) `#print axioms` reports"),
+                   (T7, r"success prints only the module's (\d+) `#print axioms` reports"))
+    COUNT_OLD = "the module's 46 `#print axioms` reports and exits 0, [lean/README](../lean/README.md)"
+    COUNT_NEW = ("the module's 47 `#print axioms` reports and exits 0 (46 until 2026-11-12, when `circular_ratio_3_to_1` "
+                 "gained its directive, CX-37C-G), [lean/README](../lean/README.md)")
+    PAIRS = (
+        (T5, "count", COUNT_OLD, COUNT_NEW),
+        (T6, "count", COUNT_OLD, COUNT_NEW),
+        (T7, "count", COUNT_OLD, COUNT_NEW),
+        (LR, "count", "# success = only its 46 `#print axioms` reports, exit 0",
+         "# success = only its 47 `#print axioms` reports (46 until 2026-11-12, CX-37C-G), exit 0"),
+        (T12, "D635", "| every C4+C5-valid circular reading | proven — a corollary, carrying no certificate of its own | derived from",
+         "| every C4+C5-valid circular reading | machine-checked (until 2026-11-12 this cell read \"proven — a corollary, "
+         "carrying no certificate of its own\", CX-37C-G) | `lean/KingWen.lean` `circular_ratio_3_to_1` (kernel-checked"),
+        (T7, "§3", "Every C4+C5-valid ordering has it. McKenna discovered",
+         "Every C4+C5-valid ordering has it (Lean `circular_ratio_3_to_1` in `lean/KingWen.lean`, kernel-checked"),
+    )
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _directives(self, text):
+        return re.findall(r"(?m)^#print axioms (\S+)$", text)
+
+    def test_q1113_directive_present_once_in_file_order(self):
+        kw = self._r(self.KW)
+        self.assertEqual(kw.count("\n" + self.DIRECTIVE + "\n"), 1)
+        self.assertEqual(kw.count("\ntheorem circular_ratio_3_to_1 "), 1, "precondition: the theorem is declared")
+        d = self._directives(kw)
+        self.assertLess(d.index("circular_alternations_16"), d.index("circular_ratio_3_to_1"))
+        self.assertEqual(d.index("circular_ratio_3_to_1") + 1, d.index("kwOrbit_length"), "file order: right after circular_alternations_16")
+
+    def test_q1113_published_count_equals_the_directives_in_the_file(self):
+        n = len(self._directives(self._r(self.KW)))
+        self.assertEqual(n, 47, "47 directives since Q-1113; a change here moves lean/README, TR-5, TR-6, TR-7 and this pin together")
+        for rel, rx in self.COUNT_SITES:
+            with self.subTest(file=rel):
+                m = re.findall(rx, self._r(rel))
+                self.assertEqual(len(m), 1, (rel, m))
+                self.assertEqual(int(m[0]), n, "%s publishes %s reports; the file carries %d directives" % (rel, m[0], n))
+
+    def test_q1113_every_directive_names_a_declaration(self):   # positive control: a misspelled directive fails here without Lean
+        kw = self._r(self.KW)
+        decls = set(re.findall(r"(?m)^(?:theorem|lemma|def|abbrev) (\S+)", kw))
+        missing = [d for d in self._directives(kw) if d not in decls]
+        self.assertEqual(missing, [])
+        self.assertIn("circular_ratio_3_to_1", decls)
+
+    def _problems(self, texts):
+        probs = []
+        for rel, row, old, new in self.PAIRS:
+            t = texts[rel]
+            if t.count(new) != 1:
+                probs.append("%s %s: new fragment present %d times" % (rel, row, t.count(new)))
+            elif old in t:
+                probs.append("%s %s: old fragment still present" % (rel, row))
+        return probs
+
+    def _texts(self):
+        return {rel: self._r(rel) for rel in (self.T5, self.T6, self.T7, self.T12, self.LR)}
+
+    def test_q1113_fragments_cured(self):
+        self.assertEqual(self._problems(self._texts()), [])
+
+    def test_q1113_red_on_old(self):
+        texts = self._texts()
+        for rel, row, old, new in self.PAIRS:
+            self.assertEqual(texts[rel].count(new), 1, "precondition: %s %s new fragment present" % (rel, row))
+        for rel, row, old, new in self.PAIRS:
+            texts[rel] = texts[rel].replace(new, old)
+        self.assertEqual(len(self._problems(texts)), len(self.PAIRS))
+
+    def test_q1113_ledger_row_is_line_neutral_and_graded(self):
+        lines = self._r(self.T12).split("\n")
+        rows = [l for l in lines if l.startswith("| TR-7 | McKenna's 3:1 even:odd ratio |")]
+        self.assertEqual(len(rows), 1)
+        self.assertIn("| machine-checked (until 2026-11-12 this cell read", rows[0])
+        self.assertIn("`circular_ratio_3_to_1`", rows[0])
+        self.assertNotIn("| proven — a corollary", rows[0])
+
+    def test_q1113_revision_rows(self):
+        for rel, cur, prev in ((self.T12, "| v1.39 *(current)* | 2026-11-12 |", "| v1.38 | 2026-11-10 |"),
+                               (self.T5, "| v2.27 *(current)* | 2026-11-12 |", "| v2.26 | 2026-10-29 |"),
+                               (self.T6, "| v1.18 *(current)* | 2026-11-12 |", "| v1.17 | 2026-10-29 |"),
+                               (self.T7, "| v2.15 *(current)* | 2026-11-12 |", "| v2.14 | 2026-10-29 |")):
+            with self.subTest(file=rel):
+                t = self._r(rel)
+                self.assertEqual(t.count("*(current)*"), 1, rel)
+                self.assertEqual(t.count("\n" + cur), 1, rel)
+                self.assertEqual(t.count("\n" + prev), 1, rel)
+                self.assertIn("CX-37C-G", t.split("\n" + cur, 1)[1].split("\n", 1)[0])
+
+    def test_q1113_corrections_and_history_entries(self):
+        self.assertEqual(self._r("documentation/CORRECTIONS.md").count("\n## CX-37C-G — "), 1)
+        self.assertEqual(self._r("documentation/HISTORY.md").count("\n## 2026-11-12 — batch Q1113: "), 1)
+# end class TestBatchQ1113
 
 
 if __name__ == "__main__":

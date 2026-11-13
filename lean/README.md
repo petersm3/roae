@@ -355,7 +355,7 @@ standalone, so `lean <AnyFile>.lean` works for all fifteen.)
 ```bash
 # install elan (Lean version manager); the pinned toolchain is in ./lean-toolchain
 # (leanprover/lean4:v4.31.0). Each file is standalone; no lake project:
-lean KingWen.lean            # success = only its 46 `#print axioms` reports, exit 0 (Lean 4, tested with 4.31.0; ~50 s — kernel-evaluates the equivariance-ceiling witness + the complement-symmetry facts)
+lean KingWen.lean            # success = only its 47 `#print axioms` reports (46 until 2026-11-12, CX-37C-G), exit 0 (Lean 4, tested with 4.31.0; ~50 s — kernel-evaluates the equivariance-ceiling witness + the complement-symmetry facts)
 lean C3Decomposition.lean    # C3 slot-decomposition theorem + the exact C1∩C4 null G-law (see below; ~2 min — kernel-evaluates a 31-layer DP)
 lean PruneSafety.lean        # v4 walk-level prune-safety lemma (isomorph-free generation soundness)
 lean PruneReprFC.lean        # SOLVE_REPR_FC prune safety: repr(k) forward-check + leaf-free memo preserve the first-found leaf (2026-08-15; see below)
