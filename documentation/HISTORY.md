@@ -12386,3 +12386,123 @@ Q-686=DONE
   maximum-coverage decade window, with room c's tie noted, as TR-10 does since CX-37C-E (TR-12 revision row v1.40).
 - No count, certificate, token, verdict or canonical sha changed. `TestBatchQ1114Q1118Q1120` holds each sentence and
   fails on the parent tree. Siblings found by Fable and the Opus lane during the Q-1049 batches.
+
+## 2026-11-08 — push group N12PUB: the certified n=12 and n=3, 4, 6, 7 counts published with their code and scope
+
+*(Written 2026-11-12, in the history catch-up; the commit, c1a99542, carried no section.)*
+
+- **The wording fix (CX-36Z-A).** SAT_CLI.md called a `--certify-count` result "an independently certified model
+  count". It now says "a certified model count of the CNF it emits", names `cpog-check` as an unverified C prototype,
+  and points to a new NOTES item, *What a certified count covers*. The 2026-08-26 n=9 run reads "reproduced 2026-08-26
+  on a separate host". A dated note keeps the old words. Fable (claude-fable-5-1) found the overstatement in its K-37
+  scope review (backlog Q-1078).
+- **The certified n=12 count, 133,118,976.** It is a certified model count of the CNF `sat.py --emit-cnf f1c5
+  --f1-pairs 12` emits (924 variables, 13,816 clauses). The CNF was too large for one certificate, so it was cut into
+  12,168 pieces with 529 cuts. The 7,085 pieces that have models were each certified by `d4` → `cpog-gen` →
+  `cpog-check`, and the 5,083 with none by `cadical` and `drat-trim`. A separate program checked, syntactically, that
+  the pieces split the CNF exactly, and a postcheck re-added the counts (`N12_POSTCHECK=PASS`). One run on one host,
+  about 58 h. It is row 18 of CLAIM_TO_ARTIFACT.md.
+- **The certified counts at n = 3, 4, 6 and 7: 48, 144, 1,920 and 38,016.** Each rung was small enough to certify
+  whole, as one CPOG certificate.
+- **The verified checker.** The n=9 certificate (26,112; row 19) and the four small-rung certificates were also
+  accepted by the formally verified Lean 4 checker shipped with CPOG.
+- **Scope, stated with every count.** A certified count is a model count of the emitted CNF. That the CNF's models are
+  the orderings the instance names rests on a Lean theorem about an abstract model of the encoder and on a measured
+  (not machine-checked) correspondence from that model to the emitted file (`scripts/k37_isclause_port.py`, which
+  matched at n = 3, 4, 6, 7, 9 and 12). That the instance is the one `solve` counts rests on the ported union table
+  and budget derivation, checked by tests and by three agreeing instruments, not by Lean. None of it certifies an n=13
+  quantity, and no certified count exists at n=13.
+- **The code ships with the counts.** The driver, the partition check, the postcheck and the correspondence check are
+  in `scripts/` (`decomp_certify_v3.py`, `n12_partition_all.py`, `q424_partition_check.py`, `n12_postcheck.sh`,
+  `k37_isclause_port.py`), added to CLAUDE.md's approved separates by operator decision of 2026-11-08. They are the
+  copies that ran, with docstring and comment lines changed only; SAT_CLI.md NOTES gives the sha256 of the driver that
+  ran and the commands to re-run. The certificates are not shipped.
+- No earlier count, sha, certificate or verdict changed; 26,112 at n=9 stands with its scope now stated.
+
+## 2026-11-10 — push group N12PUB-2: the certified n=10 count, and the n=12 and n=10 pieces checked again by formally verified checkers
+
+*(Written 2026-11-12, in the history catch-up; the commit, 4ab338b9, carried no section.)*
+
+- **The certified n=10 count, 123,677,568.** A certified model count of the CNF `sat.py --emit-cnf f1c5 --f1-pairs 10`
+  emits (550 variables, 7,834 clauses), with the scope stated for n=12, and `K37_BRIDGE_N10=MATCH`. The method is
+  n=12's: 1,050 cuts, 19,951 pieces, 9,497 with models and 10,454 without, and `N12_POSTCHECK=PASS`. One run on one
+  host, about 3.7 h. After its first 15 minutes the run was stopped and resumed with a variant of the driver,
+  `scripts/decomp_certify_v3_pipe.py`, which drops `cpog-check`'s `Looking for clause` lines before Python reads its
+  output and can write the piece files to a directory named by `SATCERT_PIECE_TMP`; piece construction, gates, verdict
+  parsing and ledgers are the n=12 driver's code. Row 20 of CLAIM_TO_ARTIFACT.md.
+- **Every piece checked again (row 21).** Each piece was rebuilt from the source CNF and had to match the run's
+  recorded sha256. Every piece with models (7,085 at n=12, 9,497 at n=10) was also accepted by the formally verified
+  Lean 4 checker shipped with CPOG, and its printed counts sum to 133,118,976 and 123,677,568. Every piece with no
+  models (5,083 and 10,454) was also accepted by the formally verified LRAT checker shipped with Lean 4 (v4.31.0), on
+  new `cadical` LRAT proofs. Each pass ran once, on one host.
+- **The cut tree's own certificate.** For each count, a CNF that is the source plus one "not in this piece" clause per
+  piece has an LRAT proof that it has no models, built from the cut tree, and the same LRAT checker accepted it. That
+  shows every model lies in some piece. That no model lies in two pieces is a syntactic check by a second program that
+  shares no code with the emitter (`scripts/cover_cert_check.py`), not a machine-checked proof.
+- **What is not verified** is listed in SAT_CLI.md NOTES: the piece construction, the sum, the two syntactic checks,
+  the checkers' own trust base (their parsers, compiler and runtime), and the step from the CNF to the orderings.
+- **Two wording fixes.** CITATIONS.md called cake_lpr the checker "behind every "verified checker" claim in this
+  repository"; it is the checker behind the archived certificates, and the entry now says so (CX-37A-A). SAT_CLI's
+  Pipeline paragraph said a certified count "is trusted because the certificate is checked independently of the
+  compiler"; it now says the certificate is checked against the original CNF by a checker that does not read the
+  compiler's output (CX-37A-B, the second half of Q-1078, found by Fable in its coverage review).
+- **The code ships with the results:** `decomp_certify_v3_pipe.py`, `n12lean_run.py`, `n10lean_run.py`, `lrat_run.py`,
+  `cover_cert_emit.py`, `cover_cert_check.py` and the Lake project `scripts/lratcheck/`, added to CLAUDE.md's approved
+  separates by operator approval of 2026-11-10. `TestBatchN12Pub2` (7 tests) checks them. The n=10 run, the driver
+  variant, the n=12 checker runner, the LRAT checker program and runner and the cover certificate are Fable's
+  (claude-fable-5-1) work, and Fable adjudicated the checker results; `n10lean_run.py` is claude-opus-5-5's.
+- No earlier count, canonical sha, certificate or verdict changed. The n=12 count and its scope stand.
+
+## 2026-10-15/17 — Codex's final review as a whole: 255 of 255 runs at fee25e0b, four triage rounds, no show-stopper
+
+*(Written 2026-11-12, in the history catch-up. The sections from FT1 (2026-10-15) on publish this review's fixes; this
+entry describes the review itself, which had none.)*
+
+- **The review.** Codex (gpt-6-astra) ran 255 review prompts against public commit fee25e0b between 2026-10-15 and
+  2026-10-17, each prompt one lens on one part of the repository: the reports, the documentation, the gates, the
+  engine and verifiers, the SAT and Lean layers, the citations. All 255 finished. Two were first stopped by Codex's
+  own content filter on the final answer and finished after their prompts were reworded.
+- **The triage.** Fable (claude-fable-5-1) ruled on the findings in four rounds (1, 2, 3a and 3b), each checked
+  against the public tree and settled by running commands where it could. Round 1 ruled on 23 items from 6
+  transcripts, taking only their most severe items and classes. Rounds 2, 3a and 3b ruled on 865, 1,306 and 1,835
+  items from 44, 94 and 105 further transcripts and confirmed 483, 635 and 818 of them. Large duplicate counts are
+  expected, since many transcripts cite the same front-door pages. The four rounds' ledgers cover 249 of the 255
+  transcripts, the first six only in part. The other six, the last to finish on 2026-10-17, are in none of them; their
+  prompts ran again in the fix-verification round (below).
+- **No show-stopper in any round.** Each round applied five tests: a wrong published canonical sha, count or
+  parameter; a wrong proof or encoding; a wrong headline on the front page, the overview or a report; a broken
+  pre-registration; and a gate that could not fail for a published result. No item met one, and none was rated
+  Critical. Fable rated five High: TR-4's summary still carried a retired boundary band (CX-362, CX-363); a METHODS
+  sentence said a global bar is cleared "under every reading" (CX-379); a Lean source-census gate could be bypassed
+  with a string literal; an execution-lane script ran without `set -e`; and two `verify.c` layer-reader selftests
+  failed on public main (FT3j).
+- **What followed.** The confirmed rows went out in push groups, each with its own section above: FT1, FT2a, FT2b-1,
+  FT3j, FT2b-2..4, G4, G5a, G5b, G5c, G6, G7 and G8L. Codex then reviewed again, twice: a 32-run fix-verification pass
+  at 82211dee over the sites the first fix batches touched, whose 383 rows Fable triaged (FV1, above), and the
+  fix-verification round, in which the 255 prompts ran again at 0df730cb on 2026-10-24 and 25 and whose adjudication
+  feeds the FV2 batches.
+- No canonical sha, record count, certificate or verdict changed because of the review itself; each change is in the
+  section of the batch that made it.
+
+## 2026-11-12 — two later runs on the retained n=31 ladder bytes: the f ladder entry by entry, and all 96 logical digests again
+
+- **The f ladder, entry by entry (backlog Q-902).** `verify --check-layers` read all 32 f layers under
+  `LC_LAYERS_COMPLETE=1`, with a binary built from `verify.c` as at public commit 25618095 (TODO-1, which made the
+  placed-pair check a counted line). It ran from 2026-11-11 01:04 UTC to 2026-11-12 04:27 UTC, about 27.4 h on one
+  core: one run, on one host. Every layer was re-derived (`LAYERS_REDERIVED=32`, `LAYERS_ABSENT=0`), every compared
+  mass matched `reports/FULL31_EXACT_AGGREGATES.md` §1 (`MASSES_COMPARED=31`), the final layer's sum matched the
+  published count, and `mod 24 = 0` held. `LAST_IN_PLACED_PAIR_CHECKED=526496343563` is every entry of the ladder,
+  with `LAST_NOT_IN_PLACED_PAIR=0`. Its per-layer mask and entry counts equal the `canonical_masks` and `entries`
+  columns of the same table. `F_LADDER_CHECK_LAYERS=PASS`. This is item R4 of the Codex KCV review's rows that needed
+  the ladder bytes (CX-241); R1 and R8 are not covered by it.
+- **The 96 logical digests (backlog Q-821).** `solve --f1c5-layer-sha`, built from `solve.c` as at public commit
+  b4dbd9a7, digested every f, g and t layer from 2026-11-06 to 2026-11-10, on one host; the g digests come from three
+  runs of that binary, which the transcript's header sets out. `TR12_FSHA=PASS`, `TR12_GSHA=PASS`, `TR12_TSHA=PASS`:
+  each digest equals its row in `runs/20260906_kc_ladders_n31/STAGE_{F,G,T}_LAYERSHA.txt`. The digests were last taken
+  by the standalone sweep of 2026-09-17.
+- **Published.** Both transcripts are in `runs/20261112_kc_ladders_n31_recheck/` with a `SHA256SUMS`, each behind a
+  header that gives the command, the binary, the commit and the dates and says what was left out of the captured log.
+  The ladder README gains a section and the line `F_LADDER_CHECK_LAYERS=PASS`. Both binaries rebuild with the same
+  sha256 from the named public commits.
+- No canonical sha, count, mass, digest or verdict changed. `TestBatchHistCatchup` checks the four sections and both
+  transcripts against the published registries and tables, and fails on the parent tree.

@@ -204,3 +204,29 @@ no rights claim on it and grants none.
 Added from Codex's final review (gpt-6-astra); the record above is kept as written. [CORRECTIONS.md](../../documentation/CORRECTIONS.md) CX-35X-K.
 
 - **`STAGE_{F,G,T}_LAYERSHA.txt` headers.** The three registries' comment headers still give the provenance this README corrected — a digest taken inline while each layer was being finalized. It was corrected on 2026-09-29 (CX-241): the sidecar digest is taken by re-reading the finalized layer file. The registries are frozen and keep their headers; the digest values are unaffected (Codex F07-010#7).
+
+## The f ladder entry by entry, and the 96 logical digests again (added 2026-11-12)
+
+Two later runs on the retained ladder bytes are published in
+[`../20261112_kc_ladders_n31_recheck/`](../20261112_kc_ladders_n31_recheck/README.md), each behind a
+comment header that gives the command, the binary, the public commit it was built from and the dates.
+
+- **`verify --check-layers` over all 32 f layers** (`VERIFY_CHECK_LAYERS_F_n31.txt`; 2026-11-11 to
+  2026-11-12, about 27.4 h on one core; `verify.c` as at public commit 25618095). Binding lines:
+  `DONE_RC=0`, `LAYERS_COMPLETE_MODE=1`, `LAYERS_REDERIVED=32`, `LAYERS_REPLAYED=0`, `LAYERS_ABSENT=0`,
+  `MASSES_COMPARED=31` with every compared mass `ok` against `reports/FULL31_EXACT_AGGREGATES.md` §1,
+  `LAST_IN_PLACED_PAIR_CHECKED=526496343563` (every entry of the ladder) with
+  `LAST_NOT_IN_PLACED_PAIR=0`, the final layer's sum `MATCH` against the published count, and
+  `mod 24 = 0   ok`. No line reports a failure. The f ladder has been read entry by entry by the
+  independent reader, and every entry passed its checks.
+- **`solve --f1c5-layer-sha` on all 96 f, g and t layers** (`LAYERSHA_RECHECK_n31.txt`; 2026-11-06 to
+  2026-11-10; `solve.c` as at public commit b4dbd9a7). `TR12_FSHA=PASS`, `TR12_GSHA=PASS`,
+  `TR12_TSHA=PASS`: every logical digest equals its row in `STAGE_{F,G,T}_LAYERSHA.txt` above.
+
+F_LADDER_CHECK_LAYERS=PASS
+
+The f pass is item R4 of the Codex KCV review's rows that needed the ladder bytes
+([CORRECTIONS.md](../../documentation/CORRECTIONS.md) CX-241, "Not done here"). It does not cover R1
+or R8. The scope stated above for the identity transcripts still applies to them. The f pass tests
+each f entry on its own against the format; it does not recompute an entry's value from the
+transition relation.

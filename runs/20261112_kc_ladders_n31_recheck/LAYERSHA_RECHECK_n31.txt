@@ -1,0 +1,161 @@
+# solve --f1c5-layer-sha, n=31 -- the logical (decompressed) digest of all 96 f, g and t layers, taken again
+#
+# Verdict:   TR12_FSHA=PASS, TR12_GSHA=PASS, TR12_TSHA=PASS -- 32 of 32 layers matched in each ladder,
+#            mismatch=0 tool_err=0 no_digest=0. Every digest below equals the row for the same layer in
+#            ../20260906_kc_ladders_n31/STAGE_{F,G,T}_LAYERSHA.txt (96 of 96).
+# Produced:  a later run on the retained ladder bytes: the f, g and t ladders that STAGE_{F,G,T}_*.txt
+#            in ../20260906_kc_ladders_n31/ fingerprint.
+#            f: 2026-11-06 04:55 UTC to 2026-11-07 06:10 UTC.  t: 2026-11-07 06:10 UTC to
+#            2026-11-08 05:13 UTC.  g: finished 2026-11-10 05:41:51 UTC. 24 g digests were taken by
+#            the run that finished then; 8 (layers 12-19, `cached=8`) were taken by two earlier runs
+#            with the same binary on the same files: layers 14-17 by the first run (2026-11-06 to
+#            2026-11-08, which ended without a verdict), and layers 12, 13, 18 and 19 by a run of
+#            2026-11-08/09, which was stopped during layer 20.
+#            Earlier g attempts ended without a verdict; one could not open 23 g layer files and took
+#            no digest for them. Every layer without a digest was digested again; a digest is reused
+#            only from a run that exited 0 on that file.
+# Command:   ./solve --f1c5-layer-sha <LAYER>.bin   for each layer file, each output compared with the
+#            layer's row of the build-time registry. The comparison and the verdict lines are written by
+#            a driver script that is not in this repository; what anyone can repeat is the comparison of
+#            each digest below with STAGE_{F,G,T}_LAYERSHA.txt.
+# Binary:    sha256 8521237ad0aff7b031c78bc0af75bed8371aa174d71da5df4057bc173fd979b7 (1,768,664 bytes),
+#            built with  gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz  (gcc 13.3.0, Ubuntu 24.04)
+#            from solve.c at public commit b4dbd9a7 (2026-11-03; file sha256
+#            135ad9525e7f834926d923450504a95dc23c6697f406facd3eb77c93c4a389a1). Rebuilding that file
+#            with the same line and compiler gives the same binary sha256.
+#
+# What it checks: each layer file's per-block zlib streams are inflated and the content digested
+# (`--f1c5-layer-sha`; ../20260906_kc_ladders_n31/README.md, "Two registries"). A match says the
+# layer's logical content is the content its builder recorded. It is a content-identity check; it
+# does not re-check the entries (that is VERIFY_CHECK_LAYERS_F_n31.txt for f) or the identities.
+#
+# Each block below is one ladder: first the per-layer table the run wrote (layer file, verdict, the
+# digest `--f1c5-layer-sha` printed, seconds), byte-identical (f: 3,154 bytes, sha256
+# 7ca6f329ef5af1c5c8ebbed91f32e2cbf94185afa9f0d7e29bf3b951de4e98d6; g: 3,066 bytes, sha256
+# 05d2034de4b10d2af7e4253c1c65e89fbf6284181dec95f5dc822141990d5371; t: 3,059 bytes, sha256
+# e1c78ca77f9a1eb661901f4d0e5270fc288e2330c54e4d5efe99558fe2ece84d), then five verdict lines of the
+# run's stage log, byte-identical. The other lines of the stage logs are left out: they name the
+# host, local paths, a run estimate and a pre-flight setting, and carry no verdict.
+======================================================================
+# ladder f
+f1c5_layer_00.bin  MATCH a1114974b2342cfb1eb23f696ce62496cf1a09027461ab8a6ced332459db0f45  0s
+f1c5_layer_01.bin  MATCH 07378332fbbdf35a8bc2441a19136d551c9da861f2df84c315fb148771ea0812  0s
+f1c5_layer_02.bin  MATCH c637ca57c231c5d412b4f642f7c2989c864ca2b6a6def543082225c217fb4098  0s
+f1c5_layer_03.bin  MATCH 9848b9af9bbcba03c8df4d4d1621f3b3d0222d09be7d3beab45dd38366ac21c6  0s
+f1c5_layer_04.bin  MATCH abc2dd59fa55616ab55c3ffa1bf4f4790d17d34ccba1afda71d83c92ed76abc6  0s
+f1c5_layer_05.bin  MATCH ac35c17fd32b52a405eb7f7de710eacaf0f9ec8e342c210076aba52b57ad7b8f  0s
+f1c5_layer_06.bin  MATCH 40010f0dd03ee14af439ce2e3421c105f6f3a184d4b8efdd2b1958615a96408a  1s
+f1c5_layer_07.bin  MATCH 8c6a86bc9327e41f2051a1e4a3bb6e61f8a708d1ac926570db1a9edf7e418918  7s
+f1c5_layer_08.bin  MATCH 90e4d3ea486dd0b48a4d609e7f99fedfbdc2382ab93284847e385d9d12dfee02  37s
+f1c5_layer_09.bin  MATCH 3c68b07c01ea039a131bcb2079605673533103bed94927c16c328b3ca08a574d  147s
+f1c5_layer_10.bin  MATCH eb01fcd89a3be77644428d93769c1c3f915cc607b3584a09f770bcdf6b6b7fc7  499s
+f1c5_layer_11.bin  MATCH 8855ff6a1f0cea5f4fd73c593e172ffb83146826ee32b47c610c671d75d8a429  1332s
+f1c5_layer_12.bin  MATCH f1605fe2d57a8afc708ddfd8617d626fb951de88417c5b7b3930071fedabc831  2907s
+f1c5_layer_13.bin  MATCH f7a2efe7cda4c566fb54d01e854ef255ce7a95b364f9a77ff9c898bfabba4440  5406s
+f1c5_layer_14.bin  MATCH 6c0a8beaf23e0343f1e02e656e046c80a282223ed02e9490b98e4d1e5b6f338d  8443s
+f1c5_layer_15.bin  MATCH f79d41ad05a1d4fae7ca41b7fd6045f5e2e971c01950d4edacebd55115d78d74  11310s
+f1c5_layer_16.bin  MATCH ea83dc25817429a49d941135d5592f5c9635b782341421ea9ed91d6631e0a57c  19565s
+f1c5_layer_17.bin  MATCH cef2682847a61ff2b419f1b3b3e1670b43618b73da3210b3d5c1c71beef6b81c  12703s
+f1c5_layer_18.bin  MATCH a23704ac21d8df47b8f16db57571046c9c31ed33b294c2c0d57c97bfd52f2c81  13472s
+f1c5_layer_19.bin  MATCH 6133e330400955439e253eac63cbb93dd5c89c8ca9e36ed5b94d7aae13d3e7cd  7358s
+f1c5_layer_20.bin  MATCH ceaee99d67dca57533115c5f1458c7ebc0cce65f588f9d8b1d1bdd2c5247dfeb  4295s
+f1c5_layer_21.bin  MATCH db045c2d03c56b920e03586786f1031dada018941ff6f625c2b0f5d636949b55  2151s
+f1c5_layer_22.bin  MATCH e60384b374044ff1a1f95f69866529f22085a7e55b72a0c01ff4e9b36e87590e  875s
+f1c5_layer_23.bin  MATCH 5806dfc68379f49e33b29958ed571277e5ada38d8d52755ccd0963e416c281e8  285s
+f1c5_layer_24.bin  MATCH 2db088d723140411e3f2cf4c79d4f26ebc44d3f01991b5dec866bd2ce66091b0  81s
+f1c5_layer_25.bin  MATCH 57b562873d9ec03e876d9e0e7fc987a42c50392d208f6cc9d7dff18525b1109e  19s
+f1c5_layer_26.bin  MATCH 58712886a515d7b032977c70c7f1d8c1a43b3f75d272698a50a9bc084092ebee  4s
+f1c5_layer_27.bin  MATCH eb94cda618923cea14abc43f2facf7bcb1ad0f0685d368ee88d7922c962a3847  0s
+f1c5_layer_28.bin  MATCH bb9078b41ab2c4158ff98d5a432d6041138feec5632ce204832beb4a40e4994b  0s
+f1c5_layer_29.bin  MATCH 3b11c5df09e5a81a07c4ff353f4506017c534cab19e386acdabbd0d589866b06  0s
+f1c5_layer_30.bin  MATCH a862c7909291a27046bd5ce722c71418333cb46df6b4c9dab3302ef535751bc2  0s
+f1c5_layer_31.bin  MATCH 9a71c87781851d2895465a4062b6d0df20905bd0fc93bf8b44a31b2edcf2f280  0s
+layers_on_disk=32 registry_rows=32 matched=32 mismatch=0 tool_err=0 no_digest=0 fresh=32 cached=0
+# verdict lines
+TR12_FSHA=PASS
+LADDERSHA_F_COUNTS=disk:32,registry:32,matched:32,fresh:32,cached:0
+LADDERSHA_F_DISK_SIDECAR_VS_REGISTRY=AGREE:32
+LADDERSHA=PASS
+DONE_RC=0
+======================================================================
+# ladder g
+g_layer_00.bin  MATCH dcecb7b17b931d5d0c1352e277a45227a611de60d9e3672b2717eb3d7413110c  0s
+g_layer_01.bin  MATCH 15e6ed7ea1ebcc88caf61b865eb1322bfd2acc5e14b2b18c22cd4b166670b41e  0s
+g_layer_02.bin  MATCH 82bc7e84d0e5dc029c47dd3f5926972a2d386d0a0c43974df7ff4005a0bb1df6  0s
+g_layer_03.bin  MATCH 6e9bcdc367ea9a27ea4f2933d01a0d7244c47f6789c2246c2b0a05d4b7338326  1s
+g_layer_04.bin  MATCH f4711cbd6deecd8130626c8aa93dbdb615c8b51d756852add5530e6eb1ffc611  0s
+g_layer_05.bin  MATCH 7dd6cfd865e1d9f591650180639d15066c250bd9d2a2820f99f5dea1cbb1921c  2s
+g_layer_06.bin  MATCH fba57aa5b6841f958c25dd90e6d2d239d18067e0b2c05e8e8eaaf2a3403268b2  8s
+g_layer_07.bin  MATCH 7cefa4cc1765f844c47bacddd04928c0fb60e2d5ec71504899466b9880972b98  40s
+g_layer_08.bin  MATCH 18bb6b623bb20399457ab1b4efae7a7d952dc42cd28b81583e04f449c23ba10d  197s
+g_layer_09.bin  MATCH 5fa4c67065963d7dad8634864f984f8446a232aa5609b9697ea9e90906d54fbf  687s
+g_layer_10.bin  MATCH 2caa2a0898ceb263eca38c2456e73444d8a5d076194e2fd5b9acc900c279c7aa  2036s
+g_layer_11.bin  MATCH 4dec33a9503bdd8790b4b17bd3c31827a854ed84f344715f3d169d2f321f86b7  4701s
+g_layer_12.bin  MATCH 7626801118ff71d3fafe3dcfa600ad1c0b7ee50cc082559e009d8e8eb986f8b4  10722s
+g_layer_13.bin  MATCH ff00c28d174395fddbb98c9e83f0912ed5aec3444df90cf98bbe344f56abf8da  17750s
+g_layer_14.bin  MATCH f98f0fb22a37627eeec5ca9b18fdc9ac08ab2aa06aa8069723c38e5d36702a80  53269s
+g_layer_15.bin  MATCH 078b3ee95c69a68dfe8986a58a15aefba8ba283e6536846da099fb1ad4ff0a28  43231s
+g_layer_16.bin  MATCH 50cd64abc785b1e14ced896353d9fe45e45ac34656daa3312e9f97f067f0a856  62703s
+g_layer_17.bin  MATCH cdd36d6c3d9da3cf790a9d3b06b67b3d2b5f826e4d88df194ef0447ecd1dc9c4  61771s
+g_layer_18.bin  MATCH d96709cc24dc4d0d0f58ec470afae5c6fb198b232dae3012fc4078d116b21a34  19220s
+g_layer_19.bin  MATCH d9ed2d445f7cb9a18037987aab62070c65ea566caf7470c7cc4100f003391df5  12083s
+g_layer_20.bin  MATCH ccb7b0150237d554eed0bc4247e92f643430934947ddabb93be796e654b99d7f  6492s
+g_layer_21.bin  MATCH 2e227f9d97786e69afa7fe9f5bfeb668da0a986c0a5df3e8a837452212d0e469  2809s
+g_layer_22.bin  MATCH aaabbd9b2790a5d926fee7a98ac072bc0220789de2396843032c3883a23cd77f  1009s
+g_layer_23.bin  MATCH 7cb52e4e4880864a8aa63bf5a65e81f5de5ce969dbf097cf700f531df4612c60  252s
+g_layer_24.bin  MATCH 6f49e188234bc66c3004eb15f8885b55b497ba271d1c7c23a8ddb514ab222d2e  55s
+g_layer_25.bin  MATCH 4acd79fbe9cb9c6a8810e9f4341e72863e17f28e89652e5a06ebb1129c6ea745  10s
+g_layer_26.bin  MATCH 801777dd015ba6ffcb31906aaba4fbef335e88680588f0df9f536061243b40d5  1s
+g_layer_27.bin  MATCH 4ccce5674d41ba796da8b86a2cda20343a6251af235e111bad3810f403be44df  0s
+g_layer_28.bin  MATCH 61bf7f91c6dae6fb6ff99d2820edef42b6bf62913168cb5fce59ed6ce332f940  0s
+g_layer_29.bin  MATCH 9080532a8afe412052ee0c19e0acc14fcb990bea257a59c48d87cde962cafd88  0s
+g_layer_30.bin  MATCH d0f6396f13562c8dedfcb973a763a55f32e53522dda449d86e2b1c92fbfa978d  0s
+g_layer_31.bin  MATCH 0682f5016b23ac06872fe774739a5bc190faa8d7e32dbe7c68cb31e63f3b730e  0s
+layers_on_disk=32 registry_rows=32 matched=32 mismatch=0 tool_err=0 no_digest=0 fresh=24 cached=8
+# verdict lines
+TR12_GSHA=PASS
+LADDERSHA_G_COUNTS=disk:32,registry:32,matched:32,fresh:24,cached:8
+LADDERSHA_G_DISK_SIDECAR_VS_REGISTRY=AGREE:32
+LADDERSHA=PASS
+DONE_RC=0
+======================================================================
+# ladder t
+t_layer_00.bin  MATCH 24909026afcf175c072330d618a8076348d6377d769b3f92fed4fbece336713f  0s
+t_layer_01.bin  MATCH 96fce498199cfe44246fd9efab944dc35ada49e2805fd421f7ec0fa1301d4dbc  0s
+t_layer_02.bin  MATCH 91aa14226d22c812a9a39b5fb7962af5f3557d74575f03cc1396a34bae7ea405  0s
+t_layer_03.bin  MATCH a88ad5a7bf0f0dbcd78094477043b86079edbff7b11de3b7b08e57c4e8990beb  0s
+t_layer_04.bin  MATCH c18e8a5adb6b0d520c61dc21acd51a52af9a7c39c99c68ad44dd6193eac9fdc8  0s
+t_layer_05.bin  MATCH 7ca255d0e6232c48c927e2e69ca1bdfa560839e7bc4b00dc5d8e142007d6a9c0  1s
+t_layer_06.bin  MATCH 41c3af219ab2e479917cd083de41f13447c5e0d387444894d519b9ec93417bf3  2s
+t_layer_07.bin  MATCH f3d5438bbd84a5f308e054a35c39bbb98950e0fc21cfe1d2d74cb7d822e63223  14s
+t_layer_08.bin  MATCH f51270f11963dc02f6be6f151d420489b1401cd68054eff63b6e03067134316e  63s
+t_layer_09.bin  MATCH f9271bcaff5b240d502763141e3dd5206b0e26a5767c881290c87a812d2c40e5  246s
+t_layer_10.bin  MATCH 55340ebb34cad738a7eb14b088a48b032ada233356849f3b4363ec4bb5e73901  760s
+t_layer_11.bin  MATCH b1b78ec2444c84ea924459a30ac38634e3acf51ca457780450ce8bbd517932b3  1904s
+t_layer_12.bin  MATCH c4710315e79409a862d6f05e1c8893afd419d7aac2b5a9f09b5169f44baea5fe  3953s
+t_layer_13.bin  MATCH a25540c6d6dcb32f4c30f2ea37bcc5bff01dc439199df7bb830006d357386162  6982s
+t_layer_14.bin  MATCH 52d25628cdf6ddb169cf9e10281ec85c1fcee87e892ded709e949e1f7c0b18e0  10155s
+t_layer_15.bin  MATCH 46799280592716e0ccee4fcf7a3b6c1278103593437e433caf3871adc990de31  12708s
+t_layer_16.bin  MATCH a75610ef677e768120022c96c50a21f21675cec6a5ad175ef78f3b79f0603ff1  13559s
+t_layer_17.bin  MATCH f49d69dd3a386c4176b010e4ebf7d5a68782d9c78487e69c5f3c1a186feee743  12193s
+t_layer_18.bin  MATCH 5b9c153cd2c766909885bdfd4a13db5d888ac5b65e03561b0b5db81ee8bdc804  9064s
+t_layer_19.bin  MATCH ec13b72fd3b3b7cb6a32c591ae7db007b0f5d822833c61da959cfe36611c4291  5906s
+t_layer_20.bin  MATCH 32a228617be1523f81138d403722aa17e24e1dd37c5136374cf3df26cf344985  3193s
+t_layer_21.bin  MATCH cc9ae565845975e1800d69f63212cee7c83f4bf874a1443fbcfdf5839a527563  1467s
+t_layer_22.bin  MATCH f942856ee3c25646afe0a28680bc28898d41b381ab271c560257a75f11d474c4  577s
+t_layer_23.bin  MATCH fecf3e32e302a8f08f515c54ca880eaaf74714c87041fe87e6a2355a9af02172  178s
+t_layer_24.bin  MATCH 3df2281266fcb7a9445ce73bb641fcaa2d8943a349c37eae2899d67b25aa9bd3  46s
+t_layer_25.bin  MATCH 5f1da920cf20edfac692e7ac4360df9f8be3eb21f204465be0a2917041001379  10s
+t_layer_26.bin  MATCH f3c81b2c7f2bf4f12b0be88de80660a9cfc748bad91ae3cb7fb3e37a5d1532df  1s
+t_layer_27.bin  MATCH 2451c8951d044da24aa19bdac40a69c8c154eed83851bbf34c5235f9541c722a  0s
+t_layer_28.bin  MATCH 63d5c1e6691fc15788792625516f52486bd02a0b41a1f7a87999ca35b7e3c4fb  0s
+t_layer_29.bin  MATCH ff17cdbffeb141700574ed591c52a172bfeadbdd8579d7824aa3b2ba40f3327d  0s
+t_layer_30.bin  MATCH 7f62f236ae96e3ad2ded564a0e3930b8f4b7ac6e8ead5bbbd2b474f95311aaa6  0s
+t_layer_31.bin  MATCH 490be996ae4a8e8ea0508f65810ff37cddba36010b656aa1f613df07abb703fc  0s
+layers_on_disk=32 registry_rows=32 matched=32 mismatch=0 tool_err=0 no_digest=0 fresh=32 cached=0
+# verdict lines
+TR12_TSHA=PASS
+LADDERSHA_T_COUNTS=disk:32,registry:32,matched:32,fresh:32,cached:0
+LADDERSHA_T_DISK_SIDECAR_VS_REGISTRY=AGREE:32
+LADDERSHA=PASS
+DONE_RC=0

@@ -956,6 +956,7 @@ runs/20260716_f1c5_c1c2c4c5_d128westus3/layer_curve.md	84	marker	Corrected	1	-	r
 runs/20260716_f1c5_c1c2c4c5_d128westus3/layer_curve.md	86	ledger-link	CORRECTION	n/a	-	not-a-marker	dc3685c32fbe
 runs/20260906_kc_ladders_n31/README.md	37	marker	Corrected	1	-	reviewed:text-already-says-the-sidecar-re-reads-the-file	5a56ba8ff38d
 runs/20260906_kc_ladders_n31/README.md	204	ledger-link	CORRECTION	n/a	-	not-a-marker	915ffbb0a62c
+runs/20260906_kc_ladders_n31/README.md	229	ledger-link	CORRECTION	n/a	-	not-a-marker	8af62c515c79
 runs/20261003_tr8_dof_sampler_35782834/README.md	5	ledger-link	CORRECTION	n/a	-	not-a-marker	103edf34a7db
 runs/20261003_tr8_dof_sampler_35782834/README.md	50	ledger-link	CORRECTION	n/a	-	not-a-marker	8540705e4223
 scripts/tr12_expected/README.md	32	marker	CORRECTED	1	-	reviewed:sentence-above-already-scopes-to-what-a-row-prints	f830b198793f

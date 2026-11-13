@@ -1,0 +1,139 @@
+# verify --check-layers, n=31 -- the independent reader's entry-by-entry pass over all 32 f layers
+#
+# Verdict:   F_LADDER_CHECK_LAYERS=PASS -- DONE_RC=0, LAYERS_COMPLETE_MODE=1, LAYERS_REDERIVED=32,
+#            LAYERS_REPLAYED=0, LAYERS_ABSENT=0, MASSES_COMPARED=31, no FAIL line,
+#            LAST_IN_PLACED_PAIR_CHECKED=526496343563, LAST_IN_PLACED_PAIR_REPLAYED=0,
+#            LAST_NOT_IN_PLACED_PAIR=0, final-layer sum MATCH, mod 24 = 0 ok.
+# Produced:  2026-11-11 01:04:14 UTC to 2026-11-12 04:27:05 UTC (one process, single core, about
+#            27.4 h), a later run on the retained ladder bytes: the f ladder that STAGE_F_*.txt in
+#            ../20260906_kc_ladders_n31/ fingerprints.
+# Command:   LC_LAYERS_COMPLETE=1 LC_RESUME=<RESUME> nice -n 19 ./verify --check-layers <FDIR> 31 <MASSREF>
+#            <RESUME> was a new, empty resume record (no layer was replayed: LAYERS_REPLAYED=0).
+#            <MASSREF> is the 31 `[f1c5] layer k=K/31: mass=M` lines taken from the mass column of
+#            reports/FULL31_EXACT_AGGREGATES.md section 1 (31 lines, sha256
+#            87b23e8f46044c2a8b2dc77ec1b84386c939ff21a07b0ae1fdd182944bd7daba). The published table
+#            still gives that sha256 with:
+#              awk -F'|' '/^## 1\. /{s=1} /^## 2\. /{s=0} s && /^\| [0-9]+ \| /{k=$2; m=$9;
+#                gsub(/[ ,]/,"",k); gsub(/[ ,]/,"",m); printf "[f1c5] layer k=%d/31: mass=%s\n", k, m}' \
+#                reports/FULL31_EXACT_AGGREGATES.md
+# Binary:    sha256 594db1f236b63193fff67981d4b6f062d6a77c7383a42e3d36e62a1f2db42e4c (291,344 bytes),
+#            built with  gcc -O3 -pthread -o verify verify.c -lm -lz  (gcc 13.3.0, Ubuntu 24.04) from
+#            a verify.c byte-identical to verify.c at public commit 25618095 (2026-11-11; file sha256
+#            f2ff6e3c230450f705204b0bd1d40ad58cc3625d6d921e75df94b87bf3e98719). Rebuilding that file
+#            with the same line and compiler gives the same binary sha256. `./verify
+#            --check-layers-selftest` on that binary printed LCSELFTEST_RESULT=PASS before the pass.
+#
+# What it checks (verify.c, written against documentation/F1C5_LAYER_FORMAT.md, no solve.c code):
+# for every layer, the headers, pl_hash, layout, every entry's key, rid and value, the sum
+# invariant and mask canonicity; the orbit-weighted mass re-derived from the layer bytes and
+# compared with the published mass column at k = 1..31 (k = 0 has no line there); the final
+# layer's sum against the published |C1∩C2∩C4∩C5|; and, for every entry, that its stored `last`
+# is an element of one of the pairs its mask selects. The f ladder has 526,496,343,563 entries
+# (the sum of the 32 `ne=` values below), and LAST_IN_PLACED_PAIR_CHECKED equals that sum, so
+# every entry was tested and none failed (documentation/VERIFY.md, `LAST_IN_PLACED_PAIR_CHECKED=`).
+#
+# SCOPE: a structural and arithmetic check of the stored f ladder against its format and the
+# published masses. It does not re-run the transition relation; the f.t and f.g identities are
+# the other transcripts of ../20260906_kc_ladders_n31/.
+#
+# The lines below are the captured log (8,511 bytes, sha256
+# d191e080a6e379144fe0ff703166410711bbad03c530dc2b4bbbb86e9ee89d57) with ONE line changed: the
+# `run log :` line named the mass-reference file by a local path, which is replaced by <MASSREF>.
+# Every other line is byte-identical. The lines below have sha256
+# 7c03c1d1dbe5ed61a29df4eb89c518a456ac7397521e666aa8da0dd1564d67b5 (8,467 bytes).
+======================================================================
+verify.c --check-layers : spec-driven independent layer-file reader
+written against documentation/F1C5_LAYER_FORMAT.md; shares no code with solve.c
+======================================================================
+manifest: n=31 start_exit=0 last_complete_k=31 b0=(2,8,13,7,1)
+pl_hash : manifest da2d4756d0535d0e  recomputed da2d4756d0535d0e  MATCH
+b0 (KW)  : (2,8,13,7,1)  MATCH manifest
+group   : |C_S6(rev)|=48 -> 24 induced pair-perms -> 24 distinct on this run's 31 pairs
+run log : parsed 31 per-layer mass line(s) from <MASSREF>
+----------------------------------------------------------------------
+  k= 0  nm=1         ne=1             v2  Σval=1  mass=1
+  k= 1  nm=7         ne=12            v2  Σval=12  mass=56
+  k= 2  nm=56        ne=263           v2  Σval=356  mass=3030
+  k= 3  nm=378       ne=6012          v2  Σval=13172  mass=158364
+  k= 4  nm=2087      ne=110732        v2  Σval=525144  mass=7975320
+  k= 5  nm=9707      ne=1418864       v2  Σval=21990248  mass=386225352
+  k= 6  nm=38262     ne=12465946      v2  Σval=932313420  mass=17953712064
+  k= 7  nm=128414    ne=78990559      v2  Σval=39085952224  mass=799742878656
+  k= 8  nm=369823    ne=383080548     v2  Σval=1600185181992  mass=34079740200000
+  k= 9  nm=919819    ne=1470651410    v2  Σval=63397557761152  mass=1386778721641920
+  k=10  nm=1986807   ne=4522319129    v2  Σval=2414056261317696  mass=53778179165666496
+  k=11  nm=3746013   ne=11297381503   v2  Σval=87896636191335824  mass=1982685632661686784
+  k=12  nm=6191140   ne=23398431312   v2  Σval=3046151386038954336  mass=69297073054612254336
+  k=13  nm=8998676   ne=40833342233   v2  Σval=100026173457066432448  mass=2288361598674100118016
+  k=14  nm=11530906  ne=60643413855   v2  Σval=3097867784368410264832  mass=71118248538309913334784
+  k=15  nm=13047760  ne=76987817848   v2  Σval=90052419675597035942400  mass=2070824388087331433378304
+  k=16  nm=13047760  ne=83585570784   v2  Σval=2444197984980967475487616  mass=56211765063412670123796480
+  k=17  nm=11530906  ne=77425711716   v2  Σval=61593356848176359504148224  mass=1414432652498644875990374400
+  k=18  nm=8998676   ne=61293906654   v2  Σval=1432231095076568571241192448  mass=32782812504527868436121137152
+  k=19  nm=6191140   ne=41584984170   v2  Σval=30518765031825855498180156416  mass=694784554864374040154866606080
+  k=20  nm=3746013   ne=24094948608   v2  Σval=591383194657428677835988389888  mass=13352785490617816554330511097856
+  k=21  nm=1986807   ne=11810354354   v2  Σval=10328919604306461559425976907776  mass=230374545580221571332437462237184
+  k=22  nm=919819    ne=4840233152    v2  Σval=161020239059682853942043587274752  mass=3527101592023293517730048219185152
+  k=23  nm=369823    ne=1643386030    v2  Σval=2212627167771401138376209120804864  mass=47189095955370668803894645047459840
+  k=24  nm=128414    ne=459819732     v2  Σval=26453489801717870372121775963576320  mass=541901315038665955828368548486971392
+  k=25  nm=38262     ne=105376944     v2  Σval=270030606291539523751383090028240896  mass=5201506044559500865538795401017163776
+  k=26  nm=9707      ne=19466384      v2  Σval=2304104797647856649003317163105550336  mass=40405957458993167992215179071190728704
+  k=27  nm=2087      ne=2823150       v2  Σval=15953110942897002650182315653711888384  mass=241089913499030894367335168548233019392
+  k=28  nm=378       ne=307746        v2  Σval=86219466569536189560233996897479032832  mass=1028154652541345880891026404825956876288
+  k=29  nm=56        ne=22824         v2  Σval=328492926672597858008987250293978169344  mass=2735137247822487449972313400020144488448
+  k=30  nm=7         ne=1056          v2  Σval=797714679524004329369031179336031404032  mass=3542919560536222176509199567089521655808
+  k=31  nm=1         ne=32            v2  Σval=1097051278789181790036112071176579186688  mass=1097051278789181790036112071176579186688
+----------------------------------------------------------------------
+  k | orbit-weighted mass (from layer bytes)     | solve.c reported (run.out)                 | match
+----+--------------------------------------------+--------------------------------------------+------
+  0 | 1                                          | (absent)                                   |  n/a
+  1 | 56                                         | 56                                         |   ok
+  2 | 3030                                       | 3030                                       |   ok
+  3 | 158364                                     | 158364                                     |   ok
+  4 | 7975320                                    | 7975320                                    |   ok
+  5 | 386225352                                  | 386225352                                  |   ok
+  6 | 17953712064                                | 17953712064                                |   ok
+  7 | 799742878656                               | 799742878656                               |   ok
+  8 | 34079740200000                             | 34079740200000                             |   ok
+  9 | 1386778721641920                           | 1386778721641920                           |   ok
+ 10 | 53778179165666496                          | 53778179165666496                          |   ok
+ 11 | 1982685632661686784                        | 1982685632661686784                        |   ok
+ 12 | 69297073054612254336                       | 69297073054612254336                       |   ok
+ 13 | 2288361598674100118016                     | 2288361598674100118016                     |   ok
+ 14 | 71118248538309913334784                    | 71118248538309913334784                    |   ok
+ 15 | 2070824388087331433378304                  | 2070824388087331433378304                  |   ok
+ 16 | 56211765063412670123796480                 | 56211765063412670123796480                 |   ok
+ 17 | 1414432652498644875990374400               | 1414432652498644875990374400               |   ok
+ 18 | 32782812504527868436121137152              | 32782812504527868436121137152              |   ok
+ 19 | 694784554864374040154866606080             | 694784554864374040154866606080             |   ok
+ 20 | 13352785490617816554330511097856           | 13352785490617816554330511097856           |   ok
+ 21 | 230374545580221571332437462237184          | 230374545580221571332437462237184          |   ok
+ 22 | 3527101592023293517730048219185152         | 3527101592023293517730048219185152         |   ok
+ 23 | 47189095955370668803894645047459840        | 47189095955370668803894645047459840        |   ok
+ 24 | 541901315038665955828368548486971392       | 541901315038665955828368548486971392       |   ok
+ 25 | 5201506044559500865538795401017163776      | 5201506044559500865538795401017163776      |   ok
+ 26 | 40405957458993167992215179071190728704     | 40405957458993167992215179071190728704     |   ok
+ 27 | 241089913499030894367335168548233019392    | 241089913499030894367335168548233019392    |   ok
+ 28 | 1028154652541345880891026404825956876288   | 1028154652541345880891026404825956876288   |   ok
+ 29 | 2735137247822487449972313400020144488448   | 2735137247822487449972313400020144488448   |   ok
+ 30 | 3542919560536222176509199567089521655808   | 3542919560536222176509199567089521655808   |   ok
+ 31 | 1097051278789181790036112071176579186688   | 1097051278789181790036112071176579186688   |   ok
+census   : run log supplied — masses COMPARED at 31 of 32 present layer(s)
+MASSES_COMPARED=31
+LAYERS_REDERIVED=32
+LAYERS_REPLAYED=0
+LAYERS_ABSENT=0
+LAST_IN_PLACED_PAIR_CHECKED=526496343563
+LAST_IN_PLACED_PAIR_REPLAYED=0
+LAST_NOT_IN_PLACED_PAIR=0
+LAYERS_COMPLETE_MODE=1
+======================================================================
+FINAL LAYER Σvalues = 1097051278789181790036112071176579186688
+  vs published |C1∩C2∩C4∩C5| = 1097051278789181790036112071176579186688   MATCH
+  mod 24 = 0   ok (TR-5 free action)
+  mod 48 = 0   ok (TR-5 §4 order-48 free action on oriented sequences)
+RESULT: 32 layer file(s) internally consistent; headers, pl_hash, layout,
+        per-entry keys/rids/values, sum invariant, and mask canonicity all
+        hold; orbit-weighted mass re-derived at every layer and it matches the run log at every compared layer, and the final layer sums to the published count.
+======================================================================
+DONE_RC=0

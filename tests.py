@@ -64998,6 +64998,169 @@ class TestBatchQ1114Q1118Q1120(unittest.TestCase):
 
 # end class TestBatchQ1114Q1118Q1120
 
+class TestBatchHistCatchup(unittest.TestCase):
+    """History catch-up (2026-11-12): HISTORY.md sections for N12PUB (c1a99542) and N12PUB-2 (4ab338b9), the
+    umbrella entry for Codex's final review, and the two later runs on the retained n=31 ladder bytes, published in
+    runs/20261112_kc_ladders_n31_recheck/: verify --check-layers over all 32 f layers (Q-902) and the 96 logical
+    digests taken again (Q-821). The data checks bind each transcript to what this tree publishes: the f pass's
+    per-layer masks, mask counts and entry counts to reports/FULL31_EXACT_AGGREGATES.md section 1, its counted
+    placed-pair line to the sum of its entry counts and to the format strings verify.c prints, and every digest of the
+    digest pass to its row of STAGE_{F,G,T}_LAYERSHA.txt. A mutant check shows the digest comparison reports one
+    altered digest. Every test fails on the parent tree 1b0bb9d2 (the files and sections do not exist there).
+    Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    H = "documentation/HISTORY.md"
+    RD = "runs/20261112_kc_ladders_n31_recheck"
+    LR = "runs/20260906_kc_ladders_n31"
+    FT = RD + "/VERIFY_CHECK_LAYERS_F_n31.txt"
+    ST = RD + "/LAYERSHA_RECHECK_n31.txt"
+    HEADINGS = (
+        "## 2026-11-08 — push group N12PUB: the certified n=12 and n=3, 4, 6, 7 counts published with their code and scope",
+        "## 2026-11-10 — push group N12PUB-2: the certified n=10 count, and the n=12 and n=10 pieces checked again by formally verified checkers",
+        "## 2026-10-15/17 — Codex's final review as a whole: 255 of 255 runs at fee25e0b, four triage rounds, no show-stopper",
+        "## 2026-11-12 — two later runs on the retained n=31 ladder bytes: the f ladder entry by entry, and all 96 logical digests again",
+    )
+    F_TOKENS = ("DONE_RC=0", "LAYERS_COMPLETE_MODE=1", "LAYERS_REDERIVED=32", "LAYERS_REPLAYED=0", "LAYERS_ABSENT=0",
+                "MASSES_COMPARED=31", "LAST_IN_PLACED_PAIR_CHECKED=526496343563",
+                "LAST_IN_PLACED_PAIR_REPLAYED=0", "LAST_NOT_IN_PLACED_PAIR=0")
+    PUBLISHED_COUNT = "1097051278789181790036112071176579186688"
+
+    def _path(self, rel):
+        p = os.path.join(self.ROOT, rel)
+        self.assertTrue(os.path.isfile(p), "%s is missing" % rel)
+        return p
+
+    def _r(self, rel):
+        with open(self._path(rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_history_sections_present_once(self):
+        h = self._r(self.H)
+        lines = h.splitlines()
+        for head in self.HEADINGS:
+            self.assertEqual(lines.count(head), 1, head)
+        tail = " ".join(h[h.index(self.HEADINGS[0]):].split())
+        for frag in ("133,118,976", "48, 144, 1,920 and 38,016", "123,677,568",
+                     "also accepted by the formally verified Lean 4 checker shipped with CPOG",
+                     "also accepted by the formally verified LRAT checker shipped with Lean 4 (v4.31.0)",
+                     "Codex (gpt-6-astra) ran 255 review prompts against public commit fee25e0b",
+                     "865, 1,306 and 1,835 items", "No show-stopper in any round",
+                     "`F_LADDER_CHECK_LAYERS=PASS`", "`TR12_FSHA=PASS`, `TR12_GSHA=PASS`"):
+            self.assertIn(frag, tail)
+        for banned in ("Lean-verified count", "independently reproduced"):
+            self.assertNotIn(banned, tail)
+
+    def test_sha256sums_verify(self):
+        sums = self._r(self.RD + "/SHA256SUMS").splitlines()
+        self.assertEqual(len(sums), 2)
+        for line in sums:
+            digest, name = line.split("  ", 1)
+            with open(self._path(self.RD + "/" + name), "rb") as fh:
+                self.assertEqual(hashlib.sha256(fh.read()).hexdigest(), digest, name)
+
+    def test_f_transcript_body_sha_and_tokens(self):
+        t = self._r(self.FT)
+        lines = t.split("\n")
+        n_head = 0
+        while lines[n_head].startswith("#"):
+            n_head += 1
+        body = "\n".join(lines[n_head:]).encode("utf-8")
+        self.assertEqual(hashlib.sha256(body).hexdigest(),
+                         "7c03c1d1dbe5ed61a29df4eb89c518a456ac7397521e666aa8da0dd1564d67b5")
+        blines = body.decode("utf-8").splitlines()
+        for tok in self.F_TOKENS:
+            self.assertEqual(blines.count(tok), 1, tok)
+        self.assertEqual(sum(1 for x in blines if re.search(r"\bMATCH$", x) and self.PUBLISHED_COUNT in x), 1)
+        self.assertEqual(sum(1 for x in blines if x.strip().startswith("mod 24 = 0   ok")), 1)
+        self.assertNotRegex(body.decode("utf-8"), r"FAIL")
+
+    def test_f_transcript_matches_full31_table(self):
+        t = self._r(self.FT)
+        got = {int(m.group(1)): (int(m.group(2)), int(m.group(3)), int(m.group(4)))
+               for m in re.finditer(r"^  k=\s*(\d+)\s+nm=(\d+)\s+ne=(\d+)\s+v2\s+\S+\s+mass=(\d+)$", t, re.M)}
+        self.assertEqual(sorted(got), list(range(32)))
+        checked = int(re.search(r"^LAST_IN_PLACED_PAIR_CHECKED=(\d+)$", t, re.M).group(1))
+        self.assertEqual(sum(v[1] for v in got.values()), checked)
+        self.assertEqual(str(got[31][2]), self.PUBLISHED_COUNT)
+        sec = self._r("reports/FULL31_EXACT_AGGREGATES.md").split("\n## 1. ", 1)[1].split("\n## 2. ", 1)[0]
+        rows = {}
+        for line in sec.splitlines():
+            if re.match(r"^\| \d+ \|", line):
+                c = [x.strip().replace(",", "") for x in line.strip().strip("|").split("|")]
+                rows[int(c[0])] = (int(c[1]), int(c[4]), int(c[7]))
+        self.assertEqual(sorted(rows), list(range(1, 32)))
+        for k in rows:
+            self.assertEqual(rows[k], got[k], "layer %d" % k)
+        ref = "".join("[f1c5] layer k=%d/31: mass=%d\n" % (k, rows[k][2]) for k in sorted(rows))
+        self.assertEqual(hashlib.sha256(ref.encode()).hexdigest(),
+                         "87b23e8f46044c2a8b2dc77ec1b84386c939ff21a07b0ae1fdd182944bd7daba")
+
+    def test_verify_c_prints_the_counted_lines(self):
+        """The transcript's counted lines are lines this tree's verify.c prints."""
+        t = self._r(self.FT).splitlines()
+        for tok in ("LAST_IN_PLACED_PAIR_CHECKED=", "LAST_IN_PLACED_PAIR_REPLAYED=", "LAST_NOT_IN_PLACED_PAIR=",
+                    "LAYERS_COMPLETE_MODE=", "MASSES_COMPARED="):
+            self.assertEqual(sum(1 for x in t if x.startswith(tok)), 1, tok)
+        v = self._r("verify.c")
+        for fmt in ('"LAST_IN_PLACED_PAIR_CHECKED=%llu\\n"', '"LAST_IN_PLACED_PAIR_REPLAYED=%llu\\n"',
+                    '"LAST_NOT_IN_PLACED_PAIR=%llu\\n"', '"LAYERS_COMPLETE_MODE=1\\n"', '"MASSES_COMPARED=%d\\n"'):
+            self.assertIn(fmt, v)
+
+    @staticmethod
+    def _digest_mismatches(transcript, registries):
+        bad, seen = [], 0
+        for m in re.finditer(r"^([fgt]\w*_layer_\d\d\.bin)  (\w+) ([0-9a-f]{64})  \d+s$", transcript, re.M):
+            seen += 1
+            if m.group(2) != "MATCH" or registries.get(m.group(1)) != m.group(3):
+                bad.append(m.group(1))
+        return seen, bad
+
+    def _registries(self):
+        reg = {}
+        for s in "FGT":
+            for line in self._r("%s/STAGE_%s_LAYERSHA.txt" % (self.LR, s)).splitlines():
+                m = re.match(r"^([0-9a-f]{64})  run_[fgt]/(\S+\.bin)$", line)
+                if m:
+                    reg[m.group(2)] = m.group(1)
+        self.assertEqual(len(reg), 96)
+        return reg
+
+    def test_digest_transcript_equals_published_registries(self):
+        t = self._r(self.ST)
+        seen, bad = self._digest_mismatches(t, self._registries())
+        self.assertEqual((seen, bad), (96, []))
+        for s in "FGT":
+            self.assertEqual(t.splitlines().count("TR12_%sSHA=PASS" % s), 1)
+        self.assertEqual(t.count("matched=32 mismatch=0 tool_err=0 no_digest=0"), 3)
+
+    def test_digest_comparison_reports_one_altered_digest(self):
+        t = self._r(self.ST)
+        reg = self._registries()
+        name = "g_layer_16.bin"
+        self.assertIn(reg[name], t)
+        flipped = reg[name][:-1] + ("0" if reg[name][-1] != "0" else "1")
+        seen, bad = self._digest_mismatches(t.replace(reg[name], flipped), reg)
+        self.assertEqual((seen, bad), (96, [name]))
+
+    def test_ladder_readme_proof_line_and_link(self):
+        r = self._r(self.LR + "/README.md")
+        self.assertEqual(r.splitlines().count("F_LADDER_CHECK_LAYERS=PASS"), 1)
+        self.assertIn("(../20261112_kc_ladders_n31_recheck/README.md)", r)
+        self._path(self.RD + "/README.md")
+
+    PRIV_RX = r"/mnt/|/home/|[A-Z]:\\|\$\d+\.\d\d|cap=\$|_HOST=|cost_"
+
+    def test_published_transcripts_name_no_path_or_cost(self):
+        for sample in ("/mnt/", "/home/", "E:\\", "$" + "0.00", "cap=$", "X_HOST=", "cost_"):
+            self.assertRegex(sample, self.PRIV_RX, sample)
+        for rel in (self.FT, self.ST, self.RD + "/README.md", self.LR + "/README.md"):
+            self.assertNotRegex(self._r(rel), self.PRIV_RX, rel)
+        h = self._r(self.H)
+        self.assertNotRegex(h[h.index(self.HEADINGS[0]):], self.PRIV_RX, self.H)
+
+# end class TestBatchHistCatchup
+
 
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
