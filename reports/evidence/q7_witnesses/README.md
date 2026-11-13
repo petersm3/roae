@@ -132,3 +132,50 @@ pinned sequence, recorded as the commands produced it. A distinct moore-strict m
 by hand (this witness with slots 8 and 14 flipped: parity 0, rhythm 0, gender 2, C3 = 776), so the point
 is editorial, not mathematical: TR-12 names two targets and one sequence, and the row prints
 `pins_identical` so that a future re-pin yielding two would be a documented change.
+
+## The witness's `rank_O3` (added 2026-11-13, CX-37C-L, Q-1065)
+
+TR-12 §Q7 promised the witness a serial number — its walk rank in the O3 order — and CX-93 recorded that
+none had been computed. It has now been computed twice, by two routes that share no counting code:
+
+| | route | rank3 | class_first_rank3 | orient_idx | class size m | King Wen |
+|---|---|--:|--:|--:|--:|--:|
+| 2026-09-25 | `solve --kc-o3-rank FDIR GDIR WALK` on the n = 31 f and g ladders, through the battery's own `a0_q7_kw`, `a0_q7_witnesses` and `a2_q7_ranks` rows | 1,969,309,902,352 | 1,969,309,884,416 | 17,936 | 2,064,384 | rank 0, m = 1,720,320 |
+| 2026-11-13 | `python3 reports/evidence/q7_witnesses/q7_witness_rank_ladderfree.py` — no ladder; a memoised count over (unused pairs, last hexagram, remaining C5 budget) | 1,969,309,902,352 | 1,969,309,884,416 | 17,936 | 2,064,384 | rank 0, m = 1,720,320 |
+
+```
+python3 reports/evidence/q7_witnesses/q7_witness_rank_ladderfree.py --check-g reports/evidence/tr12/atlas_followups_n31_20260925/q8
+#   Q7LF_KW_RANK3=0
+#   Q7LF_G_EQUALS_LADDER_G=143/143
+#   Q7LF_RANK3:moore-strict=1969309902352
+#   Q7LF_CLASS_FIRST_RANK3:moore-strict=1969309884416
+#   Q7LF_ORIENT_IDX:moore-strict=17936
+#   Q7LF_CLASS_M:moore-strict=2064384
+#   Q7LF_PAIR_BLOCKS:moore-strict=slot21:pair21:1969309884416
+#   ... the same five lines for grand-strict (the two files pin one sequence) ...
+#   Q7LF_VERDICT=PASS
+python3 reports/evidence/q7_witnesses/q7_witness_rank_ladderfree.py --selftest       # Q7LF_SELFTEST=PASS members_checked=1072
+```
+
+**What each route rests on.** The 2026-09-25 run read completion counts from the ladders. It did **not**
+record its `solve.c` commit (its tables print `git=unknown`), and it has not been repeated: the n = 31
+ladders are not distributed with this repository. The script reads the King Wen sequence from `solve.py`
+and the two pinned files, and nothing else from the repository; the constraints are written out in it
+from `documentation/SPECIFICATION.md` and the order from the comment above `kc_o3_rank` in `solve.c`.
+Its self-test enumerates every member of three small universes (1,072 orderings), sorts them by the O3
+key and requires each rank to equal its index. `--check-g` also requires its completion counts to equal
+the ladder's `g` at every step from 19 on in the eleven committed `--kc-profile` tables (143 of 143).
+
+**What the number counts.** The witness keeps King Wen's pair order through slot 20 and places pair 22
+at slot 21, where King Wen has pair 21. Every ordering that precedes it in O3 either has pair 21 at slot
+21 after King Wen's first 21 pairs — 1,969,309,884,416 orderings, counting every valid orientation and
+every valid order of the last ten pairs — or has the witness's own pair order and a smaller orientation
+vector (17,936).
+
+**What it is not.** It is a coordinate in an order built from King Wen's own pair table, in which King
+Wen is rank 0 by construction (TR-12 §Q7, D5-14). It is not a rarity statement, and it is not small or
+large in any sense that does not depend on that table. The space is C1∩C2∩C4∩C5, with C3 not applied.
+It is a walk rank; the class rank (the number of distinct records preceding) is not computed. The
+script is fast only because the witness leaves King Wen's pair order late: it refuses, by name, an
+arrangement that would need a count over more than 12 unplaced pairs (`--max-free`), and it is not a
+replacement for `--kc-o3-rank`.

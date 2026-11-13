@@ -37039,15 +37039,15 @@ class TestQ956PrepushRecordBindsItsLogs(unittest.TestCase):
         hl = self._hook_log(d, repo, b)
         cases = {"ran0": "Ran 0 tests in 0.0s\n\nOK\n",
                  "short": "Ran 2 tests in 0.1s\n\nOK\n",
-                 "skipped": "Ran 12 tests in 0.1s\n\nOK (skipped=9)\n",
-                 "xfail": "Ran 12 tests in 0.1s\n\nOK (skipped=5, expected failures=4)\n"}
+                 "skipped": "Ran 12 tests in 0.1s\n\nOK (skipped=10)\n",
+                 "xfail": "Ran 12 tests in 0.1s\n\nOK (skipped=5, expected failures=5)\n"}
         for name, tail in cases.items():
             with self.subTest(case=name):
                 rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tail=tail))
                 self.assertEqual(w.returncode, 1, w.stdout)
                 self.assertIn("PREPUSH_RECORD_ALL_PASS=NO", w.stdout.splitlines())
                 self.assertIn("LEG_TESTS=FAIL", self._lines(rec))
-        rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tail="Ran 11 tests in 0.1s\n\nOK (skipped=8)\n"))
+        rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tail="Ran 11 tests in 0.1s\n\nOK (skipped=9)\n"))
         self.assertEqual(w.returncode, 0, "at the skip limit is still a PASS\n" + w.stdout)
         # MUTANT: the floor removed, "Ran 0 tests" + OK is a PASS again (the unfixed behaviour).
         mut = self._mutant_helper(d, '''     && [ "$tran" -ge "$tfloor" ] && [ "$tskip" -le "$MAX_TEST_SKIPS" ]; then V[TESTS]=PASS''',
@@ -37063,7 +37063,7 @@ class TestQ956PrepushRecordBindsItsLogs(unittest.TestCase):
         mut3 = self._mutant_helper(d, '''     && [ "$tran" -ge "$tfloor" ] && [ "$tskip" -le "$MAX_TEST_SKIPS" ]; then V[TESTS]=PASS''',
                                    '''     && [ "$tran" -ge "$tfloor" ]; then V[TESTS]=PASS''')
         rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tail=cases["skipped"]), helper=mut3)
-        self.assertEqual(w.returncode, 0, "mutant killed: the skip limit was what refused skipped=9\n" + w.stdout)
+        self.assertEqual(w.returncode, 0, "mutant killed: the skip limit was what refused skipped=10\n" + w.stdout)
 
     # ---- the consumer: old versions and resealed counts are refused -------------------------------
     def test_red_consumer_refuses_an_old_version_and_a_resealed_short_run(self):
@@ -38856,7 +38856,7 @@ class TestQ966WordMatcher(unittest.TestCase):
             for f in names + list(cls.SCRIPTS):
                 cls.uncured[f] = subprocess.run(["git", "-C", cls.ROOT, "show", "%s:%s" % (cls.PIN, f)],
                                                 capture_output=True, check=True).stdout
-            cls.uncured = _uncured_with_current_allow_tables(cls.uncured, cls.fixed)   # GATE 21's and 22's tables are corpus data
+            cls.uncured = _uncured_with_full_evidence_paths(_uncured_with_current_allow_tables(cls.uncured, cls.fixed))   # GATE 21's and 22's tables are corpus data; Q-1065: GATE 88 names
 
     @classmethod
     def tearDownClass(cls):
@@ -41974,6 +41974,7 @@ class TestQ979Q986Batch44(unittest.TestCase):
             for f in names + list(cls.SCRIPTS):
                 cls.uncured[f] = subprocess.run(["git", "-C", cls.ROOT, "show", "%s:%s" % (cls.PIN, f)],
                                                 capture_output=True, check=True).stdout
+            cls.uncured = _uncured_with_full_evidence_paths(cls.uncured)   # Q-1065: GATE 88 names
 
     @classmethod
     def tearDownClass(cls):
@@ -61875,8 +61876,9 @@ class TestBatchQ1056(unittest.TestCase):
         t = self._r(self.TR12)
         cur = re.findall(r"(?m)^\| v[\d.]+ \*\(current\)\* \|", t)
         # Q1049R (CX-37C-A) appended v1.38 and moved the marker; v1.37 stays the row after v1.36 either way
+        # (Q-1065 appended v1.41 and moved it again)
         self.assertEqual(len(cur), 1, cur)
-        self.assertIn(cur[0], ("| v1.37 *(current)* |", "| v1.38 *(current)* |", "| v1.39 *(current)* |", "| v1.40 *(current)* |"))  # Q-1113 (CX-37C-G) appended v1.39; v1.40: Q-1120 (CX-37C-J)
+        self.assertIn(cur[0], ("| v1.37 *(current)* |", "| v1.38 *(current)* |", "| v1.39 *(current)* |", "| v1.40 *(current)* |", "| v1.41 *(current)* |"))  # Q-1113 (CX-37C-G) appended v1.39; v1.40: Q-1120 (CX-37C-J); v1.41: Q-1065 (CX-37C-L)
         self.assertRegex(t, r"\| v1\.37(?: \*\(current\)\*)? \| 2026-11-05 \| \*\*Two items of §10, this report's DONE-contract section")
         self.assertIn("| v1.36 | 2026-11-01 |", t)
         self.assertNotIn("| v1.36 *(current)* |", t)
@@ -64990,9 +64992,12 @@ class TestBatchQ1114Q1118Q1120(unittest.TestCase):
         for rel, ver, cx in ((self.T11, "v1.40", "CX-37C-H"), (self.T1, "v1.47", "CX-37C-I"), (self.T12, "v1.40", "CX-37C-J"),
                              ("reports/TR9_PRICING_THE_CONSTRAINTS.md", "v1.40", "CX-37C-H")):
             rows = [l for l in self._r(rel).split("\n") if l.startswith("| v1.")]
-            self.assertTrue(rows[-1].startswith("| %s *(current)* | 2026-11-12 |" % ver), (rel, rows[-1][:60]))
+            row, want = rows[-1], "| %s *(current)* | 2026-11-12 |" % ver
+            if rel == self.T12 and row.startswith("| v1.41 *(current)* | 2026-11-13 |"):   # Q-1065 (CX-37C-L) appended v1.41 and moved the marker
+                row, want = rows[-2], "| %s | 2026-11-12 |" % ver
+            self.assertTrue(row.startswith(want), (rel, row[:60]))
             self.assertEqual(sum("*(current)*" in l.split("|")[1] for l in rows), 1, rel)
-            self.assertIn(cx, rows[-1])
+            self.assertIn(cx, row)
             self.assertEqual(c.count("\n## %s — " % cx), 1, cx)
         self.assertIn("*Technical report — **v1.40** (2026-11-12;", self._r(self.T11))
 
@@ -65160,6 +65165,287 @@ class TestBatchHistCatchup(unittest.TestCase):
         self.assertNotRegex(h[h.index(self.HEADINGS[0]):], self.PRIV_RX, self.H)
 
 # end class TestBatchHistCatchup
+class TestQ1065AtlasFollowups(unittest.TestCase):
+    """Q-1065 (2026-11-13, CX-37C-L): the TR-12 section 12.7 follow-up queries (8, 1b, 7, 9) and the Q7 witness rank.
+
+    The n=31 outputs are committed under reports/evidence/tr12/atlas_followups_n31_20260925/ and came from the
+    ladders, which are not distributed; nothing here re-reads a ladder. What this class holds is the part a clone
+    can run: the summary command recomputes every figure TR-12 quotes from the committed outputs and the published
+    atlas; the walk lists rebuild from the tree and hash to the lists both runs read; the ladder-free rank script
+    gives the number the ladder run gave, and its completion counts equal the ladder's g where the two overlap.
+    The mutant legs show the summary can fail: one changed digit in a profile, in a summary row or in a census
+    cell turns AF_SUMMARY to FAIL. The n=9 end-to-end rehearsal (scripts/atlas_followups_n9.sh) builds a binary
+    and ladders, so it runs only when ROAE_Q1065_N9=1.
+    """
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    EV = os.path.join("reports", "evidence", "tr12", "atlas_followups_n31_20260925")
+    Q7LF = os.path.join("reports", "evidence", "q7_witnesses", "q7_witness_rank_ladderfree.py")
+
+    def _run(self, *args, timeout=900):
+        return subprocess.run([sys.executable] + list(args), cwd=self.ROOT, capture_output=True, text=True,
+                              timeout=timeout)
+
+    def _r(self, *p):
+        with open(os.path.join(self.ROOT, *p), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _summary(self, d):
+        return self._run(os.path.join(self.EV, "atlas_followups.py"), "summary", d, "--expect",
+                         os.path.join(self.EV, "EXPECTED_TOKENS.txt"))
+
+    def test_summary_recomputes_every_quoted_figure(self):
+        r = self._summary(self.EV)
+        lines = r.stdout.splitlines()
+        self.assertEqual(r.returncode, 0, r.stdout[-1500:] + r.stderr[-500:])
+        self.assertEqual(lines[-1], "AF_SUMMARY=PASS")
+        self.assertIn("AF_EXPECTED_TOKENS=80 AF_EXPECTED_MISSING=0", lines)
+        self.assertNotIn("FAIL", "\n".join(l for l in lines if l.startswith("AF_GATE_")))
+        # the all-layer doomed total the range share divides by is the figure TR-12 12.2 publishes
+        self.assertIn("**`DOOMED_PREFIX_NODES=5968022288905786404124160364971149064064`**",
+                      self._r("reports", "TR12_QUERY_PROGRAM.md"))
+        self.assertIn("AF_Q7_DOOMED_PREFIXES_ALL_LAYERS_FROM_THE_ATLAS=5968022288905786404124160364971149064064", lines)
+        self.assertEqual("%.7f" % (5968005413130241267442905246422879952896 / 5968022288905786404124160364971149064064),
+                         "0.9999972")
+        self.assertEqual(sum(1 for l in lines if l.startswith("AF_GATE_") and l.endswith("=PASS")), 13)
+        for tok in ("AF_N=31",
+                    "AF_ATLAS_SHA256=9d6ba3d2b1a860b1992c3306191d228c49787c44f1d0366d23e6798b63210558",
+                    "AF_Q1B_WALKS=1000", "AF_Q1B_KW_OCTAVE_MEAN=0.234272", "AF_Q1B_SAMPLED_WALKS_BELOW_KW=22/1000",
+                    "AF_Q1B_SAMPLED_WALKS_TIED_WITH_KW=0", "AF_Q1B_TAIL_FRACTION_CP95=[0.0138,0.0331]",
+                    "AF_Q1B_KW_INSIDE_P01_P99=YES",
+                    "AF_Q1B_BAND_MIN_P01_P05_P50_P95_P99_MAX=0.1196,0.1996,0.2757,0.5049,0.7150,0.7960,0.8201",
+                    "AF_Q1B_BAND_MEAN_SD=0.4991,0.1325", "AF_Q1B_KW_SD_FROM_BAND_MEAN=-2.00",
+                    "AF_KW_EXACT_LT_PERCENTILE_MEAN=0.219", "AF_KW_EXACT_MIDRANK_PERCENTILE_MEAN=0.2337",
+                    "AF_Q1B_STEPS_WHERE_ATLAS_EXACT_VALUE_IS_OUTSIDE_SAMPLE_CP95=2/31",
+                    "AF_Q1B_SAME_COUNT_WITHOUT_CLASS_CONDITIONING_NEGATIVE_CONTROL=12/31",
+                    "AF_Q8_FLIPS_F_G_W_IDENTICAL_TO_KW_AT_EVERY_STEP=7/9",
+                    "AF_Q8_OCTAVE_MEAN_MIN_MAX_OVER_11=0.231796,0.242375",
+                    "AF_Q7_LAYERS=24..30", "AF_Q7_RANGE_SHARE_OF_ALL_DOOMED_PREFIXES=0.9999972",
+                    "AF_Q7_TERMINAL_SHARE_C2_C5_MIXED=0.58%,74.07%,25.34%",
+                    "AF_Q7_TERMINAL_SHARE_WITH_A_C5_EXHAUSTED_CLASS_AMONG_BLOCKERS=99.42%",
+                    "AF_Q7_DEEP_STATES_AT_LAST_LAYER=0",
+                    "AF_Q7_DOOMED_PREFIXES_IN_RANGE=5968005413130241267442905246422879952896",
+                    "AF_Q9_WALKS=308", "AF_Q9_DISTINCT_WALKS=305", "AF_Q9_WALKS_IN_SUPER_BY_FIRST_PRINCIPLES=308/308",
+                    "AF_Q9_WALKS_ALSO_IN_C15=132", "AF_Q9_WALKS_EQUAL_TO_KING_WEN=0"):
+            self.assertIn(tok, lines, tok)
+
+    def test_summary_fails_on_one_changed_digit(self):
+        import gzip, shutil, tempfile
+        src = os.path.join(self.ROOT, self.EV)
+
+        def mutated(edit):
+            d = tempfile.mkdtemp(prefix="q1065_")
+            self.addCleanup(shutil.rmtree, d, True)
+            dst = os.path.join(d, "ev")
+            shutil.copytree(src, dst)
+            edit(dst)
+            r = self._summary(dst)
+            return r.returncode, r.stdout.splitlines()[-1]
+
+        def gz_edit(rel, fn):
+            def edit(dst):
+                p = os.path.join(dst, rel)
+                with gzip.open(p, "rt") as fh:
+                    text = fh.read()
+                new = fn(text)
+                self.assertNotEqual(new, text, "precondition: the mutation changed " + rel)
+                with gzip.open(p, "wt") as fh:
+                    fh.write(new)
+            return edit
+
+        def profile_edit(dst):     # King Wen's g at step 20, last digit
+            p = os.path.join(dst, "q8", "kw_itself.tsv")
+            with open(p) as fh:
+                rows = fh.read().split("\n")
+            i = next(k for k, l in enumerate(rows) if l.startswith("20\t"))
+            f = rows[i].split("\t")
+            f[8] = f[8][:-1] + ("1" if f[8][-1] != "1" else "2")
+            rows[i] = "\t".join(f)
+            with open(p, "w") as fh:
+                fh.write("\n".join(rows))
+
+        def summary_row(text):     # one sampled walk's step-1 mass doubled: its octave mean no longer follows
+            rows = text.split("\n")
+            i = next(k for k, l in enumerate(rows) if l.startswith("rank") and "\tOK\t" in l)
+            f = rows[i].split("\t")
+            w = f[6].split(" ")
+            w[0] = str(int(w[0]) * 4)
+            f[6] = " ".join(w)
+            rows[i] = "\t".join(f)
+            return "\n".join(rows)
+
+        def census_cell(text):     # one C5 cell's prefix count, +1
+            rows = text.split("\n")
+            i = next(k for k, l in enumerate(rows) if l.startswith("27\tC5\t"))
+            f = rows[i].split("\t")
+            f[5] = str(int(f[5]) + 1)
+            rows[i] = "\t".join(f)
+            return "\n".join(rows)
+
+        def walk_edit(dst):        # one query-9 walk with two hexagrams of different pairs exchanged
+            p = os.path.join(dst, "q9", "witness_walks.tsv")
+            with open(p) as fh:
+                rows = fh.read().split("\n")
+            i = next(k for k, l in enumerate(rows) if l.startswith("7\t"))
+            f = rows[i].split("\t")
+            w = f[-1].split(",")
+            w[0], w[2] = w[2], w[0]
+            f[-1] = ",".join(w)
+            rows[i] = "\t".join(f)
+            with open(p, "w") as fh:
+                fh.write("\n".join(rows))
+
+        rc, last = mutated(lambda dst: None)
+        self.assertEqual((rc, last), (0, "AF_SUMMARY=PASS"), "precondition: an unmodified copy passes")
+        for name, edit in (("profile", profile_edit),
+                           ("summary row", gz_edit(os.path.join("q1b", "summary.tsv.gz"), summary_row)),
+                           ("census cell", gz_edit(os.path.join("q7", "dead_census.tsv.gz"), census_cell)),
+                           ("walk", walk_edit)):
+            rc, last = mutated(edit)
+            self.assertEqual(rc, 1, name)
+            self.assertTrue(last.startswith("AF_SUMMARY=FAIL:"), name + ": " + last)
+
+    def test_walk_lists_rebuild_and_match_the_lists_the_runs_read(self):
+        import shutil, tempfile
+        d = tempfile.mkdtemp(prefix="q1065_")
+        self.addCleanup(shutil.rmtree, d, True)
+        r = self._run(os.path.join(self.EV, "atlas_followups.py"), "inputs", d)
+        lines = r.stdout.splitlines()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr[-800:])
+        for tok in ("AF_Q8_WALKS=11", "AF_Q1B_WALKS=1000", "AF_INPUTS=PASS",
+                    "AF_Q8_WALKS_SHA256=e18d759f3a42909468df3bf84f6945773f01c65d54c7d86ef084d2960d51cf19",
+                    "AF_Q1B_WALKS_SHA256=dd99cbf074dbc92f6a69a40eb6ab1baca31353b875cdad5ace9284eb6b21f792"):
+            self.assertIn(tok, lines, tok)
+
+    def test_evidence_files_hash_as_listed(self):
+        import hashlib
+        base = os.path.join(self.ROOT, self.EV)
+        rows = [l.split("  ", 1) for l in self._r(self.EV, "SHA256SUMS").splitlines() if l.strip()]
+        self.assertGreaterEqual(len(rows), 22)
+        listed = set()
+        for sha, rel in rows:
+            listed.add(rel)
+            with open(os.path.join(base, rel), "rb") as fh:
+                self.assertEqual(hashlib.sha256(fh.read()).hexdigest(), sha, rel)
+        on_disk = {os.path.relpath(os.path.join(dp, f), base) for dp, _, fs in os.walk(base) for f in fs}
+        self.assertEqual(on_disk - listed, {"SHA256SUMS"})
+        # no host path survives in a published table
+        for rel in sorted(on_disk):
+            if rel.endswith(".gz"):
+                import gzip
+                with gzip.open(os.path.join(base, rel), "rt") as fh:
+                    text = fh.read()
+            else:
+                text = self._r(self.EV, rel)
+            for bad in ("/home/", "/mnt/", "fdir=/", "gdir=/", "atlas=/"):
+                self.assertNotIn(bad, text, rel + ": " + bad)
+
+    def test_q7_witness_rank_without_a_ladder(self):
+        r = self._run(self.Q7LF, "--check-g",
+                      os.path.join(self.EV, "q8"))
+        lines = r.stdout.splitlines()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr[-800:])
+        self.assertEqual(lines[-1], "Q7LF_VERDICT=PASS")
+        for tok in ("Q7LF_KW_RANK3=0", "Q7LF_KW_CLASS_M=1720320", "Q7LF_G_EQUALS_LADDER_G=143/143"):
+            self.assertIn(tok, lines, tok)
+        for t in ("moore-strict", "grand-strict"):
+            for tok in ("Q7LF_RANK3:%s=1969309902352", "Q7LF_CLASS_FIRST_RANK3:%s=1969309884416",
+                        "Q7LF_ORIENT_IDX:%s=17936", "Q7LF_CLASS_M:%s=2064384",
+                        "Q7LF_PAIR_BLOCKS:%s=slot21:pair21:1969309884416"):
+                self.assertIn(tok % t, lines, tok % t)
+        self.assertEqual(1969309884416 + 17936, 1969309902352)
+        # brute force on small universes: every member's rank is its index in the sorted enumeration
+        r = self._run(self.Q7LF, "--selftest")
+        self.assertEqual(r.stdout.splitlines()[-1], "Q7LF_SELFTEST=PASS members_checked=1072", r.stdout[-400:])
+        # refusals are by name: King Wen as the witness, and a non-member
+        kw = ",".join(str(h) for h in __import__("solve")._r7_kw())
+        r = self._run(self.Q7LF, "--seq", kw)
+        self.assertEqual((r.returncode, r.stdout.splitlines()[-1]),
+                         (1, "Q7LF_VERDICT=FAIL:seq1:the input is King Wen itself"))
+        seq = [int(x) for x in kw.split(",")]
+        seq[2:4], seq[4:6] = seq[4:6], seq[2:4]
+        r = self._run(self.Q7LF, "--seq", ",".join(map(str, seq)))
+        self.assertEqual(r.returncode, 1)
+        self.assertTrue(r.stdout.splitlines()[-1].startswith("Q7LF_VERDICT=FAIL:seq1:C"), r.stdout[-200:])
+
+    def test_published_sentences(self):
+        tr12 = self._r("reports", "TR12_QUERY_PROGRAM.md")
+        i = tr12.index("### 12.7 What the atlas leaves open")
+        s127 = tr12[i:tr12.index("### 12.8", i)]
+        # the old note stays, and the new one follows it
+        self.assertIn("nothing from them is published here, because", s127)
+        j = s127.index("2026-11-13, CX-37C-L, Q-1065: published.")
+        self.assertGreater(j, s127.index("nothing from them is published here, because"))
+        new = s127[j:]
+        for frag in ("at public commit `9967ec14`", "22 read lower", "[0.0138, 0.0331]",
+                     "inside the sample's p01–p99 band [0.1996, 0.7960]",
+                     "This is a sample of the superspace, not of C1–C5, and it does not make 12.3's pointer a finding",
+                     "For 7 of King Wen's 9 valid single-orientation flips", "between 0.2318 and 0.2424",
+                     "74.07 %", "25.34 %", "0.58 %", "38.60 %", "0.9999972",
+                     "This counts the last blocking step only and does not rank C2 below C5",
+                     "came from the ladders and are not recomputed by that command"):
+            self.assertIn(frag, new, frag)
+        i = tr12.index("### Q7. Historical-arrangement membership certificates")
+        q7 = tr12[i:tr12.index("- **The three arrangements, printed**", i)]
+        self.assertIn("and no rank has been computed yet", q7)
+        k = q7.index("[CX-37C-L note, 2026-11-13 (Fable; Q-1065)")
+        for frag in ("**1,969,309,902,352** = 1,969,309,884,416", "+ 17,936", "class of 2,064,384",
+                     "that run did not record its `solve.c` commit", "**not a rarity statement**",
+                     "with C3 not applied", "the class rank is not computed"):
+            self.assertIn(frag, q7[k:], frag)
+        self.assertRegex(tr12, r"(?m)^\| v1\.41(?: \*\(current\)\*)? \| 2026-11-13 \| \*\*The three §12\.7 follow-ups")  # current until a later row moves the marker
+        self.assertEqual(tr12.count("*(current)*"), 1)
+        self.assertIn("0.219 stays a pointer", tr12)
+        new_text = (new + q7[k:] + self._r(self.EV, "README.md")
+                    + self._r("reports", "evidence", "q7_witnesses", "README.md").split("## The witness's `rank_O3`")[1])
+        for banned in ("independently reproduced", "Lean-verified", "Azure", "azure"):
+            self.assertNotIn(banned, new_text, banned)
+        self.assertIsNone(re.search(r"\$\s?\d", new_text), "a dollar amount in the published text")
+        readme = self._r(self.EV, "README.md")
+        for frag in ("**At the commit that carries this directory the four queries have been run end to end at n = 9\nonly.**",
+                     "**The script here is not byte-identical to the one that ran.**",
+                     "It does\n**not** recompute the transition masses, the census cells or the walks themselves",
+                     "*No claim is made from them.*"):
+            self.assertIn(frag, readme, frag)
+        corr = self._r("documentation", "CORRECTIONS.md")
+        self.assertIn("## CX-37C-L — TR-12 §12.7 said nothing from the three atlas follow-ups was published", corr)
+        self.assertIn("## 2026-11-13 — Q-1065: the §12.7 follow-up queries and the Q7 witness rank are published",
+                      self._r("documentation", "HISTORY.md"))
+        dev = self._r("documentation", "DEVELOPMENT.md")
+        k = dev.index("## Verdict tokens added 2026-11-13 (Q-1065)")
+        for tok in ("`ATLAS_QUERIES`", "`GFREE_XCHECK`", "`LADDERS_UNTOUCHED`", "`AF_SUMMARY`", "`AF_INPUTS`",
+                    "`ATLAS_FOLLOWUPS_N9`", "`Q7LF_VERDICT`", "`Q7LF_SELFTEST`"):
+            self.assertIn(tok, dev[k:], tok)
+
+    def test_n9_end_to_end_rehearsal(self):
+        if os.environ.get("ROAE_Q1065_N9") != "1":
+            self.skipTest("builds a binary and n=9 ladders; set ROAE_Q1065_N9=1 to run it")
+        r = subprocess.run(["bash", os.path.join("scripts", "atlas_followups_n9.sh")], cwd=self.ROOT,
+                           capture_output=True, text=True, timeout=3600)
+        self.assertEqual(r.stdout.splitlines()[-1], "ATLAS_FOLLOWUPS_N9=PASS", r.stdout[-800:])
+        self.assertEqual(r.returncode, 0)
+
+# end class TestQ1065AtlasFollowups (Q-1065, CX-37C-L)
+
+
+def _uncured_with_full_evidence_paths(uncured):
+    """Q-1065 (CX-37C-L). CLAUDE.md's evidence bullet names `reports/evidence/tr12/` in full, because
+    tr12_output_paths_gate.sh (CX-233) fails a live `tr12/` span; GATE 88 accepts either form. A pinned
+    (uncured) GATE 88 knows only the bare form, so its directory check is given the same two forms here;
+    that check is corpus naming, not what any plant tests. Exactly one known shape, or this is loud."""
+    F = "scripts/doc_gates.d/70_publication_surfaces.sh"
+    shapes = ((b'    if ! grep -qF -- "\\`$d/\\`" "$md"; then\n',
+               b'    if ! grep -qF -e "\\`$d/\\`" -e "\\`reports/evidence/$d/\\`" "$md"; then\n'),
+              (b'    if ! grep -qxF -- "$(printf \'TOK\\t%s/\' "$d")" <<<"$approved"; then',
+               b'    if ! grep -qxF -e "$(printf \'TOK\\t%s/\' "$d")" -e "$(printf \'TOK\\treports/evidence/%s/\' "$d")" <<<"$approved"; then'))
+    u = uncured[F]
+    hits = [(a, b) for a, b in shapes if u.count(a) == 1]
+    if len(hits) != 1:
+        raise AssertionError("precondition: the pinned %s carries GATE 88's directory check in exactly one "
+                             "known shape (found %d)" % (F, len(hits)))
+    out = dict(uncured)
+    out[F] = u.replace(hits[0][0], hits[0][1], 1)
+    return out
 
 
 if __name__ == "__main__":

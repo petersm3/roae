@@ -380,8 +380,8 @@ measured with `git log --diff-filter=A --format=%ad --date=short -1 -- <path>`:
   Shipped because a published result needs its code in the same change; they are frozen run
   instruments: `n10lean_run.py` pins `n12lean_run.py` by sha256, and `cover_cert_check.py`
   must share no code with `cover_cert_emit.py`, so neither can be folded into `sat.py`.
-- **`reports/evidence/**/*.py`** (**20** files under `c8screen/`, `f1/`, `f5/`, `f11/`, `qoy1_q992/`,
-  `r11/` and `q374_se_replicates/`) — evidence instruments shipped and frozen
+- **`reports/evidence/**/*.py`** (**22** files under `c8screen/`, `f1/`, `f5/`, `f11/`, `qoy1_q992/`,
+  `r11/`, `q374_se_replicates/`, `reports/evidence/q7_witnesses/` and `reports/evidence/tr12/`) — evidence instruments shipped and frozen
   alongside the results they produced. ⚠ **[CORRECTED 2026-09-04 — this read
   "11 files under `f1/`, `f5/`, `f11/`, `r11/`" and BOTH halves were stale.**
   Measured at the time of the correction, `git ls-files 'reports/evidence/**/*.py'`

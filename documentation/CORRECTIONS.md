@@ -40090,3 +40090,57 @@ No canonical sha, count, certificate, token or verdict changed.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5; the defect was found by Codex (gpt-6-astra),
 final review; adjudicated by Fable (claude-fable-5-1), FV2 slice 1, which ruled the siblings for one sweep.
+## CX-37C-L — TR-12 §12.7 said nothing from the three atlas follow-ups was published, and §Q7 said no witness rank had been computed; both are now published with their checks (reports/TR12_QUERY_PROGRAM.md; reports/evidence/tr12/atlas_followups_n31_20260925/; reports/evidence/q7_witnesses/; scripts/atlas_followups.sh; scripts/atlas_followups_n9.sh; documentation/DEVELOPMENT.md; tests.py)
+
+**2026-11-13.** **Source.** Backlog Q-1065, from the Q-1054 catalog of computations not run in full (item K-27,
+"ran, unpublished"). No outside finding; the wording was written and adjudicated by Fable.
+
+**What was published.** TR-12 §12.7 (note of 2026-09-27, Q-857) said the three atlas follow-ups "were run on
+2026-09-25 against the live f and g ladders" and that "nothing from them is published here, because the run did not
+record its `solve.c` commit and no public reproducer of its summary statistics exists yet". §Open Problems row 9
+said the same. §Q7 (CX-93, 2026-09-25) said of the pinned witness that "no rank has been computed yet".
+
+**What it says now.** Both reasons §12.7 gave are answered, and the results are published beside them.
+- **The commit.** The queries were run again on 2026-10-26 at public commit `9967ec14`, end to end. Every result
+  file is byte-identical to the 2026-09-25 run's (1,330 files; five differ only in the host paths on their `#`
+  header lines). HISTORY recorded that re-run on 2026-10-27. The published files are therefore outputs of a
+  pinned commit, whatever the first run's commit was.
+- **The reproducer.** `reports/evidence/tr12/atlas_followups_n31_20260925/atlas_followups.py summary` recomputes every quoted figure from the committed
+  outputs and the published atlas, and `--expect` compares its tokens with the committed list.
+  `reports/evidence/tr12/atlas_followups_n31_20260925/atlas_followups.py inputs` rebuilds the two walk lists from this tree and checks them against the
+  sha256 of the lists both runs read. `scripts/atlas_followups.sh` is the run script with its query section
+  unchanged; `scripts/atlas_followups_n9.sh` runs it end to end on n = 9 ladders built on the spot.
+- **Query 1b, the calibrated null for §12.3.** King Wen's octave-resolution profile mean is 0.2343. Of 1,000 walks
+  sampled uniformly from the C1∩C2∩C4∩C5 superspace, 22 read lower (Clopper–Pearson 95 % interval [0.0138,
+  0.0331]); King Wen is inside the sample's p01–p99 band [0.1996, 0.7960]. §12.3's 0.219 remains "a pointer, not a
+  p-value". The sample is of the superspace, not of C1–C5.
+- **Query 8, the neighbours.** For 7 of King Wen's 9 valid single-orientation flips the profile is unchanged at
+  every step; the other two and the distance-2 C15 witness read between 0.2318 and 0.2424.
+- **Query 7, which constraint kills.** Over layers 24–30, exactly: of the doomed prefixes with no admissible next
+  step, 74.07 % are blocked only by exhausted C5 classes, 25.34 % by both kinds of block, and 0.58 % by
+  distance-5 steps alone. The census counts the last blocking step and does not rank the constraints.
+- **Query 9, the witness walks.** Published as data, 308 walks, with no claim; TR-12 §9's ruling on minimum-mass
+  corridors stands.
+- **The Q7 witness rank.** `rank_O3` = 1,969,309,902,352, from `solve --kc-o3-rank` on the ladders (2026-09-25,
+  commit not recorded) and again from `reports/evidence/q7_witnesses/q7_witness_rank_ladderfree.py`, which reads no ladder. The two
+  agree on the rank, the class's first rank, the orientation index and the class size. It is a coordinate in an
+  order built from King Wen's pair table, not a rarity statement.
+
+**What is not claimed.** That anyone has re-run the n = 31 queries at the commit that carries this entry: they
+have been run end to end there at n = 9 only, and `solve.c` has changed since `9967ec14`. That the summary command
+recomputes the transition masses, the census cells or the walks: those came from the ladders, which are not
+distributed with this repository. That the script published here is byte-identical to the one that ran: its
+query section is, its header, defaults and closing summary step are not, and the evidence README lists the
+differences. That any of the four results is a finding about King Wen.
+
+Every TR-12 edit is appended to an existing line, so no line number in the report moves; revision row v1.41 is
+appended. The old wordings stay in place above the new notes. No canonical sha, count, certificate, token or
+verdict changes.
+
+**Tests.** `TestQ1065AtlasFollowups` runs the summary against the committed outputs with `--expect`, rebuilds the
+walk lists, runs the ladder-free rank and its self-test, and holds the new sentences. It fails on the parent tree,
+where none of the scripts or the evidence directory exists. Its mutant legs change one digit of a profile, of a
+summary row and of a census cell in a copy of the evidence, and each must turn the summary to FAIL.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-2, backlog Q-1065; the 2026-09-25 runs and their
+first analysis by claude-fable-5-1 and claude-opus-5-5.

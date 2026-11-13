@@ -85,8 +85,8 @@ export LC_ALL=C
 REC_VERSION=2
 MAX_BYTES=65536
 # Q-956: a full run skips 1-3 tests on the worker (tools a lane box lacks); a fail-open that skips a
-# whole class (E4: `OK (skipped=12)`) must not count as PASS.
-MAX_TEST_SKIPS=8
+# whole class (E4: `OK (skipped=12)`) must not count as PASS. 8 -> 9 (2026-11-14, interim until a skip allowlist): Q-1065's opt-in test_n9_end_to_end_rehearsal skips unless ROAE_Q1065_N9=1.
+MAX_TEST_SKIPS=9   # Q-1065 test_n9_end_to_end_rehearsal (TestQ1065AtlasFollowups); 9 still refuses E4
 TOOLCHAIN_RE='^gcc-([0-9.]+|none),python-([0-9.]+|none)$'
 # Hook legs the record carries (the hook prints PREPUSH_LEG_<NAME>= for each, per pushed sha).
 # NOT CORRECTIONS_INVENTORY (Q-994, batch 47), deliberately: that leg reads the pushed commit's

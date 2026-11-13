@@ -12506,3 +12506,26 @@ entry describes the review itself, which had none.)*
   sha256 from the named public commits.
 - No canonical sha, count, mass, digest or verdict changed. `TestBatchHistCatchup` checks the four sections and both
   transcripts against the published registries and tables, and fails on the parent tree.
+## 2026-11-13 — Q-1065: the §12.7 follow-up queries and the Q7 witness rank are published, each with a check a reader can run
+
+- **What was held back, and why it no longer is (CX-37C-L).** TR-12 §12.7 names three questions the n=31 atlas cannot
+  answer without the ladders. They were run on 2026-09-25, and nothing from them was published: the run had not
+  recorded its commit, and its summary statistics lived in a private script. The re-run of 2026-10-26 at `9967ec14`
+  gave byte-identical results, which pins the commit; `reports/evidence/tr12/atlas_followups_n31_20260925/atlas_followups.py` now recomputes every quoted
+  figure from the committed outputs and the published atlas.
+- **The three results, as measurements.** King Wen's per-step profile sits in the lower tail of a 1,000-walk
+  sample of the superspace (22 of 1,000 below it) and inside the sample's p01–p99 band, so §12.3's pointer stays a
+  pointer. Seven of King Wen's nine valid orientation flips leave the profile unchanged at every step. Over
+  layers 24–30, of the doomed prefixes with no admissible step, 74.07 % are blocked only by spent distance-class
+  budgets, 25.34 % by spent budgets and distance-5 steps together, and 0.58 % by distance-5 steps alone. Three
+  quarters of those prefixes sit at the last layer, where one pair and one unit of budget remain, and C2 is itself
+  implied by C5; the census counts the last blocking step and does not rank the
+  constraints. The 308 extreme-transition walks are published as data, with no claim.
+- **The Q7 witness has its serial number.** Its `rank_O3` is 1,969,309,902,352, computed against the ladders on
+  2026-09-25 and again by `reports/evidence/q7_witnesses/q7_witness_rank_ladderfree.py`, which reads no ladder and takes about a second.
+  It is a coordinate in an order built from King Wen's own pair table, not a rarity statement.
+- **What a reader can and cannot re-run.** The summary, the walk lists, the ladder-free rank and an n=9
+  end-to-end rehearsal run from a clone. The n=31 queries themselves need the f and g ladders, which are not
+  distributed; they have not been re-run since 2026-10-26.
+- No canonical sha, count, certificate, token or verdict changed. `TestQ1065AtlasFollowups` fails on the parent
+  tree.

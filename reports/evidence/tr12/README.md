@@ -125,3 +125,7 @@ The laptop-scale rehearsal of the same battery — no ladder, no cluster — is
   attested, plus `check_receipts.sh`, which re-derives from those bytes every number that needs no ladder.
   Its `c_q10a.txt` is the Q10 census re-derived from the published layer sidecars; the as-run
   transcript sits beside it unchanged.
+- **The §12.7 follow-up queries (published 2026-11-13, Q-1065).** [`atlas_followups_n31_20260925/`](atlas_followups_n31_20260925/README.md)
+  holds the outputs of atlas queries 8, 1b, 7 and 9, run against the n = 31 f and g ladders on 2026-09-25 and
+  again on 2026-10-26 with byte-identical results, and `reports/evidence/tr12/atlas_followups_n31_20260925/atlas_followups.py summary`, which recomputes
+  every figure TR-12 §12.7 quotes from them. They are not battery rows, and this receipt is unchanged.

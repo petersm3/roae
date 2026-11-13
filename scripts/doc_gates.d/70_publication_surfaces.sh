@@ -1090,7 +1090,7 @@ EOF
   fi
   local d
   for d in $ev_dirs; do
-    if ! grep -qxF -- "$(printf 'TOK\t%s/' "$d")" <<<"$approved"; then   # Q-966: in the list, not anywhere
+    if ! grep -qxF -e "$(printf 'TOK\t%s/' "$d")" -e "$(printf 'TOK\treports/evidence/%s/' "$d")" <<<"$approved"; then   # Q-966: in the list, not anywhere; Q-1065: the full path counts (CX-233 bans a bare `tr12/`)
       echo "  [FAIL] evidence directory '$d/' holds tracked .py but is NOT named in $md's bullet"
       echo "         This is the half that rotted on 2026-09-04: the glob was right, the prose was not."
       rc=1
