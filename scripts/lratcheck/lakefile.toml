@@ -1,6 +1,10 @@
 name = "lratcheck"
-defaultTargets = ["lratcheck"]
+defaultTargets = ["lratcheck", "lratcheck_padded"]
 
 [[lean_exe]]
 name = "lratcheck"
 root = "Main"
+
+[[lean_exe]]
+name = "lratcheck_padded"
+root = "MainPad"

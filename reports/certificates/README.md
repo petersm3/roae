@@ -190,12 +190,34 @@ runs; **cake_lpr** is the CakeML *formally verified* LRAT checker (pinned commit
 `a36874a8b750b43fe4b385b8ddbf5b033e46a3fa`), run per certificate as
 `drat-trim <cnf> <drat> -L <lrat>` then `cake_lpr <cnf> <lrat>` → `s VERIFIED UNSAT`, a chain in which
 drat-trim is an untrusted elaborator.
+*(Since 2026-11-12 a third checker is in the shipped harness, the formally verified LRAT checker shipped
+with Lean 4 (v4.31.0), `verify_all.sh` §3d: `drat-trim … -L <lrat>` → `scripts/lratcheck/renumber_lrat.py`
+→ `lratcheck_padded <cnf> <renumbered lrat>` (the second executable `lake build` makes in `scripts/lratcheck/`) → `LRAT_LEAN=VERIFIED`, the
+same chain shape with drat-trim as the untrusted elaborator; the fourth column below and the paragraph
+after the table. "Two external checkers" above is left as the 2026-09 record.)*
 
-| certificates | drat-trim | cake_lpr |
-|---|---|---|
-| the 21 archived before 2026-09-02 (every file above except `core_gender_ccn4_unsat.drat.gz` and the two `noY` proofs archived 2026-09-03) | `s VERIFIED` — 21/21 replay executed 2026-08-28 | `s VERIFIED UNSAT`, all 21, executed 2026-07-27 |
-| `core_gender_ccn4_unsat.drat.gz` | `s VERIFIED` — produced with kissat 4.0.1, checked off-tree 2026-08-28, and **replayed in the 22/22 run of 2026-09-02**; sha256 `bcfc72a1a9ce5ef7c4703f4fb0f321033ed6eb7f8d593007c136d449fb78fe61` | `s VERIFIED UNSAT` — executed **2026-09-02** on the same pinned checker |
-| `alt_le_14_noY_unsat.drat.gz`, `alt_ge_16_noY_unsat.drat.gz` (archived 2026-09-03) | `s VERIFIED` — kissat 4.0.1, core-trimmed and re-verified 2026-09-02, and replayed through `verify_all.sh`'s 24-entry map (`DRAT_CERTS_CHECKED=24`, 24 PASS / 0 FAIL, `ALT_NOY_SUBSET_UNSAT=PASS`) | `s VERIFIED UNSAT` — executed **2026-09-19**, closing the two-certificate gap; `CAKE_LPR_ID=98c1649d…` (⚠ **[UPDATED 2026-09-19** — this cell read "**NOT RUN** — no cake_lpr leg has been executed for these two … Not a failure and not a pass: an unrun check", which was accurate from 2026-09-03 until the leg ran**]**) |
+| certificates | drat-trim | cake_lpr | Lean 4 LRAT checker (column added 2026-11-12) |
+|---|---|---|---|
+| the 21 archived before 2026-09-02 (every file above except `core_gender_ccn4_unsat.drat.gz` and the two `noY` proofs archived 2026-09-03) | `s VERIFIED` — 21/21 replay executed 2026-08-28 | `s VERIFIED UNSAT`, all 21, executed 2026-07-27 | `LRAT_LEAN=VERIFIED`, all 21, executed **2026-11-12** through `verify_all.sh` §3d; 14 of the 21 against the tautology-padded CNF (`padded=yes`), 7 in range (`c3_kwpin_ge777_unsat`, `ccn8_kwchain_not_unsat`, `ccn8_kwfail_unsat`, `grander_strict_near2_unsat`, `grander_strict_near3_unsat`, `moore-strict-near-2`, `rigidity_sc4_unsat`), where the unchanged `lratcheck` agrees |
+| `core_gender_ccn4_unsat.drat.gz` | `s VERIFIED` — produced with kissat 4.0.1, checked off-tree 2026-08-28, and **replayed in the 22/22 run of 2026-09-02**; sha256 `bcfc72a1a9ce5ef7c4703f4fb0f321033ed6eb7f8d593007c136d449fb78fe61` | `s VERIFIED UNSAT` — executed **2026-09-02** on the same pinned checker | `LRAT_LEAN=VERIFIED` — executed **2026-11-12**, padded (CNF max variable 7,035, proof max variable 13,015; 268 of its 1,298 core lemmas are hint-less fresh-variable steps); this is the proof §3d mutates for its plant (`LRAT_LEAN_PLANT=REJECTED_AS_EXPECTED`) |
+| `alt_le_14_noY_unsat.drat.gz`, `alt_ge_16_noY_unsat.drat.gz` (archived 2026-09-03) | `s VERIFIED` — kissat 4.0.1, core-trimmed and re-verified 2026-09-02, and replayed through `verify_all.sh`'s 24-entry map (`DRAT_CERTS_CHECKED=24`, 24 PASS / 0 FAIL, `ALT_NOY_SUBSET_UNSAT=PASS`) | `s VERIFIED UNSAT` — executed **2026-09-19**, closing the two-certificate gap; `CAKE_LPR_ID=98c1649d…` (⚠ **[UPDATED 2026-09-19** — this cell read "**NOT RUN** — no cake_lpr leg has been executed for these two … Not a failure and not a pass: an unrun check", which was accurate from 2026-09-03 until the leg ran**]**) | `LRAT_LEAN=VERIFIED`, both, executed **2026-11-12**, padded (proof max variables 7,621 and 7,655 against CNF max variables 7,347 and 7,378) |
+
+**The Lean 4 column (added 2026-11-12, Q-1094).** Every archived certificate is also accepted by the formally
+verified LRAT checker shipped with Lean 4 (v4.31.0): `verify_all.sh` §3d, one run of the shipped harness
+on 2026-11-12, `LRAT_LEAN_CERTS_CHECKED=24` (24 PASS / 0 FAIL), `LRAT_LEAN_PLANT=REJECTED_AS_EXPECTED`,
+`LRAT_LEAN_AXIOMS=PASS`, `LRATCHECK_PADDED_ID=4ddfb9871d43445b668d0f1d1b303c59e798c43f166d12e09028edb7325f83a9` (the `lratcheck_padded` binary that ran, built by `lake build` from the committed `MainPad.lean`), `DRAT_TRIM_ID=92f0aa9575ed519d66a99b8b1b3dde6ece4618ae4c202a3a4b200265dda0aa7a` (a build of the pin `2e3b2dc0` above; the 2026-09-19 run's binary hashed `b535cc53…`). Scope, stated so it is not read as more:
+Lean checks drat-trim's `-L` conversion of each archived proof against the regenerated CNF, as cake_lpr does
+— the DRAT bytes are the input to an untrusted elaborator, and the verified checker judges what it produces;
+17 of the 24 are checked against a tautology-padded CNF whose unsat is proved to imply the original's
+(`scripts/lratcheck/MainPad.lean`, theorem `unsat_of_padTaut_unsat` chained to the library's `check_sound`;
+axioms `propext`, `Classical.choice`, `Quot.sound` only), because those proofs use solver extension variables
+above the CNF's maximum variable and the library checker drops such steps; the id renumbering between
+drat-trim and Lean (`scripts/lratcheck/renumber_lrat.py`) and the reading of drat-trim's hint-less
+fresh-variable steps as RAT steps are untrusted preprocessing that cannot cause a false `VERIFIED`, because the checker judges what they write; the theorem is
+about the library function on the parsed CNF, so the DIMACS parser in `MainPad.lean`, the library's LRAT parser and the Lean compiler and runtime are trusted; CNF regeneration (`sat.py`) is in the trust base, as it is for the other two columns, and so is the step from
+the CNF to the orderings (§"What 24/24 does NOT establish" above applies to this column word for word).
+[SAT_CLI.md](../../documentation/SAT_CLI.md) §"A third checker" has the pipeline, the tokens, and why the
+mutation control is a deleted add line.
 
 **Both outstanding items are now closed, and the parity is real rather than asserted.** On 2026-09-02
 the shipped directory was replayed end to end — `verify_all.sh` reported **22/22 `PASS cert` lines,

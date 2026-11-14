@@ -65448,6 +65448,446 @@ def _uncured_with_full_evidence_paths(uncured):
     return out
 
 
+class TestBatchQ1094(unittest.TestCase):
+    """Q-1094: verify_all.sh §3d, the formally verified LRAT checker shipped with Lean 4 (v4.31.0) on the 24
+    archived certificates, through drat-trim's -L elaboration, consecutive-id renumbering
+    (scripts/lratcheck/renumber_lrat.py, untrusted) and the second lean_exe `lratcheck_padded`
+    (scripts/lratcheck/MainPad.lean), which pads the CNF with one tautology on the proof's maximum variable and
+    proves in Lean that the padded formula's unsatisfiability implies the original's. Legs that need no Lean:
+    Main.lean is byte-identical to the N12PUB-2 copy and MainPad's DIMACS parser is Main's byte for byte; the two
+    theorem statements are present verbatim with no sorry; the lakefile declares both executables; the renumber
+    helper's rules (gapped ids to consecutive, hint-less lemmas written with single spaces, negative RAT hints
+    mapped, unseen deletion ids dropped, loud errors); and §3d against PATH stubs (precedent
+    TestQ856PerRunTmpAndCloudNames): the leg gates on the whole `LRAT_LEAN=VERIFIED` stdout line, counts PASS only,
+    FAILs a certificate whose drat-trim leg failed, requires the plant mutation to be REJECTED, SKIPs by name with
+    the binary absent and FAILs a set-but-absent LRATCHECK_PADDED. With `lake` on PATH (the Lean toolchain; skipped
+    otherwise): the toy table of Q1094_R2 on both binaries, the `#print axioms` census, the DIMACS round-trip
+    (parse -> re-emit -> byte compare) and the malformed-input controls (bad header count, missing 0, out-of-range
+    variable, tautology) that must not verify. Every test except the toolchain legs fails on the parent tree.
+    Developed with AI assistance (Claude, Anthropic): claude-fable-5-1."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    LK = os.path.join(ROOT, "scripts", "lratcheck")
+    VERIFY = os.path.join(ROOT, "reports", "certificates", "verify_all.sh")
+    MAIN_SHA = "3341ef7ab578a3de600f2cb8a3658c9089efc96dcdf4f321d7d27970d0fa709a"   # the copy that ran N12PUB-2
+    TINY4 = "p cnf 2 4\n1 2 0\n-1 2 0\n1 -2 0\n-1 -2 0\n"           # all four clauses on two variables; 3 is fresh
+    TINY_SAT = "p cnf 2 2\n1 2 0\n-1 2 0\n"
+    TOY = {
+        "rup": "5 1 0 1 3 0\n6 0 5 2 4 0\n",                          # in-range RUP proof
+        "rup_mut": "5 1 0 1 3 0\n6 0 5 2 0\n",                        # hint dropped from the final line
+        "gapped": "6 1 0 1 3 0\n8 0 6 2 4 0\n",                       # the same with id gaps (drat-trim -L shape)
+        "fresh": "5 3 1 0 1 3 0\n6 -3 2 0 -5 1 0\n7 1 0 5 6 3 0\n8 0 7 2 4 0\n",            # a true RAT on pivot -3
+        "fresh1000": "5 1000 1 0 1 3 0\n6 -1000 2 0 -5 1 0\n7 1 0 5 6 3 0\n8 0 7 2 4 0\n",
+        "fresh_mut": "5 3 1 0 1 3 0\n6 -3 2 0 -5 1 0\n7 -1 0 5 6 3 0\n8 0 7 2 4 0\n",      # literal flipped
+        "fresh_nohint": "5 3 1 0 0\n6 -3 2 0 -5 1 0\n7 1 0 5 6 3 0\n8 0 7 2 4 0\n",         # drat-trim's `id lits 0 0`
+        "fresh_nohint_mut": "5 3 1 0 0\n6 -3 2 0 -5 1 0\n7 -1 0 5 6 3 0\n8 0 7 2 4 0\n",
+        "nonvac_nohint": "5 -1 0 0\n6 0 5 2 4 0\n",                   # hint-less, but clauses with literal 1 exist
+        "forged": "3 0 1 2 0\n",                                      # "proof" against the satisfiable CNF
+    }
+    BAD_CNF = {
+        "badcount": "p cnf 2 3\n1 2 0\n-1 2 0\n1 -2 0\n-1 -2 0\n",
+        "noterm": "p cnf 2 4\n1 2 0\n-1 2 0\n1 -2 0\n-1 -2\n",
+        "outofrange": "p cnf 2 4\n1 2 0\n-1 2 0\n1 -2 0\n-1 -3 0\n",
+        "taut": "p cnf 2 4\n1 2 0\n-1 2 0\n1 -2 0\n-1 1 0\n",
+    }
+    STUB_PAD = r"""#!/bin/bash
+echo "LRATPAD $*" >> "$VA_REC"
+if [ -n "${LP_BAD_VERDICT:-}" ]; then echo "xLRAT_LEAN=VERIFIED"; echo "LRAT_LEAN=VERIFIED" >&2; exit 0; fi
+if [ -n "${LP_VERDICT_RC1:-}" ]; then echo "LRAT_LEAN=VERIFIED"; exit 1; fi
+if [ -z "${LP_NO_REJECT:-}" ]; then
+  case "$2" in *.mut.lrat) echo "LRAT_LEAN=REJECTED"; exit 1 ;; esac
+  case "$1" in *"${LP_REJECT_ON:-NEVER_MATCH}"*) echo "LRAT_LEAN=REJECTED"; exit 1 ;; esac
+fi
+echo "c pad: stub"; echo "LRAT_LEAN=VERIFIED"
+"""
+    STUB_DRAT = r"""#!/bin/bash
+echo "DRAT $*" >> "$VA_REC"
+prev=""; for a in "$@"; do [ "$prev" = -L ] && printf '3 0 1 0\n' > "$a"; prev="$a"; done
+case "$*" in *"${DRAT_FAIL_ON:-NEVER_MATCH}"*) echo "s NOT VERIFIED"; exit 1 ;; esac
+echo "s VERIFIED"
+"""
+    STUB_GCC = r"""#!/bin/bash
+out=""; while [ $# -gt 0 ]; do [ "$1" = -o ] && { out="$2"; shift; }; shift; done
+printf '#!/bin/sh\ncase "$1" in --selftest) echo "[--selftest] PASS — sha256 matches canonical baseline" ;; --f4p-verify) seq 1 14 ;; --check-layers-selftest) echo LCSELFTEST_RESULT=PASS ;; --scan-selftest) echo "SCAN-SELFTEST: PASS" ;; esac\n' > "$out"
+chmod +x "$out"
+"""
+    STUB_PY = r"""#!/bin/bash
+case "$*" in
+  *renumber_lrat.py*) exec "%s" "$@" ;;
+  *--f4p-verify*) seq 1 14 ;;
+  *--emit-cnf*|*--rigidity-cnf*) for a in "$@"; do case "$a" in *.cnf) printf 'p cnf 1 1\n1 0\n' > "$a" ;; esac; done ;;
+  *--kw-control*) echo KW_CONTROL=PASS ;;
+  -) cat > /dev/null ;;
+esac
+exit 0
+"""
+
+    @classmethod
+    def _write(cls, path, body, mode=0o644):
+        with open(path, "w") as fh:
+            fh.write(body)
+        os.chmod(path, mode)
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q1094_")
+        cls.bin = os.path.join(cls.tmp, "bin")
+        os.makedirs(cls.bin)
+        real_py = os.path.realpath(sys.executable)
+        for name, body in (("gcc", cls.STUB_GCC), ("python3", cls.STUB_PY % real_py), ("drat-trim", cls.STUB_DRAT),
+                           ("lratcheck_padded", cls.STUB_PAD), ("gunzip", "#!/bin/sh\nexit 0\n"),
+                           ("lean", "#!/bin/sh\n[ \"$1\" = --version ] && echo 'Lean (version 0.0.0, q1094-stub)'\nexit 0\n"),
+                           ("git", "#!/bin/sh\nexit 1\n")):
+            cls._write(os.path.join(cls.bin, name), body, 0o755)
+        cls.pad = os.path.join(cls.bin, "lratcheck_padded")
+        with open(cls.pad, "rb") as fh:
+            cls.pad_sha = hashlib.sha256(fh.read()).hexdigest()
+        with open(cls.VERIFY) as fh:
+            src = fh.read()
+        block = src[src.index("declare -A CERTS=("):]
+        block = block[:block.index(")\n")]
+        cls.certs = dict(re.findall(r'\[([^\]]+)\]="([^"]+)"', block))
+        cls.runs = {}
+        for key, extra in (("run", {}), ("reject_one", {"LP_REJECT_ON": "alt-le-14.cnf"}),
+                           ("drat_fail", {"DRAT_FAIL_ON": "grander-strict-near-3.cnf"}),
+                           ("no_reject", {"LP_NO_REJECT": "1"}), ("bad_verdict", {"LP_BAD_VERDICT": "1"}),
+                           ("verdict_rc1", {"LP_VERDICT_RC1": "1"}),
+                           ("skip", None),
+                           ("absent", {"LRATCHECK_PADDED": os.path.join(cls.tmp, "no-such-binary")})):
+            cls.runs[key] = cls._verify(key, extra)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    @classmethod
+    def _verify(cls, key, extra):
+        rec = os.path.join(cls.tmp, "rec_%s" % key)
+        open(rec, "w").close()
+        tmpdir = os.path.join(cls.tmp, "tmp_%s" % key)
+        os.makedirs(tmpdir)
+        env = dict(os.environ, PATH=cls.bin + os.pathsep + os.environ["PATH"], VA_REC=rec, TMPDIR=tmpdir,
+                   ROAE_VERIFY_LOG=os.path.join(cls.tmp, "log_%s" % key))
+        for v in ("LEAN", "DRAT", "CAKE_LPR", "CAKE_LPR_OPTS", "LEAN_MIN_GB", "LEAN_FILES_MIN", "LRATCHECK_PADDED",
+                  "LRATCHECK_PADDED_DEFAULT", "LP_REJECT_ON", "LP_NO_REJECT", "LP_BAD_VERDICT", "LP_VERDICT_RC1", "DRAT_FAIL_ON"):
+            env.pop(v, None)
+        if extra is None:
+            # the SKIP branch: the DEFAULT path must be absent even on a host that has built the project
+            env["LRATCHECK_PADDED_DEFAULT"] = os.path.join(cls.tmp, "absent-default", "lratcheck_padded")
+        else:
+            env["LRATCHECK_PADDED"] = cls.pad
+            env.update(extra)
+        p = subprocess.run(["bash", cls.VERIFY], cwd=cls.ROOT, env=env, text=True, timeout=600,
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        with open(rec) as fh:
+            recs = fh.read().splitlines()
+        with open(env["ROAE_VERIFY_LOG"]) as fh:
+            log = fh.read().splitlines()
+        return {"rc": p.returncode, "out": p.stdout.splitlines(), "rec": recs, "log": log}
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _renum(self):
+        spec = importlib.util.spec_from_file_location("q1094_renumber", os.path.join(self.LK, "renumber_lrat.py"))
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        return m
+
+    # ------------------------------------------------------------------ the Lake project
+    def test_main_lean_unchanged_and_parser_block_copied_byte_for_byte(self):
+        with open(os.path.join(self.LK, "Main.lean"), "rb") as fh:
+            self.assertEqual(hashlib.sha256(fh.read()).hexdigest(), self.MAIN_SHA, "Main.lean is the copy that ran")
+        start, end = "structure Dimacs where\n", '  | _, _ => throw "missing header"\n'
+        blocks = []
+        for name in ("Main.lean", "MainPad.lean"):
+            src = self._r("scripts/lratcheck/" + name)
+            i = src.index(start)
+            j = src.index(end, i) + len(end)
+            blocks.append(src[i:j])
+        self.assertGreater(blocks[0].count("\n"), 60)
+        self.assertEqual(blocks[0], blocks[1], "MainPad's DIMACS parser is Main's, byte for byte")
+
+    def test_mainpad_states_the_padding_theorem_and_runs_the_checker_on_the_padded_cnf(self):
+        src = self._r("scripts/lratcheck/MainPad.lean")
+        for frag in ("def padTaut (cnf : CNF Nat) (v : Nat) : CNF Nat := cnf ++ { clauses := #[[(v, true), (v, false)]] }",
+                     "theorem unsat_of_padTaut_unsat (cnf : CNF Nat) (v : Nat) : (padTaut cnf v).Unsat → cnf.Unsat := by",
+                     "theorem lratcheck_padded_relies_on (proof : Array LRAT.IntAction) (cnf : CNF Nat) (v : Nat) :\n"
+                     "    LRAT.check proof (padTaut cnf v) = true → cnf.Unsat :=\n"
+                     "  fun h => unsat_of_padTaut_unsat cnf v (LRAT.check_sound proof (padTaut cnf v) h)",
+                     "let proof := proof0.map readVacuousRat", "let padded := padTaut d.cnf (pm - 1)",
+                     "let ok := LRAT.check proof padded", 'IO.println "LRAT_LEAN=VERIFIED"', 'IO.println "LRAT_LEAN=REJECTED"',
+                     '| ["--dump-dimacs", cnfPath] =>'):
+            self.assertIn(frag, src, frag)
+        self.assertNotIn("sorry", src)
+        self.assertEqual([ln for ln in src.splitlines() if ln.startswith("axiom ")], [], "no axiom declared")
+        self.assertIn("usage: lratcheck_padded --dump-dimacs <piece.cnf>", src)
+
+    def test_lakefile_declares_both_executables_and_the_toolchain_is_pinned(self):
+        lk = self._r("scripts/lratcheck/lakefile.toml")
+        self.assertEqual(lk.count("[[lean_exe]]"), 2)
+        self.assertIn('name = "lratcheck"\nroot = "Main"', lk)
+        self.assertIn('name = "lratcheck_padded"\nroot = "MainPad"', lk)
+        self.assertIn('defaultTargets = ["lratcheck", "lratcheck_padded"]', lk)
+        self.assertEqual(self._r("scripts/lratcheck/lean-toolchain").strip(), "leanprover/lean4:v4.31.0")
+        self.assertIn("scripts/lratcheck/.lake/\n", self._r(".gitignore"))
+
+    # ------------------------------------------------------------------ renumber_lrat.py
+    def test_renumber_gapped_ids_become_consecutive(self):
+        out, adds, dels = self._renum().renumber(self.TOY["gapped"].splitlines(), 4)
+        self.assertEqual("\n".join(out) + "\n", self.TOY["rup"], "the hand-written consecutive proof")
+        self.assertEqual((adds, dels), (2, 0))
+
+    def test_renumber_hintless_lemma_single_spaces_negative_hints_and_deletions(self):
+        src = ["7 3 1 0 0", "9 -3 2 0 -7 1 0", "12 1 0 7 9 3 0", "13 d 9 99 0", "14 d 99 0", "15 0 12 2 4 0"]
+        out, adds, dels = self._renum().renumber(src, 4)
+        self.assertEqual(out, ["5 3 1 0 0", "6 -3 2 0 -5 1 0", "7 1 0 5 6 3 0", "7 d 6 0", "8 0 7 2 4 0"])
+        self.assertEqual((adds, dels), (4, 1))
+        for ln in out:
+            self.assertNotIn("  ", ln, "Lean's strict parser refuses a double space")
+        ident, _, _ = self._renum().renumber(self.TOY["fresh_nohint"].splitlines(), 4)
+        self.assertEqual("\n".join(ident) + "\n", self.TOY["fresh_nohint"], "already consecutive: unchanged")
+
+    def test_renumber_errors_are_loud_never_a_silent_rewrite(self):
+        m = self._renum()
+        for bad in (["5 1 0 1 77 0"], ["5 1 0 1"], ["5 1 0 1 3 0", "5 2 0 1 3 0"], ["5 x 0 0"]):
+            with self.assertRaises(m.RenumberError, msg=bad):
+                m.renumber(bad, 4)
+        d = tempfile.mkdtemp(prefix="q1094_cli_")
+        try:
+            src, dst = os.path.join(d, "in.lrat"), os.path.join(d, "out.lrat")
+            with open(src, "w") as fh:
+                fh.write("5 1 0 1 77 0\n")
+            r = subprocess.run([sys.executable, "-I", os.path.join(self.LK, "renumber_lrat.py"), src, dst, "4"],
+                               capture_output=True, text=True, timeout=60)
+            self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+            self.assertTrue(any(ln.startswith("RENUMBER=ERROR ") for ln in r.stdout.splitlines()), r.stdout)
+            self.assertFalse(os.path.exists(dst), "nothing is written on an error")
+            with open(src, "w") as fh:
+                fh.write(self.TOY["gapped"])
+            r = subprocess.run([sys.executable, "-I", os.path.join(self.LK, "renumber_lrat.py"), src, dst, "4"],
+                               capture_output=True, text=True, timeout=60)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertIn("RENUMBER=OK adds=2 dels=0 first_id=5 last_id=6", r.stdout.splitlines())
+            with open(dst) as fh:
+                self.assertEqual(fh.read(), self.TOY["rup"])
+            for args in ([src, dst], [src, dst, "-1"], [src, dst, "four"]):
+                r = subprocess.run([sys.executable, "-I", os.path.join(self.LK, "renumber_lrat.py")] + args,
+                                   capture_output=True, text=True, timeout=60)
+                self.assertEqual(r.returncode, 2, args)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    # ------------------------------------------------------------------ §3d against stubs
+    def test_leg_runs_every_certificate_through_renumber_and_the_padded_checker(self):
+        r = self.runs["run"]
+        self.assertEqual(len(self.certs), 24)
+        for tok in ("LRAT_LEAN_LEG=RUN", "LRATCHECK_PADDED_ID=" + self.pad_sha, "LRAT_LEAN_CERTS_CHECKED=24",
+                    "PASS  lrat_lean population >= 24 (checked 24)",
+                    "PASS  lrat_lean plant (core_gender_ccn4_unsat, middle add line deleted, must be REJECTED)"):
+            self.assertIn(tok, r["out"], tok)
+        # the axiom census needs a real `lake`: a named SKIP without one, a real run (not a stub) with one
+        axioms = [ln for ln in r["out"] if "lrat_lean axioms" in ln]
+        self.assertEqual(len(axioms), 1, axioms)
+        if shutil.which("lake"):
+            self.assertTrue(axioms[0].startswith(("PASS  lrat_lean axioms", "FAIL  lrat_lean axioms")), axioms)
+        else:
+            self.assertEqual(axioms[0], "SKIP  lrat_lean axioms (#print axioms of the two theorems)   (needs lake on PATH)")
+        for cert, t in self.certs.items():
+            self.assertIn("PASS  lrat_lean %s (%s)" % (cert, t), r["out"], cert)
+            self.assertIn("LRAT_LEAN_%s=PASS" % cert, r["log"], cert)
+        self.assertIn("LRAT_LEAN_CERTS_CHECKED=24", r["log"])
+        self.assertIn("LRAT_LEAN_PLANT=REJECTED_AS_EXPECTED", r["log"])
+        self.assertEqual(sum(1 for ln in r["log"] if ln.startswith("RENUMBER=OK ")), 24)
+        calls = [ln.split()[1:] for ln in r["rec"] if ln.startswith("LRATPAD ")]
+        self.assertEqual(len(calls), 25, "24 certificates + the mutant")
+        self.assertEqual(sum(1 for c in calls if c[1].endswith(".renum.lrat")), 24, "the checker sees the renumbered file")
+        own = [c for c in calls if c[1].endswith(".renum.lrat")]
+        self.assertTrue(all(c[0].endswith(".cnf") and c[0][:-len(".cnf")] == c[1][:-len(".renum.lrat")] for c in own),
+                        "each certificate is judged against its own $SCRATCH/<target>.cnf")
+        self.assertEqual(sorted(os.path.basename(c[0])[:-len(".cnf")] for c in own), sorted(self.certs.values()))
+        self.assertEqual(sum(1 for c in calls if c[1].endswith("lrat_lean_plant.mut.lrat")), 1)
+        drat = [ln for ln in r["rec"] if ln.startswith("DRAT ")]
+        self.assertEqual(len(drat), 24)
+        self.assertTrue(all(" -L " in ln for ln in drat), "the binary resolving makes section 3 elaborate the LRAT")
+
+    def test_leg_counts_pass_only(self):
+        r = self.runs["reject_one"]
+        self.assertIn("FAIL  lrat_lean alt-le-14 (alt-le-14)   (output: %s)" % os.path.join(self.tmp, "log_reject_one"), r["out"])
+        self.assertIn("LRAT_LEAN_alt-le-14=FAIL rc=1 verdict_line=absent", r["log"])
+        self.assertIn("LRAT_LEAN_CERTS_CHECKED=23", r["out"])
+        self.assertIn("FAIL  lrat_lean population >= 24 (checked 23)   (output: %s)" % os.path.join(self.tmp, "log_reject_one"), r["out"])
+        self.assertEqual(sum(1 for ln in r["out"] if ln.startswith("PASS  lrat_lean ") and "axioms" not in ln), 23 + 1)   # 23 certs + the plant
+
+    def test_leg_fails_a_certificate_whose_drat_trim_leg_failed(self):
+        r = self.runs["drat_fail"]
+        self.assertTrue(any(ln.startswith("FAIL  cert grander_strict_near3_unsat (grander-strict-near-3)") for ln in r["out"]))
+        self.assertTrue(any(ln.startswith("FAIL  lrat_lean grander_strict_near3_unsat (grander-strict-near-3)") for ln in r["out"]))
+        self.assertIn("drat-trim leg did not pass; its LRAT is not evidence", r["log"])
+        self.assertIn("LRAT_LEAN_CERTS_CHECKED=23", r["out"])
+        self.assertNotIn("LRAT_LEAN_grander_strict_near3_unsat=PASS", r["log"])
+
+    def test_leg_plant_requires_the_mutant_to_be_rejected(self):
+        r = self.runs["no_reject"]
+        self.assertTrue(any(ln.startswith("FAIL  lrat_lean plant (core_gender_ccn4_unsat") for ln in r["out"]))
+        self.assertIn("LRAT_LEAN_PLANT=FAIL rc=0 verdict_line=absent", r["log"])
+        self.assertIn("LRAT_LEAN_CERTS_CHECKED=24", r["out"], "the certificates themselves still passed")
+
+    def test_leg_gates_on_the_whole_stdout_verdict_line(self):
+        r = self.runs["bad_verdict"]
+        self.assertIn("LRAT_LEAN_CERTS_CHECKED=0", r["out"])
+        for cert in self.certs:
+            self.assertIn("LRAT_LEAN_%s=FAIL rc=0 verdict_line=absent" % cert, r["log"], cert)
+        self.assertEqual([ln for ln in r["out"] if ln.startswith("PASS  lrat_lean ") and "axioms" not in ln], [])
+
+    def test_leg_needs_rc_0_beside_the_verdict_line(self):
+        r = self.runs["verdict_rc1"]
+        self.assertIn("LRAT_LEAN_CERTS_CHECKED=0", r["out"])
+        for cert in self.certs:
+            self.assertIn("LRAT_LEAN_%s=FAIL rc=1 verdict_line=present" % cert, r["log"], cert)
+        self.assertEqual([ln for ln in r["out"] if ln.startswith("PASS  lrat_lean ") and "axioms" not in ln], [])
+
+    def test_leg_skips_by_name_when_the_binary_is_absent(self):
+        r = self.runs["skip"]
+        for tok in ("LRAT_LEAN_LEG=SKIP_NO_LRATCHECK", "LRATCHECK_PADDED_ID=ABSENT", "LRAT_LEAN_CERTS_CHECKED=NOT_RUN"):
+            self.assertIn(tok, r["out"], tok)
+            self.assertIn(tok, r["log"], tok)
+        self.assertIn("  " + os.path.join(self.tmp, "absent-default", "lratcheck_padded") +
+                      " is not built. To run this leg: (cd scripts/lratcheck && lake build)", r["out"])
+        self.assertEqual(sum(1 for ln in r["out"] if ln.startswith("SKIP  lrat_lean ")), 24 + 3)
+        self.assertEqual([ln for ln in r["out"] if ln.startswith(("PASS  lrat_lean", "FAIL  lrat_lean"))], [])
+        self.assertEqual([ln for ln in r["rec"] if ln.startswith("LRATPAD ")], [])
+        drat = [ln for ln in r["rec"] if ln.startswith("DRAT ")]
+        self.assertEqual(len(drat), 24)
+        self.assertFalse(any(" -L " in ln for ln in drat), "no LRAT is elaborated when nothing will read it")
+        self.assertFalse(any("LRAT_LEAN_CERTS_CHECKED=0" in ln for ln in r["out"]))
+
+    def test_leg_fails_a_set_but_absent_binary(self):
+        r = self.runs["absent"]
+        self.assertIn("LRAT_LEAN_LEG=REQUESTED_BUT_ABSENT", r["out"])
+        self.assertIn("LRAT_LEAN_CERTS_CHECKED=NOT_RUN", r["out"])
+        self.assertTrue(any(ln.startswith("FAIL  lratcheck_padded binary resolves (LRATCHECK_PADDED=") for ln in r["out"]))
+        self.assertEqual(sum(1 for ln in r["out"] if ln.startswith("SKIP  lrat_lean ")), 24 + 3)
+
+    # ------------------------------------------------------------------ the toolchain legs
+    @classmethod
+    def _lake(cls):
+        if hasattr(cls, "_lake_dir"):
+            return cls._lake_dir
+        d = tempfile.mkdtemp(prefix="q1094_lake_")
+        w = os.path.join(d, "lratcheck")
+        shutil.copytree(cls.LK, w, ignore=shutil.ignore_patterns(".lake"))
+        b = subprocess.run(["lake", "build"], cwd=w, capture_output=True, text=True, timeout=1800)
+        cls._lake_dir = (w, b)
+        return cls._lake_dir
+
+    def _bins(self):
+        w, b = self._lake()
+        self.assertEqual(b.returncode, 0, b.stdout[-1500:] + b.stderr[-1500:])
+        self.assertNotIn("sorry", b.stdout + b.stderr)
+        return w, os.path.join(w, ".lake", "build", "bin", "lratcheck"), os.path.join(w, ".lake", "build", "bin", "lratcheck_padded")
+
+    def _judge(self, exe, cnf, lrat, d, tag):
+        cp, lp = os.path.join(d, tag + ".cnf"), os.path.join(d, tag + ".lrat")
+        with open(cp, "w") as fh:
+            fh.write(cnf)
+        with open(lp, "w") as fh:
+            fh.write(lrat)
+        r = subprocess.run([exe, cp, lp], capture_output=True, text=True, timeout=120)
+        lines = r.stdout.splitlines()
+        verdict = [ln for ln in lines if ln.startswith("LRAT_LEAN=")]
+        pad = [ln for ln in lines if ln.startswith("c pad: ")]
+        return r.returncode, verdict, pad[0] if pad else ""
+
+    @unittest.skipUnless(shutil.which("lake"), "lake absent (needs the Lean 4 v4.31.0 toolchain)")
+    def test_toolchain_toy_table_on_both_binaries(self):
+        w, plain, padded = self._bins()
+        d = tempfile.mkdtemp(prefix="q1094_toy_")
+        try:
+            T, S = self.TINY4, self.TINY_SAT
+            table = (  # toy, cnf, unpadded expectation, padded expectation, padded `c pad:` fragment
+                ("rup", T, "VERIFIED", "VERIFIED", "padded=no"),
+                ("rup_mut", T, "REJECTED", "REJECTED", ""),
+                ("gapped", T, "REJECTED", "REJECTED", ""),
+                ("fresh", T, "REJECTED", "VERIFIED", "padded=yes"),
+                ("fresh1000", T, "REJECTED", "VERIFIED", "proof_maxvar=1000 padded=yes"),
+                ("fresh_mut", T, "REJECTED", "REJECTED", ""),
+                ("fresh_nohint", T, "REJECTED", "VERIFIED", "vacuous_rat_steps=1"),
+                ("fresh_nohint_mut", T, "REJECTED", "REJECTED", ""),
+                ("nonvac_nohint", T, "REJECTED", "REJECTED", ""),
+                ("forged", S, None, "REJECTED", ""),
+            )
+            for toy, cnf, want_plain, want_pad, frag in table:
+                for exe, want in ((plain, want_plain), (padded, want_pad)):
+                    if want is None:
+                        continue
+                    rc, verdict, pad = self._judge(exe, cnf, self.TOY[toy], d, toy)
+                    self.assertEqual((rc, verdict), (0 if want == "VERIFIED" else 1, ["LRAT_LEAN=" + want]),
+                                     (toy, os.path.basename(exe), pad))
+                    if exe is padded and frag:
+                        self.assertIn(frag, pad, toy)
+            m = self._renum()
+            out, _, _ = m.renumber(self.TOY["gapped"].splitlines(), 4)
+            for exe in (plain, padded):
+                rc, verdict, _ = self._judge(exe, T, "\n".join(out) + "\n", d, "renum")
+                self.assertEqual((rc, verdict), (0, ["LRAT_LEAN=VERIFIED"]), "gapped ids REJECTED, renumbered VERIFIED (B.14)")
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    @unittest.skipUnless(shutil.which("lake"), "lake absent (needs the Lean 4 v4.31.0 toolchain)")
+    def test_toolchain_axiom_census_is_the_standard_list(self):
+        w, plain, padded = self._bins()
+        census = os.path.join(w, "Q1094Census.lean")
+        with open(census, "w") as fh:
+            fh.write("import MainPad\n#print axioms unsat_of_padTaut_unsat\n#print axioms lratcheck_padded_relies_on\n")
+        r = subprocess.run(["lake", "env", "lean", census], cwd=w, capture_output=True, text=True, timeout=600)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(r.stdout.splitlines(),
+                         ["'unsat_of_padTaut_unsat' depends on axioms: [propext, Quot.sound]",
+                          "'lratcheck_padded_relies_on' depends on axioms: [propext, Classical.choice, Quot.sound]"])
+
+    @unittest.skipUnless(shutil.which("lake"), "lake absent (needs the Lean 4 v4.31.0 toolchain)")
+    def test_toolchain_dimacs_round_trip_and_malformed_inputs(self):
+        w, plain, padded = self._bins()
+        d = tempfile.mkdtemp(prefix="q1094_dimacs_")
+        try:
+            def dump(path):
+                return subprocess.run([padded, "--dump-dimacs", path], capture_output=True, text=True, timeout=300)
+            # (a) comments, tabs, CRLF and split lines parse to the same clauses, re-emitted canonically
+            messy = "c a comment\np cnf 3 3\r\n1 -2\t3 0\nc another\n-1 2 0 3\n0\n"
+            mp = os.path.join(d, "messy.cnf")
+            with open(mp, "w") as fh:
+                fh.write(messy)
+            r = dump(mp)
+            self.assertEqual((r.returncode, r.stdout), (0, "p cnf 3 3\n1 -2 3 0\n-1 2 0\n3 0\n"), r.stdout + r.stderr)
+            # (b) a sat.py certificate CNF round-trips byte for byte, minus its comment lines
+            cnf = os.path.join(d, "noy.cnf")
+            g = subprocess.run([sys.executable, os.path.join(self.ROOT, "sat.py"), "--emit-cnf", "alt-le-14-noY", cnf],
+                               cwd=self.ROOT, capture_output=True, text=True, timeout=600)
+            self.assertEqual(g.returncode, 0, g.stdout + g.stderr)
+            with open(cnf) as fh:
+                want = "".join(ln for ln in fh if not ln.startswith("c"))
+            self.assertTrue(want.startswith("p cnf 7347 11073\n"))
+            r = dump(cnf)
+            self.assertEqual(r.returncode, 0, r.stderr[-500:])
+            self.assertEqual(r.stdout, want, "parse -> re-emit differs from the source CNF")
+            # (c) malformed inputs: ERROR (rc 2, never a verdict) from the parser, on both binaries and in dump mode
+            for name, text in self.BAD_CNF.items():
+                for exe in (plain, padded):
+                    rc, verdict, _ = self._judge(exe, text, self.TOY["rup"], d, name)
+                    self.assertEqual(rc, 2, (name, os.path.basename(exe)))
+                    self.assertEqual(len(verdict), 1, (name, verdict))
+                    self.assertTrue(verdict[0].startswith("LRAT_LEAN=ERROR dimacs: "), (name, "a parse error, never a verdict"))
+                bp = os.path.join(d, name + ".cnf")
+                r = dump(bp)
+                self.assertEqual(r.returncode, 2, name)
+                self.assertTrue(any(ln.startswith("LRAT_LEAN=ERROR dimacs: ") for ln in r.stdout.splitlines()), (name, r.stdout))
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+# end class TestBatchQ1094 (Q-1094: verify_all.sh §3d, the Lean 4 LRAT checker on the 24 archived certificates)
+
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))

@@ -380,6 +380,11 @@ measured with `git log --diff-filter=A --format=%ad --date=short -1 -- <path>`:
   Shipped because a published result needs its code in the same change; they are frozen run
   instruments: `n10lean_run.py` pins `n12lean_run.py` by sha256, and `cover_cert_check.py`
   must share no code with `cover_cert_emit.py`, so neither can be folded into `sat.py`.
+- **`scripts/lratcheck/renumber_lrat.py`** (2026-11-12; operator approval 2026-11-12, Q-1094) — the
+  consecutive-id renumbering between `drat-trim -L` and the Lean 4 LRAT checker in
+  `reports/certificates/verify_all.sh` §3d, beside the Lake project's second executable
+  `scripts/lratcheck/MainPad.lean` (`lratcheck_padded`; `Main.lean` unchanged). Untrusted preprocessing
+  the checker judges (a defect can only cause a rejection), tested on its own in `tests.py`.
 - **`reports/evidence/**/*.py`** (**22** files under `c8screen/`, `f1/`, `f5/`, `f11/`, `qoy1_q992/`,
   `r11/`, `q374_se_replicates/`, `reports/evidence/q7_witnesses/` and `reports/evidence/tr12/`) — evidence instruments shipped and frozen
   alongside the results they produced. ⚠ **[CORRECTED 2026-09-04 — this read

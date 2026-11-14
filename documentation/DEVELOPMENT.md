@@ -2674,7 +2674,7 @@ nothing weaker:
   `PREPUSH_TOOLCHAIN=` and `tests.py`'s `ROAE_TESTS_TOOLCHAIN=` (the interpreter that ran it) must
   agree with each other and with the writing host. `LEG_TESTS` needs a full run: `Ran N` with `N`
   at least the number of `    def test_` methods in the tree's `tests.py` (so `Ran 0 tests` is a
-  `FAIL`), and at most 8 skipped or expected-failure tests.
+  `FAIL`), and at most 9 skipped or expected-failure tests.
 - The pusher sets `ROAE_PREPUSH_RECORD=/path/outside/the/tree` for the push. For each pushed sha the
   hook computes that commit's tree id itself and asks the pushed tree's own copy of the helper
   (`check`). Only on `PREPUSH_RECORD=MATCH` are the covered legs skipped.
@@ -2706,10 +2706,10 @@ Record format, version 2 (Q-956): one `KEY=value` per line, LF-terminated, in th
 | `TREE` | the checked tree id (40 or 64 hex) |
 | `CITGATE_BASE` | the commit the citation gate's shift leg diffed against, or `NONE` |
 | `TOOLCHAIN` | `gcc-<version>,python-<version>`, from the hook log's `PREPUSH_TOOLCHAIN` (equal to the tests log's `ROAE_TESTS_TOOLCHAIN` and the writer's `prepush_verdict_record.sh toolchain`) |
-| `TESTS_RAN` · `TESTS_FLOOR` · `TESTS_SKIPPED` | the tests log's `Ran N` · the tree's `def test_` count (at least 1) · skipped plus expected failures. `check` refuses `TESTS_RAN` < `TESTS_FLOOR` or more than 8 skipped (`tests-count`) |
+| `TESTS_RAN` · `TESTS_FLOOR` · `TESTS_SKIPPED` | the tests log's `Ran N` · the tree's `def test_` count (at least 1) · skipped plus expected failures. `check` refuses `TESTS_RAN` < `TESTS_FLOOR` or more than 9 skipped (`tests-count`) |
 | `LEG_DOC_GATES_ALL` … `LEG_TR12_OUTPUT_PATHS` | one per covered hook leg: `PASS`, `FAIL`, `NOT-RUN`, `MISSING`, `REUSED` or `UNREADABLE` |
 | `LEG_HOOK` | the hook's own `PREPUSH_VERDICT` |
-| `LEG_TESTS` | `PASS` when the `tests.py` log has one `Ran N tests` line with `N` ≥ `TESTS_FLOOR`, one bare `OK` line with at most 8 skipped or expected failures, and no `FAILED` line |
+| `LEG_TESTS` | `PASS` when the `tests.py` log has one `Ran N tests` line with `N` ≥ `TESTS_FLOOR`, one bare `OK` line with at most 9 skipped or expected failures, and no `FAILED` line |
 | `LEG_CITATION` | `PASS` when the `citation_line_gate.sh --all-files --all-targets` log has `CITATION_LINE_GATE=PASS` exactly once |
 | `LEG_TR12_STAMP_CURRENT` | `PASS` when the `tr12_repro_gate.sh --check` log has `TR12_REPRO_GATE_CURRENT=YES` exactly once |
 | `ADV_Q479_F1C5_ADOPT`, `ADV_Q479_RESUME_BUDGET`, `ADV_Q479_MISSING_SHARD`, `ADV_REPRODUCE_DIGESTS`, `ADV_FAILOPEN_CLOSURE` | *optional (lane HAJ, 2026-09-27)*: the hook log's `PREPUSH_ADV_<NAME>` for each advisory leg, `PASS`, `FAIL`, `NOT-RUN`, `MISSING`, `REUSED` or `UNREADABLE`. They never decide `MATCH`: `PREPUSH_RECORD_ALL_PASS` and the all-`PASS` rule read the `LEG_*` keys only. Any other value refuses the record (`bad-value`) |

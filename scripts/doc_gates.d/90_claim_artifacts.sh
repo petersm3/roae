@@ -24,14 +24,14 @@
 #   filename regex extracts `_unsat.drat` from that and checks NOTHING, so the one site
 #   the leg exists for is invisible to it — measured: without expansion the four real names
 #   never enter the population. One brace group per line is expanded before matching.
-#   EXEMPT: command metavariables (`OUT.cnf.drat` at SAT_CLI.md:449 — a template, not a
+#   EXEMPT: command metavariables (`OUT.cnf.drat` at SAT_CLI.md:498 — a template, not a
 #   claim). Declared as an ALL-CAPS stem segment, and counted.
 #
 # LEG 2 `four-five-labels` (row 2) — `grander-strict` is the FIVE-rule union and
 #   `grand-ccn4` the FOUR-rule conflict theorem. THE DEFECT: CLAIM_TO_ARTIFACT.md:38 mapped
 #   "The four literature rules are jointly unsatisfiable" to `grander_strict_unsat.drat.gz`
 #   — a different formula (7249v/271066c vs 7035v/262093c), and UNSAT(F∧ccn8) does not
-#   imply UNSAT(F). SAT_CLI.md:253@b9f0fd2c inverted the same pair.
+#   imply UNSAT(F). SAT_CLI.md:302@b9f0fd2c inverted the same pair.
 #   🔴 IDENTIFIER MASKING IS LOAD-BEARING AND WAS MEASURED. The ruleset and certificate
 #   names CONTAIN the words: `five_loo_ccn8_unsat.drat.gz`, `five-loo-ccn8`, `five-sub-…`.
 #   certificates/README.md:131 reads "five_loo_ccn8_unsat.drat.gz | … (= grand-ccn4): still

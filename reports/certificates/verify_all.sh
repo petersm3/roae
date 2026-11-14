@@ -26,6 +26,10 @@
 #   replicator reads it.
 #   OPTIONAL: cake_lpr (formally verified LRAT checker) — section 3c runs it only when CAKE_LPR is
 #   set; by default that section emits CAKE_LPR_LEG=NOT_RUN and the run is drat-trim-only.
+#   OPTIONAL: the formally verified LRAT checker shipped with Lean 4 (v4.31.0) — section 3d runs it
+#   when scripts/lratcheck/.lake/build/bin/lratcheck_padded exists (`cd scripts/lratcheck && lake
+#   build`, no packages) or LRATCHECK_PADDED names the binary; otherwise that section emits
+#   LRAT_LEAN_LEG=SKIP_NO_LRATCHECK and SKIPs its checks (added 2026-11-12, Q-1094).
 #   NOT required: a SAT solver. This script REPLAYS the archived DRAT proofs against freshly
 #   regenerated CNF, which is the sufficient check and needs only drat-trim. The King Wen
 #   over-constraint control beside each replay (`sat.py --kw-control`, added 2026-10-02) needs
@@ -555,6 +559,21 @@ for f in reports/certificates/*.drat.gz; do b=$(basename "$f" .drat.gz)
 done
 declare -A CERT_RC=()          # cert -> status of its drat-trim check (only certs that RAN)
 CERTS_CHECKED=0
+# THE LEAN LRAT LEG'S BINARY, resolved here because section 3 must know whether to elaborate the
+# LRAT (added 2026-11-12, Q-1094; section 3d consumes it). Same rule as LEAN in section 0: an
+# explicit LRATCHECK_PADDED that does not resolve is an ERROR in 3d (never a silent fallback), only
+# the default may be absent, and then 3d is a named SKIP.
+# LRATCHECK_PADDED_DEFAULT moves only WHERE the default is looked for (tests.py points it at an empty
+# path to exercise the SKIP branch on a host that has built the project); it never names a verdict.
+LRATCHECK_PADDED_DEFAULT=${LRATCHECK_PADDED_DEFAULT:-scripts/lratcheck/.lake/build/bin/lratcheck_padded}
+if [ -n "${LRATCHECK_PADDED+set}" ] && [ -n "$LRATCHECK_PADDED" ]; then
+  LRATCHECK_PADDED_EXPLICIT=1
+else
+  LRATCHECK_PADDED_EXPLICIT=0
+  LRATCHECK_PADDED=$LRATCHECK_PADDED_DEFAULT
+fi
+HAVE_LRATCHECK=0
+if [ -x "$LRATCHECK_PADDED" ] && [ -f "$LRATCHECK_PADDED" ]; then HAVE_LRATCHECK=1; fi
 for cert in "${!CERTS[@]}"; do
   t=${CERTS[$cert]}
   # The TR-5 rigidity kernel has its own emitter flag (--rigidity-cnf, self-validating);
@@ -593,11 +612,14 @@ for cert in "${!CERTS[@]}"; do
     skip "cert $cert ($t)" "needs python3 + drat-trim"
     continue
   fi
-  # With the opt-in cake_lpr leg requested (section 3c), drat-trim also elaborates the LRAT that
-  # cake_lpr checks; a stale LRAT is removed first so 3c can never read one this run did not write
-  # (the per-run $SCRATCH already rules out another run's; the rm is kept as a second guard).
+  # With the opt-in cake_lpr leg requested (section 3c), or the Lean checker's binary present
+  # (section 3d, 2026-11-12), drat-trim also elaborates the LRAT that those legs check; a stale LRAT
+  # is removed first so 3c/3d can never read one this run did not write (the per-run $SCRATCH
+  # already rules out another run's; the rm is kept as a second guard).
   LRAT_OPT=""
-  if [ -n "${CAKE_LPR:-}" ]; then rm -f "$SCRATCH/$t.lrat"; LRAT_OPT="-L \"\$SCRATCH/$t.lrat\""; fi
+  if [ -n "${CAKE_LPR:-}" ] || [ "$HAVE_LRATCHECK" = "1" ] || [ "$LRATCHECK_PADDED_EXPLICIT" = "1" ]; then
+    rm -f "$SCRATCH/$t.lrat"; LRAT_OPT="-L \"\$SCRATCH/$t.lrat\""
+  fi
   check "cert $cert ($t)" \
     "$GEN && gunzip -kc reports/certificates/$cert.drat.gz > \"\$SCRATCH/$t.drat\" && require_verdict_line DRAT_VERIFIED_$cert 's VERIFIED' \"$DRAT\" \"\$SCRATCH/$t.cnf\" \"\$SCRATCH/$t.drat\" $LRAT_OPT"
   CERT_RC[$cert]=$LAST_RC
@@ -680,6 +702,158 @@ else
       check "cake_lpr $cert ($t)" \
         "{ [ -s \"\$SCRATCH/$t.lrat\" ] || { echo \"LRAT ABSENT OR EMPTY: \$SCRATCH/$t.lrat\"; false; }; } && require_verdict_line CAKE_LPR_VERIFIED_$cert 's VERIFIED UNSAT' \"$CAKE_PATH\" \${CAKE_LPR_OPTS:-} \"\$SCRATCH/$t.cnf\" \"\$SCRATCH/$t.lrat\""
     done
+  fi
+fi
+
+echo "== 3d. Lean 4 LRAT checker (formally verified; drat-trim -L -> renumber -> lratcheck_padded) =="
+# THE THIRD CHECKER, ON EVERY CERTIFICATE THIS RUN REPLAYED (added 2026-11-12, Q-1094). The LRAT
+# checker shipped with Lean 4 (v4.31.0; `Std.Tactic.BVDecide.LRAT.check`, soundness theorem
+# `check_sound`) judges, for each certificate whose drat-trim leg passed above, drat-trim's `-L`
+# elaboration of the archived proof against the regenerated CNF -- the same relationship the
+# cake_lpr leg (3c) has to drat-trim: the archived DRAT bytes are the input to an untrusted
+# elaborator, and the verified checker judges what it produces. Pipeline per certificate:
+#   (1) drat-trim <cnf> <drat> -L <lrat>   (section 3, when the binary below resolves);
+#   (2) python3 scripts/lratcheck/renumber_lrat.py <lrat> <renum.lrat> <header clause count> --
+#       drat-trim's `-L` ids have gaps (the lemmas it dropped from the core; SAT_CLI.md B.14) and
+#       the Lean checker rejects non-consecutive ids. UNTRUSTED: a defect can only cause a
+#       rejection, never a VERIFIED, because the checker judges the file it writes;
+#   (3) scripts/lratcheck/.lake/build/bin/lratcheck_padded <cnf> <renum.lrat>, gated on the WHOLE
+#       line `LRAT_LEAN=VERIFIED` AND rc 0 through require_verdict_line, token LRAT_LEAN_<cert>=PASS|FAIL.
+# WHY `lratcheck_padded` AND NOT `lratcheck` (scripts/lratcheck/MainPad.lean, header): 17 of the 24
+# archived proofs use solver extension variables above the CNF's maximum variable (kissat 4.0.1
+# factoring; e.g. core_gender_ccn4_unsat: CNF max 7035, proof max 13015). `LRAT.check` sizes its
+# formula from the CNF and silently drops any step naming a variable outside it, so the unchanged
+# `lratcheck` REJECTS those 17 valid proofs (measured 2026-11-12, 17/17). `lratcheck_padded` appends
+# ONE tautological clause on the proof's maximum variable and PROVES in Lean that the padded
+# formula's unsatisfiability implies the original CNF's (`unsat_of_padTaut_unsat`, chained to the
+# library's `check_sound` in `lratcheck_padded_relies_on`; axioms: propext, Classical.choice,
+# Quot.sound only), so the verdict is about the CNF as regenerated. For the 7 in-range proofs the
+# padded formula converts to the same internal formula as the plain one, and both drivers agree
+# (measured 2026-11-12, 7/7). The driver also reads drat-trim's hint-less fresh-variable steps
+# (`id lits 0 0`) as RAT steps with no candidates, which the library accepts iff no clause contains
+# the negated pivot; that rewrite edits the proof object `check_sound` quantifies over, so it can
+# only change WHICH valid proofs are accepted, never make a satisfiable formula pass.
+# TOKENS, all whole lines: LRAT_LEAN_LEG=RUN|SKIP_NO_LRATCHECK|REQUESTED_BUT_ABSENT|REQUESTED_NO_LRAT;
+# LRATCHECK_PADDED_ID=<sha256 of the binary that ran>|ABSENT (as DRAT_TRIM_ID=); LRAT_LEAN_<cert>=PASS
+# per certificate (in $LOG, from require_verdict_line); LRAT_LEAN_CERTS_CHECKED=<n> counting PASS
+# ONLY (a run in which every certificate failed prints 0, not 24), floor CERT_FLOOR;
+# LRAT_LEAN_PLANT=REJECTED_AS_EXPECTED for the mutation control below; LRAT_LEAN_AXIOMS=PASS when
+# `lake` is present and `#print axioms` of the two theorems is exactly the standard list.
+# SKIP, NEVER A SILENT PASS: with no binary at the default path and LRATCHECK_PADDED unset, every
+# check here is a named SKIP (exit status stays nonzero, as for any missing tool) and the count is
+# printed as NOT_RUN, not as a number. A certificate whose drat-trim leg did not pass FAILs here: an
+# LRAT that drat-trim did not verify is not evidence. A set-but-absent LRATCHECK_PADDED is a FAIL.
+# THE PLANT (the mutation control, demanded by the Q-1094 row): one renumbered LRAT -- the README's
+# own extension-variable example, core_gender_ccn4_unsat -- has its MIDDLE add line deleted and
+# the checker must print the whole line `LRAT_LEAN=REJECTED` with rc 1. Why this mutation and not
+# "drop one hint": measured 2026-11-12, dropping the FIRST hint of that proof's final line left it
+# VERIFIED, correctly -- the dropped hint named a unit clause of the formula, which the Lean
+# checker assigns on insertion, so the hint is redundant under its semantics (drat-trim's own
+# lrat-check, with a stricter hint discipline, fails the same file). Deleting an add line removes a
+# lemma later hints name, and no checker can accept that.
+LRAT_LEAN_CERTS_CHECKED=0
+LRAT_LEAN_PLANT_CERT=core_gender_ccn4_unsat
+lrat_lean_renumber_and_check() {   # $1 = cert name  $2 = target name
+  local cert=$1 t=$2 norig
+  if [ ! -s "$SCRATCH/$t.lrat" ]; then echo "LRAT ABSENT OR EMPTY: $SCRATCH/$t.lrat"; return 1; fi
+  norig=$(awk '/^p cnf /{print $4; exit}' "$SCRATCH/$t.cnf")
+  case $norig in ''|*[!0-9]*) echo "CNF HEADER CLAUSE COUNT UNREADABLE in $SCRATCH/$t.cnf: '$norig'"; return 1 ;; esac
+  rm -f "$SCRATCH/$t.renum.lrat"
+  if ! python3 -I scripts/lratcheck/renumber_lrat.py "$SCRATCH/$t.lrat" "$SCRATCH/$t.renum.lrat" "$norig"; then
+    echo "RENUMBER FAILED for $cert (an id-map error is a rejection, not evidence)"; return 1
+  fi
+  [ -s "$SCRATCH/$t.renum.lrat" ] || { echo "RENUMBERED LRAT ABSENT OR EMPTY: $SCRATCH/$t.renum.lrat"; return 1; }
+  require_verdict_line "LRAT_LEAN_$cert" 'LRAT_LEAN=VERIFIED' "$LRATCHECK_PADDED" "$SCRATCH/$t.cnf" "$SCRATCH/$t.renum.lrat"
+}
+lrat_lean_plant() {   # $1 = cnf  $2 = renumbered lrat  $3 = mutant path to write
+  local nadd mid cap rc line=absent g
+  [ -s "$2" ] || { echo "LRAT_LEAN_PLANT=FAIL no renumbered LRAT to mutate ($2)"; return 1; }
+  nadd=$(awk '$2 != "d" {n++} END {print n+0}' "$2")
+  case $nadd in ''|*[!0-9]*|0) echo "LRAT_LEAN_PLANT=FAIL no add line to delete in $2 (count '$nadd')"; return 1 ;; esac
+  mid=$(( (nadd + 1) / 2 ))
+  awk -v k="$mid" '$2 != "d" {n++; if (n == k) next} {print}' "$2" > "$3"
+  if cmp -s "$2" "$3"; then echo "LRAT_LEAN_PLANT=FAIL the mutant is identical to the proof"; return 1; fi
+  cap=$(mktemp "${TMPDIR:-/tmp}/roae_plant.XXXXXX") || { echo "LRAT_LEAN_PLANT=FAIL mktemp"; return 1; }
+  "$LRATCHECK_PADDED" "$1" "$3" > "$cap" 2> "$cap.err"; rc=$?
+  cat "$cap" "$cap.err"
+  grep -Fqx -- 'LRAT_LEAN=REJECTED' "$cap"; g=$?
+  case $g in 0) line=present ;; 1) line=absent ;; *) echo "GREP FAILED rc=$g -- treated as ABSENT"; line=absent ;; esac
+  rm -f "$cap" "$cap.err"
+  if [ "$rc" -eq 1 ] && [ "$line" = present ]; then
+    echo "LRAT_LEAN_PLANT=REJECTED_AS_EXPECTED"
+    echo "  (deleted add line $mid of $nadd from the renumbered $LRAT_LEAN_PLANT_CERT proof; rc 1, whole line LRAT_LEAN=REJECTED)"
+    return 0
+  fi
+  echo "LRAT_LEAN_PLANT=FAIL rc=$rc verdict_line=$line"
+  echo "A MUTATED PROOF WAS NOT REJECTED (expected rc 1 and the whole line LRAT_LEAN=REJECTED)"; return 1
+}
+lrat_lean_axioms_check() {   # `#print axioms` of the two theorems, run inside the Lake project
+  local out rc want
+  printf 'import MainPad\n#print axioms unsat_of_padTaut_unsat\n#print axioms lratcheck_padded_relies_on\n' > "$SCRATCH/lrat_lean_census.lean"
+  out=$(cd scripts/lratcheck && lake env lean "$SCRATCH/lrat_lean_census.lean" 2>&1); rc=$?
+  printf '%s\n' "$out"
+  want="'unsat_of_padTaut_unsat' depends on axioms: [propext, Quot.sound]
+'lratcheck_padded_relies_on' depends on axioms: [propext, Classical.choice, Quot.sound]"
+  if [ "$rc" -eq 0 ] && [ "$out" = "$want" ]; then echo "LRAT_LEAN_AXIOMS=PASS"; return 0; fi
+  echo "LRAT_LEAN_AXIOMS=FAIL rc=$rc"
+  echo "EXPECTED EXACTLY these two lines and nothing else (any other axiom, a sorry, a warning or an error fails):"
+  printf '%s\n' "$want"; return 1
+}
+if [ "$HAVE_LRATCHECK" = "0" ] && [ "$LRATCHECK_PADDED_EXPLICIT" = "0" ]; then
+  echo "LRAT_LEAN_LEG=SKIP_NO_LRATCHECK"       | tee -a "$LOG"
+  echo "LRATCHECK_PADDED_ID=ABSENT"            | tee -a "$LOG"
+  echo "LRAT_LEAN_CERTS_CHECKED=NOT_RUN"       | tee -a "$LOG"
+  echo "  $LRATCHECK_PADDED_DEFAULT is not built. To run this leg: (cd scripts/lratcheck && lake build)"
+  echo "  with the Lean 4 v4.31.0 toolchain (elan; no packages), or set LRATCHECK_PADDED=/path/to/lratcheck_padded."
+  echo "  The archive's coverage by this checker is recorded in reports/certificates/README.md §\"Checker coverage\"."
+  for cert in "${!CERTS[@]}"; do skip "lrat_lean $cert (${CERTS[$cert]})" "needs scripts/lratcheck/.lake/build/bin/lratcheck_padded (lake build, Lean v4.31.0)"; done
+  skip "lrat_lean plant ($LRAT_LEAN_PLANT_CERT, middle add line deleted, must be REJECTED)" "needs lratcheck_padded"
+  skip "lrat_lean population >= $CERT_FLOOR" "needs lratcheck_padded"
+  skip "lrat_lean axioms (#print axioms of the two theorems)" "needs lratcheck_padded + lake"
+elif [ "$HAVE_LRATCHECK" = "0" ]; then
+  echo "LRAT_LEAN_LEG=REQUESTED_BUT_ABSENT"    | tee -a "$LOG"
+  echo "LRATCHECK_PADDED_ID=ABSENT"            | tee -a "$LOG"
+  echo "LRAT_LEAN_CERTS_CHECKED=NOT_RUN"       | tee -a "$LOG"
+  check "lratcheck_padded binary resolves (LRATCHECK_PADDED=$LRATCHECK_PADDED)" "false"
+  for cert in "${!CERTS[@]}"; do skip "lrat_lean $cert (${CERTS[$cert]})" "LRATCHECK_PADDED is set but not executable"; done
+  skip "lrat_lean plant ($LRAT_LEAN_PLANT_CERT)" "LRATCHECK_PADDED is set but not executable"
+  skip "lrat_lean population >= $CERT_FLOOR" "LRATCHECK_PADDED is set but not executable"
+  skip "lrat_lean axioms" "LRATCHECK_PADDED is set but not executable"
+elif [ "$HAVE_DRAT" = "0" ] || [ "$HAVE_PY" = "0" ]; then
+  echo "LRAT_LEAN_LEG=REQUESTED_NO_LRAT"       | tee -a "$LOG"
+  echo "LRATCHECK_PADDED_ID=ABSENT"            | tee -a "$LOG"
+  echo "LRAT_LEAN_CERTS_CHECKED=NOT_RUN"       | tee -a "$LOG"
+  for cert in "${!CERTS[@]}"; do skip "lrat_lean $cert (${CERTS[$cert]})" "needs python3 + drat-trim to elaborate and renumber the LRAT"; done
+  skip "lrat_lean plant ($LRAT_LEAN_PLANT_CERT)" "needs python3 + drat-trim"
+  skip "lrat_lean population >= $CERT_FLOOR" "needs python3 + drat-trim"
+  skip "lrat_lean axioms" "needs python3 + drat-trim"
+else
+  if command -v sha256sum >/dev/null 2>&1; then LRATCHECK_SHA=$(sha256sum "$LRATCHECK_PADDED" | cut -d" " -f1); else LRATCHECK_SHA=UNAVAILABLE; fi
+  echo "LRAT_LEAN_LEG=RUN"                     | tee -a "$LOG"
+  echo "LRATCHECK_PADDED_ID=$LRATCHECK_SHA"    | tee -a "$LOG"
+  echo "LRATCHECK_PADDED_PATH=$LRATCHECK_PADDED" | tee -a "$LOG"
+  for cert in "${!CERTS[@]}"; do
+    t=${CERTS[$cert]}
+    if [ "${CERT_RC[$cert]:--1}" -ne 0 ]; then
+      check "lrat_lean $cert ($t)" "echo 'drat-trim leg did not pass; its LRAT is not evidence'; false"
+      continue
+    fi
+    check "lrat_lean $cert ($t)" "lrat_lean_renumber_and_check $cert $t"
+    if [ "$LAST_RC" -eq 0 ]; then LRAT_LEAN_CERTS_CHECKED=$((LRAT_LEAN_CERTS_CHECKED+1)); fi
+  done
+  echo "LRAT_LEAN_CERTS_CHECKED=$LRAT_LEAN_CERTS_CHECKED" | tee -a "$LOG"
+  check "lrat_lean population >= $CERT_FLOOR (checked $LRAT_LEAN_CERTS_CHECKED)" "[ $LRAT_LEAN_CERTS_CHECKED -ge $CERT_FLOOR ]"
+  # The plant: mutate the renumbered LRAT this run wrote for the plant certificate (so the control
+  # exercises the file the checker actually judged), and require the whole-line rejection.
+  check "lrat_lean plant ($LRAT_LEAN_PLANT_CERT, middle add line deleted, must be REJECTED)" \
+    "lrat_lean_plant \"\$SCRATCH/${CERTS[$LRAT_LEAN_PLANT_CERT]}.cnf\" \"\$SCRATCH/${CERTS[$LRAT_LEAN_PLANT_CERT]}.renum.lrat\" \"\$SCRATCH/lrat_lean_plant.mut.lrat\""
+  # The axiom census: with `lake` on PATH, `#print axioms` of the padding theorem and of the exact
+  # statement relied on must be within Lean's standard axioms (the allowlist form section 4 uses).
+  # Without lake the binary leg above stands on its own and this is a named SKIP.
+  if command -v lake >/dev/null 2>&1 && [ -f scripts/lratcheck/MainPad.lean ]; then
+    check "lrat_lean axioms (#print axioms of unsat_of_padTaut_unsat and lratcheck_padded_relies_on)" "lrat_lean_axioms_check"
+  else
+    skip "lrat_lean axioms (#print axioms of the two theorems)" "needs lake on PATH"
   fi
 fi
 

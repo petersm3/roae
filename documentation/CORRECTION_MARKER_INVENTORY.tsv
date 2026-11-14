@@ -6,9 +6,9 @@ CLAUDE.md	116	marker	CORRECTED	1	-	reviewed:rule-above-already-states-the-split-
 CLAUDE.md	118	marker	CORRECTED	1	-	reviewed:operative-rule-below-already-states-the-split-policy	a815cd1da874
 CLAUDE.md	167	marker	CORRECTED	1	-	reviewed:bare-date-tag;following-sentences-carry-the-withdrawal	d3a86349b512
 CLAUDE.md	361	ledger-link	CORRECTION	n/a	-	not-a-marker	e1b13e715649
-CLAUDE.md	385	marker	CORRECTED	1	-	reviewed:bullet-already-reads-14-files	d63457974d3b
-CLAUDE.md	415	ledger-link	RETRACTED	n/a	-	not-a-marker	7ba6bb332493
-CLAUDE.md	416	ledger-link	CORRECTION	n/a	-	not-a-marker	0c0ac50fdb9d
+CLAUDE.md	390	marker	CORRECTED	1	-	reviewed:bullet-already-reads-14-files	d63457974d3b
+CLAUDE.md	420	ledger-link	RETRACTED	n/a	-	not-a-marker	7ba6bb332493
+CLAUDE.md	421	ledger-link	CORRECTION	n/a	-	not-a-marker	0c0ac50fdb9d
 README.md	149	ledger-link	CORRECTION	n/a	-	not-a-marker	c2c141547338
 README.md	208	ledger-link	CORRECTION	n/a	-	not-a-marker	4e886eea8a35
 README.md	249	ledger-link	CORRECTION	n/a	-	not-a-marker	b1785c89acb7
@@ -419,7 +419,7 @@ documentation/ROAE_PY_CLI.md	382	marker	CORRECTED	1	-	reviewed:following-text-al
 documentation/ROAE_PY_CLI.md	825	marker	CORRECTED	1	-	reviewed:following-text-already-states-one-file-per-role	bff6cf9f9f63
 documentation/SAT_CLI.md	84	ledger-link	CORRECTION	n/a	-	not-a-marker	134457b932e4
 documentation/SAT_CLI.md	99	marker	SUPERSEDED	2	-	reviewed:the-stale-2026-09-01-caveat-it-supersedes-is-still-above-it	a6342c40e3e4
-documentation/SAT_CLI.md	322	marker	Corrected	1	-	reviewed:Q54-dated-correction;sentence-already-gives-the-eighteen-size-domain	d51d9aa40437
+documentation/SAT_CLI.md	371	marker	Corrected	1	-	reviewed:Q54-dated-correction;sentence-already-gives-the-eighteen-size-domain	d51d9aa40437
 documentation/SEARCH_SPACE_SIZE.md	3	marker	WITHDRAWN	3	GATE 27	reanchored:GATE-27=ledger-anchor	d2005eee5ef3
 documentation/SEARCH_SPACE_SIZE.md	11	ledger-link	CORRECTION	n/a	-	not-a-marker	442325e3cae4
 documentation/SEARCH_SPACE_SIZE.md	35	ledger-link	CORRECTION	n/a	-	not-a-marker	5d0062947151

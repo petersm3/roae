@@ -85,3 +85,5 @@ scripts/.doc_gates_g17_copy.*
 # Q-514: query-evidence scratch that a review lane once wrote into a checkout of this tree.
 # It is working material, not a published artifact; nothing under it is tracked.
 scripts/v4_query_evidence/
+# Q-1094: the Lake build directory of scripts/lratcheck/ (lratcheck, lratcheck_padded); regenerable with `lake build`
+scripts/lratcheck/.lake/

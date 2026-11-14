@@ -40144,3 +40144,57 @@ summary row and of a census cell in a copy of the evidence, and each must turn t
 
 Developed with AI assistance (Claude, Anthropic): claude-fable-5-2, backlog Q-1065; the 2026-09-25 runs and their
 first analysis by claude-fable-5-1 and claude-opus-5-5.
+
+## Q-1094 — SAT_CLI.md NOTES said `scripts/lratcheck/` is byte-identical to what ran; the project now carries a second executable (documentation/SAT_CLI.md, reports/certificates/README.md)
+
+**2026-11-12.** **Source.** Backlog row Q-1094 (the `verify_all.sh` §3d Lean-LRAT leg), built by Fable
+(claude-fable-5-1) after the operator's decisions of 2026-11-09, 2026-11-11 and 2026-11-12.
+
+**Before.** [SAT_CLI.md](SAT_CLI.md) NOTES (added 2026-11-10): "`cover_cert_check.py` and `scripts/lratcheck/`
+are byte-identical to what ran." [reports/certificates/README.md](../reports/certificates/README.md)
+§Checker coverage: "Two external checkers are used".
+
+**Why it went stale.** This change adds to the Lake project `scripts/lratcheck/` a second `lean_exe`,
+`lratcheck_padded` (`MainPad.lean`; a second `[[lean_exe]]` in `lakefile.toml`), and the helper
+`renumber_lrat.py`, so the directory is no longer byte-identical to the 2026-11-10 copy; `Main.lean`,
+the program that ran for the n=12 and n=10 pieces, is unchanged (sha256 `3341ef7a…`, pinned by
+`tests.py`). And the archived certificates now carry a third checker.
+
+**After.** A dated note at the SAT_CLI.md sentence scopes "byte-identical" to `Main.lean`,
+`lean-toolchain` and `lake-manifest.json`; a dated note under the README's "Two external checkers"
+paragraph names the third.
+
+**Published with it, 2026-11-12.** Every archived certificate is also accepted by the formally verified
+LRAT checker shipped with Lean 4 (v4.31.0): `verify_all.sh` §3d, one run of the shipped harness,
+`LRAT_LEAN_CERTS_CHECKED=24` (24 PASS / 0 FAIL), `LRAT_LEAN_PLANT=REJECTED_AS_EXPECTED` (one renumbered
+proof with its middle add line deleted, rejected), `LRAT_LEAN_AXIOMS=PASS`. The scope is stated at both
+sites: Lean checks drat-trim's `-L` conversion of each proof, as for cake_lpr; 17 of the 24 are checked
+against a tautology-padded CNF whose unsat is proved to imply the original's (`unsat_of_padTaut_unsat`,
+chained to the library's `check_sound`; axioms `propext`, `Classical.choice`, `Quot.sound` only), because
+those proofs use solver extension variables above the CNF's maximum variable and the library checker drops
+such steps — the unchanged `lratcheck` rejects all 17, and agrees with the padded one on the 7 in-range
+proofs; the id renumbering and the reading of drat-trim's hint-less fresh-variable steps as RAT steps are
+untrusted preprocessing that cannot cause a false `VERIFIED`; the DIMACS parser, the library's LRAT parser and the Lean compiler and runtime are trusted; CNF regeneration is in the trust base, as for the
+other two checkers. The leg runs when the binary is built (`cd scripts/lratcheck && lake build`) or
+`LRATCHECK_PADDED` names it, and otherwise SKIPs by name (`LRAT_LEAN_LEG=SKIP_NO_LRATCHECK`); its count
+is over PASS lines only. The mutation control is a deleted add line, not a dropped hint: a hint naming a
+unit clause of the formula is redundant under the Lean checker's semantics, so that mutant stays
+verified, correctly (measured on `core_gender_ccn4_unsat`).
+
+**Scope.** Wording only for the correction. No count, mass, sha, certificate or verdict changed; the 24
+archived proofs and their drat-trim and cake_lpr records stand as published. The n=12 and n=10 results
+of 2026-11-10 stand: the program that produced them is unchanged. The new SAT_CLI.md paragraph shifts the lines
+below it by 49, so three line citations into SAT_CLI.md were re-pinned (`scripts/exec_lane.sh` 252→301;
+`scripts/doc_gates.d/90_claim_artifacts.sh` 449→498 and 253→302); the cited content is unchanged.
+
+**Tests.** `TestBatchQ1094`: `Main.lean`'s sha256 and the byte-for-byte copy of its DIMACS parser in
+`MainPad.lean`; the theorem statements verbatim with no `sorry`; both executables in the lakefile; the
+renumber helper's rules and loud errors; §3d against PATH stubs (whole-line gating, PASS-only count, a
+failed drat-trim leg FAILs the certificate, the plant must be rejected, named SKIP with the binary absent,
+a set-but-absent `LRATCHECK_PADDED` FAILs); and, where `lake` is installed, the toy table on both
+binaries, the axiom census, the DIMACS round-trip (parse → re-emit → byte compare with a `sat.py` CNF)
+and the malformed-input controls (bad header count, missing `0`, out-of-range variable, tautology:
+`LRAT_LEAN=ERROR`, never a verdict). Every test except the toolchain legs fails on the parent tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-1 (design, the Lean padding theorem, the
+driver, the leg, the tests), operator decisions 2026-11-09/11/12.

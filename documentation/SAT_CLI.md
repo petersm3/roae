@@ -182,6 +182,55 @@ the out-of-band record in `reports/certificates/README.md`
 §Checker coverage. `NOT_RUN` is neither a pass nor a failure; a `CAKE_LPR`
 that is set but does not resolve is a FAIL, never a silent fallback.
 
+**A third checker, in the shipped harness (section 3d, added 2026-11-12).**
+Every archived certificate is also accepted by the formally verified LRAT
+checker shipped with Lean 4 (v4.31.0) — `Std.Tactic.BVDecide.LRAT.check`,
+whose theorem `check_sound` says that when it returns true the CNF is
+unsatisfiable. The run is `reports/certificates/verify_all.sh` §3d, executed
+2026-11-12 on all 24 (`LRAT_LEAN_CERTS_CHECKED=24`, `LRAT_LEAN_PLANT=REJECTED_AS_EXPECTED`,
+`LRAT_LEAN_AXIOMS=PASS`). What Lean checks is drat-trim's `-L` conversion of
+each archived proof against the regenerated CNF — the same relationship the
+cake_lpr leg has to drat-trim: the archived DRAT bytes are the input to an
+untrusted elaborator, and the verified checker judges what it produces. Two
+pieces of untrusted preprocessing sit between drat-trim and Lean, and neither can
+cause a false `VERIFIED`, because the checker judges the
+file they write with its own theorem: `scripts/lratcheck/renumber_lrat.py`
+renumbers drat-trim's lemma ids consecutively (drat-trim's `-L` output has id
+gaps where it dropped non-core lemmas, and the Lean checker rejects
+non-consecutive ids — the B.14 finding of the n=12 work), and the driver reads
+drat-trim's hint-less fresh-variable steps (`id lits 0 0`) as RAT steps with
+no resolution candidates. **17 of the 24 proofs are checked against a
+tautology-padded CNF whose unsat is proved to imply the original's**: those 17
+(kissat 4.0.1 with factoring) use solver extension variables above the CNF's
+maximum variable, and `LRAT.check` sizes its formula from the CNF and silently
+drops any step naming a variable outside it, so the checker `scripts/lratcheck/`
+shipped on 2026-11-10 (`lratcheck`) rejects them — measured, 17 of 17. The
+second executable of the same Lake project, `lratcheck_padded`
+(`scripts/lratcheck/MainPad.lean`; `Main.lean` is unchanged), appends one
+tautological clause on the proof's maximum variable and proves in Lean that
+the padded formula's unsatisfiability implies the original CNF's
+(`unsat_of_padTaut_unsat`, chained to the library's `check_sound` as
+`lratcheck_padded_relies_on`; axioms `propext`, `Classical.choice`,
+`Quot.sound` only, checked by `#print axioms` in §3d), so the printed verdict
+is about the CNF as regenerated. For the 7 in-range proofs the padded and the
+unchanged checker compute the same internal formula and agree, 7 of 7. CNF
+regeneration (`sat.py`) is in the trust base, as it is for drat-trim and
+cake_lpr; so are the DIMACS parser in `MainPad.lean` (Main's, byte for byte),
+the library's LRAT parser, and the Lean compiler and runtime. The leg is
+automatic when the second executable `lratcheck_padded` has been built in
+`scripts/lratcheck/` (`cd scripts/lratcheck && lake build`; the Lean 4 v4.31.0
+toolchain via elan, no packages) or `LRATCHECK_PADDED` names the binary; otherwise §3d prints
+`LRAT_LEAN_LEG=SKIP_NO_LRATCHECK` and SKIPs by name. Tokens: `LRAT_LEAN_LEG`,
+`LRATCHECK_PADDED_ID=<sha256>`, `LRAT_LEAN_<cert>=PASS|FAIL…` per certificate
+(whole line `LRAT_LEAN=VERIFIED` and rc 0, through `require_verdict_line`),
+`LRAT_LEAN_CERTS_CHECKED=<n>` counting PASS only (floor 24), the plant (one
+renumbered proof with its middle add line deleted must be `REJECTED`) and the
+axiom census. The mutation control is a deleted add line and not a dropped
+hint: a hint naming a formula unit clause is redundant under the Lean checker's
+semantics (it assigns a unit on insertion), so that mutant stays verified,
+correctly. `reports/certificates/README.md` §Checker coverage carries the
+per-certificate column.
+
 Argument parsing is hand-rolled `sys.argv` inspection (no `argparse`);
 the dispatch lives in the `__main__` block at the bottom of the file.
 
@@ -1020,7 +1069,15 @@ traceback after the build.
   also pins the shipped `n12lean_run.py` by sha256, so that one constant
   changed with it. `cover_cert_check.py` and `scripts/lratcheck/` are
   byte-identical to what ran. The certificates are not shipped. *(Added
-  2026-11-10.)*
+  2026-11-10.)* ⚠ **[UPDATED 2026-11-12 (Q-1094)** — "`scripts/lratcheck/`
+  is byte-identical to what ran" was true of the directory as shipped on
+  2026-11-10 and is now true of `Main.lean`, `lean-toolchain` and
+  `lake-manifest.json` only: the project gained a second executable,
+  `lratcheck_padded` (`MainPad.lean`, with a second `[[lean_exe]]` in
+  `lakefile.toml`) and the helper `renumber_lrat.py`, for
+  `verify_all.sh` §3d (the checker on the 24 archived certificates, above).
+  `Main.lean`, the program that ran for these pieces, is unchanged
+  (sha256 `3341ef7a…`, pinned by `tests.py`).**]**
 - `sat.py` imports `solve.py` as `solve`; if you change constraint
   semantics, change them in `solve.py` — never re-encode them here.
 
