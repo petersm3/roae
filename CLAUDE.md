@@ -52,7 +52,7 @@ what an enumeration artifact contains is
 | **Full `solve.py` CLI reference** (analysis sections + verification/companion commands) | [SOLVE_PY_CLI.md](documentation/SOLVE_PY_CLI.md) |
 | **Full `roae.py` CLI reference** (29 analysis sections, modifiers, exports) | [ROAE_PY_CLI.md](documentation/ROAE_PY_CLI.md) |
 | **`sat.py` SAT/certificate-layer CLI** (CNF emit, witness, C3 encoding) | [SAT_CLI.md](documentation/SAT_CLI.md) |
-| Azure deployment / SKU sizing | [DEPLOYMENT.md](documentation/DEPLOYMENT.md) |
+| Azure deployment / VM sizing | [DEPLOYMENT.md](documentation/DEPLOYMENT.md) |
 | Visualization tooling + how-to-read | [viz/README.md](viz/README.md) |
 | **Live operational state** (current run, schedule, in-flight work) | `~/github/roae-private/CURRENT_STATE.md` — current, read its lead block by offset (it is ~8,300 lines, see §In-flight state; this cell said "short" until 2026-11-03, Codex F12-019#6) (**private repo, `petersm3/roae-private`** — not in this repo). `CURRENT_PLAN.md` beside it is ~451 KiB (measured 2026-09-18; this cell said ~416 KB) of append-only history: provenance only, never orientation |
 | Operator memory (user preferences, feedback rules, infra notes) | `~/.claude/projects/*/memory/MEMORY.md` |
@@ -187,8 +187,8 @@ banning the VM type that some workloads require.
 ## Session-lifecycle VM discipline (STRICT, applies to any `az vm create`)
 
 **Problem addressed:** "mount a disk briefly for inspection" has repeatedly
-left VMs running long after the inspection ended. Each cleanup gap has a
-real billing cost and accumulates across sessions.
+left VMs running long after the inspection ended. Each cleanup gap
+wastes real compute, and the waste accumulates across sessions.
 
 **Rules, applied to every Claude-initiated VM:**
 
@@ -208,11 +208,11 @@ real billing cost and accumulates across sessions.
 3. **Prefer ephemeral OS disks** (`--ephemeral-os-disk true`) for VMs
    that will be deleted at session end — halves cleanup work and
    guarantees OS disk doesn't leak. **Only on a size that has local
-   storage.** The Dals_v7 family this project runs on (the Spot SKU
-   table above) has none, and Microsoft's Dalsv7-series page lists
+   storage.** The VM family this project runs on has none, and the
+   vendor's size page for that family lists
    "Ephemeral OS Disk — Not Supported"; `az vm create` with that flag is
-   refused there (seen on D4als_v7 and D8als_v7, 2026-08) and the failed
-   create still leaves the NIC, public IP and NSG behind. On Dals_v7,
+   refused there (seen on its 4- and 8-core sizes, 2026-08) and the failed
+   create still leaves the NIC, public IP and NSG behind. On that family,
    create with `--os-disk-delete-option Delete` so the managed OS disk is
    removed with the VM (DEPLOYMENT.md rule 6, scoped 2026-09-25, Q-763).
 4. **Data disks (the project's managed data disks) are NEVER
@@ -242,7 +242,7 @@ real billing cost and accumulates across sessions.
 
 ## Never do without explicit user approval
 
-- Delete managed disks — the exception is **Premium SSD temp disks
+- Delete managed disks — the exception is **SSD-backed temp disks
   for external merges**, which are temporary by standing pattern
   (attach → use → destroy). All other managed disks, including
   orphaned OS disks from deleted VMs, require explicit approval.
@@ -254,7 +254,7 @@ real billing cost and accumulates across sessions.
   `petersm3/roae-private` (private) can proceed without per-commit review for
   routine working-log updates.
 - Launch large compute (≥10T enumeration or ≥3 hr external merge)
-  without cost confirmation AND without running the VM-priority
+  without the user's sign-off on the compute AND without running the VM-priority
   verification gate above.
 - Run `mkfs -F` (or `--force`, `-FF`, `-y`) on any block device.
   See §"Disk-handling safety" below.
@@ -263,7 +263,7 @@ real billing cost and accumulates across sessions.
 
 **Why this section exists:** on 2026-05-06 a setup script ran
 `mkfs.ext4 -F /dev/nvme0n3` against what it thought was an empty
-256 GB Premium SSD temp disk. On the VM in question, kernel device
+256 GB SSD-backed temp disk. On the VM in question, kernel device
 naming had reversed Azure LUN order: `/dev/nvme0n3` was actually
 the 3 TB data disk holding the 100T canonical
 artifact (102 GB `solutions.bin`, sha `915abf30…`) and the entire
@@ -313,7 +313,7 @@ those safeguards, retroactively codified.
 
 4. **Verify post-mount with a known marker file.** Every canonical
    data disk has a marker (e.g., `solutions.sha256` for the
-   `solver-data-*` disks). Mount scripts must `[ -f <mountpoint>/<marker> ]`
+   canonical solution disks). Mount scripts must `[ -f <mountpoint>/<marker> ]`
    before treating the mount as the expected disk.
 
 5. **Pre-flight assertion before any destructive op.** Before

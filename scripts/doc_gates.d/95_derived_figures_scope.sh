@@ -617,7 +617,11 @@ import re, io, sys
 F=sys.argv[1]
 # Q-980 (batch 44; Codex gpt-6-astra Q964-D06#15): a pre-existing resource is a (TYPE, name), like CREATED --
 # solver-data is the documented persistent DISK, so `az network nic show -n solver-data` is not closed by it.
-ALLOW={("disk","solver-data"),("network vnet","claude-vnet"),("vm","claude")}
+# Q-1140 cloud sweep B4 (2026-11-14): Appendix A now creates its data disk, NIC and VM under role names
+# and gives the shared vnet as a placeholder, so no az command references the vnet or the orchestrator.
+# The data-disk entry stays while the Ad-hoc VM lifecycle section (held for operator decision D3) still
+# attaches the disk by that name; fixture D06#15 also needs a name the pre-batch-44 gate allowed.
+ALLOW={("disk","solver-data")}
 # Q-970 (A10#14, Q-835 Codex review; adjudicated Q-962): AN ARGUMENT IS A SHELL WORD. `-n "spot-nic"`
 # names spot-nic exactly as `-n spot-nic` does, and the name pattern `[^\s"'\\]+` stopped at the
 # quote, so a quoted reference was never judged. The command tail is now split by the quote-aware

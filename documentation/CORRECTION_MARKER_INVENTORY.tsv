@@ -189,7 +189,7 @@ documentation/CRITIQUE.md	710	ledger-link	CORRECTION	n/a	-	not-a-marker	ff5c80e8
 documentation/CRITIQUE.md	718	marker	Corrected	1	-	reviewed:sentence-now-says-only-the-KW-facing-integration-never-ran	c7e9ca794979
 documentation/CRITIQUE.md	720	marker	Corrected	1	-	reviewed:paragraph-already-says-the-calibration-ran-and-failed-and-the-rest-is-vetoed	7e8663968875
 documentation/DEPLOYMENT.md	145	marker	Corrected	1	-	reviewed:paragraph-states-q881-no-merge-of-a-stopped-run	da3191129c92
-documentation/DEPLOYMENT.md	335	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	cbe96c2b4198
+documentation/DEPLOYMENT.md	335	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	5d135ad2265b
 documentation/DEPLOYMENT.md	583	marker	CORRECTED	1	-	reviewed:following-sentences-already-explain-merge-takes-no-arguments	4a49a542d6ee
 documentation/DEPLOYMENT.md	797	marker	CORRECTED	1	-	reviewed:box-already-sizes-from-pre-dedup-records	c108685b1733
 documentation/DEPLOYMENT.md	800	marker	Corrected	1	-	reviewed:item-already-reads-wipe-then-write	d79088c2324b

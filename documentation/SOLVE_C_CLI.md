@@ -3568,8 +3568,8 @@ with `SOLVE_DFS_CHECKPOINT=1`:
 | `--analyze` on 102 GB | ~30-60 min | OpenMP-parallelized |
 
 Single-thread `--branch p o 0 1`: ~22M nodes/sec on the AMD EPYC 9V45.
-*(Architecture corrected 2026-09-01 in both lines above: the CPU underlying
-the 128-core VM is AMD EPYC 9V45 (96-core, 128-vCPU), per
+*(Architecture corrected 2026-09-01 in both lines above: the processor underlying
+the 128-core VM size is AMD EPYC 9V45 (96-core, 128-vCPU), per
 [DEPLOYMENT.md](DEPLOYMENT.md):335, which retracts the earlier Zen-5-family
 attribution these two lines carried.)*
 Multi-thread saturates at ~2.5B nodes/sec on 128 threads.

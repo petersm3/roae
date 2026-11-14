@@ -2050,7 +2050,7 @@ For canonical campaigns at 11.2T+, no host-level drift has been observed either 
   for the length of the merge. Shards stay on
   the data disk (a standard HDD). Final `solutions.bin` also
   lands on the data disk since CWD during merge is unchanged. See
-  [DEPLOYMENT.md §SSD attach for merge](DEPLOYMENT.md)
+  [DEPLOYMENT.md §SSD-attach-for-merge](DEPLOYMENT.md)
   for the concrete az CLI workflow.
 - **Standing rule: never provision the data disk as an SSD.** It
   holds cold shards 99% of the time. A standard HDD (from 300 GB

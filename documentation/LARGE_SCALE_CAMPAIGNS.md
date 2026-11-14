@@ -329,7 +329,7 @@ production-scale spot-checks — the project calls these "Tier 9+":
   merge VM has enough RAM. (For ≥5.6 PT campaigns, expect peak
   RSS in the 200–900 GB range; **the 64-core VM this project uses has 128 GB**, which will
   not suffice — size from the VM-size→RAM table in
-  [DEPLOYMENT.md](DEPLOYMENT.md#sku-to-ram-reference).)
+  [DEPLOYMENT.md](DEPLOYMENT.md#machine-size-to-ram-reference).)
 - **Cross-VM rsync integrity** — verify byte-identical transfer of
   shards across VMs.
 
@@ -812,7 +812,7 @@ vCPU** — 32 cores is 64 GB and 64 cores is 128 GB. This project learned that
 the hard way: [HISTORY.md](HISTORY.md)'s 100T-pilot entry records having to move
 from the 64-core low-memory size (128 GB RAM) to **a 64-core size with 256 GB RAM**, having
 assumed the first was 256 GB. The authoritative VM-size→RAM figures are in
-[DEPLOYMENT.md](DEPLOYMENT.md#sku-to-ram-reference); take them from there, not from
+[DEPLOYMENT.md](DEPLOYMENT.md#machine-size-to-ram-reference); take them from there, not from
 prose. **The correction moves the in-memory/disk-based boundary down by a full
 VM-size step**, which is the whole point of the table.]
 

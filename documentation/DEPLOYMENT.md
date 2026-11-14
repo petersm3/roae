@@ -115,12 +115,12 @@ launcher should scan for the partitionless ext4 volume rather than hardcoding
 ## Checkpoint granularity must match eviction frequency
 
 **Historical lesson (not current state).** The 2026-04-13 100T attempt —
-on F64als_v6 spot in westus2, a SKU now retired for this project — exposed
+on an older 64-core compute-optimised Spot VM, a size now retired for this project — exposed
 a fundamental mismatch: sub-branch-level checkpointing (committing
 `sub_P_O.bin` only when a sub-branch finishes its ~33B node budget) was
 too coarse for a spot VM whose eviction frequency exceeded the per-branch
 wall time. That run was aborted. **The successful 100T d3 canonical run
-(2026-04-19/20) used D128als_v7 westus3 on-demand** — no evictions, 16h 48m
+(2026-04-19/20) used a 128-core VM on regular (non-interruptible) capacity** — no evictions, 16h 48m
 end-to-end — so the following lesson is about spot-VM checkpoint granularity
 in general, not about the 100T canonical specifically. If you ever return
 to spot for 100T+ enumeration, the granularity analysis below still applies.
@@ -149,25 +149,25 @@ is safe on disk either way.
 ## Two-phase deployment: enumeration VM vs merge VM
 
 Enumeration and merge have very different resource profiles. Running both on
-the same VM forces you to pay for the *union* — many cores *and* lots of RAM
-— for the entire wall-clock time. Splitting them cuts spot cost significantly,
+the same VM forces you to provision the *union* — many cores *and* lots of RAM
+— for the entire wall-clock time. Splitting them avoids that waste,
 and at larger budgets (≥100T) the split becomes architecturally necessary
-because no single SKU is cost-effective at both.
+because no single machine size suits both.
 
-**STANDING POLICY (2026-04-20, corrected after a costly misprovisioning; reaffirmed 2026-08-29):**
+**STANDING POLICY (2026-04-20, corrected after a misprovisioning; reaffirmed 2026-08-29):**
 
 ⚠ **[NOTE 2026-08-29 — `CLAUDE.md` asserted a blanket "all VMs must be Spot" rule claiming to supersede this
 section. Corrected: practice never followed it (five of seven non-orchestrator VMs are Regular), and this
 split policy is the operative one. See CORRECTIONS.md]**
 
-- **Enumeration → spot, 128 cores** (D128als_v7 westus3). Eviction-resilient (sub-branch checkpoints). Spot gives ~70-85% discount over on-demand.
-- **Merge → on-demand, RIGHT-SIZED (NOT 128 cores).** Merge is single-threaded heap-sort; 1-2 cores are used, the rest sit idle. **Size the merge VM by RAM and I/O, NOT core count.** On-demand (not spot) because merge is fragile under eviction — a mid-merge eviction costs a full re-run at 100T+ scale (5+ hours).
-  - **d3 10T merge** (~89 GB pre-dedup): **D16als_v7** (16 cores, 32 GB RAM) with `SOLVE_MERGE_MODE=external`, or **D32als_v7** (32 cores, 64 GB RAM) which still needs the external path — 89 GB does not fit in 64 GB. On-demand, about 1 h for the merge. *(This bullet previously read "D32als_v7 (32 GB RAM fits 89 GB external, 64 GB fits in-memory)", attaching two different RAM figures to one SKU and contradicting the 64 GB given for D32als_v7 in the next bullet. Corrected 2026-09-01 against the SKU→RAM table below.)*
-  - **d3 100T merge** (~443 GB pre-dedup, external required): **D32als_v7** (32 cores, 64 GB RAM) is plenty — external merge streams in chunks, doesn't need to fit everything in RAM. On-demand, about 5 h for the merge (the 2026-04-19/20 merge measured 5h 25m 38s). *(The pre-dedup figure is measured: 13,832,832,979 records × 32 B = 442,650,655,328 B ≈ 443 GB, from `runs/20260419_100T_d3_d128westus3/README.md`. This bullet previously said "~880 GB" — the pre-run projection of ~27.7B records, which was never replaced by the measurement after the run. Corrected 2026-09-03; the same projection also survived as "~830 GB" (the same number in GiB) in §Premium-SSD-attach-for-merge, §100T and beyond, §Known scale limits and §Disk sizing, all corrected in the same pass.)*
-  - **d3 1000T+** (if ever): external merge on **D64als_v7** (128 GB RAM) handles chunk sort comfortably.
-  - **NEVER use D128als_v7 for merge.** Paying for 128 cores to run a 1-core workload is ~4× over-spend. The 2026-04-19/20 100T run's merge did exactly this: a D128 billed for a workload a D32 would have served.
+- **Enumeration → spot, 128 cores** (a 128-core VM, 256 GB RAM). Eviction-resilient (sub-branch checkpoints).
+- **Merge → regular (non-interruptible) capacity, RIGHT-SIZED (NOT 128 cores).** Merge is single-threaded heap-sort; 1-2 cores are used, the rest sit idle. **Size the merge VM by RAM and I/O, NOT core count.** Regular capacity (not spot) because merge is fragile under eviction — a mid-merge eviction means a full re-run at 100T+ scale (5+ hours).
+  - **d3 10T merge** (~89 GB pre-dedup): **a 16-core VM** (32 GB RAM) with `SOLVE_MERGE_MODE=external`, or **a 32-core VM** (64 GB RAM) which still needs the external path — 89 GB does not fit in 64 GB. Regular capacity, about 1 h for the merge. *(This bullet previously read "[the 32-core size] (32 GB RAM fits 89 GB external, 64 GB fits in-memory)", attaching two different RAM figures to one size and contradicting the 64 GB given for the 32-core size in the next bullet. Corrected 2026-09-01 against the size→RAM table below.)*
+  - **d3 100T merge** (~443 GB pre-dedup, external required): **a 32-core VM** (64 GB RAM) is plenty — external merge streams in chunks, doesn't need to fit everything in RAM. Regular capacity, about 5 h for the merge (the 2026-04-19/20 merge measured 5h 25m 38s). *(The pre-dedup figure is measured: 13,832,832,979 records × 32 B = 442,650,655,328 B ≈ 443 GB, from `runs/20260419_100T_d3_d128westus3/README.md`. This bullet previously said "~880 GB" — the pre-run projection of ~27.7B records, which was never replaced by the measurement after the run. Corrected 2026-09-03; the same projection also survived as "~830 GB" (the same number in GiB) in §SSD-attach-for-merge, §100T and beyond, §Known scale limits and §Disk sizing, all corrected in the same pass.)*
+  - **d3 1000T+** (if ever): external merge on **a 64-core VM** (128 GB RAM) handles chunk sort comfortably.
+  - **NEVER use the 128-core VM for merge.** Provisioning 128 cores to run a 1-core workload wastes the other 127. The 2026-04-19/20 100T run's merge did exactly this: a 128-core VM ran a workload a 32-core VM would have served.
 
-**An earlier revision (2026-04-19) briefly moved merges to spot by default on the reasoning that shards persist. That rule is SUPERSEDED** — at 100T+ scale, re-running a 5-hour merge on spot eviction is worse than the on-demand premium. Revert to on-demand for merge; size it correctly instead.
+**An earlier revision (2026-04-19) briefly moved merges to spot by default on the reasoning that shards persist. That rule is SUPERSEDED** — at 100T+ scale, re-running a 5-hour merge after a spot eviction is worse than running it on regular capacity. Revert to regular (non-interruptible) capacity for merge; size it correctly instead.
 
 **Mandatory pre-launch verification gate (every workload ≥ 1 hour):**
 
@@ -176,9 +176,9 @@ az vm show -g "$RG" -n "$VM" --query priority -o tsv
 ```
 
 - `Spot` → OK for enumeration. Proceed.
-- `<empty>` / `null` / `Regular` → OK for merge or explicit on-demand run. NOT OK for enumeration — stop, recreate the VM with `--priority Spot --eviction-policy Deallocate --max-price -1`, or escalate to the user.
+- `<empty>` / `null` / `Regular` → OK for merge or an explicit regular-capacity run. NOT OK for enumeration — stop, recreate the VM with `--priority Spot --eviction-policy Deallocate --max-price -1`, or escalate to the user.
 
-**Failure case this prevents:** on 2026-04-19/20, d128-westus3 was provisioned without `--priority Spot` by an earlier autonomous session; the 100T d3 enumeration + merge pipeline (16h 48m) was launched on it without verification. The run billed at on-demand rates throughout; under the corrected policy the enumeration would have been Spot and only the merge on-demand. See [HISTORY.md](HISTORY.md) §Missteps for the full retrospective.
+**Failure case this prevents:** on 2026-04-19/20, the 128-core compute VM was provisioned without `--priority Spot` by an earlier autonomous session; the 100T d3 enumeration + merge pipeline (16h 48m) was launched on it without verification. The whole run used regular capacity; under the corrected policy the enumeration would have been Spot and only the merge on regular capacity. The lesson: check the priority before launch. See [HISTORY.md](HISTORY.md) §Missteps for the full retrospective.
 
 ### Memory-budget validation for chunk-based parallel verifiers (added 2026-05-08)
 
@@ -193,60 +193,60 @@ Concrete example: `verify.py --jobs 16` on a 110 GB `solutions.bin`:
 - Per-worker chunk = 110 / 16 = 6.87 GB
 - Total memory = 16 × 6.87 = **110 GB**
 - Required VM RAM (with 30% headroom) = ~157 GB
-- D16als_v7 has 32 GB → **thrashes** (empirically: 13× re-read multiplier, OOM-killed at 5h 5min)
-- D128als_v7 has 256 GB → fits, no thrashing
+- A 16-core VM with 32 GB → **thrashes** (empirically: 13× re-read multiplier, OOM-killed at 5h 5min)
+- A 128-core VM with 256 GB → fits, no thrashing
 
-This bit on 2026-05-08 (T9+c.1 phase 4 on D16). Patched verify.py in this repo uses 32 MB streaming batches and is no longer subject to the memory-vs-N constraint — it needs cores and, for a gzip-framed input (the default since #169), free space under `TMPDIR` (default `/tmp`) for the whole decompressed file, which it writes before its workers start: about 110 GB at 100T and 337 GB at 560T, so point `TMPDIR` at the data disk. *(2026-11-14, Codex final review F12-007#8: this said it just needs cores)* But the patched verifier is the floor: any chunk-parallel verifier added later should follow the same streaming pattern.
+This bit on 2026-05-08 (T9+c.1 phase 4 on the 16-core VM). Patched verify.py in this repo uses 32 MB streaming batches and is no longer subject to the memory-vs-N constraint — it needs cores and, for a gzip-framed input (the default since #169), free space under `TMPDIR` (default `/tmp`) for the whole decompressed file, which it writes before its workers start: about 110 GB at 100T and 337 GB at 560T, so point `TMPDIR` at the data disk. *(2026-11-14, Codex final review F12-007#8: this said it just needs cores)* But the patched verifier is the floor: any chunk-parallel verifier added later should follow the same streaming pattern.
 
 **Rule of thumb for VM-sizing decisions:**
 
-- Single-thread merge: pick the smallest SKU that has enough RAM for the merge buffer (`SOLVE_MERGE_CHUNK_GB` × 2). D8/D16 are usually right.
-- Single-thread [`solve --verify`](SOLVE_C_CLI.md#--verify) (C-side): RAM doesn't matter (a streaming zlib reader that decodes and checks every record; not mmap). Smallest SKU is fine. ~21 min is the raw read time of a 100T-scale 109.8 GB `solutions.bin` at Standard HDD's ~85 MB/s, a floor: decompression and the per-record checks are not in it, and no wall was measured. *(2026-11-14, Codex final review F12-007#21: this said mmap + sequential read and gave ~21 min as the wall)* This is the fast single-threaded check; `verify.py --jobs 1` is CPU-bound and two orders of magnitude slower (see §Sizing rule for verify.py).
+- Single-thread merge: pick the smallest size that has enough RAM for the merge buffer (`SOLVE_MERGE_CHUNK_GB` × 2). 8- or 16-core sizes are usually right.
+- Single-thread [`solve --verify`](SOLVE_C_CLI.md#--verify) (C-side): RAM doesn't matter (a streaming zlib reader that decodes and checks every record; not mmap). Smallest size is fine. ~21 min is the raw read time of a 100T-scale 109.8 GB `solutions.bin` at an HDD-backed disk's ~85 MB/s, a floor: decompression and the per-record checks are not in it, and no wall was measured. *(2026-11-14, Codex final review F12-007#21: this said mmap + sequential read and gave ~21 min as the wall)* This is the fast single-threaded check; `verify.py --jobs 1` is CPU-bound and two orders of magnitude slower (see §Sizing rule for verify.py).
 - Parallel `verify.py --jobs N`: with the streaming patch, ~32 MB × N for memory; mostly CPU-bound now. Match N to cores to maximize throughput. **For 100T-scale (3.43B records), expect ~3h on 16 cores at ~19k records/sec/worker; ~12h on 4 cores; ~46 min on 64 cores.** **For 560T-scale (10.525B records, 3.07× 100T), projection at the linear regime: ~9h on 16 cores, ~5h on 32 cores, ~2.4h on 64 cores.** Important caveat: verify.py's per-record decode path is **pure Python at every sha** — the only numpy import in the file is inside `check_t5_c3` (the T5/C3 recompute, unrelated to record verification), so installing numpy does not speed record verification up. The 560T campaign did observe roughly a 3× shortfall against the projected 19k records/sec/worker rate, but that shortfall was **misattributed** to a missing numpy package; disk contention (see §HDD-IOPS contention below) is the leading candidate, and the 19k projection itself may be optimistic. Budget from a measured rate on your own hardware, not from a package install.
 
-Don't reflexively right-size for a single-thread phase and then run a multi-core verify on the same too-small VM. Either re-size for the verify phase, or pick a VM that fits both — the cost delta is usually small over a multi-hour campaign.
+Don't reflexively right-size for a single-thread phase and then run a multi-core verify on the same too-small VM. Either re-size for the verify phase, or pick a VM that fits both — the extra compute is usually small over a multi-hour campaign.
 
 ### HDD-IOPS contention vs CPU-parallel scaling (added 2026-05-10)
 
 The memory-budget rule above tells you when verify.py won't OOM. It doesn't tell you when verify.py will be slow due to disk contention. These are separate failure modes.
 
-**Empirical finding from T9+d phase 9 (2026-05-10):** scaling `verify.py --jobs N` from 16 (D16) to 128 (D128) on the SAME Standard HDD did NOT yield 8× speedup. Aggregate disk read collapsed from ~9.9 MB/s on D16 (--jobs 16) to ~15 MB/s on D128 (--jobs 128) — only 1.5× improvement vs CPU-parallel projection of 8×.
+**Empirical finding from T9+d phase 9 (2026-05-10):** scaling `verify.py --jobs N` from 16 (a 16-core VM) to 128 (a 128-core VM) on the SAME HDD-backed disk did NOT yield 8× speedup. Aggregate disk read collapsed from ~9.9 MB/s on the 16-core VM (--jobs 16) to ~15 MB/s on the 128-core VM (--jobs 128) — only 1.5× improvement vs CPU-parallel projection of 8×.
 
-**Root cause:** Standard HDD does ~80 random IOPS. With 128 workers reading from 128 disjoint file offsets simultaneously, the disk spends most of its time seeking. Per-worker read rate degrades from ~0.62 MB/s (at N=16) to ~0.12 MB/s (at N=128) — a 5× per-worker slowdown.
+**Root cause:** an HDD-backed disk does ~80 random IOPS. With 128 workers reading from 128 disjoint file offsets simultaneously, the disk spends most of its time seeking. Per-worker read rate degrades from ~0.62 MB/s (at N=16) to ~0.12 MB/s (at N=128) — a 5× per-worker slowdown.
 
-**Sweet spot for parallel verify on Standard HDD: ~16-32 workers.** Past 32, IOPS contention dominates CPU parallelism and additional cores deliver diminishing returns. Past 64, returns are essentially zero.
+**Sweet spot for parallel verify on an HDD-backed disk: ~16-32 workers.** Past 32, IOPS contention dominates CPU parallelism and additional cores deliver diminishing returns. Past 64, returns are essentially zero.
 
 **To go faster than the ~16-worker plateau:**
-- Use Premium SSD scratch (high random IOPS — Premium SSD does 5,000+ IOPS, two orders of magnitude better)
+- Use SSD-backed scratch (high random IOPS — an SSD-backed managed disk does 5,000+ IOPS, two orders of magnitude better)
 - Or restructure verify.py to use single-stream sequential reads with worker-pool processing (reader thread feeds N CPU-bound worker threads from a queue) — would let the reader saturate sequential HDD throughput at ~150 MB/s and CPU workers process from memory
 
-**Cost impact this campaign:** D128 was provisioned for the 8× speedup that didn't materialize. Overspend versus the D32 sweet spot.
+**Impact on this campaign:** a 128-core VM was provisioned for the 8× speedup that didn't materialize; 32 cores was the sweet spot.
 
 **Sizing rule for verify.py (revised):**
 
-100T-scale (3.43B records, on Standard HDD scratch):
+100T-scale (3.43B records, on HDD-backed scratch):
 
-- Single-thread (`--jobs 1`) on D2/D4: **~50 h** for 100T — CPU-bound, not
+- Single-thread (`--jobs 1`) on 2 or 4 cores: **~50 h** for 100T — CPU-bound, not
   disk-bound (3.43B records ÷ ~19k records/sec/worker = ~50 h; measured
   single-worker throughput on a small file is ~27k records/sec, giving ~35 h).
   The ~21 min figure this row used to carry is the *C-side* number
-  (109.8 GB ÷ ~85 MB/s of Standard HDD read), a read-time floor for the streaming C
+  (109.8 GB ÷ ~85 MB/s of HDD-backed read), a read-time floor for the streaming C
   verifier. For a single-threaded disk-speed check, use
   [`solve --verify`](SOLVE_C_CLI.md#--verify), not `verify.py --jobs 1`.
-- `--jobs 16` on D16: ~3h (CPU-bound at ~620 KB/sec per worker after the streaming patch)
-- `--jobs 32` on D32: ~1.5h (sweet spot)
-- `--jobs 64` on D64: ~75 min (slight IOPS contention)
-- `--jobs 128` on D128: ~2-3h (severe IOPS contention — DO NOT USE on Standard HDD)
-- `--jobs 128` on D128 with Premium SSD scratch: ~25 min (estimated, not yet measured) — would require an upfront copy from Standard HDD to Premium SSD scratch (~25 min for 110 GB)
+- `--jobs 16` on 16 cores: ~3h (CPU-bound at ~620 KB/sec per worker after the streaming patch)
+- `--jobs 32` on 32 cores: ~1.5h (sweet spot)
+- `--jobs 64` on 64 cores: ~75 min (slight IOPS contention)
+- `--jobs 128` on 128 cores: ~2-3h (severe IOPS contention — DO NOT USE on an HDD-backed disk)
+- `--jobs 128` on 128 cores with SSD-backed scratch: ~25 min (estimated, not yet measured) — would require an upfront copy from the HDD-backed disk to SSD-backed scratch (~25 min for 110 GB)
 
-560T-scale (10.525B records, 3.07× the 100T workload — projection at the linear regime, on Standard SSD scratch as in the 2026-06-08 campaign):
+560T-scale (10.525B records, 3.07× the 100T workload — projection at the linear regime, on mid-tier SSD-backed scratch as in the 2026-06-08 campaign):
 
-- `--jobs 16` on D16: ~9h projected (the in-flight campaign actual on D16 ran roughly 3× slower than this projection — see the attribution note above; it is not a numpy effect)
-- `--jobs 32` on D32: ~5h projected
-- `--jobs 64` on D64: ~2.4h projected (planned post-warm-copy verify run for 560T)
-- `--jobs 128` on D128: ~2h projected (still sub-linear above D64 per the 100T finding)
+- `--jobs 16` on 16 cores: ~9h projected (the in-flight campaign actual on 16 cores ran roughly 3× slower than this projection — see the attribution note above; it is not a numpy effect)
+- `--jobs 32` on 32 cores: ~5h projected
+- `--jobs 64` on 64 cores: ~2.4h projected (planned post-warm-copy verify run for 560T)
+- `--jobs 128` on 128 cores: ~2h projected (still sub-linear above 64 cores per the 100T finding)
 
-For ROAE 100T-scale verify on Standard HDD, **D32 is the empirical optimum** under the current verify.py design. For ROAE 560T-scale verify on Standard SSD, the disk-IOPS contention is less severe than HDD; D64 is the recommended sweet spot (1-3h wall on Spot). If verify.py is rewritten to use a reader-thread design, D128 becomes optimal again at both scales.
+For ROAE 100T-scale verify on an HDD-backed disk, **32 cores is the empirical optimum** under the current verify.py design. For ROAE 560T-scale verify on mid-tier SSD, the disk-IOPS contention is less severe than HDD; 64 cores is the recommended sweet spot (1-3h wall on Spot). If verify.py is rewritten to use a reader-thread design, 128 cores becomes optimal again at both scales.
 
 ### Quota tracking — deallocated VMs still consume quota (added 2026-05-10)
 
@@ -297,7 +297,7 @@ The `feedback_keep_managed_disk.md` rule still holds — never delete data disks
 
 ### Spot host CPU-frequency throttling — silently 5× slower (added 2026-05-12)
 
-**Failure mode:** on 2026-05-12, a freshly-provisioned `Standard_D128als_v7` Spot VM in westus3 (host: AMD EPYC 9V45) ran a `solve 0 128` enum at **230 M nodes/s** — 5.6× slower than the established baseline of **1293 M/s** for the same SKU on a healthy host. The slowdown was scale-emergent (rate looked normal at smaller scales, was glaring at full-throttle 128-thread enum) and would have caused a cascade overspend if undetected.
+**Failure mode:** on 2026-05-12, a freshly-provisioned 128-core Spot VM (host: AMD EPYC 9V45) ran a `solve 0 128` enum at **230 M nodes/s** — 5.6× slower than the established baseline of **1293 M/s** for the same size on a healthy host. The slowdown was scale-emergent (rate looked normal at smaller scales, was glaring at full-throttle 128-thread enum) and would have wasted hours of compute if undetected.
 
 **Root cause:** the host's CPUs were parked at **~600 MHz** (visible via `cat /proc/cpuinfo | grep MHz`), versus the expected **2.5-3.5 GHz** boost frequency. Inside the guest:
 
@@ -325,81 +325,81 @@ echo "OK: all $TOTAL CPUs at or above 2000 MHz"
 1. `pkill -9 -f solve` (kill any in-flight work)
 2. Detach scratch disk(s): `az vm disk detach`
 3. Delete the VM + NIC + PIP (keep data disks): `az vm delete --yes`; cascade NIC + PIP delete
-4. Re-provision a fresh Spot D128als_v7 — Azure will (probably) place it on a different host
+4. Re-provision a fresh Spot VM of the same size — Azure will (probably) place it on a different host
 5. Re-attach scratch, re-run the CPU-frequency check
 
 A 2026-05-12 cascade re-provision drew a host running at **3562 MHz boost** (1293 M/s rate, baseline-matching) on the second attempt. Empirically the second-draw success rate is high but not guaranteed; check on every fresh VM regardless.
 
 **Cost of detection vs. cost of not:** a 5-line script run once per provisioned VM is essentially free. Skipping the check on a single 5.6T run on a throttled host wastes wall time; on a 100T run it wastes hours of wall. **Always check before launching long enum work.**
 
-The actual SKU underlying Azure's `D128als_v7` is AMD EPYC 9V45 (96-core, 128-vCPU). Microsoft's Dalsv7-series page lists the family's processor as AMD EPYC 9005 (Turin), and §Measured scaling below calls it Zen 5c "Turin Dense"; the 9V45 is that generation's cloud part. ⚠ *(Corrected 2026-09-25, Q-763: this sentence called the earlier "Zen 5 Turin" label incorrect; it was right at the family level.)* The 9V45 is a cloud-optimized AMD SKU; per-core performance at full boost is comparable to (slightly below) Genoa for our DFS-heavy workload, *as long as the host is not throttling*.
+The processor underlying the 128-core VM size is AMD EPYC 9V45 (96-core, 128-vCPU). The vendor's page for that VM family lists the family's processor as AMD EPYC 9005 (Turin), and §Measured scaling below calls it Zen 5c "Turin Dense"; the 9V45 is that generation's cloud part. ⚠ *(Corrected 2026-09-25, Q-763: this sentence called the earlier "Zen 5 Turin" label incorrect; it was right at the family level.)* The 9V45 is a cloud-optimized AMD part; per-core performance at full boost is comparable to (slightly below) Genoa for our DFS-heavy workload, *as long as the host is not throttling*.
 
 ### Disk tier matters — more than you might think
 
-`solver-data` is deliberately **Standard_LRS** (HDD-tier). Standard HDD has
+The data disk is deliberately **HDD-backed** (the slowest tier). An HDD-backed disk has
 IOPS capped at 500 and throughput ~60 MB/s regardless of disk size. That
-choice is right for long-term shard *storage* (cheap per GB) but
+choice is right for long-term shard *storage* but
 wrong for merge-time *compute*. Empirical data point from the 2026-04-18
 10T depth-3 external re-merge:
 
 | What | Value |
 |---|---|
 | Input | 56,404 sub_*.bin shards, 83 GB, 2.77B records |
-| Disk | Standard_LRS 300 GB, ~60 MB/s throughput cap |
+| Disk | HDD-backed, 300 GB, ~60 MB/s throughput cap |
 | Merge mode | `SOLVE_MERGE_MODE=external` (4 GB chunks) |
 | Phase 1 (read shards, sort chunks, write temp files) | ~6-7 min per 4 GB chunk × 20+ chunks ≈ 2-3 hours |
 | Phase 2 (k-way merge + write solutions.bin) | ~30-45 min |
 | Total wall | ~3-4 hours |
-| F64 on-demand cost | [cost redacted] |
+| VM | an older 64-core compute-optimised VM, regular capacity |
 
-Compared to the alternatives on various hardware (updated 2026-04-19 with measured D128 data):
+Compared to the alternatives on various hardware (updated 2026-04-19 with measured 128-core data):
 
 | Strategy | Wall time (10T) | Trade-off |
 |---|---|---|
-| F64als_v6 + external merge on Standard_LRS HDD (above, legacy) | 3-4 h | cheapest disk, slow merge; F64 retired |
-| F64als_v6 + in-memory merge (~89 GB fits in 128 GB RAM) | ~30 min | fast; F64 retired |
-| **D128als_v7 westus3 + in-memory heap-sort merge** | **~52 min** | measured 2026-04-19; **superseded** (see note) |
-| **D128als_v7 westus3 + external merge on Premium SSD (P20)** | **~43 min** | measured 2026-04-19; faster than in-memory at 10T; **superseded** (see note) |
-| D64als_v7 westus3 + in-memory merge (128 GB RAM, perfect fit) | ~52 min | cheaper than D128 — single-threaded merge ignores core count; Spot **superseded** (see note) |
-| Premium SSD for `solver-data` permanently | (same as in-memory) | wasteful; SSD only needed during merge |
+| older 64-core VM + external merge on an HDD-backed disk (above, legacy) | 3-4 h | slowest disk tier, slow merge; that size is retired |
+| older 64-core VM + in-memory merge (~89 GB fits in 128 GB RAM) | ~30 min | fast; that size is retired |
+| **128-core VM (256 GB RAM) + in-memory heap-sort merge** | **~52 min** | measured 2026-04-19; **superseded** (see note) |
+| **128-core VM + external merge on a 512 GB SSD-backed disk** | **~43 min** | measured 2026-04-19; faster than in-memory at 10T; **superseded** (see note) |
+| 64-core VM + in-memory merge (128 GB RAM, perfect fit) | ~52 min | half the cores of the 128-core VM, same wall — single-threaded merge ignores core count; Spot **superseded** (see note) |
+| An SSD-backed data disk permanently | (same as in-memory) | wasteful; SSD only needed during merge |
 
-*(Scope note, 2026-09-03: the three D-series rows are measurements from 2026-04-19, the
+*(Scope note, 2026-09-03: the three 64/128-core rows are measurements from 2026-04-19, the
 day **before** the §Standing policy of 2026-04-20. The "new default" this table used
-to attach to the D128 spot row was true for one day. Under the standing policy the merge
-VM is **on-demand and right-sized (D16/D32als_v7 at 10T–100T) — never D128 and never
+to attach to the 128-core spot row was true for one day. Under the standing policy the merge
+VM is **on regular capacity and right-sized (16 or 32 cores at 10T–100T) — never 128 cores and never
 Spot**. The wall times remain valid planning figures because merge is single-threaded
-and ignores core count; the SKU and priority in these rows are withdrawn.)*
+and ignores core count; the size and priority in these rows are withdrawn.)*
 
 ### Recommendations by dataset scale
 
 - **Input < 80% of merge-VM RAM.** Default (auto) selects in-memory. Fastest.
 - **Input ≥ 80% of merge-VM RAM, or running on small VM.** Use external merge.
-  - On Standard HDD: usable but slow. Budget 3-4 hours for 10T, proportionally
-    longer at 100T. Only viable when cost-minimizing is the priority over
+  - On an HDD-backed disk: usable but slow. Budget 3-4 hours for 10T, proportionally
+    longer at 100T. Only viable when avoiding a second disk matters more than
     wall time.
-  - On Premium SSD (recommended for any merge > 1 hour on HDD): attach a
-    temporary Premium-tier data disk (P20 or P30), point `SOLVE_TEMP_DIR` at
+  - On SSD-backed scratch (recommended for any merge > 1 hour on HDD): attach a
+    temporary SSD-backed data disk (512 GB or 1 TB), point `SOLVE_TEMP_DIR` at
     it, run the merge. Solutions.bin lands on the CWD (which stays on
-    solver-data), temp chunks land on the SSD. After the merge completes,
+    the data disk), temp chunks land on the SSD. After the merge completes,
     detach and DELETE the SSD — shards and output are already on
-    solver-data. A small prorated Premium cost for 3-4× throughput.
+    the data disk. The SSD buys 3-4× throughput for the length of the merge.
 
-### Premium-SSD-attach-for-merge — the design pattern
+### SSD-attach-for-merge — the design pattern
 
 **Architectural idea.** External merge has three kinds of I/O: *shard reads*
 (long, sequential, from archival storage), *chunk write/read cycles* (the
 external algorithm's temp storage — written in Phase 1, read back in Phase
 2), and *output writes* (the final deduped `solutions.bin`). The shards and
-final output want to live on cheap durable archival storage (solver-data,
-Standard HDD). The chunk cycle wants to live on fast
+final output want to live on durable archival storage (the data disk,
+HDD-backed). The chunk cycle wants to live on fast
 temp storage that can be destroyed after the merge.
 
 Putting everything on the HDD forces the HDD to interleave all three
 streams on one disk head, where seek contention (not raw throughput) is the
-bottleneck. Putting chunks on a separate Premium SSD collapses the HDD's
+bottleneck. Putting chunks on a separate SSD-backed disk collapses the HDD's
 role to two linear sequential streams (shard read, then output write) and
 gives the chunk cycle its own fast device. On the 10T d3 merge this moved
-wall time from ~3 hours to ~30-45 min at roughly the same total cost.
+wall time from ~3 hours to ~30-45 min.
 
 **When the pattern is needed.** Any external merge where wall time on HDD
 would exceed ~1 hour. That is any merge where input ≥ 80% of merge-VM RAM
@@ -409,50 +409,50 @@ neither the SSD nor external mode is involved.
 
 **When the pattern is strictly necessary.** 100T and beyond. In-memory is
 not viable (the measured ~443 GB pre-dedup buffer exceeds the 80%-of-RAM
-in-memory rule on every D-series SKU this project uses — D128als_v7 is
-256 GB — and a memory-optimized SKU costs ~10× for marginal benefit).
+in-memory rule on every VM size this project uses — the 128-core size has
+256 GB — and a memory-optimized size would bring only marginal benefit).
 External merge is forced; running external on HDD at that scale projects to
-30+ hour wall times. Premium SSD took the 2026-04-19/20 100T merge to
+30+ hour wall times. SSD-backed scratch took the 2026-04-19/20 100T merge to
 **5h 25m 38s** measured (§100T and beyond).
 
-**The cost economics.** SSD is billed by capacity per hour. A 2-hour P20
-(512 GB) attached to a 10T merge adds little in disk cost. A P40 (2 TB) for a
-3-hour 100T merge, likewise. Negligible against VM cost, and
-the SSD is destroyed the moment the merge completes — no ongoing storage
-bill. That's why this is the right pattern instead of permanently
-upgrading solver-data to Premium (which would bill continuously for a disk
-that sits cold 99% of the time).
+**Why a temporary disk.** The SSD exists only for the merge: a 512 GB
+disk for a 2-hour 10T merge, a 2 TB disk for a 3-hour 100T merge. It is
+destroyed the moment the merge completes, so nothing is left
+provisioned afterward. That's why this is the right pattern instead
+of permanently moving the data disk to an SSD-backed tier, which would
+keep a fast disk provisioned for data
+that sits cold 99% of the time.
 
-**The rule of thumb.** Shards and output live on Standard-tier `solver-data`
-forever. Premium SSD only exists for the duration of a merge.
-`SOLVE_TEMP_DIR=/mnt/merge-scratch` routes chunk I/O to the SSD during the
+**The rule of thumb.** Shards and output live on the HDD-backed data disk
+forever. The SSD-backed scratch disk only exists for the duration of a merge.
+`SOLVE_TEMP_DIR=/mnt/scratch` routes chunk I/O to the SSD during the
 merge. Both final files (`solutions.bin` + `solutions.sha256` +
-`solutions.meta.json`) write to CWD, which should be `solver-data` so they
+`solutions.meta.json`) write to CWD, which should be on the data disk so they
 archive automatically.
 
 ### Concrete workflow
 
-The pattern: **keep shards and final output on Standard-tier `solver-data`
-for cheap archival; attach a Premium SSD only for the duration of the merge
+The pattern: **keep shards and final output on the HDD-backed data disk
+for archival; attach an SSD-backed disk only for the duration of the merge
 so its temp I/O runs at SSD speed; destroy the SSD afterward.**
 
 ```bash
-# 1. Provision a Premium SSD. P20 = 512 GB.
-#    For a 10T merge, P20 is plenty (~80 GB of temp chunks + slack).
-#    For 100T, use P40 (2 TB). Cost scales with size, NOT with I/O.
-SIZE_GB=512                      # P20; a single parameter for BOTH the create
+# 1. Provision an SSD-backed disk of 512 GB.
+#    For a 10T merge, 512 GB is plenty (~80 GB of temp chunks + slack).
+#    For 100T, use 2 TB.
+SIZE_GB=512                      # a single parameter for BOTH the create
                                  # and the step-3 selector, so they cannot drift
-az disk create -g <resource-group> -n merge-scratch -l westus2 \
-  --size-gb "$SIZE_GB" --sku Premium_LRS --no-wait
+az disk create -g <resource-group> -n <scratch-disk> -l <region> \
+  --size-gb "$SIZE_GB" --sku <ssd-disk-sku> --no-wait
 
-# 2. Attach to the on-demand merge VM (after it's up).
+# 2. Attach to the regular-capacity merge VM (after it's up).
 az vm disk attach -g <resource-group> --vm-name <merge-vm-name> \
-  --name merge-scratch --lun 1
+  --name <scratch-disk> --lun 1
 
 # 3. On the VM: identify disk by SIZE + empty-FS state, format,
 #    mount, own. NEVER use `mkfs -F` (banned project-wide after the
 #    2026-05-06 wipe; see CLAUDE.md §"Disk-handling safety").
-#    The pattern below identifies the new Premium SSD as the unique empty
+#    The pattern below identifies the new SSD-backed disk as the unique empty
 #    disk of exactly $SIZE_GB. If 0 or 2+ match → hard-fail. $SIZE_GB is
 #    passed to the remote shell so the size predicate can never disagree
 #    with the `--size-gb` used in step 1.
@@ -466,35 +466,35 @@ ssh solver@<vm-private-ip> "SIZE_GB=$SIZE_GB bash -s" <<'REMOTE'
   # Belt-and-suspenders: refuse if any blkid output (existing FS).
   blkid "$DEV" >/dev/null 2>&1 && { echo "FATAL: $DEV has existing filesystem"; exit 1; }
   sudo mkfs.ext4 -q "$DEV"          # NO -F flag
-  sudo mkdir -p /mnt/merge-scratch
-  sudo mount "$DEV" /mnt/merge-scratch
-  sudo chown solver:solver /mnt/merge-scratch
+  sudo mkdir -p /mnt/scratch
+  sudo mount "$DEV" /mnt/scratch
+  sudo chown solver:solver /mnt/scratch
 REMOTE
 
 # 4. Run the merge with SOLVE_TEMP_DIR pointing at the SSD.
-#    CWD stays on /data (solver-data) so shards and final output live there.
+#    CWD stays on /data (the data disk) so shards and final output live there.
 ssh solver@<vm-private-ip> '
   cd /data
-  SOLVE_MERGE_MODE=external SOLVE_TEMP_DIR=/mnt/merge-scratch ~/solve --merge
+  SOLVE_MERGE_MODE=external SOLVE_TEMP_DIR=/mnt/scratch ~/solve --merge
 '
 
-# 5. solutions.bin + .sha256 + .meta.json are now on /data (solver-data).
+# 5. solutions.bin + .sha256 + .meta.json are now on /data (the data disk).
 #    temp_sorted_*.bin files were on the SSD and have been deleted by solve
 #    at end of merge. Nothing of value remains on the SSD.
 
 # 6. Detach + delete the SSD.
-az vm disk detach -g <resource-group> --vm-name <merge-vm-name> --name merge-scratch
-az disk delete -g <resource-group> -n merge-scratch --yes --no-wait
+az vm disk detach -g <resource-group> --vm-name <merge-vm-name> --name <scratch-disk>
+az disk delete -g <resource-group> -n <scratch-disk> --yes --no-wait
 ```
 
-**Cost accounting.** Premium SSD is billed per-hour, but Azure bills at a
-minimum of one hour of usage per disk lifetime. A 2-hour merge on a P20:
-a small disk cost. A P40 (2 TB) for a 100T merge: likewise small.
-Negligible against the VM cost.
+**Lifetime.** Create the scratch disk just before the merge and delete
+it as soon as the merge completes (step 6). Nothing of value remains
+on it afterward, so a scratch disk left attached past the merge is
+waste.
 
 **Why this matters for 100T and beyond.** The 10T merge fits in-memory on
-F64; the Premium-SSD pattern is optional at that scale. But 100T cannot be
-done in-memory on any cost-practical VM (see below), so the Premium-SSD
+the older 64-core VM; the SSD-attach pattern is optional at that scale. But 100T cannot be
+done in-memory on any practical VM size (see below), so the SSD-attach
 pattern becomes the path forward, not an optimization.
 
 ### 100T and beyond — in-memory is not an option
@@ -506,21 +506,21 @@ pre-dedup records = 442,650,655,328 B ≈ 443 GB** of merge input
 extrapolated "~27.7B pre-dedup records = ~830 GB" — the pre-run linear
 projection from 10T, never replaced by the measurement; the real 10T→100T
 pre-dedup growth was 5.0× per 10× budget. Corrected 2026-09-03.)* In-memory
-merge would need a memory-optimized SKU (more than 554 GB RAM under the 80% rule, 443 GB / 0.8 — the threshold `solve.c` applies, Codex final review, F09-H01#8;
-D128als_v7 is 256 GB) at roughly 10× the cost for marginal benefit. The
-practical path at 100T is **external merge on Premium SSD**:
+merge would need a memory-optimized size (more than 554 GB RAM under the 80% rule, 443 GB / 0.8 — the threshold `solve.c` applies, Codex final review, F09-H01#8;
+the 128-core size has 256 GB) for marginal benefit. The
+practical path at 100T is **external merge on SSD-backed scratch**:
 
-- a right-sized on-demand D-series merge VM per §Standing policy (D32als_v7,
-  64 GB RAM — the F64als_v6 this bullet used to name is retired) + Premium
-  SSD P40 (2 TB, 250 MB/s) as temp dir
-- `SOLVE_TEMP_DIR=/mnt/merge-scratch SOLVE_MERGE_MODE=external`
+- a right-sized merge VM on regular capacity per §Standing policy (32 cores,
+  64 GB RAM — the older 64-core size this bullet used to name is retired) + an
+  SSD-backed 2 TB disk (250 MB/s) as temp dir
+- `SOLVE_TEMP_DIR=/mnt/scratch SOLVE_MERGE_MODE=external`
 - ~1.66 TB total I/O in logical bytes (read 443 GB of shards once, write and read back 443 GB
   of sorted chunks, write and read back the 110 GB of deduplicated records in `temp_merge_records.bin`, write the 110 GB output), before hashing and the automatic verify *(2026-11-14, Codex final review F12-007#17: this read ~1.4 TB and left out the deduplicated-record file)*
-- **5h 25m 38s wall measured** on the 2026-04-19/20 run (on a D128 the
+- **5h 25m 38s wall measured** on the 2026-04-19/20 run (on a 128-core VM the
   standing policy now forbids for merge; the wall does not depend on core
-  count) → about 5.5 h of D32als_v7 on-demand plus a P40 for the same span.
+  count) → about 5.5 h of a 32-core VM on regular capacity plus a 2 TB scratch disk for the same span.
   *(Previously "~3 hours wall time, [cost redacted] total" — a pre-run estimate on
-  the retired F64.)*
+  the retired 64-core size.)*
 
 The in-memory path effectively tops out around the 10T-at-our-current-VM-size
 combination. Everything larger is external-merge-with-SSD territory.
@@ -573,7 +573,7 @@ MB/thread). Merge RAM scales with the pre-dedup input, not the output. *(2026-11
 
 1. **Enumeration VM** — lean and core-dense. Writes `sub_*.bin` shards and
    `checkpoint.txt` to the managed data disk. Tears down on completion.
-   VM choice: D128als_v7 Spot in westus3. (F-series is BANNED on this
+   VM choice: a 128-core Spot VM. (The older compute-optimised family is BANNED on this
    project since 2026-04-19 — see §Ad-hoc VM lifecycle rules, rule 1.)
 2. **Data disk survives** the teardown. Shards are the primary artifact; the
    final `solutions.bin` is derived.
@@ -590,29 +590,29 @@ MB/thread). Merge RAM scales with the pre-dedup input, not the output. *(2026-11
    happen to be in the CWD, and the operator has a path in their shell history
    that appears to say otherwise. **`--merge` is CWD-relative; `cd` to the shard
    directory first.**
-   VM choice: a **right-sized on-demand D-series** VM per §Standing policy
-   — D16/D32als_v7 for 10T–100T, D64als_v7 at 1000T+. Memory-optimized
-   E-/M-series are not used here: merge is a single-threaded heap-sort sized
+   VM choice: a **right-sized regular-capacity** VM per §Standing policy
+   — 16 or 32 cores for 10T–100T, 64 cores at 1000T+. Memory-optimized
+   sizes are not used here: merge is a single-threaded heap-sort sized
    by RAM and I/O, and external merge (`SOLVE_MERGE_MODE=external`, shipped)
-   keeps a modest SKU sufficient by streaming chunks instead of buffering
+   keeps a modest size sufficient by streaming chunks instead of buffering
    `total_records × 32 bytes` (pre-dedup) in RAM.
 
-**Wall-time illustration (westus3 D-series; enum on Spot, merge on-demand — 2026-04-19 measured + projected):**
+**Wall-time illustration (enum on a 128-core Spot VM, merge on regular capacity — 2026-04-19 measured + projected):**
 
 | Budget | Enum wall | Enum VM | Merge VM |
 |---|---|---|---|
-| 10T | **1h 23m** (measured) | D128als_v7 spot | D16als_v7 on-demand for ~50 min |
-| 100T | **~14h** (projected) | D128als_v7 spot | D32als_v7 on-demand + P40 SSD for ~2-5h (external) |
-| 1000T | ~6-7 days | D128als_v7 spot | D64als_v7 on-demand + P40 SSD for ~30h (external, parallel chunks) |
+| 10T | **1h 23m** (measured) | 128-core, spot | 16-core, regular capacity, for ~50 min |
+| 100T | **~14h** (projected) | 128-core, spot | 32-core, regular capacity, + 2 TB SSD for ~2-5h (external) |
+| 1000T | ~6-7 days | 128-core, spot | 64-core, regular capacity, + 2 TB SSD for ~30h (external, parallel chunks) |
 
-The merge column follows §Standing policy: **on-demand and right-sized, never
-D128 and never Spot.** An earlier revision of this table prescribed Spot merges
-and D128 merges — both are withdrawn; the merge-VM wall times are unchanged
+The merge column follows §Standing policy: **regular capacity and right-sized, never
+128 cores and never Spot.** An earlier revision of this table prescribed Spot merges
+and 128-core merges — both are withdrawn; the merge-VM wall times are unchanged
 because merge is single-threaded and ignores core count.
 
-Legacy F64als_v6 westus2 figures (for historical reference): 10T took 6h enum + 30min merge; 100T was projected with split (never run at scale post-pivot). F64 is retired 2026-04-19. See `DSERIES_ROI_REPORT.md` (outside repo) for full comparison.
+Legacy figures on the older 64-core compute-optimised size (for historical reference): 10T took 6h enum + 30min merge; 100T was projected with split (never run at scale post-pivot). That size is retired 2026-04-19. The full comparison is in a private report outside the repo.
 
-Savings scale with wall-clock time; for ≥100T external merge with Premium SSD is strictly required (data volume exceeds RAM). For 1000T, parallel-chunk external merge on large Premium SSD is the path.
+For ≥100T, external merge with SSD-backed scratch is strictly required (data volume exceeds RAM). For 1000T, parallel-chunk external merge on a large SSD-backed disk is the path.
 
 **Orchestration requirements for the two-phase pattern** (most already exist):
 
@@ -691,8 +691,8 @@ first-shot) was the forcing function for the runbook's creation;
 the failure modes it documents have all been seen, and the
 mitigations are tested. Key non-obvious constraints captured there:
 
-- **Enum OS disk: explicit `--storage-sku StandardSSD_LRS`.** Azure
-  defaults `s`-suffix VM sizes to Premium_LRS, which is wasted on
+- **Enum OS disk: explicit `--storage-sku <mid-ssd-disk-sku>` (a mid-tier SSD).** Azure
+  defaults VM sizes that support the fast SSD tier to it, which is wasted on
   CPU-bound enum.
 - **Shards belong on the attached managed disk (the project's data disk),
   not the enum VM's OS disk.** Lose-the-VM-lose-the-shards is what
@@ -702,11 +702,11 @@ mitigations are tested. Key non-obvious constraints captured there:
   recovery is a Phase-2-only re-run, not a full enum redo.
 - **`curl -T file` streaming PUT for large files.** `curl --data-binary
   @file` OOMs at ~2 GB regardless of VM RAM.
-- **Mount logic must handle existing-ext4** (solver-data has empty
+- **Mount logic must handle existing-ext4** (the data disk has empty
   ext4 from the 2026-05-06 incident wipe; subsequent re-population
   filled 120 GB of operator data into top-level dirs). Always write
   canonical outputs to a `$ARCHIVE_PREFIX/` subdirectory.
-- **Mandatory D2 pre-flight** before any 4h+ enum: validate
+- **Mandatory small-VM pre-flight** before any 4h+ enum: validate
   the disk-attach + mount + upload syntax on a throwaway VM with
   the actual managed disk before committing to the critical path.
 
@@ -724,9 +724,9 @@ banned `mkfs -F`, UUID-based disk identification).
 
 4. **Monitor completion detection must match the solver's actual output format.** The 10T monitor greped for `"SEARCH COMPLETE\|TIMED OUT"` but the solver writes `"SEARCH_COMPLETE"` (underscore, machine-readable) to `solve_results.json`. Monitor concluded the run had failed, tore down the VM, and reported an error — while `solutions.bin` sat safely on the preserved managed disk. Lesson: monitors should consume stable machine-readable markers (status field in JSON) rather than stderr text whose format evolves.
 
-5. **Managed disks preserved = the win condition for every class of failure.** Eviction, truncation, regex bug — all three recovery scenarios in this project were saved by `solver-data` surviving VM teardown. Never delete a data disk. Orphan OS disks from deleted VMs are a separate matter: clean those up.
+5. **Managed disks preserved = the win condition for every class of failure.** Eviction, truncation, regex bug — all three recovery scenarios in this project were saved by the data disk surviving VM teardown. Never delete a data disk. Orphan OS disks from deleted VMs are a separate matter: clean those up.
 
-6. **Azure zones bite.** The `solver-data` disk is non-zonal; the primary `claude` VM is in zone 2. Non-zonal disks cannot attach to zonal VMs (Azure returns `BadRequest`). For recovery VMs that need `solver-data`, provision as regional (no zone specified). Related: `az vm create --ssh-key-values` has a JSON-parser bug; `az rest --method PUT` is the reliable path.
+6. **Azure zones bite.** The data disk is non-zonal; the orchestrator VM is zonal. Non-zonal disks cannot attach to zonal VMs (Azure returns `BadRequest`). For recovery VMs that need the data disk, provision as regional (no zone specified). Related: `az vm create --ssh-key-values` has a JSON-parser bug; `az rest --method PUT` is the reliable path.
 
 7. **Azure resource teardown is dependency-ordered.** VM → NIC → public-IP → NSG → VNet, sequential. Parallel deletes all return exit 1 because dependents still hold references. Orchestrators must serialize.
 
@@ -807,8 +807,8 @@ The hash table guarantees zero silent drops at any scale. If a resize fails
       gzip-framed by default since #169, so the on-disk size of a valid shard is a compressed length, and a
       rule that deletes on it removes good shards.]**
 - [ ] Watchdog merge-phase exemption verified (don't kill solver during merge)
-- [ ] Merge VM is on-demand (not spot) — merge has no checkpoint
-- [ ] **Pre-launch verification: `az vm show --query priority` matches the workload type** (Spot for enum; null/Regular for merge). See §Standing policy. Skipping this gate caused the 2026-04-19/20 overspend incident.
+- [ ] Merge VM is on regular capacity (not spot) — merge has no checkpoint
+- [ ] **Pre-launch verification: `az vm show --query priority` matches the workload type** (Spot for enum; null/Regular for merge). See §Standing policy. Skipping this gate caused the 2026-04-19/20 misprovisioning incident.
 - [ ] `--merge` code path uses canonical dedup (same as normal-mode merge)
 - [ ] Cost estimate presented to user
 - [ ] Output-shape sanity checks planned (record count, sub-branch file count)
@@ -817,13 +817,13 @@ The hash table guarantees zero silent drops at any scale. If a resize fails
 
 ## Appendix A: Azure spot-VM provisioning (reference example)
 
-Concrete example of provisioning an Azure spot VM (D128als_v7 in step 3) with an
+Concrete example of provisioning an Azure spot VM (a 128-core size in step 3) with an
 attached persistent managed disk. This appendix was first written for the
-F64als_v6, which is **banned** on this project since 2026-04-19 (§Ad-hoc VM
-lifecycle rules, rule 1); the key-file name `f64_key` is the surviving trace.
+older 64-core compute-optimised size, which is **banned** on this project since 2026-04-19 (§Ad-hoc VM
+lifecycle rules, rule 1).
 Adapt names, regions, and SKUs to your environment. All commands assume
 `az login` has been completed and an SSH keypair exists (here at
-`~/.ssh/f64_key{,.pub}`).
+`~/.ssh/solver_key{,.pub}`).
 
 ### One-time setup (per resource group)
 
@@ -832,10 +832,10 @@ Adapt names, regions, and SKUs to your environment. All commands assume
 
    ```bash
    RG=YOUR-RG
-   LOCATION=westus2
+   LOCATION=YOUR-REGION
    az group create -n "$RG" -l "$LOCATION"
-   az disk create -g "$RG" -n solver-data \
-       --size-gb 160 --sku Standard_LRS -l "$LOCATION"   # 10T d3 raw-safe; see §Disk sizing for two-phase
+   az disk create -g "$RG" -n data-disk \
+       --size-gb 160 --sku <hdd-disk-sku> -l "$LOCATION"   # 10T d3 raw-safe; see §Disk sizing for two-phase
    ```
 
    Size depends on workload — size it from the **inputs** per §Disk sizing for
@@ -856,17 +856,17 @@ Adapt names, regions, and SKUs to your environment. All commands assume
 
    ```bash
    # One-time: create the shared vnet (orchestrator VM also on this vnet)
-   az network vnet create -g "$RG" -n claude-vnet -l "$LOCATION" \
+   az network vnet create -g "$RG" -n <vnet> -l "$LOCATION" \
        --address-prefix 10.0.0.0/24 --subnet-name default --subnet-prefix 10.0.0.0/24
 
    # Per-run: NIC with private IP only (no --public-ip-address, no --network-security-group)
-   az network nic create -g "$RG" -n solver-nic \
-       --vnet-name claude-vnet --subnet default -l "$LOCATION"
+   az network nic create -g "$RG" -n worker-nic \
+       --vnet-name <vnet> --subnet default -l "$LOCATION"
    ```
 
    The orchestrator queries the private IP via:
    ```bash
-   az network nic show -g "$RG" -n solver-nic \
+   az network nic show -g "$RG" -n worker-nic \
        --query "ipConfigurations[0].privateIPAddress" -o tsv
    ```
 
@@ -880,26 +880,26 @@ Adapt names, regions, and SKUs to your environment. All commands assume
 
    ```bash
    SUB_ID=$(az account show --query id -o tsv)
-   NIC_ID=$(az network nic show -g "$RG" -n solver-nic --query id -o tsv)
-   DISK_ID=$(az disk show -g "$RG" -n solver-data --query id -o tsv)
-   SSH_PUB="$(cat ~/.ssh/f64_key.pub)"
-   SIZE=Standard_D128als_v7  # westus3; F64als_v6 legacy westus2 pattern retired 2026-04-19
+   NIC_ID=$(az network nic show -g "$RG" -n worker-nic --query id -o tsv)
+   DISK_ID=$(az disk show -g "$RG" -n data-disk --query id -o tsv)
+   SSH_PUB="$(cat ~/.ssh/solver_key.pub)"
+   SIZE=YOUR-VM-SIZE  # e.g. a 128-core size; the older 64-core pattern was retired 2026-04-19
 
    az rest --method PUT \
-     --url "https://management.azure.com/subscriptions/$SUB_ID/resourceGroups/$RG/providers/Microsoft.Compute/virtualMachines/solver-vm?api-version=2024-07-01" \
+     --url "https://management.azure.com/subscriptions/$SUB_ID/resourceGroups/$RG/providers/Microsoft.Compute/virtualMachines/worker-vm?api-version=2024-07-01" \
      --body "{
        \"location\":\"$LOCATION\",
        \"properties\":{
          \"hardwareProfile\":{\"vmSize\":\"$SIZE\"},
          \"priority\":\"Spot\",\"evictionPolicy\":\"Deallocate\",
-         \"billingProfile\":{\"maxPrice\":0.80},
+         \"billingProfile\":{\"maxPrice\":-1},
          \"storageProfile\":{
            \"imageReference\":{\"publisher\":\"Canonical\",\"offer\":\"ubuntu-24_04-lts\",\"sku\":\"server\",\"version\":\"latest\"},
-           \"osDisk\":{\"createOption\":\"FromImage\",\"managedDisk\":{\"storageAccountType\":\"Standard_LRS\"}},
+           \"osDisk\":{\"createOption\":\"FromImage\",\"managedDisk\":{\"storageAccountType\":\"<hdd-disk-sku>\"}},
            \"dataDisks\":[{\"lun\":0,\"createOption\":\"Attach\",\"managedDisk\":{\"id\":\"$DISK_ID\"}}]
          },
          \"osProfile\":{
-           \"computerName\":\"solver-vm\",\"adminUsername\":\"solver\",
+           \"computerName\":\"worker-vm\",\"adminUsername\":\"solver\",
            \"linuxConfiguration\":{\"disablePasswordAuthentication\":true,
              \"ssh\":{\"publicKeys\":[{\"path\":\"/home/solver/.ssh/authorized_keys\",\"keyData\":\"$SSH_PUB\"}]}}
          },
@@ -913,16 +913,16 @@ Adapt names, regions, and SKUs to your environment. All commands assume
    ```bash
    for i in $(seq 1 24); do
        sleep 10
-       state=$(az vm get-instance-view -g "$RG" -n solver-vm \
+       state=$(az vm get-instance-view -g "$RG" -n worker-vm \
            --query "instanceView.statuses[?starts_with(code,'PowerState')].displayStatus" -o tsv)
        [ "$state" = "VM running" ] && break
    done
    # This example is private-IP-only (step 2) — there is no public IP to query.
-   IP=$(az network nic show -g "$RG" -n solver-nic \
+   IP=$(az network nic show -g "$RG" -n worker-nic \
        --query "ipConfigurations[0].privateIPAddress" -o tsv)
    for i in $(seq 1 12); do
        sleep 8
-       ssh -i ~/.ssh/f64_key -o StrictHostKeyChecking=no \
+       ssh -i ~/.ssh/solver_key -o StrictHostKeyChecking=no \
            -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
            solver@$IP 'echo ok' 2>/dev/null && break
    done
@@ -993,7 +993,7 @@ Adapt names, regions, and SKUs to your environment. All commands assume
    under `~/solve`; output goes to `/data` (managed disk).
 
    ```bash
-   scp -i ~/.ssh/f64_key ./solve.c solver@$IP:~/solve.c
+   scp -i ~/.ssh/solver_key ./solve.c solver@$IP:~/solve.c
    GH=$(git rev-parse --short HEAD)   # provenance stamp — computed HERE, the VM holds solve.c alone, no clone
    GB=$(git rev-parse --abbrev-ref HEAD)   # the BRANCH half; without it GIT_BRANCH falls back to "unknown"
    ssh ... solver@$IP "gcc -O3 -pthread -fopenmp -DGIT_HASH='\"$GH\"' -DGIT_BRANCH='\"$GB\"' -o solve solve.c -lm -lz"
@@ -1001,7 +1001,7 @@ Adapt names, regions, and SKUs to your environment. All commands assume
    # Use the §Solver-launch SSH detachment "Required form" — a bare
    # `nohup ... &` over ssh does NOT reliably release the channel and hangs
    # the launcher before it can enter its poll loop.
-   timeout 15 ssh -n -i ~/.ssh/f64_key -o StrictHostKeyChecking=no "solver@$IP" \
+   timeout 15 ssh -n -i ~/.ssh/solver_key -o StrictHostKeyChecking=no "solver@$IP" \
        "cd /data && SOLVE_THREADS=64 SOLVE_NODE_LIMIT=$NODE_LIMIT \
         setsid nohup ~/solve 86400 > solve_output.txt 2>&1 < /dev/null &" \
        < /dev/null 2>>ssh_launch.err   # ssh's own errors are kept (2026-11-03, Codex F12-007#24)
@@ -1013,24 +1013,24 @@ Adapt names, regions, and SKUs to your environment. All commands assume
 
 8. **Serialized teardown order.** VM → NIC → OS disk. Parallel deletes hit
    dependency-ordering errors. Delete only what *this* run created: the
-   per-run VM, its NIC, and its orphan OS disk. Never delete `solver-data`,
-   and **never delete `claude-vnet`** — it is shared with the orchestrator
+   per-run VM, its NIC, and its orphan OS disk. Never delete the data disk,
+   and **never delete the shared vnet** — it is shared with the orchestrator
    VM, so deleting it is an incident, not a cleanup. (There is no public IP
    and no NSG in this design; see step 2. The general dependency order when
    a run *does* own those resources is VM → NIC → public IP → NSG → vnet.)
 
    ```bash
-   az vm delete -g "$RG" -n solver-vm --yes
+   az vm delete -g "$RG" -n worker-vm --yes
    for i in 1 2 3 4 5 6; do
-       state=$(az vm show -g "$RG" -n solver-vm --query provisioningState -o tsv 2>/dev/null)
+       state=$(az vm show -g "$RG" -n worker-vm --query provisioningState -o tsv 2>/dev/null)
        [ -z "$state" ] && break
        sleep 5
    done
-   az network nic delete -g "$RG" -n solver-nic
-   # NOT deleted: claude-vnet (shared with the orchestrator) and solver-data.
-   # Clean orphan OS disks (don't touch solver-data)
+   az network nic delete -g "$RG" -n worker-nic
+   # NOT deleted: <vnet> (shared with the orchestrator) and data-disk.
+   # Clean orphan OS disks (don't touch data-disk)
    for d in $(az disk list -g "$RG" --query \
-       "[?diskState=='Unattached' && starts_with(name,'solver-vm_OsDisk_')].name" -o tsv); do
+       "[?diskState=='Unattached' && starts_with(name,'worker-vm_OsDisk_')].name" -o tsv); do
        az disk delete -g "$RG" -n "$d" --yes --no-wait
    done
    ```
@@ -1146,9 +1146,9 @@ for scientific reproducibility. Established pattern (from 2026-04-22 Pass 1):
    - `run.log.gz` — solver stdout gzipped (~20-30 KB)
    - `checkpoint.txt` — final status line from solve.c
 3. **Top-level `README.md`** in the run directory summarizing parameters,
-   results, growth analysis, conclusion, cost.
+   results, growth analysis and conclusion.
 
-Verification recipe: attach the data disk to any D2als_v7+, then:
+Verification recipe: attach the data disk to any VM with 2 or more cores, then:
 ```bash
 cd /data/archive/<run-label>/<branch>
 # The .sha256 sidecar holds the LOGICAL (decompressed) sha, not the sha of the
@@ -1186,7 +1186,7 @@ head -1 sub_<branch>.sha256               # the hash above must match this line
 
 If the data disk was created without a zone (`zones: null`) but a primary VM is
 zonal, the disk cannot attach to that VM (Azure returns `BadRequest`). For a
-recovery / analysis VM that needs to mount `solver-data`, **provision without a
+recovery / analysis VM that needs to mount the data disk, **provision without a
 zone** (omit `--zone` and don't specify a `zone` in the resource definition
 above). Once attached to the new VM, mount as in step 5.
 
@@ -1253,7 +1253,7 @@ az vm list-usage -l <region> --query "[?contains(name.value,'Dalsv7')]" -o table
 VMs. If it equals your limit, you have zero headroom even if nothing is actually
 running.
 
-### Single-branch parallel (`--sub-branch`) — SKU sizing
+### Single-branch parallel (`--sub-branch`) — VM sizing
 
 **Applies when:** running one `./solve --sub-branch <p1> <o1> <p2> <o2> <p3> <o3>`
 invocation with the P1 parallel code path (auto-on when `SOLVE_THREADS > 1`;
@@ -1263,7 +1263,7 @@ force-off via `SOLVE_SUB_BRANCH_PARALLELISM=single`).
 generates typically 900-3600 tasks at (p4, o4, p5, o5) granularity. The test
 branch `22 0 30 1 20 0` produces 2,507 tasks.
 
-**Measured scaling on Zen 5c "Turin Dense" (westus3 spot), 50B-node budget**:
+**Measured scaling on Zen 5c "Turin Dense" (Spot), 50B-node budget**:
 
 | Threads | Wall | Speedup | Efficiency |
 |---|---|---|---|
@@ -1280,15 +1280,15 @@ only 3.49×. The cell now carries the value the table was computed from. It was 
 cell moves.]**
 
 **Key finding: memory bandwidth saturates at ~N=64.** Going from 64 → 128 cores
-gives only 4% additional speedup, at double the VM cost.
+gives only 4% additional speedup, for double the cores.
 
-**SKU recommendations for single-branch (single process per VM):**
+**VM-size recommendations for single-branch (single process per VM):**
 
 | Scenario | Recommended VM | Per-branch wall (50B budget) |
 |---|---|---|
-| Wall-time critical, one branch | D128als_v7 spot, K=1 N=128 | 51s wall *(2026-11-14, Codex final review F12-007#7: the parallel `--sub-branch` path clamps its workers to 64 and has since it was committed on 2026-04-22, so `SOLVE_THREADS=128` or a positional 128 starts 64 workers, as its `Parallel --sub-branch: … worker threads` line says; N=128 cannot be run as written, and this row is the 2026-04-21 measurement only)* |
-| **Cost optimized, one branch** | **D64als_v7 spot, K=1 N=64** | 72s wall |
-| Noisy-neighbor tolerant | D32als_v7 spot, K=1 N=32 | ~78s wall, projected |
+| Wall-time critical, one branch | 128-core spot VM, K=1 N=128 | 51s wall *(2026-11-14, Codex final review F12-007#7: the parallel `--sub-branch` path clamps its workers to 64 and has since it was committed on 2026-04-22, so `SOLVE_THREADS=128` or a positional 128 starts 64 workers, as its `Parallel --sub-branch: … worker threads` line says; N=128 cannot be run as written, and this row is the 2026-04-21 measurement only)* |
+| **Balanced, one branch** | **64-core spot VM, K=1 N=64** | 72s wall |
+| Noisy-neighbor tolerant | 32-core spot VM, K=1 N=32 | ~78s wall, projected |
 
 **Packing (multiple concurrent `--sub-branch` processes on one VM) — for batches:**
 
@@ -1299,11 +1299,11 @@ contention ceiling and produces higher aggregate throughput.
 
 | VM | Best packing | Wall (8 branches × 50B each) |
 |---|---|---|
-| D128als_v7 | K=8 N=16 (or K=16 N=8) | 257s (K=8) / 501s for 16 branches (K=16) |
-| **D64als_v7** | **K=8 N=8** | **491s** ← cheapest per branch measured |
-| D32als_v7 | K=8 N=4 | 963s |
+| 128-core (256 GB) | K=8 N=16 (or K=16 N=8) | 257s (K=8) / 501s for 16 branches (K=16) |
+| **64-core (128 GB)** | **K=8 N=8** | **491s** ← the recommended packing |
+| 32-core (64 GB) | K=8 N=4 | 963s |
 
-**On D128, aggregate throughput rises from 980 M/s (K=1 N=128) to 1.60 B/s (K=16 N=8)** — a 60%+ improvement — because each process has its own atomic
+**On the 128-core VM, aggregate throughput rises from 980 M/s (K=1 N=128) to 1.60 B/s (K=16 N=8)** — a 60%+ improvement — because each process has its own atomic
 counter and cache-resident hash table, breaking through the single-process
 atomic-contention ceiling.
 
@@ -1311,67 +1311,67 @@ atomic-contention ceiling.
 
 | Scenario | Recommended |
 |---|---|
-| 1 branch, ASAP | **D128 spot, K=1 N=128** (64 workers on the current build; see the F12-007#7 note above) |
-| 1 branch, cheap | **D64 spot, K=1 N=64** |
-| 8-branch batch, cheapest | **D64 spot, K=8 N=8 packing** |
-| 16-branch batch, balanced | D64 K=8 × 2 VMs parallel, OR D128 K=16 N=8 |
-| Campaign (100+ branches), cheapest | **Many D64 VMs in parallel, each K=8 N=8 packing** |
-| Campaign, wall-time-critical | Many D64 VMs in parallel, each K=8 N=8 (same as above — measured optimum) |
+| 1 branch, ASAP | **128-core spot, K=1 N=128** (64 workers on the current build; see the F12-007#7 note above) |
+| 1 branch, fewer cores | **64-core spot, K=1 N=64** |
+| 8-branch batch, packed | **64-core spot, K=8 N=8 packing** |
+| 16-branch batch, balanced | 64-core K=8 × 2 VMs parallel, OR 128-core K=16 N=8 |
+| Campaign (100+ branches), packed | **Many 64-core VMs in parallel, each K=8 N=8 packing** |
+| Campaign, wall-time-critical | Many 64-core VMs in parallel, each K=8 N=8 (same as above — measured optimum) |
 
-**Never D128 for a single `--sub-branch` run** unless wall-time dominates —
-D128's no-co-tenant guarantee is valuable, but you pay ~40% more per branch
-vs D64 K=1 for just 20s faster wall.
+**Never the 128-core VM for a single `--sub-branch` run** unless wall-time dominates —
+its no-co-tenant guarantee is valuable, but it uses ~40% more core-seconds per branch
+than a 64-core K=1 run for just 20s faster wall.
 
-**Secondary options (if D64/D128 spot quota tight):** westus2 spot quota is
-128 cores (same as westus3); use there if westus3 constrained. On-demand D-series is 4× spot price — only worth it if budget allows no evictions.
-F-series retired on this project (see §Cost control).
+**Secondary options (if 64/128-core spot quota is tight):** a second region
+may have its own spot quota; use it if the first is constrained. Regular (non-interruptible) capacity avoids evictions.
+The older compute-optimised family is retired on this project (see §Ad-hoc VM lifecycle rules, rule 1).
 
 **Full measurement data + packing-mechanism analysis + campaign-planning math:**
 `roae-private/P1_SCALING_MEASUREMENTS.md` (staging repo).
 
-### SKU reference (2026-04-19, post-Dalsv7-pivot)
+### Machine size reference (2026-04-19, after the move to the current VM family)
 
-| SKU | Region | RAM | Use case |
+| VM | Cores | RAM | Use case |
 |---|---|---|---|
-| **D128als_v7** | westus3 | 256 GB | **Enumeration ≥10T (new default)** |
-| **D64als_v7** | westus3 | 128 GB | 1000T+ external merge (on-demand, §Standing policy); `--sub-branch` K=8 N=8 packing (Spot) |
-| **D16als_v7** | westus3 | 32 GB | 10T merge, external (on-demand, §Standing policy) |
-| **D4als_v7** | westus3 | 8 GB | Analysis / --analyze / --verify |
-| D2as_v6 | westus2 | 8 GB | Orchestrator / claude VM |
-| F64als_v6 | westus2 | 128 GB | **RETIRED 2026-04-19** (historical reference only) |
-| Standard HDD managed disk | any | — | Persistent `/data` (archival shards + solutions.bin); S15 300GB → S40 2TB |
-| Premium SSD P20/P40 | any | — | External-merge temp scratch (attached-for-merge only) |
+| **Enumeration VM** | 128 | 256 GB | **Enumeration ≥10T (new default)** |
+| **Large merge / packing VM** | 64 | 128 GB | 1000T+ external merge (regular capacity, §Standing policy); `--sub-branch` K=8 N=8 packing (Spot) |
+| **10T merge VM** | 16 | 32 GB | 10T merge, external (regular capacity, §Standing policy) |
+| **Analysis VM** | 4 | 8 GB | Analysis / --analyze / --verify |
+| Orchestrator VM | 2 | 8 GB | Orchestrator |
+| Older compute-optimised VM | 64 | 128 GB | **RETIRED 2026-04-19** (historical reference only) |
+| HDD-backed managed disk | — | — | Persistent `/data` (archival shards + solutions.bin); 300 GB → 2 TB |
+| SSD-backed managed disk, 512 GB / 2 TB | — | — | External-merge temp scratch (attached-for-merge only) |
 
-#### SKU to RAM reference
+#### Machine size to RAM reference
 
-*(The single SKU→RAM reference for this project; added 2026-09-01.)*
+*(The single size→RAM reference for this project; added 2026-09-01.)*
 
-Every `D<N>als_v7 (<RAM>)` figure published anywhere in this project must match
+Every core-count-to-RAM figure for the current VM family published anywhere in this project must match
 this table. The table exists because the figures did **not** match: several
-sites doubled them, and the project paid for the assumption once already.
+sites doubled them, and the project acted on the wrong figure once already.
 
-| SKU | vCPU | RAM |
+| Size | vCPU | RAM |
 |---|---:|---:|
-| D4als_v7 | 4 | 8 GB |
-| D16als_v7 | 16 | 32 GB |
-| D32als_v7 | 32 | 64 GB |
-| D64als_v7 | 64 | **128 GB** |
-| D96als_v7 | 96 | 192 GB |
-| D128als_v7 | 128 | **256 GB** |
+| 4-core | 4 | 8 GB |
+| 16-core | 16 | 32 GB |
+| 32-core | 32 | 64 GB |
+| 64-core | 64 | **128 GB** |
+| 96-core | 96 | 192 GB |
+| 128-core | 128 | **256 GB** |
 
-**The rule is 2 GB per vCPU**, and the reason is the `l`: `Dals_v7` is the
-**low-memory** variant of the `Das_v7` family. The same core count without the
-`l` carries twice the RAM — `D64as_v7` is 256 GB where `D64als_v7` is 128 GB.
+**The rule is 2 GB per vCPU**, because the sizes this project uses are the
+**low-memory** variant (one letter in the size name marks it). The standard-memory variant at the same core
+count carries twice the RAM — 256 GB at 64 cores, where the low-memory size has 128 GB.
 
-🔴 **This is a paid-for lesson, not a spec-sheet transcription.** During the
-100T pilot the project had to move a consolidation step "from D64als_v7 (128 GB
-RAM, 'l' = low memory) to **D64as_v7 (256 GB RAM)** … We had assumed D64als_v7
-was 256 GB" ([HISTORY.md](HISTORY.md), 100T-pilot entry). The two SKU names
-differ by one character and their memory differs by 2×. When sizing a merge by
-RAM, read the SKU name character by character.
+🔴 **This is a lesson learned the hard way, not a spec-sheet transcription.** During the
+100T pilot the project had to move a consolidation step from the low-memory 64-core size (128 GB
+RAM) to **the standard-memory 64-core size (256 GB RAM)**, having assumed the low-memory size
+was 256 GB ([HISTORY.md](HISTORY.md), 100T-pilot entry). The two size names
+differ by that one letter and their memory differs by 2×. When sizing a merge by
+RAM, read the size name character by character.
 
-Spot prices fluctuate; check the Azure spot pricing page or set `--max-price`
-defensively. Spot evictions in westus2 under F64 averaged ~1 per 3 hours during
+Spot capacity can be evicted at any time; set `--max-price` deliberately
+(`-1` means no eviction on price alone). Spot evictions on the older 64-core size averaged ~1 per 3 hours during
 April 2026 testing — concrete numbers in the lessons section above.
 
 These commands are the manual reproduction of what an orchestrator does

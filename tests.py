@@ -56102,6 +56102,31 @@ class TestBatchG7(unittest.TestCase):
             d = self._doc(rel)
             for name in ("RG-" + "CLAUDE", "solver-data-" + "westus3", "solver-validate-" + "d3", "Path on " + "disk:"):
                 self.assertNotIn(name, d, "%s carries %s" % (rel, name))
+        # Q-1140 cloud sweep B3/B4 (2026-11-14): no VM size, region, resource name, disk tier or purchase-type
+        # cost word in CLAUDE.md or DEPLOYMENT.md, case-insensitive, outside the sections the private-runbook
+        # move (operator decision D3) will replace. Each cut asserts its heading is present, so a moved or
+        # renamed section fails here instead of silently widening the exclusion; the D3 batch removes the cuts.
+        cuts = {"CLAUDE.md": [("## Cost control — VM purchase type", "\n## Session-lifecycle VM discipline"),
+                              ("**Past incidents this rule exists to prevent", "\n## Never do without"),
+                              ("## Bi-region architecture", "\n## One-line rule of thumb")],
+                os.path.join("documentation", "DEPLOYMENT.md"): [("### Quota tracking", "\n### Spot host CPU-frequency"),
+                              ("### Ad-hoc VM lifecycle rules", "\n### Archival pattern"),
+                              ("### Quota accounting", "\n### Single-branch parallel")]}
+        rx = re.compile(r"(?i)\b(?:west|east|central|north|south)(?:us|europe)\d?\b|\b[dfle]\d{1,3}[a-z]{1,5}_v\d\b"
+                        r"|\bstandard_[a-z]|_lrs\b|\bpremium[ _]ssd\b|\bon-" + r"demand\b|\brg-" + r"claude\b|\bclaude-" + r"vnet\b"
+                        r"|\bdeep-" + r"calib-|\bsolver-(?:data|d3|nic|vm)\b|\bmerge-" + r"scratch\b|\bf64_" + r"key\b")
+        for rel, secs in cuts.items():
+            d = self._doc(rel)
+            n0 = len(d)
+            for start, end in secs:
+                i = d.find(start)
+                self.assertGreaterEqual(i, 0, "%s: D3 section %r not found (moved or renamed): update this cut" % (rel, start))
+                j = d.find(end, i + len(start))
+                self.assertGreater(j, i, "%s: the heading after D3 section %r not found: update this cut" % (rel, start))
+                d = d[:i] + d[j:]
+            self.assertGreater(len(d), 0.7 * n0, "%s: the D3 cuts removed more than 30%% of the file" % rel)
+            left = sorted({m.group(0) for m in rx.finditer(d)})
+            self.assertEqual(left, [], "%s carries cloud detail outside the D3 sections: %s" % (rel, left))
 
     def test_g7_reproduction_commands_and_scopes(self):
         tr12 = self._doc(os.path.join("reports", "TR12_QUERY_PROGRAM.md"))
