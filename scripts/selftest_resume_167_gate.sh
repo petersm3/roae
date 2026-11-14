@@ -85,7 +85,7 @@
 #   M7  flags byte 0xFF on ONE zero-yield sidecar    expect FAIL   R==Z-1, D==1, W==1, sha equal
 #   M8  ONE zero-yield sidecar padded to 576 B, v2   expect FAIL   R==Z-1, D==0, W==1, sha equal
 #
-# PINNED, from the first green run (2026-09-05, c284-staget, 128 cores, depth-2 default shape,
+# PINNED, from the first green run (2026-09-05, a 128-core worker, depth-2 default shape,
 # threads=4, PHASE_A 50M -> budget_A 16,501/cell, PHASE_B/single 200M -> budget_B 66,006/cell,
 # 3,030 cells):
 #     fixed binary   S=3030  Z=1933  R=1933  D=0     EXCESS=3,030       -> PASS

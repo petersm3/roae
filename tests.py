@@ -8385,7 +8385,7 @@ class TestAtlasProbe(unittest.TestCase):
         §12's published reproduction command, and nothing ran it on the published atlas.  No
         build: the atlas is a tracked file and the probe reads only it.  It took ~0.5 s on the
         worker on 2026-09-24; with Q-738's every-layer G48 invariant it takes 5.3-5.5 s on the
-        D16 worker and 7.0 s on the 2-core orchestrator (measured 2026-09-25, Q-737, which also
+        16-core worker and 7.0 s on the 2-core orchestrator (measured 2026-09-25, Q-737, which also
         runs it at push time through scripts/atlas_n31_probe_gate.sh).  The bytes are first tied to the digest TR-12 publishes for them,
         read from the report rather than restated here, so a PASS is a PASS on the published
         atlas and on nothing else."""
@@ -44613,7 +44613,7 @@ import json  # batch 49 (TestBatch49); placed here so no earlier tests.py line m
 # Q-433 (batch 49): the published XA anchors, ONE definition. TestBatch49 checks that TR-12 quotes
 # exactly this command, and TestQ3AttestedTraceRunsTheQ3LegsAtFull31 prices with the same cost.
 _TR12_XA_NOTE = ("rate rounded up from the d3 11.2T canonical run (11.2e12 nodes in 7,810 s on one "
-                 "D128als_v7; documentation/CANONICAL_HASHES.md); ceiling chosen to be generous; "
+                 "128-core VM; documentation/CANONICAL_HASHES.md); ceiling chosen to be generous; "
                  "TR-12 section 3")
 _TR12_XA_CERT = os.path.join("reports", "evidence", "w0d_lower_bound", "w0d_lower_bound_cert.json")
 
@@ -52516,7 +52516,7 @@ class TestBatchG8L(unittest.TestCase):
              "an invariant score\n   induces an output distribution constant on each orbit"),
             ("lean/README.md", "output law that is a function of a G-invariant score is constant on each orbit (the theorems'",
              "an\ninvariant score induces an output distribution constant on each orbit, so no such generator can"),
-            ("lean/README.md", "and `CompilerCorrectness.lean` (~2.4 s, 0.76 GB = 757,468 kB, measured 2026-09-10 on a D16-class host;",
+            ("lean/README.md", "and `CompilerCorrectness.lean` (~2.4 s, 0.76 GB = 757,468 kB, measured 2026-09-10 on a 16-core host;",  # cloud sweep B9, 2026-11-14: machine size -> core count (README:392)
              "| the other five (`PartitionInvariance`, `HammingOptimalMatching`, `PruneExactness`, `PruneSafety`, `RecordConvention`) | <1 s each | <0.6 GB each |"),
         ]
         for rel, new, old in pins:
@@ -65163,7 +65163,7 @@ class TestBatchPerfBench(unittest.TestCase):
 
     Q-1083: when perf_bench.sh is interrupted inside a FUNCTION call whose stdout is redirected, the INT/TERM/HUP
     trap runs with that redirect still on fd 1. The orchestrator's environment exports such a function: an `az()`
-    wrapper (the F-series guard) that ends in `command az "$@"`. So at `az network vnet create ... >/dev/null` the
+    wrapper (a VM-size guard) that ends in `command az "$@"`. So at `az network vnet create ... >/dev/null` the
     trap's INTERRUPTED line and teardown's TEARDOWN line went to /dev/null: not to the terminal and not to
     /tmp/perf_bench_$$.log. Without the exported function, az is an external command, the redirect applies only in
     the child, and fd 1 stays on the log pipe. That is why Fable's instrumented run saw /dev/null and a minimal

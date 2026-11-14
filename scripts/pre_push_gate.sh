@@ -1010,7 +1010,7 @@ for sha in $SHAS; do
               # \U0001f534 The marker leg of --disk-precheck printed "present: PASS" for a bare
               # stat() under a comment claiming it "proves the mount holds the canonical
               # disk contents". A zero-byte file satisfied it. Identity is safety-critical here
-              # (a solver-data disk was destroyed by a wrong-disk operation on 2026-05-06), so a
+              # (a data disk was destroyed by a wrong-disk operation on 2026-05-06), so a
               # leg that READS as an attestation while performing none is the wrong thing to
               # ship. Reuses ./solve_167 -- the mutants are rebuilt inside the gate, because a
               # handed-in binary cannot carry a mutation. ~33 s on top of the #167 leg.
@@ -1109,7 +1109,7 @@ for sha in $SHAS; do
   # as that test: the atlas bytes against the one digest TR-12 pins, and the probe itself.
   # UNCONDITIONAL because it is LIGHT, which is the reason for this design: no build, one
   # sha256 and one probe of a tracked file. MEASURED 2026-09-25: 5.3-5.5 s wall on the
-  # D16 worker (three runs) and 7.0 s on the 2-core orchestrator, one core either way.
+  # 16-core worker (three runs) and 7.0 s on the 2-core orchestrator, one core either way.
   # Nearly all of it is the probe's every-layer G48 invariant (Q-738; cProfile puts 14.9
   # of 16.3 profiled seconds there). Before that leg the probe took 0.59 s (public
   # 5c296837's solve.py on the same worker), and tests.py's "~0.5 s" dates from then.
@@ -1382,7 +1382,7 @@ for sha in $SHAS; do
   # page edit that broke the recipe, reached the public record with the page still promising a
   # match. The private gate-wiring census reported it `has NO invoker` (Q-869).
   # CONDITIONAL AND ONCE PER PUSH because it BUILDS solve.c and runs `./solve --f1-exact-*`:
-  # MEASURED 2026-09-27 on the D16 worker at public ba922e29, REPRODUCE_DIGESTS=PASS, 5 rungs:
+  # MEASURED 2026-09-27 on a 16-core worker at public ba922e29, REPRODUCE_DIGESTS=PASS, 5 rungs:
   # 26-32 s wall on 16 cores; 24.5 s wall / 18 s user pinned to 2 cores (build ~17 s of it,
   # single-threaded); peak RSS ~450 MB; ~120 MB of scratch under ${TMPDIR:-/tmp}, removed on
   # exit. The Q-479 battery's build on the orchestrator took 27 s, so expect ~35-45 s there.
@@ -1438,10 +1438,10 @@ for sha in $SHAS; do
   # does NOT need its own scheduled slot; 61 s sits inside the ~70-90 s this
   # hook already costs per pushed sha.
   # Q-705 (2026-09-25): that script's row was classed `timeout`, and on a host
-  # where its numpy engine finishes first (15.9 s on the D16 worker) it printed
+  # where its numpy engine finishes first (15.9 s on a 16-core worker) it printed
   # its OK token and the sweep read FAIL on a pristine tree. It is now
   # `self-contained`, which the gate accepts whether the run finishes or times
-  # out; 16.5 s wall for the whole sweep on the D16 worker.
+  # out; 16.5 s wall for the whole sweep on a 16-core worker.
   #
   # CONDITIONAL on the pushed range touching scripts/ — its exact subject. A new
   # fail-open reaches the public record only through a scripts/ change, and the

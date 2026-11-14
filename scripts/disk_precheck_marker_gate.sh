@@ -4,7 +4,7 @@
 # `--disk-precheck`'s marker leg printed "marker <path> present: PASS" for a bare stat(), under a
 # comment claiming the marker "proves the mount holds the canonical disk's contents". A stat()
 # cannot prove that: a zero-byte file, or a file of that name left by any other run, satisfied it.
-# Disk identity is safety-critical here -- a solver-data disk was destroyed by a wrong-disk
+# Disk identity is safety-critical here -- a data disk was destroyed by a wrong-disk
 # operation on 2026-05-06 -- so a leg that READS as an attestation while performing none is the
 # wrong thing to leave in place.
 #

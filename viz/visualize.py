@@ -137,7 +137,7 @@ def load_solutions(filename):
         TOTAL_RECORDS_IN_FILE = actual_records
         # Subsample to MAX_RECORDS via reservoir sampling over sequential read.
         # Sequential access gets full disk bandwidth (~60 MB/s Standard HDD,
-        # >500 MB/s Premium SSD) vs random mmap-index which hits HDD seek
+        # >500 MB/s SSD-backed disk) vs random mmap-index which hits HDD seek
         # latency (~5 ms/seek * 1M seeks = 80+ min). With 102 GB file the
         # sequential read takes ~28 min on Standard HDD, ~3 min on Premium.
         # Deterministic with fixed seed=42.

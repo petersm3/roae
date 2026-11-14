@@ -52,7 +52,7 @@
 #
 # 🔴 Q-705 (2026-09-25): THE VERDICT DEPENDED ON HOST SPEED. c2c3_joint_null.py was allowlisted
 # as `timeout`, but whether it finishes inside 60 s depends on the engine it finds and on the host,
-# not on the tree. MEASURED on the D16 worker at 5c296837 + batches 1-11: numpy engine 15.9 s
+# not on the tree. MEASURED on a 16-core worker at 5c296837 + batches 1-11: numpy engine 15.9 s
 # (three runs 15.70-15.86 s, 15.87 s in the skeleton) -> OPEN, so FAILOPEN_CLOSURE=FAIL on a
 # pristine tree; C2C3_FORCE_STDLIB=1 -> killed at 60 s (rc 124) -> TIMEOUT. It is now
 # `self-contained`, and the TIMEOUT arm honours that class as well as `timeout`. A `timeout` row

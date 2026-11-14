@@ -26,7 +26,7 @@ This consumer does NOT re-derive it and does not claim it.
 
 ## Exhaustibility (XA-c/d)
 
-Anchors (operator-supplied, echoed for the certificate): nodes/sec = 1.5e+09, hedge = x2, work factor = x1, wall-clock ceiling = 1e+12 h. Effective rate band = 7.5e+08 .. 3e+09 nodes/sec (slow end = nodes/sec / (work factor x hedge), fast end = nodes/sec x hedge / work factor). Note: rate rounded up from the d3 11.2T canonical run (11.2e12 nodes in 7,810 s on one D128als_v7; documentation/CANONICAL_HASHES.md); ceiling chosen to be generous; TR-12 section 3
+Anchors (operator-supplied, echoed for the certificate): nodes/sec = 1.5e+09, hedge = x2, work factor = x1, wall-clock ceiling = 1e+12 h. Effective rate band = 7.5e+08 .. 3e+09 nodes/sec (slow end = nodes/sec / (work factor x hedge), fast end = nodes/sec x hedge / work factor). Note: rate rounded up from the d3 11.2T canonical run (11.2e12 nodes in 7,810 s on one 128-core VM; documentation/CANONICAL_HASHES.md); ceiling chosen to be generous; TR-12 section 3
 
 Branches ascending by node cost. The hedge is a band on the rate: a row reads
 EXHAUSTIBLE only if its cost at the SLOW end of the band fits the ceiling,

@@ -38,7 +38,7 @@
 # The rung population is pinned (EXPECT_RUNGS): a row that disappears from the page is a FAIL, so
 # the gate cannot quietly shrink to the rows that still happen to match.
 #
-# COST, measured 2026-09-25 on the D16 worker: build ~12 s; all five rows together ~5 s;
+# WALL, measured 2026-09-25 on a 16-core worker: build ~12 s; all five rows together ~5 s;
 # P1-P3 ~2 s. n = 18 and n = 19 are ~1-1.5 s each, so no rung is gated behind a flag.
 # --selftest builds once and grades nine pages (~55 s): the real page, the real page with a
 # hashing command that exits nonzero, the real page with two wrapped binaries (Q-983), and five planted pages. Needs gcc, zlib, python3, ~200 MB

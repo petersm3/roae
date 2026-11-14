@@ -805,7 +805,7 @@ PYTOK
 # scratch + staging, is 130 GiB before read windows. The recipe OOMs by its own
 # documentation, and a resume repeats the OOM until someone edits the env var.
 #
-# Root cause was not a typo: 61440 is the PRODUCTION 256-GiB D128 setting from TR-11 section 8,
+# Root cause was not a typo: 61440 is the PRODUCTION 256-GiB 128-core-VM setting from TR-11 section 8,
 # copied into the commodity recipe. Both numbers are correct for their own host, which is
 # exactly why prose review did not catch it -- the value is defensible in isolation and
 # wrong only against the box named beside it. Nothing in the corpus compared the two.

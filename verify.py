@@ -7290,10 +7290,10 @@ def main():
                              '<seed> --kc-record --kc-ooc --kc-cache-mb 384`. Those subcommands '
                              'are on main (since 2026-07-17; `solve --kc-sample` prints its usage '
                              'on this ref), so regenerating the sample needs only this tree\'s '
-                             'solve.c. MEASURED ~12.6 h on one D16als_v7 against a 3.1 TB '
+                             'solve.c. MEASURED ~12.6 h on one 16-core VM against a 3.1 TB '
                              'f-ladder. The analysis itself is cheap: MEASURED 4.3-4.6 s wall '
                              'and ~22.9 MB peak RSS for the full 10^6 draws (3 runs, '
-                             '/usr/bin/time -v, 2-vCPU D2as_v6). Wall is a band, not a figure '
+                             '/usr/bin/time -v, a 2-vCPU VM). Wall is a band, not a figure '
                              '— see VERIFY.md "Analyses over large artifacts".')
     parser.add_argument('--t3-membership', metavar='PATH', default=None,
                         help='Pre-registered T3 statistic (b): independent membership census of a '
@@ -7303,7 +7303,7 @@ def main():
                              'positive-controlled before it reports. Adds two checks beyond the '
                              'prereg: an independent recompute of the engine-recorded cd= value, and '
                              'duplicate detection. Bar: 100%% members. Same input and generating '
-                             'cost as --t3-stats (~12.6 h on a D16als_v7; the --kc-* sampler is on '
+                             'time as --t3-stats (~12.6 h on a 16-core VM; the --kc-* sampler is on '
                              'main, so no other branch is needed). '
                              'The analysis itself is cheap: MEASURED ~149 MB peak RSS for the '
                              'full 10^6 draws — the one figure that reproduced across every '

@@ -360,7 +360,7 @@ else
 fi
 # 🔴 RAM WAS DOCUMENTED AND NEVER CHECKED. The header has said ">= 12 GB free" since the Lean phase
 # was added (it peaks ~9.6 GB resident on Automorphism.lean), but nothing asserted it, so a host that
-# is short — c293-satcert has 7.9 GB — discovers this as an OOM kill deep inside section 4 rather than
+# is short — one worker VM has 7.9 GB — discovers this as an OOM kill deep inside section 4 rather than
 # here. That is the same failure mode this section already prevents for git, and for the same reason:
 # a replicator should read what is missing, not decode a signal 9. Reported, NOT fatal: the shortfall
 # only affects the Lean phase, and a run that skips Lean is still useful.
@@ -964,7 +964,7 @@ echo "== 4. Lean kernel check (every lean/*.lean file) =="
 # directory is never consulted, and the only pin in this repository is `lean/lean-toolchain`. So from
 # the root the pin was dead: every module was checked under whatever `elan default` happened to be,
 # and the run recorded no `lean --version`, so the attestation named no kernel. PLANT-TESTED on
-# c293-satcert 2026-09-03: with `elan default leanprover/lean4:v4.30.0` and the pin still v4.31.0,
+# a worker VM 2026-09-03: with `elan default leanprover/lean4:v4.30.0` and the pin still v4.31.0,
 # `lean --version` from the root answered 4.30.0, from lean/ it answered 4.31.0, and this loop as it
 # stood reported 12 PASS + 2 FAIL while `pgrep` showed `…/leanprover--lean4---v4.30.0/bin/lean` doing
 # the checking: the twelve PASS lines named no kernel, and the two FAILs (RecordConvention,

@@ -731,7 +731,7 @@ reports/TR12_QUERY_PROGRAM.md	833	marker	Corrected	1	-	reviewed:output-line-alre
 reports/TR12_QUERY_PROGRAM.md	892	marker	Corrected	3	claim ledger self-test	gate-anchored	2c1d251a6490
 reports/TR12_QUERY_PROGRAM.md	937	narration	now reads	3	CITATION LINE GATE,GATE 2c	gate-anchored	c9e146cbc23c
 reports/TR12_QUERY_PROGRAM.md	1049	marker	Corrected	1	-	reviewed:text-already-says-the-certificate-is-loaded-and-used	006b75696937
-reports/TR12_QUERY_PROGRAM.md	1096	marker	Corrected	1	-	reviewed:text-already-says-t-price-is-a-floor	7f2aabe6394d
+reports/TR12_QUERY_PROGRAM.md	1096	marker	Corrected	1	-	reviewed:text-already-says-t-price-is-a-floor	35d3920bb044
 reports/TR12_QUERY_PROGRAM.md	1284	marker	CORRECTED	1	-	reviewed:parenthetical-already-gives-the-Bonferroni-arithmetic	205d798de93b
 reports/TR12_QUERY_PROGRAM.md	1294	ledger-link	CORRECTION	n/a	-	not-a-marker	9d951f2c0a3e
 reports/TR12_QUERY_PROGRAM.md	1437	marker	Corrected	1	-	reviewed:bullet-already-lists-what-f-alone-answers	715e5a15829e

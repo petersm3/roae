@@ -70,7 +70,7 @@
 #   --wave3              also run the wave-3 rows that are cost-gated at full-31 (Q5 extremals)
 #   --with-gcheck        run --kc-g-check at full-31 (a ~24 h single-threaded full ladder pass), and verify.c --check-g-ladder beside it
 #   --with-laddersha     run the FULL --f1c5-layer-sha passes (a1_fsha/a2_gsha/b_tsha) at n>=31.
-#                        MEASURED 2026-09-14 on an L64s_v4 over the real n=31 ladders: 24-61 MB/s
+#                        MEASURED 2026-09-14 on a 64-core storage-optimised VM over the real n=31 ladders: 24-61 MB/s
 #                        at ~34% of ONE core of 64 -- f 38 h, g 94 h, t 40 h, and the post-scan
 #                        --atlas run repeats each, so ~340 h for the three rows alone. The limit
 #                        is PER PROCESS, inside solve's single-threaded inflate->pipe->external-sha
@@ -1603,7 +1603,7 @@ ladder_sha_row(){ # ladder_sha_row ROWID TOKEN DIR LAYER_PREFIX
 # WHY. ladder_sha_row RECOMPUTES every layer's decompressed-stream digest from the bytes and
 # compares it to the sidecar beside it. That is the only check binding BYTES -> the builder's
 # record, and at n=31 it costs f 38 h + g 94 h + t 40 h, each DOUBLED because the post-scan
-# --atlas run re-executes Group A and the t rows (MEASURED 2026-09-14 on an L64s_v4).
+# --atlas run re-executes Group A and the t rows (MEASURED 2026-09-14 on a 64-core storage-optimised VM).
 # This row answers the DIFFERENT question a1_fsha's own comment names: identity with the
 # PUBLISHED build, via runs/20260906_kc_ladders_n31/STAGE_{F,G,T}_LAYERSHA.txt -- "the archived
 # ladders' --f1c5-layer-sha rows, 32 per stage, taken from these same sidecars".
@@ -2097,7 +2097,7 @@ kc_first_last_witness() {
 
 # ---- A1.5  Q2(c) FIRST^C15 — the in-order-least C3-passing walk (REL order) -------------------
 # 🔴 SKIPPED BY DEFAULT since 2026-09-16.  Set TR12_RUN_Q2_ENUM=1 to run it anyway.
-# MEASURED on the full n=31 f ladder (L64s_v4, binary a253828b, 2026-09-16):
+# MEASURED on the full n=31 f ladder (64-core storage-optimised VM, binary a253828b, 2026-09-16):
 #   * --kc-enum emits in --kc-rank order at 125,000 walks/s (500,000 walks in 4 s).
 #   * cd is STRONGLY AUTOCORRELATED in rank order.  REL ranks 0..19 are 20 DISTINCT walks
 #     (sha-checked distinct) that ALL carry cd=787.  The A1.5 header's "rank(FIRST^C15) is

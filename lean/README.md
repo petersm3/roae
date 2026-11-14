@@ -389,7 +389,7 @@ reproduced their 16-core figures to within 0.03 GB):
 | `SatEncodingFidelity.lean` | **0.85 s** (was "~7 s"; measured 0.85 / 0.70 / 0.80 s on three fresh hosts, 2026-09-10) | 0.55 GB |
 | `SymmetryCompleteness.lean` | ~22 s | 2.8 GB |
 | `C1RuleConstants.lean` | ~1 s | 0.7 GB |
-| the other six: `PartitionInvariance`, `HammingOptimalMatching`, `PruneExactness`, `PruneSafety`, `RecordConvention` (<1 s, <0.6 GB each) and `CompilerCorrectness.lean` (~2.4 s, 0.76 GB = 757,468 kB, measured 2026-09-10 on a D16-class host; 4.97 s / 0.67 GB re-measured 2026-09-21 on the 2-core D2as_v6 orchestrator — entered 2026-10-23: the table listed fourteen modules after the fifteenth joined the suite, Codex gpt-6-astra F09-H05#4) | <2.5 s each | <0.8 GB each |
+| the other six: `PartitionInvariance`, `HammingOptimalMatching`, `PruneExactness`, `PruneSafety`, `RecordConvention` (<1 s, <0.6 GB each) and `CompilerCorrectness.lean` (~2.4 s, 0.76 GB = 757,468 kB, measured 2026-09-10 on a 16-core host; 4.97 s / 0.67 GB re-measured 2026-09-21 on the 2-core orchestrator — entered 2026-10-23: the table listed fourteen modules after the fifteenth joined the suite, Codex gpt-6-astra F09-H05#4) | <2.5 s each | <0.8 GB each |
 | `PruneReprFC.lean` | ~1.5 s | 0.49 GB |
 
 ⚠ **[CORRECTED 2026-09-24 (Q-753) — four peak-RSS cells above still carried the figures that the

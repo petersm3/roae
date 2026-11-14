@@ -977,9 +977,9 @@ REVIEWED = {
         ('1', 'reviewed:cell-already-says-bound-from-below'),
     ('reports/TR12_QUERY_PROGRAM.md', '6854b73d97ab'):  # re-keyed FT2b-1 (CX-384): this row's framing clause now says zlib-block framed, no outer gzip; verdict re-read, unchanged
         ('1', 'reviewed:cell-already-scopes-the-container-count-to-t'),
-    # re-keyed (was 5208df717772, then 70abc0daf2f9): batch 49 appended the dated publication note (v1.28), then its
-    # review rounded the break-even down (8.06e24, exact value given); re-read, same verdict.
-    ('reports/TR12_QUERY_PROGRAM.md', '7f2aabe6394d'):
+    # re-keyed (was 5208df717772, then 70abc0daf2f9, then 7f2aabe6394d): batch 49 appended the dated publication note (v1.28), then its
+    # review rounded the break-even down (8.06e24, exact value given); re-read, same verdict. 2026-11-14 (cloud sweep B9): the line's two machine sizes (in the quoted XA note and after it) became core counts; re-read, same verdict.
+    ('reports/TR12_QUERY_PROGRAM.md', '35d3920bb044'):
         ('1', 'reviewed:text-already-says-t-price-is-a-floor'),
     ('reports/TR12_QUERY_PROGRAM.md', '5cd736162e40'):
         ('1', 'reviewed:text-already-splits-totals-and-per-query'),

@@ -1,7 +1,7 @@
 # F11 pre-registered Bayes-factor computation (frozen spec: PREREGISTRATION.md in this
 # directory, FROZEN 2026-07-04).
 # Inputs: archived measurement outputs in this directory (f11_runA/B/C/C2.out from the
-# c222-f11 Spot worker, f11_events.json from the exact edit-event enumeration RUN D).
+# Spot worker VM, f11_events.json from the exact edit-event enumeration RUN D).
 # Pure numerical integration over the declared prior grids — trivial CPU, no sampling here.
 #
 # Parsing note (2026-07-04, computation time): the delivered RUN C / RUN C2 outputs carry

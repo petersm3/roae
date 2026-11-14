@@ -411,7 +411,7 @@ theorem countP_mem_eq_length {O R : List (List Nat)} (hOnd : O.Nodup)
    (p,q) pairs occurs; p needs no hypotheses at all. ------- -/
 
 /-- Bool companion of `applyPerm_bit` (kernel `decide`, 48·64·6 = 18432 cases,
-    ~24 s / 2.8 GB peak on D4): applying q sends bit k of h to bit position q[k]. -/
+    ~24 s / 2.8 GB peak on a 4-core host): applying q sends bit k of h to bit position q[k]. -/
 theorem applyPerm_bit_bool :
     (G48.all fun q => (List.range 64).all fun h => (List.range 6).all fun k =>
       applyPerm q h / 2^(q.getD k 0) % 2 == h / 2^k % 2) = true := by

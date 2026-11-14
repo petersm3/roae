@@ -2,7 +2,7 @@
 # group_c_n9_rehearsal_gate.sh — run every post-scan consumer at n=9 BEFORE the full-31 scan.
 #
 # 🔴 WHY. Group C is nine query families of pure post-processing on a tens-of-KB JSON: milliseconds,
-# $0. It runs AFTER a scan whose wall is 7-14 days on Premium SSD v2 or 16-33 days on a P60. If one
+# no VM. It runs AFTER a scan whose wall is 7-14 days on a fast SSD-backed disk or 16-33 days on a slower one. If one
 # family needs a field the scan did not emit, the remedy is ANOTHER FULL SCAN. QUERY_INVENTORY has
 # said "and it should be" rehearsed since it was written; it had never been done, and the fixture
 # path it names (fixtures/kc_n9/) does not exist, so nobody could have followed the instruction.

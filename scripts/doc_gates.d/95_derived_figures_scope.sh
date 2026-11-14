@@ -593,21 +593,21 @@ PY
 # section, or is a documented pre-existing resource (`az-name-closure`).
 #
 # QUEUED AS: Codex A-batch designated leg `az-name-closure` (batch 10 row 13, DEPLOYMENT.md:640 appendix):
-# the example created `solver-nic` and then queried `spot-nic`, queried a `spot-pip` it never created,
-# and tore down `spot-nic`/`spot-pip`/`spot-nsg`/`spot-vnet` — rename residue from a partial sweep.
+# the example created one NIC name and then queried another, queried a public IP it never created,
+# and tore down a NIC, public IP, NSG and vnet under names it never created — rename residue from a partial sweep.
 # MECHANICS: DEPLOYMENT.md is split at H2 headings. Backslash-continued lines are joined. In each
 # section, CREATED = names after `-n|--name` on `az … create`, plus the resource segment of an
 # `az rest --method PUT --url …/<type>/<name>?`; REFERENCED = names after `-n|--name|--vm-name` on
 # `az … show|delete|update|get-instance-view|start|stop|deallocate|wait|attach|detach`. A referenced
 # name that is a shell variable (`$X`, `"$X"`), a placeholder (`<x>`), or on the pre-existing allowlist
-# (`solver-data` — the persistent data disk; `claude-vnet` / `claude` — the orchestrator's) is skipped;
+# (the persistent data disk; the orchestrator's vnet and VM) is skipped;
 # any other referenced name absent from the section's CREATED set is a HIT. Same-section, not
 # strictly-prior: the ad-hoc lifecycle section shows its cleanup pattern before its create pattern.
 # POPULATION printed and floored at 3 references.
 # MEASURED BEFORE LANDING (2026-09-02): pre-fix (`git show 89e7a9a1:documentation/DEPLOYMENT.md`) ->
-# HITs spot-nic ×2, spot-pip ×2, spot-nsg, spot-vnet, plus the exact-name `az disk delete -n temp-vm_OsDisk_*`
+# HITs on the never-created NIC ×2, public IP ×2, NSG and vnet, plus the exact-name `az disk delete -n <vm>_OsDisk_*`
 # glob the live doc itself later fixed, rc 1; live -> all 16 references close, rc 0;
-# mutation (live `az network nic show … -n solver-nic` -> `spot-nic`) -> HIT rc 1.
+# mutation (live `az network nic show … -n <created NIC>` -> a never-created NIC name) -> HIT rc 1.
 gate_az_name_closure() {
   echo "== GATE 62: every az resource name DEPLOYMENT.md references was created in its section (or is pre-existing) =="
   local F=documentation/DEPLOYMENT.md out
@@ -616,15 +616,15 @@ gate_az_name_closure() {
 import re, io, sys
 F=sys.argv[1]
 # Q-980 (batch 44; Codex gpt-6-astra Q964-D06#15): a pre-existing resource is a (TYPE, name), like CREATED --
-# solver-data is the documented persistent DISK, so `az network nic show -n solver-data` is not closed by it.
+# the data disk's name is the documented persistent DISK, so `az network nic show -n <that name>` is not closed by it.
 # Q-1140 cloud sweep B4 (2026-11-14): Appendix A now creates its data disk, NIC and VM under role names
 # and gives the shared vnet as a placeholder, so no az command references the vnet or the orchestrator.
 # The data-disk entry stays for fixture D06#15, whose discrimination leg needs a name the pre-batch-44 gate
 # allowed. (Until 2026-11-15 the Ad-hoc VM lifecycle section also attached the disk by that name; operator
 # decision D3 moved that section's commands to the private operations notes.)
 ALLOW={("disk","solver-data")}
-# Q-970 (A10#14, Q-835 Codex review; adjudicated Q-962): AN ARGUMENT IS A SHELL WORD. `-n "spot-nic"`
-# names spot-nic exactly as `-n spot-nic` does, and the name pattern `[^\s"'\\]+` stopped at the
+# Q-970 (A10#14, Q-835 Codex review; adjudicated Q-962): AN ARGUMENT IS A SHELL WORD. `-n "<nic>"`
+# names <nic> exactly as `-n <nic>` does, and the name pattern `[^\s"'\\]+` stopped at the
 # quote, so a quoted reference was never judged. The command tail is now split by the quote-aware
 # splitter (src_parse.sh), and `--name=VALUE` counts too. A value carrying `$`, `<` or `{` is still a
 # variable or a placeholder and is skipped, and the command stops at a backtick (the end of the span).

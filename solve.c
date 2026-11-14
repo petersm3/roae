@@ -518,7 +518,7 @@ static int pair_order[32];
 /* Runtime-configurable INITIAL hash table size per thread.
  * Tables auto-resize (double) when load factor exceeds 75%, so this is a
  * starting point, not a ceiling. Larger initial size avoids early resizes.
- * At 2^24 (512 MB/thread), 64 threads = 32 GB. F64 VM has 128 GB so fine.
+ * At 2^24 (512 MB/thread), 64 threads = 32 GB. a 128 GB VM is fine.
  * For smaller VMs, set SOLVE_HASH_LOG2=22 (128 MB/thread) or 20 (32 MB/thread). */
 static int sol_hash_log2 = 24;         /* default: 2^24 = 16M slots */
 static int sol_hash_size;
@@ -584,7 +584,7 @@ typedef struct {
 static PerTaskStats sub_sub_task_stats[SUB_SUB_MAX] = {0};
 
 /* Per-CCD shared node counters (P1 v3, 2026-04-21). Zen 5c "Turin Dense"
- * D128als_v7 has 16 CCDs × 8 cores each. A single atomic counter at 128
+ * 128-core VM has 16 CCDs × 8 cores each. A single atomic counter at 128
  * threads saturates cache-line ownership and caps single-process
  * throughput at ~1 B/s. Partitioning the counter across 16 cache-line-
  * padded slots (one per CCD) lets 8 threads write to each slot with low
@@ -1175,7 +1175,7 @@ static int total_sub_complete = 0;
  * byte-identical output (DFS is deterministic).
  *
  * Eviction window grows from 0 to ~N sub-branches per thread (N defaults
- * 16). On D128 with ~5 sb/sec/thread, that's ~3 seconds. Spot eviction
+ * 16). On a 128-core VM with ~5 sb/sec/thread, that's ~3 seconds. Spot eviction
  * advance notice is typically 30 sec → plenty of time to rely on the
  * pre-existing checkpoint discipline.
  *
@@ -1252,7 +1252,7 @@ static gzFile gzw_open_lvl(const char *path, int level) {
 /* Default write path: archival level (SOLVE_GZIP_LEVEL, default 9) — used for
  * shards + the final solutions.bin. */
 static gzFile gzw_open(const char *path) { return gzw_open_lvl(path, gz_level()); }
-/* Transient merge-scratch write path: fast level (SOLVE_MERGE_TEMP_GZIP_LEVEL,
+/* Transient merge temp-file write path: fast level (SOLVE_MERGE_TEMP_GZIP_LEVEL,
  * default 1). SHA-NEUTRAL — these files never reach a sha. */
 static gzFile gzw_open_temp(const char *path) { return gzw_open_lvl(path, gz_merge_temp_level()); }
 /* Finish the gz stream, close (gzclose flushes + closes the fd), then fsync the file
@@ -4133,7 +4133,7 @@ static int disk_space_pre_check(long long node_limit) {
 /* IOPS pre-check (task #107, 2026-05-27). Measure cwd fsync IOPS at
  * canonical-enum startup; refuse to launch on slow disk unless the
  * operator explicitly acknowledges. Catches accidental HDD assignment
- * for solver-data on a 560T-scale run (would project to ~9h of pure
+ * for the data disk on a 560T-scale run (would project to ~9h of pure
  * fsync wait alone vs ~30 min on a fast SSD).
  *
  * Probe: 100 iterations of {fopen, write 4B, fsync, fclose, unlink}
@@ -4163,7 +4163,7 @@ static int disk_space_pre_check(long long node_limit) {
  * probe (min(threads,32) workers) measures the aggregate fsync throughput the
  * enum will actually see, and the gate compares projected fsync-WAIT to the
  * estimated enum WALL — both derived from the live thread count, so it adapts
- * to D64 / D128 / any VM. Premium passes naturally; genuinely fsync-bound
+ * to a 64-core / 128-core / any VM. A fast SSD passes naturally; genuinely fsync-bound
  * configs (slow disk + no batching at large scale) are still refused. */
 /* #107 gate results — stashed here so capture_host_fingerprint (runs just after)
  * can emit them as a structured "disk_iops" block in canonical-host-fingerprint.json
@@ -4200,7 +4200,7 @@ static int disk_iops_pre_check(long long node_limit) {
         return 0;
     }
     /* Live thread count (nproc, SOLVE_THREADS override) — same logic the enum
-     * uses, so the gate adapts to the actual VM (D64 -> 64, D128 -> 128). */
+     * uses, so the gate adapts to the actual VM (64 cores -> 64, 128 cores -> 128). */
     int threads = (int)sysconf(_SC_NPROCESSORS_ONLN);
     if (threads < 1) threads = 1;
     { char *et = getenv("SOLVE_THREADS"); if (et && atoi(et) > 0) threads = atoi(et); }
@@ -4262,7 +4262,7 @@ static int disk_iops_pre_check(long long node_limit) {
             "ERROR: projected fsync-wait ~%.1fh is %.0f%% of the estimated enum wall ~%.1fh.\n"
             "       Aggregate %.0f fsync/sec over %d concurrent threads (batch=%d; ~%.0f fsyncs\n"
             "       at this %lld-node scale). The disk is likely too slow — fsync would\n"
-            "       dominate. Use Premium SSD, raise SOLVE_FSYNC_BATCH_SIZE (sha-neutral),\n"
+            "       dominate. Use an SSD-backed disk, raise SOLVE_FSYNC_BATCH_SIZE (sha-neutral),\n"
             "       or override with SOLVE_ALLOW_SLOW_IOPS=1 to proceed anyway.\n",
             fsync_wait_sec / 3600.0, frac * 100.0, est_wall_sec / 3600.0,
             agg_iops, spawned, batch, expected_fsyncs * (double)batch, node_limit);
@@ -11325,7 +11325,7 @@ static int compare_canonical(const void *a, const void *b) {
  * Motivation: glibc's qsort is merge-sort-on-large-arrays, which allocates
  * ~n/2 auxiliary storage. On 10T d3 merges (2.77B records × 32 bytes = 82 GB
  * buffer), that aux memory pushes peak RSS to ~129 GB — OOM-killable on a
- * 128 GB F64 VM. Observed empirically on 2026-04-18 Phase C.
+ * 128 GB VM. Observed empirically on 2026-04-18 Phase C.
  *
  * Heapsort is O(n log n) worst-case (same as qsort's average) but guaranteed
  * O(1) auxiliary memory. Peak memory = buffer + one record-sized swap slot.
@@ -11667,7 +11667,7 @@ static int external_merge_sort(char (*filenames)[64], int n_files,
      *   Option A (no code change): set SOLVE_MERGE_CHUNK_GB=16 or 32 at
      *     runtime. Each 4× increase in chunk size buys 4× the ceiling;
      *     costs proportionally more RAM for the active chunk buffer.
-     *     F64 (128 GB RAM) can comfortably handle chunks up to ~64 GB.
+     *     A 128 GB RAM VM can comfortably handle chunks up to ~64 GB.
      *   Option B (one-line source change): bump this constant. Combined
      *     with a larger SOLVE_MERGE_CHUNK_GB, ceilings well into exabyte
      *     territory — far beyond any realistic enumeration.
@@ -16227,7 +16227,7 @@ static F1U192 f1c5_layer_stats(const F1Ctx *c, const F1C5Layer *L, uint64_t *sta
  * the ENTIRE layer being built in realloc-grown RAM arrays ("one layer in
  * RAM"). That premise fails at full-31: layer 10 alone is 4,522,319,129
  * entries x 28 B = 126.6 GB, and mid layers are far larger — the c228
- * full-31 run on a 64-GiB D32als_v7 was OOM-SIGKILLed mid-layer-10 at
+ * full-31 run on a 64-GiB 32-core VM was OOM-SIGKILLed mid-layer-10 at
  * MaxRSS 61.6 GiB (/usr/bin/time -v: "Command terminated by signal 9";
  * its trailing "Exit status: 0" field is a GNU-time artifact, not a clean
  * exit). All entry counts/offsets were audited uint64_t — no 32-bit
@@ -41797,7 +41797,7 @@ int main(int argc, char *argv[]) {
          * report mode, WITHOUT running the enum — one command to confirm a
          * campaign VM is ready before committing days of compute. Reuses the
          * existing canonical-startup gates. Does NOT cover what lives outside
-         * the process: VM/eviction/cost (external monitor #55), full disk
+         * the process: VM health/eviction (external monitor #55), full disk
          * SMART/fsck (disk_health_precheck.sh), or disk identity
          * (use --disk-precheck). Sha-neutral (argv-dispatched; never on the
          * enum path).
@@ -41843,7 +41843,7 @@ int main(int argc, char *argv[]) {
         int sub_canonical = (nl < PREFLIGHT_CANONICAL_MIN);
         printf("[--preflight] in-process gate check for NODE_LIMIT=%lld\n", nl);
         printf("[--preflight] checks the CURRENT directory — run from the campaign run-dir\n");
-        printf("[--preflight] does NOT cover: VM/eviction/cost (#55 monitor), disk SMART/fsck\n");
+        printf("[--preflight] does NOT cover: VM health/eviction (#55 monitor), disk SMART/fsck\n");
         printf("              (disk_health_precheck.sh), or disk identity (--disk-precheck)\n\n");
         int first_fail = 0, rc, skipped = 0, ran = 0;
         const char *gate_name[3] = { "auto-selftest (canonical sha 403f7202...)",
@@ -41958,7 +41958,7 @@ int main(int argc, char *argv[]) {
          * It printed "PASS" for a bare stat(): a zero-byte file, or a file of that name left
          * by any other run, satisfied it -- while the comment above it asserted the marker
          * "proves the mount holds the canonical disk's contents". A stat() cannot prove that.
-         * Disk identity is safety-critical here (a solver-data disk was destroyed by a
+         * Disk identity is safety-critical here (a data disk was destroyed by a
          * wrong-disk operation on 2026-05-06), so a leg that READS as an attestation while
          * performing none is precisely the wrong thing to leave in place.
          *
@@ -43287,7 +43287,7 @@ int main(int argc, char *argv[]) {
          * must produce byte-identical solutions.bin.
          *
          * Default budget: 5.6 T (5_600_000_000_000) — meaningful sample
-         * (~5 M unique solutions), ~3 h walltime on D64als_v7. Override:
+         * (~5 M unique solutions), ~3 h walltime on a 64-core VM. Override:
          *   ./solve --regression-test <budget>
          * For a fast smoke test: ./solve --regression-test 5600000  (5.6 M, ~5 min)
          *
@@ -45910,7 +45910,7 @@ int main(int argc, char *argv[]) {
          *
          * Current assumption: runs on a VM with >= 32 GB RAM so bmask
          * (~2.9 GB) + section [14] sort buffer (~24 GB) + overhead all fit.
-         * Verified with `free -g` on an F32als_v6 (64 GB) during a full run.
+         * Verified with `free -g` on an older 32-core VM (64 GB) during a full run.
          * If ever running on a smaller VM, re-add a free here and rebuild
          * bmask via a streaming pass inside each of sections [16]-[19].
          *
@@ -45963,7 +45963,7 @@ int main(int argc, char *argv[]) {
         time_t t14_start = time(NULL);
 
         /* Allocate (key, original_index) pairs. 32-byte key + 8-byte index = 40 bytes/record.
-         * 742M records -> ~30 GB. Tight but fits on F32's 64 GB after freeing bmasks. */
+         * 742M records -> ~30 GB. Tight but fits in a 32-core VM's 64 GB after freeing bmasks. */
         typedef struct { unsigned char pi[32]; long long idx; } PairKey;
         PairKey *pkeys = malloc((size_t)n_sols * sizeof(PairKey));
         if (!pkeys) {
@@ -46681,7 +46681,7 @@ int main(int argc, char *argv[]) {
          *
          * Memory: allocates n_sols × 32 bytes (~24 GB on the 742M dataset).
          * Together with bmask (~2.9 GB) and the mmap, total resident
-         * ~51 GB — fits on F32 (64 GB).
+         * ~51 GB — fits on a 32-core VM (64 GB).
          */
         printf("[20] Complement-orbit analysis\n");
         fprintf(stderr, "[20] START\n"); fflush(stderr);
@@ -50338,10 +50338,10 @@ sub_enum_done:
     /* SOLVE_SKIP_AUTOMERGE (re-landed 2026-05-27 — was lost in 9f10f05 v3 reset,
      * originally landed in 52cac4a 2026-05-13): exit cleanly after enum,
      * leaving shards on disk for a separate merge VM. Use case: canonical
-     * re-derivation cascade where enum runs on parallel-heavy Spot D128 and
-     * merge runs on a right-sized single-thread Standard D8/D16. The default
-     * in-process merge below consumes ~30-50 min of D128 time for what could
-     * run on D16. SOLVE_SKIP_AUTOMERGE lets the operator skip the bundled
+     * re-derivation cascade where enum runs on a parallel-heavy 128-core Spot VM and
+     * merge runs on a right-sized single-thread regular 8/16-core VM. The default
+     * in-process merge below consumes ~30-50 min of 128-core VM time for what could
+     * run on a 16-core VM. SOLVE_SKIP_AUTOMERGE lets the operator skip the bundled
      * merge and run `./solve --merge` separately on the smaller VM after
      * detaching/transferring the scratch disk. Inert when env var unset.
      *

@@ -12003,7 +12003,7 @@ def r7_corpus(n=1_000_000, seed=42, jf_exact=True):
     extraction-circularity policy).
 
     HEAVY-OPS: at the frozen N=10^6 this is hours-class on one core and MUST run
-    on a Spot D4/D8 worker per the heavy-ops-offboard rule, NOT the 2-core
+    on a 4-8 core Spot worker per the heavy-ops-offboard rule, NOT the 2-core
     orchestrator. Use --r7-n / --r7-seed to override for smoke tests only; the
     canonical measurement uses the defaults. Nothing here is sha-gated."""
     print("# R7 -- Cross-tradition corpus-control battery")
@@ -18918,7 +18918,7 @@ def main():
                              "free), rho rates, cross-application matrix, MDL "
                              "pricing, FC-1..FC-4 verdicts (FC-4 per Amendment "
                              "1); markdown to stdout. HEAVY at "
-                             "the default N=10^6 (Spot D4/D8 worker, NOT the "
+                             "the default N=10^6 (a 4-8 core Spot worker, NOT the "
                              "orchestrator). Report-only, sha-neutral. Frozen "
                              "design: <private design record> + Amendment 1 "
                              "(2026-07-12)")

@@ -24,7 +24,7 @@
 #   that touches neither is not slowed down at all.
 #
 # FAIL DIRECTION: CLOSED, deliberately, and opposite to the Stage G ENOSPC guard.
-#   That guard fails OPEN because a false stop costs a Spot restart. Here a false
+#   That guard fails OPEN because a false stop forces a Spot restart. Here a false
 #   stop costs one `git commit` retry, while a false pass ships a fabricated
 #   number into the published record. Cheap to be wrong in the blocking direction.
 #

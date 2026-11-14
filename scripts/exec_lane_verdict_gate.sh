@@ -125,7 +125,7 @@ else
       REFUSAL='ERROR: projected fsync-wait ~55.1h is 402% of the estimated enum wall ~13.7h.
        Aggregate 210 fsync/sec over 8 concurrent threads (batch=1; ~40000000 fsyncs
        at this 560000000000000-node scale). The disk is likely too slow — fsync would
-       dominate. Use Premium SSD, raise SOLVE_FSYNC_BATCH_SIZE (sha-neutral),
+       dominate. Use an SSD-backed disk, raise SOLVE_FSYNC_BATCH_SIZE (sha-neutral),
        or override with SOLVE_ALLOW_SLOW_IOPS=1 to proceed anyway.'
       # The exact bytes solve.c:4255 prints when it PASSES. Note it contains BOTH "fsync" and
       # the substring "fsync-wait" — which is why the fix anchors on "projected fsync-wait".
