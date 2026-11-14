@@ -12544,3 +12544,17 @@ entry describes the review itself, which had none.)*
 - No canonical sha, certificate or count of orderings changed. `TestBatchQ1007` parses the roster, re-derives
   the total and every sensitivity cell, and fails on the parent tree. Found by Codex (gpt-6-astra), final
   review; ruled by Fable; built in an Opus lane.
+
+## 2026-11-13 — batch Q1128: the n=31 atlas's 2-adic divisibility, proved
+
+- **TR-12 §12, reports/evidence/q735_two_adic/ (CX-37C-M).** We prove that 2^21·3 divides N and every V2 cell of
+  the n=31 atlas (King Wen's budget), that 2^19 divides every V1 cell of all 28 reversible pairs and 2^21 every V1
+  cell of a complement pair. It is a hand proof with exhaustive finite tables, independently re-derived; not
+  formalised in Lean. The exact gcd comes from the atlas and an exhibited 2^20·3^7 fibre; kernel cells are open.
+  The evidence directory ships the proof, the tables as TSV and four reproducers with verdict tokens.
+- **solve.py --atlas-probe.** `MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0_EMPIRICAL` becomes
+  `MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0`, printed with `MARGINAL_RAW_MOD16_BASIS` (THEOREM:Q735_N31 on the n=31
+  atlas). Same pass condition.
+- No count, digest or canonical sha changed. `TestQ735TwoAdicEvidence` holds the evidence and fails on the parent
+  tree. Found and proved by Fable; independently verified by a separate Fable lane, the six-pair V1 extension by a
+  third; citations from the Q-1129 survey.

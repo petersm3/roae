@@ -15912,19 +15912,19 @@ def atlas_probe(atlas_path):
              not _bad_key and
              all(int(v) % (48 // _orb[_atlas_key_int(key, "pair", "marginal_raw", _ATLAS_PAIRS)]) == 0
                  for l in L for key, v in l["marginal_raw"].items()))
-        # ⚠ EMPIRICAL AT n = 31 -- MEASURED, NOT PROVEN.  At n = 9 every placed pair lies in a
-        # size-3 orbit, so |Stab| = 16 and this is the stabiliser gate above (a theorem there).  At
-        # n = 31 the size-4 and size-6 orbits (stabilisers 12 and 8; 22 of the 31 pairs) are
-        # present, and the G48 argument predicts only 12 | cell or 8 | cell for them.  16 | cell
-        # holds there by measurement only (every raw cell's gcd carries 2^19; the source of that
-        # 2-adic surplus is unexplained).  It shipped (Q-734) as the only probe gate that caught a
-        # kernel-consistent move of 8 units between orbit-6 pairs or 12 units between orbit-4
-        # pairs.  Since Q-738 the theorem gates below (G48 invariance, rev-symmetric entry-column
-        # totals, V1 column sums of N) also catch every such move measured, the 16-unit one that
-        # passes this gate included, so this one is a labelled extra, not the only witness.  A red here on a legitimate new
-        # atlas means doubt the identity, not the atlas first; it must never be cited as proved.
-        # See SOLVE_PY_CLI.md, "What the probe still cannot see".
-        gate("MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0_EMPIRICAL",
+        # 16 | every raw V1 cell: a THEOREM at both distributed rungs (dated 2026-11-13, Q-1128; this gate
+        # was MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0_EMPIRICAL, "measured, not proven" at n = 31, until then).
+        # At n = 9 every placed pair lies in a size-3 orbit, so |Stab| = 16 and it is the stabiliser gate
+        # above.  At n = 31 with King Wen's budget the stabiliser gives only 8 or 12 for 22 pairs; there
+        # it follows from Q-735, which proves 2^19 | every V1 cell (reports/evidence/q735_two_adic/: a hand
+        # proof with exhaustive finite tables, independently re-derived; not formalised in Lean).  Any
+        # other atlas reports basis EMPIRICAL.  It is a labelled extra beside the Q-738 theorem gates,
+        # not the only witness of a kernel-consistent 8- or 12-unit move (SOLVE_PY_CLI.md).
+        _keys = [] if _bad_key else [_atlas_key_int(k, "pair", "marginal_raw", _ATLAS_PAIRS)
+                                     for l in L for k in l["marginal_raw"]]
+        tok("MARGINAL_RAW_MOD16_BASIS", "THEOREM:G48_STABILISER" if _keys and all((48 // _orb[p]) % 16 == 0 for p in _keys)
+            else "THEOREM:Q735_N31" if n == 31 and b0 == [2, 8, 13, 7, 1] and a.get("space") == "C1C2C4C5-SUPERSPACE" else "EMPIRICAL")
+        gate("MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0",
              all(int(v) % 16 == 0 for l in L for v in l["marginal_raw"].values()))
         zero_some =sorted({c for l in L[1:] for c in CLS if int(l["by_class"][c]) == 0},
                            key=CLS.index)

@@ -711,17 +711,17 @@ had been claiming.]
                              never built alone -- so G48 acts freely on its
                              complete walks; checked exhaustively at n = 9, 13,
                              16 and 31), and
-                             MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0_EMPIRICAL
-                             (EMPIRICAL at n = 31, measured not proven: 22 of
-                             the 31 pairs have stabiliser 8 or 12, so G48
-                             predicts only 8 | cell or 12 | cell for them. At
-                             n = 9 it coincides with the stabiliser gate. It
-                             shipped with Q-734 as the only gate that caught a
-                             kernel-consistent move between orbit-4 or orbit-6
-                             pairs; since Q-738 the theorem gates below catch
-                             every such move measured, so it is a labelled
-                             extra, not the only witness. A red on a new atlas
-                             means doubt the identity first); CLASSES_WITH_ZERO_MASS_AT_SOME_LAYER_K_GE_1
+                             MARGINAL_RAW_MOD16_BASIS and
+                             MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0 (16 | every raw
+                             cell; ..._MOD16_EQ_0_EMPIRICAL, "measured not proven"
+                             at n = 31, until 2026-11-13; a theorem at both
+                             distributed rungs: at n = 9 the stabiliser gate
+                             (THEOREM:G48_STABILISER); at n = 31 with King Wen's
+                             budget a consequence of Q-735's proof that 2^19
+                             divides every V1 cell (THEOREM:Q735_N31;
+                             reports/evidence/q735_two_adic/); any other atlas
+                             reports EMPIRICAL. A labelled extra beside the Q-738
+                             theorem gates); CLASSES_WITH_ZERO_MASS_AT_SOME_LAYER_K_GE_1
                              (NONE at n = 31; `d3,d6` at n = 9),
                              LARGEST_CLASS_SET_OVER_LAYERS (the set of per-layer
                              argmax classes; `d3` alone means d3 is the largest
@@ -971,8 +971,8 @@ had been claiming.]
                              marginals. Seeing it needs the ladder. So no
                              marginal figure in TR-12 §12 can feel it, while the
                              kernel-score tokens, which read kernel cells one by
-                             one, can. The EMPIRICAL mod-16 gate stays as a
-                             labelled extra, never a proof. The dead/live split
+                             one, can. The mod-16 gate stays as a labelled extra
+                             (EMPIRICAL until 2026-11-13). The dead/live split
                              inside `counts` is checked for additivity against
                              `fmass` and, since 2026-09-29, tied per layer to the
                              out-degree census `outdeg` (PROBE_DEAD_OUTDEG_TIE: the

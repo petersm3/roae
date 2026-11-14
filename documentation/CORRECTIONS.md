@@ -40286,3 +40286,53 @@ moves to the new label, and the `*(current)*` pins for TR-8, TR-9 and TR-10 acce
 Developed with AI assistance (Claude, Anthropic): an Opus build lane, batch Q1007; the defect was found by Codex
 (gpt-6-astra), final review, F02-006#1, F02-001#2, F02-003#1, F02-004#8, F02-002#4, F02-006#4; ruled by Fable
 (claude-fable-5-2).
+
+## CX-37C-M — The n=31 atlas's 2-adic divisibility is proved, and the probe's EMPIRICAL mod-16 gate becomes a proved statement (reports/evidence/q735_two_adic/; reports/TR12_QUERY_PROGRAM.md; solve.py; documentation/SOLVE_PY_CLI.md; documentation/CITATIONS.md; tests.py)
+
+**2026-11-13.** **Source.** Backlog Q-735 (the 2-adic surplus of the n=31 atlas) and Q-1128 (publish it). The
+theorem was found and proved by Fable (claude-fable-5-2) and independently verified by a separate Fable lane
+(claude-fable-5-2) with its own code; the external prior-art survey of Q-1129 supplied the related-results wording
+and the Gray-map credit.
+
+**What was published, and what it says now.**
+- **`solve.py --atlas-probe`.** The gate `MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0_EMPIRICAL` (16 divides every raw V1
+  cell) was labelled "EMPIRICAL AT n = 31 -- MEASURED, NOT PROVEN ... the source of that 2-adic surplus is
+  unexplained ... it must never be cited as proved". At n = 31 with King Wen's budget it is now a consequence of a
+  proof that 2^19 divides every V1 cell. The gate is renamed `MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0` and is printed
+  with `MARGINAL_RAW_MOD16_BASIS` = `THEOREM:G48_STABILISER` (every placed pair has stabiliser divisible by 16, as
+  at n = 9), `THEOREM:Q735_N31` (the n = 31 King Wen-budget SUPER atlas) or `EMPIRICAL` (any other atlas). Its
+  pass condition is unchanged. The old name and comment are kept in a dated note in the code; the edit keeps the
+  file's line count.
+- **SOLVE_PY_CLI.md.** The two sentences that described the gate as EMPIRICAL now name the renamed and added tokens and keep the
+  old name in a dated clause; line count kept.
+- **TR-12 §12.** A dated note on the input paragraph states the theorem: we prove that 2^21·3 divides N and every
+  V2 cell of the atlas, that 2^19 divides every V1 cell of all 28 reversible pairs and 2^21 every V1 cell of the 3
+  complement pairs. It is a hand proof with exhaustive finite
+  tables, independently re-derived; not formalised in Lean. The exact V2 gcd is read from the atlas together with
+  an exhibited 2^20·3^7 fibre; the V1 floors are attained in the atlas; kernel cells stay open. Revision row v1.42 (after CX-37C-L's v1.41); every earlier line keeps its number.
+- **reports/evidence/q735_two_adic/.** The statement, the proof with the checker's three wording corrections
+  applied (a class-6 boundary costs at most one factor of 2; the bound for this budget is 33 − t; the complement
+  pairs' V1 floor is 2^21) and the third reader's two notes on the six-pair argument applied (the 2^18 witnesses
+  shown for the six pairs themselves; the middle term of the regrouped sum written out), the exhaustive μ, e_k
+  and pinned tables (one pair, one hexagram, every half) as TSV, 52 recorded n = 31 fibres, four
+  standard-library reproducers with verdict tokens, EXPECTED_TOKENS.txt and SHA256SUMS.
+- **CITATIONS.md.** Hammons, Kumar, Calderbank, Sloane and Solé 1994 (the Gray map), MacWilliams and Sloane 1977,
+  Pachter 1997, Cohn 1999 and McKay and Wanless 2005, in a section appended at the end of the file (so no line that
+  other files cite moves); Haanpää and Östergård 2014 as the standard Q6 Hamiltonian-cycle count only (it states no
+  divisibility result).
+
+**The six pairs.** For the six reversible pairs with trivial stabiliser one pinned pair gives only 2^18, and single
+pinned fibres do sit there; the factor 2^19 comes from adding each pair to its mirror pair (a half pin). That
+extension was proposed by the verifying lane and independently verified by a third Fable lane (claude-fable-5-2).
+
+**Not changed.** No count, digest, canonical sha or
+figure changed; one probe token is renamed and one is added.
+
+**Tests.** `TestQ735TwoAdicEvidence` checks the evidence files and their digests, runs the fast reproducer legs
+against EXPECTED_TOKENS.txt, pins the README's statement and the TR-12 note, and fails on the parent tree.
+`TestAtlasProbe`'s n = 9 and n = 31 runs expect the renamed gate and its basis token; the TR-12 revision-row pins of
+`TestBatchQ1056` and `TestBatchQ1114Q1118Q1120` accept v1.42.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 assembled the evidence and the edits; the theorem
+was found and proved by Fable (claude-fable-5-2) and independently verified by a separate Fable lane; the six-pair
+extension was verified by a third Fable lane.

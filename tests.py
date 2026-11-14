@@ -8035,12 +8035,12 @@ class TestAtlasProbe(unittest.TestCase):
                      "V5_CROSSTAB_W_IN_C1_CLASSES_AND_MARGINALISES_TO_BY_CLASS_EVERY_LAYER=PASS",
                      # the G48 divisibility block and the cross-layer kernel re-sum (Q-734,
                      # 2026-09-24).  At n = 9 every placed pair sits in a size-3 orbit, so the
-                     # MOD16 gate coincides with the stabiliser gate here; it is EMPIRICAL only
-                     # at n = 31.
+                     # MOD16 gate coincides with the stabiliser gate here; at n = 31 it is Q-735's
+                     # theorem since 2026-11-13 (Q-1128; it was ..._EMPIRICAL until then).
                      "N_TOTAL_MOD48_EQ_0=PASS", "LAYER_FLOW_EQ_N_EVERY_LAYER=PASS",
                      "BY_CLASS_EVERY_CELL_MOD48_EQ_0=PASS",
                      "MARGINAL_RAW_EVERY_CELL_MOD_STABILISER_EQ_0=PASS",
-                     "MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0_EMPIRICAL=PASS",
+                     "MARGINAL_RAW_MOD16_BASIS=THEOREM:G48_STABILISER", "MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0=PASS",
                      "KERNEL_ROW_SUMS_EQ_PREVIOUS_LAYER_EXIT_SUMS_EVERY_LAYER=PASS"):
             self.assertIn(want, lines, "%s missing as a whole line in:\n%s" % (want, out))
         # the windowed twin of MARGINAL_RAW_NONZERO_CELL_MIN_MAX (review B4) is printed under
@@ -8119,7 +8119,7 @@ class TestAtlasProbe(unittest.TestCase):
     # rather than narrated.
     _Q734_NEW = ("N_TOTAL_MOD48_EQ_0", "LAYER_FLOW_EQ_N_EVERY_LAYER", "BY_CLASS_EVERY_CELL_MOD48_EQ_0",
                  "MARGINAL_RAW_EVERY_CELL_MOD_STABILISER_EQ_0",
-                 "MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0_EMPIRICAL",
+                 "MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0",   # ..._EMPIRICAL until Q-1128 (2026-11-13)
                  "KERNEL_ROW_SUMS_EQ_PREVIOUS_LAYER_EXIT_SUMS_EVERY_LAYER")
     # Q-738 (2026-09-24): the producer's remaining tail checks, re-derived.  A mutant that
     # balances every re-sum is now also held to G48 invariance, to rev-symmetric entry-column
@@ -8206,7 +8206,7 @@ class TestAtlasProbe(unittest.TestCase):
         # V1 column sums (pair y1 now places N - 8 times over the walk); the rev-column totals
         # survive because y1 and y2 are each rev-fixed here.
         self._probe_mutant_run(a, "atlas9_q734_v1stab.json",
-                       ["MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0_EMPIRICAL",
+                       ["MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0",
                         "MARGINAL_RAW_EVERY_CELL_MOD_STABILISER_EQ_0",
                         "KERNEL_G48_INVARIANT_EVERY_LAYER",
                         "MARGINAL_RAW_COLUMN_SUMS_EQ_N_EVERY_PAIR"])
@@ -8376,7 +8376,7 @@ class TestAtlasProbe(unittest.TestCase):
         rc, lines, out = self._probe(path)
         self.assertEqual(rc, 0, out)
         for want in ("ATLAS_PROBE=PASS", "ATLAS_PROBE_FAILS=0", "ATLAS_N=31",
-                     "B0_FROM_COLUMN_SUMS=2,8,13,7,1", "REF_WALK_IS_KING_WEN=PASS") + tuple(
+                     "B0_FROM_COLUMN_SUMS=2,8,13,7,1", "REF_WALK_IS_KING_WEN=PASS", "MARGINAL_RAW_MOD16_BASIS=THEOREM:Q735_N31") + tuple(
                          t + "=PASS" for t in self._Q734_NEW):
             self.assertIn(want, lines, "%s missing as a whole line in:\n%s" % (want, out))
         self.assertFalse([l for l in lines if l.endswith("=FAIL")], out)
@@ -61878,7 +61878,7 @@ class TestBatchQ1056(unittest.TestCase):
         # Q1049R (CX-37C-A) appended v1.38 and moved the marker; v1.37 stays the row after v1.36 either way
         # (Q-1065 appended v1.41 and moved it again)
         self.assertEqual(len(cur), 1, cur)
-        self.assertIn(cur[0], ("| v1.37 *(current)* |", "| v1.38 *(current)* |", "| v1.39 *(current)* |", "| v1.40 *(current)* |", "| v1.41 *(current)* |"))  # Q-1113 (CX-37C-G) appended v1.39; v1.40: Q-1120 (CX-37C-J); v1.41: Q-1065 (CX-37C-L)
+        self.assertIn(cur[0], ("| v1.37 *(current)* |", "| v1.38 *(current)* |", "| v1.39 *(current)* |", "| v1.40 *(current)* |", "| v1.41 *(current)* |", "| v1.42 *(current)* |"))  # Q-1113 (CX-37C-G) appended v1.39; v1.40: Q-1120 (CX-37C-J); v1.41: Q-1065 (CX-37C-L); v1.42: Q-1128 (CX-37C-M)
         self.assertRegex(t, r"\| v1\.37(?: \*\(current\)\*)? \| 2026-11-05 \| \*\*Two items of §10, this report's DONE-contract section")
         self.assertIn("| v1.36 | 2026-11-01 |", t)
         self.assertNotIn("| v1.36 *(current)* |", t)
@@ -64997,6 +64997,8 @@ class TestBatchQ1114Q1118Q1120(unittest.TestCase):
                              ("reports/TR9_PRICING_THE_CONSTRAINTS.md", "v1.40", "CX-37C-H")):
             rows = [l for l in self._r(rel).split("\n") if l.startswith("| v1.")]
             row, want = rows[-1], "| %s *(current)* | 2026-11-12 |" % ver
+            if rel == self.T12 and row.startswith("| v1.42 *(current)* | 2026-11-13 |"):   # Q-1128 (CX-37C-M) appended v1.42 after Q-1065's v1.41
+                row, want = rows[-3], "| %s | 2026-11-12 |" % ver
             if rel == self.T12 and row.startswith("| v1.41 *(current)* | 2026-11-13 |"):   # Q-1065 (CX-37C-L) appended v1.41 and moved the marker
                 row, want = rows[-2], "| %s | 2026-11-12 |" % ver
             if rel.endswith("TR9_PRICING_THE_CONSTRAINTS.md") and row.startswith("| v1.41 *(current)* | 2026-11-13 |"):   # Q-1007 (CX-37C-K) appended v1.41 and moved the marker
@@ -66328,6 +66330,165 @@ class TestBatchQ1007(unittest.TestCase):
                         cases += 1
         self.assertEqual(cases, 24)
 # end class TestBatchQ1007
+
+
+class TestQ735TwoAdicEvidence(unittest.TestCase):
+    """Backlog Q-1128 (2026-11-13; CORRECTIONS entry "The n=31 atlas's 2-adic divisibility is proved"): the Q-735
+    theorem -- 2^21*3 divides N and every V2 cell of the n=31 atlas, 2^19 every V1 cell of the 28 reversible pairs,
+    2^21 every V1 cell of a complement pair -- published as reports/evidence/q735_two_adic/ with a TR-12 dated note,
+    and the probe's MOD16 gate renamed from ..._EMPIRICAL.  Checks the evidence files against SHA256SUMS and the size
+    limits, runs the four reproducers' fast legs against EXPECTED_TOKENS.txt, binds the reproducers' hexagram table to
+    solve.py, and pins the README's statement, the TR-12 note and the gate rename.  Every test fails on the parent tree
+    (the directory, the note and the renamed gate do not exist there).  Developed with AI assistance (Claude,
+    Anthropic): claude-opus-5-5; the theorem was found and proved by Fable and independently verified by a separate
+    Fable lane, the six-pair V1 extension by a third."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    D = "reports/evidence/q735_two_adic"
+    T12 = "reports/TR12_QUERY_PROGRAM.md"
+    ATLAS = "runs/20260906_kc_ladders_n31/atlas_n31.json"
+    FILES = ("README.md", "q735_common.py", "fourier_table.py", "identity_check.py", "n31_bound.py",
+             "atlas_check.py", "mu_table.tsv", "ek_table.tsv", "pin_table.tsv", "fibres_n31.tsv",
+             "EXPECTED_TOKENS.txt")
+    # leg name -> argv after the interpreter; the commands EXPECTED_TOKENS.txt was written from
+    LEGS = (("fourier_table", ["fourier_table.py", "--check", D]),
+            ("identity_check", ["identity_check.py", "20261113", "4"]),
+            ("n31_bound", ["n31_bound.py"]),
+            ("atlas_check", ["atlas_check.py", ATLAS]))
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_files_digests_and_sizes(self):
+        import hashlib
+        d = os.path.join(self.ROOT, self.D)
+        self.assertTrue(os.path.isdir(d), "the evidence directory is missing")
+        listed = {}
+        for line in self._r(self.D + "/SHA256SUMS").splitlines():
+            h, name = line.split("  ", 1)
+            listed[name] = h
+        self.assertEqual(sorted(listed), sorted(self.FILES), "SHA256SUMS lists exactly the evidence files")
+        present = sorted(f for f in os.listdir(d) if f != "__pycache__")
+        self.assertEqual(present, sorted(self.FILES + ("SHA256SUMS",)), "no unlisted file in the directory")
+        total = 0
+        for name in present:
+            with open(os.path.join(d, name), "rb") as fh:
+                b = fh.read()
+            total += len(b)
+            self.assertLess(len(b), 1 << 20, name)
+            if name != "SHA256SUMS":
+                self.assertEqual(hashlib.sha256(b).hexdigest(), listed[name], name)
+        self.assertLess(total, 1 << 20, "the directory stays under 1 MB")
+
+    def test_reproducer_legs_print_the_expected_tokens(self):
+        import subprocess
+        want = {}
+        for line in self._r(self.D + "/EXPECTED_TOKENS.txt").splitlines():
+            if line and not line.startswith("#"):
+                leg, tokline = line.split("\t", 1)
+                want.setdefault(leg, []).append(tokline)
+        self.assertEqual(sorted(want), sorted(l for l, _ in self.LEGS), "precondition: one token block per leg")
+        for leg, args in self.LEGS:
+            with self.subTest(leg=leg):
+                self.assertTrue(any(t.startswith("Q735_") and t.endswith("=PASS") for t in want[leg]),
+                                "precondition: the leg has a PASS verdict to require")
+                p = subprocess.run([sys.executable, os.path.join(self.D, args[0])] + args[1:], cwd=self.ROOT,
+                                   capture_output=True, text=True, timeout=900)
+                lines = p.stdout.splitlines()
+                self.assertEqual(p.returncode, 0, p.stdout[-3000:] + p.stderr[-3000:])
+                for tokline in want[leg]:
+                    self.assertIn(tokline, lines, "%s: %s missing as a whole line" % (leg, tokline))
+                self.assertFalse([l for l in lines if l.startswith("Q735_") and l.endswith("=FAIL")], p.stdout[-3000:])
+
+    def test_pin_table_costs(self):
+        """The committed pinned tables carry the costs the V1 argument uses: one pair at most 2 (0 for the complement
+        class), one hexagram at most 3 (1), a half pin -- the six mirror-pair unions among them -- at most 1 (0),
+        each attained.  `fourier_table.py --pins --check` regenerates the file (minutes; not run here)."""
+        rows = [l.split("\t") for l in self._r(self.D + "/pin_table.tsv").splitlines()]
+        self.assertEqual(rows[0][4:], ["pair_pin_extra_cost", "hexagram_pin_extra_cost", "half_pin_extra_cost"])
+        self.assertEqual(len(rows) - 1, 327, "one row per feasible pattern")
+        for s in range(8):
+            mine = [r for r in rows[1:] if int(r[0]) == s]
+            self.assertEqual([max(int(r[c]) for r in mine) for c in (4, 5, 6)], [2, 3, 1] if s else [0, 1, 0], s)
+
+    def test_the_reproducers_hexagram_table_is_solve_py_s(self):
+        import importlib.util, re
+        spec = importlib.util.spec_from_file_location("q735_common_t", os.path.join(self.ROOT, self.D, "q735_common.py"))
+        m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+        src = self._r("solve.py")
+        blk = src[src.index("binary_hexagrams = ["):]; blk = blk[:blk.index("]")]
+        self.assertEqual(m.KW_HEXAGRAMS, [int(x, 2) for x in re.findall(r"0b([01]{6})", blk)])
+        self.assertEqual(m.coordinates_check(), (0, 0, 0))
+        self.assertEqual(m.KW_BUDGET, {1: 2, 2: 8, 3: 13, 4: 7, 6: 1})
+
+    def test_readme_pins_the_statement_and_its_status(self):
+        t = " ".join(self._r(self.D + "/README.md").split())   # whitespace-normalised: the pins survive re-wrapping
+        for frag in ("independently re-derived; not formalised in Lean.**",
+                     "2. **(V2)** 2^21·3 divides N, every class-sequence census N(c), and every V2 cell of the n=31 atlas.",
+                     "fibre F(s•, c) is divisible by 2^20; more precisely v2(F(s•, c)) ≥ 33 − t(s•, c)",
+                     "3. **(V1)** 2^19 divides every V1 cell of all 28 reversible pairs (2^19·3 for pair 5,",
+                     "and 2^21 divides every V1 cell of the 3 complement pairs. In particular 16 divides every raw V1 cell.",
+                     "cell(k, p) = Σ_c Σ_{s•} F_p(s•, c) = Σ_c Σ_{orbits {s•, τs•}} [F_p(s•, c) + F_p(τs•, c)]",
+                     "Nothing is divided by the symmetry: τ only regroups the sum.",
+                     "which a third Fable lane, again with its own code, independently verified.",
+                     "For context only: the standard count of the Hamiltonian cycles of the 6-cube is Haanpää and Östergård",
+                     "**each class-6 boundary costs at\nmost one factor of 2**",
+                     "- **Not shown — kernel cells.** The raw one-step kernel cells are open.",
+                     "That generalisation follows from the same steps but has not been tested on any other n = 31 budget.",
+                     "That it is exactly 2^21·3 is read from\n  the atlas",
+                     "Hammons, Kumar, Calderbank, Sloane and Solé, IEEE Trans.\nInform. Theory 40(2) (1994) 301–319",
+                     "The theorem was found and proved by a Fable lane\n(Claude Fable 5.2) and independently verified by a separate Fable lane"):
+            self.assertIn(" ".join(frag.split()), t)
+        for bad in ("Lean-verified", "independently reproduced", "new method", "novel", "first proof", "explains the gcd",
+                    "surprising"):
+            self.assertNotIn(bad, t)
+        # the related-results sentence is the hedged one, and nothing here or in the TR-12 note claims novelty
+        self.assertIn("For orderings of the hexagrams under these constraints, we are not aware of an earlier "
+                      "statement of this divisibility.", t)
+        note = " ".join(l for l in self._r(self.T12).split("\n") if "(Dated note, added 2026-11-13, v1.42; Q-1128.)" in l)
+        self.assertTrue(note, "precondition: the TR-12 note exists")
+        for text in (t, note):
+            self.assertIsNone(re.search(r"(?i)\b(new|novel\w*|first (time|statement|proof|result)|the first to)\b", text))
+
+    def test_tr12_dated_note_and_revision_row(self):
+        t = self._r(self.T12)
+        note = [l for l in t.split("\n") if "(Dated note, added 2026-11-13, v1.42; Q-1128.)" in l]
+        self.assertEqual(len(note), 1)
+        self.assertTrue(note[0].startswith("`documentation/SOLVE_PY_CLI.md`. ⚠ *(Dated note"), "appended to an existing line")
+        for frag in ("We prove that 2^21·3 divides N and every V2 cell (`by_class`) of this atlas",
+                     "It is a hand proof with exhaustive finite tables, independently re-derived; not formalised in Lean.",
+                     "Kernel cells are open", "`MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0_EMPIRICAL=PASS`",
+                     "and that 2^19 divides every V1 cell (`marginal_raw`) of all 28 reversible pairs and 2^21 every V1 cell",
+                     "(evidence/q735_two_adic/README.md)"):
+            self.assertIn(frag, note[0])
+        rows = [l for l in t.split("\n") if l.startswith("| v1.")]
+        self.assertTrue(rows[-1].startswith("| v1.42 *(current)* | 2026-11-13 |"), rows[-1][:60])   # after Q-1065's v1.41 (CX-37C-L)
+        self.assertEqual(sum("*(current)*" in l.split("|")[1] for l in rows), 1)
+        self.assertTrue(t.endswith(rows[-1] + "\n"))
+
+    def test_the_mod16_gate_is_renamed_with_a_basis(self):
+        s = self._r("solve.py")
+        self.assertEqual(s.count('gate("MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0",'), 1)
+        self.assertNotIn('gate("MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0_EMPIRICAL"', s)
+        self.assertIn("was MARGINAL_RAW_EVERY_CELL_MOD16_EQ_0_EMPIRICAL", s, "the old name is kept in a dated comment")
+        self.assertIn('tok("MARGINAL_RAW_MOD16_BASIS", "THEOREM:G48_STABILISER"', s)
+        cli = self._r("documentation/SOLVE_PY_CLI.md")
+        self.assertIn("MARGINAL_RAW_MOD16_BASIS and", cli)
+        self.assertNotIn("The EMPIRICAL mod-16 gate stays as a", cli)
+
+    def test_ledger_and_history_entries(self):
+        import re
+        c = self._r("documentation/CORRECTIONS.md")
+        self.assertEqual(len(re.findall(r"\n## CX-[0-9A-Z-]+ — The n=31 atlas's 2-adic divisibility is proved", c)), 1)
+        self.assertEqual(self._r("documentation/HISTORY.md").count(
+            "\n## 2026-11-13 — batch Q1128: the n=31 atlas's 2-adic divisibility, proved\n"), 1)
+        cit = self._r("documentation/CITATIONS.md")
+        for who in ("**Hammons, A. R., Kumar, P. V., Calderbank", "**Pachter, L.** (1997)", "**Cohn, H.** (1999)",
+                    "**McKay, B. D. and Wanless, I. M.** (2005)", "**Haanpää, H. and Östergård, P. R. J.** (2014)"):
+            self.assertEqual(cit.count(who), 1, who)
+
+# end class TestQ735TwoAdicEvidence
 
 
 if __name__ == "__main__":

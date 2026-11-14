@@ -1,0 +1,35 @@
+# Q-1128 (2026-11-13). The verdict and count tokens each reproducer prints, as whole lines, one per row: <leg><TAB><token line>.
+# Legs, run from the repository root:
+#   fourier_table   python3 reports/evidence/q735_two_adic/fourier_table.py --check reports/evidence/q735_two_adic
+#   identity_check  python3 reports/evidence/q735_two_adic/identity_check.py 20261113 4
+#   n31_bound       python3 reports/evidence/q735_two_adic/n31_bound.py
+#   atlas_check     python3 reports/evidence/q735_two_adic/atlas_check.py runs/20260906_kc_ladders_n31/atlas_n31.json
+# fourier_table.py --pins --check reports/evidence/q735_two_adic additionally prints Q735_PIN_TABLE=PASS and Q735_HALF_PIN_TABLE=PASS
+# (minutes; not a tests.py leg, which checks pin_table.tsv's costs directly).
+fourier_table	Q735_COORDS=PASS
+fourier_table	Q735_TABLE=PASS
+fourier_table	Q735_TABLE_CONSTRUCTIONS_AGREE=PASS
+fourier_table	Q735_EK_TABLE=PASS
+fourier_table	Q735_PIN_TABLE=SKIP
+fourier_table	Q735_HALF_PIN_TABLE=SKIP
+fourier_table	Q735_TABLE_MATCHES_TSV=PASS
+fourier_table	Q735_FOURIER_TABLE=PASS
+identity_check	Q735_IDENTITY_FIBRES=4252
+identity_check	Q735_IDENTITY_MISMATCHES=0
+identity_check	Q735_BOUND_VIOLATIONS_SMALL=0
+identity_check	Q735_IDENTITY=PASS
+n31_bound	Q735_N31_SIX_PAIR_SINGLE_2POW18_HALF_2POW19=PASS
+n31_bound	Q735_N31_FIBRES=52
+n31_bound	Q735_N31_EXACT_MATCH=PASS
+n31_bound	Q735_N31_BOUND=PASS
+n31_bound	Q735_N31_MIN_V2=20
+n31_bound	Q735_N31_EXHIBITED_2POW20_3POW7=PASS
+n31_bound	Q735_N31_DP=SKIP
+n31_bound	Q735_N31=PASS
+atlas_check	Q735_ATLAS_IS_N31_KW_BUDGET=PASS
+atlas_check	Q735_ATLAS_V2_DIVISIBLE=PASS
+atlas_check	Q735_ATLAS_V2_GCD=21,1
+atlas_check	Q735_ATLAS_V2_MIN_V2_EVERY_LAYER=21
+atlas_check	Q735_ATLAS_V1_FLOORS=PASS
+atlas_check	Q735_ATLAS_V1_MOD16=PASS
+atlas_check	Q735_ATLAS=PASS

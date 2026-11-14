@@ -385,8 +385,8 @@ measured with `git log --diff-filter=A --format=%ad --date=short -1 -- <path>`:
   `reports/certificates/verify_all.sh` §3d, beside the Lake project's second executable
   `scripts/lratcheck/MainPad.lean` (`lratcheck_padded`; `Main.lean` unchanged). Untrusted preprocessing
   the checker judges (a defect can only cause a rejection), tested on its own in `tests.py`.
-- **`reports/evidence/**/*.py`** (**22** files under `c8screen/`, `f1/`, `f5/`, `f11/`, `qoy1_q992/`,
-  `r11/`, `q374_se_replicates/`, `reports/evidence/q7_witnesses/` and `reports/evidence/tr12/`) — evidence instruments shipped and frozen
+- **`reports/evidence/**/*.py`** (**27** files under `c8screen/`, `f1/`, `f5/`, `f11/`, `qoy1_q992/`,
+  `r11/`, `q374_se_replicates/`, `reports/evidence/q7_witnesses/`, `reports/evidence/q735_two_adic/` and `reports/evidence/tr12/`) — evidence instruments shipped and frozen
   alongside the results they produced. ⚠ **[CORRECTED 2026-09-04 — this read
   "11 files under `f1/`, `f5/`, `f11/`, `r11/`" and BOTH halves were stale.**
   Measured at the time of the correction, `git ls-files 'reports/evidence/**/*.py'`
