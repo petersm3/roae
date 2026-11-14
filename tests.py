@@ -25720,6 +25720,144 @@ class TestCX242AppendOnlyStorageRedaction(unittest.TestCase):
             self.assertNotEqual(code, 0, "%s must fail when the marker replaces nothing:\n%s" % (g, out[-800:]))
 
 
+class TestCX1140AppendOnlyCloudRedaction(unittest.TestCase):
+    """Q-1140 (2026-11-14): machine sizes, regions, disk tiers, resource names and cost wording leave
+    the current tree, the append-only ledgers included, with git history unchanged. In a ledger a SPAN
+    of such detail becomes `[cloud detail redacted]` or `[cost detail redacted]` and nothing else on the
+    line moves; GATE 10 accepts exactly that through the CX-242 positional half of _g10_money_align,
+    generalised to the three positional markers. Unlike a storage span, a cloud or cost span must BE
+    such a detail (span_ok: a cue of its class, and nothing else but a few neutral words).
+
+    Runs the REAL gate in the TestQ903AppendOnlyMoneyRedaction scratch repo, both halves of GATE 10:
+      GREEN  two cloud spans on one line;
+      GREEN  a cloud span beside a committed `[cost redacted]` and a new `[storage detail redacted]`;
+      GREEN  a cloud span on a line whose `[storage detail redacted]` is already committed;
+      GREEN  a cost-detail span;  GREEN  the ledger untouched;
+      RED    a reworded word outside the spans;  RED  a marker standing for an EMPTY span;
+      RED    a whole line replaced by a bare marker;  RED  `[cost redacted]` standing for a word;
+      RED    a cloud marker over a span that is not a cloud detail (a negation; a count; a duration);
+      RED    a cost marker over a verdict word;  RED  a cost marker over a size (wrong class);
+      RED    a marker at the wrong position;  RED  a marker over a committed marker;
+      RED    a committed storage marker relabelled as a cloud marker;
+      RED    a cloud marker over cost words (wrong class);
+      RED    a NEW storage marker over a committed storage marker plus text, or over a committed
+             `[cost redacted]` (a marker never covers a marker; a storage span has no content check);
+      GREEN  a ledger whose only markers are the new ones (the grep -qF guard must know them).
+    PRECONDITION, asserted: with the alignment step replaced by `cat`, the first GREEN case goes RED,
+    so the green verdict is the alignment's doing. Every size, region and name is synthetic."""
+
+    C = "[cloud detail redacted]"
+    K = "[cost detail redacted]"
+    S = "[storage detail redacted]"
+    BASE = ("CX-1 first entry.\n"
+            "CX-2 ran on one Spot M8qq_v9 host in zz-vnet for an hour; the claim was not withdrawn.\n"
+            "CX-3 the run took [cost redacted] on M8qq_v9 and the copy went to the far shelf; sha matched.\n"
+            "CX-4 the note gave per-hour rates and fee totals, then the verdict: proved.\n"
+            "CX-5 the bytes sit at [storage detail redacted] on solver-zz in northasia7; re-verified.\n")
+    _scratch = TestQ903AppendOnlyMoneyRedaction._scratch
+
+    def _with(self, i, new):
+        lines = self.BASE.split("\n")
+        lines[i] = new
+        return "\n".join(lines)
+
+    def _green(self, work, why):
+        for g, (code, out) in self._scratch(work).items():
+            self.assertEqual(code, 0, "%s must accept %s:\n%s" % (g, why, out[-1500:]))
+
+    def _red(self, work, why):
+        for g, (code, out) in self._scratch(work).items():
+            self.assertEqual(code, 1, "%s must fail (rc 1) on %s:\n%s" % (g, why, out[-800:]))
+
+    def test_two_cloud_spans_are_green_and_need_the_alignment(self):
+        work = self._with(1, "CX-2 ran on one Spot %s host in %s for an hour; the claim was not withdrawn." % (self.C, self.C))
+        self.assertNotIn(work.split("\n")[1], self.BASE, "precondition: the edited line is not a committed line")
+        self._green(work, "two cloud spans replaced by the marker")
+        for g, (code, out) in self._scratch(work, mutate_align=True).items():
+            self.assertNotEqual(code, 0, "precondition: without the alignment step %s must report the "
+                                         "redacted line as lost (else the green verdict proves nothing)" % g)
+
+    def test_cloud_span_beside_cost_and_storage_markers_is_green(self):
+        self._green(self._with(2, "CX-3 the run took [cost redacted] on %s and the copy went %s; sha matched." % (self.C, self.S)),
+                    "a cloud span beside a committed cost marker and a new storage span")
+
+    def test_cloud_spans_beside_a_committed_storage_marker_are_green(self):
+        self._green(self._with(4, "CX-5 the bytes sit at %s on %s in %s; re-verified." % (self.S, self.C, self.C)),
+                    "cloud spans on a line whose storage marker is already committed")
+
+    def test_cost_detail_span_is_green(self):
+        self._green(self._with(3, "CX-4 the note gave %s, then the verdict: proved." % self.K), "a cost-detail span")
+
+    def test_untouched_ledger_is_green(self):
+        self._green(self.BASE, "an untouched ledger")
+
+    def test_reworded_word_outside_the_spans_is_red(self):
+        self._red(self._with(1, "CX-2 ran on one Spot %s host in %s for two hours; the claim was not withdrawn." % (self.C, self.C)),
+                  "a word reworded outside the spans")
+
+    def test_marker_for_an_empty_span_is_red(self):
+        self._red(self._with(1, "CX-2 ran on one Spot %s M8qq_v9 host in zz-vnet for an hour; the claim was not withdrawn." % self.C),
+                  "a marker that replaces nothing")
+
+    def test_a_line_that_is_only_a_marker_is_red(self):
+        self._red(self._with(1, self.C), "a whole line become a bare marker")
+
+    def test_cost_marker_for_a_word_is_red(self):
+        # CX-230 unchanged: `[cost redacted]` stands for a dollar token only, never for words
+        self._red(self._with(3, "CX-4 the note gave [cost redacted] and fee totals, then the verdict: proved."),
+                  "`[cost redacted]` standing for words")
+
+    def test_cloud_marker_over_a_non_cloud_span_is_red(self):
+        for new, why in (
+                ("CX-2 ran on one Spot %s host in %s for an hour; the claim was %s withdrawn." % (self.C, self.C, self.C), "a negation"),
+                ("CX-2 ran on %s host in zz-vnet for an hour; the claim was not withdrawn." % self.C, "a count beside the size"),
+                ("CX-2 ran on one Spot %s; the claim was not withdrawn." % self.C, "a span that runs past the names into a duration")):
+            with self.subTest(why=why):
+                self.assertNotIn(new, self.BASE.split("\n"))
+                self._red(self._with(1, new), "a cloud marker over %s" % why)
+
+    def test_cost_marker_over_a_verdict_word_is_red(self):
+        self._red(self._with(3, "CX-4 the note gave %s, then the verdict: %s." % (self.K, self.K)),
+                  "a cost marker over a verdict word")
+
+    def test_cost_marker_over_a_size_is_red(self):
+        self._red(self._with(1, "CX-2 ran on one Spot %s host in zz-vnet for an hour; the claim was not withdrawn." % self.K),
+                  "a cost marker standing for a size (the wrong class)")
+
+    def test_marker_at_the_wrong_position_is_red(self):
+        self._red(self._with(1, "CX-2 ran on one Spot host %s in zz-vnet for an hour; the claim was not withdrawn." % self.C),
+                  "a cloud marker moved off the span it replaces")
+
+    def test_marker_over_a_committed_marker_is_red(self):
+        self._red(self._with(4, "CX-5 the bytes sit at %s in %s; re-verified." % (self.C, self.C)),
+                  "a cloud marker swallowing a committed storage marker")
+
+    def test_cloud_marker_over_cost_words_is_red(self):
+        self._red(self._with(3, "CX-4 the note gave %s, then the verdict: proved." % self.C),
+                  "a cloud marker standing for cost words (the wrong class)")
+
+    def test_new_storage_marker_over_a_committed_storage_marker_is_red(self):
+        self._red(self._with(4, "CX-5 the bytes sit at %s in northasia7; re-verified." % self.S),
+                  "a new storage marker swallowing a committed storage marker and the text after it")
+
+    def test_new_storage_marker_over_a_committed_cost_marker_is_red(self):
+        self._red(self._with(2, "CX-3 the run took %s on M8qq_v9 and the copy went to the far shelf; sha matched." % self.S),
+                  "a new storage marker swallowing a committed `[cost redacted]`")
+
+    def test_only_new_markers_in_the_ledger_is_green(self):
+        # no `[cost redacted]` or `[storage detail redacted]` anywhere: the alignment's grep -qF guard
+        # must still let the file through to the aligner
+        self.BASE = "CX-1 first entry.\nCX-2 ran on one Spot M8qq_v9 host; the note gave per-hour rates.\n"
+        work = "CX-1 first entry.\nCX-2 ran on one Spot %s host; the note gave %s.\n" % (self.C, self.K)
+        for old in ("[cost redacted]", self.S):
+            self.assertNotIn(old, self.BASE + work, "precondition: no older marker in the ledger")
+        self._green(work, "a ledger whose only markers are the two new ones")
+
+    def test_committed_storage_marker_relabelled_is_red(self):
+        self._red(self._with(4, "CX-5 the bytes sit at %s on solver-zz in northasia7; re-verified." % self.C),
+                  "a committed storage marker relabelled as a cloud marker")
+
+
 class TestQ903HashedRetractedNeedle(unittest.TestCase):
     """CX-230: a RETRACTED_PHRASES.tsv needle that carries a dollar figure is registered as
     `sha256:<hex>/<n>` (the phrase's digest and length), never as text. hashed_row_parse and

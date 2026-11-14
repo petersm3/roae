@@ -3782,6 +3782,7 @@ INL-1dbfba98	-	C3	corrections	inline	viz/viz_tr5_orbit_collapse.md	88	theory is 
 INL-34469d7c	-	C3	corrections	inline	viz/viz_tr6_parity_alternations.md	76	is claimed novel. Developed with AI assistance (Claude, Anthropic); corrections invited.*
 INL-59b1cb3	-	C3	corrected	inline	viz/viz_tr7_circular_cycle.md	63	picture, and no renderer existed; the documents were corrected to say so. CX-191.
 INL-13a1de3a	-	C3	corrections	inline	viz/viz_tr7_circular_cycle.md	75	Developed with AI assistance (Claude, Anthropic); corrections invited.*
+GIT-2d17cf9b	2026-11-15	C1	withdrawn	git	c6e36d5e	-	Combined documentation batch: seven doc lanes in one commit (CX-37C-V, -Z, -W, -N, -Y, -U, -R)
 GIT-e180397	2026-11-14	C3	corrections	git	bf17a553	-	Q-1128: the n=31 atlas's 2-adic divisibility, proved, with its tables and reproducers (CX-37C-M)
 GIT-386c913c	2026-11-14	C3	correction	git	9d8d7329	-	Q-1007: the observable roster is built and the ledger total is derived from it, 1,452 (CX-37C-K)
 GIT-19b790bd	2026-11-14	C3	renumbering	git	d86add6e	-	Q-1094: verify_all.sh §3d — the Lean 4 LRAT checker on the 24 archived certificates (padded checker, renumbering, plant)
@@ -4526,7 +4527,7 @@ GIT-18707194	2026-05-18	C4	caveats	git	a2611b6c	-	PERFORMANCE_HISTORY: PGO 1T en
 GIT-1cac18c4	2026-05-16	C3	corrected	git	9d00c48c	-	Revert "v2: #71 one-step C2 lookahead" — 10.7% perf regression empirically measured
 GIT-133f647e	2026-05-16	C3	corrected	git	438d2975	-	v2: #71 one-step C2 lookahead — performance-only (no output change)
 GIT-4beede4	2026-05-16	C3	corrected	git	4cd217f8	-	v2: v1 100B canonical re-archived + 100B inclusion check confirms C5 correctness
-GIT-130d47d3	2026-05-15	C3	corrections	git	5af54e70	-	docs: correct claude orchestrator architecture — AMD EPYC Zen 4 x86_64, full AVX-512
+GIT-130d47d3	2026-05-15	C3	corrections	git	5af54e70	-	docs: correct [cloud detail redacted] orchestrator architecture — AMD EPYC Zen 4 x86_64, full AVX-512
 GIT-15493345	2026-05-15	C3	corrected	git	23cefb0b	-	docs: Phase 1 speedup measurements — corrected LTO (within noise) + PGO (~5%)
 GIT-d401312	2026-05-15	C3	off-by	git	d6837944	-	solve.c + docs: Phase E.2 + defense-in-depth (5 items DONE)
 GIT-e88b149	2026-05-12	C3	corrected	git	a2ead96f	-	docs: HISTORY — May 11-12 session: cascade Build A + audit findings
@@ -4551,7 +4552,7 @@ GIT-2c5260bd	2026-04-20	C3	superseded	git	d67be74c	-	CLAUDE.md, HISTORY.md: Spot
 GIT-bc00116	2026-04-29	C4	qualifications	git	2e17f81a	-	HISTORY/LEADERBOARD/CRITIQUE: 100T pilot completion + yield-truncation finding
 GIT-307c8e6c	2026-04-22	C3	corrected	git	18efd1b5	-	Rule 4 redundancy alignment + keystone-analysis subcommand + April 25 HISTORY
 GIT-392c48d8	2026-04-23	C3	correction	git	3812cf8e	-	HISTORY: add 2026-04-23 late-evening section
-GIT-1af78ec9	2026-04-22	C3	correction	git	6ad5e667	-	HISTORY.md: solver-d3 F64 leak #3 — postmortem + Azure Policy proposal
+GIT-1af78ec9	2026-04-22	C3	correction	git	6ad5e667	-	HISTORY.md: [cloud detail redacted] [cloud detail redacted] leak #3 — postmortem + Azure Policy proposal
 GIT-266a56a8	2026-04-22	C4	caveat	git	8a310254	-	solve.c: parallel --sub-branch (P1) + shard-mode --verify
 GIT-2951c3e0	2026-04-22	C4	qualifier	git	b75adb68	-	Align markdown corpus to 2026-04-22 state: P2 + archive + consolidation
 GIT-1f17238a	2026-04-21	C3	correction	git	ad4cddc1	-	Integrate P2 distributional analysis findings across scientific docs
@@ -4564,7 +4565,7 @@ GIT-20e3a91e	2026-04-19	C3	correction	git	66adcf06	-	fix C1 multiplier math: 23.
 GIT-227126ff	2026-04-19	C4	caveat	git	f49e2b83	-	KW adjacency decomposition + --null-gray-random + 100T README pre-stage
 GIT-280f1ee	2026-04-19	C3	corrections	git	eb14aa00	-	add Open Questions to CRITIQUE.md + Impact section to SOLVE-SUMMARY.md
 GIT-311815fb	2026-04-19	C4	caveats	git	8eed98fe	-	solve.py: add --null-debruijn (structured null-model vs King Wen)
-GIT-33f2ec8f	2026-04-19	C3	superseded	git	c5697eaf	-	docs: scrub remaining stale F64/742M references; update infra to D128 westus3
+GIT-33f2ec8f	2026-04-19	C3	superseded	git	c5697eaf	-	docs: scrub remaining stale [cloud detail redacted]/742M references; update infra to [cloud detail redacted] [cloud detail redacted]
 GIT-7fb37aa	2026-04-19	C2	scope note	git	0a4366b8	-	docs: clean stale 742M refs; scope d2/d3 4-boundary findings
 GIT-381db43a	2026-04-18	C1	retract	git	069ef462	-	history: retract "canonical established" — sha is candidate pending Phase C
 GIT-20816bb1	2026-04-17	C2	re-scoped	git	fa0420e8	-	docs: refresh DEVELOPMENT.md "What's pending / open" — audit for staleness

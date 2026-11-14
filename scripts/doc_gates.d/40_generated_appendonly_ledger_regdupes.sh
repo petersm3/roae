@@ -659,8 +659,17 @@ gate_generated() {
 # marker standing for a non-empty span, every other character unchanged. A reworded word outside
 # the spans still fails. A working line with fewer than 4 characters outside its markers anchors
 # nothing and is never used, and a committed line still present verbatim is never re-aligned. Tested in tests.py (TestCX242AppendOnlyStorageRedaction).
+# Q-1140 (2026-11-14) — THE SAME EDIT FOR CLOUD DETAIL AND COST WORDING. The operator decided that
+# machine sizes, regions, disk tiers, resource names and cost wording leave the current tree, the
+# ledgers included. Two more positional markers: `[cloud detail redacted]` and `[cost detail redacted]`
+# (words, a ratio, a price or a bill; `[cost redacted]` still stands for a dollar token only). Unlike
+# a storage span, each such span must BE the detail it claims to hide: it must hold a cue of its class
+# and nothing but cues and a few neutral words (span_ok below), so a marker over a negation, a verdict
+# or any other claim fails as a reworded line does. A marker never covers another marker, and a marker
+# already in the committed line must stay where it is. Tested in tests.py (TestCX1140AppendOnlyCloudRedaction)
+# and by the GATE 10 cloud-marker leg of doc_gates.sh --selftest.
 _g10_money_align() {
-  if ! grep -qF -e '[cost redacted]' -e '[storage detail redacted]' "$1" 2>/dev/null; then cat; return $?; fi   # CX-36S-D: a failed copy is not an empty baseline
+  if ! grep -qF -e '[cost redacted]' -e '[storage detail redacted]' -e '[cloud detail redacted]' -e '[cost detail redacted]' "$1" 2>/dev/null; then cat; return $?; fi   # CX-36S-D: a failed copy is not an empty baseline
   DG_WORK="$1" python3 -c '
 import os, re, sys
 M = "[cost redacted]"
@@ -686,43 +695,106 @@ for i, b in enumerate(data):
         if w != b and pat.fullmatch(w):
             data[i] = w
             break
-# CX-242: a span of storage detail replaced by S. Each working line holding S is split on S; the
-# committed line must be those literal pieces in order, the first a prefix and the last a suffix,
-# with each S standing for a NON-EMPTY span (and a cost marker in a piece still standing for a
-# token or itself). Every character outside the spans must match: a reworded word fails.
+# CX-242: a span of storage detail replaced by S. Each working line holding a positional marker is
+# split on the markers; the committed line must be those literal pieces in order, the first a prefix
+# and the last a suffix, with each marker standing for a NON-EMPTY span (and a cost marker in a piece
+# still standing for a token or itself). Every character outside the spans must match: a reworded
+# word fails.
+# Q-1140 (2026-11-14): the same positional rule for two more markers, C for a span that names a
+# cloud machine size, region, disk tier or resource, and K for a cost clause (an amount in words, a
+# ratio, a price or a bill). Unlike S, each C or K span must be the detail it claims to hide:
+# span_ok() requires a cue of its class (CLOUD or COSTW below) and, once every cue is taken out,
+# only words from the short neutral list of that class (FILL). So a marker that hides "not", a verdict
+# word, a name or, outside a cost clause, a number fails. A span never holds a marker of its own: a
+# marker already in the committed line must stand at the same place, as itself. `[cost redacted]`
+# keeps the CX-230 rule above: it stands for a dollar token only, never for words.
 S = "[storage detail redacted]"
+C = "[cloud detail redacted]"
+K = "[cost detail redacted]"
+PM = re.compile("|".join(re.escape(x) for x in (S, C, K)))
+ANYM = re.compile("|".join(re.escape(x) for x in (S, C, K, M)))
+CLOUD = re.compile(r"""(?ix)
+    \bstandard_\w+
+  | \b[bdeflmnp](?:2|4|8|16|32|48|64|96|128)(?:[a-z]{1,6}(?:_v[0-9]+)?)?\b
+  | \b[defl]-?[a-z]{0,5}-?v[0-9]+(?:-series)?\b
+  | \b[a-z](?:/[a-z])*-series\b
+  | (?:west|east|central|north|south)\s?(?:us|europe|asia)(?:\s?[0-9])?\b
+  | \bpremium\b | \bssd\b | \bhdd\b | \w*_[lz]rs\b | \bultra\s?disks?\b | \bephemeral\b
+  | \bp(?:10|15|20|30|40|50|60|70|80)\b
+  | \b(?:rg|solver|merge|temp|spot)-[a-z0-9][a-z0-9-]*
+  | \bc[0-9]{3}-[a-z][a-z0-9-]*
+  | \b[a-z0-9]+(?:-[a-z0-9]+)*-(?:vms?|nic|vnet|nsg|ip|disk|scratch|worker|codex)\b
+  | \b(?:vnet|subnet|nsg)\b | \bazure\b | \bmicrosoft\b | \bcobalt\b | \bon-demand\b
+""")
+COSTW = re.compile(r"""(?ix)
+    \$
+  | \b\w*(?:pric|cost|cheap|expens|spend|spent|budget|discount|saving|dollar)\w*\b
+  | \bbill(?:s|ed|ing|able)?\b | \brates?\b | \bhourly\b | \bper[-\s]hour\b | \bon-demand\b
+  | \bcents?\b | \bpenn(?:y|ies)\b | \bfees?\b | \bpaid\b | \bpay(?:s|ing|ment|ments)?\b
+""")
+FILL = {
+    C: frozenset("the a an of on in at and or with to its s vm vms host hosts worker workers box"
+                 " machine machines instance instances size sizes sku skus family series region"
+                 " regions disk disks managed tier page orchestrator standard regular spot default"
+                 .split()),
+    K: frozenset("the a an of at for by to than per and or about around roughly approximately over"
+                 " under less more much its it was were is are be been run runs vm vms fleet h hr hrs"
+                 " hour hours min mins minute minutes day days week weeks month months fifth half"
+                 " quarter third tenth times total totals band bands tally tallies figure figures"
+                 " multiplying multiplied projection estimate estimated x which as spot standard"
+                 " regular".split())}
+WORDS = re.compile(r"[A-Za-z]+|[0-9]+")
+def span_ok(kind, t):
+    if not t.strip() or ANYM.search(t):
+        return False
+    if kind == S:   # CX-242: a storage span has no fixed shape
+        return True
+    cue = CLOUD if kind == C else COSTW
+    if not cue.search(t):
+        return False
+    for x in WORDS.findall(cue.sub(" ", t)):
+        if x.isdigit():
+            if kind != K:
+                return False
+        elif x.lower() not in FILL[kind]:
+            return False
+    return True
 cands = {}
 wall = open(os.environ["DG_WORK"], encoding="utf-8", errors="surrogateescape").read().split("\n")
 wset = set(wall)
 for w in wall:
-    if S not in w:
+    if not PM.search(w):
         continue
     # a line that is nothing but markers would match ANY committed line: it anchors nothing
-    if len("".join(w.split(S)).strip()) < 4:
+    if len(PM.sub("", w).strip()) < 4:
         continue
+    kinds = PM.findall(w)
     rx = []
-    for k, piece in enumerate(w.split(S)):
+    for k, piece in enumerate(PM.split(w)):
         if k:
-            rx.append("(?:.+?)")
+            rx.append("(?:%s|(.+?))" % re.escape(kinds[k - 1]))
         sub = piece.split(M)
         for j, q in enumerate(sub):
             if j:
                 rx.append("(?:%s|%s)" % (re.escape(M), TOK.pattern))
             rx.append(re.escape(q))
-    head = w.split(S, 1)[0][:12]
-    cands.setdefault(head, []).append((w, re.compile("".join(rx), re.S)))
+    head = ANYM.split(w, 1)[0][:12]
+    cands.setdefault(head, []).append((w, kinds, re.compile("".join(rx), re.S)))
 lens = sorted({len(h) for h in cands})
 for i, b in enumerate(data):
-    if S in b or b in wset:   # a committed line still present verbatim is never re-aligned
+    if b in wset:   # a committed line still present verbatim is never re-aligned
         continue
+    hit = None
     for L in lens:
-        for w, pat in cands.get(b[:L], ()):
-            if w != b and pat.fullmatch(b):
-                data[i] = w
+        for w, kinds, pat in cands.get(b[:L], ()):
+            m = pat.fullmatch(b) if w != b else None
+            if m and all(g is None or span_ok(kd, g) for kd, g in zip(kinds, m.groups())):
+                hit = w
                 break
-        else:
-            continue
-        break
+        if hit is not None:
+            break
+    if hit is not None:
+        data[i] = hit
 sys.stdout.buffer.write("\n".join(data).encode("utf-8", "surrogateescape"))
 '
 }

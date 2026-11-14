@@ -2613,6 +2613,47 @@ if git merge-base --is-ancestor \"\$orig\" HEAD; then exit 3; fi"
     rm -rf "$_g10c_d"
   fi
 
+  # Q-1140 (2026-11-14) — GATE 10 cloud-marker leg, inline for the callers=N reason above. A ledger
+  # line's machine-size span becomes `[cloud detail redacted]`: 10a and 10b must both accept it
+  # (GREEN); the same marker over a span that is not a cloud detail must fail both (RED); and with
+  # the alignment step replaced by `cat` the GREEN edit must fail both, so the green verdict is the
+  # alignment's doing. The size is synthetic. tests.py TestCX1140AppendOnlyCloudRedaction has the rest.
+  _g10x_d=$(mktemp -d) || { echo "  [FAIL] GATE 10 (Q-1140) cloud-marker leg — no tmpdir, so the assertion did NOT run"; PASS=1; }
+  if [ -n "${_g10x_d:-}" ] && [ -d "$_g10x_d" ]; then
+    _g10x_res=""
+    for _g10x_case in green red unaligned; do
+      rm -rf "$_g10x_d/r"; mkdir -p "$_g10x_d/r/scripts" "$_g10x_d/r/documentation"
+      cp "$0" "$_g10x_d/r/scripts/doc_gates.sh"; cp -R "$(dirname "$0")/doc_gates.d" "$_g10x_d/r/scripts/"
+      ( set -e; cd "$_g10x_d/r"
+        export GIT_AUTHOR_NAME=selftest GIT_AUTHOR_EMAIL=selftest@invalid
+        export GIT_COMMITTER_NAME=selftest GIT_COMMITTER_EMAIL=selftest@invalid
+        git init -q .; git symbolic-ref HEAD refs/heads/main
+        printf 'CX-1 first entry.\nCX-2 ran on one Spot M8qq_v9 host and the claim was not withdrawn.\n' > documentation/CORRECTIONS.md
+        git add -A && git commit -qm 'ledger: two entries'
+        if [ "$_g10x_case" = red ]; then
+          printf 'CX-1 first entry.\nCX-2 ran on one Spot [cloud detail redacted] host and the claim was [cloud detail redacted] withdrawn.\n' > documentation/CORRECTIONS.md
+        else
+          printf 'CX-1 first entry.\nCX-2 ran on one Spot [cloud detail redacted] host and the claim was not withdrawn.\n' > documentation/CORRECTIONS.md
+        fi
+        if [ "$_g10x_case" = unaligned ]; then
+          m=scripts/doc_gates.d/40_generated_appendonly_ledger_regdupes.sh
+          [ "$(grep -c '^_g10_money_align() {$' "$m")" -eq 1 ]
+          sed -i 's/^_g10_money_align() {$/&\n  cat; return 0/' "$m"
+        fi ) >/dev/null 2>&1 || { _g10x_res="$_g10x_res $_g10x_case:setup-broke"; continue; }
+      ( cd "$_g10x_d/r" && bash scripts/doc_gates.sh appendonly-head    >/dev/null 2>&1 ); _g10x_a=$?
+      ( cd "$_g10x_d/r" && bash scripts/doc_gates.sh appendonly-history >/dev/null 2>&1 ); _g10x_b=$?
+      _g10x_res="$_g10x_res $_g10x_case:$_g10x_a/$_g10x_b"
+    done
+    rm -rf "$_g10x_d"
+    if [ "$_g10x_res" = " green:0/0 red:1/1 unaligned:1/1" ]; then
+      echo "  [ok]   GATE 10 (Q-1140) cloud-marker leg — a cloud span marked passes 10a/10b, a marker over"
+      echo "         a non-cloud word fails both, and without the alignment the passing edit fails both"
+    else
+      echo "  [FAIL] GATE 10 (Q-1140) cloud-marker leg — want green:0/0 red:1/1 unaligned:1/1, got$_g10x_res"
+      PASS=1
+    fi
+  fi
+
   # 🔴 S3 (2026-09-24, batch-2 pre-publication review, Fable P) — the published-lineage arm
   # must NOT fire on a feature branch created with `git checkout -b feat origin/main`. That
   # layout is git's default (branch.autoSetupMerge) and makes @{upstream} = origin/main for a
