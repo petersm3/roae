@@ -49,9 +49,9 @@ project's reference sha256s — which are computed over the logical
 
 | Axis | Validations |
 |---|---|
-| **Hardware: Zen 4 vs Zen 5** | F64als_v6 westus2 ↔ D128als_v7 westus3, d3 10T sha `f7b8c4fb…` matches (2026-04-19; sha since deprecated as a canonical — the cross-hardware match evidence stands, see [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §Deprecated) |
-| **Architecture: x86 vs ARM** | Zen 5 ↔ Cobalt 100 ARM (D96ps_v6 westus3), d3 10T sha `f7b8c4fb…` matches (2026-04-28; same deprecation note) |
-| **Region: westus2 vs westus3** | F64 westus2 ↔ D128 westus3, same sha (2026-04-19) |
+| **Hardware: Zen 4 vs Zen 5** | a 64-core Zen 4 VM in one region ↔ a 128-core Zen 5 VM in a second region, d3 10T sha `f7b8c4fb…` matches (2026-04-19; sha since deprecated as a canonical — the cross-hardware match evidence stands, see [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §Deprecated) |
+| **Architecture: x86 vs ARM** | Zen 5 ↔ Cobalt 100 ARM (a 96-core ARM VM), d3 10T sha `f7b8c4fb…` matches (2026-04-28; same deprecation note) |
+| **Region: one vs another** | the 64-core VM in one region ↔ the 128-core VM in a second, same sha (2026-04-19) |
 | **Merge mode: external vs in-memory** | Both produce the canonical sha at d3 10T (2026-04-19) |
 | **Partition strategy: full-enum vs --branch reconstruction (depth 3, same per-sub-branch budget)** | sha `c34390c00a2a871d78f49dd419779c0f649ed8271387c424ac4d36e0f3910dbd` matches across both paths at 5.6T budget (35.4M nodes/sub-branch). Verified via `--double-regression-test` (2026-04-30). (The sha has since been recorded in [CANONICAL_HASHES.md](CANONICAL_HASHES.md) as irreproducible from any extant commit; the same-path match it witnessed stands.) |
 | **Layered-merge correctness** | Layer 1 + Layer 2 of identical scope, merged via `--merge-layers`, produces same sha as a single-layer run (2026-04-30). |
@@ -349,7 +349,7 @@ inherits — see the paragraph below the table.
 | Scale | First witness | Independent re-derivations | Evidence type |
 |---|---|---|---|
 | 5.6 T | 2026-04-30 | `--double-regression-test` + `--merge-layers` of 56 `--branch p1 o1` reconstruction layers | **Partition-path** — direct sha-equality across 4 partition paths |
-| 11.2 T | 2026-04-30 / 2026-05-01 | Build A + Build B (different physical D64als_v7 hosts) + ARM Cobalt + v3 lineage + Tier 1 *determinism-hardening* (not a Lean proof tier, and not a campaign budget) — the witness list of record is [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"d3 11.2T"; this document does not restate its count | **Host/ISA + build** — direct sha-equality across host class, source commit and ISA. Not a partition witness: none of these runs varies the partition |
+| 11.2 T | 2026-04-30 / 2026-05-01 | Build A + Build B (different physical 64-core hosts) + ARM Cobalt + v3 lineage + Tier 1 *determinism-hardening* (not a Lean proof tier, and not a campaign budget) — the witness list of record is [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"d3 11.2T"; this document does not restate its count | **Host/ISA + build** — direct sha-equality across host class, source commit and ISA. Not a partition witness: none of these runs varies the partition |
 | 100 T | 2026-04-19/20 (full-enum), then T9+d 2026-05-10 (62-branch-loop reconstruction) | T9+d's `solve --branch` × 62 + `solve --merge` execution path reproduced the canonical `915abf30…` of the full-enum path | **Execution-mode** — direct sha-equality between full-enum and 62-branch reconstruction + merge |
 | **560 T** | **2026-06-08; re-run 2026-06-30** | `solve --verify` PASS on all 10,525,271,997 records + `verify.py` re-verify, **and** a from-scratch re-run (2026-06-30, eviction-resume-fixed binary, different eviction pattern) reproduced `9a968fa2` exactly | **Re-run determinism** (from-scratch re-run reproducing the canonical sha over the **same** d3 partition) + **inherited** — partition invariance from the 5.6 T and 100 T direct witnesses on the same `solve.c` lineage |
 

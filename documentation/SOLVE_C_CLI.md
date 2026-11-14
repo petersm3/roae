@@ -398,7 +398,7 @@ both print `PREFLIGHT=REFUSED-BAD-ARG` and exit **2**. Pass the integer
 (`560000000000000`, `11200000000000`), or omit the argument and take the built-in
 default `560000000000000` (`--preflight`, solve.c:41809-41824).
 
-Does NOT cover what lives outside the process: VM/eviction/cost (the
+Does NOT cover what lives outside the process: VM/eviction (the
 external monitor, task #55), full disk SMART/fsck (the project's
 `disk_health_precheck.sh`, a private campaign script that is not in this
 repository: run `smartctl` and `fsck` yourself), or disk identity (use `--disk-precheck`). *(2026-11-04, CX-36N-B, Codex final review F12-001#7: this named the script as if it shipped. The binary's own `--preflight` text still names it.)*
@@ -703,7 +703,7 @@ foundation+bw+vpopcntdq triple that a **future** v2 dispatcher would require. *(
 > previously attributed the triple, in the present tense, to a dispatcher that
 > exists in this build.)* *(2026-11-03, Codex final review F12-001#15: the printf is reworded; on a capable host it prints `YES - capable, but this build has no vectorized path; scalar code runs`.)*
 
-No enumeration; instantaneous. Used by `v2_bench_d64.sh` fingerprint
+No enumeration; instantaneous. Used by the private benchmark script's fingerprint
 capture and by pre-flight checks before AVX-512 work.
 
 Exits 0 always.
@@ -717,8 +717,8 @@ solve --cpu-freq [THRESHOLD_MHZ]
 Diagnostic. Reads `cpu MHz` from `/proc/cpuinfo`, reports cores / min /
 avg / max across all cores, and emits a HEALTHY or THROTTLED verdict
 against `THRESHOLD_MHZ` (default 2000). Useful mid-bench to detect
-thermal throttling that would invalidate the run — Standard on-demand
-D128als_v7 hosts in westus3 have been observed to hand back hosts
+thermal throttling that would invalidate the run — 128-core hosts on regular
+(non-Spot) capacity have been observed to hand back hosts
 running at ~600 MHz instead of the expected 2596 MHz base / 3700 MHz
 boost. This subcommand IS the pre-flight probe; the project's campaign launcher
 calls it directly and logs `[--cpu-freq] cores=... below=N`. (This line
@@ -1211,7 +1211,7 @@ representation, then emits, as markdown to stdout:
 - the **FC-1..FC-4 falsification-gate verdicts**, stated as outcomes of pre-committed gates.
 
 Report-only; every cell is printed whatever it says. **Heavy** at the frozen defaults
-(`--r7-n 1000000 --r7-seed 42`): hours-class on one core → run on a **Spot D4/D8 worker**,
+(`--r7-n 1000000 --r7-seed 42`): hours-class on one core → run on a **small (4- or 8-core) Spot worker**,
 NOT the 2-core orchestrator (heavy-ops-offboard rule). `--r7-n`/`--r7-seed` override only for
 smoke tests; the canonical measurement uses the frozen defaults. Sha-neutral.
 
@@ -3241,7 +3241,7 @@ output; both ends were wrong.)*
 | `SOLVE_FSYNC_BATCH_SIZE` | 1 | Batch N checkpoint fsyncs per flush to amortize fsync cost on fsync-bound disks (#108b). Higher = fewer fsyncs, larger replay window on crash. | *(2026-10-01, Q-888 (5), lane B31: with batching, a crash can leave a renamed gz shard whose data did not all reach the disk, and its size trailer can pass the promotion's size check. A gz shard that `promote_orphaned_shards()` would promote is now inflated and its CRC-32 and size trailer checked first; a failure refuses the promotion, with a `WARN … (Q-888 (5))` line, and the cell is walked again. Only orphaned shards, which no checkpoint line records, are inflated.)* *(2026-10-02, Q-888 (5), batch 33: whether a real crash under batching leaves such a file was not measured, and by decision will not be. That needs crash injection on a block device, and the CRC check refuses the file either way, so the check is recorded as a defence, not as the cure of an observed failure.)* *(2026-10-02, Q-941, batch 33: the CRC check covers a shard that still has its gzip header. A renamed shard whose data never reached the disk can instead come back zero-filled, with no header, at a size that is a multiple of 32 whenever the writer's was; `promote_orphaned_shards()` read such a file as a raw shard and, until this date, promoted it on its size. A shard with no gzip header is now read record by record and refused, with a `WARN: orphaned shard … has no gzip header and no valid record structure … (Q-941)` line, unless every record is well formed: bit 0 clear in each of its 32 bytes and the 32 pair indices (`byte >> 2`) a permutation of 0..31, which is how every record is built, so no shard a writer produced is refused; a valid raw shard (`SOLVE_COMPRESS=0`) is promoted as before. The "walked again" above holds when the cell has no `.dfs_state`. With one, the relaunch's LOAD path refuses to resume from the refused shard (`TRUNC_SHARD_RESUME=REFUSED`, exit 32; see `SOLVE_DFS_CHECKPOINT`) until the operator restores the shard or removes it and its `.dfs_state`; both refusal lines now say so, where the Q-888 (5) line used to promise the re-walk unconditionally. The refusal leaves the shard in place in either case.)*
 | `SOLVE_MANIFEST_THREADS` | `SOLVE_THREADS` | Override the thread count for the parallel `shard_manifest.txt` sha256 sweep (#116). |
 | `SOLVE_DISK_MARKER` | `solutions.sha256` | Marker filename `--disk-precheck` looks for on the mount. Its presence is REPORTED, never treated as proof of disk identity; its size and first field are printed verbatim. ⚠ **[CORRECTED 2026-09-07 — this read "Custom marker filename for `--disk-precheck` to test free space against (otherwise a default probe path is used)", which was wrong twice: the default is not "(none)", and free space is never tested against the marker.]** |
-| `SOLVE_DISK_MARKER_SHA` | (none) | 64-hex digest the marker file's first field must equal. UNSET (the default): the marker leg reports only, and a missing, empty, unreadable or non-64-hex marker is a WARN. SET: a mismatch, or a marker with no readable 64-hex first field, exits **5** — the same wrong-disk code the UUID leg uses. It mirrors `--disk-precheck`'s optional third positional argument: identity is reported by default and asserted only when the operator supplies the expected value. Added 2026-09-07, because the marker leg previously printed "present: PASS" for a bare `stat()` — a zero-byte file satisfied it — under a comment claiming it "proves the mount holds the canonical disk's contents". A `stat()` cannot prove that, and a solver-data disk was destroyed by a wrong-disk operation on 2026-05-06. |
+| `SOLVE_DISK_MARKER_SHA` | (none) | 64-hex digest the marker file's first field must equal. UNSET (the default): the marker leg reports only, and a missing, empty, unreadable or non-64-hex marker is a WARN. SET: a mismatch, or a marker with no readable 64-hex first field, exits **5** — the same wrong-disk code the UUID leg uses. It mirrors `--disk-precheck`'s optional third positional argument: identity is reported by default and asserted only when the operator supplies the expected value. Added 2026-09-07, because the marker leg previously printed "present: PASS" for a bare `stat()` — a zero-byte file satisfied it — under a comment claiming it "proves the mount holds the canonical disk's contents". A `stat()` cannot prove that, and a data disk was destroyed by a wrong-disk operation on 2026-05-06. |
 
 ### Hardening overrides (2026-05-25/26 — every gate has an explicit escape)
 
@@ -3352,7 +3352,7 @@ completeness and honesty, not as knobs to set.
 | **28** | **`--merge` cannot raise RLIMIT_STACK** — `setrlimit` could not raise to unlimited or to ≥64MB hard cap. External-merge spill would silently SIGSEGV. Recovery: run `ulimit -s unlimited` in shell before `solve --merge`. |
 | **29** | **Disk-space pre-check failed** — projected required bytes for `SOLVE_NODE_LIMIT` exceed free bytes in cwd's filesystem. Recovery: move to a larger filesystem, OR `SOLVE_SKIP_DISK_CHECK=1` if you're confident the projection is wrong. |
 | 30 | Logic error (decode failed mid-record; depth mismatch; iterator stack overflow) — or auto-verify-solutions FAIL after merge (C1-C5 violation). For auto-verify case: do NOT archive solutions.bin; investigate. |
-| **31** | **Disk-IOPS pre-check failed** (task #107, retooled #115) — the projected fsync-wait would consume too large a fraction of the estimated enum wall (default cap 25%). The gate runs a **concurrent** probe (`min(threads,32)` pthreads measuring *aggregate* fsync/sec, so it adapts to the box — D64 vs D128 — and to the storage's real parallel throughput, not a single-thread number), projects expected fsyncs (`node_limit / 1.4e7 / SOLVE_FSYNC_BATCH_SIZE`) against estimated wall (`node_limit / (threads × 1e7)`), and refuses if `fsync_wait / est_wall > 0.25`. (The earlier revision gated on a raw single-thread "below 1000 fsync/sec" threshold, which mis-fired on Premium SSD — 218/sec single-thread but 2464/sec concurrent.) Canonical enum's per-shard/.budget/.dfs_state/per-thread-checkpoint fsyncs bottleneck on slow storage. The probe result is recorded in `canonical-host-fingerprint.json` under `disk_iops`. Recovery: put the run-dir on Standard/Premium SSD, OR `SOLVE_SKIP_IOPS_CHECK=1` (skip probe) / `SOLVE_ALLOW_SLOW_IOPS=1` (probe + proceed). |
+| **31** | **Disk-IOPS pre-check failed** (task #107, retooled #115) — the projected fsync-wait would consume too large a fraction of the estimated enum wall (default cap 25%). The gate runs a **concurrent** probe (`min(threads,32)` pthreads measuring *aggregate* fsync/sec, so it adapts to the box — 64 vs 128 cores — and to the storage's real parallel throughput, not a single-thread number), projects expected fsyncs (`node_limit / 1.4e7 / SOLVE_FSYNC_BATCH_SIZE`) against estimated wall (`node_limit / (threads × 1e7)`), and refuses if `fsync_wait / est_wall > 0.25`. (The earlier revision gated on a raw single-thread "below 1000 fsync/sec" threshold, which mis-fired on an SSD-backed disk — 218/sec single-thread but 2464/sec concurrent.) Canonical enum's per-shard/.budget/.dfs_state/per-thread-checkpoint fsyncs bottleneck on slow storage. The probe result is recorded in `canonical-host-fingerprint.json` under `disk_iops`. Recovery: put the run-dir on an SSD-backed disk, OR `SOLVE_SKIP_IOPS_CHECK=1` (skip probe) / `SOLVE_ALLOW_SLOW_IOPS=1` (probe + proceed). |
 | **34** | **Resume-shape contract violation** (2026-07-17) — a live `*.dfs_state` frontier is present and `resume_contract.txt` records a different thread count or depth than this run's, or (since 2026-11-01, FV2-E1) has no well-formed `threads=`/`depth=` pair (`RESUME_CONTRACT=MALFORMED`; a blanked line used to read as a match). Kill/resume byte-reproducibility is only asserted for same build + same shape. Recovery: rerun with the stamped `SOLVE_THREADS`/`SOLVE_DEPTH`, or `SOLVE_RESUME_SHAPE_OVERRIDE=1` (voids byte-reproducibility for that dir). |
 | 50 | **Regression-test / internal-consistency failure** — a phase failure in `--regression-test` / `--double-regression-test` (a sha mismatch there is **60**; corrected 2026-10-22, CX-35V-J), or a startup King Wen self-check failure (`solve.c` has 19 `return 50` sites; e.g. :40976, :41150, :41910). ⚠ Row corrected 2026-09-01: this row previously attributed code 50 to a `--selftest` sha mismatch. `--selftest` returns **40** on sha mismatch (`solve.c:40843-40847`), not 50. |
 
@@ -3388,7 +3388,7 @@ solve 0 128
 > limit — i.e. an unbounded depth-2 enumeration on the wrong lineage, with no error
 > raised. With `ulimit` moved above, the same measurement returns **6**.
 
-Wall: ~2.1h on D128als_v7. Output: `solutions.bin` (24.3 GB) +
+Wall: ~2.1h on a 128-core VM. Output: `solutions.bin` (24.3 GB) +
 sha256 + meta.json.
 
 **Verify an existing canonical against the spec:**
@@ -3397,7 +3397,7 @@ sha256 + meta.json.
 solve --verify solutions.bin
 ```
 
-Wall: ~30-60 min on D128 for the 100T canonical (102 GB).
+Wall: ~30-60 min on a 128-core VM for the 100T canonical (102 GB).
 
 **Quick visual sanity check (first 5 records as Unicode hexagrams):**
 
@@ -3533,7 +3533,7 @@ External cleanup is not required but is a disk-hygiene best practice.
   ([CORRECTIONS.md](CORRECTIONS.md) §"2026-09-04 — the 1T anchor pair was two
   per-cell budgets"). The scope above is a statement of what has been tested,
   not of an observed failure.] The
-  strongest expectation a third-party reproducer should hold is same SKU
+  strongest expectation a third-party reproducer should hold is same VM size
   class, same region, at 11.2T and above
   ([CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md):648-651).
   *(Scope restored 2026-09-01: this bullet asserted byte-identity across
@@ -3552,7 +3552,7 @@ External cleanup is not required but is a disk-hygiene best practice.
 
 ## PERFORMANCE
 
-Approximate wall-clock on D128als_v7 (AMD EPYC 9V45, 128 vCPU spot)
+Approximate wall-clock on a 128-core Spot VM (AMD EPYC 9V45, 128 vCPU)
 with `SOLVE_DFS_CHECKPOINT=1`:
 
 | Subcommand / scale | Wall | Notes |
@@ -3568,8 +3568,8 @@ with `SOLVE_DFS_CHECKPOINT=1`:
 | `--analyze` on 102 GB | ~30-60 min | OpenMP-parallelized |
 
 Single-thread `--branch p o 0 1`: ~22M nodes/sec on the AMD EPYC 9V45.
-*(Architecture corrected 2026-09-01 in both lines above: the SKU underlying
-Azure's `D128als_v7` is AMD EPYC 9V45 (96-core, 128-vCPU), per
+*(Architecture corrected 2026-09-01 in both lines above: the CPU underlying
+the 128-core VM is AMD EPYC 9V45 (96-core, 128-vCPU), per
 [DEPLOYMENT.md](DEPLOYMENT.md):335, which retracts the earlier Zen-5-family
 attribution these two lines carried.)*
 Multi-thread saturates at ~2.5B nodes/sec on 128 threads.
@@ -3597,7 +3597,7 @@ startup if RLIMIT_STACK is below the build's recommended threshold.
 **Memory:** the hash table sizes at 2^N slots × 32 bytes per
 thread, defaults to 512 MB/thread. At 128 threads that's 64 GB
 of RAM. Need at least ~80 GB system RAM for safe operation at
-the canonical budgets. D128als_v7 has 256 GB
+the canonical budgets. The 128-core VM has 256 GB
 ([DEPLOYMENT.md](DEPLOYMENT.md):197, :1336, :1360) — still ample.
 *(Corrected 2026-09-01: this read 384 GB.)*
 

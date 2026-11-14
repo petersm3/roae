@@ -78,7 +78,7 @@ The **greedy-ordered minimum is monotone non-decreasing with scale** (4 → 5 �
 
 Pre-computed analyze logs:
 - d2 10T, d3 10T, d3 100T: alongside the canonicals in `runs/{20260418_10T_d2_fresh, 20260418_10T_d3_fresh, 20260419_100T_d3_d128westus3}/analyze_output.log.gz` (the 100T run archive is the original; T9+c.1 recovery analyze log was not preserved separately)
-- **d3 560T: `analyze_v3_560T.log` in the operator-held preserved copy `20260608_560T_9a968fa2/` — ⚠ NOT PUBLIC.** That copy is operator-held, not a public URL ([CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Access boundary"); `runs/20260608_560T_9a968fa2/` in this repository holds only `viz/`. Every 560T §[6]–§[8] figure on this page is a **transcription** from that operator-held log, not a citation a reader can follow. (13,631 s wall on D128 with the algorithmic rewrites in `solve.c` commits 8ac5e8f, fe58e71, bf8d8a5, c0ec4c3; selftest sha `403f7202…`)
+- **d3 560T: `analyze_v3_560T.log` in the operator-held preserved copy `20260608_560T_9a968fa2/` — ⚠ NOT PUBLIC.** That copy is operator-held, not a public URL ([CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Access boundary"); `runs/20260608_560T_9a968fa2/` in this repository holds only `viz/`. Every 560T §[6]–§[8] figure on this page is a **transcription** from that operator-held log, not a citation a reader can follow. (13,631 s wall on a 128-core VM with the algorithmic rewrites in `solve.c` commits 8ac5e8f, fe58e71, bf8d8a5, c0ec4c3; selftest sha `403f7202…`)
 
 ## Limits and scope
 

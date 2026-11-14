@@ -489,7 +489,7 @@ regardless of host priority.)
 
 ### Group A — PRE-SCAN. Bank everything cheap first.
 
-**A0 — no ladder mounted, runnable today, no compute cost.** Nothing here waits for Stage T.
+**A0 — no ladder mounted, runnable today, no heavy compute.** Nothing here waits for Stage T.
 | step | command | token |
 |---|---|---|
 | A0.1 | `$SOLVE --check-arrangement-selftest && $SOLVE --kc-selftest && $SOLVE --kc-o3-selftest && $SOLVE --kc-g-selftest && $SOLVE --kc-t-selftest && $SOLVE --kc-cert-selftest && $SOLVE --kc-ladder-selftest && $SOLVE --kc-ar2-selftest && $SOLVE --kc-oracle-selftest && $SOLVE --kc-scan-selftest` — **all must print `PASS (0 failures)` or STOP** | `TR12_GATES=PASS` |

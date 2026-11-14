@@ -6,7 +6,7 @@ This means: any future independent reproduction of an enumeration on this branch
 
 ## Data
 
-Two runs on `22_0_30_1_20_0` (yield-16 laggard), both parallel mode, both `SOLVE_THREADS=64`, same SKU/region (Azure D64als_v7 spot, westus3). Progress lines emitted every 10s in the format `{nodes}B nodes, {sol}M sol, {c3} C3 ({stored} stored), {tasks}, {rate}M/s, {wall}s [, ETA=...]`.
+Two runs on `22_0_30_1_20_0` (yield-16 laggard), both parallel mode, both `SOLVE_THREADS=64`, same VM size and region (a 64-core Azure Spot VM). Progress lines emitted every 10s in the format `{nodes}B nodes, {sol}M sol, {c3} C3 ({stored} stored), {tasks}, {rate}M/s, {wall}s [, ETA=...]`.
 
 | Source | Date | Solver commit | Budget | Samples |
 |---|---|---|---|---|

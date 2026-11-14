@@ -397,7 +397,7 @@ A binary built without `-DGIT_HASH` records the literal string `unknown`
 `enumeration/solve_results.json` carries no `git_hash` key at all,
 `runs/20260418_10T_d2_fresh/solve_results.json:16` records `unknown`, and
 all five tracked `solutions.meta.json` files — the 10T d2, 10T d3 fresh,
-10T d3 v1, 100T d3 and 10T d3 westus3 runs — record a generator of
+10T d3 v1, 100T d3 and the 128-core 10T d3 runs — record a generator of
 `solve.c git unknown`. For those artifacts the revision has to come from
 the run's own notes, and how far that gets you varies per run:
 `runs/20260419_100T_d3_d128westus3/README.md:10` names the `Solver commit at enumeration launch`

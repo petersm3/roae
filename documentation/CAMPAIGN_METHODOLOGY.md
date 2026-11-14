@@ -230,13 +230,13 @@ those runs are not canonical and are not entered into `CANONICAL_HASHES.md`.
 >   sha for the new canonical; and the invariant that the new canonical contains **every** parent pair identity
 >   per cell, representatives and record order free to change (verified by the masked-identity containment test of §3, which is a subset-plus-growth check, not a prefix check). *(2026-11-14, Codex final review F12-010#1: this read every parent record as a per-cell prefix, verified by an ordered-subset diff)*
 >
-> **Decision (2026-08-08): the SKU, region and microcode identifiers below are RETAINED
-> deliberately.** This paragraph previously carried a live "Pre-publish TODO (operator review) —
+> **Decision (2026-08-08): the SKU, region and microcode identifiers below were RETAINED
+> deliberately.** *(The operator reversed this on 2026-11-14 and ruled that public text names no VM sizes, regions or resource names, so this document now gives core counts, memory and "one region" instead; the CPU model stays.)* This paragraph previously carried a live "Pre-publish TODO (operator review) —
 > genericize those to host-agnostic terms before publishing" inside an already-published document.
 > That instruction was reviewed and **rejected as wrong**, not left undone.
 >
 > Two findings. (1) *Nothing here is sensitive.* An audit found 11 such references, all public
-> product and region names (`D128als_v7`, `westus2`/`westus3`, AMD EPYC 9V74 / Bergamo Zen 4c),
+> product and region names (a VM size, two region names, and the CPU model AMD EPYC 9V74 / Bergamo Zen 4c),
 > and there are no public IP addresses, subscription or tenant IDs, keys, endpoints, or credentials
 > anywhere in the public corpus. The only IP-shaped strings in the tree are the Azure IMDS
 > link-local address and RFC1918 example ranges — all non-secret. Measured at `3ef705c9`
@@ -374,17 +374,17 @@ source campaign (which contains
 `shards.tar.gz`, `dfs_state.tar.gz`, `budget.tar.gz`, `solutions.bin.gz`,
 provenance sidecars, and an `EXTENSION_RECIPE.txt`):
 
-1. **Provision a new VM** (D128als_v7 Spot in westus3, same SKU class used
-   for the source campaign) with a **new Premium SSD** sized for the larger
+1. **Provision a new VM** (a 128-core Spot VM, the same VM size used
+   for the source campaign) with a **new SSD-backed data disk** sized for the larger
    shard set — roughly **2× the source archive's `shards.tar.gz` uncompressed
    size** plus a working margin. Mount both disks by UUID.
 2. **Gunzip the three preservation tarballs** from the preserved archive onto
-   the new Premium's run directory, preserving the per-cell file layout:
+   the new SSD's run directory, preserving the per-cell file layout:
    ```bash
-   cd /mnt/premium/run_<new_scale>
-   tar -xzf /mnt/solver-data/<source-campaign>/shards.tar.gz
-   tar -xzf /mnt/solver-data/<source-campaign>/dfs_state.tar.gz
-   tar -xzf /mnt/solver-data/<source-campaign>/budget.tar.gz
+   cd /mnt/<work-disk>/run_<new_scale>
+   tar -xzf /mnt/<data-disk>/<source-campaign>/shards.tar.gz
+   tar -xzf /mnt/<data-disk>/<source-campaign>/dfs_state.tar.gz
+   tar -xzf /mnt/<data-disk>/<source-campaign>/budget.tar.gz
    ```
    These three sets (once each extracted `*.gz` member is gunzipped to the exact filename the solver looks for) are what makes extension possible:
    - `sub_<cell>.bin` — the records found within the source budget
@@ -454,16 +454,16 @@ provenance sidecars, and an `EXTENSION_RECIPE.txt`):
 > Empirically, the probe is **noisy on a cold-cache VM** — that is, a VM that
 > has just been brought up via `az vm start` (eviction-resume) or is being
 > used for the first time (extension launch). The concurrent probe (64 iterations
-> per worker, at most 32 workers) runs before any disk warmup, and on a freshly-attached Premium SSD
+> per worker, at most 32 workers) runs before any disk warmup, and on a freshly-attached SSD-backed disk
 > can measure 200–300 fsync/sec where the warm disk would steady-state at
 > 2000+ fsync/sec. That triggers a false refuse-to-start.
 >
 > This was first encountered during the 2026-05-31 dress rehearsal:
 > the eviction-recovery code path provisioned a new VM, attached the
-> existing Premium with the in-flight shards, and re-launched the enum to
+> existing SSD with the in-flight shards, and re-launched the enum to
 > resume from `.dfs_state` checkpoints. The IOPS gate fired with
 > "223 fsync/sec, projected 41% fsync-wall-fraction" and refused. The same
-> Premium had passed the gate at first launch the same evening — only the
+> SSD had passed the gate at first launch the same evening — only the
 > probe changed (cold caches, no recent activity).
 >
 > The mitigation in the campaign supervisor is to set
@@ -479,7 +479,7 @@ provenance sidecars, and an `EXTENSION_RECIPE.txt`):
 > For an extension on a freshly-provisioned VM, the same condition applies:
 > the disk is not pathological, but the probe is too quick to know that.
 > Pass `SOLVE_SKIP_IOPS_CHECK=1` and proceed. If you are operating on a
-> known-good Premium SSD that you provisioned yourself, you have already
+> known-good SSD-backed disk that you provisioned yourself, you have already
 > done the work the gate exists to do.
 5. **Merge** with `solve --merge` (same pattern as the source campaign) to
    produce the new `solutions.bin` at the higher scale.
@@ -672,10 +672,10 @@ addition to the merged `solutions.bin`:
 | `solutions.provenance.json` + `canonical-host-fingerprint.json` + `build.sha` | Build provenance — what source ref + compiler + host configuration produced the archived bytes. Needed to identify what to rebuild on the extension VM. ⚠ *(2026-09-26, Q-837: in archives written before 2026-09-26, `build.sha`, the sidecars' `binary_sha256` fields and the fingerprint's `binary_full_sha256` / `binary_text_sha256` identify the coreutils `sha256sum` and `readlink` tools, not solve. The source ref is `git_hash` (`git_hash_set`, and `git_hash_macro` with `build_source_sha` in the fingerprint). A solve binary digest exists only as the sha256 of `solve.binary.snapshot`, where the run directory kept one; this table does not list that file.)* ⚠ *(2026-09-26: it is not listed because the shared canonical archive routine does not carry it today. That routine copies `solutions.provenance.json`, `shard_manifest.txt`, `build.sha`, `canonical-host-fingerprint.json` and `metadata.json` when present, and never `solve.binary.snapshot`. One campaign-specific archive step, for the 560 T campaign, copied it when the run directory held one. The archive scripts are not in this repository, so this is operator-attested. Until the shared routine carries it, a pre-2026-09-26 archive holds a solve-binary digest only if it happens to contain that file; otherwise `git_hash` is the only build identity it keeps.)* |
 | `EXTENSION_RECIPE.txt` | The operational version of section 3 of this doc, written by the archive supervisor. Pin to the archive bytes; not maintained over time. |
 
-Crucially: the live "working" Premium SSD from the source campaign is
+Crucially: the live "working" SSD from the source campaign is
 **redundant with the preserved archive** for extension purposes. Either one works.
 The preserved archive is the durable, infrastructure-failure-resistant path; the
-live Premium is a convenience (faster to re-attach + run than to gunzip from
+live SSD is a convenience (faster to re-attach + run than to gunzip from
 the archive).
 
 ### 4.1 Post-merge artifact preservation: NOT automatic (SPOF caveat)
@@ -683,10 +683,10 @@ the archive).
 A subtle, costly trap, surfaced during the 560 T campaign 2026-06-08:
 
 **The merge supervisor copies LOGS, sidecars, and the sha256 sidecar to
-solver-data — but does NOT copy `solutions.bin`, the per-cell `.bin` shards,
+the data disk — but does NOT copy `solutions.bin`, the per-cell `.bin` shards,
 or the per-cell `.dfs_state` checkpoints.** After the supervisor's
 `teardown_vm` step runs, those artifacts exist only on the detached
-Premium SSD that hosted the merge. The Premium SSD is by standing pattern
+SSD that hosted the merge. That SSD is by standing pattern
 the project's "transient external-merge scratch" — meaning, if anyone
 operates on standing-pattern muscle memory and deletes it, the canonical
 is gone.
@@ -695,12 +695,12 @@ The fix is two-pronged:
 
 1. **Every canonical campaign at ≥ 11.2 T must include an explicit copy
    step** of `solutions.bin` + all shards + all `.dfs_state` checkpoints
-   from Premium → solver-data **before** `teardown_vm` fires. The robust
+   from the SSD → the data disk **before** `teardown_vm` fires. The robust
    place for this is inside `phase_b_merge_supervise.sh` (or its
    replacement) — bake it in once and every future campaign inherits it.
-2. **Pre-launch disk-space gate** for solver-data: it must be sized to
+2. **Pre-launch disk-space gate** for the data disk: it must be sized to
    hold uncompressed working copy + gzipped preserved copy BEFORE
-   launch, not after merge completes. The 560 T campaign's solver-data
+   launch, not after merge completes. The 560 T campaign's data disk
    was 2 TB (≈ 800 GB free) at launch, insufficient for the 560 T uncompressed
    plus mirror (≈ 2.4 TB; see the ⚠ under the table below, which removes the checkpoint figures from this
    total). It was resized 2 TB → 4 TB online 2026-06-08
@@ -709,7 +709,7 @@ The fix is two-pronged:
 Capacity planning table (rough, derived from the 560 T artifact sizes,
 power-law-projected for 1120 T):
 
-| Scale | `solutions.bin` | Shards (.bin) | Checkpoints (.dfs_state) | On-disk total (mixed framing; see ⚠) | Preserved copy (gzip-9 of binary subset) | Required solver-data free |
+| Scale | `solutions.bin` | Shards (.bin) | Checkpoints (.dfs_state) | On-disk total (mixed framing; see ⚠) | Preserved copy (gzip-9 of binary subset) | Required data-disk free |
 |---|---|---|---|---|---|---|
 | 11.2 T | ~5 GB | ~10 GB | ≈70 MB | ~15 GB | + ~30 GB | ~45 GB |
 | 100 T | ~115 GB | ~150 GB | ≈70 MB | ~265 GB | + ~250 GB | ~515 GB |
@@ -734,9 +734,9 @@ what it measured. Size a raw working copy from records × 32 B: at 560 T that is
 plus the 337 GB output, before any mirror.]**
 
 This finding is non-obvious from the supervisor's published doc-comments
-(which say "solutions.provenance.json copied to solver-data BEFORE teardown",
+(which say "solutions.provenance.json copied to [the data disk] BEFORE teardown",
 implying the data file is also copied — it isn't). Future maintainers should
-audit any merge supervisor for explicit `cp solutions.bin → solver-data`
+audit any merge supervisor for explicit `cp solutions.bin → <data-disk>`
 before the `teardown_vm` call.
 
 ---
@@ -751,8 +751,8 @@ under the partition-invariance theorem
 |---|---|
 | Single-VM enum vs partitioned across N VMs | None — merge produces identical bytes either way |
 | Spot vs Regular VM | None for enum (eviction is recoverable via DFS-state checkpoints); merge needs Regular because the external sort isn't checkpointable |
-| Westus2 vs westus3 (same Microsoft-Datacenter microcode class) | None |
-| One Premium SSD for everything vs separate scratch | None — operational choice for IOPS isolation |
+| One region vs a second region (same datacenter microcode class) | None |
+| One SSD for everything vs separate scratch | None — operational choice for IOPS isolation |
 | Thread count (128 vs 64 vs 16) | None for a fresh enum (per-cell budget pins the work). A resume over a live `.dfs_state` frontier must keep the thread count and depth that `resume_contract.txt` records, or it stops with exit 34; `SOLVE_RESUME_SHAPE_OVERRIDE=1` proceeds but voids the byte-reproducibility claim for that directory *(2026-11-14, Codex final review F12-010#9: the resume case was not stated)* |
 | Reboot mid-campaign | None — checkpoint resume is byte-clean |
 
@@ -792,19 +792,19 @@ moves proportionally fewer records. Empirically:
   6,314,566 — and not by host. Both were reproduced from one binary on one
   host on 2026-09-04. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 1T.
   ⚠ **[CORRECTED 2026-09-04 — this bullet read "1 T canonical: host-fragile.
-  Two different Spot D128 hosts in the same westus3 SKU pool can produce
+  Two different 128-core Spot hosts in the same region and size pool can produce
   different 1 T shas", and the sentence above it said the host-environment
   sensitivity drops away with scale. There is no host-environment
   sensitivity in the record to drop away: see
   [CORRECTIONS.md](CORRECTIONS.md) §"2026-09-04 — the 1T anchor pair was two
   per-cell budgets". Second correction of this fact.]**
 - **11.2 T canonical: host-stable across our current host class.** Six
-  independent derivations (Build A May 14 and Build B May 14, both on D64als_v7
+  independent derivations (Build A May 14 and Build B May 14, both on 64-core
   hosts per CANONICAL_HASHES.md, v3 sha-equivalence May 24, c72eada+#108 witness May
   27, t62 dress May 28, and the Tier-1 post-hardening dress May 31 — "Tier-1" being the
   *determinism-hardening* level, not a campaign budget)
-  all produce the same sha, the later ones on D128als_v7 Spot westus3; a May 15 re-checksum of the preserved bytes also matched, which is preservation evidence, not a further derivation.
-  ⚠ **[CORRECTED 2026-09-25 (Q-763) — this read "Seven independent witnesses … on D128als_v7"; Build A and Build B ran on D64als_v7, and a re-checksum is not a derivation.]** See the 11.2T row in
+  all produce the same sha, the later ones on 128-core Spot VMs in one region; a May 15 re-checksum of the preserved bytes also matched, which is preservation evidence, not a further derivation.
+  ⚠ **[CORRECTED 2026-09-25 (Q-763) — this read "Seven independent witnesses", all on the 128-core VM; Build A and Build B ran on a 64-core VM, and a re-checksum is not a derivation.]** See the 11.2T row in
   [CANONICAL_HASHES.md](CANONICAL_HASHES.md).
 - **100 T canonical: host-stable.** Re-validated May 30 on the current
   main lineage; reproduces the historical sha byte-identically.
@@ -812,7 +812,7 @@ moves proportionally fewer records. Empirically:
 
 For extension specifically: **extension byte-faithfulness depends on the
 extension host being in the same sha-stability class as the source host**.
-Within "D128als_v7 Spot westus3 with current Azure microcode" (as of
+Within "the 128-core Spot VM size, in one region, with current Azure microcode" (as of
 2026-05-31), 11.2 T+ scales are sha-stable; extension works byte-identically.
 Across host classes, sha-stability has been demonstrated **by direct
 byte-identical reproduction**: the ARM Cobalt witness (2026-05-21, Neoverse-N2,
@@ -831,7 +831,7 @@ direction that weakened it.]**
 
 What this means for a third-party reproducer:
 
-- Reproducing a canonical sha on **the same Azure SKU class in the same
+- Reproducing a canonical sha on **the same Azure VM size and CPU in the same
   region** is the strongest expectation — should be byte-identical at 11.2 T
   and above.
 - **A differing sha means a differing record set. Investigate it; do not
@@ -888,8 +888,8 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
 |---|---|
 | Campaign | #49 — 560 T full-depth-3 canonical |
 | Source commit | git `2b01b15` (current main lineage) |
-| Compute SKU (enum) | D128als_v7 Spot in westus3 (AMD EPYC 9V74 / Bergamo Zen 4c) |
-| Compute SKU (merge) | D16als_v7 Standard in westus3 |
+| Compute (enum) | 128-core Spot VM, 256 GB RAM (AMD EPYC 9V74 / Bergamo Zen 4c) |
+| Compute (merge) | 16-core VM on regular (non-Spot) capacity, same region |
 | Per-cell budget | 3,536,157,207 nodes (= 560 T / 158,364 cells) |
 | Total budget | 560,000,000,000,000 nodes |
 | Launch UTC | 2026-06-01 00:03 UTC (= 2026-05-31 17:03 PT) |
@@ -905,24 +905,24 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
 | `solve --verify` | **PASS — all 10,525,271,997 records satisfy C1-C5 + sorted + no duplicates.** The same run additionally REPORTED that the King Wen sequence is present; that is a true measured observation about the artifact and is not part of the PASS verdict. ⚠ **[CORRECTED 2026-09-07 — this row read "PASS — all 10,525,271,997 records satisfy C1-C5 + sorted + no duplicates, King Wen sequence found", running the King Wen observation into the verdict clause as though `--verify` enforced it.** It does not: `kw_found_v` is printed (`King Wen found:` and the machine-readable `KW_PRESENT=YES\|NO`) and enters `total_fail` only via `fail_kw`, set only under the opt-in `--expect-kw` (in `solve.c`, inside the `--verify` handler's `if (g_expect_kw && !kw_found_v)` guard, `fail_kw` being the last term summed into `total_fail`; cited by symbol rather than line number, re-verified against this tree 2026-09-07, because `solve.c` line numbers drift), so a default `--verify` on an artifact with the King Wen record deleted returns `VERIFY=PASS`, rc 0. **The observation stands** — King Wen is in the 560 T canonical — but it is a FACT the run reported, not a criterion it gated on, and `--expect-kw` (added 2026-09-04) is what makes absence a FAIL; it did not exist when this row's 2026-06-08 run was made. Enforcement by default was deliberately retracted 2026-09-02 (registry `RP-60347080`) because a shard or a budgeted slice legitimately lacks the record; `tests.py`'s `TestSolveVerifyKingWenScope` pins the reported-not-enforced contract with a mutation test. The witness row for the same run in [CANONICAL_HASHES.md](CANONICAL_HASHES.md) carries the same marker of this date. No sha, record count or verdict changes — PASS was and remains PASS on the constraint, sort and dedup checks.]** |
 | `verify.py --jobs 64` | PASS (2026-06-09) — independent Python re-verify of all 10,525,271,997 records; see CANONICAL_HASHES.md witness table |
 | Total realized cost | **not published.** The pre-launch projection is not restated here; the realized total varied with eviction-defer wall-time and no itemized ledger has been published for it. ⚠ **[CORRECTED 2026-09-01 — this read "recorded in HISTORY.md campaign ledger". It is not: the 560 T entry in HISTORY.md records launch, wall, records, sha, dedup ratio, verify status and eviction count, and no cost total; that file's cost totals stop at earlier, smaller campaigns. The cross-reference pointed at a ledger that does not exist, and a `[cost redacted]` 560 T total elsewhere in this document was anchored to it — see §7 rule 9, where both are withdrawn.]** ⚠ **[AMENDED 2026-09-01, later the same day — "not published" is right about the public corpus but was read here as "not known", and that is wrong. A realized total **was measured** at campaign closeout and is recorded in the project's private closeout analysis (`petersm3/roae-private:560T_FINAL_ANALYSIS.md`, the "Cost (realized)" row, stated against the campaign's hard cap). So this is a **publication** gap, not a measurement gap. The figure is deliberately not restated here: a cost total carries no reproduction command, and §7 rule 9 has set the bar for putting one in this document at an **itemized** ledger — VM hours by SKU, disk-months, closeout — which the private one-line total does not supply. Withdrawing it as an estimation anchor (rule 9) and knowing it was measured are both true at once.]** |
-| Eviction count handled | **5** — all M-F, all in a 37-min window 07:12-07:49 PT (Mon 07:12, Tue 07:39, Wed 07:34, Thu 07:42, Fri 07:49). **0 weekend evictions** (Sat 2026-06-06 + Sun 2026-06-07) — strong empirical support for M-F-only scheduled reclamation in the westus3 D128als_v7 Spot pool. |
+| Eviction count handled | **5** — all M-F, all in a 37-min window 07:12-07:49 PT (Mon 07:12, Tue 07:39, Wed 07:34, Thu 07:42, Fri 07:49). **0 weekend evictions** (Sat 2026-06-06 + Sun 2026-06-07) — strong empirical support for M-F-only scheduled reclamation in the 128-core Spot pool of that region. |
 | Throttled-host re-provisions | 0 (no host returned throttled state) |
-| Preserved copies | `20260608_560T_9a968fa2/` (gzip, with sidecars); uncompressed working copy at `solver-data:/run_560T/` (solutions.bin + 65,281 shards + 158,364 `.dfs_state` checkpoints) |
-| Post-merge SPOF discovered + remediated | Per §4.1: the merge supervisor does NOT auto-copy solutions.bin to solver-data; explicit copy was added mid-campaign before teardown. solver-data resized 2 TB → 4 TB online to fit uncompressed + gzip-mirror artifacts. |
+| Preserved copies | `20260608_560T_9a968fa2/` (gzip, with sidecars); uncompressed working copy at `<data-disk>:/run_560T/` (solutions.bin + 65,281 shards + 158,364 `.dfs_state` checkpoints) |
+| Post-merge SPOF discovered + remediated | Per §4.1: the merge supervisor does NOT auto-copy solutions.bin to the data disk; explicit copy was added mid-campaign before teardown. The data disk was resized 2 TB → 4 TB online to fit uncompressed + gzip-mirror artifacts. |
 
 ### Operations design choices made for this campaign
 
 - **Launch at 17:01 PT (1 minute past UTC June 1)** — earliest clean
-  June-billing UTC time + 12 hours of off-hours Spot runway before any M-F
+  June UTC time + 12 hours of off-hours Spot runway before any M-F
   daytime defer risk.
-- **Single-VM enum on a D128 Spot, separate Standard D16 for merge.**
+- **Single-VM enum on a 128-core Spot VM, separate 16-core regular VM for merge.**
   Eviction-resilient (DFS checkpoints), uncheckpointable phase isolated to a
-  small Standard.
+  small regular (non-Spot) VM.
 - **75-min wait + M-F daytime defer policy.** Off-hours evictions retry
   quickly; M-F daytime evictions defer to 18:01 PT same-day to avoid
   disrupting operator availability windows.
 - **Throttle probe on every new VM, including post-eviction `az vm start`
-  AND every main-loop poll cycle.** Spot D128 pool occasionally hands back
+  AND every main-loop poll cycle.** The 128-core Spot pool occasionally hands back
   thermally-throttled hosts at ~600 MHz vs the expected 2596 MHz base /
   3700 MHz boost. The campaign supervisor runs `solve --cpu-freq <threshold>`
   in three places: (a) after the initial `az vm create` provision; (b) after
@@ -939,7 +939,7 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
   pass the provisioning probe but degrade hours later. Probe cost is
   negligible (a 50ms `/proc/cpuinfo` read per cycle); prevents the long-tail
   scenario where a thermally-throttled host runs the enum at ~5× normal wall.
-- **Observed eviction pattern: D128 Spot reclaimed daily around 07:15–07:40 PT.**
+- **Observed eviction pattern: 128-core Spot VM reclaimed daily around 07:15–07:40 PT.**
   Live observation from the in-flight 2026-06 560T campaign. Across the
   first three days every Spot eviction landed within a narrow 27-minute
   window:
@@ -959,17 +959,17 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
   improbable as coincidence. **Both weekend days produced zero evictions**
   (~54 hours of Spot runway from the Fri 18:01 PT restart to Mon 00:00 PT; the run completed Sun 20:33 PT, 50.5 h in, with no eviction — Q-895, 2026-09-28: this read "through Sat 00:00 PT → Sun 23:00 PT", which is 47 h),
   strong empirical support for the M-F-only scheduled-reclamation hypothesis
-  in the westus3 D128als_v7 Spot pool.
-  Still can't fully distinguish "the westus3 D128als_v7 Spot pool has
+  in that region's 128-core Spot pool.
+  Still can't fully distinguish "that region's 128-core Spot pool has
   scheduled reclamation around 07:30 PT" from "this customer of the
   same pool happens to be aggressively renewing in that window."
   But the timing has been tight enough to be operationally
   actionable: the wait-relaunch-window's M-F daytime defer policy
   (defer to 18:01 PT same day) handles these cleanly without operator
   intervention. Wall-time cost per such eviction is ~10h 22min of defer
-  (off-hours waits would be 75 min flat instead). Spend impact is
-  negligible: the deallocated D128 doesn't bill; the Premium SSD baseline
-  continues billing at a small hourly rate.
+  (off-hours waits would be 75 min flat instead). While deallocated,
+  the VM does no work; the data disks stay attached and
+  keep their contents.
 
   *Possible interpretation note* for operators planning future campaigns:
   if the pattern persists, launching a campaign just **after** the
@@ -1057,7 +1057,7 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
   crosses ~ 30 K and silently fails (returns 0). The `find` invocation
   does its matching inside the find process and has no `argv` limit.
 - **The preserved archive includes shards + dfs_state + budget tarballs.** The
-  archive itself is extension-ready (you do not need the live Premium to
+  archive itself is extension-ready (you do not need the live SSD to
   extend).
 - **Extension recipe written into the archive directory** — see
   `EXTENSION_RECIPE.txt` in the archive.
@@ -1078,14 +1078,14 @@ specific symptom that motivated it.
 
 1. **Separate VMs per disk source for post-merge workloads.**
    On 2026-06-09 we ran solve --analyze + verify.py (64 workers) +
-   sha256sum + gzip step 2 of the archive **all on a single D64 Spot
-   against one Standard SSD**. Aggregate IOPS budget ~5,000 split across
+   sha256sum + gzip step 2 of the archive **all on a single 64-core Spot VM
+   against one standard-tier SSD**. Aggregate IOPS budget ~5,000 split across
    130+ concurrent readers = ~38 IOPS each. solve --analyze ran 7+ h
    instead of expected ~2 h, the Spot eviction window caught it, and the
-   D64 time + ~8 h of analyze work were lost.
+   VM time + ~8 h of analyze work were lost.
    **Rule:** post-merge workloads (verify.py, solve --analyze, archive
    gzip, sha256sum) each get their own VM with their own attached
-   disk source. Snapshot the merged solver-data into N independent disks
+   disk source. Snapshot the merged data disk into N independent disks
    if true parallelism is needed. Within a single VM, serialize — never
    run two disk-heavy workloads concurrently against the same SSD.
 
@@ -1161,13 +1161,13 @@ specific symptom that motivated it.
 
 
 
-8. **`solve --analyze` at canonical scale: D128 Standard is right-sized.
+8. **`solve --analyze` at canonical scale: a 128-core regular VM is right-sized.
    The bottleneck is page-cache fraction of `solutions.bin`, not cores
    or RAM-for-bitmaps.**
    Empirical data from the 2026-06-10/11 560T analyze cascade (three
-   attempts at three VM sizes): D32 (64 GB RAM, holds 19% of 336 GB
+   attempts at three VM sizes): 32 cores (64 GB RAM, holds 19% of 336 GB
    `solutions.bin` in page cache) projected 3 h total wall — every
-   re-pass-over-records section hits disk at ~450 MB/s Premium SSD
+   re-pass-over-records section hits disk at ~450 MB/s SSD-backed disk
    bandwidth ≈ **12.5 min per pass** (336,808,703,936 B ÷ 450 MB/s = 748 s).
    ⚠ **[CORRECTED 2026-09-01 — this read "≈ 22 min per pass" here and again
    six lines below. The two published factors give 12.5 min, not 22. The same
@@ -1178,9 +1178,9 @@ specific symptom that motivated it.
    it; that entry carries its own marker and the two retired forms are
    registered as `RP-a8eb3931` and `RP-dd27f0bf`. The handoff sentence above
    is preserved as the record of how the site was carried forward rather than
-   lost.]**]** D64 (128 GB, RAM ≤38% of the file — these RAM-to-file ratios are upper bounds on usable cache) was where the
+   lost.]**]** 64 cores (128 GB, RAM ≤38% of the file — these RAM-to-file ratios are upper bounds on usable cache) was where the
    original §[10] code ran for 24h+ without finishing — but that was a
-   pre-rewrite issue, not a sizing issue per se. **D128 (256 GB, 76%
+   pre-rewrite issue, not a sizing issue per se. **128 cores (256 GB, 76%
    cache)** finished a full --analyze on the 560T canonical in
    **3 h 47 m (13,631 s, measured)** with the post-#141/#142/#143 rewrites —
    `analyze_v3_560T.log`, the run recorded in
@@ -1191,7 +1191,7 @@ specific symptom that motivated it.
    ⚠ **[CORRECTED 2026-09-01 — this read "finished a full --analyze on the
    560T canonical in ~1.5 h", stating a **projection** as an accomplished
    fact. HISTORY.md's pre-run entry is explicit that ~1.5 h was
-   "**Projected** total wall on D128"; the run itself took 13,631 s, 2.5× the
+   "**Projected** total wall on [the 128-core VM]"; the run itself took 13,631 s, 2.5× the
    projection. Everything downstream of it in this rule — the cost figure and
    the 1120T forecast — was re-derived from 13,631 s in the same pass.]**
    The cache fraction matters
@@ -1204,31 +1204,31 @@ specific symptom that motivated it.
    are largely cache-resident and finish in seconds-to-minutes.
    Compute ceiling: analyze saturates at ~5-10 effective cores regardless
    of VM size — the limiting factor is memory bandwidth in the parallel
-   sections (§[10], §[20], §[22]). So a D128 spends compute mostly idle,
+   sections (§[10], §[20], §[22]). So a 128-core VM spends compute mostly idle,
    but the extra RAM is what's actually doing the work.
-   **Rule:** size analyze VM at **D128als_v7 Standard** for 560T+ canonicals.
-   Wall: **3 h 47 m per analyze run** on D128, measured, not
-   projected. Down-sizing to D64 or D32 was not measured on comparable runs, so no
-   net saving either way is claimed; D32 hits a "this won't fit" regime once the
+   **Rule:** size analyze VM at **128 cores, 256 GB, regular (non-Spot) capacity** for 560T+ canonicals.
+   Wall: **3 h 47 m per analyze run** on 128 cores, measured, not
+   projected. Down-sizing to 64 or 32 cores was not measured on comparable runs, so no
+   net gain either way is claimed; 32 cores hit a "this won't fit" regime once the
    file exceeds ~5× cache size. For 1120T extension
-   (file ~576 GB at the ~18 B records used below, 32 B a record; the §4 table's power-law projection is ~620 GB): D128's 256 GB cache fits about 44% of the
+   (file ~576 GB at the ~18 B records used below, 32 B a record; the §4 table's power-law projection is ~620 GB): the 128-core VM's 256 GB cache fits about 44% of the
    file — analyze remains feasible there. *(2026-11-14, Codex final review F12-010#17: this read ~540 GB and 47%, which do not follow from the 18 B records used below)*
    §[10]/§[11]/§[20] are now algorithmic-rewrite-bound rather than core-
    count-bound (see rule 14). Measured --analyze wall after the rewrites:
-   **13,631 s (3 h 47 m) at 10.5 B records (560T) on D128.** Scaling that
+   **13,631 s (3 h 47 m) at 10.5 B records (560T) on 128 cores.** Scaling that
    base linearly by record count, 1120T at ~18 B records projects to
    **≥6.5 h** (13,631 s × 18 / 10.525 = 23,311 s) — and ≥ is the right
-   relation, because D128's cache fraction falls from 76 % to about 44 % on the
+   relation, because the 128-core VM's cache fraction falls from 76 % to about 44 % on the
    larger file, so the disk-bound sections get worse than linearly. Budget
-   ≥6.5 h of D128 wall for a 1120T analyze run.
-   ⚠ **[CORRECTED 2026-09-01 — the cost read "[cost redacted]/hr × 1.5 h = [cost redacted]" and
+   ≥6.5 h of 128-core wall for a 1120T analyze run.
+   ⚠ **[CORRECTED 2026-09-01 — a cost line that stood here (removed 2026-11-14) and
    the forecast read "~1.5 h at 10.5 B records (560T) … ~3-5 h at 18 B records
    (1120T)". Both descended from the ~1.5 h projection corrected above. At the
-   measured 13,631 s the 560 T run cost 2.5× what was published, and
+   measured 13,631 s the 560 T run took 2.5× the published wall, and
    the 1120T forecast — which was **below** the true 560 T wall — is replaced
-   by a re-derivation from the measured base. The D64/D32 comparison figures
+   by a re-derivation from the measured base. The 64-core/32-core comparison figures
    were struck rather than rescaled: they were projections against a
-   projection, and no measured wall exists for either SKU at 560 T.]**
+   projection, and no measured wall exists for either size at 560 T.]**
 
 9. **Extension saves the parent's already-walked nodes — it does not skip
    cells. There is no published 560T cost total to anchor an estimate to.**
@@ -1258,7 +1258,7 @@ specific symptom that motivated it.
    incremental figure derived from it therefore both rested on a number the
    corpus never published, and the incremental figure additionally assumed the 41-50 %
    model that (a) refutes. **No cost estimate for a 1120T extension is stated
-   here until an itemized 560 T ledger — VM hours by SKU, disk-months,
+   here until an itemized 560 T ledger — VM hours by size, disk-months,
    closeout — is published.**
    ⚠ **Additional hazard, latent, affecting any extension launched today.**
    `solve.c`'s `#167` resume guard discards a cell's checkpoint whenever its
@@ -1352,26 +1352,26 @@ specific symptom that motivated it.
     WARN per missing file so it surfaces in the post-archive audit.
 
 12. **Pre-deallocate log preservation: copy the archive run's /tmp logs to
-    solver-data first.**
+    the data disk first.**
     The archive VM's /tmp is tmpfs and is lost on `az vm deallocate`
     (or even on reboot). Almost lost the copy-failure forensic logs
     that diagnosed the first failed attempt.
     **Rule:** any VM that ran a supervisor script preserves /tmp/*.log
-    to `solver-data:/<archive_dir>/preserve_logs/`
+    to `<data-disk>:/<archive_dir>/preserve_logs/`
     before `az vm deallocate` is issued.
 
 13. **Analyze + archiving can run on separate VMs simultaneously
     (with separate disk sources) — and should.**
     On 2026-06-09 attempt 2 (after the Spot eviction): split into
-    an archive VM (on solver-data) + c560-d64-analyze2 (on Premium
-    SSD). Analyze ran ~3× faster than the contended attempt 1 because no
-    I/O competition for the same disk. Cost: one extra D64 hour
-    in exchange, saved: 4-5 h of analyze wall on D64 + lower
+    an archive VM (on the data disk) + a second, analyze VM (on an
+    SSD-backed disk). Analyze ran ~3× faster than the contended attempt 1 because no
+    I/O competition for the same disk. Overhead: one extra VM-hour
+    in exchange, saved: 4-5 h of analyze wall + lower
     Spot-eviction risk.
-    **Rule:** the canonical post-merge pattern is **two Standard
-    VMs**, each with its own disk: archiving on solver-data,
-    analyze on Premium SSD, the analyze VM sized per rule 8 (D128als_v7 for 560T+; the D64 run above predates that rule). Don't try to bundle both on one VM unless
-    operator explicitly authorizes for cost reasons.
+    **Rule:** the canonical post-merge pattern is **two regular (non-Spot)
+    VMs**, each with its own disk: archiving on the data disk,
+    analyze on an SSD-backed disk, the analyze VM sized per rule 8 (128 cores for 560T+; the 64-core run above predates that rule). Don't try to bundle both on one VM unless
+    operator explicitly authorizes it.
 
 14. **`solve --analyze` section design at canonical scale: one pass over
     records, never an outer loop with inner full-scan.**
@@ -1382,7 +1382,7 @@ specific symptom that motivated it.
     reads. At 100T this was unpleasant but tolerable; at 560T (10.5 B
     records, 336 GB file) it became 100s-of-hours infeasible. The §[10]
     case was the worst: 496 × `n_sols` = 167 TB of mmap reads = 24h+ on
-    D64 without finishing.
+    a 64-core VM without finishing.
     **Rule for any new section added to --analyze:** the section must
     iterate `n_sols` records **at most once**. Aggregation that requires
     "per-X per-record" updates is done inline during the single record
@@ -1402,13 +1402,13 @@ specific symptom that motivated it.
     Similarly-structured anti-pattern survives in §[12]-§[19]/§[21]-
     §[28] (each one re-reads the `n_sols` records at least once for its own
     aggregate; §[13] reads them twice, once for the palindrome test and once for the self-complement test *(2026-11-14, Codex final review F12-010#16: this read once for every section)*). These remaining sections are cheap individually (~1-3
-    min each at 560T on D128's cached file) but the cumulative effect
-    of N sections × one pass × 336 GB is what makes D128's 76% cache
+    min each at 560T on the 128-core VM's cached file) but the cumulative effect
+    of N sections × one pass × 336 GB is what makes the 128-core VM's 76% cache
     fraction matter so much. A future pass to collapse multiple
     sections into one shared record-scan (with all their accumulators
     updated simultaneously) is the next-level optimization, but the
     current per-section ONE pass design is sufficient for 560T → 1120T
-    extension on D128.
+    extension on 128 cores.
     **Companion rule for observability:** every n_sols-iterating loop in
     --analyze must emit per-1% progress to stderr using the shared
     `ANALYZE_EMIT_PROGRESS` macro at the top of `solve.c`. The macro
@@ -1458,8 +1458,8 @@ a third party can reproduce any canonical as follows:
    false mismatch. Under `SOLVE_COMPRESS=0`, **and on any build from a ref older than #169 (2026-06-17) — the 560T ref among them —** the file is raw and plain `sha256sum` is correct; check the first two bytes (`1f 8b` = gzip) before choosing, as §3's lineage test does. The
    `solutions.sha256` sidecar already carries the logical sha either way. ⚠ *(Corrected 2026-09-25, Q-763: the pre-#169 case was missing, so step 6 hashed an empty stream there.)*)
 
-On a host in the same SKU class as the original campaign (D128als_v7 Spot
-westus3 for our 11.2T+ canonicals), the sha should match byte-identically.
+On a host of the same VM size as the original campaign (128 cores, Spot,
+one region for our 11.2T+ canonicals), the sha should match byte-identically.
 On a different host class, structural verification (`solve --verify` +
 `verify.py`) should PASS even if the sha differs — but read that carefully:
 it confirms the records the artifact *contains* are valid. It says nothing

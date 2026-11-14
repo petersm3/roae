@@ -470,7 +470,7 @@ We've verified this:
 - Across CPU architectures (AMD EPYC x86-64 vs ARM Cobalt 100,
   Neoverse-N2) — the 11.2T cross-architecture witness in
   [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 11.2T
-- Across regions (Azure westus2 vs westus3)
+- Across regions (two Azure regions)
 - Across enumerator modes (all-branch vs single-branch via `--branch`)
 
 The verification is by SHA-256: hash the **decompressed** record stream of each path's solutions.bin (gzip-framed by default since #169 — `gzip -dc`, per [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) §8),

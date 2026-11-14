@@ -70,7 +70,7 @@ Before sizing anything, answer these questions:
    [DEVELOPMENT.md](DEVELOPMENT.md) and [CANONICAL_HASHES.md](CANONICAL_HASHES.md);
    the **scoring-axis** `tier-1`/`tier-2` of [CRITIQUE.md](CRITIQUE.md) and
    [SOLVE_C_CLI.md](SOLVE_C_CLI.md); the
-   Standard/Premium **disk** tiers used throughout
+   standard/SSD **disk** tiers used throughout
    [DEPLOYMENT.md](DEPLOYMENT.md) and later in this file; and the reduced-rung
    **"Tier-2 scope"** of [VERIFY.md](VERIFY.md). ⚠ *(This parenthesis named only
    two other senses until 2026-09-03; the corpus carries eight public ones.)*)
@@ -122,44 +122,44 @@ to give is one branch's count, not the mean.
 ⚠ **[SCOPED 2026-09-03 — the thread-scaling sentence here was a pre-fix
 `--sub-branch` measurement carried as a current causal fact about `--branch`.]**
 It read: *"Empirically, per-thread rate **halves past 64 threads** due to NUMA
-boundaries (D128 has two sockets) and hash-table contention."* What was
+boundaries (the 128-core VM has two sockets) and hash-table contention."* What was
 measured: the April 2026 P1 `--sub-branch` scaling runs
 ([HISTORY.md](HISTORY.md), the "P1 v3: per-CCD counters" entry and the
-measurements before it) found single-process throughput on D128 capping near
+measurements before it) found single-process throughput on the 128-core VM capping near
 ~1 B nodes/s against a ~1.6 B/s packed-aggregate — roughly a halving — and
 traced it to **every thread contending on one shared atomic node counter**,
 not to NUMA. The per-CCD counter fix that followed is recorded there as
-"mechanism is correct by construction; not re-measured on D128". "Two
+"mechanism is correct by construction; not re-measured on [the 128-core VM]". "Two
 sockets" appears in no measurement record in this project, and nothing on
 file distinguishes sockets from NUMA nodes or CCDs on those hosts. So: **a
 >64-thread single process lost about half its per-thread rate in the pre-fix
 `--sub-branch` measurement; whether `--branch` on a current binary still does
-is unmeasured.** The sizing advice survives on cost grounds — HISTORY.md
-records D64 packing as the measured cost optimum for single-branch work, so
-**D64-class VMs remain the right size**, and a D128 should run two concurrent
+is unmeasured.** The sizing advice survives on efficiency grounds — HISTORY.md
+records 64-core packing as the measured optimum for single-branch work, so
+**64-core VMs remain the right size**, and a 128-core VM should run two concurrent
 `--branch` jobs rather than one — but treat the halving as a pre-fix
 observation to re-measure, not as a property of the hardware.
 
-### 2b. VM count: cost-equivalent, wall-time-different
+### 2b. VM count: same total compute, different wall time
 
-Total compute cost for a campaign of fixed size is roughly the
-same regardless of VM count (D-als-v7 spot pricing is near-linear
-in cores). What VM count buys you is **wall time** and **eviction
+Total compute (core-hours) for a campaign of fixed size is roughly the
+same regardless of VM count (the work divides across cores
+near-linearly). What VM count buys you is **wall time** and **eviction
 redundancy**.
 
 | VMs | Aggregate cores | Wall (560T) | Eviction blast |
 |---|---|---|---|
-| 1 × D64 | 64 | ~5.6 days | one VM eviction halts campaign |
-| **2 × D64** (recommended for 128-vCPU spot quota) | 128 | **~3.4 days** | redundant — one VM evicts, other progresses |
-| 4 × D64 (needs 256-vCPU quota) | 256 | ~1.7 days | best |
+| 1 × 64-core | 64 | ~5.6 days | one VM eviction halts campaign |
+| **2 × 64-core** (recommended for 128-vCPU spot quota) | 128 | **~3.4 days** | redundant — one VM evicts, other progresses |
+| 4 × 64-core (needs 256-vCPU quota) | 256 | ~1.7 days | best |
 
 These rows are the 2026-05 **forecast** for the 560T campaign, kept as the
 worked plan; §14 sets them beside what the campaign actually took — 171.5 h of
-enum wall on a D128 (~2.1× the mid estimate) and an 18 h 42 m merge the plan
+enum wall on a 128-core VM (~2.1× the mid estimate) and an 18 h 42 m merge the plan
 carried at ~2 h. Read them as a sizing method, not as expected outcomes.
 
 For 5.6 PT or 56 PT campaigns, scale up VM count proportionally
-to keep wall under ~10 days; cost scales linearly with budget.
+to keep wall under ~10 days; compute scales linearly with budget.
 
 ### 2c. Per-thread rate by workload
 
@@ -172,7 +172,7 @@ for the string `nodes/sec/thread` returns exactly two files: this document, and
 one hardcoded `1.0e7` planning constant in `solve.c` (locate by the comment
 `est wall = node_limit / (threads * 1.0e7 nodes/sec/thread)`) that is not a
 measurement of any of the three workload classes. No run id, commit, command,
-host SKU, thread count or timed interval was ever recorded for them, while the
+host VM size, thread count or timed interval was ever recorded for them, while the
 same paragraph warned that choosing the wrong row "gives wrong answers by 10×".
 Under the project's standing rule that a published figure ships with the
 command that reproduces it, the table is withdrawn rather than restated.
@@ -180,9 +180,9 @@ command that reproduces it, the table is withdrawn rather than restated.
 **What is actually measured.** One absolute per-thread rate in this corpus
 carries full provenance — [HISTORY.md](HISTORY.md), the 2026-04-20 entry
 "Same-SKU physical-host placement creates 2x rate variance". Single-branch
-enumeration on **D32als_v7 on-demand** measured **~10 M nodes/sec/thread** on
+enumeration on **a 32-core VM on regular (non-Spot) capacity** measured **~10 M nodes/sec/thread** on
 one physical host and **~20–22 M nodes/sec/thread** on two others of the
-identical SKU, region and vCPU count. That is the honest planning input, and
+identical VM size, region and vCPU count. That is the honest planning input, and
 its headline is not a midpoint but a **2× spread across hosts you cannot
 distinguish with `lscpu`**.
 
@@ -192,7 +192,7 @@ distinguish with `lscpu`**.
    measurement above. Quote a range; never a point.
 2. **Measure your own host 5–10 minutes into the run** and re-derive the
    estimate from it. The HISTORY entry's own lesson is kill-and-retry when the
-   early rate is obviously off — a 2× host penalty is a 2× cost overrun, and it
+   early rate is obviously off — a 2× host penalty is a 2× wall-time overrun, and it
    is invisible before launch.
 3. Treat full-enum (`solve 0 N`, no `--branch`) as **slower per thread** than
    `--branch` at the same budget, because it is overhead-dominated — but this
@@ -315,20 +315,20 @@ canonical pre-flight gate. It exercises:
 Run on the **exact campaign binary**, on each campaign VM, before
 launch. Wall: ~17 min on a 4-core VM, ~5 min on a 64-core VM.
 
-**Host stability pre-flight (paired performance benches only).** For LTO / AVX-512 / PGO / huge-pages / other A-vs-B speedup measurements on D128als_v7 — *not* for canonical sha enumeration — run `./solve --cpu-freq [THRESHOLD_MHZ]` BEFORE the bench. (Earlier revisions of this paragraph told you to run an orchestrator-side `scripts/d128_preflight_throttle_probe.sh`. **That script does not exist in this repository, and never did** — the check has always been the `--cpu-freq` subcommand, which is what the project's own campaign launcher calls. Corrected 2026-08-09.) Standard on-demand D128 hosts in westus3 have been observed to hand back the same SKU at radically different effective clocks (3700 MHz healthy vs 602 MHz thermal-throttled, observed 2026-05-16). A throttled host produces unusable paired ratios. ⚠ **[CORRECTED 2026-09-01 — the sentence that stood here described a capability the shipped probe does not have.]** It read: *"the probe provisions, runs a 60-second 128-thread `stress-ng matrixprod` burn, samples `/proc/cpuinfo cpu MHz` mid-load, and reprovisions up to 3 times if the host fails the threshold"*, and then equated that with `--cpu-freq`. The 2026-08-09 correction in the parentheses above retired the *name* of a deleted probe script and left the deleted script's *capability description* attached to the surviving subcommand. **What `--cpu-freq` actually does:** it opens `/proc/cpuinfo` once, parses the `cpu MHz` lines, and prints one line — `[--cpu-freq] cores=… min=… avg=… max=… threshold=… below=…` (default threshold 2000 MHz, overridable as `--cpu-freq 2200`). It generates no load, starts no child process, and provisions nothing. **The operational consequence is the point:** this is an *idle* clock reading, so a host that idles at 3.7 GHz passes it and can still collapse to 602 MHz under 128 threads — which is exactly the 2026-05-16 failure this paragraph cites. Until a loaded sample lands in `--cpu-freq`, treat it as a cheap sanity check that catches an already-throttled host, **not** as a load-throttling detector: for a paired bench, also compare the two arms' own observed node rates, where a throttled arm shows up directly. (Canonical enumeration runs are sha-deterministic regardless of host clock, so they don't need this — only paired wall-clock comparisons do.)
+**Host stability pre-flight (paired performance benches only).** For LTO / AVX-512 / PGO / huge-pages / other A-vs-B speedup measurements on a 128-core VM — *not* for canonical sha enumeration — run `./solve --cpu-freq [THRESHOLD_MHZ]` BEFORE the bench. (Earlier revisions of this paragraph told you to run an orchestrator-side throttle-probe script under `scripts/`. **That script does not exist in this repository, and never did** — the check has always been the `--cpu-freq` subcommand, which is what the project's own campaign launcher calls. Corrected 2026-08-09.) 128-core hosts on regular (non-Spot) capacity have been observed to hand back the same VM size at radically different effective clocks (3700 MHz healthy vs 602 MHz thermal-throttled, observed 2026-05-16). A throttled host produces unusable paired ratios. ⚠ **[CORRECTED 2026-09-01 — the sentence that stood here described a capability the shipped probe does not have.]** It read: *"the probe provisions, runs a 60-second 128-thread `stress-ng matrixprod` burn, samples `/proc/cpuinfo cpu MHz` mid-load, and reprovisions up to 3 times if the host fails the threshold"*, and then equated that with `--cpu-freq`. The 2026-08-09 correction in the parentheses above retired the *name* of a deleted probe script and left the deleted script's *capability description* attached to the surviving subcommand. **What `--cpu-freq` actually does:** it opens `/proc/cpuinfo` once, parses the `cpu MHz` lines, and prints one line — `[--cpu-freq] cores=… min=… avg=… max=… threshold=… below=…` (default threshold 2000 MHz, overridable as `--cpu-freq 2200`). It generates no load, starts no child process, and provisions nothing. **The operational consequence is the point:** this is an *idle* clock reading, so a host that idles at 3.7 GHz passes it and can still collapse to 602 MHz under 128 threads — which is exactly the 2026-05-16 failure this paragraph cites. Until a loaded sample lands in `--cpu-freq`, treat it as a cheap sanity check that catches an already-throttled host, **not** as a load-throttling detector: for a paired bench, also compare the two arms' own observed node rates, where a throttled arm shows up directly. (Canonical enumeration runs are sha-deterministic regardless of host clock, so they don't need this — only paired wall-clock comparisons do.)
 
 **For larger-scale campaigns (5.6 PT or 56 PT)**, also run
 production-scale spot-checks — the project calls these "Tier 9+":
 
 - **Pilot one branch at the chosen per-branch budget** on the
   intended VM size. Validates real wall time, real shard size,
-  real disk-write throughput. Cost: 1/N of the campaign cost
+  real disk-write throughput. Compute: 1/N of the campaign's
   where N is the branch count (e.g., 1/56 of the total).
 - **Merge memory-pressure test** — run [`--merge`](SOLVE_C_CLI.md#--merge) on a representative
   shard set, sample peak RSS. Tells you whether your intended
   merge VM has enough RAM. (For ≥5.6 PT campaigns, expect peak
-  RSS in the 200–900 GB range; **D64als_v7 has 128 GB**, which will
-  not suffice — size from the SKU→RAM table in
+  RSS in the 200–900 GB range; **the 64-core VM this project uses has 128 GB**, which will
+  not suffice — size from the VM-size→RAM table in
   [DEPLOYMENT.md](DEPLOYMENT.md#sku-to-ram-reference).)
 - **Cross-VM rsync integrity** — verify byte-identical transfer of
   shards across VMs.
@@ -572,11 +572,11 @@ SCRIPT orchestrator():
     sleep 30 minutes
 
   # ---- Phase 2: collect shards AND sidecars centrally ----
-  # Merge-host RAM: size from the SKU->RAM table in DEPLOYMENT.md
-  # (Dals_v7 is 2 GB per vCPU, so D64als_v7 = 128 GB and
-  # D128als_v7 = 256 GB) against the peak-RSS estimate in §9a.
-  # This comment previously read "D64 RAM (256 GB) ... D128
-  # (512 GB)" -- both doubled; corrected 2026-09-01.
+  # Merge-host RAM: size from the VM-size->RAM table in DEPLOYMENT.md
+  # (the low-memory size is 2 GB per vCPU, so 64 cores = 128 GB and
+  # 128 cores = 256 GB) against the peak-RSS estimate in §9a.
+  # This comment previously read "256 GB" for 64 cores and "512 GB" for 128
+  # cores -- both doubled; corrected 2026-09-01.
 
   log "PAUSE: operator must rsync shards from each VM to $MERGE_DIR"
   log "  rsync -av <VM-A>:$ROOT/enum/sub_*.bin $MERGE_DIR/"
@@ -805,29 +805,29 @@ or is forced to with `SOLVE_MERGE_MODE=external`, when it would not —
 then writes the deduped output. ⚠ *(corrected 2026-09-25: this said the merge builds a hash table of unique solutions. Codex v3 review, V3A-032#6)* RAM
 usage therefore scales with the **pre-dedup** shard record count (32 bytes each, auto-switching to external above 80% of RAM), not the unique count; the table below is keyed on unique count, so read it as a lower bound where cross-sub-branch rediscovery is high:
 
-⚠ **[RAM figures corrected 2026-09-01.** Every `Dals_v7` size in this table was
-doubled: it recommended "D32als_v7 (128 GB)", "D64 (256 GB)" and "D64als_v7
-(256 GB)". The `l` in `Dals_v7` is the **low-memory** variant at **2 GB per
-vCPU** — D32als_v7 is 64 GB and D64als_v7 is 128 GB. This project learned that
-at cost: [HISTORY.md](HISTORY.md)'s 100T-pilot entry records having to move
-"from D64als_v7 (128 GB RAM, 'l' = low memory) to **D64as_v7 (256 GB RAM)** …
-We had assumed D64als_v7 was 256 GB." The authoritative SKU→RAM figures are in
+⚠ **[RAM figures corrected 2026-09-01.** Every VM size in this table was
+doubled: it recommended a 32-core VM at 128 GB and a 64-core VM at 256 GB (twice,
+under two names). The size family used here is the **low-memory** variant at **2 GB per
+vCPU** — 32 cores is 64 GB and 64 cores is 128 GB. This project learned that
+the hard way: [HISTORY.md](HISTORY.md)'s 100T-pilot entry records having to move
+from the 64-core low-memory size (128 GB RAM) to **a 64-core size with 256 GB RAM**, having
+assumed the first was 256 GB. The authoritative VM-size→RAM figures are in
 [DEPLOYMENT.md](DEPLOYMENT.md#sku-to-ram-reference); take them from there, not from
 prose. **The correction moves the in-memory/disk-based boundary down by a full
-SKU step**, which is the whole point of the table.]
+VM-size step**, which is the whole point of the table.]
 
 | Solution count | Estimated peak RSS | Recommended merge VM | Strategy |
 |---|---|---|---|
-| ~750 M (Tier 1) | ~90 GB | D64als_v7 (128 GB) — D32als_v7's 64 GB does **not** fit | in-memory |
+| ~750 M (Tier 1) | ~90 GB | 64 cores, 128 GB — the 32-core size's 64 GB does **not** fit | in-memory |
 | ~10.5 B (560T, measured) | see note below | — | **external merge; this is what the campaign actually did** |
-| ~4 B (5.6 PT plan) | ~480 GB | no `Dals_v7` size reaches this; memory-optimized or external | in-memory is tight at best |
-| ~8 B | ~960 GB | above any SKU this project has provisioned | **switch to disk-based** |
-| ~10 B (56 PT plan) | ~1.2 TB | above any SKU this project has provisioned | **disk-based required** |
+| ~4 B (5.6 PT plan) | ~480 GB | no low-memory size reaches this; memory-optimized or external | in-memory is tight at best |
+| ~8 B | ~960 GB | above any VM this project has provisioned | **switch to disk-based** |
+| ~10 B (56 PT plan) | ~1.2 TB | above any VM this project has provisioned | **disk-based required** |
 
 **The 560T row is the only one that is not an extrapolation, and it did not use
 an in-memory merge at all.** 10.525 B unique records were merged from 43.88 B
-pre-merge shard records on a **D16als_v7 (32 GB)** by external chunked-sort on
-Premium SSD scratch, 18 h 42 m wall ([CANONICAL_HASHES.md](CANONICAL_HASHES.md)
+pre-merge shard records on a **16-core VM (32 GB)** by external chunked-sort on
+SSD scratch, 18 h 42 m wall ([CANONICAL_HASHES.md](CANONICAL_HASHES.md)
 §560T campaign details). ⚠ **[LABEL CORRECTED 2026-09-02 — this figure was published
 here, and at two more sites in this file, as *raw* records. It is not a raw
 oriented-leaf count: `solve.c` deduplicates on pair identity with the orient bit
@@ -840,13 +840,13 @@ marked, this file was not reached by that sweep or by the follow-up that closed
 those two.]**
 
 At 32 bytes/record an in-memory hash table over 10.5 B records is far
-past any of these SKUs, and the campaign never attempted it. Read that as the
+past any of these VM sizes, and the campaign never attempted it. Read that as the
 practical lesson: past ~1 B records, plan the external path (§9b) and size the
 **scratch disk**, not the RAM.
 
-The `E`-series rows that stood in this table (E64ads_v5 at 512 GB, E96ads_v5 at
+The memory-optimised rows that stood in this table (64 cores at 512 GB, 96 cores at
 672 GB) have been removed rather than corrected: those RAM figures appeared
-nowhere in this project's records except this table, and no `E`-series VM has
+nowhere in this project's records except this table, and no memory-optimised VM has
 ever been provisioned here, so the project has nothing to attest them with. If
 you plan on memory-optimized hardware, size it from your provider's current
 spec sheet.
@@ -855,7 +855,7 @@ spec sheet.
 a 32 GB VM, and this guide has no measurement of where in-memory actually stops
 being the better choice. The old text put the break at "**5–6 B solutions** …
 since the largest practical memory-optimized spot VM is ~672 GB RAM" — an
-inference from the unattested `E`-series figures removed above, not an
+inference from the unattested memory-optimised figures removed above, not an
 observation. Use the peak-RSS estimate against the RAM you can actually get,
 and run the merge-memory test below.
 
@@ -885,8 +885,8 @@ three environment variables:
 | `SOLVE_MERGE_CHUNK_GB` | 4 | Per-chunk size; raise it (16, 32) if you hit the sorted-chunk ceiling or `ulimit -n` |
 
 **And the project has run it at the largest scale it has ever reached.** The
-560T merge was "external chunked-sort on Premium scratch, 18 h 42 m" on a
-D16als_v7 — 43.88 B pre-merge shard records (per-sub-branch canonical keys, not
+560T merge was "external chunked-sort on [SSD] scratch, 18 h 42 m" on a
+16-core VM — 43.88 B pre-merge shard records (per-sub-branch canonical keys, not
 raw leaves — see the correction in §9a above) down to 10.525 B unique.
 So the disk-based path
 is not a follow-on project to scope; it is the path the deepest canonical took.
@@ -914,9 +914,9 @@ directory, and the newer shards supersede the older ones per tuple while the
 prior layer stays intact, so rolling back is `rm -rf <new_layer>`. That is a
 real and useful property. It is just not a RAM-bounding one.
 
-The "~10 layers of ~1 B solutions each, ~120 GB RAM per layer, fits on D32"
+The "~10 layers of ~1 B solutions each, ~120 GB RAM per layer, fits on [a 32-core VM]"
 recipe that stood here is withdrawn: it followed from the inverted description,
-and D32als_v7 has 64 GB in any case.
+and that 32-core VM has 64 GB in any case.
 
 **Option 2: External sort + linear-scan dedup — this is what `--merge` does**
 
@@ -934,12 +934,12 @@ Wall scales as O(N log N) disk-bandwidth-limited.
 follow-on project"* — **false, and it is the same error as the section preamble
 above.** This is the shipped `SOLVE_MERGE_MODE=external` path, and it is what
 produced the 560T canonical. There is nothing to build. The old text also
-projected "~6 hours per TB" on a Standard SSD at ~500 MB/sec; the measured
+projected "~6 hours per TB" on a standard-tier SSD at ~500 MB/sec; the measured
 560T merge ran 18 h 42 m over 43.88 B pre-merge shard records (per-sub-branch
 canonical keys, not raw leaves — see the correction in §9a above,
-~1.4 TB) on **Premium** SSD
-scratch. Standard SSD is the wrong medium for this — its throughput collapses
-under sustained sequential load — so budget Premium scratch and measure your
+~1.4 TB) on a **faster-tier** SSD
+scratch. A standard-tier SSD is the wrong medium for this — its throughput collapses
+under sustained sequential load — so plan for fast SSD scratch and measure your
 own, rather than reading a rate off this paragraph.
 
 **Option 3: Bloom-filter-assisted dedup — restated 2026-09-01, and read the
@@ -1004,8 +1004,8 @@ code, and is the path the 560T canonical actually took on a 32 GB VM.
 
 ### 9d. Decision recipe
 
-⚠ **[REWRITTEN 2026-09-01.** The ladder here escalated through `Dals_v7` and
-`E`-series sizes at doubled or unattested RAM figures, routed large campaigns to
+⚠ **[REWRITTEN 2026-09-01.** The ladder here escalated through low-memory and
+memory-optimised sizes at doubled or unattested RAM figures, routed large campaigns to
 the withdrawn §9c hybrid, and closed by calling true external sort "a follow-on
 project worth scoping" — when it ships, and produced the 560T canonical. The
 replacement is shorter because the decision is simpler than the old ladder made
@@ -1016,15 +1016,15 @@ Given an estimated solution count S:
 - **I small enough that `I × 32 bytes` fits comfortably in your merge host's RAM,
   where I is the pre-merge input record count (duplicates included), not S** → leave `SOLVE_MERGE_MODE` at `auto` and let `--merge` run in memory. The in-memory merge holds every input record, and `auto` switches to external when `I × 32` exceeds 80% of RAM. At 100 T, S = 3.43 B (about 110 GB) but I = 13.83 B (about 443 GB). ⚠ [2026-11-04, CX-36N-A (Codex F12-011#30): this rule was stated on S.] As a
   reference point, the ~750 M-record Tier 1 merge peaked near 90 GB and needs a
-  D64als_v7 (128 GB); D32als_v7's 64 GB does not fit it. That 90 GB is an
+  64-core VM (128 GB); the 32-core size's 64 GB does not fit it. That 90 GB is an
   estimate carried by this guide, not a recorded measurement — verify it with
   the merge-memory test below before you size on it.
 - **Anything larger** → `SOLVE_MERGE_MODE=external`, with `SOLVE_TEMP_DIR` on
   fast scratch sized to ~1.5× the input shards' on-disk size (§9b; this said the expected output until 2026-11-04, CX-36N-A, Codex F12-011#14). Peak RAM is then set
   by `SOLVE_MERGE_CHUNK_GB`, not by S, so the merge VM can stay small: the 560T
-  merge did 10.525 B records on a **D16als_v7 (32 GB)**.
+  merge did 10.525 B records on a **16-core VM (32 GB)**.
 - **There is no S at which you need code that does not exist.** External merge
-  is not RAM-bounded, so the ceiling is scratch disk and wall time, not SKU. ⚠ **[CORRECTED 2026-11-04, CX-36N-A (Codex F12-011#32): that ceiling is incomplete.]** External merge also has a chunk ceiling: it writes at most 4,096 sorted chunks, so at a fixed `SOLVE_MERGE_CHUNK_GB` the input it can take is finite (about 16 TiB of input records at the default 4 GiB), however much scratch and time you have. Raising the chunk size raises that ceiling and the RAM the merge needs with it, so the ceiling is scratch disk, wall time and chunk count × chunk RAM.
+  is not RAM-bounded, so the ceiling is scratch disk and wall time, not VM size. ⚠ **[CORRECTED 2026-11-04, CX-36N-A (Codex F12-011#32): that ceiling is incomplete.]** External merge also has a chunk ceiling: it writes at most 4,096 sorted chunks, so at a fixed `SOLVE_MERGE_CHUNK_GB` the input it can take is finite (about 16 TiB of input records at the default 4 GiB), however much scratch and time you have. Raising the chunk size raises that ceiling and the RAM the merge needs with it, so the ceiling is scratch disk, wall time and chunk count × chunk RAM.
 
 Run **a merge-memory test** in any case where peak RSS is within
 2× of available RAM. Better to find out at small scale than at
@@ -1278,7 +1278,7 @@ things are still open:
   atomic counter, which was then sharded per CCD and not re-measured
   (§2a). Whether a current binary still shows it, and how much of any
   residue is NUMA versus hash-table contention, is unmeasured.
-- Spot eviction frequency in westus3 is highly variable; budget
+- Spot eviction frequency is highly variable; plan
   for at least 1–2 evictions per VM per multi-day campaign.
 - Storage fragmentation effects across very long campaigns
   (10+ days continuous I/O) haven't been characterized.
@@ -1317,8 +1317,8 @@ twelve weeks after the campaign was CANONICAL-verified. 158,364/158,364 cells
 scanned; 65,281 produced solutions (41.2% yield); 10,525,271,997 unique records
 in 336,808,703,936 bytes; sha
 `9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`. Enum on
-D128als_v7 Spot across five evictions, 171.5 h wall; merge external
-chunked-sort on Premium scratch, 18 h 42 m. Full record in
+a 128-core Spot VM across five evictions, 171.5 h wall; merge external
+chunked-sort on SSD scratch, 18 h 42 m. Full record in
 [CANONICAL_HASHES.md](CANONICAL_HASHES.md).
 
 **Planned but not yet run (as of this doc's revision date):**
@@ -1577,7 +1577,7 @@ solve.c, just operational patterns worth knowing about:
     eviction hits mid-merge: `rm` partial outputs, restart
     `solve --merge`. Same input shards, same output sha.
 
-## 14. Worked example: 56 × 10T at 2 × D64 spot
+## 14. Worked example: 56 × 10T at 2 × 64-core Spot VMs
 
 **This campaign has since run** (completed 2026-06-08), so the plan below is
 shown against what actually happened. Read the right-hand column first: the
@@ -1587,26 +1587,26 @@ plan's usefulness as a template is mostly in where it was wrong.
 |---|---|---|
 | Budget per first-level branch | 10 T nodes | as planned |
 | Total nodes (56 branches) | 560 T | as planned; `SOLVE_PER_SUB_BRANCH_LIMIT=3536157207` |
-| VMs | 2 × D64als_v7 spot, westus3 | **D128als_v7 Spot, westus3** |
+| VMs | 2 × 64-core Spot VMs, one region | **one 128-core Spot VM, same region** |
 | Branches per VM | ~~31 (after balanced split)~~ **28** | — |
 | Per-thread rate | ~~15 M nodes/sec/thread (mid estimate)~~ **withdrawn — see §2c** | not separately recorded |
 | Wall (enum) | ≈ 81 hr ≈ 3.4 days; ~5 days worst case | **171.5 h across 5 Spot evictions** — ~2.1× the mid estimate and past the worst case |
-| Merge VM | ~~D64 (likely sufficient with ~180 GB RAM); fallback D128~~ | **D16als_v7 (32 GB), external chunked-sort on Premium scratch** |
+| Merge VM | ~~64 cores (likely sufficient with ~180 GB RAM); fallback 128 cores~~ | **16 cores (32 GB), external chunked-sort on SSD scratch** |
 | Merge wall | ~~~2 hr~~ | **18 h 42 m** — ~9× the estimate |
 | Solutions | ~~1.2–1.5 B (estimated)~~ | **10,525,271,997** — 7–9× the estimate |
-| Cost | [cost redacted] | not recorded here; the wall overruns above make the planned range unreliable |
+| Cost | not stated (public text carries no costs) | not stated |
 
 ⚠ Three of these rows were corrected on 2026-09-01 rather than merely updated,
 because they were wrong as *planning inputs*, not just as forecasts: "31
 branches per VM" enumerated six branches that cannot run and would have hung
 both VMs (§7); the 15 M nodes/sec/thread rate had no provenance anywhere in the
-project (§2c); and "D64 … ~180 GB RAM" doubled that SKU's memory — D64als_v7
+project (§2c); and "~180 GB RAM" for 64 cores doubled that VM size's memory — it
 has 128 GB.
 
 **The template's real lesson is the direction of the errors.** Every quantity
-that was estimated came in high on cost and low on yield, and the merge — the
+that was estimated came in too low, wall time and yield alike, and the merge — the
 step the plan treated as a rounding error at ~2 hr — took 18 h 42 m and drove
-the SKU choice in the opposite direction from the plan (down to a 32 GB VM with
+the VM-size choice in the opposite direction from the plan (down to a 32 GB VM with
 fast scratch, not up to a big-RAM one). For larger campaigns, scale the budget
 linearly if you must, but size the merge from §9b's external path and treat any
 wall estimate here as a lower bound.

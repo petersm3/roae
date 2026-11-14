@@ -15,7 +15,7 @@ closing section.)*
 | **RAM** | **≥ 12 GB free** for the full `verify_all.sh` suite | the Lean phase peaks at **~9.3–9.6 GB** on `Automorphism.lean` and **~8.0 GB** on `KingWen.lean`; **an 8 GB host cannot check those two files.** ⚠ *(Corrected 2026-09-01: this row named `PruneGInvariance.lean` as the second-heaviest file. It is not — it measures ~4.1 GB and an 8 GB host runs it fine. The same transposition was corrected in `reports/certificates/verify_all.sh`'s header on 2026-08-28 and never propagated here; the ≥ 12 GB requirement is unchanged and was never wrong, only the file named as its reason.)* Per-file measured table in [lean/README.md](../lean/README.md) §"Verify yourself" — half the files check in ~1 s under 0.7 GB. *(Re-measured 2026-09-03 on a 31 GB host at `leanprover/lean4:v4.31.0`, all 14 files, `/usr/bin/time -v` peak RSS: `Automorphism` 9.6 GB, `KingWen` 7.9 GB, `PruneGInvariance` 3.95 GB — the figures in this row hold.)* |
 | **Stack** | at least **16 MB** for any `--estimate-knuth` command — `ulimit -s 16384` suffices; `ulimit -s unlimited` is one sufficient setting, not the requirement (narrowed 2026-09-02, prose batch P37) | `main`'s frame is ~7.24 MiB and the estimator adds ~1.48 MiB, so an 8 MB default stack is exceeded on entry. The binary now **refuses with an actionable message** instead of segfaulting. ⚠ *(Corrected 2026-09-25, Q-826: this read ~7.23 MB and about one megabyte (1.02) for the estimator, from an earlier tree; `gcc -O3 -pthread -fopenmp -fstack-usage -c solve.c` with gcc 13.3.0 reports `main` at 7,590,976 bytes and `estimate_tree_knuth` at 1,553,296 bytes. The 16 MB requirement stands.)* |
 | **Disk** | ~2 GB scratch | regenerated CNF + decompressed proofs |
-| **CPU** | any | the verification path is not core-hungry and needs no large VM. Large-scale *enumeration* is a different matter — see [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) for the D128 + Premium-SSD envelope and why random-IO isolation matters there |
+| **CPU** | any | the verification path is not core-hungry and needs no large VM. Large-scale *enumeration* is a different matter — see [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) for the 128-core VM + SSD-backed disk envelope and why random-IO isolation matters there |
 
 *These figures existed before, in `lean/README.md` and a mid-file comment in `verify_all.sh`. They
 are restated here because a cold external-reviewer pass on a 4 GB host (2026-08-21) hit `ERROR 134`
@@ -133,7 +133,7 @@ artifact and what that costs, so both are stated here and in each flag's
 
 | mode | input artifact | how it is generated | measured cost to generate |
 |---|---|---|---|
-| `--t3-stats`, `--t3-membership` | the T3 exact-uniform draw sample: 16 streams × 62,500 draws = 10⁶ draws (~107 MB gzipped) | one KC-sampler invocation per stream — arguments `--kc-sample <f-dir> 62500 <seed_i> --kc-record --kc-ooc --kc-cache-mb 384`, with `SOLVE_F1_OOC_READ_MB=1`, against the Stage F **f-ladder** — the sixteen `<seed_i>` values are **published below**, so this is a runnable recipe rather than a template. **On `main`** since 2026-07-17 — see the corrected branch note below the table *(this cell read "Not on `main`" until 2026-09-11; the prose note was corrected and the table row was not, so the page contradicted itself in two places)* | **≈12.6 h wall** on one D16als_v7 (16 lanes, Premium P50 f-disk) against a **3.1 TB** f-ladder — plus building the branch that carries the sampler. Seed-deterministic: the same seeds, f-ladder and binary regenerate the same draws — and **the seeds are now published** (§"The sixteen T3 seeds" below), so that promise is checkable instead of asserted |
+| `--t3-stats`, `--t3-membership` | the T3 exact-uniform draw sample: 16 streams × 62,500 draws = 10⁶ draws (~107 MB gzipped) | one KC-sampler invocation per stream — arguments `--kc-sample <f-dir> 62500 <seed_i> --kc-record --kc-ooc --kc-cache-mb 384`, with `SOLVE_F1_OOC_READ_MB=1`, against the Stage F **f-ladder** — the sixteen `<seed_i>` values are **published below**, so this is a runnable recipe rather than a template. **On `main`** since 2026-07-17 — see the corrected branch note below the table *(this cell read "Not on `main`" until 2026-09-11; the prose note was corrected and the table row was not, so the page contradicted itself in two places)* | **≈12.6 h wall** on one 16-core VM (16 lanes, a 4 TB SSD-backed f-disk) against a **3.1 TB** f-ladder — plus building the branch that carries the sampler. Seed-deterministic: the same seeds, f-ladder and binary regenerate the same draws — and **the seeds are now published** (§"The sixteen T3 seeds" below), so that promise is checkable instead of asserted |
 | `--g-structure` | two full-31 enumerator logs carrying `G_HIST` bin lines — one C2-ON (base C1∩C2∩C4), one C2-OFF (base C1∩C4) | two full-31 `solve --f1-c3-hist --f1-pairs 31 --f1-out-of-core DIR` runs, the C2-OFF one adding `--no-c2` (all on `main`; see [SOLVE_C_CLI.md](SOLVE_C_CLI.md) §`--f1-c3-hist`) | **23,054 s** (C2-ON) and **39,003 s** (C2-OFF) on 128 threads — see the cost caveat below the table |
 
 **Branch note (T3 sampler).** 🔴 **CORRECTED 2026-09-11.** This note read *"The `--kc-*`
@@ -231,7 +231,7 @@ first-attempt-start to final-exit span was ≈33.6 h.
 
 Analysing an artifact you already have is cheap by comparison. Measured
 2026-08-11 with `/usr/bin/time -v` on the project's 2-vCPU orchestrator VM
-(Azure D2as_v6, AMD EPYC 9V74, the two vCPUs being SMT siblings; Python 3.12.3),
+(2 vCPUs, AMD EPYC 9V74, the two vCPUs being SMT siblings; Python 3.12.3),
 over the same 10⁶-draw sample:
 
 | analysis | peak RSS — reproducible | wall — band, not a figure |
@@ -1150,7 +1150,7 @@ than hidden.
 | 16 | `267765117419520` | `solve --kc-build D --f1-pairs 16 && solve --kc-count D` | 753 ms | 15 ms |
 | **31** | **`1097051278789181790036112071176579186688`** | `solve --kc-count FDIR` against a **completed Stage F ladder** | ⚠ see below | 10.3 s |
 
-*(measured on a 2-vCPU D2as_v6; ladder sizes 156 KB / 1.6 MB / 12 MB)*
+*(measured on a 2-vCPU VM; ladder sizes 156 KB / 1.6 MB / 12 MB)*
 
 **Independent checks anyone can run on all four, with no ladder at all:**
 ```bash

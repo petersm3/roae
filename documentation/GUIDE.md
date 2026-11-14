@@ -44,7 +44,7 @@ For the full command-line reference (all 28 analysis sections, interactive modes
 special memory. Two things in this repo are *not*: the full verification suite needs **≥ 12 GB RAM**
 (the Lean kernel checks peak near 9.6 GB — see [VERIFY.md](VERIFY.md) §"Hardware you need"), and
 `solve --estimate-knuth` needs a stack limit of at least 16 MB (`ulimit -s 16384` suffices; `ulimit -s unlimited` also works). Large-scale enumeration is a different world
-again — a 128-core VM and a Premium SSD, per [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md).
+again — a 128-core VM and an SSD-backed data disk, per [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md).
 
 ### What --cast looks like
 

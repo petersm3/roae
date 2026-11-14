@@ -318,7 +318,7 @@ orientation-retention convention.*
 
 All scripts and intermediate data are preserved:
 
-- **Input:** `solutions.bin` on `solver-data-westus3` managed disk (sha256
+- **Input:** `solutions.bin` on the managed data disk (sha256
   `915abf30…`, 3,432,399,297 records)
 - **Stat computation:** `solve.py --compute-stats` — per-record 10-dim
   vector, output as per-chunk parquet directory

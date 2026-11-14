@@ -133,7 +133,7 @@ trust-base note below for what that means and how it came to hold). What that bu
   RSS table below governs case (a), genuine memory; this paragraph governs case (b). Check which
   one you hit before provisioning.
   ⚠ **These figures were REVISED UPWARD on 2026-08-21** after a full 13-module re-measurement on a
-  Standard_D128als_v7 (`/usr/bin/time -v`, one module at a time on an otherwise-idle box, same
+  128-core VM (`/usr/bin/time -v`, one module at a time on an otherwise-idle box, same
   pinned toolchain). The previous table under-stated four rows — `TrigramTheorems` by **8.9%**
   (4.4 → 4.79), `C3Decomposition` by 4.4%, `PruneGInvariance` by 5.9% (3.9 → 4.13), `KingWen` by 1.8%. Sizing a
   host from the old numbers could OOM. Provision headroom above these, not to them.
@@ -179,7 +179,7 @@ fact that held at every earlier revision too: all of §12's former `native_decid
 anonymous `example`s, which never enter the environment — so that file's EXPORTED theorem
 surface (everything `#print axioms` can be asked about) was kernel-only even before the
 migration. The two files still carrying `native_decide` were deliberately NOT migrated:
-kernel-decide versions were built and measured (D16, Lean 4.31.0) at **11.5 GB peak RSS for
+kernel-decide versions were built and measured (16-core host, Lean 4.31.0) at **11.5 GB peak RSS for
 `TrigramTheorems.lean` and 13.7 GB for `SymmetryCompleteness.lean`** — dominated by one
 obligation each (`blockPreserving_iff_blockwise`, `psi_comm_perms`, both 720-permutation
 enumerations) — and publishing a corpus that needs a ~16 GB host to verify was judged worse
@@ -205,7 +205,7 @@ is about the *axiom base* — what a reader must trust for these proofs to be so
 kernel plus its standard axioms, and no longer Lean's compiler) — not a claim that the
 formalized statements exhaust what the prose documents assert; each file's header and scope
 notes still govern what its theorems do and do not say. Measured cost of the two reproofs
-(Standard_D8als_v7, Lean 4.31.0, 2026-08-07): ~2.8 GB / ~4.4 GB peak RSS — versus the
+(8-core host, Lean 4.31.0, 2026-08-07): ~2.8 GB / ~4.4 GB peak RSS — versus the
 ~13.7 / ~11.5 GB the rejected enumeration route had cost, and below
 `Automorphism.lean`'s pre-existing ~9.6 GB suite ceiling, so the migration adds **zero**
 hardware cost (see the hardware table below, re-measured on the shipped tree). Structural
@@ -264,7 +264,7 @@ was re-confirmed by the directives either (as of 2026-08-02; the 2026-09-10 re-r
 reader to locate, was the exhaustive negative one above — that `native_decide` remained
 **only** in those files (a sentence this section carried in the present tense until the
 2026-08-07 third tranche retired it). An executed audit is what would establish an *only*.
-**EXECUTED 2026-08-07.** That audit has now been run, on the exact shipped tree (D-series
+**EXECUTED 2026-08-07.** That audit has now been run, on the exact shipped tree (an x86
 Azure host, Lean 4.31.0): a module-wide scan (`Lean.collectAxioms` over EVERY non-internal
 constant of each compiled module, not just the doc-cited names) reports **zero**
 compiler-trust axioms in `PartitionInvariance` (99 constants) and `PruneGInvariance`
@@ -373,11 +373,11 @@ verifies every file; 16 GB is comfortable; an 8 GB host cannot verify `Automorph
 `KingWen.lean` at all** (the two heaviest single `decide +kernel` obligations exceed its
 capacity — no flag changes this; the kernel allocates what the term it is checking needs).
 Measured per-file cost — wall clock and peak resident set of a single `lean <File>.lean`, on a
-16-core / 31 GB Azure Standard_D16als_v7, Lean 4.31.0 pinned via `./lean-toolchain` (the
+16-core / 31 GB Azure VM, Lean 4.31.0 pinned via `./lean-toolchain` (the
 `TrigramTheorems` and `SymmetryCompleteness` rows re-measured 2026-08-07 on their kernel-only
-revisions, on an 8-core / 16 GB Standard_D8als_v7 — same toolchain; RSS is machine-independent
-to first order, and two identical single-obligation workloads re-measured on the D8 host
-reproduced their D16 figures to within 0.03 GB):
+revisions, on an 8-core / 16 GB VM — same toolchain; RSS is machine-independent
+to first order, and two identical single-obligation workloads re-measured on the 8-core host
+reproduced their 16-core figures to within 0.03 GB):
 
 | file | wall | peak RSS |
 |---|---|---|
@@ -395,11 +395,11 @@ reproduced their D16 figures to within 0.03 GB):
 ⚠ **[CORRECTED 2026-09-24 (Q-753) — four peak-RSS cells above still carried the figures that the
 2026-08-21 revision noted near the top of this file had already replaced, so the table told a reader
 to provision to numbers that same note says can OOM a host. They now carry the 2026-08-21
-re-measurement (Standard_D128als_v7, `/usr/bin/time -v`, one module at a time, same pinned
-toolchain); the wall-clock column is still the D16 baseline. Provision headroom above these, not to them. Adjudicated by Fable (Codex V3A-076#5).]**
+re-measurement (128-core VM, `/usr/bin/time -v`, one module at a time, same pinned
+toolchain); the wall-clock column is still the 16-core baseline. Provision headroom above these, not to them. Adjudicated by Fable (Codex V3A-076#5).]**
 
-(The `PruneReprFC.lean` row was measured 2026-08-15 on the 2-core `claude`
-orchestrator (D2as_v6), Lean 4.31.0, not the D16 host of the other rows —
+(The `PruneReprFC.lean` row was measured 2026-08-15 on the 2-core
+orchestrator VM, Lean 4.31.0, not the 16-core host of the other rows —
 wall clock is therefore an upper bound relative to the table's baseline; peak
 RSS is machine-independent to first order, same as the rest of the table.
 That host caps virtual memory at 4 GB, below Lean's default thread-stack

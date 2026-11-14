@@ -40,7 +40,7 @@ This file collects the data uniformly so that future presentations, decision aud
 
 ### Methodology
 - Workload: <e.g. 1T enum-only, --branch 24 0, depth-3>
-- Hardware: <SKU, region, threads, RAM>
+- Hardware: <cores, threads, RAM, CPU model>
 - Build: <gcc flags, commit sha of solve.c source>
 - Page-cache flush between paired runs: <yes/no>
 - Repetitions: <N runs, median reported>
@@ -70,18 +70,18 @@ Required fields: hypothesis, methodology, enum_wall, sha-gate, decision. Optiona
 ## Standard bench harness
 
 The standardized paired-bench script lives at `scripts/perf_bench.sh`. It captures the schema fields above,
-provisions a fresh Spot VM in westus3, runs a pure-CPU preflight throttle probe, flushes the page cache between
+provisions a fresh Spot VM, runs a pure-CPU preflight throttle probe, flushes the page cache between
 paired runs (both verified and both gating — a run without `HEALTHY` and `CONFIRMED` verdicts cannot certify
 itself), takes `sha` and `records` over the decompressed stream, and emits a JSON line that pastes directly
 into a new entry. Any new perf entry should be produced by `perf_bench.sh` or document why
 it deviates from the standard methodology.
 
 **What the harness actually does — corrected 2026-08-30.** The paragraph above previously said the script "runs
-on a single fresh D128als_v7 Spot in westus3, page-cache flushes between paired runs". Checked against the
+on a single fresh 128-core Spot VM, page-cache flushes between paired runs". Checked against the
 script at this commit, that overstates it on three counts, and the JSON it emits is not self-certifying:
 
-- **The SKU is per scale, not fixed.** 1B runs on `Standard_D8als_v7`; 1T and 11.2T run on
-  `Standard_D128als_v7` (`scripts/perf_bench.sh:126-128`). Per-scale SKU selection is fine — but it means a bench
+- **The VM size is per scale, not fixed.** 1B runs on an 8-core VM; 1T and 11.2T run on
+  a 128-core VM (`scripts/perf_bench.sh:126-128`). Per-scale VM-size selection is fine — but it means a bench
   is comparable only to another bench at the same scale, and no entry below should be read as pairing numbers
   across scales.
 - **The page-cache flush is now verified, and was not before 2026-09-02.** *(Fixed 2026-09-02, code lane.)*
@@ -99,8 +99,8 @@ script at this commit, that overstates it on three counts, and the JSON it emits
   this bullet previously said the script carried only a comment referring to the rule)*. After the build and
   **before any bench**, the script runs `yes > /dev/null` on every core for `--burn-seconds` (default 60,
   floor 30), samples per-core MHz at the *end* of the burn, and requires the minimum to be
-  `>= --throttle-min-mhz` (default 3664, the AVX-512 definitive-bench precedent for D128als_v7; the default
-  applies at every `--scale`, including the D8als_v7 1B smoke, unless overridden). The 2026-05-18 entry below
+  `>= --throttle-min-mhz` (default 3664, the AVX-512 definitive-bench precedent for the 128-core VM; the default
+  applies at every `--scale`, including the 8-core VM 1B smoke, unless overridden). The 2026-05-18 entry below
   (§"Important methodological finding — `/proc/cpuinfo` MHz under solve.c load is NOT a throttle indicator")
   is why the burn is pure-CPU and precedes the workload. The verdict is a whole-line token,
   `PERFBENCH_THROTTLE_PROBE=HEALTHY|THROTTLED|UNVERIFIED`, with a `PERFBENCH_THROTTLE_DETAIL=` line carrying
@@ -144,7 +144,7 @@ Convert the DFS hot-loop's "remaining pair pool" from `int used[32]` linear-scan
 
 ### Methodology
 - Workload: paired 1B-node bench, single-thread per-thread node rate measurement
-- Hardware: westus3, D-family Spot (specific SKU recorded in HISTORY.md May 10 section)
+- Hardware: a Spot VM (its size is recorded in HISTORY.md May 10 section)
 - Build: `-O3 -flto -pthread -fopenmp -march=native`
 - Repetitions: N=3, median reported
 
@@ -156,7 +156,7 @@ Convert the DFS hot-loop's "remaining pair pool" from `int used[32]` linear-scan
 > per-thread rates, and the bench was a **90-second timed run**, not the "paired 1B-node bench, single-thread"
 > measurement described under Methodology above. The same 263 / 286 M/sec appear in `HISTORY.md` §"Measured speedup: 1.09× over v1" explicitly labelled "Aggregate
 > node-rate at 90s", measured under `SOLVE_THREADS=128 SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=11200000000000` on
-> D128als_v7 Spot. The labels are irreconcilable and the aggregate reading is the correct one: read as
+> 128-core Spot VM. The labels are irreconcilable and the aggregate reading is the correct one: read as
 > per-thread, 128 × 263 M/sec = 33.7 B nodes/sec would finish the 11.2T canonical in ~5.5 minutes, which no run
 > record in this project supports; read as aggregate it is ~2.05 M/sec/thread and ~11.8 h at 11.2T, which the
 > run records do support. **The 1.09× ratio and the +8.7% below are unaffected** — the defect is in the units,
@@ -169,7 +169,7 @@ Convert the DFS hot-loop's "remaining pair pool" from `int used[32]` linear-scan
 
 ### Delta vs baseline
 - per-thread rate: **+8.7%**
-- enum_wall (canonical scale): TBD — at canonical 11.2T scale storage I/O (.dfs_state sidecar writes on Standard SSD) dominates, so the CPU win is masked unless I/O is on Premium SSD or in-memory checkpoint.
+- enum_wall (canonical scale): TBD — at canonical 11.2T scale storage I/O (.dfs_state sidecar writes on a standard-tier SSD) dominates, so the CPU win is masked unless I/O is on a faster SSD-backed disk or in-memory checkpoint.
 - sha changed: no
 
 ### Sha gate
@@ -299,7 +299,7 @@ Link-Time Optimization enables cross-translation-unit inlining and dead-code eli
 
 ### Methodology
 - Paired bench: v6c (no LTO) vs v6d (LTO) at unspecified scale
-- Hardware: D128als_v7 Spot
+- Hardware: 128-core Spot VM
 
 ### Result
 - Per-thread node rate delta: **+2.53%**
@@ -345,7 +345,7 @@ Three sites in the DFS hot path are vectorizable to AVX-512: complement-distance
 ### Methodology
 - **Phase 1a (commit `cd4e61c`)**: explicit AVX-512 dispatch via `__builtin_cpu_supports` + intrinsics for cd_sum_avx512
 - **Phase 1a REVERT (commit `b26cd9b`)**: post-bench disassembly under canonical build flags (`-O3 -march=native`) revealed gcc 13.3 already auto-vectorizes `compute_comp_dist_x64` to AVX-512: 5× `vmovdqa32`, 4× `vpermd`, 4× `vpabsd`, 4× `vpsubd`, 7× `vpaddd`. The "scalar" code was already SIMD'd by the compiler. The hand-written dispatch added overhead (loss of inlining + per-call dispatcher branch) with no algorithmic gain.
-- **v8 retry definitive bench (commit `0783d52`)**: 5 paired interleaved trials of `solve_avx2` (`-mno-avx512f -mno-avx512bw -mno-avx512vpopcntdq`) vs `solve_avx512` (`-march=native`, autovec emits AVX-512) at 1T enum-only, D128 healthy host (preflight probe confirmed min 3664 MHz under 60s 128-thread burn — no throttle).
+- **v8 retry definitive bench (commit `0783d52`)**: 5 paired interleaved trials of `solve_avx2` (`-mno-avx512f -mno-avx512bw -mno-avx512vpopcntdq`) vs `solve_avx512` (`-march=native`, autovec emits AVX-512) at 1T enum-only, 128-core healthy host (preflight probe confirmed min 3664 MHz under 60s 128-thread burn — no throttle).
 
 > **⚠ Correction (2026-08-30):** the three commits this entry rests on — `cd4e61c`, `b26cd9b`, `0783d52` — are **not present in the shipped
 > repository**: `git cat-file -t` fails on each with "Not a valid object name". Per the Access boundary at the
@@ -393,7 +393,7 @@ Three sites in the DFS hot path are vectorizable to AVX-512: complement-distance
 > document; **until they land, treat the sentence above as not yet true.** The null result it points at is
 > sound — it is the cross-reference that is missing. See the 2026-08-30 re-evaluation entry at the end of this file. Task #82 ("HARDWARE_CPU_COMPARISON.md doesn't exist") was marked stale because the AVX-512 numbers actually live across commits `b26cd9b` and `0783d52` rather than the conjectured doc.
 
-Bench wall: preflight + 5 paired trials on D128 Standard on-demand, ~80 min total.
+Bench wall: preflight + 5 paired trials on a 128-core VM on regular (non-Spot) capacity, ~80 min total.
 Preserved copy: `20260516_modern_v1_1T_AVX512_quant_ENUM_ONLY_RETRY_3258f4c/`.
 
 ---
@@ -412,7 +412,7 @@ Preserved copy: `20260516_modern_v1_1T_AVX512_quant_ENUM_ONLY_RETRY_3258f4c/`.
 Precompute a 64-entry `c2_compat[hex]` mask. After placing hex h, AND the remaining-pairs mask with `c2_compat[h]` to eliminate any pair whose first hexagram is C2-incompatible with h. One register AND, sub-cycle cost. Predicted standalone 5–15% per-thread rate improvement via early pruning of C2-doomed iterations.
 
 ### Methodology
-- Paired bench at 1T node budget, D128als_v7 Spot westus3
+- Paired bench at 1T node budget, 128-core Spot VM
 - 10 alternating reps, median compared
 
 ### Result
@@ -421,7 +421,7 @@ Precompute a 64-entry `c2_compat[hex]` mask. After placing hex h, AND the remain
 
 > **⚠ Correction (2026-09-24, Q-762, CX-82):** the methodology and metric above do not match the bench's
 > own record. [HISTORY.md](HISTORY.md) §"#71 — one-step C2 lookahead REVERTED" gives the run as a 1T paired
-> enum-only bench on **Standard on-demand** D128als_v7 (not Spot, chosen to avoid eviction noise), **two
+> enum-only bench on a **regular (non-Spot)** 128-core VM (not Spot, chosen to avoid eviction noise), **two
 > pairs**, not ten alternating reps, aborted after pair 2 because the direction was already clear. The
 > figure compared was **mean wall time**, not a median or a per-thread node rate: with-#71 1266 s and
 > 1259 s against without-#71 1144 s and 1135 s, a mean ratio (without / with) of **0.903×**. The −10.7%
@@ -451,9 +451,9 @@ Commit `9d00c48` reverts `438d297`. Both commits are kept in the lineage so the 
 With v2 prune stack (#67 + #68 + #70 + #72) shipped and #71 reverted, re-run the 11.2T canonical to establish a new v2 anchor sha for downstream comparisons.
 
 ### Methodology
-- D128als_v7 Spot, westus3, full enum + cross-build pair (Build A)
+- 128-core Spot VM, full enum + cross-build pair (Build A)
 - 11.2 trillion total node budget, 158,364 depth-3 sub-branches
-- Canonical pipeline runbook: shards-on-solver-data, Premium SSD only for merge temp, never auto-tear-down on Phase 2 error, curl -T not --data-binary, cheap D2 pre-flight, triple storage redundancy
+- Canonical pipeline runbook: shards-on-the-data-disk, an SSD only for merge temp, never auto-tear-down on Phase 2 error, curl -T not --data-binary, a small 2-core pre-flight, triple storage redundancy
 
 ### Result
 - v2 11.2T canonical sha: `2cc966e48399841ebb0c9ca67300f15bb578cc5481ed04fca5faffcb38ad6c4d`
@@ -497,18 +497,18 @@ gcc's `-fprofile-generate` / `-fprofile-use` enables hot-path-specific code-layo
 
 ### Methodology
 - Paired bench (Build N control vs Build U PGO-use) at three commit reference points:
-  - 1B-node smoke test (D8als_v7 Spot westus3, --branch 25 1, depth-3, iterative, 8 threads) — captured in `/tmp/pgo_pilot_results/`
-  - 1T enum-only (D128als_v7 Spot westus3, --branch 24 0, depth-3, iterative, 128 threads, page-cache flush between paired runs, SOLVE_SKIP_AUTOMERGE=1) — completed; final accounting under "Result — 1T enum-only (D128als_v7), final accounting" below
+  - 1B-node smoke test (8-core Spot VM, --branch 25 1, depth-3, iterative, 8 threads) — captured in `/tmp/pgo_pilot_results/`
+  - 1T enum-only (128-core Spot VM, --branch 24 0, depth-3, iterative, 128 threads, page-cache flush between paired runs, SOLVE_SKIP_AUTOMERGE=1) — completed; final accounting under "Result — 1T enum-only (128-core VM), final accounting" below
 - Build N: `-O3 -flto -pthread -fopenmp -march=native`
 - Build U: `... -fprofile-use=$PROFDIR -fprofile-correction` (profile data from selftest + 200M-node `--branch 25 1`)
 - Page-cache flushed between paired 1T runs via `sync && echo 3 | sudo tee /proc/sys/vm/drop_caches`
 
-### Result — 1B-node smoke test (D8als_v7)
+### Result — 1B-node smoke test (8-core VM)
 - sha_N == sha_U == `3e6d1060fdf8c53a64a69d76a5a97616f285ad7811c6d5694fb343a406077222` (byte-identical)
 - wall_N: 26s, wall_U: 25s → **+4% speedup** at small scale (warmup-noisy)
 - output sha: byte-identical → **sha-preservation confirmed**
 
-### Result — 1T enum-only (D128als_v7), final accounting
+### Result — 1T enum-only (128-core VM), final accounting
 - Build B (v2 no-PGO): enum_wall=1046s, sha=`f3a3e68cb554fff58ef2a25f56362b2ddcc0398adae4c7b307ac2020f1ac4916`, records=305,975,483
 - Build C (v2 + PGO): enum_wall=996s, sha=**LOST** (Build C merge failed twice on 64 GB OS disk; external-mode merge launched but did not finish before bench script's STEP 7 tore down the VM), records=presumed ~306M but unverified
 - **PGO enum-only speedup at 1T: +4.8%** (1046s → 996s)
@@ -517,20 +517,20 @@ gcc's `-fprofile-generate` / `-fprofile-use` enables hot-path-specific code-layo
 
 ### Delta vs baseline (Build B, v2 same source commit)
 - enum_wall: **−4.8% (PGO faster)**
-- sha changed: not directly verified at 1T (Build C sha lost); 1B sha-equality already PASS on D8 smoke test as independent evidence
+- sha changed: not directly verified at 1T (Build C sha lost); 1B sha-equality already PASS on 8-core smoke test as independent evidence
 
 ### Sha gate
-- 1B byte-equality: **PASS** (D8 smoke test, both shas `3e6d1060fdf8c53a64a69d76a5a97616f285ad7811c6d5694fb343a406077222`)
+- 1B byte-equality: **PASS** (8-core smoke test, both shas `3e6d1060fdf8c53a64a69d76a5a97616f285ad7811c6d5694fb343a406077222`)
 - 1T byte-equality: **NOT VERIFIED** (Build C sha lost to teardown race)
 
 ### Methodology caveats (important — read before relying on these numbers)
 1. **No preflight throttle probe was run.** Per the standing `feedback_preflight_throttle_probe` and the AVX-512 definitive bench (commit `0783d52`) precedent, paired 1T benches should validate the host with a 60s 128-thread burn-in measuring per-core MHz ≥ 3664. We did not. Mid-bench sampling showed average CPU MHz at 2717 across 128 cores — could be normal-under-load (memory-bound DFS, cores waiting on RAM) or could be TDP-cap throttle. Cannot distinguish without the preflight burn-in.
 2. **The 4.8% PGO speedup is a paired comparison on the same VM with page-cache flush between runs.** If throttling was symmetric across Build B and Build C, the speedup is valid. If throttling was asymmetric (B unthrottled / C throttled, or vice versa), the speedup is biased. We have no monitoring data to rule asymmetric throttle out.
-3. **The 4.8% at 1T agrees with the 4% at 1B on a different VM (D8 Spot)** — independent corroboration that PGO speedup is real and roughly in this range, even if absolute scale at 1T is uncertain.
+3. **The 4.8% at 1T agrees with the 4% at 1B on a different VM (8-core Spot VM)** — independent corroboration that PGO speedup is real and roughly in this range, even if absolute scale at 1T is uncertain.
 4. **v1 baseline at depth-2** uses different work-unit granularity than v2 at depth-3; wall comparisons between Builds A and B are not apples-to-apples for "per-unit" speed. Records/budget is the cleaner cross-build comparison: v1 found 162.6M records at 1T budget; v2 found 305.9M = **1.87× more records per unit budget**. *(Scoped 2026-10-01, Codex V3A-039 #4: records per budget carries the same depth confound. The engine divides the node budget evenly over the partition's cells, and depth 2 has 3,030 cells against depth 3's 158,364, so at one total budget the two builds ran per-cell budgets about 52× apart. Neither the wall ratio nor this records ratio isolates the build.)*
 
 ### Follow-up needed (for cleanup of this entry)
-- Re-run PGO 1T bench with: (a) preflight throttle probe, (b) larger OS disk to avoid the merge-disk-pressure race, (c) bench script that waits for merge before STEP 7 teardown. A short run on D128 Spot. Would verify Build C sha and tighten the speedup confidence interval.
+- Re-run PGO 1T bench with: (a) preflight throttle probe, (b) larger OS disk to avoid the merge-disk-pressure race, (c) bench script that waits for merge before STEP 7 teardown. A short run on a 128-core Spot VM. Would verify Build C sha and tighten the speedup confidence interval.
 
 ### Notes
 This is the **first entry produced by the standardized `scripts/perf_bench.sh` harness** (or its prototype: `/tmp/pgo_1T_retry.sh`). Page-cache flush between paired runs is now the standard methodology — applied here for the first time. Compose +2.53% (LTO) + +4.8% (PGO) on top of v2's prune stack: total LTO+PGO marginal contribution ~7.4% on v2-bundled. AVX-512 contribution still TBD pending the backfill (see #46 entry).
@@ -554,7 +554,7 @@ Full results to be appended once 1T bench completes.
 The v2 retry (entry above) hit two methodology gaps: no preflight throttle probe, and Build C's 1T sha was lost to a teardown race. This v3 rerun closes both gaps and produces the definitive PGO 1T number.
 
 ### Methodology (definitive)
-- D128als_v7 Spot, westus3, 128 GB OS disk (vs 64 in v2 retry — eliminates merge-disk-pressure race)
+- 128-core Spot VM, 128 GB OS disk (vs 64 in v2 retry — eliminates merge-disk-pressure race)
 - **Preflight 60s 128-thread `yes`-burn throttle probe**: required min CPU MHz ≥ 3664 per the AVX-512 definitive bench precedent. Abort + teardown if below.
   - Measured: **min 3868 MHz, avg ~3868** at 60s burn → HEALTHY HOST confirmed
 - Build N (control): `gcc -O3 -flto -pthread -fopenmp -march=native` at v2-bundled commit `1b32270`
@@ -578,7 +578,7 @@ The v2 retry (entry above) hit two methodology gaps: no preflight throttle probe
 
 ### Sha gate
 - 1T byte-equality: **PASS** ✓
-- 1B byte-equality: **PASS** ✓ (previous D8 smoke test, both shas `3e6d1060…`)
+- 1B byte-equality: **PASS** ✓ (previous 8-core smoke test, both shas `3e6d1060…`)
 - Multi-scale + multi-host confirmation: PGO is sha-preserving on this codebase.
 
 ### Resolved caveats from v2 retry entry
@@ -598,7 +598,7 @@ The v2 retry's reported 4.8% was a LOWER bound — the v3 rerun on a strictly-va
 
 **Composes with LTO**: net PGO+LTO marginal contribution on v2-bundled is approximately 2.53% (LTO) + 6.5% (PGO) ≈ **9% cumulative speedup from compile-flag optimizations alone**, sha-preserving.
 
-Wall of v3 rerun: 1h 35m on D128als_v7 Spot. Bench script at `/tmp/pgo_1T_v3.sh`.
+Wall of v3 rerun: 1h 35m on a 128-core Spot VM. Bench script at `/tmp/pgo_1T_v3.sh`.
 
 ---
 
@@ -612,16 +612,16 @@ Wall of v3 rerun: 1h 35m on D128als_v7 Spot. Bench script at `/tmp/pgo_1T_v3.sh`
 Bisect (filed in `roae-private/RESUME_REGRESSION_RCA_2026_05_18.md`) localized the resume divergence to commit `9f4b630` (#67 mid-walk C3 reship): `BacktrackFrame.mw_delta` is required for the RETRY phase's `ts->mw_partial_cd_x64 -= fr->mw_delta;` undo, but was not serialized in `DFSStackFrame_v2`. On resume, every restored frame's `mw_delta` was uninitialized (effectively 0), so the undo subtracted 0 → `mw_partial_cd_x64` drifted from live-path value → prune predicate fired differently → resume sha diverged. Fix: extend the on-disk format to carry `mw_delta`, bump version.
 
 ### Methodology (multi-scale validation)
-1. **Bisect gate** (claude orchestrator, no VM): three commits tested via `--selftest-resume`
+1. **Bisect gate** (orchestrator, no VM): three commits tested via `--selftest-resume`
    - `bf58c65` (#68 alone, pre-bug): **PASS** resume sha `e43f2905…` = single-shot
    - `9f4b630` (#67 reship, breaking commit): **FAIL** resume sha `e353086e…` ≠ single-shot `86a74da5…`
    - `1b32270` (HEAD, pre-fix): **FAIL** resume sha `2954b271…` ≠ single-shot `1f6a3b4a…`
 
-2. **Post-fix selftest gate** (claude, no VM):
+2. **Post-fix selftest gate** (orchestrator, no VM):
    - `--selftest`: sha `56487ab5…` UNCHANGED ✓ (confirms no behavior change at single-shot)
    - `--selftest-resume`: resume sha `1f6a3b4a…` = single-shot sha `1f6a3b4a…` ✓
 
-3. **1B-scale resume validation** (D8als_v7 Spot, 8 min wall):
+3. **1B-scale resume validation** (8-core Spot VM, 8 min wall):
    - BASELINE: fresh dir, 1B single-shot, 128 threads, `--branch 24 0`
    - PHASE_A: fresh dir, 500M (triggers per-cell budget, writes 2,824 `.dfs_state` checkpoints across 2,824 sub-branches)
    - PHASE_B: same dir as PHASE_A, 1B (resumes from all 2,824 checkpoints, continues to 1B)
@@ -721,7 +721,7 @@ Paired numeric-vs-fail-first runs on `--branch 24 0` (largest first-level branch
 This does NOT close out variable-ordering as a research direction. The disjoint-set finding suggests that variable ordering DOES matter — different orderings genuinely explore different regions. A future per-step MRV scheme (count valid options per remaining slot, sort by ascending constrainedness — not the static WPD-rarity heuristic tested here) might find a different region that's larger than numeric's. That's a spiritual successor task, not this implementation.
 
 ### Notes
-- 22 GB of K-pilot solutions.bin files archived to `solver-data-westus3:/kpilot_69_mrv_20260518_*/` for post-hoc analysis if needed.
+- 22 GB of K-pilot solutions.bin files archived to `<data-disk>:/kpilot_69_mrv_20260518_*/` for post-hoc analysis if needed.
 - Detailed K-pilot writeup: `roae-private/MRV_KPILOT_RESULTS_2026_05_18.md`.
 - Design doc that motivated the K-pilot: `roae-private/MRV_VARIABLE_ORDERING_DESIGN_2026_05_17.md`.
 
@@ -746,7 +746,7 @@ The v2 prune stack (#67 mid-walk C3, #68 C5 feasibility, #70 C3 optimistic-compl
   - `v1_C5_only` = bf58c65 (v1 + #68 alone)
   - `v1_C5_C3` = 9f4b630 (v1 + #68 + #67)
   - `v1_C5_C3_C3opt` = 7b5ff6d (v1 + #68 + #67 + #70 = current v2 stack)
-- **4 scales**: 100M (local), 1B + 10B (D8 Spot), 100B (D128 Spot with throttle preflight HEALTHY 3048 MHz min)
+- **4 scales**: 100M (local), 1B + 10B (8-core Spot VM), 100B (128-core Spot VM with throttle preflight HEALTHY 3048 MHz min)
 - **Workload**: full enumeration, default depth-2, page-cache flush between variants. Same scenario as `--selftest` scaled up.
 - **Capture**: records, sha256, canonical-level sha (byte & 0xFC mask). For 1B + 10B, solutions.bin retained for canonical-set intersection analysis.
 
@@ -825,13 +825,13 @@ Multiple variants reproduced previously-registered shas, validating methodology:
 - **#88 (tighter C5 predicate, post-#69)**: HIGH priority. C5 is the dominant prune; tightening it likely yields the largest incremental gain.
 - **#89 (C2 as space prune, post-#69)**: orthogonal to C5 — different constraint dimension. Targets records OUTSIDE C5's reach, not refinement of C5's existing gains. Valuable for unlocking the next batch beyond what tighter-C5 can do.
 
-### Cost
+### Compute used
 
-Compute: D8 Spot 1B + 10B + D128 Spot 100B; local 100M used claude orchestrator.
+Compute: 8-core Spot VM 1B + 10B + 128-core Spot VM 100B; local 100M used orchestrator.
 
 ### Notes
-- The chained D128 sweep was designed to include 1T scale, but the v1_C5_C3_C3opt variant's single-threaded in-memory merge of 70M pre-dedup records bottlenecked the run. 100B sweep completed in time; 1T phase pre-emptively killed to free schedule. The 4-scale data (100M → 100B) already establishes the convergence trajectory decisively.
-- Detailed writeup with set-intersection numbers + cost breakdown + lineage diagrams: `roae-private/PER_PRUNE_ISOLATION_KPILOT_2026_05_18.md`.
+- The chained 128-core sweep was designed to include 1T scale, but the v1_C5_C3_C3opt variant's single-threaded in-memory merge of 70M pre-dedup records bottlenecked the run. 100B sweep completed in time; 1T phase pre-emptively killed to free schedule. The 4-scale data (100M → 100B) already establishes the convergence trajectory decisively.
+- Detailed writeup with set-intersection numbers + lineage diagrams: `roae-private/PER_PRUNE_ISOLATION_KPILOT_2026_05_18.md`.
 
 ---
 
@@ -839,10 +839,10 @@ Compute: D8 Spot 1B + 10B + D128 Spot 100B; local 100M used claude orchestrator.
 
 **Category**: env / OS knob (no code change)
 **Sha impact**: none (sha-preserving across all 12 measured iters; same binary)
-**Decision**: **THP=always (Ubuntu default) is correct for canonical-scale builds on D128.** Empirically validates that the existing default is right for the workload we ship on. No change required.
+**Decision**: **THP=always (Ubuntu default) is correct for canonical-scale builds on the 128-core VM.** Empirically validates that the existing default is right for the workload we ship on. No change required.
 
 ### Hypothesis
-Transparent huge pages (THP) reduce TLB pressure on memory-bandwidth-bound workloads with large heap allocations. ROAE's per-thread hash table is 512 MB; at 128 threads on D128 that's 64 GB of randomly-accessed memory. Expected benefit at canonical scale: +3-10% wall.
+Transparent huge pages (THP) reduce TLB pressure on memory-bandwidth-bound workloads with large heap allocations. ROAE's per-thread hash table is 512 MB; at 128 threads on the 128-core VM that's 64 GB of randomly-accessed memory. Expected benefit at canonical scale: +3-10% wall.
 
 ### Methodology
 - Same binary (v2-bundled HEAD, commit `25cbd06`), `cc -O2 -pthread -DNDEBUG`.
@@ -850,10 +850,10 @@ Transparent huge pages (THP) reduce TLB pressure on memory-bandwidth-bound workl
 - **Alternated condition ordering** (a-n-a-n-a-n) to factor out host-noise drift.
 - Page-cache flush (`echo 3 > /proc/sys/vm/drop_caches`) between every iter.
 - Two scales:
-  - **D8 Spot, 1B full-enum depth-2, 5 iters per condition** (small workload).
-  - **D128 Spot, 100B full-enum depth-2, 3 iters per condition** (canonical-equivalent). Preflight throttle probe HEALTHY 2718 MHz min.
+  - **8-core Spot VM, 1B full-enum depth-2, 5 iters per condition** (small workload).
+  - **128-core Spot VM, 100B full-enum depth-2, 3 iters per condition** (canonical-equivalent). Preflight throttle probe HEALTHY 2718 MHz min.
 
-### Result — D8 1B (small workload, 8-core, 4 GB total hash)
+### Result — 8-core 1B (small workload, 8-core, 4 GB total hash)
 
 | Mode | n | median ms | mean ms | stdev ms | min | max |
 |---|---|---:|---:|---:|---:|---:|
@@ -862,7 +862,7 @@ Transparent huge pages (THP) reduce TLB pressure on memory-bandwidth-bound workl
 
 **Median Δ = +22.3% (THP=never faster).** THP=always has about 3× the standard deviation (13,415 / 4,377 = 3.06; the variance ratio is ≈ 9.4) *(corrected 2026-11-01: was "3× higher variance"; 3.06 is the ratio of the stdev column above, and the variance ratio is 3.06² ≈ 9.39. Codex F12-016#13; [CORRECTIONS.md](CORRECTIONS.md) CX-36J-A.)* with an 80s outlier — classic THP defragmentation noise on a small memory footprint with limited slack.
 
-### Result — D128 100B (canonical-equivalent, 128-core, 64 GB total hash)
+### Result — 128-core 100B (canonical-equivalent, 128-core, 64 GB total hash)
 
 | Mode | n | median ms | mean ms | min | max |
 |---|---|---:|---:|---:|---:|
@@ -872,24 +872,24 @@ Transparent huge pages (THP) reduce TLB pressure on memory-bandwidth-bound workl
 **Median Δ = -22.4% (THP=never SLOWER).** THP=always wins decisively at canonical-equivalent scale; clean low-variance signal.
 
 ### Sha gate
-- All 6 iters at D128 100B produced solutions.bin sha `8c35a854…` (matches the per-prune isolation pilot's `100B v1_C5_C3_C3opt` registration). Sha-preserving across THP toggle confirmed at canonical-equivalent scale.
-- All 10 iters at D8 1B produced solutions.bin sha `fe98e58a…` (matches the per-prune isolation pilot's `1B v1_C5_C3_C3opt` registration). Sha-preserving at small scale confirmed.
+- All 6 iters at 128-core 100B produced solutions.bin sha `8c35a854…` (matches the per-prune isolation pilot's `100B v1_C5_C3_C3opt` registration). Sha-preserving across THP toggle confirmed at canonical-equivalent scale.
+- All 10 iters at 8-core 1B produced solutions.bin sha `fe98e58a…` (matches the per-prune isolation pilot's `1B v1_C5_C3_C3opt` registration). Sha-preserving at small scale confirmed.
 
 ### Interpretation
 The scale-dependent reversal is real and explains why the small-scale measurement was misleading:
 - At **small workload** (4 GB hash, 8 cores, 16 GB host RAM), THP allocation triggers compaction that costs more than its TLB benefit at this footprint. Memory slack is limited; fragmentation kicks in.
 - At **canonical workload** (64 GB hash, 128 cores, 256 GB host RAM), TLB pressure on random hash-table accesses dominates. THP's 2 MB pages cut TLB miss rate massively; compaction cost amortizes across hours of work.
 
-The empirical lesson: **always measure perf knobs at canonical-relevant scale.** A D8/1B pilot would have led to the WRONG operational decision (turn off THP for canonical, costing +22% wall).
+The empirical lesson: **always measure perf knobs at canonical-relevant scale.** An 8-core/1B pilot would have led to the WRONG operational decision (turn off THP for canonical, costing +22% wall).
 
-### Cost
-D8 1B + D128 100B. ~35 min wall.
+### Compute used
+8-core 1B + 128-core 100B. ~35 min wall.
 
 ### Notes
 - No code change required. The Ubuntu 24.04 default (`THP=always`) is correct for v2-bundled canonical builds.
 - Documenting this entry serves a future-reader purpose: when someone tries to "optimize" by disabling THP based on a small-scale microbenchmark, this entry stands as a warning.
-- Bench scripts: `/tmp/hugepages_bench.sh` (D8), `/tmp/hugepages_d128_bench.sh` (D128). Logs in `/tmp/hugepages_*.log`.
-- **Open follow-ups in the #47 CPU bundle**: jemalloc test (allocator swap, perf-only), NUMA-local allocation (matters more on dual-socket; D128als_v7 EPYC 9V45 is single-socket per VM topology so likely no-op). Both are sequel investigations.
+- Bench scripts: `/tmp/hugepages_bench.sh` (8-core), a 128-core variant of it. Logs in `/tmp/hugepages_*.log`.
+- **Open follow-ups in the #47 CPU bundle**: jemalloc test (allocator swap, perf-only), NUMA-local allocation (matters more on dual-socket; the 128-core VM's EPYC 9V45 is single-socket per VM topology so likely no-op). Both are sequel investigations.
 
 ---
 
@@ -904,7 +904,7 @@ jemalloc's per-arena isolation and lower fragmentation might benefit ROAE's 128-
 
 ### Methodology
 - Same binary (v2-bundled HEAD `7ffe5d8`), `cc -O2 -pthread -DNDEBUG`.
-- D128als_v7 Spot, throttle-probe HEALTHY (3077 MHz min).
+- 128-core Spot VM, throttle-probe HEALTHY (3077 MHz min).
 - Two conditions paired and ALTERNATED (s-j-s-j-s-j) to factor out host-noise:
   - `stock` = unmodified launch (glibc ptmalloc2 default)
   - `jemalloc` = `LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.2 ./solve ...`
@@ -928,13 +928,13 @@ All 6 iters produced solutions.bin sha `8c35a854…` (matches the per-prune isol
 2. **Workload mismatch with jemalloc's strengths** — ROAE allocates a few large fixed regions once at startup; jemalloc's arena isolation and small-alloc fast paths offer nothing here.
 3. **`LD_PRELOAD` is a workaround pattern** per operator memory `feedback_fix_root_cause_not_workaround` — canonical artifacts must ship on the stock toolchain, not on a preload shim. Even a positive result wouldn't be shippable in this form without a separate build-time integration task.
 
-### Cost
-D128 Spot, ~25 min wall.
+### Compute used
+128-core Spot VM, ~25 min wall.
 
 ### Notes
 - This entry exists to bank the empirical null result so the question doesn't get re-litigated in a future "what about jemalloc?" thread. The workload pattern doesn't match jemalloc's design strengths; the bench confirms.
 - Task #50 (Pre-AVX-512 jemalloc heap-corruption diagnostic LD_PRELOAD test) was a DIFFERENT investigation — diagnostic for correctness, not perf. That task completed; this one closes the perf question.
-- **#47 CPU bundle remaining**: NUMA-local allocation check. D128als_v7 underlying EPYC 9V45 is exposed as a single NUMA node per VM (single-socket topology); the bench would likely confirm null. Lower priority.
+- **#47 CPU bundle remaining**: NUMA-local allocation check. The 128-core VM's underlying EPYC 9V45 is exposed as a single NUMA node per VM (single-socket topology); the bench would likely confirm null. Lower priority.
 
 ---
 
@@ -945,10 +945,10 @@ D128 Spot, ~25 min wall.
 **Decision**: **No `numactl` wrapper required for canonical builds.** Linux default first-touch NUMA policy already achieves NUMA-local allocation for the solve.c workload pattern.
 
 ### Hypothesis
-D128als_v7's underlying topology: hypothesis was "single NUMA node per VM (single-socket Azure exposure)." If true, NUMA-aware allocation would be a structural no-op. If multi-node, `numactl --interleave=all` might help by balancing 128-thread allocations across nodes vs Linux's default first-touch policy.
+The 128-core VM's underlying topology: hypothesis was "single NUMA node per VM (single-socket Azure exposure)." If true, NUMA-aware allocation would be a structural no-op. If multi-node, `numactl --interleave=all` might help by balancing 128-thread allocations across nodes vs Linux's default first-touch policy.
 
 ### Topology discovered
-D128als_v7 actually exposes **2 NUMA nodes** under Ubuntu 24.04:
+The 128-core VM actually exposes **2 NUMA nodes** under Ubuntu 24.04:
 - node 0: cpus 0-63, 128.9 GB RAM
 - node 1: cpus 64-127, 129.0 GB RAM
 - node distances: 10/11 (typical local/remote ratio)
@@ -957,7 +957,7 @@ So the test was genuinely interesting — not the no-op the original hypothesis 
 
 ### Methodology
 - Same binary (v2-bundled HEAD `c78d1f3`), `cc -O2 -pthread -DNDEBUG`.
-- D128als_v7 Spot, throttle preflight HEALTHY (3243 MHz min).
+- 128-core Spot VM, throttle preflight HEALTHY (3243 MHz min).
 - Two-condition paired bench, alternated d-i-d-i-d-i:
   - `default` = unmodified launch (Linux first-touch policy)
   - `interleave` = `numactl --interleave=all ./solve` (round-robin allocations across both nodes)
@@ -997,8 +997,8 @@ solve.c has neither pattern. Each thread's hash table is private; threads don't 
 2. **Adding numactl wrapper is a workaround pattern** (matches `feedback_fix_root_cause_not_workaround`) and shouldn't ship even if measurable.
 3. **The structural reason is informative**: solve.c's design choices (per-thread private allocations, thread-per-core) already exploit NUMA locality implicitly. No further work needed.
 
-### Cost
-D128 Spot, ~25 min wall, including topology probe and throttle preflight.
+### Compute used
+128-core Spot VM, ~25 min wall, including topology probe and throttle preflight.
 
 ### Closes #47 entirely
 With NUMA-local now measured, the CPU optimization bundle (task #47) is fully closed:
@@ -1071,7 +1071,7 @@ The table below summarizes what's measured so far. Numbers in brackets are the e
 
 ### Setup
 
-- Standard D128als_v7 westus3 (operator-authorized exception to spot-only rule, for paired-measurement integrity)
+- a regular (non-Spot) 128-core VM (operator-authorized exception to spot-only rule, for paired-measurement integrity)
 - v1: commit `a2ead96`, `-O3 -pthread -fopenmp -march=native` (vanilla — no LTO, no PGO, no bitset)
 - v3: commit `8b1658b`, `-O3 -flto -pthread -fopenmp -march=native + bitset (#72)` (PGO *intended* but did not apply — see below)
 - 1T enum-only, 3 reps each binary, interleaved (v1, v3, v1, v3, v1, v3)
@@ -1152,9 +1152,9 @@ The earlier #78 entry (above) reports +6.5% from PGO at 1T on a clean LTO-only b
 
 So this bench's v3-vs-v1 delta of 4.38% ≈ LTO 2.53% + small residual gains from bitset + statistical variance. **Re-run with the fixed `build_pgo.sh` is needed to validate the predicted +9.2% LTO+PGO+bitset stack.**
 
-### Cost
+### Compute used
 
-- Bench: Standard D128als_v7 × ~6.5h wall, including PGO Pass 1 instrumented run + Pass 2 build
+- Bench: regular (non-Spot) 128-core VM × ~6.5h wall, including PGO Pass 1 instrumented run + Pass 2 build
 - 1T canonical archive bytes: 475 MB gzip -9 (three copies)
 
 ### 1T canonical established as a byproduct (5a0f0bc2…)
@@ -1194,7 +1194,7 @@ Sub-branch 83477/158364 BUDGETED ... 0s
 - Real Azure Spot eviction (the 30s eviction-notice path is similar but not identical to administrative deallocate).
 - Mid-walk resume via `DFSStackFrame_v2 + mw_delta` (#92) — this test caught all in-flight sub-branches in the graceful drain.
 
-**Wall:** ~30 min on D32als_v7 Spot.
+**Wall:** ~30 min on a 32-core Spot VM.
 
 ---
 
@@ -1202,13 +1202,13 @@ Sub-branch 83477/158364 BUDGETED ... 0s
 
 ### Headline
 
-After fixing the silent no-PGO build bug in the prior 2026-05-24 bench (see `scripts/build_pgo.sh` shipped in commit `bab4be6` + `-Werror=missing-profile` discipline), a re-run on Standard D128als_v7 westus3 measured **v3 0.5% SLOWER than v1** (median wall, 3 reps each interleaved). The **+9.2% prediction from task #47 closure does NOT replicate at 1T canonical scale on Bergamo Zen 4c.** Sha-equivalence preserved.
+After fixing the silent no-PGO build bug in the prior 2026-05-24 bench (see `scripts/build_pgo.sh` shipped in commit `bab4be6` + `-Werror=missing-profile` discipline), a re-run on a regular (non-Spot) 128-core VM measured **v3 0.5% SLOWER than v1** (median wall, 3 reps each interleaved). The **+9.2% prediction from task #47 closure does NOT replicate at 1T canonical scale on Bergamo Zen 4c.** Sha-equivalence preserved.
 
-This entry is a course-correction on the earlier `#78 PGO` entry (+6.5%) and the broken-PGO entry's interpretation: those measurements were on the 2-core `claude` orchestrator (Skylake) at small workload — they do not generalize to canonical-scale workloads on 128-core Bergamo.
+This entry is a course-correction on the earlier `#78 PGO` entry (+6.5%) and the broken-PGO entry's interpretation: those measurements were on the 2-core orchestrator (Skylake) at small workload — they do not generalize to canonical-scale workloads on 128-core Bergamo.
 
 > **⚠ Correction (2026-09-24, Q-762, CX-82):** the hardware attribution in the paragraph above is wrong. The +6.5% comes
-> from the task #78 v3 rerun entry above (2026-05-18), measured on a **D128als_v7 Spot host at 128 threads**
-> (1067 s → 997 s enum-only, preflight probe 3868 MHz), and the broken-PGO bench was also a D128als_v7 1T
+> from the task #78 v3 rerun entry above (2026-05-18), measured on a **128-core Spot host at 128 threads**
+> (1067 s → 997 s enum-only, preflight probe 3868 MHz), and the broken-PGO bench was also a 128-core VM 1T
 > run. No PGO measurement in this record ran on the 2-core orchestrator; "task #47" names the bundle that
 > *banked* the #78 figure, not a separate microbench. The real contrast is the one the 2026-05-25 audit
 > entry below tabulates: #78 measured LTO+PGO against an LTO control on **one first-level branch**
@@ -1253,7 +1253,7 @@ Expected: `5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52`
 1. **Task #47's +6.5% was on a 2-core Skylake at microbench scale.** Branch-prediction wins from PGO are largest when single-thread instruction throughput is the bottleneck. At 128-thread Bergamo on a memory-bandwidth-bound 1T workload, that bottleneck is gone — memory subsystem dominates.
 
    > **⚠ Correction (2026-09-24, Q-762, CX-82):** reason 1 is withdrawn. The +6.5% was measured on the
-   > same D128als_v7 hardware class at 128 threads (the #78 v3 rerun entry above), so it cannot explain the
+   > same 128-core VM hardware class at 128 threads (the #78 v3 rerun entry above), so it cannot explain the
    > gap. See the correction under this entry's headline for the actual differences between the two benches.
 
 2. **PGO trained on a 1B-node workload with 6315 nodes/sub-branch** hot-paths the budget-bound exit code. The 1T canonical workload has 6,315,458 nodes/sub-branch — 1000× more time in the actual DFS enumeration loop, which the profile-gen didn't exercise.
@@ -1270,10 +1270,10 @@ Expected: `5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52`
 
 **Recommendation for 560T**: build with **LTO + bitset, no PGO**. Saves ~100 min of PGO build wall per VM provisioning, simpler build, and the +4.4% LTO+bitset advantage is the actual measurable win. The earlier "v3 ~9.2% faster" claim was a microbench artifact; the real canonical-scale speedup is +4.4%.
 
-### Cost
+### Compute used
 
-- This re-run: Standard D128als_v7 × 5.8h wall, including PGO Pass 1 instrumented profile-gen run
-- Combined PGO investigation across both benches: ~12.3h of Standard D128 wall
+- This re-run: regular (non-Spot) 128-core VM × 5.8h wall, including PGO Pass 1 instrumented profile-gen run
+- Combined PGO investigation across both benches: ~12.3h of regular 128-core wall
 - Real finding: build-recipe hardening (`scripts/build_pgo.sh` + `-Werror=missing-profile`) is shipped and tested, even if PGO itself turns out net-zero — the hardening prevents future silent no-PGO regressions.
 
 ### Open questions for follow-up
@@ -1333,7 +1333,7 @@ In rough order of explanatory power:
 
 1. **No throttle probe.** The #78 bench *explicitly aborted* if host MHz fell below 3664. The 2026-05-24 re-run skipped this gate. The 15.1% within-bench v3 variance is consistent with a noisy or throttled host. PGO's instruction-cache-tuning hints don't pay off on hardware that's already constrained.
 2. **Workload mismatch.** PGO trained on a 1B-node workload with `SOLVE_PER_SUB_BRANCH_LIMIT=6315` (hot-paths the budget-bound exit code). The 1T canonical workload has `SOLVE_PER_SUB_BRANCH_LIMIT=6,315,458` — 1000× more time in the actual DFS hot path that PGO didn't train on.
-3. **Combined-vs-isolated baseline.** #78 measured PGO vs LTO-alone. The 2026-05-24 re-run measured (LTO + PGO + bitset) vs vanilla `-O3`. These tell us about different things; the latter is what 560T cost predictions actually need.
+3. **Combined-vs-isolated baseline.** #78 measured PGO vs LTO-alone. The 2026-05-24 re-run measured (LTO + PGO + bitset) vs vanilla `-O3`. These tell us about different things; the latter is what 560T wall predictions actually need.
 4. **LTO baseline overstated.** If the published LTO +2.53% was measured at a different scale than full-enum 1T, the canonical-scale LTO contribution may be smaller (or zero), and the +9.2% stack would collapse correspondingly.
 
 ### Lessons for future perf claims
@@ -1352,7 +1352,7 @@ In rough order of explanatory power:
 
 ### Decision
 
-The +9.2% headline is retracted as a forward-looking claim. The records-per-dollar analysis and any 560T cost projections that depended on +9.2% should be updated to reflect:
+The +9.2% headline is retracted as a forward-looking claim. Any throughput analysis and 560T projections that depended on +9.2% should be updated to reflect:
 
 - Empirical: v3 (LTO + bitset, no PGO) measures ~+4.4% over vanilla v1 at full-enum 1T (broken-PGO bench result, which incidentally measured exactly that stack).
 - Empirical: v3 (LTO + PGO + bitset) measures ~0% over vanilla v1 at full-enum 1T (working-PGO bench result).
@@ -1368,12 +1368,12 @@ The +9.2% headline is retracted as a forward-looking claim. The records-per-doll
 
 ### Hypothesis
 
-`checkpoint_mutex` serializes per-sub-branch metadata write at depth-3 canonical scale. Profile #106 (5-min perf record + iostat + thread-state samples, D128als_v7 Spot 2026-05-26) found 96+ of 128 threads in `futex_do_wait` per snapshot at ~35% CPU utilization with the solver-data Standard HDD at 64–69% util (not I/O-bound; mutex-bound). Hypothesis: replace the shared `checkpoint.txt` append + mutex with per-thread `checkpoint_t<tid>.txt` files + atomic counter for `total_sub_complete` + rate-limited progress write. Expected ~2× wall reduction at canonical scale by eliminating the serialization tax.
+`checkpoint_mutex` serializes per-sub-branch metadata write at depth-3 canonical scale. Profile #106 (5-min perf record + iostat + thread-state samples, 128-core Spot VM 2026-05-26) found 96+ of 128 threads in `futex_do_wait` per snapshot at ~35% CPU utilization with the data disk (a standard HDD) at 64–69% util (not I/O-bound; mutex-bound). Hypothesis: replace the shared `checkpoint.txt` append + mutex with per-thread `checkpoint_t<tid>.txt` files + atomic counter for `total_sub_complete` + rate-limited progress write. Expected ~2× wall reduction at canonical scale by eliminating the serialization tax.
 
 ### Methodology
 - Workload (perf bench): Phase-B-equivalent enum, SOLVE_PER_SUB_BRANCH_LIMIT=35,361,598 (matches 5.6T canonical per-cell budget), 128 threads, 5-min steady-state throughput measurement
 - Workload (1T canonical sha gate): SOLVE_NODE_LIMIT=1,000,000,000,000, SOLVE_THREADS=128, default checkpoint flags
-- Hardware: D128als_v7 Spot westus3 (`bench-per-thread` 2026-05-26 perf bench; `t108-validation` 2026-05-27 sha gate)
+- Hardware: 128-core Spot VM (`bench-per-thread` 2026-05-26 perf bench; `t108-validation` 2026-05-27 sha gate)
 - Build: `-O3 -g -march=native -flto -pthread -fopenmp` (LTO + bitset, no PGO)
 - Repetitions: 1 (perf bench at canonical scale; sha gate is deterministic by design)
 - See `roae-private/scripts/bench_per_thread_checkpoint/` (perf bench), `roae-private/scripts/t108_validation/` (sha gate)
@@ -1423,7 +1423,7 @@ The +9.2% headline is retracted as a forward-looking claim. The records-per-doll
 ### Delta vs baseline
 - Per-thread CPU-on-DFS at canonical scale: **~+170%** (35% → 95%)
 - 1T enum wall: **3430s → 1679s** = **2.04× faster** (matches the hypothesis prediction)
-- enum_wall (5.6T canonical, predicted): 11.4d → ~5.6d on D128 Spot per 35→95% util ratio. Confirmed by 1T extrapolation. *(Corrected 2026-10-01, Codex V3A-039 #7: the arithmetic does not support either sentence. 11.4/5.6 = 2.04 is the 1T wall ratio above (3430/1679), not the utilisation ratio, which is 95/35 = 2.71; and a linear extrapolation of the 1T wall, 3,430 s × 5.6, is about 5.3 h, not 11.4 d. The measured 2.04× at 1T stands; the 5.6T days are not derived here.)* **560T projection: roughly half the enum wall saved per run.**
+- enum_wall (5.6T canonical, predicted): 11.4d → ~5.6d on a 128-core Spot VM per 35→95% util ratio. Confirmed by 1T extrapolation. *(Corrected 2026-10-01, Codex V3A-039 #7: the arithmetic does not support either sentence. 11.4/5.6 = 2.04 is the 1T wall ratio above (3430/1679), not the utilisation ratio, which is 95/35 = 2.71; and a linear extrapolation of the 1T wall, 3,430 s × 5.6, is about 5.3 h, not 11.4 d. The measured 2.04× at 1T stands; the 5.6T days are not derived here.)* **560T projection: roughly half the enum wall saved per run.**
 - sha changed: no (sha-equivalent to current c72eada main HEAD at 1T)
 
 ### Sha gate
@@ -1467,7 +1467,7 @@ unset, which it always is in production.
 ### Methodology
 - Workload: `--selftest` (full small enum+merge); full clean enum at PSB=50000 / 16-thread (46,344 shards);
   multi-thread kill+resume reproduction.
-- Hardware: D16als_v7 Spot westus2 (gcc 11.4) for validation; D128als_v7 westus3 (gcc 13.3) selftest.
+- Hardware: 16-core Spot VM (gcc 11.4) for validation; 128-core VM (gcc 13.3) selftest.
 - Build: `gcc -O3 -flto -pthread -fopenmp -march=native -o solve solve.c -lm -lz`, solve.c with the fix.
 - Repetitions: selftest + a full clean run (paired vs stock).
 
@@ -1515,7 +1515,7 @@ eviction-resilient — **without changing the computed count** (the DP is determ
 > `runs/20260716_f1c5_c1c2c4c5_d128westus3/README.md` — "Completed run 2026-07-16 (landed ~06:18 UTC)" — the
 > reproducibility record for the flagship exact count reported in TR-11 §9. Read "live" in this entry as "in
 > flight at the time of writing", not as a currently-running job.
-- Hardware: D16/D64als_v7 Spot westus3.
+- Hardware: 16-core and 64-core Spot VMs.
 - Build: `gcc -O3 -g -march=native -flto -pthread -fopenmp`; merged solve.c.
 - gzip level A/B: single-instance real-scale, n=27 layer 11 (~789 MB) at levels 1 / 6 / 9.
 - Kill-resume: 60+ clean chunk-boundary kills + **15/15 real-random-timing SIGKILLs**, all byte-identical resume.
@@ -1525,7 +1525,7 @@ eviction-resilient — **without changing the computed count** (the DP is determ
   smaller. **Embedded default = 6** (a −9 default was tried, commit `6465418`, then reversed, `c810600`).
 - Compression (live n=31): ~12–16× on the layer data; disk footprint projecting **< 1 TB** vs ~8 TB raw.
 - Layer wall ≈ the printed count time, but in out-of-core mode that interval spans the whole layer builder (reads, decompression, compression, writes, finalization), so it does not separate compute from gzip/I-O and no bottleneck is established by it *(corrected 2026-11-14, Codex final review F12-016#7: this read compute-bound, gzip/I-O negligible)* → this is a
-  disk/cost/eviction-resilience win, **not a speed change** to the count.
+  disk/eviction-resilience win, **not a speed change** to the count.
 - **Level-invariant**: identical count at gzip levels 1 / 6 / 9.
 
 ### Sha gate — PRESERVING
@@ -1663,7 +1663,7 @@ The 2026-08-30 re-evaluation above withdrew the 1T anchor pair's attribution to 
 seven hardening commits and put **host-environment-level** in its place. That replacement was as unmeasured as
 the attribution it replaced. Neither pass compared the two runs' per-cell budgets, and both provenance files
 had recorded them since 2026-05-27. On 2026-09-04 the comparison was finally made, as a controlled experiment
-rather than an inference: one binary, built from unmodified public `main` `82f96b6b`, on one Spot D128als_v7
+rather than an inference: one binary, built from unmodified public `main` `82f96b6b`, on one Spot 128-core VM
 host, with the per-cell budget as the only variable.
 
 | arm | `SOLVE_PER_SUB_BRANCH_LIMIT` | sha256 (decompressed stream) | Records |

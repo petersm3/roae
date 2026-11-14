@@ -47,7 +47,7 @@ documentation/CAMPAIGN_METHODOLOGY.md	732	marker	CORRECTED	1	-	reviewed:enclosin
 documentation/CAMPAIGN_METHODOLOGY.md	781	marker	Corrected	1	-	reviewed:paragraph-already-attributes-1T-sha-differences-to-budget	8d21139f3080
 documentation/CAMPAIGN_METHODOLOGY.md	794	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	6a2ea47e6338
 documentation/CAMPAIGN_METHODOLOGY.md	799	ledger-link	CORRECTION	n/a	-	not-a-marker	66bbcde1e97e
-documentation/CAMPAIGN_METHODOLOGY.md	807	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	cce8905ce0d7
+documentation/CAMPAIGN_METHODOLOGY.md	807	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	1a3dfbcb6835
 documentation/CAMPAIGN_METHODOLOGY.md	825	marker	CORRECTED	1	-	reviewed:paragraph-above-already-says-byte-identical	37af802a0fa3
 documentation/CAMPAIGN_METHODOLOGY.md	848	ledger-link	CORRECTION	n/a	-	not-a-marker	09f5aa8fee9f
 documentation/CAMPAIGN_METHODOLOGY.md	872	marker	CORRECTED	1	-	reviewed:bullets-above-already-require-byte-identical-sha	a8e935dda624
@@ -57,21 +57,21 @@ documentation/CAMPAIGN_METHODOLOGY.md	907	marker	CORRECTED	1	-	reviewed:row-alre
 documentation/CAMPAIGN_METHODOLOGY.md	1042	marker	CORRECTED	1	-	reviewed:text-already-reads-58.8-percent-and-0.41x	ac57392ca76f
 documentation/CAMPAIGN_METHODOLOGY.md	1172	marker	CORRECTED	1	-	reviewed:text-already-reads-12.5-min-per-pass	3b2d8fa1806c
 documentation/CAMPAIGN_METHODOLOGY.md	1191	marker	CORRECTED	1	-	reviewed:text-already-gives-the-measured-13631-s	310d85522c49
-documentation/CAMPAIGN_METHODOLOGY.md	1224	marker	CORRECTED	1	-	reviewed:text-already-re-derives-from-13631-s	4fc7635b552f
+documentation/CAMPAIGN_METHODOLOGY.md	1224	marker	CORRECTED	1	-	reviewed:text-already-re-derives-from-13631-s	268015edafc5
 documentation/CAMPAIGN_METHODOLOGY.md	1277	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	9d5096244eb0
 documentation/CAMPAIGN_METHODOLOGY.md	1295	marker	CORRECTED	1	-	reviewed:rule-already-reads-about-one-source-enum-wall	09e80e1e9cde
 documentation/CAMPAIGN_METHODOLOGY.md	1459	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	9e88e64a830c
 documentation/CANONICAL_HASHES.md	66	marker	CORRECTED	1	-	reviewed:paragraph-above-already-says-two-per-cell-budgets	2663ae1a7c79
 documentation/CANONICAL_HASHES.md	71	ledger-link	CORRECTION	n/a	-	not-a-marker	b27d2543be32
 documentation/CANONICAL_HASHES.md	99	marker	CORRECTED	2	-	reviewed:the-sentences-it-withdraws-still-follow-it	60b8f7a9c810
-documentation/CANONICAL_HASHES.md	115	ledger-link	CORRECTION	n/a	-	not-a-marker	bc6f38db509d
+documentation/CANONICAL_HASHES.md	115	ledger-link	CORRECTION	n/a	-	not-a-marker	66597f7afe8b
 documentation/CANONICAL_HASHES.md	117	ledger-link	CORRECTION	n/a	-	not-a-marker	460465d50937
 documentation/CANONICAL_HASHES.md	117	marker	CORRECTED	3	CITATION LINE GATE,GATE 26,GATE 27,GATE 2c	gate-anchored	460465d50937
 documentation/CANONICAL_HASHES.md	117	marker	WITHDRAWN	3	CITATION LINE GATE,GATE 26,GATE 27,GATE 2c	gate-anchored	460465d50937
-documentation/CANONICAL_HASHES.md	123	marker	CORRECTED	1	-	reviewed:cell-already-separates-the-King-Wen-observation-from-the-verdict	7ed5382810ab
+documentation/CANONICAL_HASHES.md	123	marker	CORRECTED	1	-	reviewed:cell-already-separates-the-King-Wen-observation-from-the-verdict	cb26064afc3d
 documentation/CANONICAL_HASHES.md	143	marker	Corrected	1	-	reviewed:row-already-gives-2026-04-20-and-edccb16	63d88d44cf05
-documentation/CANONICAL_HASHES.md	183	marker	CORRECTED	2	-	reviewed:row-still-asserts-the-1T-drift-it-withdraws	11fd7b6f2df8
-documentation/CANONICAL_HASHES.md	185	ledger-link	CORRECTION	n/a	-	not-a-marker	4341b46e55ca
+documentation/CANONICAL_HASHES.md	183	marker	CORRECTED	2	-	reviewed:row-still-asserts-the-1T-drift-it-withdraws	be7c553af1ad
+documentation/CANONICAL_HASHES.md	185	ledger-link	CORRECTION	n/a	-	not-a-marker	e3f026992e1f
 documentation/CANONICAL_HASHES.md	200	ledger-link	CORRECTION	n/a	-	not-a-marker	1325a269bbe5
 documentation/CANONICAL_HASHES.md	202	ledger-link	CORRECTION	n/a	-	not-a-marker	b2334245885b
 documentation/CANONICAL_HASHES.md	202	ledger-link	RETRACTED	n/a	-	not-a-marker	b2334245885b
@@ -84,9 +84,9 @@ documentation/CANONICAL_HASHES.md	295	marker	CORRECTED	2	-	reviewed:the-drift-ga
 documentation/CANONICAL_HASHES.md	326	marker	CORRECTED	1	-	reviewed:row-no-longer-carries-the-LTO-attribution	00ff54783292
 documentation/CANONICAL_HASHES.md	328	marker	CORRECTED	2	-	reviewed:the-NOT-REPRODUCIBLE-text-it-withdraws-is-still-above-it	6baf480affa9
 documentation/CANONICAL_HASHES.md	338	ledger-link	CORRECTION	n/a	-	not-a-marker	473cb306fccb
-documentation/CANONICAL_HASHES.md	367	ledger-link	CORRECTION	n/a	-	not-a-marker	a35557a8415a
-documentation/CANONICAL_HASHES.md	367	ledger-link	RETRACTED	n/a	-	not-a-marker	a35557a8415a
-documentation/CANONICAL_HASHES.md	367	marker	CORRECTED	1	-	reviewed:text-already-uses-the-corrected-ratio;span-unclosed	a35557a8415a
+documentation/CANONICAL_HASHES.md	367	ledger-link	CORRECTION	n/a	-	not-a-marker	3f351eef3978
+documentation/CANONICAL_HASHES.md	367	ledger-link	RETRACTED	n/a	-	not-a-marker	3f351eef3978
+documentation/CANONICAL_HASHES.md	367	marker	CORRECTED	1	-	reviewed:text-already-uses-the-corrected-ratio;span-unclosed	3f351eef3978
 documentation/CANONICAL_HASHES.md	375	marker	Corrected	1	-	reviewed:dated-label-on-a-heading;notes-are-the-corrected-version	c7837a45af23
 documentation/CANONICAL_HASHES.md	385	marker	CORRECTED	1	-	reviewed:text-already-reads-4909e18-and-4900000-T	dcb1fc46614d
 documentation/CANONICAL_HASHES.md	387	ledger-link	CORRECTION	n/a	-	not-a-marker	5d280f8b6727
@@ -95,11 +95,11 @@ documentation/CANONICAL_HASHES.md	435	ledger-link	CORRECTION	n/a	-	not-a-marker	
 documentation/CANONICAL_HASHES.md	459	marker	CORRECTED	1	-	reviewed:scale-list-already-omits-d2-10T	50d1907facd1
 documentation/CANONICAL_HASHES.md	480	marker	CORRECTED	1	-	reviewed:paragraph-above-already-states-the-corrected-rule	403d25d6040d
 documentation/CANONICAL_HASHES.md	495	marker	Corrected	1	-	reviewed:bullet-already-drops-the-stack-claim	645bb4f2c6ca
-documentation/CANONICAL_HASHES.md	500	ledger-link	CORRECTION	n/a	-	not-a-marker	f601f33c6903
-documentation/CANONICAL_HASHES.md	500	ledger-link	RETRACTED	n/a	-	not-a-marker	f601f33c6903
-documentation/CANONICAL_HASHES.md	500	marker	CORRECTED	2	-	reviewed:the-bullet-above-defers-to-it-for-what-the-floor-is;span-unclosed	f601f33c6903
+documentation/CANONICAL_HASHES.md	500	ledger-link	CORRECTION	n/a	-	not-a-marker	d46663749df0
+documentation/CANONICAL_HASHES.md	500	ledger-link	RETRACTED	n/a	-	not-a-marker	d46663749df0
+documentation/CANONICAL_HASHES.md	500	marker	CORRECTED	2	-	reviewed:the-bullet-above-defers-to-it-for-what-the-floor-is;span-unclosed	d46663749df0
 documentation/CANONICAL_HASHES.md	533	marker	CORRECTED	1	-	reviewed:table-already-carries-the-corrected-floors	eb39ffef9153
-documentation/CANONICAL_HASHES.md	555	marker	Corrected	1	-	reviewed:sentence-already-gives-both-arms-stddev	2e4d45528618
+documentation/CANONICAL_HASHES.md	555	marker	Corrected	1	-	reviewed:sentence-already-gives-both-arms-stddev	dc9d199b3da5
 documentation/CANONICAL_HASHES.md	581	marker	CORRECTED	1	-	reviewed:bullet-already-lists-the-real-checks-and-the-shipped-expect-kw	5e0096ec8528
 documentation/CANONICAL_HASHES.md	581	marker	Corrected	1	-	reviewed:bullet-already-lists-the-real-checks-and-the-shipped-expect-kw	5e0096ec8528
 documentation/CANONICAL_HASHES.md	607	marker	CORRECTED	1	-	reviewed:convention-already-reads-logical-decompressed-size	466f5d4840e1
@@ -150,7 +150,7 @@ documentation/CLAIM_TO_ARTIFACT.md	43	marker	CORRECTED	1	-	reviewed:row-already-
 documentation/CLAIM_TO_ARTIFACT.md	45	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	f5e69af0e0ab
 documentation/CLAIM_TO_ARTIFACT.md	46	marker	Corrected	1	-	reviewed:row-already-cites-kw_valid-and-kw_no_five	9e353b0b2b4b
 documentation/CLAIM_TO_ARTIFACT.md	48	marker	Corrected	1	-	reviewed:row-already-gives-the-invocation-and-says-the-figures-are-not-reproducible-from-the-tree	51464cd5f30f
-documentation/CRITIQUE.md	5	marker	Corrected	1	-	reviewed:note-already-says-the-boundary-minimum-did-not-shift	f6d65e4b454d
+documentation/CRITIQUE.md	5	marker	Corrected	1	-	reviewed:note-already-says-the-boundary-minimum-did-not-shift	d64c6b1d26bf
 documentation/CRITIQUE.md	7	marker	CORRECTED	1	-	reviewed:update-already-states-minimum-5-and-the-overlap-reading-of-ratio-0.007	e7a0456a1486
 documentation/CRITIQUE.md	7	marker	Correction	1	-	reviewed:update-already-states-minimum-5-and-the-overlap-reading-of-ratio-0.007	e7a0456a1486
 documentation/CRITIQUE.md	11	ledger-link	CORRECTION	n/a	-	not-a-marker	3df76fd79ac3
@@ -216,7 +216,7 @@ documentation/DEVELOPMENT.md	1696	marker	CORRECTED	1	-	reviewed:passage-above-al
 documentation/DEVELOPMENT.md	1715	ledger-link	RETRACTED	n/a	-	not-a-marker	d830622362f8
 documentation/DEVELOPMENT.md	1716	ledger-link	CORRECTION	n/a	-	not-a-marker	37c2698d6da5
 documentation/DEVELOPMENT.md	1850	marker	CORRECTED	1	-	reviewed:bullet-already-gives-32768-MB-and-pre-dedup-sizing	4d55f0fd3e87
-documentation/DEVELOPMENT.md	1859	marker	CORRECTED	1	-	reviewed:bullet-already-reads-D-als-v7-for-both-phases	5d6522ddef0c
+documentation/DEVELOPMENT.md	1859	marker	CORRECTED	1	-	reviewed:bullet-already-sizes-both-phases-on-general-purpose-VMs	10abfed05ef7
 documentation/DEVELOPMENT.md	2018	marker	CORRECTED	1	-	reviewed:bullet-already-checks-decompressed-length	33fde66d7234
 documentation/DEVELOPMENT.md	2131	marker	CORRECTED	2	-	reviewed:the-lead-in-above-still-introduces-the-withdrawn-manual-total-recipe	9b282f2fc568
 documentation/DEVELOPMENT.md	2171	marker	CORRECTED	1	-	reviewed:paragraph-already-says-sub_ckpt_load-restores-state	c510c83c79d4
@@ -276,13 +276,13 @@ documentation/KING_WEN_PROVENANCE.md	234	narration	now reads	1	-	reviewed:dated-
 documentation/KING_WEN_PROVENANCE.md	244	marker	Corrected	1	-	reviewed:passage-already-reads-correctly;gating-rule-is-in-VERIFY.md	fea6292056fb
 documentation/LARGE_SCALE_CAMPAIGNS.md	214	marker	CORRECTED	3	GATE 53(file)	gate-anchored	5bb8dd2d7db7
 documentation/LARGE_SCALE_CAMPAIGNS.md	252	marker	CORRECTED	3	GATE 53(file)	gate-anchored	1eb38121d2c9
-documentation/LARGE_SCALE_CAMPAIGNS.md	318	marker	CORRECTED	3	GATE 53(file)	gate-anchored	3d5ead6523c8
+documentation/LARGE_SCALE_CAMPAIGNS.md	318	marker	CORRECTED	3	GATE 53(file)	gate-anchored	0014b4ed756e
 documentation/LARGE_SCALE_CAMPAIGNS.md	515	marker	CORRECTED	3	GATE 53(file)	gate-anchored	67ff47bed90e
 documentation/LARGE_SCALE_CAMPAIGNS.md	724	marker	CORRECTED	3	GATE 53(file)	gate-anchored	20bb97674e99
 documentation/LARGE_SCALE_CAMPAIGNS.md	805	marker	Corrected	3	GATE 53(file)	gate-anchored	a720f996ef53
 documentation/LARGE_SCALE_CAMPAIGNS.md	837	ledger-link	CORRECTION	n/a	-	not-a-marker	b80665c26ba3
 documentation/LARGE_SCALE_CAMPAIGNS.md	869	marker	CORRECTED	3	GATE 53(file)	gate-anchored	148cc8a55891
-documentation/LARGE_SCALE_CAMPAIGNS.md	1027	marker	CORRECTED	3	GATE 53(file)	gate-anchored	278d913d0ea4
+documentation/LARGE_SCALE_CAMPAIGNS.md	1027	marker	CORRECTED	3	GATE 53(file)	gate-anchored	c92433da4245
 documentation/LARGE_SCALE_CAMPAIGNS.md	1065	marker	CORRECTED	3	GATE 53(file)	gate-anchored	5a13513dfdcc
 documentation/LARGE_SCALE_CAMPAIGNS.md	1365	marker	CORRECTED	3	GATE 53(file)	gate-anchored	d31db23e728f
 documentation/LARGE_SCALE_CAMPAIGNS.md	1387	marker	CORRECTED	3	GATE 53(file)	gate-anchored	9fd54805093b
@@ -368,7 +368,7 @@ documentation/PERFORMANCE_HISTORY.md	1105	marker	Corrected	1	-	reviewed:sentence
 documentation/PERFORMANCE_HISTORY.md	1150	marker	Corrected	1	-	reviewed:bullet-already-calls-8.7-percent-an-aggregate-figure	ae0f98a42691
 documentation/PERFORMANCE_HISTORY.md	1189	marker	Corrected	2	-	reviewed:bullet-above-still-says-checkpoint-is-the-sole-resume-input	e459f31d3a93
 documentation/PERFORMANCE_HISTORY.md	1190	marker	Corrected	1	-	reviewed:bullet-already-says-recovery-grows-with-entry-count	f049c3d80fa9
-documentation/PERFORMANCE_HISTORY.md	1426	marker	Corrected	2	-	reviewed:bullet-above-still-carries-the-withdrawn-5.6T-days-derivation	75cfed7a5f0e
+documentation/PERFORMANCE_HISTORY.md	1426	marker	Corrected	2	-	reviewed:bullet-above-still-carries-the-withdrawn-5.6T-days-derivation	804eda3086fb
 documentation/PERFORMANCE_HISTORY.md	1527	marker	Corrected	1	-	reviewed:bullet-already-says-the-interval-spans-the-whole-builder	6a4f4dee8118
 documentation/PREREGISTRATION_ESCROW.md	381	ledger-link	CORRECTION	n/a	-	not-a-marker	e8c644cef239
 documentation/PREREGISTRATION_ESCROW.md	402	ledger-link	CORRECTION	n/a	-	not-a-marker	72b7489475c1
@@ -440,7 +440,7 @@ documentation/SEARCH_SPACE_SIZE.md	11	ledger-link	CORRECTION	n/a	-	not-a-marker	
 documentation/SEARCH_SPACE_SIZE.md	35	ledger-link	CORRECTION	n/a	-	not-a-marker	5d0062947151
 documentation/SEARCH_SPACE_SIZE.md	44	marker	WITHDRAWN	3	GATE 27	reanchored:GATE-27=ledger-anchor	1d4bec207986
 documentation/SEARCH_SPACE_SIZE.md	113	marker	WITHDRAWN	3	GATE 26,GATE 27	reanchored:GATE-26=ledger-anchor+GATE-27=ledger-anchor	796f57b2b8a9
-documentation/SEARCH_SPACE_SIZE.md	122	marker	Corrected	1	-	reviewed:paragraph-already-says-refuses-and-exits-1	c3471d3127f8
+documentation/SEARCH_SPACE_SIZE.md	122	marker	Corrected	1	-	reviewed:paragraph-already-says-refuses-and-exits-1	ab1f1734ab7c
 documentation/SEARCH_SPACE_SIZE.md	156	marker	Withdrawn	2	-	reviewed:tag-is-what-qualifies-the-15-20-figure-in-the-same-sentence	046d3091ca0b
 documentation/SEARCH_SPACE_SIZE.md	159	ledger-link	CORRECTION	n/a	-	not-a-marker	103878a86f9a
 documentation/SEARCH_SPACE_SIZE.md	162	marker	CORRECTED	1	-	reviewed:text-already-says-all-eight-share-King-Wens-pair-ordering;span-unclosed	01b0b7690f9a
@@ -616,7 +616,7 @@ documentation/SPECIFICATION.md	258	marker	CORRECTED	1	-	reviewed:bare-date-tag;f
 documentation/SYMMETRY_SEARCH.md	3	marker	Corrected	1	-	reviewed:dated-label;result-already-states-the-order-48-group	487cfe6dbf8a
 documentation/SYMMETRY_SEARCH.md	88	marker	Corrected	1	-	reviewed:paragraph-already-separates-palindromes-and-partners	cd72ebe708fa
 documentation/SYMMETRY_SEARCH.md	195	ledger-link	CORRECTION	n/a	-	not-a-marker	851b6cdd6b0f
-documentation/SYMMETRY_SEARCH.md	252	marker	Corrected	1	-	reviewed:paragraph-already-says-refuses-and-exits-1	c3471d3127f8
+documentation/SYMMETRY_SEARCH.md	252	marker	Corrected	1	-	reviewed:paragraph-already-says-refuses-and-exits-1	ab1f1734ab7c
 documentation/SYMMETRY_SEARCH.md	302	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	39c0f60d8363
 documentation/SYMMETRY_SEARCH.md	306	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	428e5d03e66c
 documentation/SYMMETRY_SEARCH.md	425	marker	Corrected	1	-	reviewed:sentence-now-names-the-two-inputs-public-since-2026-09-04	f56a68a560c1

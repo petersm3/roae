@@ -135,7 +135,7 @@ enumerated space. When citing quantitative results, note the enumeration depth
 
 ### Asset preservation
 
-- **Managed data disks are never deleted.** The persistent `solver-data` volume
+- **Managed data disks are never deleted.** The persistent data disk
   holds committed solver work (sub_*.bin files, solutions.bin). Between runs,
   VMs come and go; the data disk stays. On cleanup, delete the VM and its
   orphan OS disk, preserve the data disk.
@@ -163,18 +163,18 @@ affecting per-thread rate must append an entry to
 at the top of that file.
 
 Standardized paired-bench harness lives at `scripts/perf_bench.sh`. It runs
-control vs treatment on a single fresh Spot VM in westus3, runs a pure-CPU
+control vs treatment on a single fresh Spot VM, runs a pure-CPU
 preflight throttle probe on every core **and refuses to bench a host that does
 not read `HEALTHY`** (teardown, exit 5), flushes the page cache between paired
 runs **and verifies that the flush happened**, captures branch wall including the branch merge (Codex final review, F12-008#4; the separate global merge
 wall is not part of the speedup metric), takes `sha` and `records`
 over the **decompressed** stream, and emits a JSON block that pastes directly
 into a new entry. Multi-scale: 1B / 1T
-/ 11.2T selectable via `--scale` — note the SKU is chosen **per scale**
-(`Standard_D8als_v7` for 1B, `Standard_D128als_v7` for 1T and 11.2T,
+/ 11.2T selectable via `--scale` — note the VM size is chosen **per scale**
+(an 8-core VM for 1B, a 128-core VM for 1T and 11.2T,
 `scripts/perf_bench.sh` `case "$SCALE"`), so a bench is comparable only to
-another bench at the same scale. *(This paragraph previously said "a single
-fresh D128als_v7 Spot" without qualification; corrected 2026-09-02 to match the
+another bench at the same scale. *(This paragraph previously named a single
+fresh 128-core Spot VM without qualification; corrected 2026-09-02 to match the
 script and `PERFORMANCE_HISTORY.md` §"Standard bench harness".)* Every workload on the VM (the `--treatment-pgo` training run and both paired runs) runs in its own fresh `mktemp -d` directory, as `scripts/build_pgo.sh` runs its own, so a second bench on a reused host cannot resume the first one's `checkpoint.txt`; a custom `--pgo-workload` therefore names the instrumented binary `"$INSTR_BIN"`, and one naming `./solve_inst` is refused before any VM is provisioned (Q-847, 2026-09-26). Since `solve` exits 0 when SIGTERM stops it, exit status alone does not show that a run finished: the training run's log must hold `solve`'s whole-line `ENUM_RUN=FINISHED` and no `ENUM_RUN=STOPPED` or `*** Signal received` line, or the build fails with a named `ERROR:` and no Pass 2 (exit 4). Each paired run must also report `enum_run=FINISHED`, or the bench is `PERF_BENCH_METHODOLOGY=VIOLATED` (exit 3). A `solve.c` older than Q-828 prints no token, so neither arm can certify it (Q-877, 2026-09-27).
 
 > **Known harness defects — all cleared as of 2026-09-02.** The notes are kept
@@ -213,7 +213,7 @@ script and `PERFORMANCE_HISTORY.md` §"Standard bench harness".)* Every workload
 >    the script carried only a comment referring to the rule). After the build
 >    and before any bench: `yes > /dev/null` on every core for `--burn-seconds`
 >    (default 60, floor 30), per-core MHz sampled at the end of the burn, minimum
->    must be `>= --throttle-min-mhz` (default 3664, the D128als_v7 precedent,
+>    must be `>= --throttle-min-mhz` (default 3664, the 128-core VM precedent,
 >    applied at every scale unless overridden). Verdict token
 >    `PERFBENCH_THROTTLE_PROBE=HEALTHY|THROTTLED|UNVERIFIED` plus a
 >    `PERFBENCH_THROTTLE_DETAIL=` line; anything but `HEALTHY` (including a
@@ -780,7 +780,7 @@ table, and adding one is a defect, not a style.
 | `SIZE_GATE_ERROR` | `pre_commit_size_gate.sh` | emitted only alongside `=ERROR`: `not-in-git-repo`, `staged-list-failed` or `allowlist-unparseable` |
 | `SIZE_GATE_LIMIT` | `pre_commit_size_gate.sh` | the threshold in bytes actually applied (1,310,720 = 1.25 MiB, raised from 1 MiB on 2026-09-04). `-1` when the run ended before reading it |
 | `SIZE_GATE_UNAPPROVED` | `pre_commit_size_gate.sh` | unapproved first-time files at or over the limit, emitted on every terminal path. `-1` when the gate could not measure |
-| `SPOT_PRECHECK` | `spot_health_precheck.sh` | `OK` \| `WAIT` \| `HARD-FAIL` \| `ERROR`, printed **bare** and last on every exit path — this one really is `grep -qx`-able, and was made so deliberately in 2026-09-02 after the only two tokens it emitted were prefixed, suffixed and on stderr while the OK/WAIT/HARD-FAIL paths emitted none at all. Three escalating signals: published SKU restrictions, family vCPU quota headroom, then a real D2als_v7 Spot probe. `ERROR` (rc 4) is not a capacity verdict — treat it as do-not-launch, but escalate it as a broken precheck. A non-integer `need_vcpu` is `ERROR` for a measured reason: the numeric test failed, bash read the failed test as false, and the script printed a green light having checked nothing immediately before a real `az vm create` |
+| `SPOT_PRECHECK` | `spot_health_precheck.sh` | `OK` \| `WAIT` \| `HARD-FAIL` \| `ERROR`, printed **bare** and last on every exit path — this one really is `grep -qx`-able, and was made so deliberately in 2026-09-02 after the only two tokens it emitted were prefixed, suffixed and on stderr while the OK/WAIT/HARD-FAIL paths emitted none at all. Three escalating signals: published SKU restrictions, family vCPU quota headroom, then a real 2-core Spot VM probe. `ERROR` (rc 4) is not a capacity verdict — treat it as do-not-launch, but escalate it as a broken precheck. A non-integer `need_vcpu` is `ERROR` for a measured reason: the numeric test failed, bash read the failed test as false, and the script printed a green light having checked nothing immediately before a real `az vm create` |
 | `TR12_N31_GOLDEN` | `tr12_n31_golden_gate.sh` | `OK` \| `MINTED-UNVERIFIED` \| `MISMATCH` \| `PLACEHOLDER` \| `ABSENT` \| `ERROR`, whole line; exit 0 for `OK`, 2 for `ERROR`, 1 otherwise. `OK` means every tier was measured and held; `MINTED-UNVERIFIED` a real set that a tier could not be taken on; `MISMATCH` a tier that contradicted a pinned value; `ERROR` a missing reference; precedence MISMATCH > ERROR > MINTED-UNVERIFIED > OK (the gate's header). *(2026-11-14, Codex final review F12-008#11: this listed only `OK`, `ABSENT` and `PLACEHOLDER`)* A pre-flight, not the thing that makes n=31 certification able to fail — `tr12_repro.sh` already refuses both cases, and this gate's header says so. What it buys: the refusal arrives before a multi-day battery rather than after it; it requires `_MANIFEST.txt`, because the n=9 goldens are hashed by `tr12_repro_gate.sh` and an n=31 golden would otherwise be editable without trace; and it names **which** problem it is instead of 50 undifferentiated mismatches |
 | `TR12_MINT_STATE` | `tr12_mint_state_gate.sh` | `PASS` \| `FAIL` \| `ERROR` (rc 2), all whole-line. Proves the battery's verdict **distinguishes a diffed run from a minted one**: that `TR12_REPRO`/`QUERY_PROGRAM` read `PASS` when every reproduced row was compared against a pre-existing expected block, and `PASS:MINTED-<n>` when `<n>` rows were written by that same run under `--mint-missing` and so diffed against nothing. `ERROR`, never `PASS`, when the subject cannot be read — an absent battery or absent block markers are not a passing gate. It **extracts the region between `# >>> TR12_MINT_STATE_BLOCK_BEGIN` and `# <<< TR12_MINT_STATE_BLOCK_END` in `tr12_repro.sh` and EXECUTES it**, stubbing only the surrounding bookkeeping, so the mint decision and the token strings it grades are the battery's own bytes rather than a copy — the `q7ranks_parse_gate.sh` lesson, where a gate bound to its own copy of the row passed with the defect restored and with the battery deleted. Scope: it proves that IF rows are minted THEN the verdict says so; it does **not** verify a minted golden, which nothing can — a minted block is the run's own output, and that blind spot is `TR12_N31_GOLDEN`'s `MINTED-UNVERIFIED`. Since CX-36G-B each leg also requires the block's own exit status (0 for a PASS, 1 for a FAIL; anything else is `ERROR`) and an EXACT set of aggregate tokens, and leg 5 runs the battery's own `row_end` / `row_end_val` with no expected block, so `MINTED` is shown to be filled by the battery rather than injected |
 | `TR12_REPRO_GATE_CURRENT` | `tr12_repro_gate.sh --check` | `YES` \| `NO` \| `UNKNOWN`, all whole-line since 2026-09-08 (`NO` and `UNKNOWN` used to carry their explanation on the verdict line, so only `YES` was ever `grep -qx`-able — which is why the two existing consumers both matched it by substring). The cheap fingerprint-only leg (milliseconds, no build) that other checks call on every run: `YES` means none of the derived inputs, the gate itself, or any expected block has changed since the last recorded `PASS`; `NO` means one of them has; `UNKNOWN` means no stamp exists yet. It answers a narrower question than `TR12_REPRO_GATE=PASS` — "is that recorded pass still current", not "does the tree reproduce". Since 2026-10-03 (Q-695) `YES` says nothing about six documents the battery names but never reads — `documentation/CORRECTIONS.md`, `documentation/HISTORY.md`, `documentation/PREREG_CLASSA_QUERY_SET.md`, `documentation/SOLVE_PY_CLI.md`, `documentation/SYMMETRY_SEARCH.md` and `reports/TR8_REORDERING_REVISITED.md` (`REFERENCED_NOT_INPUTS` in the gate): editing them no longer moves it to `NO`, and the gate errors if a script starts reading one. No row's verdict or golden depended on their bytes, and the V4 tail anchors that PREREG publishes are hardcoded in `scripts/tr12_repro.sh`, which is fingerprinted |
@@ -871,14 +871,14 @@ Performance impact of `-march=x86-64-v3` vs `-march=native`: typically 5–15% s
 
 Before adding any new sha to [CANONICAL_HASHES.md](CANONICAL_HASHES.md), the canonical must reproduce on a **second independent binary build**:
 
-1. Build A on VM-A (e.g., westus3 Spot D128, day 1). Capture full manifest. Run canonical workload. Record sha.
+1. Build A on VM-A (e.g., a 128-core Spot VM, day 1). Capture full manifest. Run canonical workload. Record sha.
 2. Build B on VM-B (different day, different host or region, ideally different CPU generation if available). Capture full manifest. Run
    the same canonical workload. Record sha.
 3. Sha A must equal sha B. Both manifests are committed to the archive directory alongside the canonical.
 4. If shas diverge: the canonical is not yet eligible. Investigate the manifest delta; track down whatever non-determinism the divergence
    reveals (toolchain, microarchitecture, latent UB).
 
-Cost: some extra VM time per canonical for the second build. Negligible relative to the cost of an unreproducible canonical entering
+Overhead: some extra VM time per canonical for the second build. Negligible relative to the harm of an unreproducible canonical entering
 the public record.
 
 The intra-day 4-equivalence test (full-enum L1, deterministic re-run L2, `--merge-layers` of full-enum, `--merge-layers` of 56-branch
@@ -887,7 +887,7 @@ Use 4-equivalence inside a single VM, then cross-build verify across VMs.
 
 #### Container-pinned toolchain (target state for any future deeper canonical; not used by 560T)
 
-The 560T canonical (`9a968fa2…`, 2026-06-08) shipped on the stock D128als_v7 Ubuntu 24.04 image (gcc-13.x, glibc 2.39) without container pinning — the host-fingerprint sidecar + Tier 1 hardening (`solve --validate-canonical`) was deemed sufficient for that scale. (**"Tier 1" and "Tier 2.1" in this subsection are *determinism-hardening levels*** — rungs of the Task #110 hardening programme in [HISTORY.md](HISTORY.md) — and are unrelated to the campaign-scale "Tier 1" of [LARGE_SCALE_CAMPAIGNS.md](LARGE_SCALE_CAMPAIGNS.md) and to the Lean proof tiers of [`lean/README.md`](../lean/README.md).) For any future deeper canonical, container pinning remains the **target state** (the 1120T extension this was written for is **not planned** as of 2026-08-01) but is **operator-deferred** (Tier 2.1 per `project_tier1_shipped_2026_05_28`). The image would contain:
+The 560T canonical (`9a968fa2…`, 2026-06-08) shipped on the 128-core VM's stock Ubuntu 24.04 image (gcc-13.x, glibc 2.39) without container pinning — the host-fingerprint sidecar + Tier 1 hardening (`solve --validate-canonical`) was deemed sufficient for that scale. (**"Tier 1" and "Tier 2.1" in this subsection are *determinism-hardening levels*** — rungs of the Task #110 hardening programme in [HISTORY.md](HISTORY.md) — and are unrelated to the campaign-scale "Tier 1" of [LARGE_SCALE_CAMPAIGNS.md](LARGE_SCALE_CAMPAIGNS.md) and to the Lean proof tiers of [`lean/README.md`](../lean/README.md).) For any future deeper canonical, container pinning remains the **target state** (the 1120T extension this was written for is **not planned** as of 2026-08-01) but is **operator-deferred** (Tier 2.1 per `project_tier1_shipped_2026_05_28`). The image would contain:
 
 - An explicit gcc version (e.g., `gcc-13.2.0-23ubuntu4` — pinned by apt version pin or by base-image digest)
 - An explicit glibc version (frozen with the base image)
@@ -911,12 +911,12 @@ For the operational mechanics of running a canonical enumeration ≥11.2T — pr
 
 The runbook's mandatory invariants for canonical runs:
 
-- Enum OS disk: explicit `--storage-sku StandardSSD_LRS` (Azure defaults `s`-suffix VMs to Premium_LRS otherwise)
+- Enum OS disk: explicit `--storage-sku <disk-sku>` (Azure otherwise defaults some VM sizes to a faster, SSD-backed OS disk)
 - Shards on attached managed disk (the project's data disk), not the enum VM's OS disk
 - ERR trap preserves the enum VM (never auto-`teardown_enum`); recovery from Phase 2 errors is then a Phase-2-only re-run instead of a full enum redo
 - Large-file transfers via streaming `curl -T file` (NEVER `--data-binary @file` — OOMs at 2 GB+)
-- Mount logic handles existing-ext4 (operator data on solver-data); write canonical outputs to `$ARCHIVE_PREFIX/` subdirectory
-- Mandatory D2 pre-flight test of the critical-path commands before committing to a 4h+ canonical enum
+- Mount logic handles existing-ext4 (operator data on the data disk); write canonical outputs to `$ARCHIVE_PREFIX/` subdirectory
+- Mandatory small (2-core) pre-flight test of the critical-path commands before committing to a 4h+ canonical enum
 - Triple-redundancy preservation: three independent copies of the output (size-permitting)
 
 The corresponding operator-memory entry at `feedback_canonical_pipeline_pattern.md` codifies the same rules for Claude.
@@ -974,7 +974,7 @@ the pushed range touches `solve.c`, the hook builds a solver and runs this gate 
 
 **Verified 2026-05-14:** on post-fix code (current main), `--selftest-resume` produces sha `e43f2905ba8f2cb64a4f0691baae78cadd709058bf8f7c0ada6bcbc6058f34e9` for both the resume and single-shot paths (PASS). This sha matches the reference value in the `c3ad271` commit body, confirming the test targets the historically-buggy code path.
 
-**Wall time:** 3 min 3 sec on a 2-ARM-core / 4-thread `claude` orchestrator. Faster on more-core boxes. Acceptable for a daily / pre-merge CI step; too slow for every-push pre-commit on small boxes. Recommended cadence: include in `make check` or weekly CI, not every commit.
+**Wall time:** 3 min 3 sec on a 2-ARM-core / 4-thread orchestrator VM. Faster on more-core boxes. Acceptable for a daily / pre-merge CI step; too slow for every-push pre-commit on small boxes. Recommended cadence: include in `make check` or weekly CI, not every commit.
 
 **Future:** add to pre-commit hook (alongside `--selftest`) once a faster scale (e.g., 20M → 50M) is empirically tuned. Phase E.2 used 50M → 200M because that's the exact ratio the c3ad271 fix commit validated at; smaller scales may not exercise enough BUDGETED sub-branches.
 
@@ -1029,8 +1029,8 @@ Violation → `_exit(21)` with diagnostic to stderr (distinct from existing exit
 
 **Standing policy (codified 2026-05-14, was de facto since Phase B):**
 
-- **Enumeration phase** (sub-branch DFS, parallel, OK to evict mid-walk): Spot priority is required (CLAUDE.md cost-control rule). The mid-walk checkpoint capability (`SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1`) handles eviction-recovery safely on post-`c3ad271` code.
-- **Merge phase** (`solve --merge`, single-threaded, eviction-fragile): **Standard (non-Spot) priority is required.** A merge that is evicted leaves a partial solutions.bin and re-running it costs 60+ minutes per attempt. The cost difference between Spot D32 and Standard D32 for a 60-minute merge is trivial vs the risk of corrupting a canonical artifact.
+- **Enumeration phase** (sub-branch DFS, parallel, OK to evict mid-walk): Spot priority is required (CLAUDE.md VM purchase-type rule). The mid-walk checkpoint capability (`SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1`) handles eviction-recovery safely on post-`c3ad271` code.
+- **Merge phase** (`solve --merge`, single-threaded, eviction-fragile): **Regular (non-Spot) priority is required.** A merge that is evicted leaves a partial solutions.bin and re-running it takes 60+ minutes per attempt. Running a 60-minute merge on regular (non-interruptible) capacity removes the risk of corrupting a canonical artifact.
 
 **Operator pre-flight gate (manual, mandatory):** before launching any canonical-scale `solve --merge`, run `az vm show --query priority -o tsv` on the target VM. If output is anything other than `null` or `Regular`, stop and switch to a non-Spot VM.
 
@@ -1080,16 +1080,16 @@ Run both; both must pass. The first catches any corruption of PHASE_A's recorded
 
 Each Phase 1 sha-preserver gets two gates: (a) **sha preservation** at canonical params (the existing plan), and (b) **quantified speedup** vs the v1 baseline (operator request 2026-05-15). Sha preservation is binary (PASS/FAIL); speedup is a measured ratio reported against a **noise floor** (coefficient of variation, below) — not a confidence interval: no distributional quantile is computed and no interval is placed on the ratio itself.
 
-#### Benchmark protocol — codified in `v2_bench_d64.sh` (private repo)
+#### Benchmark protocol — codified in a private benchmark script
 
-The full protocol lives in the private operational repo at `petersm3/roae-private:v2_bench_d64.sh`. It runs as `./v2_bench_d64.sh <binary> <node_limit> <output_tsv>`. Per-trial discipline encoded into the script (so any future session running it inherits the same rigor):
+The full protocol lives in a benchmark script in the private operational repo. It runs as `./<bench-script> <binary> <node_limit> <output_tsv>`. Per-trial discipline encoded into the script (so any future session running it inherits the same rigor):
 
 | Element | Choice / Encoded in script |
 |---|---|
-| Workload | `SOLVE_THREADS=N SOLVE_NODE_LIMIT=B` at default depth-2; B picked per scale tier (see "Phase 1 scale tiering" below); N defaults to 64 (D64), overridable via env var |
+| Workload | `SOLVE_THREADS=N SOLVE_NODE_LIMIT=B` at default depth-2; B picked per scale tier (see "Phase 1 scale tiering" below); N defaults to 64 (the 64-core VM), overridable via env var |
 | Trials | 4 per binary minimum (raised from 3 on 2026-05-15 — three trials had insufficient resolution to distinguish a cold-cache outlier from real variance); raise to 6-8 if speedup is suspected close to noise floor |
 | Warmup | 1 discarded run per binary at 1/10 the trial budget |
-| **Pre-flight: CPU throttling** | **MANDATORY.** Read `cpu MHz` from `/proc/cpuinfo`; abort if below `MIN_FREQ_MHZ` (default 2000). AMD Genoa healthy baseline is 3000-3700 MHz; throttled Spot hosts run at ~600 MHz (observed 3× during v1 Phase B in westus3 May 13-14). Re-checked before every trial — Spot evictions / co-tenant pressure can throttle mid-run. |
+| **Pre-flight: CPU throttling** | **MANDATORY.** Read `cpu MHz` from `/proc/cpuinfo`; abort if below `MIN_FREQ_MHZ` (default 2000). AMD Genoa healthy baseline is 3000-3700 MHz; throttled Spot hosts run at ~600 MHz (observed 3× during v1 Phase B, May 13-14). Re-checked before every trial — Spot evictions / co-tenant pressure can throttle mid-run. |
 | **Pre-flight: no stale processes** | **MANDATORY.** `pgrep -af "solve|bench"` must return empty (pgrep takes an extended regex, so `\|` would match a literal bar; *2026-11-04, CX-36N-C, Codex final review F12-008#6*) (excluding the bench script itself + systemd-resolved). Stale orphan processes from prior work consume cores and bias the benchmark. (Lesson 2026-05-15 — see HISTORY.md §"Methodology lesson learned … (and contamination correction)".) |
 | **Between trials of same binary** | `sync; echo 3 > /proc/sys/vm/drop_caches` (needs sudo) + `sleep ${COOLDOWN_SEC}` (default 60s). Clears page cache and lets thermal/frequency state settle to a comparable starting point for each trial. |
 | **Between binaries** | Operator-driven: **reboot the VM** between binaries (`sudo reboot`; ~60-90 sec to SSH-ready). Each binary's 4-trial sequence then starts from full cold-state, so cross-binary comparison is fair. The bench script handles per-trial state within one binary; reboot orchestration is operator-managed (or could be wrapped by a higher-level script). |
@@ -1102,11 +1102,11 @@ The full protocol lives in the private operational repo at `petersm3/roae-privat
 > loop — so it yields no within-binary variance and therefore no noise floor at all. Its
 > paired results are **screening-grade**: use them to decide whether a change is worth
 > benching properly. Before a [PERFORMANCE_HISTORY.md](PERFORMANCE_HISTORY.md) entry claims a
-> quantified speedup, run the 4-trial protocol above (`v2_bench_d64.sh`, private repo) and
+> quantified speedup, run the 4-trial protocol above (the private benchmark script) and
 > report the CoV alongside the ratio; an entry produced by `perf_bench.sh` alone must say so
 > and must not quote a dispersion figure.
 
-#### Phase 1 scale tiering on D64als_v7 64-thread
+#### Phase 1 scale tiering on a 64-core VM, 64 threads
 
 | Scale | Wall/trial | 4-trial × 3-binary cycle wall (compute only: the protocol's nine 60 s cool-downs and two reboots add ≥ 11 min) | Purpose |
 |---|---|---|---|
@@ -1116,40 +1116,40 @@ The full protocol lives in the private operational repo at `petersm3/roae-privat
 | 1T | ~12-15 min | ~3 hr | canonical-correlation confirmation (run once per Phase 1 task after the 100B numbers settle) |
 | 11.2T canonical | ~77 min | ~15 hr | mandatory sha-preservation regression — operator-gate, not iterative |
 
-Recommended workflow during AVX-512 dev (Phase 1a, 3-5 days engineering): provision one D64 Spot VM, leave it running for the session, iterate at 100B between code changes (~30-40 min per cycle), then run 1T once at the end of each binary's tuning to confirm canonical-scale behavior. Compute for the whole Phase 1a scales with session length.
+Recommended workflow during AVX-512 dev (Phase 1a, 3-5 days engineering): provision one 64-core Spot VM, leave it running for the session, iterate at 100B between code changes (~30-40 min per cycle), then run 1T once at the end of each binary's tuning to confirm canonical-scale behavior. Compute for the whole Phase 1a scales with session length.
 
 Reboot-between-binaries operator pattern:
 
 ```bash
-# On D64 VM, post-provisioning:
-./v2_bench_d64.sh /path/to/solve_baseline 100000000000 baseline.tsv
+# On the 64-core VM, post-provisioning:
+./<bench-script> /path/to/solve_baseline 100000000000 baseline.tsv
 sudo reboot
 # wait ~60-90 sec, SSH back in
-./v2_bench_d64.sh /path/to/solve_avx512 100000000000 avx512.tsv
+./<bench-script> /path/to/solve_avx512 100000000000 avx512.tsv
 sudo reboot
-./v2_bench_d64.sh /path/to/solve_pgo 100000000000 pgo.tsv
+./<bench-script> /path/to/solve_pgo 100000000000 pgo.tsv
 # offline analysis: compute mean/stddev/speedup from the three TSV files
 ```
 
 #### Host strategy
 
-- **`claude` orchestrator (D2as_v6, AMD EPYC Zen 4, 2 cores, x86_64):** has **full AVX-512** instruction support (F/DQ/BW/VL/VNNI/BF16/VBMI/VBMI2/BITALG/VPOPCNTDQ — the complete Zen 4 stack), plus AVX2, FMA, BMI1/2, popcount. Suitable for **all sha-preservation regression at selftest scale** AND **AVX-512 development + selftest-scale speedup measurement**. The "scalar fallback path for ARM" plan element from the original V2_IMPLEMENTATION_PLAN_2026_05_06.md is still relevant for actual Cobalt ARM hosts (D-ps-v6 / Cobalt 100 family) — but claude is not one of those; its 2 cores run the full AVX-512 path natively. Wall time on claude is ~45–50s per 200M-node depth-2 trial (after correcting for benchmark contamination 2026-05-15); four trials take ~3-3.5 minutes of compute, and the full protocol, with its three 60 s cool-downs and the discarded warm-up, takes at least ~6-7 minutes (*2026-11-04, CX-36N-C, Codex final review F12-008#21: this said the 4-trial benchmark completes in ~3-4 minutes*).
-- **x86 Spot D-series in westus3 (D32 or D64als_v7):** required for **canonical-scale (11.2T) sha-preservation regression** (claude has only 2 cores, can't realistically complete 11.2T in operator-friendly time) and for **AVX-512 actual canonical-scale speedup measurement** (Genoa AVX-512 throughput varies by core count + boost behavior; the 11.2T pilot is the operator-meaningful number). Cost: ~1.5 h of Spot time per pilot run.
-- **Cobalt ARM Spot (Dpsv6 family) in westus3:** required for cross-arch validation that the AVX-512-or-scalar fallback path produces identical sha on ARM. The plan's "validate scalar fallback on ARM" task lives here, not on claude (which is x86 and would never exercise the scalar fallback).
+- **The orchestrator VM (AMD EPYC Zen 4, 2 cores, x86_64):** has **full AVX-512** instruction support (F/DQ/BW/VL/VNNI/BF16/VBMI/VBMI2/BITALG/VPOPCNTDQ — the complete Zen 4 stack), plus AVX2, FMA, BMI1/2, popcount. Suitable for **all sha-preservation regression at selftest scale** AND **AVX-512 development + selftest-scale speedup measurement**. The "scalar fallback path for ARM" plan element from the original V2_IMPLEMENTATION_PLAN_2026_05_06.md is still relevant for actual Cobalt 100 ARM hosts — but the orchestrator is not one of those; its 2 cores run the full AVX-512 path natively. Wall time on the orchestrator is ~45–50s per 200M-node depth-2 trial (after correcting for benchmark contamination 2026-05-15); four trials take ~3-3.5 minutes of compute, and the full protocol, with its three 60 s cool-downs and the discarded warm-up, takes at least ~6-7 minutes (*2026-11-04, CX-36N-C, Codex final review F12-008#21: this said the 4-trial benchmark completes in ~3-4 minutes*).
+- **An x86 Spot VM with 32 or 64 cores:** required for **canonical-scale (11.2T) sha-preservation regression** (the orchestrator has only 2 cores, can't realistically complete 11.2T in operator-friendly time) and for **AVX-512 actual canonical-scale speedup measurement** (Genoa AVX-512 throughput varies by core count + boost behavior; the 11.2T pilot is the operator-meaningful number). Wall time: ~1.5 h per pilot run.
+- **A Cobalt ARM Spot VM:** required for cross-arch validation that the AVX-512-or-scalar fallback path produces identical sha on ARM. The plan's "validate scalar fallback on ARM" task lives here, not on the orchestrator (which is x86 and would never exercise the scalar fallback).
 
 #### Per-Phase-1 task — what gets measured
 
-- **#46 AVX-512:** baseline scalar vs AVX-512-enabled. Speedup expected 1.4–2.0× per the implementation plan; will validate empirically. ⚠ **[REFUTED 2026-05-16 — it was validated empirically, and the expectation did not survive. The definitive 1T paired bench put AVX2 at 433.0 s against AVX-512 at 434.6 s (**0.9963×**, Welch t = −1.281, 95% CI [−4.05, +0.85] s, null not rejected); #46 was closed via REVERT. Root cause: gcc 13.3 with `-march=native` already auto-vectorizes the one loop that benefits, so the scalar baseline was never scalar. The task description above is preserved as written; the AVX-512 host guidance earlier in this section remains accurate as a statement about instruction support, but no longer implies pending speedup work. This callout added 2026-09-02; it was the last of the three 1.4–2.0× sites left unmarked after prose batch P64 marked the two in HISTORY.md.]** Development + selftest-scale benchmarks happen on `claude` directly (full AVX-512 stack supported). Canonical-scale speedup measurement on D64als_v7 Spot in westus3 (1.5h). Scalar-fallback cross-arch validation on Cobalt ARM (Dpsv6) — that's the "did the fallback regress when we added the AVX-512 path?" check, not the speedup measurement.
+- **#46 AVX-512:** baseline scalar vs AVX-512-enabled. Speedup expected 1.4–2.0× per the implementation plan; will validate empirically. ⚠ **[REFUTED 2026-05-16 — it was validated empirically, and the expectation did not survive. The definitive 1T paired bench put AVX2 at 433.0 s against AVX-512 at 434.6 s (**0.9963×**, Welch t = −1.281, 95% CI [−4.05, +0.85] s, null not rejected); #46 was closed via REVERT. Root cause: gcc 13.3 with `-march=native` already auto-vectorizes the one loop that benefits, so the scalar baseline was never scalar. The task description above is preserved as written; the AVX-512 host guidance earlier in this section remains accurate as a statement about instruction support, but no longer implies pending speedup work. This callout added 2026-09-02; it was the last of the three 1.4–2.0× sites left unmarked after prose batch P64 marked the two in HISTORY.md.]** Development + selftest-scale benchmarks happen on the orchestrator directly (full AVX-512 stack supported). Canonical-scale speedup measurement on a 64-core Spot VM (1.5h). Scalar-fallback cross-arch validation on a Cobalt ARM VM — that's the "did the fallback regress when we added the AVX-512 path?" check, not the speedup measurement.
 - **#47 LTO:** baseline `-O3 -march=native` vs `-O3 -flto -march=native`. Speedup expected 0–5% (LTO mostly helps cross-translation-unit optimization; single-file project gets modest gains from extra dead-code elimination + cross-function inlining beyond `-O3`'s defaults). On claude.
 - **#47 PGO (profile-guided optimization):** baseline `-O3` vs `-O3 -fprofile-generate` → run profile workload → `-O3 -fprofile-use`. Speedup expected 5–15%. On claude. **Build invariant (added 2026-05-24 after the silent no-PGO incident):** use `scripts/build_pgo.sh` for all PGO builds. Under `-flto`, GCC keys the `.gcda` lookup on the output binary's name; if Pass 1 and Pass 2 use different output names (e.g., `solve_inst` vs `solve_U`), Pass 2 silently misses the profile data and falls back to no-PGO with a one-line warning. The helper enforces three rules: (1) same output name in both passes (rename after), (2) `-Werror=missing-profile` on Pass 2 so any future regression fails the build loud, (3) assert `.gcda` count > 0 between passes. Past incident: the v1-vs-v3 paired bench 2026-05-24 measured only +4.38% v3 advantage (vs predicted +9.2%) because PGO silently didn't apply. See `roae-private/V1_V3_PAIRED_BENCH_RESULTS_2026_05_24.md`. *(2026-09-27, Q-828:)* the helper also refuses a training workload that did not finish. `solve` answers SIGTERM by checkpointing and exiting 0, so an exit status of 0 cannot tell a stopped workload from a finished one; and under the default workload's `SOLVE_SKIP_AUTOMERGE` no line of the log differed either. `solve` now ends every enumeration run with a whole-line `ENUM_RUN=FINISHED` or `ENUM_RUN=STOPPED` (`SOLVE_C_CLI.md`, default mode), and the workload log must carry `ENUM_RUN=FINISHED` and no `ENUM_RUN=STOPPED` or `*** Signal received` line, or the helper stops with an `ERROR:` line, exits 1 and builds no Pass 2. Bound a training workload with a node limit, not a time limit or a signal.
-- **#47 huge pages + NUMA:** runtime-environment changes (transparent huge pages, NUMA pinning); benchmarked on the host where they actually apply (D-series VM with NUMA-aware OS).
+- **#47 huge pages + NUMA:** runtime-environment changes (transparent huge pages, NUMA pinning); benchmarked on the host where they actually apply (an x86 VM with a NUMA-aware OS).
 
 #### Reporting template (one row per Phase 1 task)
 
 ```
 | Task | Host | Workload | Baseline (s) | Optimized (s) | Speedup | Notes |
 |---|---|---|---|---|---|---|
-| #47 LTO | claude D2as_v6 2-thread | 200M nodes depth-2 | <mean ± stddev> | <mean ± stddev> | <ratio> | sha preserved at selftest (403f7202) and at 11.2T regression: <PASS/FAIL/pending> |
+| #47 LTO | orchestrator, 2 cores, 2 threads | 200M nodes depth-2 | <mean ± stddev> | <mean ± stddev> | <ratio> | sha preserved at selftest (403f7202) and at 11.2T regression: <PASS/FAIL/pending> |
 ```
 
 Each row is appended to a "Phase 1 speedup measurements" table in `HISTORY.md` as each task's data lands.
@@ -1505,7 +1505,7 @@ The `build.sha` file in the run directory holds `sha256(/proc/self/exe)` from th
 **When the guard fires in practice:**
 
 1. **Same VM, same OS disk across `az vm deallocate` + `az vm start`** — guard passes naturally; `/proc/self/exe` is byte-identical (OS disk preserved). No override needed.
-2. **Fresh VM rebuild** (campaign failure-recovery deleted the OS disk; new provision rebuilds solve) — the rebuilt binary has a different sha than `build.sha` on the persistent Premium SSD. The canonical launchers handle this by preserving the stale `build.sha` as `parent_build.sha.<timestamp>` for archival, then deleting it so the new binary writes fresh. No override needed in the launcher's env.
+2. **Fresh VM rebuild** (campaign failure-recovery deleted the OS disk; new provision rebuilds solve) — the rebuilt binary has a different sha than `build.sha` on the persistent SSD-backed data disk. The canonical launchers handle this by preserving the stale `build.sha` as `parent_build.sha.<timestamp>` for archival, then deleting it so the new binary writes fresh. No override needed in the launcher's env.
 3. **Cross-campaign extension** (e.g., 1120T binary touching 560T's RUN_DIR) — same hygiene step in the launcher's `build()` preserves the parent campaign's `build.sha` and lets the new binary write fresh.
 4. **Mid-campaign manual rebuild** (operator ssh's into the enum VM and rebuilds solve directly, bypassing `build()`) — guard correctly fires. ⚠ *(2026-09-26, Q-837: only for binaries built from 2026-09-26 on. Before that `build.sha` held the hashing tool's digest, the same for every rebuild on a host, so a same-host rebuild did not fire the guard; see the Q-619 #4 note above.)* Operator must explicitly delete `build.sha` (audited decision) or set `SOLVE_ALLOW_BUILD_MISMATCH=1` for one invocation (audited decision).
 
@@ -1626,7 +1626,7 @@ failing the run. *(Since 2026-09-27, Q-866: at `SOLVE_NODE_LIMIT` >= 1T it is ca
 
 ### Compile
 
-- Build flags: `gcc -O3 -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -DGIT_BRANCH="\"$(git rev-parse --abbrev-ref HEAD)\"" -o solve solve.c -lm -lz` (minimum to reproduce canonical sha; the `-DGIT_HASH` stamp is sha-neutral — measured 2026-09-02 — and without it every artifact the run writes records `"git_hash": "unknown"`); `gcc -O3 -flto -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -o solve solve.c -lm -lz` (recommended — sha-preserving, ~2% faster at 100B-node canonical-correlation scale on AMD Zen 4 D64, Phase 1c validated 2026-05-15). The `-lz` (zlib) link flag is required since #169 (native-gzip live compression); it is the only build change and is sha-neutral (gzip is a non-sha-determining storage layer).
+- Build flags: `gcc -O3 -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -DGIT_BRANCH="\"$(git rev-parse --abbrev-ref HEAD)\"" -o solve solve.c -lm -lz` (minimum to reproduce canonical sha; the `-DGIT_HASH` stamp is sha-neutral — measured 2026-09-02 — and without it every artifact the run writes records `"git_hash": "unknown"`); `gcc -O3 -flto -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -o solve solve.c -lm -lz` (recommended — sha-preserving, ~2% faster at 100B-node canonical-correlation scale on a 64-core AMD Zen 4 VM, Phase 1c validated 2026-05-15). The `-lz` (zlib) link flag is required since #169 (native-gzip live compression); it is the only build change and is sha-neutral (gzip is a non-sha-determining storage layer).
 - `-fopenmp` parallelizes the `--analyze` hot loops. Without it, pragmas are
   no-ops and everything still compiles + runs single-threaded. `libgomp`
   (gcc's OpenMP runtime) ships with gcc under the GCC Runtime Library
@@ -1852,18 +1852,18 @@ For canonical campaigns at 11.2T+, no host-level drift has been observed either 
   "≥128 GB RAM" at 100T. The solver's own log gives 32,768 MB of initial hash memory
   at 64 threads, and the merge buffer is sized from all input records, not the
   deduplicated count.]**
-  Splitting the phases keeps enumeration on a 128-core D-als-v7 Spot VM
-  (`D128als_v7`) and runs the merge on a right-sized, on-demand D-als-v7 VM
-  (`D16als_v7`–`D64als_v7`) with `SOLVE_MERGE_MODE=external`, sized by RAM and
+  Splitting the phases keeps enumeration on a 128-core Spot VM
+  (256 GB RAM) and runs the merge on a right-sized VM on regular capacity
+  (16 to 64 cores) with `SOLVE_MERGE_MODE=external`, sized by RAM and
   I/O rather than core count, because the merge uses one or two cores.
-  ⚠ **[CORRECTED 2026-09-24 (Q-779) — this read "keeps enumeration on a lean
-  F-series SKU and only pays for a memory-dense E/M-series VM during the brief
-  merge". This project does not use F-series VMs; it retired them on 2026-04-19
-  for the D-als-v7 family ([DEPLOYMENT.md](DEPLOYMENT.md) §Ad-hoc VM lifecycle rules, rule 1). It does not size merges on E/M-series
-  memory-dense VMs either: the external merge streams in chunks, so a D-als-v7
+  ⚠ **[CORRECTED 2026-09-24 (Q-779) — this read that enumeration should run on a lean
+  compute-optimised VM, with a memory-dense VM used only during the brief
+  merge. This project does not use that VM family; it retired it on 2026-04-19
+  for its current one ([DEPLOYMENT.md](DEPLOYMENT.md) §Ad-hoc VM lifecycle rules, rule 1). It does not size merges on
+  memory-dense VMs either: the external merge streams in chunks, so a general-purpose
   VM is enough.]** See
   [DEPLOYMENT.md §Two-phase deployment](DEPLOYMENT.md#two-phase-deployment-enumeration-vm-vs-merge-vm)
-  for the full pattern, cost table, and orchestration requirements.
+  for the full pattern and orchestration requirements.
 - **`--analyze` has shared state with lifetime boundaries that bite new
   sections.** `bmask[]` (31 packed per-boundary match bitmaps, **`31 × ceil(N/64) × 8 B`**
   for `N` records — the solver prints the figure at startup: `[masks] Allocating 31
@@ -1891,7 +1891,7 @@ For canonical campaigns at 11.2T+, no host-level drift has been observed either 
 
   The single fixed "~27 GB / 32 GB minimum" figure that stood here applies **only** at
   the 742M/759M-era record counts it was written about; at the 560T canonical the bitmaps alone
-  exceed a 32 GB box. The F32als_v6 used for the smaller runs has 64 GB, which is not
+  exceed a 32 GB box. The older 32-core VM used for the smaller runs has 64 GB, which is not
   enough for 560T `--analyze`. Verify with `free -g` remotely during a full run if ever
   moving this boundary. The same pattern may arise with other shared buffers —
   whenever the solver code has a comment asserting a memory constraint,
@@ -1907,7 +1907,7 @@ For canonical campaigns at 11.2T+, no host-level drift has been observed either 
   because the slow startup is baked into the lifetime average. To check
   whether solve is **actually** saturating cores right now, use
   `top -bn2 -d 1` (two samples 1 second apart) and read the second %CPU
-  value — that's the true instantaneous utilization. On D128 at steady-state
+  value — that's the true instantaneous utilization. On a 128-core VM at steady-state
   real-walking, this should be near 12,800% (100% × 128 cores). Caught
   during 100T v2 recovery2 monitoring 2026-05-22: `ps pcpu` was reading
   ~5600% (interpreted as "still ramping up") while `top` confirmed actual
@@ -1996,12 +1996,12 @@ For canonical campaigns at 11.2T+, no host-level drift has been observed either 
   sha256") before declaring a stall. Observed 2026-04-17: watchdog killed
   a healthy solver mid-merge on a 10T depth-3 run, losing the merge
   output while all sub_*.bin files were intact on disk.
-- **Merge is not checkpoint-protected — use on-demand VMs.** The merge
+- **Merge is not checkpoint-protected — use regular (non-Spot) VMs.** The merge
   phase (malloc + qsort + write) is a single uninterruptible operation.
   If spot-evicted mid-sort, all work is lost and must restart from the
-  sub_*.bin files. For production merges, use an on-demand VM (about
-  30 min on F64). This is the two-phase pattern: spot for enumeration
-  (checkpoint-protected), on-demand for merge (must complete in one shot).
+  sub_*.bin files. For production merges, use a regular (non-Spot) VM (about
+  30 min on a 64-core VM). This is the two-phase pattern: Spot for enumeration
+  (checkpoint-protected), regular capacity for merge (must complete in one shot).
 - **Progress rate + ETA in sync logs.** Each checkpoint sync computes
   sub-branches/hour and estimated time remaining. Essential for overnight
   100T+ runs where "is it still progressing?" can't be answered by a
@@ -2032,31 +2032,31 @@ For canonical campaigns at 11.2T+, no host-level drift has been observed either 
   Default (`auto`) selects external when needed RAM exceeds 80% of
   physical. `SOLVE_MERGE_CHUNK_GB` controls chunk size (default 4 GB).
 - **Disk tier dominates external merge time.** Lesson from the 2026-04-18
-  10T depth-3 production-scale external merge test on Standard_LRS
-  (HDD-tier): rate was ~6-7 min per 4 GB chunk × 20+ chunks in phase 1,
-  projecting to ~3-4 hours total wall at F64 on-demand. That
-  is **~6× the time and ~6× the cost** of the same merge in-memory on the
-  same F64 (fits in 128 GB RAM comfortably). The HDD is the bottleneck,
-  not the code. Implication: never do an external merge on Standard HDD
+  10T depth-3 production-scale external merge test on a standard
+  (HDD) disk: rate was ~6-7 min per 4 GB chunk × 20+ chunks in phase 1,
+  projecting to ~3-4 hours total wall on a 64-core VM. That
+  is **~6× the time** of the same merge in-memory on the
+  same VM (fits in 128 GB RAM comfortably). The HDD is the bottleneck,
+  not the code. Implication: never do an external merge on a standard HDD
   at > 10T scale without a very good reason. At 100T the numbers become
-  untenable (extrapolated 30+ hours on HDD vs ~3 hours on Premium SSD).
-- **Use `SOLVE_TEMP_DIR` to keep temp chunks on Premium SSD while keeping
-  shards and final output on cheap archival storage.** External merge
+  untenable (extrapolated 30+ hours on HDD vs ~3 hours on an SSD-backed disk).
+- **Use `SOLVE_TEMP_DIR` to keep temp chunks on an SSD while keeping
+  shards and final output on slower archival storage.** External merge
   does ~2× chunk-size worth of I/O to the temp directory
   (write chunks in phase 1, read chunks in phase 2). Pointing
-  `SOLVE_TEMP_DIR` at a Premium SSD attached only for the merge runs
-  that I/O at SSD speeds (~200 MB/s on P20/P30, ~3-4× HDD). The SSD gets
-  destroyed after the merge — no long-term Premium-storage cost, only
-  the prorated hourly rate during the merge. Shards stay on
-  `solver-data` (Standard HDD). Final `solutions.bin` also
-  lands on `solver-data` since CWD during merge is unchanged. See
-  [DEPLOYMENT.md §Premium-SSD-attach-for-merge](DEPLOYMENT.md)
+  `SOLVE_TEMP_DIR` at an SSD-backed disk attached only for the merge runs
+  that I/O at SSD speeds (~200 MB/s, ~3-4× HDD). The SSD gets
+  destroyed after the merge, so it exists only
+  for the length of the merge. Shards stay on
+  the data disk (a standard HDD). Final `solutions.bin` also
+  lands on the data disk since CWD during merge is unchanged. See
+  [DEPLOYMENT.md §SSD attach for merge](DEPLOYMENT.md)
   for the concrete az CLI workflow.
-- **Standing rule: never provision `solver-data` as Premium SSD.** It
-  holds cold shards 99% of the time. Standard_LRS (cheap per GB from 300 GB
-  to 1 TB) is the right tier for archival. The factor-10
-  cost jump to Premium is only justified during active merges, and those
-  are better served by attach-a-temp-Premium-SSD-just-for-the-merge.
+- **Standing rule: never provision the data disk as an SSD.** It
+  holds cold shards 99% of the time. A standard HDD (from 300 GB
+  to 1 TB) is the right tier for archival. The faster
+  tier is only needed during active merges, and those
+  are better served by attach-a-temp-SSD-just-for-the-merge.
 - **External merge has a hard pre-dedup size ceiling.** `MAX_SORTED_CHUNKS
   = 4096` in solve.c × default `SOLVE_MERGE_CHUNK_GB=4` = **16 TB of
   pre-dedup input**. At observed d3 rates (~8.3 GB per 1T nodes) that's
@@ -2105,7 +2105,7 @@ Operational procedure:
    targeted first-level branch. Sub-branches within that branch complete
    as EXHAUSTED; shards land in the CWD as `sub_P_O_*.bin`.
 2. Archive those shards + the branch's checkpoint entries onto a
-   shared disk (e.g., `solver-data` or a dedicated `solver-ground-truth`
+   shared disk (e.g., the data disk or a dedicated ground-truth
    disk). Retain the checkpoint lines marking EXHAUSTED status.
 3. Next full run: `cp` (or symlink) the archived shards + concatenated
    checkpoint into the working directory before launching. `solve.c`
@@ -2174,13 +2174,13 @@ accidental resume from stale state; `sub_ckpt_load` makes that false.]**
 
 Sizing. ⚠ **[CORRECTED 2026-09-03 — this paragraph described the pre-P1 engine
 (Codex V2-F15 #15). It read "the workload is single-threaded inside a sub-branch,
-so D128 is 99% wasted" and advised pairing with D2/D4; that has not been true
+so [a 128-core VM] is 99% wasted" and advised pairing with 2- or 4-core VMs; that has not been true
 since P1.]** `--sub-branch` **auto-parallelizes across intra-branch tasks whenever
 `SOLVE_THREADS > 1`** (`solve.c`, "P1 parallel-sub-branch: auto-enable when
 SOLVE_THREADS > 1"); set `SOLVE_SUB_BRANCH_PARALLELISM=single` to opt out, which
 is the regression-mode path. So size the VM **from measured scaling on your own
 workload**, not from a single-thread assumption — the old advice would leave a
-parallel run on two cores. See `DSERIES_ROI_REPORT.md` (outside repo) for SKU
+parallel run on two cores. See the private ROI report (outside the repo) for VM
 sizing rationale, and note it predates P1 on this same point. ⚠ *(2026-09-27, Q-871: a parallel run under a global `SOLVE_NODE_LIMIT` is not reproducible. Each in-flight task is cut wherever its worker stood when the shared node counter crossed the budget, which depends on thread scheduling, so two runs of one command can return different record sets, counts and shard shas. Treat a BUDGETED parallel count as a lower bound on the cell, never as a figure to reproduce, and see `SOLVE_C_CLI.md` §--sub-branch for what is deterministic.)*
 
 Validation guarantee: if you later exhaust a sub-branch via `--sub-branch`
@@ -2206,7 +2206,7 @@ via OpenMP.
 ~10× faster than scikit-learn's `KernelDensity.score_samples` (compiled ball/kd trees, not pure Python — corrected 2026-09-25, Q-763) on
 typical inputs (validated bit-identical on a 500-point synthetic test).
 Makes exhaustive distributional analysis on the 100T canonical (3.43B
-records) tractable in ~2 hours on D64 (vs ~9 days for the earlier path — a ~108× ratio, so that figure and the ~10× are not the same comparison).
+records) tractable in ~2 hours on a 64-core VM (vs ~9 days for the earlier path — a ~108× ratio, so that figure and the ~10× are not the same comparison).
 
 See `roae-private/DISTRIBUTIONAL_V2_SPEC.md` (private staging repo)
 for the analysis pipeline + Python integration.
@@ -2233,7 +2233,7 @@ for the experimental protocol and validation strategy.
 
 ### Infrastructure
 
-- **Spot-VM evictions in westus2 under F64 averaged ~1 per 3 hours during
+- **Spot-VM evictions in one region on a 64-core VM averaged ~1 per 3 hours during
   April 2026 testing.** Sub-branch-granularity recovery is too coarse at
   large per-sub-branch budgets (100T+). Depth-3 work units (Option B,
   shipped via `SOLVE_DEPTH=3`) make the recovery granularity affordable.
@@ -2245,22 +2245,22 @@ for the experimental protocol and validation strategy.
   sequential. Parallel deletes return spurious exit-1 because dependents
   hold references.
 
-### Solver-VM network topology: private IP only
+### Solver VM network topology: private IP only
 
-Solver VMs live on the shared `claude-vnet/default` subnet alongside the
-orchestrator (`claude` VM at `$ORCH_IP`). Each new solver VM created by
+Solver VMs live on the shared `<vnet>/default` subnet alongside the
+orchestrator (at `$ORCH_IP`). Each new solver VM created by
 `monitor_canonical.sh` gets a private IP (the next free private IP on the
 subnet) and **no public IP and no NSG rule**. The orchestrator SSHes to the
 private IP directly.
 
-**Why:** no port 22 reachable from the internet, no public-IP cost
+**Why:** no port 22 reachable from the internet, no public IP
 per VM, simpler resource inventory.
 
 **Documented exception — `scripts/perf_bench.sh` (the standardized paired
 benchmark harness).** This one endorsed script does **not** follow the rule,
 on every invocation and not only from a laptop. It provisions a *fresh
 resource group of its own* with its own `vnet`/`subnet` at `10.0.0.0/16`
-(`perf_bench.sh:193-194`) rather than joining `claude-vnet`, so no private
+(`perf_bench.sh:193-194`) rather than joining `<vnet>`, so no private
 path from the orchestrator exists at all, and then creates the VM with
 `--public-ip-sku Standard --nsg-rule SSH` (`:198`) and connects with
 `StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null` (`:207-208`).
@@ -2288,13 +2288,13 @@ Codex review V2-L21 #2, filed High and adjudicated Medium on threat model: the
 exposure is key-auth-only port 22 on a transient Spot VM holding public source,
 so it is a posture contradiction rather than a credential or data-secrecy
 stake. The preferred repair is in `perf_bench.sh`, not here — put the NIC on
-`claude-vnet/default` with no public IP when the run originates on the
+`<vnet>/default` with no public IP when the run originates on the
 orchestrator, keeping an explicit `--public` flag for the off-vnet case. That
 is a change to `scripts/`, which this pass does not own; the exception is
 documented rather than closed, and the script change is left open.]**
 
 **How `monitor_canonical.sh` does it:**
-- `az network nic create --vnet-name claude-vnet --subnet default`
+- `az network nic create --vnet-name <vnet> --subnet default`
   (no `--public-ip-address`, no `--network-security-group`)
 - `get_ip()` queries the NIC's `privateIPAddress` instead of a public-IP
   resource
@@ -2303,7 +2303,7 @@ documented rather than closed, and the script change is left open.]**
 run; their cleanup paths still attempt to delete those resources for
 backward compatibility but new runs don't create them.
 
-**Caveat:** since both VMs must share `claude-vnet`, an analyst running
+**Caveat:** since both VMs must share `<vnet>`, an analyst running
 this from a laptop (not from the orchestrator VM) needs a different
 SSH path — either keep the public IP, or set up vnet peering / a jump
 host. The orchestrator-on-vnet pattern is the simplest local case.
@@ -2340,7 +2340,7 @@ starts; watchdog handles unexpected mid-run growth.
 
 **Disks can grow but not shrink.** If 100T finishes with the disk grown
 to 500 GB but only 200 GB used, the disk stays at 500 GB until manually
-shrunk via snapshot + recreate. Cost continues at the larger size until
+shrunk via snapshot + recreate. The disk keeps its larger size until
 then.
 
 ---
@@ -2384,7 +2384,7 @@ then.
    Pass `0` as the wall-clock argument for the reproducibility rule — each
    sub-branch runs to its full per-branch node budget, producing byte-identical
    output regardless of thread count or hardware. Empirical timing: 10T d3
-   completes in ~83 min on D128als_v7 (Zen 5) or ~5 h on F64als_v6 (Zen 4).
+   completes in ~83 min on a 128-core VM (Zen 5) or ~5 h on an older 64-core VM (Zen 4).
    Walks all 158,364 depth-3 cells but produces **~56K** `sub_*.bin` shards, not
    158,364: a cell that yields zero solutions writes no shard. The archived 10T d3
    run produced 56,404 shard files (HISTORY.md, 2026-04-17: "the remainder had 0
@@ -2449,7 +2449,7 @@ a reproduction reference.
 The repo ships no cloud-provider-specific *solver* tooling (the one exception is the screening harness `scripts/perf_bench.sh`, which provisions an Azure VM; corrected 2026-09-25, Q-763). Running
 the solver on a cloud VM (Azure, AWS, GCP) follows an architecture-agnostic
 recipe; adapt to your provider of choice. The pattern we used in April 2026
-(Azure spot F64als_v6) is documented in
+(Azure Spot, an older 64-core VM) is documented in
 [DEPLOYMENT.md](DEPLOYMENT.md) Appendix A as a reference example — translate
 to `aws ec2`, `gcloud compute`, etc. as appropriate.
 
@@ -2472,25 +2472,25 @@ A new Claude session (or any new contributor) should read DEPLOYMENT.md to
 understand the rules, then write provider-specific scripts matching those
 rules. Concrete commands vary by provider; the architecture does not.
 
-## Cost expectations (April 2026 baseline)
+## Scale expectations (April 2026 baseline)
 
-- Solver run (10T on Azure F64 spot): [cost redacted] uninterrupted, more with 1-2
+- Solver run: 10T on a 64-core VM on interruptible (Spot) capacity; slower with 1-2
   evictions.
-- Analysis session (F32 spot, `--analyze` on 742M): [cost redacted] per session.
-- Persistent data disk (64 GB Standard HDD): [cost redacted].
-- User's informal budget cap: [cost redacted] for an ongoing project at this scale.
+- Analysis session: `--analyze` on 742M, on a 32-core Spot VM.
+- Persistent data disk: 64 GB, on a standard HDD.
+- Public text carries no cost figures (operator rule, 2026-11-14).
 
 Future 100T: projected feasible on spot with Option B (depth-3 work units)
-reducing eviction recovery cost. Without Option B, spot is infeasible (first
+reducing eviction recovery time. Without Option B, spot is infeasible (first
 attempt projected 30+ days).
 
 Future 1000T: would need architectural changes — solutions.bin at ~2.2 TB
 exceeds single-disk capacity; requires chunked output + sharded analysis.
 Queued, not scoped. ⚠ *Corrected 2026-09-24 (Q-779): this also read "possibly
-M-series VM for analysis step". Memory-dense E/M-series VMs are outside this
-project's VM guidance (D-als-v7 family, [DEPLOYMENT.md §Two-phase deployment](DEPLOYMENT.md#two-phase-deployment-enumeration-vm-vs-merge-vm)),
-so an analysis step that needs more RAM than a D-als-v7 VM has would have to be
-redesigned to stream, not moved to a larger SKU.*
+memory-dense VM for analysis step". Memory-dense VMs are outside this
+project's VM guidance (one general-purpose family, [DEPLOYMENT.md §Two-phase deployment](DEPLOYMENT.md#two-phase-deployment-enumeration-vm-vs-merge-vm)),
+so an analysis step that needs more RAM than such a VM has would have to be
+redesigned to stream, not moved to a larger VM size.*
 
 ---
 
@@ -2514,7 +2514,7 @@ see [CANONICAL_HASHES.md](CANONICAL_HASHES.md) and
 [enumeration/LEADERBOARD.md](../enumeration/LEADERBOARD.md). The present
 tense in these two items is the 2026-04-19 framing, not current state.)*
 
-1. **100T d3 enumeration on D128als_v7 westus3.** Launched 2026-04-19
+1. **100T d3 enumeration on a 128-core VM.** Launched 2026-04-19
    ~08:00 UTC; at the time of this doc refresh, enumeration is in flight.
    Expected outcome: a 100T-budget canonical sha that supersedes the 10T d3
    sha as the deepest partial dataset. Per PARTITION_INVARIANCE.md the
@@ -2523,9 +2523,9 @@ tense in these two items is the 2026-04-19 framing, not current state.)*
    canonical count, refresh `--analyze` outputs for the deeper dataset,
    reassess {25, 27} interchangeable-pairs structure at 10× budget.
 2. **4-corners validation at 100T.** The 10T d3 canonical has been
-   validated across {F64 Zen 4 westus2, D128 Zen 5 westus3} × {external,
+   validated across {64-core Zen 4 in one region, 128-core Zen 5 in a second region} × {external,
    heap-sort merge} (all four produce byte-identical output, see
-   HISTORY.md). 100T has only been run via the D128+external corner so
+   HISTORY.md). 100T has only been run via the 128-core+external corner so
    far; running the other three corners at 100T would tighten the
    partition-invariance empirical claim — but is not required for the
    canonical sha, which is theorem-guaranteed reproducible.

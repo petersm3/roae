@@ -251,7 +251,7 @@ REVIEWED = {
         ('1', 'reviewed:text-already-reads-12.5-min-per-pass'),
     ('documentation/CAMPAIGN_METHODOLOGY.md', '42581a08033a'):
         ('1', 'reviewed:list-above-already-names-SOLVE_DEPTH'),
-    ('documentation/CAMPAIGN_METHODOLOGY.md', '4fc7635b552f'):
+    ('documentation/CAMPAIGN_METHODOLOGY.md', '268015edafc5'):  # re-keyed 2026-11-14, cloud sweep B5/B6 (was 4fc7635b552f; VM size/disk-tier/cost words reworded; verdict re-read, stands)
         ('1', 'reviewed:text-already-re-derives-from-13631-s'),
     ('documentation/CAMPAIGN_METHODOLOGY.md', '630f88baa2c0'):
         ('1', 'reviewed:item-4-already-carries-depth'),
@@ -281,13 +281,13 @@ REVIEWED = {
         ('1', 'reviewed:boxed-note-already-reads-consistently'),
     ('documentation/CANONICAL_HASHES.md', '00ff54783292'):
         ('1', 'reviewed:row-no-longer-carries-the-LTO-attribution'),
-    ('documentation/CANONICAL_HASHES.md', '11fd7b6f2df8'):
+    ('documentation/CANONICAL_HASHES.md', 'be7c553af1ad'):  # re-keyed 2026-11-14, cloud sweep B6 (was 11fd7b6f2df8; VM size/region/cost words reworded; verdict re-read, stands)
         ('2', 'reviewed:row-still-asserts-the-1T-drift-it-withdraws'),
     ('documentation/CANONICAL_HASHES.md', '18a82188eee5'):
         ('2', 'reviewed:the-drift-gap-note-it-withdraws-is-still-above-it'),
     ('documentation/CANONICAL_HASHES.md', '2663ae1a7c79'):
         ('1', 'reviewed:paragraph-above-already-says-two-per-cell-budgets'),
-    ('documentation/CANONICAL_HASHES.md', '2e4d45528618'):
+    ('documentation/CANONICAL_HASHES.md', 'dc9d199b3da5'):  # re-keyed 2026-11-14, cloud sweep B6 (was 2e4d45528618; VM size/region/cost words reworded; verdict re-read, stands)
         ('1', 'reviewed:sentence-already-gives-both-arms-stddev'),
     ('documentation/CANONICAL_HASHES.md', '403d25d6040d'):
         ('1', 'reviewed:paragraph-above-already-states-the-corrected-rule'),
@@ -307,11 +307,11 @@ REVIEWED = {
         ('2', 'reviewed:the-NOT-REPRODUCIBLE-text-it-withdraws-is-still-above-it'),
     ('documentation/CANONICAL_HASHES.md', '718078bbe242'):
         ('2', 'reviewed:only-thing-withdrawing-the-host-environment-cause-the-bracket-above-gives'),
-    ('documentation/CANONICAL_HASHES.md', '7ed5382810ab'):
+    ('documentation/CANONICAL_HASHES.md', 'cb26064afc3d'):  # re-keyed 2026-11-14, cloud sweep B6 (was 7ed5382810ab; VM size/region/cost words reworded; verdict re-read, stands)
         ('1', 'reviewed:cell-already-separates-the-King-Wen-observation-from-the-verdict'),
     ('documentation/CANONICAL_HASHES.md', '8f5d0299b94d'):
         ('1', 'reviewed:paragraph-no-longer-carries-the-LTO-attribution'),
-    ('documentation/CANONICAL_HASHES.md', 'a35557a8415a'):
+    ('documentation/CANONICAL_HASHES.md', '3f351eef3978'):  # re-keyed 2026-11-14, cloud sweep B6 (was a35557a8415a; VM size/region/cost words reworded; verdict re-read, stands)
         ('1', 'reviewed:text-already-uses-the-corrected-ratio'),
     ('documentation/CANONICAL_HASHES.md', 'b2334245885b'):
         ('1', 'reviewed:sentence-already-corrected'),
@@ -321,7 +321,7 @@ REVIEWED = {
         ('1', 'reviewed:text-already-reads-4909e18-and-4900000-T'),
     ('documentation/CANONICAL_HASHES.md', 'eb39ffef9153'):
         ('1', 'reviewed:table-already-carries-the-corrected-floors'),
-    ('documentation/CANONICAL_HASHES.md', 'f601f33c6903'):
+    ('documentation/CANONICAL_HASHES.md', 'd46663749df0'):  # re-keyed 2026-11-14, cloud sweep B5/B6 (was f601f33c6903; VM size/disk-tier/cost words reworded; verdict re-read, stands)
         ('2', 'reviewed:the-bullet-above-defers-to-it-for-what-the-floor-is'),
     ('documentation/CIRCULAR_KING_WEN.md', '24de4f00e658'):
         ('1', 'reviewed:paragraph-above-already-says-C3-alone-breaks-rotation'),
@@ -405,8 +405,8 @@ REVIEWED = {
         ('1', 'reviewed:bullet-already-checks-decompressed-length'),
     ('documentation/DEVELOPMENT.md', '4d55f0fd3e87'):
         ('1', 'reviewed:bullet-already-gives-32768-MB-and-pre-dedup-sizing'),
-    ('documentation/DEVELOPMENT.md', '5d6522ddef0c'):
-        ('1', 'reviewed:bullet-already-reads-D-als-v7-for-both-phases'),
+    ('documentation/DEVELOPMENT.md', '10abfed05ef7'):  # re-keyed 2026-11-14, cloud sweep B5/B6 (was 5d6522ddef0c; VM size/disk-tier/cost words reworded; verdict re-read, stands)
+        ('1', 'reviewed:bullet-already-sizes-both-phases-on-general-purpose-VMs'),
     ('documentation/DEVELOPMENT.md', '6c9035ef137d'):
         ('1', 'reviewed:paragraph-already-describes-P1-auto-parallelism'),
     ('documentation/DEVELOPMENT.md', '71e678fefb7c'):
@@ -576,7 +576,7 @@ REVIEWED = {
         ('1', 'reviewed:sentence-already-carries-the-sampling-caveat'),
     ('documentation/PASS1_TRAJECTORY_DETERMINISM.md', 'e9766e71f678'):
         ('1', 'reviewed:paragraph-above-already-gives-the-manual-procedure'),
-    ('documentation/PERFORMANCE_HISTORY.md', '75cfed7a5f0e'):
+    ('documentation/PERFORMANCE_HISTORY.md', '804eda3086fb'):  # re-keyed 2026-11-14, cloud sweep B6 (was 75cfed7a5f0e; VM size/region/cost words reworded; verdict re-read, stands)
         ('2', 'reviewed:bullet-above-still-carries-the-withdrawn-5.6T-days-derivation'),
     ('documentation/PERFORMANCE_HISTORY.md', '7b2509beaa95'):
         ('2', 'reviewed:bullet-above-still-lists-King-Wen-beside-the-gated-checks'),
@@ -649,7 +649,7 @@ REVIEWED = {
         ('1', 'reviewed:bullet-already-says-not-the-absence-of-synergy'),
     ('documentation/SEARCH_SPACE_SIZE.md', '785a0784b6f8'):
         ('1', 'reviewed:bullet-already-divides-by-11.10'),
-    ('documentation/SEARCH_SPACE_SIZE.md', 'c3471d3127f8'):
+    ('documentation/SEARCH_SPACE_SIZE.md', 'ab1f1734ab7c'):  # re-keyed 2026-11-14, cloud sweep B6 (was c3471d3127f8; VM size/region/cost words reworded; verdict re-read, stands)
         ('1', 'reviewed:paragraph-already-says-refuses-and-exits-1'),
     ('documentation/SOLUTIONS_FORMAT.md', '16e8291fe7e1'):
         ('1', 'reviewed:paragraph-above-already-gives-the-DGIT_HASH-build'),
@@ -886,7 +886,7 @@ REVIEWED = {
         ('1', 'reviewed:dated-label;result-already-states-the-order-48-group'),
     ('documentation/SYMMETRY_SEARCH.md', 'f56a68a560c1'):  # re-keyed 2026-10-17, push group G4 (line edited; verdict re-read, stands)
         ('1', 'reviewed:sentence-now-names-the-two-inputs-public-since-2026-09-04'),
-    ('documentation/SYMMETRY_SEARCH.md', 'c3471d3127f8'):
+    ('documentation/SYMMETRY_SEARCH.md', 'ab1f1734ab7c'):  # re-keyed 2026-11-14, cloud sweep B6 (was c3471d3127f8; VM size/region/cost words reworded; verdict re-read, stands)
         ('1', 'reviewed:paragraph-already-says-refuses-and-exits-1'),
     ('documentation/SYMMETRY_SEARCH.md', 'cd72ebe708fa'):
         ('1', 'reviewed:paragraph-already-separates-palindromes-and-partners'),
@@ -1234,7 +1234,7 @@ REVIEWED = {
     # gate leg, and were read here by the CX-266 rule (class 2 = the withdrawn wording still stands,
     # or the marker holds the only statement of something the text relies on). The SOLVE_C_CLI.md and
     # layer_curve.md rows are batch-34 markers that reached the table after CX-266 was read.
-    ('documentation/CRITIQUE.md', 'f6d65e4b454d'):  # re-keyed 2026-10-17, push group G4 (line edited; verdict re-read, stands)
+    ('documentation/CRITIQUE.md', 'd64c6b1d26bf'):  # re-keyed 2026-11-14, cloud sweep B6 (was f6d65e4b454d; VM size/region/cost words reworded; verdict re-read, stands)
         ('1', 'reviewed:note-already-says-the-boundary-minimum-did-not-shift'),
     # re-keyed batch 35 (was eaf5abc0b734): only a line-number cite on the line moved; re-read, same verdict.
     # re-keyed batch 46 (was 597d3234e446; CX-340, Q-993): the solve.c cite became the span 46159-46160; re-read, same verdict.
