@@ -23,7 +23,7 @@ at together.**
 
 **Scope, stated honestly.** This covers the **headline** claims — the ones a reader meets in the
 README and the technical-report abstracts. It is **not** a complete inventory of every number in the
-suite; the per-rule registry (31 rules) and the 91-observable ledger have their own tables, cited
+suite; the per-rule registry (31 rules) and the observable ledger (1,452 registered observables; 91 at its 2026-07-11 freeze; "the 91-observable ledger" until 2026-11-13, CX-37C-K) have their own tables, cited
 below. A row's absence here is not a claim that the figure is unsupported — it means this matrix does
 not yet reach it, and extending coverage is tracked rather than assumed.
 
@@ -53,7 +53,7 @@ not yet reach it, and extending coverage is tracked rather than assumed.
 
 ## What this matrix does not cover
 
-The 91-observable ledger, the per-rule registry beyond row 16, and the campaign-scale enumeration
+The observable ledger (1,452 registered observables; 91 at its 2026-07-11 freeze; "The 91-observable ledger" until 2026-11-13, CX-37C-K; its roster is in CRITIQUE.md), the per-rule registry beyond row 16, and the campaign-scale enumeration
 counts have their own tables in METHODS.md and CANONICAL_HASHES.md. Rows are added here as claims are
 promoted to headline status. **A missing row means uncovered, not unsupported** — and saying so is the
 point: the failure this file exists to prevent is a claim whose evidence nobody had to look at.

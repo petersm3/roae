@@ -13,6 +13,7 @@ README.md	149	ledger-link	CORRECTION	n/a	-	not-a-marker	c2c141547338
 README.md	208	ledger-link	CORRECTION	n/a	-	not-a-marker	4e886eea8a35
 README.md	249	ledger-link	CORRECTION	n/a	-	not-a-marker	b1785c89acb7
 README.md	296	ledger-link	CORRECTION	n/a	-	not-a-marker	fca6f9b47e6d
+README.md	306	ledger-link	CORRECTION	n/a	-	not-a-marker	f6ba09532552
 README.md	338	ledger-link	CORRECTION	n/a	-	not-a-marker	8b835976b944
 README.md	345	ledger-link	CORRECTION	n/a	-	not-a-marker	7dcd6ba6acd2
 documentation/BOUNDARY_MINIMUM.md	48	ledger-link	CORRECTION	n/a	-	not-a-marker	5c2b86f94f1e
@@ -356,11 +357,11 @@ documentation/PERFORMANCE_HISTORY.md	987	ledger-link	CORRECTION	n/a	-	not-a-mark
 documentation/PERFORMANCE_HISTORY.md	987	marker	Corrected	1	-	reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	c7ce73c0ffbd
 documentation/PERFORMANCE_HISTORY.md	1189	marker	Corrected	2	-	reviewed:bullet-above-still-says-checkpoint-is-the-sole-resume-input	e459f31d3a93
 documentation/PERFORMANCE_HISTORY.md	1426	marker	Corrected	2	-	reviewed:bullet-above-still-carries-the-withdrawn-5.6T-days-derivation	75cfed7a5f0e
-documentation/PREREGISTRATION_ESCROW.md	367	ledger-link	CORRECTION	n/a	-	not-a-marker	e8c644cef239
-documentation/PREREGISTRATION_ESCROW.md	388	ledger-link	CORRECTION	n/a	-	not-a-marker	72b7489475c1
-documentation/PREREGISTRATION_ESCROW.md	435	ledger-link	CORRECTION	n/a	-	not-a-marker	4f56990fed9d
-documentation/PREREGISTRATION_ESCROW.md	445	ledger-link	CORRECTION	n/a	-	not-a-marker	c9e2570fd0a0
-documentation/PREREGISTRATION_ESCROW.md	468	ledger-link	CORRECTION	n/a	-	not-a-marker	814d52154210
+documentation/PREREGISTRATION_ESCROW.md	381	ledger-link	CORRECTION	n/a	-	not-a-marker	e8c644cef239
+documentation/PREREGISTRATION_ESCROW.md	402	ledger-link	CORRECTION	n/a	-	not-a-marker	72b7489475c1
+documentation/PREREGISTRATION_ESCROW.md	449	ledger-link	CORRECTION	n/a	-	not-a-marker	4f56990fed9d
+documentation/PREREGISTRATION_ESCROW.md	459	ledger-link	CORRECTION	n/a	-	not-a-marker	c9e2570fd0a0
+documentation/PREREGISTRATION_ESCROW.md	482	ledger-link	CORRECTION	n/a	-	not-a-marker	814d52154210
 documentation/PREREG_CLASSA_QUERY_SET.md	58	marker	CORRECTED	3	GATE 86(file)	gate-anchored	ee4dfed3e343
 documentation/PREREG_CLASSA_QUERY_SET.md	166	marker	CORRECTED	3	GATE 86(file)	gate-anchored	21fdbd99b0b4
 documentation/PREREG_CLASSA_QUERY_SET.md	235	marker	CORRECTED	3	GATE 86(file)	gate-anchored	05d0f5c9b0a2
@@ -666,9 +667,9 @@ reports/METHODS.md	114	marker	Corrected	1	-	reviewed:row-already-says-pin-to-a-c
 reports/METHODS.md	142	marker	Corrected	3	GATE 4b	reanchored:GATE-4b=allowlist-row	bc73b6ca1f60
 reports/METHODS.md	146	ledger-link	CORRECTION	n/a	-	not-a-marker	fd3fff6ea530
 reports/METHODS.md	149	ledger-link	CORRECTION	n/a	-	not-a-marker	79d98acdfc0b
-reports/METHODS.md	578	ledger-link	CORRECTION	n/a	-	not-a-marker	2ae7abd23d87
-reports/METHODS.md	579	ledger-link	RETRACTED	n/a	-	not-a-marker	629963a97751
-reports/METHODS.md	614	ledger-link	CORRECTION	n/a	-	not-a-marker	a9e1def5639d
+reports/METHODS.md	626	ledger-link	CORRECTION	n/a	-	not-a-marker	2ae7abd23d87
+reports/METHODS.md	627	ledger-link	RETRACTED	n/a	-	not-a-marker	629963a97751
+reports/METHODS.md	662	ledger-link	CORRECTION	n/a	-	not-a-marker	a9e1def5639d
 reports/README.md	17	ledger-link	CORRECTION	n/a	-	not-a-marker	8912ba34280b
 reports/README.md	36	ledger-link	CORRECTION	n/a	-	not-a-marker	64c279eb92c8
 reports/README.md	43	ledger-link	CORRECTION	n/a	-	not-a-marker	9fb867b3160f
@@ -681,10 +682,10 @@ reports/README.md	91	ledger-link	CORRECTION	n/a	-	not-a-marker	53a19f3161f1
 reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	85	marker	CORRECTED	2	-	reviewed:only-statement-that-the-archived-outputs-carry-no-se-field	07a138384de5
 reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	116	marker	CORRECTED	1	-	reviewed:row-already-reads-does-not-meet-the-bar	475777f8f1d6
 reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	117	marker	CORRECTED	1	-	reviewed:row-already-reads-NULL	36ce24ea507e
-reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	168	marker	CORRECTED	1	-	reviewed:sentence-already-says-C1-C5-constraints	c97ee1aca8e2
-reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	403	marker	CORRECTED	1	-	reviewed:sentence-already-says-C1-C5-constraints	2e8f4b7da1d6
-reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	407	ledger-link	CORRECTION	n/a	-	not-a-marker	65a6b62a649b
-reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	543	changelog	Corrected	keep	-	revision-row	f4c8c6097e6d
+reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	172	marker	CORRECTED	1	-	reviewed:sentence-already-says-C1-C5-constraints	c97ee1aca8e2
+reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	418	marker	CORRECTED	1	-	reviewed:sentence-already-says-C1-C5-constraints	2e8f4b7da1d6
+reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	422	ledger-link	CORRECTION	n/a	-	not-a-marker	65a6b62a649b
+reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	558	changelog	Corrected	keep	-	revision-row	f4c8c6097e6d
 reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	103	ledger-link	CORRECTION	n/a	-	not-a-marker	a3981ecd8140
 reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	270	marker	CORRECTED	1	-	reviewed:text-above-already-quotes-the-corrected-selector-output	b657a7632159
 reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md	360	marker	Corrected	1	-	reviewed:dated-label;following-sentences-carry-the-correction	a2af80174980

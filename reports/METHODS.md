@@ -324,7 +324,11 @@ which is what produced every published figure — with the divergence disclosed:
   = 28 + 58 + 5 = **91** (itemization maintained in [CRITIQUE.md](../documentation/CRITIQUE.md)
   §"Observable-selection accounting"). The exploratory suite **is included** — it is the base of the
   count, not excluded. A per-family "notable" label is therefore a family-scoped claim; against the
-  global ledger the corresponding bar is 0.05/91 ≈ **5.5×10⁻⁴**.
+  global ledger the corresponding bar is 0.05/91 ≈ **5.5×10⁻⁴**. ⚠ **[ROSTER DERIVED 2026-11-13 (Codex gpt-6-astra, final review, F02-006#1 with F02-001#2, F02-003#1, F02-004#8, F02-002#4 and F02-006#4; ruled by Fable; Q-1007, CX-37C-K) — the total is now derived from the
+  itemised roster in [CRITIQUE.md](../documentation/CRITIQUE.md) §"The observable roster": **1,452**
+  observables, bar 0.05/1,452 = **3.44×10⁻⁵** (1,461 on the published convention, which counts Davis /9 inside
+  /12 a second time). 91 is kept above as the count frozen on 2026-07-11; the frozen sentence is not
+  reworded.]**
   **Scope disclosure (added 2026-08-01, after an itemised roster was built from the frozen
   pre-registrations).** The 91 counts *tests performed under registered corrections*, not distinct
   observables, and it is **deliberately retained as the conservative choice**. Two offsetting facts:
@@ -364,6 +368,14 @@ which is what produced every published figure — with the divergence disclosed:
   interval (5.26, 5.49)×10⁻⁴ — but showing that none does requires the roster rebuild named in (iii)
   and has not been done. Stated in the honest direction: the exposure interval is real and, so far as
   anything here establishes, unoccupied.)*
+  ⚠ **[RESOLVED 2026-11-13 by the roster (CX-37C-K).]** (i) Davis is entered once, as the /12 (12).
+  (ii) The F6 books family is entered (7). (iii) T1–T4 are entered (4), and T1 and T2 do re-use F4′'s
+  functional `f4p_dist_autocorr`, so "Whether any of the four re-register an earlier F4′ id … is
+  unestablished" is settled: the roster says so in place, and they count because each carries its own
+  threshold and bar. "Eleven tracked markdown files" was thirteen at the rebuild's parent
+  (`git grep -l -E '0\.05/91|91-observable|91 observables|exactly 91' -- '*.md'`), not eleven. The
+  exposure interval (5.26, 5.49)×10⁻⁴ is superseded: the bar is now 3.44×10⁻⁵, and every value that lies
+  between the old and the new bars is in the sensitivity table beneath the roster.
   **Correction-family disclosure (added 2026-08-01, self-reported).** The sentence above is scoped to
   the three *denominators*; it says nothing about the choice of *correction family*, and that choice is
   not neutral. The suite applies **Bonferroni (family-wise error rate)** throughout, and the global-ledger
@@ -395,6 +407,19 @@ which is what produced every published figure — with the divergence disclosed:
   the 91 observables is not assembled here, so what is shown is that **at least one** verdict moves under BH.
   The Bonferroni verdict, the published one, is unchanged. All of this is at the frozen n = 91; the
   n ≥ 1,446 reading in the LEDGER SCOPED note below is not re-derived here.]**
+  ⚠ **[RE-DERIVED AT THE ROSTER TOTAL 2026-11-13 (CX-37C-K).]** Everything in this paragraph and its
+  notes is at n = 91, and at n = 91 the BH reading of `trigarray` is now checked on the assembled p-vector
+  of the roster ([`evidence/roster/pvector_bounds.tsv`](evidence/roster/pvector_bounds.tsv); every BH and Benjamini–Yekutieli reading dated 2026-11-13 is re-run from it by `TestBatchQ1007`), on both masses, in every completion tried; it no longer rests only on a rank argument. At
+  the roster total n = 1,452 it does not hold. Two-sided, `trigarray` (1.358×10⁻³) needs BH rank ≥ 40, and
+  at most 39 values can sit at or below its line whatever the 16 unmeasured members return. One-sided
+  (6.790×10⁻⁴) it needs rank ≥ 20 and holds rank 11 on the recorded values: not rejected on the record. "A
+  reader who prefers FDR control should read `dav_trigarray` as surviving global correction" below holds at
+  n = 91 only. The whole of this change comes from the C8 screen's 1,349 members; on the roster without
+  them (n = 103) the BH reading is unchanged. Benjamini–Hochberg controls the false discovery rate under
+  independence or positive dependence, which is not established for a ledger whose members are all
+  functions of one sequence. Under Benjamini–Yekutieli, which assumes neither (factor Σ1/i = 7.86 at
+  n = 1,452), only C1 is rejected among graded members. Every BH reading here is quoted with that
+  condition.
   *(Ranking support narrowed 2026-08-01, second pass. This paragraph previously supported the rank with
   "at least twelve ledger values are strictly smaller … so its BH rank is i ≥ 13 … about 10× the measured
   p", listing nine `ccn*`/`rs1`/`d4`/`d7`/`p2c6`/`c2011n*` values plus three Davis entries. **Both extra
@@ -432,7 +457,7 @@ which is what produced every published figure — with the divergence disclosed:
   §Executive summary (v1.17) and [TR-10](TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md) §3 now carry the same
   scoping, and the SIDEDNESS note above already shows that the `dav_trigarray` counterfactual in this
   paragraph is one-sided. Read the ≥~10× below, and in the "review record" paragraph of §"Independence ladder", as a one-sided figure. No
-  verdict moves: the rarity clears the global bar under every reading.]** ⚠ **[LEDGER SCOPED 2026-10-16 (Codex gpt-6-astra, final review, F02-006#1 with F02-001#2, F02-003#1, F02-004#8, F02-002#4; ruled by Fable; fast-track batch FT2a, CX-379) — "every reading" above ranges over sidedness and Bonferroni/BH at the frozen n = 91. Under the counting rule below (an observable enters the ledger at first registration) the ledger has since admitted at least 1,355 further registered observables that no roster line carries: the H1/H3 family's four predicates T1–T4 (scope disclosure (iii) above), the two Q-OY1/Q-992 primaries (`reports/evidence/qoy1_q992/PREREGISTRATION.md` §5.2) and the C8 screen's 1,349 members (`reports/evidence/c8screen/PREREGISTRATION.md` §2.4). That is at least 1,446 on the published convention and at least 1,437 on the distinct-id reading of (i), so the Bonferroni bar is at most 0.05/1,446 = 3.46×10⁻⁵ (3.48×10⁻⁵), and 1.054426×10⁻⁴ clears neither — it sits 3.05× above the bar one-sided, and two-sided 2.108853×10⁻⁴ sits 6.10× above the same bar (this note said "the same 3.05× above 6.92×10⁻⁵" until 2026-10-22, doubling the bar with the p-value; the bar is α/n whatever the sidedness). A BH reading at that count needs some rank at or beyond the rarity's to cross its BH line, since BH rejects every hypothesis up to the largest passing rank; the rarity crossing its own line is sufficient, not necessary, and is the case worked here ("needs the rarity to cross its own BH line" until 2026-11-12, CX-37C-F): one-sided, rank ≥ 4 suffices (4·0.05/1,446 = 1.38×10⁻⁴ > 1.054426×10⁻⁴), and the three ledger survivors already below it — C1, C3's unconditional rarity, `dav_rotinv` (the RANK RE-DERIVED note) — give that floor, so at n = 1,446 the rarity would clear BH one-sided while failing Bonferroni (the margin closes at n ≈ 1,900 with only those three below it); two-sided it needs rank ≥ 7, which no roster yet gives ("ranked fourth or lower … which no roster yet gives" until 2026-10-22). Against the enterprise ledger as it now stands, TR-8's rarity is a family-level NOTABLE and not an enterprise-wide one, and "no verdict moves" is withdrawn for this one global-bar statement. The total is not re-frozen here: the rule above requires it to be derived from the itemised roster, and that rebuild is a separate item (CORRECTIONS CX-379).]** ⚠ **[RANK RE-DERIVED 2026-10-17
+  verdict moves: the rarity clears the global bar under every reading.]** ⚠ **[LEDGER SCOPED 2026-10-16 (Codex gpt-6-astra, final review, F02-006#1 with F02-001#2, F02-003#1, F02-004#8, F02-002#4; ruled by Fable; fast-track batch FT2a, CX-379) — "every reading" above ranges over sidedness and Bonferroni/BH at the frozen n = 91. Under the counting rule below (an observable enters the ledger at first registration) the ledger has since admitted at least 1,355 further registered observables that no roster line carries: the H1/H3 family's four predicates T1–T4 (scope disclosure (iii) above), the two Q-OY1/Q-992 primaries (`reports/evidence/qoy1_q992/PREREGISTRATION.md` §5.2) and the C8 screen's 1,349 members (`reports/evidence/c8screen/PREREGISTRATION.md` §2.4). That is at least 1,446 on the published convention and at least 1,437 on the distinct-id reading of (i), so the Bonferroni bar is at most 0.05/1,446 = 3.46×10⁻⁵ (3.48×10⁻⁵), and 1.054426×10⁻⁴ clears neither — it sits 3.05× above the bar one-sided, and two-sided 2.108853×10⁻⁴ sits 6.10× above the same bar (this note said "the same 3.05× above 6.92×10⁻⁵" until 2026-10-22, doubling the bar with the p-value; the bar is α/n whatever the sidedness). A BH reading at that count needs some rank at or beyond the rarity's to cross its BH line, since BH rejects every hypothesis up to the largest passing rank; the rarity crossing its own line is sufficient, not necessary, and is the case worked here ("needs the rarity to cross its own BH line" until 2026-11-12, CX-37C-F): one-sided, rank ≥ 4 suffices (4·0.05/1,446 = 1.38×10⁻⁴ > 1.054426×10⁻⁴), and the three ledger survivors already below it — C1, C3's unconditional rarity, `dav_rotinv` (the RANK RE-DERIVED note) — give that floor, so at n = 1,446 the rarity would clear BH one-sided while failing Bonferroni (the margin closes at n ≈ 1,900 with only those three below it); two-sided it needs rank ≥ 7, which no roster yet gives ("ranked fourth or lower … which no roster yet gives" until 2026-10-22). Against the enterprise ledger as it now stands, TR-8's rarity is a family-level NOTABLE and not an enterprise-wide one, and "no verdict moves" is withdrawn for this one global-bar statement. The total is not re-frozen here: the rule above requires it to be derived from the itemised roster, and that rebuild is a separate item (CORRECTIONS CX-379).]** ⚠ **[ROSTER TOTAL 2026-11-13 (Codex gpt-6-astra, final review, F02-006#1 with F02-001#2, F02-003#1, F02-004#8, F02-002#4 and F02-006#4; ruled by Fable; Q-1007, CX-37C-K) — the floor the note above states is now the roster total, **1,452** (1,461 with the Davis double count), in [CRITIQUE.md](../documentation/CRITIQUE.md) §"The observable roster"; the bar is 0.05/1,452 = 3.44×10⁻⁵. The rarity sits 3.06× above it one-sided and 6.12× two-sided. On the assembled p-vector (recorded values; unmeasured members at 1), one-sided BH needs rank ≥ 4 and the rarity is rejected as a member in every case; ranked from outside the roster it is rejected only while the two fitted-description values (`f5:vdb_nuc`, `f6:wudeng_slots`) hold ranks, and with them withheld it sits above the rank-3 line. The margin closes at n = 1,897 with only C1, C3 and `dav_rotinv` below it. Two-sided it needs rank ≥ 7 and holds rank 6 on the recorded values, so it is still not shown; the C8 screen contributes none (0 of its 1,349 operative p-values is at or below 2.108853×10⁻⁴). Benjamini–Hochberg controls the false discovery rate under independence or positive dependence, which is not established for a ledger whose members are all functions of one sequence. Under Benjamini–Yekutieli, which assumes neither (factor Σ1/i = 7.86 at n = 1,452), only C1 is rejected among graded members. Every BH reading here is quoted with that condition. The roster rebuild this note left as a separate item is done.]** ⚠ **[RANK RE-DERIVED 2026-10-17
   (Codex gpt-6-astra, final review, F02-006#4 with F02-H04#7, F02-H02#16, F03-006#1, F02-013#3, F02-H05#17, CAL-017#6/#7/#8, CAL-018#88, CAL-020#119/#120/#125, CAL-022#118; ruled by Fable; push group G4, CX-35T-A) — "rank 1 is not excluded" is wrong, and so is "the ≥~10× floor holds only on a wholly
   ONE-SIDED ledger". Two survivors on the same ledger sit below the rarity on either mass: C1 (≈8.9×10⁻⁴⁵
   one-sided, ≈1.8×10⁻⁴⁴ doubled) and C3's unconditional rarity (2.84×10⁻⁵, 5.67×10⁻⁵ doubled). Wholly
@@ -462,12 +487,35 @@ which is what produced every published figure — with the divergence disclosed:
   direction depends on this; (ii) the exposure is entirely in the negative direction, on one Davis
   observable, and it is disclosed here rather than left for a reader to discover. A reader who prefers
   FDR control should read `dav_trigarray` as surviving global correction and everything else unchanged. *(scoped 2026-10-22: what the RANK RE-DERIVED note shows is that at least one verdict moves under BH; the full 91-vector is not assembled, so "everything else unchanged" and "every published verdict but one" (above) are not shown.)*
+  ⚠ **[RE-DERIVED 2026-11-13 at n = 1,452, on the assembled vector, fitted-description values withheld
+  from ranking (CX-37C-K).]** The verdicts that differ between Bonferroni and BH are no longer the one named
+  above. `dav_trigarray` fails both. `dav_rotinv` fails Bonferroni (1.90× one-sided, 3.79× two-sided) and is
+  BH-rejected one-sided only. C3's unconditional rarity, two-sided, fails Bonferroni and is BH-rejected.
+  So "every claim that the suite reports as *clearing* the bar clears it under BH as well — nothing in the
+  positive direction depends on this" no longer covers the ground: at this n, two-sided C3 clears only
+  under BH. The suite's family remains Bonferroni, and it does not rely on the BH reading of C3.
   **Counting rule going forward:** an observable enters the ledger exactly once, at first registration,
   under a stable id; a family's Bonferroni denominator may span waves and exceed its new-id count; and
   this total must be **derived from the itemised roster**, never stated independently of it; and each
   "notable" verdict states in place whether it clears that bar. Model comparisons (the TR-2 Bayes factors) are **not** observables
   and do not enter this ledger. This accounting does not touch the suite's headline findings — the
   nulls, and the proven/certified impossibilities, which are deductive.
+  **Clarifications (added 2026-11-13, CX-37C-K).** (1) An observable has a stable id once its registration
+  contains a frozen, executable definition of it. A registration that declares a family and its size
+  but defers the member list registers a denominator for that family's own tails and no ids; its
+  members enter this ledger, all of them and whatever they return, at the freeze that enumerates them,
+  whether or not they are then run. (2) Instrument-validity gates, exact-equality checks and outputs
+  that a registration itself labels descriptive are not observables. (3) Until a deferred bank is
+  enumerated, its declared size is printed beside every enterprise-bar verdict whose headroom it
+  exceeds. **These clarifications were written after the outcomes they bear on were known**: when (1)
+  was written, the roster's smallest headroom was 214 and EW-2's declared size was 224. Both readings
+  are therefore printed (the n = 1,452 and n = 1,676 rows of the sensitivity table in CRITIQUE).
+- **Sidedness (stated here 2026-11-13; adopted 2026-08-28).** Where this suite compares a tail
+  probability with a family or enterprise bar, the graded value is two-sided, min(1, 2·one-sided). A
+  one-sided value may be printed beside it and is labelled as such. This is a convention adopted after
+  most of the measurements it applies to, not a pre-registered rule; where a registration froze its own
+  sidedness, the registration governs its family bar. *(Added 2026-11-13, CX-37C-K: until today the
+  convention was stated only at TR-10 §3 and in the ledger notes above, not as a convention of this section.)*
 
 ### Reproducibility rule for estimator output
 

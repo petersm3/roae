@@ -2928,3 +2928,10 @@ orientation only — not primary scholarly sources; the primary literature is ci
 - [Mawangdui Silk Texts](https://en.wikipedia.org/wiki/Mawangdui_Silk_Texts) — Wikipedia (background; the ordering array follows Shaughnessy 2022, tested by `solve.c --null-historical`)
 - [Jing Fang](https://en.wikipedia.org/wiki/Jing_Fang) — Wikipedia (Eight Palaces ordering, also tested by `solve.c --null-historical`)
 - [Terence McKenna: Novelty theory and Timewave Zero](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero) — Wikipedia (see [MCKENNA.md](MCKENNA.md); full scholarly citation above)
+
+## Multiple testing under dependence — the observable roster (added 2026-11-13)
+
+*Appended at the end of this file so that no earlier line moves. The Benjamini–Hochberg entry it accompanies is under [Benjamini and Hochberg (1995)](#benjamini-hochberg1995).*
+
+<a id="benjamini-yekutieli2001"></a>
+- **Benjamini, Yoav and Yekutieli, Daniel** (2001). "The control of the false discovery rate in multiple testing under dependency." *Annals of Statistics* 29(4): 1165–1188. [doi:10.1214/aos/1013699998](https://doi.org/10.1214/aos/1013699998) The step-up procedure valid under arbitrary dependence (the BH line divided by Σ1/i), quoted beside every Benjamini–Hochberg reading at the roster total n = 1,452 ([METHODS.md](../reports/METHODS.md) §"Correction-family disclosure"; [TR-8](../reports/TR8_REORDERING_REVISITED.md), [TR-10](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)) (added 2026-11-13, CX-37C-K).

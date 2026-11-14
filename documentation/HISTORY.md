@@ -12529,3 +12529,18 @@ entry describes the review itself, which had none.)*
   distributed; they have not been re-run since 2026-10-26.
 - No canonical sha, count, certificate, token or verdict changed. `TestQ1065AtlasFollowups` fails on the parent
   tree.
+
+## 2026-11-13 — batch Q1007: the observable roster is built, and the ledger's total is derived from it
+
+- **CRITIQUE, METHODS, TR-8, TR-10, CLAIMS_DECIDED, CLAIM_TO_ARTIFACT, DESCRIPTION_LENGTH, TR-9, QUERY_INVENTORY,
+  the escrow page and the TR-12 battery label (CX-37C-K).** Backlog Q-1007. The counting rule asks for the total
+  to be derived from an itemised roster; there was none. CRITIQUE §"The observable roster" now carries
+  it: 40 lines, 1,452 observables, bar 3.44×10⁻⁵, a dated exclusion for every other registration, and a
+  sensitivity table from n = 91 to 1,676. At that bar C3's unconditional rarity fails two-sided (the suite's
+  convention) and clears one-sided by 1.21×; the Gray-code bound is reported, not graded; C1 is the one graded
+  result that clears under every reading. TR-10's `pureplace` (C1 alone) and `trigarray` (BH) clearances hold at
+  n = 91 only; the change comes wholly from the C8 screen. The counting rule's clarifications are dated and say
+  they were written after the outcomes were known. R7 stays at five, with 1,456, 1,463 and 1,474 printed.
+- No canonical sha, certificate or count of orderings changed. `TestBatchQ1007` parses the roster, re-derives
+  the total and every sensitivity cell, and fails on the parent tree. Found by Codex (gpt-6-astra), final
+  review; ruled by Fable; built in an Opus lane.

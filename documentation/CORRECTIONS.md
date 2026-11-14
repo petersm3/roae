@@ -40198,3 +40198,91 @@ and the malformed-input controls (bad header count, missing `0`, out-of-range va
 
 Developed with AI assistance (Claude, Anthropic): claude-fable-5-1 (design, the Lean padding theorem, the
 driver, the leg, the tests), operator decisions 2026-11-09/11/12.
+
+## CX-37C-K — The observable roster is built and the ledger's total is derived from it: 1,452; C3's unconditional rarity does not clear the enterprise bar two-sided, the Gray-code bound is reported and not graded, and two TR-10 clearances hold at n = 91 only (documentation/CRITIQUE.md; reports/METHODS.md; reports/TR8_REORDERING_REVISITED.md; reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md; documentation/CLAIMS_DECIDED.md; documentation/CLAIM_TO_ARTIFACT.md; documentation/DESCRIPTION_LENGTH.md; reports/TR9_PRICING_THE_CONSTRAINTS.md; documentation/QUERY_INVENTORY.md; documentation/PREREGISTRATION_ESCROW.md; documentation/CITATIONS.md; README.md; reports/evidence/roster/; scripts/tr12_repro.sh; scripts/tr12_expected/n9/; scripts/tr12_n31_golden_gate.sh; tests.py)
+
+**2026-11-13.** **Source.** Codex (gpt-6-astra), final review, F02-006#1 with F02-001#2, F02-003#1, F02-004#8,
+F02-002#4 and F02-006#4. Ruled by Fable (claude-fable-5-2) in three passes: per-row rulings, the enumeration of
+the 28 exploratory ids with an assembled p-vector, and an adjudication of five recommendations whose defaults the
+operator accepted. Backlog Q-1007, batch Q1007. Built in an Opus lane.
+
+**What was wrong.** METHODS' counting rule requires the enterprise total to be "derived from the itemised
+roster, never stated independently of it". No roster existed. CX-379 (2026-10-16) published a floor,
+n ≥ 1,446 = 91 + 4 + 2 + 1,349, which kept the Davis /9 inside the /12 a second time and left the F6 books family
+out. The same CRITIQUE paragraph then carried both "the first-registration rule now gives ≥ 1,446" and "Survives
+(both the 0.0018 battery bar and the 5.5×10⁻⁴ global bar), by wide margins" for C3's unconditional rarity. Under
+the suite's two-sided convention C3 is 5.6712×10⁻⁵, which is above 0.05/n for every n ≥ 882. **So the
+inconsistency dates from 2026-10-16, not from this rebuild.**
+
+**What it says now.**
+- **The roster** ([CRITIQUE.md](CRITIQUE.md) §"The observable roster"): 40 lines, one per stable id or
+  registered family: the 28 exploratory section ids of `roae.py` (less `--parity`), F5 11, F4′ 13, Davis 12
+  (entered once), R3 13, R7 5, F6 7, H1/H3 4, Q-OY1/Q-992 2, C8 1,349, the TR-8 sampler's D1 1, REPR_COST_VS_T
+  3 and the decoy negative control 4. Total **1,452**; bar 0.05/1,452 = 3.44×10⁻⁵ (1,461 on the published
+  convention). A dated-exclusion block gives the reason for every other registration on the escrow page, for
+  the EW lock and for the B0 predictions file; it lists the measurements made without registration, now
+  including the F8 pilot and the seven structured-null families of 2026-04-19. A sensitivity table restates
+  seven values at ten counts from 91 to 1,676.
+- **C3** (CRITIQUE "Survives" bullet, RE-GRADED note): the two-sided verdict leads, and it fails, 1.65× above the
+  bar; one-sided, 2.8356×10⁻⁵ clears by 1.21× up to n = 1,763. "By wide margins" holds for C1 only.
+- **The Gray-code bound** (SCOPED note): a 95% upper bound on a sampler's rate, not a tail probability, with no
+  roster line. It is reported, not graded; as a number it clears at n = 1,452 and does not at n ≥ 1,667.
+- **The closing paragraph** (SCOPED note): the statistical case rests on C1 alone among graded results; two
+  fitted-description members, `vdb_nuc` and the Wu Deng slot statistic, are below the bar and ungraded, and the
+  roster says so on their lines. "Changes no conclusion" is withdrawn for C3's unconditional rarity.
+- **METHODS**: the sidedness convention is stated in §"Statistics conventions" (it was adopted 2026-08-28 and is
+  not a pre-registered rule); the "frozen at exactly 91" passage, scope disclosures (i)–(iii), the LEDGER SCOPED
+  note, the RANK RE-DERIVED notes and the correction-family disclosure each gain a dated note at n = 1,452. The
+  "eleven tracked markdown files" were thirteen at the rebuild's parent.
+- **The counting rule's clarifications** (stable id; validity gates, exact checks and descriptive outputs are
+  not observables; a deferred bank's declared size is printed beside any verdict whose headroom it exceeds).
+  **They were written after the outcomes they bear on were known**: when the stable-id clause was written the
+  smallest headroom was 214, the Gray-code bound's, and EW-2's declared size was 224. Both readings are
+  printed, and EW-2 and the F-catalog T1/T2 bank are pre-committed to enter in full at the freeze that
+  enumerates them.
+- **TR-8**: the rarity is 3.06× above the bar one-sided and 6.12× two-sided; one-sided BH rejects it as a member,
+  two-sided it holds rank 6 of the 7 needed. The family-level verdict does not change.
+- **TR-10 §3**: `pureplace` under C1 alone (14/35,960 two-sided, 7/35,960 one-sided) cleared 0.05/91 and misses
+  0.05/1,452 by 11.3× and 5.65×; `trigarray`'s BH counterfactual holds at n = 91, now checked on the assembled
+  vector, and not at n = 1,452. Both changes come wholly from the C8 screen's 1,349 members.
+- **BH's dependence condition** is stated beside every BH reading at n = 1,452: under Benjamini–Yekutieli only C1
+  is rejected among graded members.
+- **CLAIMS_DECIDED**, **CLAIM_TO_ARTIFACT**, **DESCRIPTION_LENGTH**, **TR-9** and **QUERY_INVENTORY** name the
+  roster total, with the old wording quoted. The TR-12 `correction_family` label reads "registered family now
+  1,452 … bar 0.05/1452 = 3.4e-5, NOT cleared (3.1x above)"; the n = 9 golden block `a0_ls_w0` and its two pins
+  are regenerated.
+- **The escrow page's amendment log** points at the roster and records that the decoy registration, the EW lock
+  and the B0 predictions file have no escrow row (an operator action).
+- **Review fixes (Fable, pre-publication review of the build).** CRITIQUE's `trigarray` BH counterfactual in
+  §"Observable-selection accounting" gains a dated pointer: the BH clause holds at the frozen n = 91 only, not at
+  n = 1,452. The Wu Deng slot statistic's 7.9×10⁻⁷ is labelled two-sided on its roster line and in the closing
+  note. The escrow log entry names the EW lock by file name alone. **CITATIONS** gains the Benjamini–Yekutieli
+  (2001) entry.
+- **README** (the front page's multiple-comparison sentence): a dated qualifier says the survival it states is at the
+  battery's own bar, 0.05/28, and that against the ledger of 1,452 C3's complement-distance rarity does not clear
+  two-sided.
+- **The p-value vector** the BH and Benjamini–Yekutieli readings rest on is published as
+  `reports/evidence/roster/pvector_bounds.tsv`, with a README; METHODS and CRITIQUE point to it.
+
+**Not changed here.** The decoy registration's frozen bar; "0.05/91" wherever it is quoted old wording; the
+doc gates' comments; TR-1's revision row v1.11; the R7 count of five, which is the frozen R7 design's own figure
+(the alternatives 1,456, 1,463 and 1,474 are printed in the exclusion line and the sensitivity table). No
+Bonferroni verdict differs anywhere between n = 1,446 and n = 1,474; every verdict that changes in this entry
+changes between n = 103 and n = 1,446, when the C8 screen enters.
+
+**Tests.** `TestBatchQ1007` parses the roster table, asserts the stated total equals the sum of its lines and
+1,452, asserts the 28 exploratory ids are `roae.py`'s `all_sections` less `parity`, checks the code-backed family
+counts, asserts that every registration named on the escrow page, plus the EW lock and the decoy registration,
+has a line or a dated exclusion, asserts the printed bar is 0.05/total, and recomputes every cell of the
+sensitivity table in exact rationals from the roster's counts. Its mutants drop a roster line, flip C3's
+two-sided verdict to "clears", remove the n = 1,676 row and restore the Gray-code bound to the "Survives" bullet
+without its SCOPED note; each goes red. It fails on the parent tree. Two further methods pin the dated
+sentences a later edit could drop (the two "written after the outcome" admissions, the pre-commitment, the
+1,456 / 1,463 / 1,474 alternates, the Benjamini–Yekutieli sentence, among others) and recompute the figures they
+print, and require the EW-2 and R7 exclusion rows by their own cells and a sidedness word after every tail value
+on a roster line. A third re-runs every BH and Benjamini–Yekutieli reading from the published vector. `TestBatchQ1037b`'s `correction_family` pin
+moves to the new label, and the `*(current)*` pins for TR-8, TR-9 and TR-10 accept the appended rows.
+
+Developed with AI assistance (Claude, Anthropic): an Opus build lane, batch Q1007; the defect was found by Codex
+(gpt-6-astra), final review, F02-006#1, F02-001#2, F02-003#1, F02-004#8, F02-002#4, F02-006#4; ruled by Fable
+(claude-fable-5-2).

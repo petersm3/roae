@@ -316,6 +316,20 @@ it makes checkable is content identity from 2026-08-22 onward, not freeze timing
 
 ## Amendment log
 
+### 2026-11-13 — the observable roster is built; nothing on this page is altered
+
+1. The ledger this page's opening section points to now has an itemised roster:
+   [CRITIQUE.md](CRITIQUE.md) §"The observable roster". Every registration on this page has a roster line
+   or a dated exclusion there, and the ledger's total is derived from those lines (1,452). No hash, byte
+   count, date or sentence on this page is changed. Backlog Q-1007; Codex (gpt-6-astra), final review,
+   F02-006#1 with F02-001#2, F02-003#1, F02-004#8, F02-002#4 and F02-006#4; ruled by Fable; recorded in
+   CORRECTIONS.md CX-37C-K.
+2. Three frozen registrations that the roster needed have **no row on this page**:
+   `PREREG_DECOY_NEGATIVE_CONTROL_2026_09_05.md` (frozen 2026-11-05; four roster observables),
+   `EW_PREREG_2026_07_17.md` (the EW lock, locked 2026-07-17; held at 0 until its families are
+   enumerated) and `PREREG_FULL31_B0_PREDICTIONS_2026_09_07.md` (exact predictions; no observable). Their
+   roster lines say "not on the escrow page". Escrowing them is an operator action and has not been done.
+
 ### 2026-10-17 — one sentence annotated, no published value changed
 
 1. The A1 row's paragraph called the public commit "a third-party timestamp for the freeze of those choices". A

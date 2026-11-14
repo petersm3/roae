@@ -62798,10 +62798,12 @@ class TestBatchQ1037b(unittest.TestCase):
         self.assertEqual(("%.1e" % (0.05 / 91), "%.1f" % (0.05 / 91 / p)), ("5.5e-04", "5.2"))
         self.assertEqual(("%.1e" % (0.05 / 1446), "%.1f" % (p / (0.05 / 1446))), ("3.5e-05", "3.0"))
         self.assertIn("That is at least 1,446 on the published convention", self._r("reports/METHODS.md"))
+        # Q-1007 (CX-37C-K): the second reading moved from the >= 1,446 floor to the roster total 1,452
+        self.assertEqual(("%.1e" % (0.05 / 1452), "%.1f" % (p / (0.05 / 1452))), ("3.4e-05", "3.1"))
         line = ("correction_family\tfrozen 91-observable ledger (TR-8 F-32; METHODS.md Global observable ledger): "
-                "Bonferroni bar 0.05/91 = 5.5e-4, cleared (5.2x below); registered family now >= 1,446 "
-                "(reports/METHODS.md counting rule, LEDGER SCOPED 2026-10-16): bar 0.05/1446 = 3.5e-5, NOT cleared "
-                "(3.0x above)")
+                "Bonferroni bar 0.05/91 = 5.5e-4, cleared (5.2x below); registered family now 1,452 "
+                "(the observable roster in documentation/CRITIQUE.md, Q-1007): bar 0.05/1452 = 3.4e-5, NOT cleared "
+                "(3.1x above)")
         sh = self._r("scripts/tr12_repro.sh")
         self.assertIn('print("%s")' % line.replace("\t", "\\t"), sh)
         self.assertNotIn("cleared by ~5x", sh)
@@ -64349,9 +64351,10 @@ class TestBatchQ1049R4(unittest.TestCase):
     def test_q1049r4_revision_row_and_ledger_entry(self):
         t = self._r(self.T10)
         rows = [l for l in t.split("\n") if l.startswith("| v1.")]
-        self.assertTrue(rows[-1].startswith("| v1.25 *(current)* | 2026-11-12 |"), rows[-1][:60])
+        r = [l for l in rows if re.match(r"\| v1\.25 (\*\(current\)\* )?\| 2026-11-12 \|", l)]  # Q-1007 (CX-37C-K) appended v1.26
+        self.assertEqual(len(r), 1, rows[-1][:60])
         self.assertEqual(sum("*(current)*" in l for l in rows), 1, "one current revision row")
-        self.assertIn("CX-37C-E", rows[-1])
+        self.assertIn("CX-37C-E", r[0])
         self.assertIn("\n## CX-37C-E — ", self._r("documentation/CORRECTIONS.md"), "the CX-37C-E entry exists")
 
     def test_d571_termruns_scores_the_run_count_only(self):
@@ -64482,9 +64485,10 @@ class TestBatchQ1049R5(unittest.TestCase):
 
     def test_q1049r5_revision_row_and_ledger_entry(self):
         rows = [l for l in self._r(self.T8).split("\n") if l.startswith("| v1.")]
-        self.assertTrue(rows[-1].startswith("| v1.28 *(current)* | 2026-11-12 |"), rows[-1][:60])
+        r = [l for l in rows if re.match(r"\| v1\.28 (\*\(current\)\* )?\| 2026-11-12 \|", l)]  # Q-1007 (CX-37C-K) appended v1.29
+        self.assertEqual(len(r), 1, rows[-1][:60])
         self.assertEqual(sum(l.split("|")[1].strip().endswith("*(current)*") for l in rows), 1, "one current revision row")
-        self.assertIn("CX-37C-F", rows[-1])
+        self.assertIn("CX-37C-F", r[0])
         self.assertIn("\n## CX-37C-F — ", self._r("documentation/CORRECTIONS.md"), "the CX-37C-F entry exists")
 
     def test_d548_bh_rejects_up_to_the_largest_passing_rank(self):
@@ -64994,6 +64998,8 @@ class TestBatchQ1114Q1118Q1120(unittest.TestCase):
             rows = [l for l in self._r(rel).split("\n") if l.startswith("| v1.")]
             row, want = rows[-1], "| %s *(current)* | 2026-11-12 |" % ver
             if rel == self.T12 and row.startswith("| v1.41 *(current)* | 2026-11-13 |"):   # Q-1065 (CX-37C-L) appended v1.41 and moved the marker
+                row, want = rows[-2], "| %s | 2026-11-12 |" % ver
+            if rel.endswith("TR9_PRICING_THE_CONSTRAINTS.md") and row.startswith("| v1.41 *(current)* | 2026-11-13 |"):   # Q-1007 (CX-37C-K) appended v1.41 and moved the marker
                 row, want = rows[-2], "| %s | 2026-11-12 |" % ver
             self.assertTrue(row.startswith(want), (rel, row[:60]))
             self.assertEqual(sum("*(current)*" in l.split("|")[1] for l in rows), 1, rel)
@@ -65887,6 +65893,442 @@ exit 0
             shutil.rmtree(d, ignore_errors=True)
 
 # end class TestBatchQ1094 (Q-1094: verify_all.sh §3d, the Lean 4 LRAT checker on the 24 archived certificates)
+
+class TestBatchQ1007(unittest.TestCase):
+    """Batch Q1007 (CX-37C-K): the observable roster in CRITIQUE §"The observable roster" and the total derived
+    from it (backlog Q-1007; Codex gpt-6-astra, final review, F02-006#1 with F02-001#2, F02-003#1, F02-004#8,
+    F02-002#4, F02-006#4; ruled by Fable). Parses the roster; requires stated total == sum of lines == 1,452;
+    requires every registration on the escrow page, plus the EW lock and the decoy registration, to have a line or
+    a dated exclusion; requires the printed bar to be 0.05/total; and recomputes every cell of the sensitivity table
+    in exact rationals from the roster's counts. Mutants: a dropped line, C3's two-sided verdict flipped, the
+    n = 1,676 row removed, the Gray-code bound back on the "Survives" bullet without its SCOPED note. Red on the
+    parent tree (b2da5d27), which has no roster. Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    CRIT = "documentation/CRITIQUE.md"
+    ESC = "documentation/PREREGISTRATION_ESCROW.md"
+    HEAD = "\n## The observable roster — the itemization of record"
+    EXCL = "**Dated exclusions (2026-11-13).**"
+    UNREG = "**Measured on King Wen without any registration**"
+    SENS = "**Sensitivity of every enterprise-bar verdict to the count (added 2026-11-13).**"
+    ROW = re.compile(r"^\| (\d+) \| `([^`]+)` \| (.*?) \| ([\d,]+) \| (.*) \|$")
+    SUP = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
+    MUST = ("EW_PREREG_2026_07_17.md", "PREREG_DECOY_NEGATIVE_CONTROL_2026_09_05.md")
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    @staticmethod
+    def _norm(s):
+        return re.sub(r"\s+", " ", s)
+
+    def _sci(self, x, digits):
+        m, e = ("%.*e" % (digits, float(x))).split("e")
+        return "%s×10%s" % (m, str(int(e)).translate(self.SUP))
+
+    def _code_list(self, src, name):
+        import ast
+        i = src.find("\n%s = [" % name)
+        self.assertGreaterEqual(i, 0, "precondition: %s is defined" % name)
+        j = src.find("]", i)
+        return ast.literal_eval(src[i + len(name) + 4:j + 1])
+
+    def _values(self):
+        from fractions import Fraction as F
+        dav = self._r("reports/evidence/dav_tier1.out")
+        v = {}
+        for fn in ("rotinv", "trigarray"):
+            m = re.search(r"\[dav \d+ %s\s*\].* at=([\d.]+) above=([\d.]+)" % fn, dav)
+            self.assertIsNotNone(m, "precondition: dav_tier1.out carries %s" % fn)
+            v[fn] = F(m.group(1)) + F(m.group(2))
+        self.assertIn("28,356 of 10⁹", self._r(self.CRIT), "precondition: C3's count is published")
+        return [("C3 one-sided", F(28356, 10 ** 9), 1), ("C3 two-sided", F(28356, 10 ** 9), 2),
+                ("Gray-code", F(3, 10 ** 5), 1), ("TR-8", F(47, 445740), 0),
+                ("pureplace", F(42, 435) * F(1, 496), 0), ("rotinv", v["rotinv"], 0), ("trigarray", v["trigarray"], 0)]
+
+    def _problems(self, crit, esc):
+        from fractions import Fraction as F
+        probs = []
+        i = crit.find(self.HEAD)
+        if i < 0:
+            return ["no roster heading"]
+        j = crit.find("\n## ", i + 1)
+        sec = crit[i:j if j > 0 else len(crit)]
+        lines = [self.ROW.match(l) for l in sec.split("\n")]
+        lines = [m for m in lines if m]
+        if [int(m.group(1)) for m in lines] != list(range(1, len(lines) + 1)):
+            probs.append("roster line numbers are not 1..%d" % len(lines))
+        counts = {m.group(2): int(m.group(4).replace(",", "")) for m in lines}
+        total = sum(counts.values())
+        st = re.search(r"\*\*Total, derived from the lines above: ([\d,]+)\*\* = ([\d ,+]+)\.", sec)
+        if not st:
+            return probs + ["no stated total"]
+        stated = int(st.group(1).replace(",", ""))
+        terms = sum(int(x.replace(",", "")) for x in st.group(2).split(" + "))
+        if not (stated == total == terms == 1452):
+            probs.append("stated %d, lines %d, sum shown %d, expected 1452" % (stated, total, terms))
+        bar = re.search(r"\*\*Bonferroni bar 0\.05/([\d,]+) = ([^*]+)\.\*\*", sec)
+        if not bar or int(bar.group(1).replace(",", "")) != total or bar.group(2) != self._sci(F(1, 20) / total, 2):
+            probs.append("printed bar is not 0.05/total")
+        # the 28 exploratory ids are roae.py's sections less --parity
+        src = self._r("roae.py")
+        a = re.search(r"all_sections = \[(.*?)\]", src, re.S)
+        secs = [s.strip()[5:].replace("_", "-") for s in a.group(1).split(",")]
+        exp = sorted(k[4:] for k in counts if k.startswith("exp:"))
+        if exp != sorted(s for s in secs if s != "parity") or any(counts["exp:" + s] != 1 for s in exp):
+            probs.append("exploratory lines are not all_sections less parity")
+        # code-backed family counts
+        sp = self._r("solve.py")
+        c8 = {l.split("\t")[0] for l in self._r("reports/evidence/c8screen/members.tsv").splitlines() if l}
+        want = {"f4p:*": len(self._code_list(sp, "F4P_FUNCS")), "perm:*": len(self._code_list(sp, "PERM_NAMES")),
+                "f6:*": len(self._code_list(sp, "F6_FUNCS")),
+                "dav:*": len(self._code_list(sp, "DAV_FUNCS")) + len(self._code_list(sp, "DAV2_FUNCS")) + 1,
+                "c8:*": len(c8)}
+        for k, n in want.items():
+            if counts.get(k) != n:
+                probs.append("%s counts %s, code gives %d" % (k, counts.get(k), n))
+        # every escrowed registration, the EW lock and the decoy registration: a line or a dated exclusion
+        e0, e1 = sec.find(self.EXCL), sec.find(self.UNREG)
+        excl = sec[e0:e1] if 0 <= e0 < e1 else ""
+        if not excl:
+            probs.append("no dated-exclusion block")
+        regs = " ".join(m.group(3) for m in lines) + " " + excl
+        names = set(re.findall(r"\b([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*\.md)\b", esc))
+        names = {n for n in names if "PREREG" in n and not n.startswith("PREREGISTRATION")} | set(self.MUST)
+        for n in sorted(names):
+            if n not in regs:
+                probs.append("no line or exclusion for %s" % n)
+        # C3's roster line carries both masses and the two-sided verdict
+        c3 = [m.group(5) for m in lines if m.group(2) == "exp:complements"]
+        if not c3 or not all(s in c3[0] for s in ("2.8356×10⁻⁵ one-sided", "5.6712×10⁻⁵ two-sided",
+                                                   "**does not clear two-sided**")):
+            probs.append("C3's line lacks both masses or the two-sided verdict")
+        # the sensitivity table, recomputed
+        s0 = sec.find(self.SENS)
+        rows = [l for l in sec[s0:].split("\n") if re.match(r"^\| \**[\d,]+\** \|", l)] if s0 >= 0 else []
+        frozen = int(re.search(r"\*\*frozen at exactly (\d+)\*\*", self._r("reports/METHODS.md")).group(1))
+        floor = 1446  # CX-379's published floor, 91 + 4 + 2 + 1,349
+        want_n = [frozen, total - counts.get("c8:*", 0), floor, total - counts.get("decoy:*", 0), total,
+                  total + 4, total + 9, total + 11, total + 22, total + 224]
+        got_n = [int(r.split("|")[1].strip(" *").replace(",", "")) for r in rows]
+        if got_n != want_n:
+            probs.append("sensitivity rows %s, roster gives %s" % (got_n, want_n))
+        vals = self._values()
+        for r in rows:
+            cells = [c.strip() for c in r.strip("|").split("|")]
+            n = int(cells[0].strip("*").replace(",", ""))
+            b = F(1, 20) / n
+            if cells[2] != self._sci(b, 3):
+                probs.append("n=%d bar cell %s" % (n, cells[2]))
+            for (name, p, side), cell in zip(vals, cells[3:]):
+                ps = [p * side] if side else [p, 2 * p]
+                verdicts = ["clears" if q <= b else "**fails**" for q in ps]
+                ks = ["%.2f×" % float(b / q if q <= b else q / b) for q in ps]
+                if len(set(verdicts)) != 1:
+                    probs.append("n=%d %s: one cell holds two verdicts" % (n, name))
+                    continue
+                if cell != "%s %s" % (verdicts[0], " / ".join(ks)):
+                    probs.append("n=%d %s: printed %r, recomputed %s %s" % (n, name, cell, verdicts[0], " / ".join(ks)))
+        if len(rows) and len(vals) + 3 != len(rows[0].strip("|").split("|")):
+            probs.append("sensitivity column count")
+        # the "Survives" bullet: C3 two-sided leads; the Gray-code bound carries its SCOPED note
+        k = crit.find("- **Survives (both the 0.0018 battery bar and the 5.5×10⁻⁴ global bar), by wide margins:**")
+        bullet = self._norm(crit[k:crit.find("\n- **", k + 5)]) if k >= 0 else ""
+        for s in ("[RE-GRADED 2026-11-13 at the roster total n = 1,452",
+                  "**C3's unconditional rarity does not clear it under the suite's two-sided convention**",
+                  "[SCOPED 2026-11-13.]** The Gray-code figure 3×10⁻⁵ is a rule-of-three 95% upper bound",
+                  "It is reported, not graded."):
+            if s not in bullet:
+                probs.append("Survives bullet lacks %r" % s[:50])
+        return probs
+
+    def test_roster_cured(self):
+        self.assertEqual(self._problems(self._r(self.CRIT), self._r(self.ESC)), [])
+
+    def test_escrow_names_positive_control(self):
+        esc = self._r(self.ESC)
+        names = set(re.findall(r"\b([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*\.md)\b", esc))
+        names = {n for n in names if "PREREG" in n and not n.startswith("PREREGISTRATION")}
+        for n in ("PREREG_H1_H3_TEST_2026_07_26.md", "R8_DAVIS_PREREG_2026_07_10.md", "PREREG_C8SCREEN_2026_10_11.md",
+                  "PREREG_QOY1_Q992_2026_10_09.md", "PREREG_TR8_DOF_MATCHED_SAMPLER_20260811_ADDENDUM_A2_20261003.md"):
+            self.assertIn(n, names)
+        self.assertGreaterEqual(len(names), 24)
+
+    def test_red_on_parent_shape(self):
+        crit = self._r(self.CRIT)
+        i = crit.find(self.HEAD)
+        self.assertGreater(i, crit.find("### Observable-selection accounting"), "precondition: the roster follows the section")
+        self.assertEqual(self._problems(crit[:i] + "\n", self._r(self.ESC)), ["no roster heading"])
+
+    def _mutant(self, old, new):
+        crit = self._r(self.CRIT)
+        self.assertEqual(crit.count(old), 1, "precondition: %r" % old[:60])
+        return self._problems(crit.replace(old, new), self._r(self.ESC))
+
+    def test_mutant_drops_a_line(self):
+        crit = self._r(self.CRIT)
+        row = [l for l in crit.split("\n") if l.startswith("| 40 | `decoy:*` |")]
+        self.assertEqual(len(row), 1)
+        p = self._mutant(row[0] + "\n", "")
+        self.assertTrue(any(s.startswith("stated 1452, lines 1448") for s in p), p)
+        self.assertTrue(any("PREREG_DECOY_NEGATIVE_CONTROL_2026_09_05.md" in s for s in p), p)
+
+    def test_mutant_c3_two_sided_flipped(self):
+        p = self._mutant("**does not clear two-sided**", "**clears two-sided**")
+        self.assertEqual(p, ["C3's line lacks both masses or the two-sided verdict"])
+        p = self._mutant("| 3.444×10⁻⁵ | clears 1.21× | **fails** 1.65× |", "| 3.444×10⁻⁵ | clears 1.21× | clears 1.65× |")
+        self.assertEqual(len(p), 1, p)
+        self.assertIn("C3 two-sided", p[0])
+
+    def test_mutant_1676_row_removed(self):
+        crit = self._r(self.CRIT)
+        row = [l for l in crit.split("\n") if l.startswith("| 1,676 | + EW-2's declared 224 |")]
+        self.assertEqual(len(row), 1)
+        p = self._mutant(row[0] + "\n", "")
+        self.assertEqual(len(p), 1, p)
+        self.assertTrue(p[0].startswith("sensitivity rows"), p)
+
+    def test_mutant_graycode_unscoped(self):
+        crit = self._r(self.CRIT)
+        i = crit.find(" ⚠ **[SCOPED 2026-11-13.]** The Gray-code figure")
+        j = crit.find("would be above the bar.", i) + len("would be above the bar.")
+        self.assertTrue(0 < i < j)
+        p = self._problems(crit[:i] + crit[j:], self._r(self.ESC))
+        self.assertEqual(len(p), 2, p)
+
+    def test_correction_family_label_agrees(self):
+        from fractions import Fraction as F
+        lab = "registered family now 1,452 (the observable roster in documentation/CRITIQUE.md, Q-1007): bar 0.05/1452 = 3.4e-5, NOT cleared (3.1x above)"
+        r, b = F(47, 445740), F(1, 20) / 1452
+        self.assertEqual(("%.1e" % b, "%.1f" % (r / b)), ("3.4e-05", "3.1"))
+        self.assertIn(lab, self._r("scripts/tr12_repro.sh"))
+        self.assertIn(lab, self._r("scripts/tr12_expected/n9/a0_ls_w0.txt"))
+        self.assertIn("bar 0.05/1452 = 3.4e-5, NOT cleared (3.1x above)", self._r("documentation/QUERY_INVENTORY.md"))
+
+    def test_sites_carry_the_roster_total(self):
+        need = {"reports/METHODS.md": ("[ROSTER DERIVED 2026-11-13", "[RESOLVED 2026-11-13 by the roster",
+                                       "[RE-DERIVED AT THE ROSTER TOTAL 2026-11-13", "[ROSTER TOTAL 2026-11-13",
+                                       "**Sidedness (stated here 2026-11-13; adopted 2026-08-28).**",
+                                       "**Clarifications (added 2026-11-13, CX-37C-K).**",
+                                       "[RE-DERIVED 2026-11-13 at n = 1,452, on the assembled vector"),
+                "reports/TR8_REORDERING_REVISITED.md": ("[ROSTER TOTAL 2026-11-13",),
+                "reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md": ("misses by 11.3× two-sided and 5.65× one-sided",
+                                                                 "(rank 11 of the 20 needed)"),
+                "documentation/CLAIMS_DECIDED.md": ("the family is 1,452 and the bar 3.44×10⁻⁵",),
+                "documentation/CLAIM_TO_ARTIFACT.md": ("1,452 registered observables; 91 at its",),
+                "documentation/DESCRIPTION_LENGTH.md": ("is now 1,452;",),
+                "reports/TR9_PRICING_THE_CONSTRAINTS.md": ("is now 1,452;",),
+                "documentation/PREREGISTRATION_ESCROW.md": ("### 2026-11-13 — the observable roster is built",),
+                "documentation/CRITIQUE.md": ("the BH clause holds at the frozen n = 91 only",),
+                "README.md": ("*(qualified 2026-11-13, CX-37C-K: that is at the battery's own bar, 0.05/28.",)}
+        for rel, ss in need.items():
+            t = self._norm(self._r(rel))
+            for s in ss:
+                self.assertIn(self._norm(s), t, rel)
+        for rel, cur in (("reports/TR8_REORDERING_REVISITED.md", "| v1.29 *(current)* | 2026-11-13 |"),
+                         ("reports/TR9_PRICING_THE_CONSTRAINTS.md", "| v1.41 *(current)* | 2026-11-13 |"),
+                         ("reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md", "| v1.26 *(current)* | 2026-11-13 |")):
+            t = self._r(rel)
+            rows = [l for l in t.split("\n") if re.match(r"^\| v\d+\.\d+ ", l)]
+            self.assertEqual([l for l in rows if "*(current)*" in l.split("|")[1]], [rows[-1]], rel)
+            self.assertTrue(rows[-1].startswith(cur), rel)
+            self.assertIn("CX-37C-K", rows[-1], rel)
+        self.assertEqual(self._r("documentation/CORRECTIONS.md").count("\n## CX-37C-K — "), 1)
+        self.assertEqual(self._r("documentation/HISTORY.md").count("\n## 2026-11-13 — batch Q1007: "), 1)
+
+    def test_frozen_constants_untouched(self):
+        # the frozen 91 sentence and quoted "0.05/91" stay; CX-379's floor test still parses
+        m = self._r("reports/METHODS.md")
+        self.assertIn("enterprise-wide observable count is **frozen at exactly 91**", m)
+        self.assertIn("That is at least 1,446 on the published convention", m)
+
+    def test_dated_notes_pinned(self):
+        import math
+        from fractions import Fraction as F
+        need = {
+            "documentation/CRITIQUE.md": (
+                "[ROSTER BUILT 2026-11-13, CX-37C-K]** the total derived from the roster is **1,452**",
+                "is 1.65× above the bar, and it has been above the bar for every n ≥ 882",
+                "it is 2.8356×10⁻⁵ and clears by 1.21×, up to n = 1,763",
+                "below the bar at n = 1,452 (by 1.15×) and above it for every n ≥ 1,667",
+                "[SCOPED 2026-11-13.]** At the roster total n = 1,452 the statistical case rests on C1 alone among graded results",
+                "is withdrawn for C3's unconditional rarity at the enterprise bar",
+                "**Those clarifications were written after the outcomes they bear on were known**",
+                "**This rule was written after the outcome it decides was known**",
+                "Counting those four gives n = 1,456; all eleven, 1,463; all eleven at both null levels, 1,474.",
+                "**Below the bar, not graded:** `f5:vdb_nuc`",
+                "**Below the bar, not graded:** the Wu Deng slot statistic `f6:wudeng_slots`",
+                "and the Wu Deng slot statistic (7.9×10⁻⁷ two-sided, HISTORY 2026-07-05)",
+                "1,349 tests, 92.9% of the roster, and returned no survivors."),
+            "reports/METHODS.md": (
+                "**These clarifications were written after the outcomes they bear on were known**",
+                "the graded value is two-sided, min(1, 2·one-sided)",
+                "The rarity sits 3.06× above it one-sided and 6.12× two-sided.",
+                "The margin closes at n = 1,897 with only C1, C3 and `dav_rotinv` below it.",
+                "Two-sided it needs rank ≥ 7 and holds rank 6 on the recorded values",
+                "needs BH rank ≥ 40, and at most 39 values can sit at or below its line",
+                "it needs rank ≥ 20 and holds rank 11 on the recorded values",
+                "at this n, two-sided C3 clears only under BH. The suite's family remains Bonferroni",
+                "`dav_rotinv` fails Bonferroni (1.90× one-sided, 3.79× two-sided) and is BH-rejected one-sided only."),
+            "reports/TR8_REORDERING_REVISITED.md": (
+                "The rarity sits 3.06× above it one-sided and 6.12× two-sided.",
+                "The margin closes at n = 1,897 with only C1, C3 and `dav_rotinv` below it.",
+                "Two-sided it needs rank ≥ 7 and holds rank 6 on the recorded values"),
+            "reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md": (
+                "it needs 40 values at or below its line and at most 39 are possible",
+                "14/35,960 = 3.893×10⁻⁴ two-sided (7/35,960 = 1.947×10⁻⁴ one-sided)"),
+        }
+        by = ("Under Benjamini–Yekutieli, which assumes neither (factor Σ1/i = 7.86 at n = 1,452), only C1 is rejected "
+              "among graded members. Every BH reading here is quoted with that condition.")
+        pre = ("Pre-committed 2026-11-13: at the freeze that enumerates this bank, every member enters the roster before "
+               "any tail is computed, the total and the bar are re-derived, and every verdict in the sensitivity table "
+               "is restated at the new n in the same commit.")
+        for rel, ss in need.items():
+            t = self._norm(self._r(rel))
+            for s in ss:
+                self.assertEqual(t.count(self._norm(s)), 1, (rel, s[:60]))
+        for rel, k in (("reports/METHODS.md", 2), ("reports/TR8_REORDERING_REVISITED.md", 1),
+                       ("reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md", 1)):
+            self.assertEqual(self._norm(self._r(rel)).count(by), k, rel)
+        self.assertEqual(self._norm(self._r(self.CRIT)).count(pre), 2)
+        # the figures those sentences print, from exact rationals
+        vals = dict((nm, p) for nm, p, _ in self._values())
+        bar, C3, G, T8 = F(1, 20) / 1452, vals["C3 one-sided"], vals["Gray-code"], vals["TR-8"]
+        self.assertEqual(("%.2f" % (2 * C3 / bar), "%.2f" % (bar / C3), "%.2f" % (bar / G)), ("1.65", "1.21", "1.15"))
+        self.assertEqual((math.floor(F(1, 20) / C3), math.floor(F(1, 20) / (2 * C3)) + 1, math.floor(F(1, 20) / G) + 1),
+                         (1763, 882, 1667))
+        self.assertEqual(("%.2f" % (T8 / bar), "%.2f" % (2 * T8 / bar)), ("3.06", "6.12"))
+        self.assertEqual(("%.1f" % (2 * vals["pureplace"] / bar), "%.2f" % (vals["pureplace"] / bar)), ("11.3", "5.65"))
+        self.assertEqual(1666 - 1452, 214)
+
+    def test_exclusion_rows_and_roster_sidedness(self):
+        crit = self._r(self.CRIT)
+        sec = crit[crit.find(self.HEAD):]
+        excl = sec[sec.find(self.EXCL):sec.find(self.UNREG)]
+        rows = [l for l in excl.split("\n") if l.startswith("| ") and not l.startswith("| registration") and not l.startswith("|---")]
+        self.assertEqual(len(rows), 14)
+        self.assertTrue(all(l.split("|")[2].strip() == "0" for l in rows))
+        ew2 = [l for l in rows if l.startswith("| `EW_PREREG_2026_07_17.md`, EW-2 ")]
+        self.assertEqual(len(ew2), 1, "the EW-2 exclusion row")
+        for s in ("declared size of 224", "Held at 0 until enumerated.", "the n = 1,452 and n = 1,676 rows below"):
+            self.assertIn(s, ew2[0])
+        self.assertEqual(len([l for l in rows if l.startswith("| R7 scalar battery, a–j ")]), 1)
+        # R13: every roster line that prints a tail value names its sidedness
+        lines = [m for m in map(self.ROW.match, sec.split("\n")) if m]
+        for m in lines:
+            for v in re.finditer(r"\d(?:\.\d+)?×10⁻[⁰¹²³⁴⁵⁶⁷⁸⁹]+", m.group(5)):
+                tail = m.group(5)[v.end():v.end() + 12]
+                self.assertRegex(tail, r"^ (one|two)-sided", (m.group(2), v.group(0)))
+
+    PV = "reports/evidence/roster/pvector_bounds.tsv"
+    FIT = ("f5:vdb_nuc", "f6:wudeng_slots", "f6:wudeng_profile")
+    from fractions import Fraction as _F
+    A = _F(1, 20)
+    del _F
+
+    def _pv(self):
+        import csv
+        import io
+        rows = list(csv.DictReader(io.StringIO(self._r(self.PV)), delimiter="\t"))
+        self.assertEqual(len(rows), 1452, "precondition: one row per roster observable")
+        self.assertEqual(len({r["id"] for r in rows}), 1452)
+        return rows
+
+    def _vec(self, rows, side, case="recorded", withheld=False, keep=None):
+        """case: recorded (MISSING at 1, multi-statistic sections at their smallest, constraints at its printed
+        bound), worst (multi at largest), best (MISSING at 0), widest (best, and test-less sections at 0)."""
+        from fractions import Fraction as F
+        lo, hi = ("p1_lo", "p1_hi") if side == 1 else ("p2_lo", "p2_hi")
+        out = {}
+        for r in rows:
+            if keep is not None and not keep(r):
+                continue
+            st = r["status"]
+            if withheld and r["id"] in self.FIT:
+                p = F(1)
+            elif st == "MISSING":
+                p = F(0) if case in ("best", "widest") else F(1)
+            elif st == "NO_TEST":
+                p = F(0) if case == "widest" else F(1)
+            elif r["id"] == "exp:constraints" and case == "recorded":
+                p = min(F(1), F(3, 10 ** 4) * side)
+            else:
+                p = F(r[hi] if case == "worst" else r[lo])
+            out[r["id"]] = p
+        return out
+
+    def _stepup(self, ps, n, factor=1):
+        s, k = sorted(ps), 0
+        for i, p in enumerate(s, 1):
+            if p * n * factor <= i * self.A:
+                k = i
+        return k, k * self.A / (n * factor)
+
+    def test_bh_statements_on_the_public_vector(self):
+        import math
+        from fractions import Fraction as F
+        rows = self._pv()
+        n = 1452
+        bar = self.A / n
+        vals = dict((nm, p) for nm, p, _ in self._values())
+        TA, RI, T8, C3 = vals["trigarray"], vals["rotinv"], vals["TR-8"], vals["C3 one-sided"]
+        byid = {r["id"]: r for r in rows}
+        self.assertEqual(F(byid["dav:trigarray"]["p1_lo"]), TA, "the vector carries dav_tier1.out's value")
+        self.assertEqual(F(byid["dav:rotinv"]["p1_lo"]), RI)
+        self.assertEqual(sum(r["status"] == "MISSING" for r in rows), 16, "the 16 unmeasured members")
+        self.assertEqual(sum(r["status"] == "NO_TEST" for r in rows), 12, "the twelve test-less sections")
+        # trigarray at n = 1,452 (METHODS RE-DERIVED AT THE ROSTER TOTAL; TR-10 LEDGER RE-DERIVED)
+        self.assertEqual((math.ceil(2 * TA / bar), math.ceil(TA / bar)), (40, 20))
+        w = self._vec(rows, 2, "widest")
+        self.assertEqual(sum(p <= 2 * TA for p in w.values()), 39, "at most 39 at or below the two-sided line")
+        k, line = self._stepup(w.values(), n)
+        self.assertLess(line, 2 * TA, "two-sided: not rejected in any completion")
+        r1 = self._vec(rows, 1)
+        self.assertEqual(sum(p <= TA for p in r1.values()), 11, "one-sided rank 11 on recorded values")
+        self.assertLess(self._stepup(r1.values(), n)[1], TA)
+        # TR-8 (METHODS and TR-8 ROSTER TOTAL notes)
+        self.assertEqual((math.ceil(T8 / bar), math.ceil(2 * T8 / bar)), (4, 7))
+        wh1 = self._vec(rows, 1, withheld=True)
+        self.assertEqual(sorted(i for i, p in wh1.items() if p <= T8), ["dav:rotinv", "exp:complements", "exp:pairs"])
+        self.assertLessEqual(T8, 4 * bar, "as a member it holds rank 4 and passes its line")
+        self.assertLess(self._stepup(wh1.values(), n)[1], T8, "from outside, fitted withheld: not rejected")
+        self.assertGreaterEqual(self._stepup(r1.values(), n)[1], T8, "from outside, fitted ranking: rejected")
+        self.assertEqual(min(m for m in range(1, 5000) if T8 > 4 * self.A / m), 1897)
+        r2 = self._vec(rows, 2)
+        self.assertEqual(sum(p <= 2 * T8 for p in r2.values()) + 1, 6, "two-sided rank 6 of the 7 needed")
+        self.assertEqual(sum(F(r["p2_lo"]) <= 2 * T8 for r in rows if r["id"].startswith("c8:")), 0)
+        self.assertEqual(sum(r["id"].startswith("c8:") for r in rows), 1349)
+        # the correction-family disclosure (RE-DERIVED 2026-11-13, fitted values withheld)
+        wh2 = self._vec(rows, 2, withheld=True)
+        l1, l2 = self._stepup(wh1.values(), n)[1], self._stepup(wh2.values(), n)[1]
+        self.assertTrue(RI <= l1 and 2 * RI > l2 and 2 * C3 <= l2 and 2 * C3 > bar and RI > bar)
+        # Benjamini-Yekutieli: only C1 among graded members
+        H = sum(F(1, i) for i in range(1, n + 1))
+        self.assertEqual("%.2f" % float(H), "7.86")
+        for v in (wh1, wh2):
+            k, line = self._stepup(v.values(), n, H)
+            self.assertEqual([i for i, p in v.items() if p <= line and k], ["exp:pairs"])
+        # n = 103 (the roster without C8) and n = 91 (the frozen ledger): trigarray is BH-rejected on both masses
+        noc8 = lambda r: not r["id"].startswith("c8:")
+        fam91 = lambda r: r["id"].split(":")[0] in ("exp", "f5", "f4p", "dav", "dav2", "r3", "r7")
+        self.assertEqual(sum(1 for r in rows if noc8(r)), 103)
+        self.assertEqual(sum(1 for r in rows if fam91(r)), 82)
+        cases = 0
+        for side in (1, 2):
+            for case in ("recorded", "worst", "best"):
+                for wh in (False, True):
+                    v = self._vec(rows, side, case, wh, keep=noc8)
+                    self.assertGreaterEqual(self._stepup(v.values(), 103)[1], side * TA, (103, side, case, wh))
+                    v = self._vec(rows, side, case, wh, keep=fam91)
+                    d9 = [p for i, p in v.items() if i.startswith("dav:")]
+                    self.assertEqual(len(d9), 9)
+                    for extra in (d9, [F(1)] * 9):
+                        self.assertGreaterEqual(self._stepup(list(v.values()) + extra, 91)[1], side * TA, (91, side, case, wh))
+                        cases += 1
+        self.assertEqual(cases, 24)
+# end class TestBatchQ1007
+
 
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).

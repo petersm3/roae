@@ -26,7 +26,7 @@ compression − statement cost. Conventions, declared up front:
   principle, not the parameters (post-[Radisic](CITATIONS.md#radisic2026) — preprint, independently
   re-verified + machine-checked in-repo, [lean/HammingOptimalMatching.lean](../lean/HammingOptimalMatching.lean) — this matters for C1).
 - The look-elsewhere accounting for the 28-observable extraction battery (the base of the frozen
-  91-observable global ledger — [METHODS](../reports/METHODS.md) §"Global observable ledger") lives in
+  91-observable global ledger — [METHODS](../reports/METHODS.md) §"Global observable ledger"; ⚠ *2026-11-13, CX-37C-K: the ledger's count, derived from its roster in [CRITIQUE](CRITIQUE.md) §"The observable roster", is now 1,452; 91 here and below is the 2026-07-11 freeze, and the selection charge priced on it is not recomputed*) lives in
   [CRITIQUE.md](CRITIQUE.md) and is not double-counted here. In this ledger's own currency the
   meta-selection charge — the cost of selecting the constraint *families themselves* — has **no closed
   bound**, and this bullet claimed one until 2026-09-02. Priced against that testing-phase ledger,

@@ -46,7 +46,7 @@ families (F5 /11, F4′ /13, Davis /9, Davis follow-up /12, permutation /13 — 
 that discovery-phase
 battery brought the running total to 86 (28 + 58); the R7 corpus-control battery's five off-home family predicates
 applied to King Wen (J1, M1, M3, M4, B1 — all expected-fail, all failed; see §"Corpus control II" below)
-bring the enterprise-wide total to **exactly 91 observables** (28 + 58 + 5, frozen) *(scope disclosure, 2026-08-01: 91 counts tests registered under corrections, and contains two offsetting errors — the Davis "/12" family subsumes the "/9", so the distinct-id count is **82**; and an omitted books family of 7 would make "everything examined" **89**. The bars span 5.49–6.10×10⁻⁴, an 11% spread, and **no published verdict differs between them**. 91 was the count frozen when the ledger was fixed; METHODS withdrew "strictest defensible" (95/93 with H1/H3) and the first-registration rule now gives ≥ 1,446 (CX-379); this sentence called 0.05/91 "the strictest defensible value" until 2026-10-17, CX-35T-H. Full statement and the counting rule: [METHODS.md](../reports/METHODS.md) §"Global observable ledger")* — the global ledger that
+bring the enterprise-wide total to **exactly 91 observables** (28 + 58 + 5, frozen) *(scope disclosure, 2026-08-01: 91 counts tests registered under corrections, and contains two offsetting errors — the Davis "/12" family subsumes the "/9", so the distinct-id count is **82**; and an omitted books family of 7 would make "everything examined" **89**. The bars span 5.49–6.10×10⁻⁴, an 11% spread, and **no published verdict differs between them**. 91 was the count frozen when the ledger was fixed; METHODS withdrew "strictest defensible" (95/93 with H1/H3) and the first-registration rule now gives ≥ 1,446 (CX-379); this sentence called 0.05/91 "the strictest defensible value" until 2026-10-17, CX-35T-H. Full statement and the counting rule: [METHODS.md](../reports/METHODS.md) §"Global observable ledger")* ⚠ **[ROSTER BUILT 2026-11-13, CX-37C-K]** the total derived from the roster is **1,452** and the bar 0.05/1,452 = 3.44×10⁻⁵; 91 is the count frozen on 2026-07-11 (§"The observable roster" at the end of this document) — the global ledger that
 [reports/METHODS.md](../reports/METHODS.md) §"Global observable ledger" applies (global bar 0.05/91 ≈
 5.5×10⁻⁴; distinct from the discovery-battery threshold used just below). Selecting the most striking properties from a
 battery and then testing them on the same sequence inflates apparent significance; a referee is entitled to
@@ -59,7 +59,7 @@ the project's own Bonferroni threshold (p < 0.05/28 ≈ 0.0018) across everythin
   (0.002836% ≈ 2.8×10⁻⁵ under the unconstrained random null, 28,356 of 10⁹ — see the family table under
   §Missing analyses below); and the Gray-code C3 **rate** bound, **scoped to its sampler** (0 of 10⁵ sampled Gray codes satisfy C3 ≤ 776; rule-of-three upper bound 3/10⁵ = 3×10⁻⁵ on *that sampler's* rate) ⚠ **[CORRECTED 2026-08-28 — this read "the Gray-code **minimum**-C3 bound (minimum across 10⁵ samples = 832 > 776, CI ≤ 3×10⁻⁵)", which converts a RATE bound into a MINIMUM bound. Both `solve.c:12941` and `HISTORY.md:409` say *rate*; only this line said *minimum*. **A sample minimum is an upper bound on the true minimum, never a lower bound**: observing 832 across 10⁵ draws shows the family minimum is ≤ 832 and is entirely consistent with its being below 776, which is the direction the sentence was being read in. Coverage is 10⁵ of ~10²², i.e. ~10⁻¹⁷ of the family. Separately, `solve.c:12941` prints **"Non-uniform sampler"** and `HISTORY.md:409` calls it **"biased"**, so the rule-of-three figure bounds the rate under the *sampler's induced distribution*, not under the uniform Gray-code family — a qualifier this line dropped. What survives is the scoped rate statement above; **the minimum claim does not survive at all**, and this item's standing among the battery-bar survivors rests on the rate half alone. See CORRECTIONS.md 2026-08-28.]** The
   wrap-parity and parity-alternation results are theorems (deductive), outside statistical accounting
-  entirely.
+  entirely. ⚠ **[RE-GRADED 2026-11-13 at the roster total n = 1,452, bar 0.05/1,452 = 3.44×10⁻⁵ (CX-37C-K).]** Of the three items above, one clears this bar under every reading: **C1**, by about 40 orders of magnitude. **C3's unconditional rarity does not clear it under the suite's two-sided convention**: doubled, it is 5.67×10⁻⁵, which is 1.65× above the bar, and it has been above the bar for every n ≥ 882, so since this section first cited n ≥ 1,446 on 2026-10-16. One-sided, the tail the constraint has always been defined on (C3 ≤ 776), it is 2.8356×10⁻⁵ and clears by 1.21×, up to n = 1,763. Both figures clear the 0.0018 battery bar. "By wide margins" holds for C1 only. **The Gray-code figure is not graded against this bar** (see the next note). ⚠ **[SCOPED 2026-11-13.]** The Gray-code figure 3×10⁻⁵ is a rule-of-three 95% upper bound on one non-uniform sampler's rate, not a tail probability; it has no line in the observable roster; and its null is one King Wen is already known not to belong to, since no Gray code satisfies C1. It is reported, not graded. For the record, as a number it is below the bar at n = 1,452 (by 1.15×) and above it for every n ≥ 1,667. Two registered banks that have not been enumerated are held out of the count: the EW-2 screen, locked 2026-07-17 with a declared size of 224, and the F-catalog T1/T2 bank. With EW-2's 224 the count would be 1,676 and the figure would be above the bar.
 - **Precisely measured, but does NOT clear the corrected bar as KW-evidence** (re-graded 2026-07-26 for
   self-consistency under the stated bars; an earlier version of this section graded these as "survives"):
   C2's conditional rarity given C1 (4.29% on a 10⁹ sample — the standard error is negligible, so the
@@ -83,7 +83,7 @@ constraint's KW-compliance rate clears the corrected bar; those rates are precis
 sizes, priced as such (exactly as TR-9's bits accounting concludes). Every marginal observation was
 already labeled as non-surviving where it appears. The point of stating this explicitly is procedural
 honesty: the survivors were selected from a large explored battery, and their significance claims are
-made net of the registered testing families; the discovery-stage denominator is unassembled and no published p-value accounts for it ([METHODS](../reports/METHODS.md) §"The file drawer"; "net of that selection" until 2026-10-17, CX-35T-H).
+made net of the registered testing families; the discovery-stage denominator is unassembled and no published p-value accounts for it ([METHODS](../reports/METHODS.md) §"The file drawer"; "net of that selection" until 2026-10-17, CX-35T-H). ⚠ **[SCOPED 2026-11-13.]** At the roster total n = 1,452 the statistical case rests on C1 alone among graded results. C3's unconditional rarity clears the enterprise bar only on its one-sided mass and by 1.21×; under the suite's two-sided convention it does not clear. Two roster members are below the bar and are not graded, because each functional was fitted to the sequence it scores: `vdb_nuc` (1.40×10⁻⁵ two-sided, TR-1 §7) and the Wu Deng slot statistic (7.9×10⁻⁷ two-sided, HISTORY 2026-07-05). The deductive results are untouched. "Changes no conclusion" above is true of those and of C1, and is withdrawn for C3's unconditional rarity at the enterprise bar (the roster: §"The observable roster" at the end of this document).
 
 ## Analytical claims
 
@@ -609,7 +609,7 @@ family correction; it does not survive the global 91-observable ledger's ≈5.5�
 though it *would* survive that same ledger under BH-FDR at q = 0.05, holding rank *i* ≥ 3 behind C1 and
 `dav_rotinv` — at least one verdict in the suite the
 correction family moves, disclosed at METHODS §"Correction-family disclosure"; *corrected 2026-10-17, CX-35T-A: this
-read "6.8×10⁻⁴", the one-sided mass, and "the one verdict"*); the
+read "6.8×10⁻⁴", the one-sided mass, and "the one verdict"*; ⚠ *2026-11-13, CX-37C-K: the BH clause holds at the frozen n = 91 only, and not at the roster total n = 1,452 — §"The observable roster" below and [TR-10](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md) §3's LEDGER RE-DERIVED note*); the
 exact-placement templates are rare-by-construction (data-like class — including two with zero sampled
 mass at 2×10⁹ probes) and, per the standing circularity policy, carry no design inference; corpus
 controls (Jing Fang, Mawangdui) score zero on every flagged predicate. Under the strict two-sided
@@ -732,3 +732,125 @@ discriminating test was forthcoming rather than permanently vetoed.)*
 *Revision 2026-08-01 (lens sweep — C3 percentile flag): the 3.9th-percentile complement-distance figure is **flagged and withdrawn from citation**. It is a statistic of the 13,296-ordering `solve.py` differential slice, whose stated range [11.75, 14.5] cannot be the range of C1+C2+C4+C5 — the strictly smaller C1–C5 canonical contains orderings at cd = 6.125 — and the suite's own ledger gives 1.3287×10³⁸ / 1.097051×10³⁹ ≈ **12%** at that scope. The 2026-07-22 scope correction above fixed the figure's *label*, not the figure. Authoritative statement of the flag, and the measurement that would settle it: [SOLVE.md](SOLVE.md) §Rule 3. No canonical count, sha, or theorem changed.*
 
 *Revision 2026-09-25 (Codex V3A-015, items 1, 2, 4, 6, 7, 8 and the rest of 5): six sentences corrected in place, each with a dated ⚠ marker. The F4' dist_autocorr percentile was read from the wrong tail (KW is at the 3.4th–4.8th percentile, not above the 96th); the §[9] ratio is an overlap coefficient, not an independence measure; Claim 1's "no pair can satisfy C1" overstated a proof that rules out all 32 pairs together, not each one; the coverage fraction is restated raw-against-raw as TR-4 states it; the F4'/permutation null is oriented-leaf mass, not canonical mass; and KW is not outside all seven null families — three contain it or can draw it — so the "sporadic" inference is dropped. No count, sha, verdict or theorem changed. Also on 2026-09-25 (Q-826): the `--estimate-knuth` stack note's frame sizes were re-measured with `-fstack-usage` and corrected in place (`main` ≈7.24 MiB, `estimate_tree_knuth` ≈1.48 MiB); the 16 MB requirement stands. See documentation/CORRECTIONS.md.*
+
+## The observable roster — the itemization of record (built 2026-11-13, CX-37C-K)
+
+*Added 2026-11-13 (backlog Q-1007; Codex gpt-6-astra, final review, F02-006#1 with F02-001#2, F02-003#1,
+F02-004#8, F02-002#4 and F02-006#4; ruled by Fable). This section belongs to §"Observable-selection accounting" above and is placed at the end of the
+document so that no existing line moves; the dated notes in that section point here.* [METHODS](../reports/METHODS.md) §"Global observable ledger" requires the enterprise total to be
+**derived from the itemised roster**, with each observable entered exactly once, at first registration, under
+a stable id. Until today no file listed the ids. This is that list. Each line below is one stable id or one
+registered family; the count column is the number of observables the line enters. Two rules decide the
+borderline rows, and both are stated in the counting rule's dated clarifications in METHODS: an observable
+needs a frozen, executable definition to have an id, and instrument-validity gates, exact-equality checks and
+outputs a registration labels descriptive are not observables. **Those clarifications were written after the
+outcomes they bear on were known** (see the EW-2 line in the exclusions below).
+
+**The 28 exploratory observables** are the 28 section flags of `roae.py`'s section dispatch list
+(`all_sections`), less `--parity`, which is theorem-backed. The 28 is a count of *sections*, as `roae.py`
+itself says, not of null tests: twelve of the sections (lines 1, 4, 6, 7, 11, 18, 19, 20, 22, 24, 25 and 28)
+define no test at all. They are kept, because 28 is the count the ledger has always used and dropping them
+would only raise the bar.
+
+| line | id | registration | count | note |
+|--:|---|---|--:|---|
+| 1 | `exp:table` | `roae.py` section sweep (count fixed 2026-04-07) | 1 | reference table; defines no test |
+| 2 | `exp:pairs` | `roae.py` section sweep | 1 | C1, 32!·2³²/64! = 8.9×10⁻⁴⁵ one-sided |
+| 3 | `exp:wave` | `roae.py` section sweep | 1 | runs test, p = 0.033 two-sided |
+| 4 | `exp:barchart` | `roae.py` section sweep | 1 | plot; defines no test |
+| 5 | `exp:trigrams` | `roae.py` section sweep | 1 | four statistics; the three nulls were added 2026-07-03, after the count was fixed |
+| 6 | `exp:nuclear` | `roae.py` section sweep | 1 | ordering-independent; defines no test |
+| 7 | `exp:lines` | `roae.py` section sweep | 1 | no null; defines no test |
+| 8 | `exp:complements` | `roae.py` section sweep | 1 | C3's unconditional rarity: 2.8356×10⁻⁵ one-sided, 5.6712×10⁻⁵ two-sided; at the bar below it **does not clear two-sided** and clears one-sided by 1.21× |
+| 9 | `exp:palindromes` | `roae.py` section sweep | 1 | does not survive |
+| 10 | `exp:canons` | `roae.py` section sweep | 1 | does not survive |
+| 11 | `exp:hamming` | `roae.py` section sweep | 1 | ordering-independent; defines no test |
+| 12 | `exp:autocorrelation` | `roae.py` section sweep | 1 | 0 of 31 lags outside the band; no p-value printed |
+| 13 | `exp:entropy` | `roae.py` section sweep | 1 | does not survive |
+| 14 | `exp:path` | `roae.py` section sweep | 1 | does not survive |
+| 15 | `exp:stats` | `roae.py` section sweep | 1 | C2, 1.828×10⁻³ one-sided |
+| 16 | `exp:fft` | `roae.py` section sweep | 1 | ad hoc 2× threshold; no p-value |
+| 17 | `exp:markov` | `roae.py` section sweep | 1 | does not survive |
+| 18 | `exp:graycode` | `roae.py` section sweep | 1 | path ratio, "not a statistical test"; defines no test. Not the Gray-code rate bound, which has no line (see the exclusions) |
+| 19 | `exp:symmetry` | `roae.py` section sweep | 1 | no null; defines no test |
+| 20 | `exp:sequences` | `roae.py` section sweep | 1 | comparison with Fu Xi and Mawangdui; defines no test |
+| 21 | `exp:constraints` | `roae.py` section sweep | 1 | re-tests C1 and C2 (ids `pairs`, `stats`). Its own statistic is P(no-5 \| pairs) = 4.29341%, which does not clear. Its printed joint line (0 of 10,000) is a subset of the C1 event and holds no rank of its own. `bootstrap` likewise re-estimates `stats`. Both ids are kept in the count; dropping them would give n = 1,450 and change no verdict |
+| 22 | `exp:windowed-entropy` | `roae.py` section sweep | 1 | "not a statistical test"; defines no test |
+| 23 | `exp:mutual-info` | `roae.py` section sweep | 1 | does not survive |
+| 24 | `exp:bootstrap` | `roae.py` section sweep | 1 | an interval on `stats`'s rate; defines no test of its own (see line 21) |
+| 25 | `exp:yinyang` | `roae.py` section sweep | 1 | no null; defines no test |
+| 26 | `exp:neighborhoods` | `roae.py` section sweep | 1 | within chance |
+| 27 | `exp:recurrence` | `roae.py` section sweep | 1 | within chance |
+| 28 | `exp:codons` | `roae.py` section sweep | 1 | "illustrative"; defines no test |
+| 29 | `f5:*` | `F5_ORIENTATION_PREREGISTRATION_2026_07_FROZEN.md` | 11 | "Bonferroni N becomes 11". **Below the bar, not graded:** `f5:vdb_nuc`, 6.98×10⁻⁶ one-sided, 1.40×10⁻⁵ two-sided, is recorded and not graded because its functional was fitted to the sequence it scores ([TR-1](../reports/TR1_EIGHT_CENTURIES_MEASURED.md) §7) |
+| 30 | `f4p:*` | `F4PRIME_PREREGISTRATION.md` | 13 | the 13 functionals of `solve.py`'s `F4P_FUNCS` |
+| 31 | `dav:*` | `R8_DAVIS_PREREG_2026_07_10.md` | 12 | the /12 cross-wave family, entered **once**: the nine of `DAV_FUNCS`, the two of `DAV2_FUNCS`, and C-D5, which has a frozen definition and was registered, operator-declined (2026-07-11) and never measured. The /9 is inside the /12 and is not entered again |
+| 32 | `perm:*` | `R3_PERMUTATION_OBSERVABLE_PREREG_2026_07_09.md` | 13 | the 13 statistics of `PERM_NAMES` |
+| 33 | `r7:*` | R7 frozen design, 2026-07-11 (private design record) | 5 | the off-home predicates J1, M1, M3, M4, B1 applied to King Wen; all failed. The R7 scalar battery is not counted (see the exclusions) |
+| 34 | `f6:*` | `F6_BOOKS_PREREGISTRATION_2026_07_FROZEN.md` | 7 | the 7 functionals of `F6_FUNCS`; METHODS scope disclosure (ii) disclosed the omission and the rule does not permit it. Its tier output is privately held. **Below the bar, not graded:** the Wu Deng slot statistic `f6:wudeng_slots`, 7.9×10⁻⁷ two-sided, held at report-only because it failed the data-like and gauge-strict clauses ([HISTORY](HISTORY.md), 2026-07-05) |
+| 35 | `h1h3:*` | `PREREG_H1_H3_TEST_2026_07_26.md` | 4 | T1–T4. T1 and T2 are new tests on F4′'s functional `f4p_dist_autocorr`; they count because each carries its own threshold and bar. T3 and T4 are new functionals. Registered, run, **no verdict issued** (the run ended at its validity gate) |
+| 36 | `qoy1:*` | `PREREG_QOY1_Q992_2026_10_09.md` | 2 | the k = 2 primaries `X`, `D`; `W`, `T`, `A`, `NSAME` are descriptive |
+| 37 | `c8:*` | `PREREG_C8SCREEN_2026_10_11.md` and its amendment 1 | 1,349 | the members of [`reports/evidence/c8screen/members.tsv`](../reports/evidence/c8screen/members.tsv) (1,300 + 49); amendment 1 changes four members' declared ranges, not the count. Returned no survivors |
+| 38 | `tr8s:D1` | `PREREG_TR8_DOF_MATCHED_SAMPLER_20260811.md`, with `PREREG_TR8_DOF_MATCHED_SAMPLER_20260811_ADDENDUM_A1_20261003.md` and `PREREG_TR8_DOF_MATCHED_SAMPLER_20260811_ADDENDUM_A2_20261003.md` | 1 | D1, the placement verdict at K = 16. The other K, the medians and the pool gates carry no verdict; A1 pins the instrument and A2 the admitted bank, and neither adds a statistic |
+| 39 | `repr:*` | `PREREG_REPR_COST_VS_T_2026_08_18.md` | 3 | "Family size: 3"; the registration charges itself "91 → 94". Not run |
+| 40 | `decoy:*` | `PREREG_DECOY_NEGATIVE_CONTROL_2026_09_05.md` (frozen 2026-11-05; **not on the escrow page**) | 4 | D2 on S1, D2 on S2, D3, D4. D1 is descriptive and has no ids. Not run. The registration's own bar is a frozen constant and is not restated here |
+
+**Total, derived from the lines above: 1,452** = 28 + 11 + 13 + 12 + 13 + 5 + 7 + 4 + 2 + 1,349 + 1 + 3 + 4.
+**Bonferroni bar 0.05/1,452 = 3.44×10⁻⁵.** On the published convention, which counts Davis /9 inside /12 a
+second time, the same roster gives 1,461. 91 is the count frozen on 2026-07-11 and is kept where it is quoted
+as that.
+
+**Dated exclusions (2026-11-13).** Every other registration on the
+[escrow page](PREREGISTRATION_ESCROW.md), and every frozen registration not on it that this rebuild found, is
+listed here with the reason it enters no line.
+
+| registration | entered | reason |
+|---|--:|---|
+| `PREREG_F_CATALOG_T1_T4_2026_08_06.md` | 0 | T1 and T2 register per-channel tail tests on a bank whose enumeration the file says must be appended before the sweep runs; it never was, so there are no ids. The H-T1/H-T2 items are exact equalities; T3 and T4 are instrument builds with validity gates. Held at 0 until enumerated. Pre-committed 2026-11-13: at the freeze that enumerates this bank, every member enters the roster before any tail is computed, the total and the bar are re-derived, and every verdict in the sensitivity table is restated at the new n in the same commit. |
+| `PREREG_F_CATALOG_T1_T9_2026_08_06.md` | 0 | T3 and T4 are validity gates; T1 and T2: "The channel LIST is NOT frozen here"; M_j are exact integer comparisons; T5–T9 deferred. The T1/T2 bank is held as on the line above, under the same pre-commitment |
+| `PREREG_HALFB_EXTENDED_2026_08_03.md` | 0 | estimation, "NO NEW BAR IS DEFINED"; it calibrates a model comparison |
+| `PREREG_VMATCHED_GATE_2026_08_04.md` | 0 | a validity gate on a model pair, which the rule excludes |
+| `PREREG_KNUTH_CLEANROOM_2026_08_08.md` | 0 | a second instrument on a published count, not a new statistic |
+| `PREREG_P3_SEEDS_2026_08_11_FROZEN.md` | 0 | registers seeds only |
+| `PREREG_SAMPLING_CAMPAIGN_2026_07_17.md` | 0 | percentiles frozen as descriptive, no verdict |
+| `F11_BAYES_PREREGISTRATION_2026_07.md` | 0 | a model comparison; out by the counting rule's last sentence |
+| `PREREG_CLASSA_QUERY_SET.md` | 0 | not frozen, and its three queries are descriptive; it registers no hypothesis test |
+| `F5_ORIENTATION_PREREGISTRATION_DRAFT.md`, `PREREG_TWO_CLASS_F11_CALIBRATION.md` | 0 | not frozen registrations of this kind (the escrow page lists them for completeness) |
+| `EW_PREREG_2026_07_17.md`, EW-2 (locked 2026-07-17; **not on the escrow page**) | 0 | locked families with a declared size of 224 and "Definition sketch" entries: no member ids, no α, never run. Held at 0 until enumerated. Pre-committed 2026-11-13: at the freeze that enumerates this bank, every member enters the roster before any tail is computed, the total and the bar are re-derived, and every verdict in the sensitivity table is restated at the new n in the same commit. **This rule was written after the outcome it decides was known**: when it was written, the roster's smallest graded headroom was 214 and EW-2's declared size was 224. Both readings are printed (the n = 1,452 and n = 1,676 rows below) |
+| `EW_PREREG_2026_07_17.md`, EW-1 | 0 | an interpretation contract; both outcomes are declared findings and no bar is set |
+| `PREREG_FULL31_B0_PREDICTIONS_2026_09_07.md` (**not on the escrow page**) | 0 | three exact predicted values: deterministic |
+| R7 scalar battery, a–j | 0 | R7's eleven-observable battery (a–j) was also scored on King Wen. It is not counted: the frozen R7 design of 2026-07-11 logs "+0 new scalar KW-rarity observables (battery reused)" and "+5 structural observables", and King Wen's eleven values were already observed, in an unregistered pilot, when it was frozen. Four of the eleven (g, h, i, j) have no other roster line. Counting those four gives n = 1,456; all eleven, 1,463; all eleven at both null levels, 1,474. No verdict differs (sensitivity table) |
+
+**Measured on King Wen without any registration**, so outside what a first-registration rule can reach; each
+one counted would lower the bar further, and their denominator is the unassembled one of METHODS §"The file
+drawer": Drasny D-B1; the 10-dimension observable vector; the atlas kernel log-score; EW-1 typicality; the
+2026-09-04 decoy cardinality tier; the F8 pilot's eleven-observable battery (2026-07); the seven
+structured-null families of 2026-04-19 (`solve.c --null-*`), which include the Gray-code rate.
+
+**Sensitivity of every enterprise-bar verdict to the count (added 2026-11-13).** The roster gives
+n = 1,452. The rows below show each verdict at every count a reader could argue for. No verdict
+differs between n = 1,446 and n = 1,474. One differs at n = 1,676. Every other difference lies
+between the roster without the C8 screen (n = 103) and the roster with it: the C8 screen registered
+1,349 tests, 92.9% of the roster, and returned no survivors.
+
+"clears k×" means the bar is k times the value; "fails k×" means the value is k times the bar. Where two
+figures are given they are one-sided / two-sided. The Gray-code bound is a 95% upper bound, not a tail
+probability, and is reported here, not graded (see the SCOPED note in §"Observable-selection accounting").
+
+| n | what it is | bar 0.05/n | C3 one-sided 2.8356×10⁻⁵ | C3 two-sided 5.6712×10⁻⁵ | Gray-code bound 3×10⁻⁵ | TR-8 pair-null 1.0544×10⁻⁴ / 2.1089×10⁻⁴ | `pureplace` C1-alone 1.947×10⁻⁴ / 3.893×10⁻⁴ | `rotinv` 6.531×10⁻⁵ / 1.306×10⁻⁴ | `trigarray` 6.790×10⁻⁴ / 1.358×10⁻³ |
+|--:|---|---|---|---|---|---|---|---|---|
+| 91 | frozen ledger of 2026-07-11 | 5.495×10⁻⁴ | clears 19.38× | clears 9.69× | clears 18.32× | clears 5.21× / 2.61× | clears 2.82× / 1.41× | clears 8.41× / 4.21× | **fails** 1.24× / 2.47× |
+| 103 | full roster without the C8 screen | 4.854×10⁻⁴ | clears 17.12× | clears 8.56× | clears 16.18× | clears 4.60× / 2.30× | clears 2.49× / 1.25× | clears 7.43× / 3.72× | **fails** 1.40× / 2.80× |
+| 1,446 | published floor (CX-379) | 3.458×10⁻⁵ | clears 1.22× | **fails** 1.64× | clears 1.15× | **fails** 3.05× / 6.10× | **fails** 5.63× / 11.26× | **fails** 1.89× / 3.78× | **fails** 19.64× / 39.27× |
+| 1,448 | rows in the Q-1007 charge only | 3.453×10⁻⁵ | clears 1.22× | **fails** 1.64× | clears 1.15× | **fails** 3.05× / 6.11× | **fails** 5.64× / 11.27× | **fails** 1.89× / 3.78× | **fails** 19.66× / 39.33× |
+| **1,452** | **rule-compliant roster** | 3.444×10⁻⁵ | clears 1.21× | **fails** 1.65× | clears 1.15× | **fails** 3.06× / 6.12× | **fails** 5.65× / 11.31× | **fails** 1.90× / 3.79× | **fails** 19.72× / 39.43× |
+| 1,456 | + R7 battery g, h, i, j | 3.434×10⁻⁵ | clears 1.21× | **fails** 1.65× | clears 1.14× | **fails** 3.07× / 6.14× | **fails** 5.67× / 11.34× | **fails** 1.90× / 3.80× | **fails** 19.77× / 39.54× |
+| 1,461 | published convention (Davis /9 counted again) | 3.422×10⁻⁵ | clears 1.21× | **fails** 1.66× | clears 1.14× | **fails** 3.08× / 6.16× | **fails** 5.69× / 11.38× | **fails** 1.91× / 3.82× | **fails** 19.84× / 39.68× |
+| 1,463 | + all eleven R7 battery observables | 3.418×10⁻⁵ | clears 1.21× | **fails** 1.66× | clears 1.14× | **fails** 3.09× / 6.17× | **fails** 5.70× / 11.39× | **fails** 1.91× / 3.82× | **fails** 19.87× / 39.73× |
+| 1,474 | + eleven at both R7 null levels | 3.392×10⁻⁵ | clears 1.20× | **fails** 1.67× | clears 1.13× | **fails** 3.11× / 6.22× | **fails** 5.74× / 11.48× | **fails** 1.93× / 3.85× | **fails** 20.02× / 40.03× |
+| 1,676 | + EW-2's declared 224 | 2.983×10⁻⁵ | clears 1.05× | **fails** 1.90× | **fails** 1.01× | **fails** 3.53× / 7.07× | **fails** 6.53× / 13.05× | **fails** 2.19× / 4.38× | **fails** 22.76× / 45.52× |
+
+Values: C3 = 28,356/10⁹; Gray-code bound = 3/10⁵; TR-8 pair-null = 47/445,740; `pureplace` under C1 alone =
+7/35,960 one-sided, 14/35,960 two-sided ([TR-10](../reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md) §3);
+`dav_rotinv` and `dav_trigarray` from [`reports/evidence/dav_tier1.out`](../reports/evidence/dav_tier1.out) (6.531×10⁻⁵ and 6.7896×10⁻⁴ one-sided, the `at` + `above` mass); two-sided
+is min(1, 2·one-sided). Every cell is recomputed in exact rationals by `TestBatchQ1007`. The roster's p-value vector, one row per observable, on which the Benjamini–Hochberg and Benjamini–Yekutieli readings in METHODS, TR-8 and TR-10 are computed, is [`reports/evidence/roster/pvector_bounds.tsv`](../reports/evidence/roster/pvector_bounds.tsv); the same test re-runs those readings from it.

@@ -303,7 +303,7 @@ both available controls lit up, so the only quiet case in the corpus is the obje
 CRITIQUE now labels the test a positive control too; its constraint-family sequel counts three
 alternative orderings, Fu Xi included, and the reading on this page is the narrower one.
 Of the 28-analysis exploratory battery, the pair structure, the combined constraints and the unconditional complement-distance rarity survive multiple-comparison correction
-([CRITIQUE](documentation/CRITIQUE.md) §"Observable-selection accounting"); entropy is mildly low but not significant after Bonferroni, the Markov structure is
+([CRITIQUE](documentation/CRITIQUE.md) §"Observable-selection accounting") *(qualified 2026-11-13, CX-37C-K: that is at the battery's own bar, 0.05/28. Against the suite-wide ledger of 1,452 registered observables (bar 3.44×10⁻⁵) the pair structure clears, and the combined-constraints line is a subset of the same event; the complement-distance rarity does not clear two-sided, the suite's convention, and clears one-sided by 1.21×. CRITIQUE §"The observable roster"; [CORRECTIONS.md](documentation/CORRECTIONS.md) CX-37C-K.)*; entropy is mildly low but not significant after Bonferroni, the Markov structure is
 typical against a shuffle that does not preserve pairs, path length and palindromes are typical under the
 pair-preserving null, and no periodicity is established — or excluded ([PROJECT_OVERVIEW](documentation/PROJECT_OVERVIEW.md) §Observations).
 
