@@ -1108,7 +1108,7 @@ REVIEWED = {
         ('1', 'reviewed:code-comment-above-already-says-reported-not-enforced'),
     ('reports/TR3_REPRODUCIBLE_ENUMERATION.md', 'ea8441c5d8df'):
         ('1', 'reviewed:following-text-already-says-the-tools-stay-on-their-design'),
-    ('reports/TR4_SIZE_OF_THE_SPACE.md', '6335beed5bb4'):
+    ('reports/TR4_SIZE_OF_THE_SPACE.md', '44d9ab0566a4'):  # re-keyed 2026-11-14, cloud-sweep B7 (was 6335beed5bb4; a cost phrase reworded; verdict re-read, stands)
         ('1', 'reviewed:paragraph-already-says-refuses-and-exits-1'),
     ('reports/TR4_SIZE_OF_THE_SPACE.md', '871aa1b5f28c'):
         ('2', 'reviewed:the-distinct-vs-raw-pairing-it-withdraws-is-still-in-the-sentence-above'),
@@ -1124,7 +1124,7 @@ REVIEWED = {
         ('1', 'reviewed:text-already-says-the-replacement-shipped'),
     ('reports/TR5_SYMMETRY.md', '511a4ff2566e'):
         ('1', 'reviewed:sits-inside-text-already-labelled-superseded'),
-    ('reports/TR5_SYMMETRY.md', '6335beed5bb4'):
+    ('reports/TR5_SYMMETRY.md', '44d9ab0566a4'):  # re-keyed 2026-11-14, cloud-sweep B7 (was 6335beed5bb4; a cost phrase reworded; verdict re-read, stands)
         ('1', 'reviewed:paragraph-already-says-refuses-and-exits-1'),
     ('reports/TR5_SYMMETRY.md', '6fba5e7a3e72'):
         ('1', 'reviewed:text-already-says-the-flag-ships'),

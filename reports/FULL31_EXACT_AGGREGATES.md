@@ -169,7 +169,7 @@ a signed inclusion–exclusion over subsets of the free pairs ([Karp](../documen
 used rather than invented here) — whose DP state is `(last hexagram, budget vector)`, **64 × ≤413
 slots, under 1 MB per thread and no disk at full 31**. It accepts `--ie-spec full31@0` and ships
 `--ie-probe` explicitly for cost sizing. **Full-31 independent recounting is therefore a question of
-compute cost, not of method**, and no figure here should be read as saying otherwise. What remains
+compute resources, not of method**, and no figure here should be read as saying otherwise. What remains
 true is the narrower statement: *the layered DP used for the n=9/n=13 gate above* does not reach
 full 31.
 

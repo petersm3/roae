@@ -58675,7 +58675,7 @@ class TestBatchFV2A(unittest.TestCase):
         self._has("reports/TR3_REPRODUCIBLE_ENUMERATION.md", "identity is of the decompressed bytes",
                   "the SIGTERM-mid-walk subtest of `python3 solve.py --extended-selftest`",
                   "**weekday-daytime deferral plus a 75-minute backoff**", "from a clone with the project's hooks installed",
-                  "(`Argument list too long`, status 126)", "with `SOLVE_SKIP_IOPS_CHECK=1` added", "| v1.21 |")  # marker moved to v1.22 by Q-1140 (CX-37C-Y)
+                  "(`Argument list too long`, status 126)", "with `SOLVE_SKIP_IOPS_CHECK=1` added", "| v1.21 |")  # marker moved to v1.22 by Q-1140 (CX-37C-Y), then to v1.23 by the cloud sweep B7 (Q-1140)
         self._has("reports/TR5_SYMMETRY.md", "no criterion invariant under hexagram relabeling can distinguish",
                   "consistent with a search-orientation effect", "by extrapolation — a verified subset still yields lower bounds",
                   "apparently independently", "| v2.26 |")  # marker moved to v2.27 by Q-1113 (CX-37C-G)
@@ -58707,7 +58707,7 @@ class TestBatchFV2A(unittest.TestCase):
                   "exact under the hypotheses of `capping_exact`", "The plain-DP comparison is run for n ≤ 16 only")
         # Q-1114 (CX-37C-H) appended v1.40 and moved the marker and the cover line; v1.39 stays the 2026-10-29 row
         self.assertRegex(self._r(t11), r"\| v1\.39(?: \*\(current\)\*)? \| 2026-10-29 \|")
-        self.assertRegex(self._r(t11), r"\*Technical report — \*\*v1\.(?:39\*\* \(2026-10-29;|40\*\* \(2026-11-12; the cover line read v1\.25)")
+        self.assertRegex(self._r(t11), r"\*Technical report — \*\*v1\.(?:39\*\* \(2026-10-29;|40\*\* \(2026-11-12; the cover line read v1\.25|41\*\* \(2026-11-14; the cover line read v1\.25)")  # v1.41: the cloud sweep B7 (Q-1140)
         self._lacks(t11, "an exact count from an exhaustive enumeration")
 
     # ---- CX-36C-H ---------------------------------------------------------------------------------------------------
@@ -62499,7 +62499,7 @@ class TestBatchQ1056(unittest.TestCase):
         # Q1049R (CX-37C-A) appended v1.38 and moved the marker; v1.37 stays the row after v1.36 either way
         # (Q-1065 appended v1.41 and moved it again)
         self.assertEqual(len(cur), 1, cur)
-        self.assertIn(cur[0], ("| v1.37 *(current)* |", "| v1.38 *(current)* |", "| v1.39 *(current)* |", "| v1.40 *(current)* |", "| v1.41 *(current)* |", "| v1.42 *(current)* |", "| v1.43 *(current)* |"))  # Q-1113 (CX-37C-G) appended v1.39; v1.40: Q-1120 (CX-37C-J); v1.41: Q-1065 (CX-37C-L); v1.42: Q-1128 (CX-37C-M); v1.43: Q-1134 (CX-37C-V)
+        self.assertIn(cur[0], ("| v1.37 *(current)* |", "| v1.38 *(current)* |", "| v1.39 *(current)* |", "| v1.40 *(current)* |", "| v1.41 *(current)* |", "| v1.42 *(current)* |", "| v1.43 *(current)* |", "| v1.44 *(current)* |"))  # Q-1113 (CX-37C-G) appended v1.39; v1.40: Q-1120 (CX-37C-J); v1.41: Q-1065 (CX-37C-L); v1.42: Q-1128 (CX-37C-M); v1.43: Q-1134 (CX-37C-V); v1.44: cloud sweep B7 (Q-1140)
         self.assertRegex(t, r"\| v1\.37(?: \*\(current\)\*)? \| 2026-11-05 \| \*\*Two items of §10, this report's DONE-contract section")
         self.assertIn("| v1.36 | 2026-11-01 |", t)
         self.assertNotIn("| v1.36 *(current)* |", t)
@@ -64024,7 +64024,7 @@ class TestBatchQ1037c(unittest.TestCase):
             self.assertEqual(t.count("by k = 23 at the latest"), n23, rel)
         tr4 = self._r("reports/TR4_SIZE_OF_THE_SPACE.md")
         self.assertIn("the floor is reached by k = 23 at the latest, however slowly the gains decline", tr4)
-        self.assertIn("| v1.49 *(current)* | 2026-11-10 |", tr4)
+        self.assertIn("| v1.49 | 2026-11-10 |", tr4)  # marker moved to v1.50 by the cloud sweep B7 (Q-1140)
 
     # ---- CX-37B-B (D1563) ----
     def test_cx37b_b_shangbo_four_testable(self):
@@ -65470,6 +65470,8 @@ class TestBatchQ1113(unittest.TestCase):
                     cur = "| v1.39 | 2026-11-12 |"
                 if rel == self.T6 and "\n| v1.18 | 2026-11-12 |" in t:   # Q-1140 (CX-37C-Y) appended v1.19 and moved the marker
                     cur = "| v1.18 | 2026-11-12 |"
+                if rel == self.T5 and "\n| v2.27 | 2026-11-12 |" in t:   # the cloud sweep B7 (Q-1140) appended v2.28 and moved the marker
+                    cur = "| v2.27 | 2026-11-12 |"
                 self.assertEqual(t.count("*(current)*"), 1, rel)
                 self.assertEqual(t.count("\n" + cur), 1, rel)
                 self.assertEqual(t.count("\n" + prev), 1, rel)
@@ -65634,11 +65636,13 @@ class TestBatchQ1114Q1118Q1120(unittest.TestCase):
                 row, want = rows[-2], "| %s | 2026-11-12 |" % ver
             if rel == self.T1 and row.startswith("| v1.48 *(current)* | 2026-11-14 |"):   # Q-1140 (CX-37C-Y) appended v1.48 and moved the marker
                 row, want = rows[-2], "| %s | 2026-11-12 |" % ver
+            if not row.startswith("| %s " % ver):   # later rows appended after this one (e.g. the cloud sweep B7, Q-1140): find it by version
+                row, want = [l for l in rows if l.startswith("| %s |" % ver)][0], "| %s | 2026-11-12 |" % ver
             self.assertTrue(row.startswith(want), (rel, row[:60]))
             self.assertEqual(sum("*(current)*" in l.split("|")[1] for l in rows), 1, rel)
             self.assertIn(cx, row)
             self.assertEqual(c.count("\n## %s — " % cx), 1, cx)
-        self.assertIn("*Technical report — **v1.40** (2026-11-12;", self._r(self.T11))
+        self.assertIn("*Technical report — **v1.41** (2026-11-14;", self._r(self.T11))  # cover moved to v1.41 by the cloud sweep B7 (Q-1140)
 
 # end class TestBatchQ1114Q1118Q1120
 
@@ -67094,11 +67098,10 @@ class TestQ735TwoAdicEvidence(unittest.TestCase):
                      "(evidence/q735_two_adic/README.md)"):
             self.assertIn(frag, note[0])
         rows = [l for l in t.split("\n") if l.startswith("| v1.")]
-        cur = rows[-1]
-        if cur.startswith("| v1.43 *(current)* | 2026-11-14 |"):   # Q-1134 (CX-37C-V) appended v1.43 and moved the marker
-            self.assertTrue(rows[-2].startswith("| v1.42 | 2026-11-13 |"), rows[-2][:60])
-        else:
-            self.assertTrue(cur.startswith("| v1.42 *(current)* | 2026-11-13 |"), cur[:60])   # after Q-1065's v1.41 (CX-37C-L)
+        self.assertTrue(any(l.startswith(("| v1.42 *(current)* | 2026-11-13 |", "| v1.42 | 2026-11-13 |")) for l in rows), rows[-1][:60])   # after Q-1065's v1.41 (CX-37C-L); later rows may follow (the cloud sweep B7, Q-1140)
+        v143 = [i for i, l in enumerate(rows) if l.startswith("| v1.43 ")]   # Q-1134 (CX-37C-V) appended v1.43 right after v1.42
+        if v143:
+            self.assertTrue(rows[v143[0] - 1].startswith("| v1.42 | 2026-11-13 |"), rows[v143[0] - 1][:60])
         self.assertEqual(sum("*(current)*" in l.split("|")[1] for l in rows), 1)
         self.assertTrue(t.endswith(rows[-1] + "\n"))
 
@@ -67313,9 +67316,9 @@ class TestBatchQ1134(unittest.TestCase):
             "bound printed\n"), 1)
         t = self._r(self.T12)
         rows = [l for l in t.split("\n") if l.startswith("| v1.")]
-        self.assertTrue(rows[-1].startswith("| v1.43 *(current)* | 2026-11-14 |"), rows[-1][:60])
-        self.assertIn("CX-37C-V", rows[-1])
-        self.assertTrue(rows[-2].startswith("| v1.42 | 2026-11-13 |"))
+        k = [i for i, l in enumerate(rows) if l.startswith(("| v1.43 *(current)* | 2026-11-14 |", "| v1.43 | 2026-11-14 |"))][0]   # later rows may follow (the cloud sweep B7, Q-1140)
+        self.assertIn("CX-37C-V", rows[k])
+        self.assertTrue(rows[k - 1].startswith("| v1.42 | 2026-11-13 |"))
         self.assertEqual(sum("*(current)*" in l.split("|")[1] for l in rows), 1)
         self.assertTrue(t.endswith(rows[-1] + "\n"))
 

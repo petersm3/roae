@@ -835,7 +835,7 @@ reports/TR3_REPRODUCIBLE_ENUMERATION.md	177	ledger-link	CORRECTION	n/a	-	not-a-m
 reports/TR3_REPRODUCIBLE_ENUMERATION.md	201	marker	Corrected	1	-	reviewed:sentence-now-says-completed-cells-are-skipped-and-in-progress-cells-rewalked	7a5e3fbf522c
 reports/TR3_REPRODUCIBLE_ENUMERATION.md	370	marker	CORRECTED	1	-	reviewed:code-comment-above-already-says-reported-not-enforced	c8ebf3cacb0b
 reports/TR3_REPRODUCIBLE_ENUMERATION.md	414	changelog	now reads	keep	-	revision-row	a4785b23bf10
-reports/TR3_REPRODUCIBLE_ENUMERATION.md	427	changelog	now reads	keep	-	revision-row	d1cc50bd6eb9
+reports/TR3_REPRODUCIBLE_ENUMERATION.md	427	changelog	now reads	keep	-	revision-row	478d0b7eb680
 reports/TR4_SIZE_OF_THE_SPACE.md	36	marker	WITHDRAWN	2	-	reviewed:the-withdrawn-3.3e37-figure-is-still-printed-in-the-sentence-above	98d091511a86
 reports/TR4_SIZE_OF_THE_SPACE.md	40	ledger-link	CORRECTION	n/a	-	not-a-marker	33c2b273d593
 reports/TR4_SIZE_OF_THE_SPACE.md	40	ledger-link	RETRACTED	n/a	-	not-a-marker	33c2b273d593
@@ -856,7 +856,7 @@ reports/TR4_SIZE_OF_THE_SPACE.md	294	ledger-link	CORRECTION	n/a	-	not-a-marker	f
 reports/TR4_SIZE_OF_THE_SPACE.md	294	marker	CORRECTED	1	-	reviewed:dated-note-CX-37B-A-bounds-k-by-23	fb64cc709b92
 reports/TR4_SIZE_OF_THE_SPACE.md	302	ledger-link	CORRECTION	n/a	-	not-a-marker	ea7843c8daf2
 reports/TR4_SIZE_OF_THE_SPACE.md	310	ledger-link	CORRECTION	n/a	-	not-a-marker	a59d6aae85f6
-reports/TR4_SIZE_OF_THE_SPACE.md	315	marker	Corrected	1	-	reviewed:paragraph-already-says-refuses-and-exits-1	6335beed5bb4
+reports/TR4_SIZE_OF_THE_SPACE.md	315	marker	Corrected	1	-	reviewed:paragraph-already-says-refuses-and-exits-1	44d9ab0566a4
 reports/TR4_SIZE_OF_THE_SPACE.md	341	marker	CORRECTED	1	-	reviewed:bullet-already-prints-the-probe-count	d266588052e1
 reports/TR4_SIZE_OF_THE_SPACE.md	382	ledger-link	CORRECTION	n/a	-	not-a-marker	3316857e4f87
 reports/TR4_SIZE_OF_THE_SPACE.md	399	ledger-link	CORRECTION	n/a	-	not-a-marker	b39e2086190f
@@ -874,7 +874,7 @@ reports/TR5_SYMMETRY.md	118	marker	CORRECTED	1	-	reviewed:text-already-says-the-
 reports/TR5_SYMMETRY.md	135	marker	CORRECTED	1	-	reviewed:text-already-says-the-inputs-are-public	9b0c1f76bf72
 reports/TR5_SYMMETRY.md	150	marker	Corrected	1	-	reviewed:text-already-names-the-tree-node-statistic	d739d3b3d7b0
 reports/TR5_SYMMETRY.md	194	marker	Corrected	1	-	reviewed:note-now-says-a-twin-lies-in-a-different-depth-3-cell	bd866487a4b9
-reports/TR5_SYMMETRY.md	219	marker	Corrected	1	-	reviewed:paragraph-already-says-refuses-and-exits-1	6335beed5bb4
+reports/TR5_SYMMETRY.md	219	marker	Corrected	1	-	reviewed:paragraph-already-says-refuses-and-exits-1	44d9ab0566a4
 reports/TR5_SYMMETRY.md	228	marker	CORRECTED	1	-	reviewed:bullet-already-gives-the-shipped-command;superseded-text-is-labelled	9dcd5360988f
 reports/TR5_SYMMETRY.md	230	marker	CORRECTED	1	-	reviewed:sits-inside-text-already-labelled-superseded	511a4ff2566e
 reports/TR5_SYMMETRY.md	238	marker	Corrected	1	-	reviewed:bullet-now-names-the-shipped-command	8ed64452227e
