@@ -26090,6 +26090,77 @@ class TestCX1140CueFollowUp(unittest.TestCase):
                 self._case(old, new, False, why)
 
 
+class TestCX1140PersonalDetailMarker(unittest.TestCase):
+    """Q-1140 personal detail (operator decision, 2026-11-15): the operator's email address leaves public prose,
+    the ledgers included, with git history unchanged. In a ledger the address becomes `[personal detail
+    redacted]` and nothing else on the line moves; GATE 10's positional aligner accepts exactly that. The span
+    must be ONE whole email address and nothing else. Same scratch repo and both halves of GATE 10 as
+    TestCX1140AppendOnlyCloudRedaction. Every address here is synthetic (reserved .invalid / example domains).
+      GREEN  an address in backticks, and one at the end of a sentence;
+      GREEN  a ledger whose only marker is this one (the grep -qF guard must know it);
+      RED    the marker over a name, over an address plus the next word, over part of an address (either
+             end), over an address and its backticks' neighbour text, and in place of a cloud marker;
+      RED    a cloud marker over an address (wrong class).
+    PRECONDITION, asserted: with the alignment step replaced by `cat`, the first GREEN case goes RED."""
+
+    P = "[personal detail redacted]"
+    C = "[cloud detail redacted]"
+    ADDR = "op.name+x@mail.example.invalid"
+    _scratch = TestQ903AppendOnlyMoneyRedaction._scratch
+    _green = TestCX1140AppendOnlyCloudRedaction._green
+    _red = TestCX1140AppendOnlyCloudRedaction._red
+
+    def _case(self, old, new, green, why, mutate_align=False):
+        self.BASE = "CX-1 first entry.\n%s\nCX-2 end.\n" % old
+        self.assertNotEqual(old, new, "precondition: the line is edited")
+        work = "CX-1 first entry.\n%s\nCX-2 end.\n" % new
+        if mutate_align:
+            for g, (code, out) in self._scratch(work, mutate_align=True).items():
+                self.assertNotEqual(code, 0, "precondition: without the alignment %s must report the line lost" % g)
+            return
+        (self._green if green else self._red)(work, why)
+
+    def test_address_marked_is_green_and_needs_the_alignment(self):
+        old = "CX-9 the log named `caller: %s` as the actor." % self.ADDR
+        new = "CX-9 the log named `caller: %s` as the actor." % self.P
+        self._case(old, new, True, "an address in backticks")
+        self._case(old, new, None, None, mutate_align=True)
+
+    def test_address_at_the_end_of_a_sentence_is_green(self):
+        self._case("CX-9 it was done by %s. Then it stopped." % self.ADDR,
+                   "CX-9 it was done by %s. Then it stopped." % self.P, True, "an address before a full stop")
+
+    def test_only_this_marker_in_the_ledger_is_green(self):
+        old = "CX-9 the log named %s as the actor." % self.ADDR
+        new = "CX-9 the log named %s as the actor." % self.P
+        for m in ("[cost redacted]", "[storage detail redacted]", self.C, "[cost detail redacted]"):
+            self.assertNotIn(m, old + new, "precondition: no other marker in the ledger")
+        self._case(old, new, True, "a ledger whose only marker is the personal one")
+
+    def test_text_joined_to_an_address_by_equals_or_slash_is_red(self):   # R2 / mutant 9 (the RFC local-part set restored)
+        # Fable's second read of B1-FU (2026-11-15, R2): the local part takes only the boundary check's characters.
+        self._case("CX-9 the verdict=refuted/%s was logged." % self.ADDR, "CX-9 the %s was logged." % self.P, False,
+                   "text joined to an address by = and /")
+
+    def test_marker_over_anything_but_one_whole_address_is_red(self):
+        a = self.ADDR
+        for old, new, why in (
+                ("CX-9 the log named Opal Name as the actor.", "CX-9 the log named %s as the actor." % self.P, "a name"),
+                ("CX-9 the log named %s wrongly as the actor." % a, "CX-9 the log named %s as the actor." % self.P,
+                 "an address plus the next word"),
+                ("CX-9 the log named %s as the actor." % a, "CX-9 the log named op.%s as the actor." % self.P,
+                 "the end of an address (its start left visible)"),
+                ("CX-9 the log named %s as the actor." % a,
+                 "CX-9 the log named %s.invalid as the actor." % self.P, "the start of an address (its TLD left)"),
+                ("CX-9 the log named not %s as the actor." % a, "CX-9 the log named %s as the actor." % self.P,
+                 "an address and the negation before it"),
+                ("CX-9 the log named %s as the actor." % a, "CX-9 the log named %s as the actor." % self.C,
+                 "a cloud marker over an address (wrong class)"),
+                ("CX-9 the box was M8qq_v9 Spot.", "CX-9 the box was %s Spot." % self.P, "a size (wrong class)")):
+            with self.subTest(why=why):
+                self._case(old, new, False, why)
+
+
 class TestQ903HashedRetractedNeedle(unittest.TestCase):
     """CX-230: a RETRACTED_PHRASES.tsv needle that carries a dollar figure is registered as
     `sha256:<hex>/<n>` (the phrase's digest and length), never as text. hashed_row_parse and

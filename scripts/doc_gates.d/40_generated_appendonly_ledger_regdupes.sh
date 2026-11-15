@@ -677,8 +677,15 @@ gate_generated() {
 # neutral word on its own. A cost marker straight after a section sign stands for a section title
 # ("Cost control"), not a cost, and fails; a cloud marker there may stand for a tier that a section
 # anchor carries (B2b: a disk tier in a DEPLOYMENT.md anchor). Tested in tests.py (TestCX1140AlignerFollowUp).
+# Q-1140 personal detail (operator decision, 2026-11-15): the operator's email address leaves public prose,
+# the ledgers included. A fourth positional marker, `[personal detail redacted]`, under the same rules as the
+# cloud markers, and its span must be exactly one whole email address (a local part of the characters the
+# boundary check below uses, ADDRCH, so no `=` or `/` can join other text to it; an @, a
+# dotted domain with a letter TLD), with no address character just before it and none after it (a full stop ends a sentence, not
+# the address), so the marker can
+# hide nothing else and no part of a longer address. Tested in tests.py (TestCX1140PersonalDetailMarker).
 _g10_money_align() {
-  if ! grep -qF -e '[cost redacted]' -e '[storage detail redacted]' -e '[cloud detail redacted]' -e '[cost detail redacted]' "$1" 2>/dev/null; then cat; return $?; fi   # CX-36S-D: a failed copy is not an empty baseline
+  if ! grep -qF -e '[cost redacted]' -e '[storage detail redacted]' -e '[cloud detail redacted]' -e '[cost detail redacted]' -e '[personal detail redacted]' "$1" 2>/dev/null; then cat; return $?; fi   # CX-36S-D: a failed copy is not an empty baseline
   DG_WORK="$1" python3 -c '
 import os, re, sys
 M = "[cost redacted]"
@@ -723,8 +730,13 @@ for i, b in enumerate(data):
 S = "[storage detail redacted]"
 C = "[cloud detail redacted]"
 K = "[cost detail redacted]"
-PM = re.compile("|".join(re.escape(x) for x in (S, C, K)))
-ANYM = re.compile("|".join(re.escape(x) for x in (S, C, K, M)))
+P = "[personal detail redacted]"
+PM = re.compile("|".join(re.escape(x) for x in (S, C, K, P)))
+ANYM = re.compile("|".join(re.escape(x) for x in (S, C, K, P, M)))
+EMAIL = re.compile(r"[A-Za-z0-9_%+-]+(?:\.[A-Za-z0-9_%+-]+)*"
+                   r"@(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}")
+ADDRCH = re.compile(r"[A-Za-z0-9._%+@-]")
+ADDRNEXT = re.compile(r"[A-Za-z0-9_%+@-]|\.[A-Za-z0-9-]")
 CLOUD = re.compile(r"""(?ix)
     (?<![\w.-])(?!(?:[a-z0-9]+-)*(?:on|off|from|per|to|in|no|non|not|never|single|multi|one|two|three|four|[0-9]+)-)[a-z0-9]+(?:-[a-z0-9]+)*-(?:[bdeflmnp](?:2|4|8|16|32|48|64|96|128)(?:[a-z]{1,6}(?:_v[0-9]+)?)?
         | (?:west|east|central|north|south)(?:us|europe|asia)[0-9]?)\b
@@ -781,6 +793,8 @@ def span_ok(kind, t, before="", after=""):
         return False
     if kind == S:   # CX-242: a storage span has no fixed shape
         return True
+    if kind == P:   # exactly one whole email address, and nothing else
+        return bool(EMAIL.fullmatch(t)) and not ADDRNEXT.match(after) and not ADDRCH.match(before[-1:])
     if kind == K and TITLE.search(before):   # a cost span after a section sign is a section title
         return False
     cue = CLOUD if kind == C else COSTW
