@@ -2098,18 +2098,18 @@ The campaign exposed these because it stress-tested execution paths the original
 - [cloud detail redacted] Regular merge (post-eviction, before [cloud detail redacted] right-size): ~[cost redacted]
 - [cloud detail redacted] Regular T9+c.1 phases 1-4 + archive (in progress): ~[cost redacted] projected
 - [cloud detail redacted] Spot T9+d phase 5 (in progress, ~22h spent of ~34h estimated): ~[cost redacted] of [cost redacted] projected
-- D4 Regular T9+d phases 6-9 (not yet started): ~[cost redacted] projected
-- 2 TB t9d-data-westus3 Standard HDD prorated: ~[cost redacted] projected
+- [cloud detail redacted] Regular T9+d phases 6-9 (not yet started): ~[cost redacted] projected
+- 2 TB t9d-data-[cloud detail redacted] prorated: ~[cost redacted] projected
 - Total projected campaign: **~[cost redacted]** (vs original [cost redacted] budget; the merge eviction was the major variance)
 
 ### Outcomes
 
-**T9+c.1 — COMPLETED 2026-05-09 05:55 UTC.** Phase 1 merge produced byte-identical solutions.bin (sha `915abf30…` matched canonical at 14:54 UTC on 2026-05-08). Phase 3 `solve --verify` PASS at 15:14 UTC. Phase 4 `verify.py --jobs 16` PASS (~3h on patched streaming code). Archive workflow uploaded `solutions.bin.gz` (12.6 GB, compression ratio 8.6:1) + sha + metadata + log files to [storage detail redacted]. Warm copy of solutions.bin (110 GB) preserved on solver-data-westus3. D16 deallocated.
+**T9+c.1 — COMPLETED 2026-05-09 05:55 UTC.** Phase 1 merge produced byte-identical solutions.bin (sha `915abf30…` matched canonical at 14:54 UTC on 2026-05-08). Phase 3 `solve --verify` PASS at 15:14 UTC. Phase 4 `verify.py --jobs 16` PASS (~3h on patched streaming code). Archive workflow uploaded `solutions.bin.gz` (12.6 GB, compression ratio 8.6:1) + sha + metadata + log files to [storage detail redacted]. Warm copy of solutions.bin (110 GB) preserved on [cloud detail redacted]. [cloud detail redacted] deallocated.
 
-**T9+d — COMPLETED 2026-05-10 06:07:50 UTC.** Phase 5 (62-branch enum) on D64als_v7 Spot, 2 Spot evictions recovered cleanly. Phase 5→6 migration to D16als_v7 Regular at 17:27 UTC May 9, deploying the #84-patched solve binary and streaming verify.py. Phase 6 (`solve --merge`) wall time 8h 20min; **the patched solve --merge exited cleanly at 01:57 UTC May 10 — no hang**, validating the #84 fix at full 100T scale. Phase 6 produced byte-identical solutions.bin: sha256 = `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5`. Phase 7 sha check PASS — **partition invariance theorem empirically confirmed at 100T scale** (T9+d's per-branch-loop execution path produces byte-identical bytes to T9+c.1's full-enum path). Phase 8 `solve --verify` PASS. Phase 9 `verify.py --jobs 128` migrated to D128als_v7 Regular for parallelism — completed 06:07 UTC; verify result: all 3,432,399,297 records satisfy C1-C5 + sorted + no duplicates + KW present. ⚠ **[CORRECTED 2026-09-07 — the Phase 9 result appends "+ KW present" to the list of things the `verify.py` run certified, so it reads as a fifth gated criterion. `verify.py` REPORTS King Wen; by default it does not gate on it, and the command published in this very sentence — `verify.py --jobs 128`, with no `--expect-kw` — is itself the proof that no gate was in force.** In `verify.py`, `fail_kw` is `1` only when `args.expect_kw` is set and King Wen is missing; without the flag it is `0` regardless, so King Wen never enters `total_fail`, while `fail_c1`…`fail_c5`, `fail_sort` and `fail_dup` always do. The source says so in its own comment: presence is *informational by default*, because a shard legitimately need not contain King Wen. **The observation stands — King Wen was present in this 100T output** — but it is a fact the run reported, not a criterion it gated on. Both the `--expect-kw` promotion and the whole-line `KW_PRESENT=` / `KW_REQUIRED=` tokens that now state the scope machine-readably were settled 2026-09-02, and the `solve.c` mirror shipped 2026-09-04 — all long after this 2026-05-10 run, which therefore had no code path by which King Wen could have moved its verdict. Default enforcement is **deliberately** not the behaviour (registry `RP-60347080`); `tests.py`'s `TestVerifyRecordsPath.test_records_verdict_and_kw_scope_are_whole_line_tokens` pins the reported-not-enforced contract by assertion. NOT a mutation test, and NOT `TestSolveVerifyKingWenScope` — that class pins the C binary and its own docstring calls itself the cross-language CONTROL for the Python one; citing it here would name the wrong instrument. There is no `ROAE_TESTS_VERIFY_SRC` hook, so the Python side has no recorded mutant proving its assertion would fire. The Phase 8 `solve --verify` PASS named just above this sentence is subject to the same reading. Same class and date as the 560 T campaign entry below in this file. No sha, record count or verdict changes.]** D128 deleted post-archive. t9d-data-westus3 disk preserved Unattached pending operator deletion decision.
+**T9+d — COMPLETED 2026-05-10 06:07:50 UTC.** Phase 5 (62-branch enum) on [cloud detail redacted] Spot, 2 Spot evictions recovered cleanly. Phase 5→6 migration to [cloud detail redacted] Regular at 17:27 UTC May 9, deploying the #84-patched solve binary and streaming verify.py. Phase 6 (`solve --merge`) wall time 8h 20min; **the patched solve --merge exited cleanly at 01:57 UTC May 10 — no hang**, validating the #84 fix at full 100T scale. Phase 6 produced byte-identical solutions.bin: sha256 = `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5`. Phase 7 sha check PASS — **partition invariance theorem empirically confirmed at 100T scale** (T9+d's per-branch-loop execution path produces byte-identical bytes to T9+c.1's full-enum path). Phase 8 `solve --verify` PASS. Phase 9 `verify.py --jobs 128` migrated to [cloud detail redacted] Regular for parallelism — completed 06:07 UTC; verify result: all 3,432,399,297 records satisfy C1-C5 + sorted + no duplicates + KW present. ⚠ **[CORRECTED 2026-09-07 — the Phase 9 result appends "+ KW present" to the list of things the `verify.py` run certified, so it reads as a fifth gated criterion. `verify.py` REPORTS King Wen; by default it does not gate on it, and the command published in this very sentence — `verify.py --jobs 128`, with no `--expect-kw` — is itself the proof that no gate was in force.** In `verify.py`, `fail_kw` is `1` only when `args.expect_kw` is set and King Wen is missing; without the flag it is `0` regardless, so King Wen never enters `total_fail`, while `fail_c1`…`fail_c5`, `fail_sort` and `fail_dup` always do. The source says so in its own comment: presence is *informational by default*, because a shard legitimately need not contain King Wen. **The observation stands — King Wen was present in this 100T output** — but it is a fact the run reported, not a criterion it gated on. Both the `--expect-kw` promotion and the whole-line `KW_PRESENT=` / `KW_REQUIRED=` tokens that now state the scope machine-readably were settled 2026-09-02, and the `solve.c` mirror shipped 2026-09-04 — all long after this 2026-05-10 run, which therefore had no code path by which King Wen could have moved its verdict. Default enforcement is **deliberately** not the behaviour (registry `RP-60347080`); `tests.py`'s `TestVerifyRecordsPath.test_records_verdict_and_kw_scope_are_whole_line_tokens` pins the reported-not-enforced contract by assertion. NOT a mutation test, and NOT `TestSolveVerifyKingWenScope` — that class pins the C binary and its own docstring calls itself the cross-language CONTROL for the Python one; citing it here would name the wrong instrument. There is no `ROAE_TESTS_VERIFY_SRC` hook, so the Python side has no recorded mutant proving its assertion would fire. The Phase 8 `solve --verify` PASS named just above this sentence is subject to the same reading. Same class and date as the 560 T campaign entry below in this file. No sha, record count or verdict changes.]** [cloud detail redacted] deleted post-archive. t9d-data-[cloud detail redacted] disk preserved Unattached pending operator deletion decision.
 
 **The canonical 100T solutions.bin is now FULLY RECOVERED** with two independent witnesses:
-- **T9+c.1 (full-enum path)** — produces 915abf30 byte-identically. Warm copy on solver-data-westus3, [storage detail redacted] in [storage detail redacted].
+- **T9+c.1 (full-enum path)** — produces 915abf30 byte-identically. Warm copy on [cloud detail redacted], [storage detail redacted] in [storage detail redacted].
 - **T9+d (per-branch path, partition-invariance witness)** — also produces 915abf30 byte-identically. Operational logs + metadata in `petersm3/roae-private:canonical_runs/20260509_100T_t9d_partition_invariance/`. solutions.bin not separately archived (byte-identical to T9+c.1's; redundant).
 
 The v1 closure work (#51 + #44) is now unblocked. CANONICAL_HASHES.md updated with the partition-invariance attestation; the registry confirms this canonical's bytes are reproducible across both execution strategies.
@@ -2118,13 +2118,13 @@ The v1 closure work (#51 + #44) is now unblocked. CANONICAL_HASHES.md updated wi
 
 The T9+d run surfaced five MORE issues beyond the three already documented (`solve --merge` exit hang, `verify.py` thrashing, master-script pruned-branch handling). All five are operational/tooling discipline lessons that came out of the recovery cascade itself, not the underlying solver.
 
-1. **D128 over-provisioning for `verify.py --jobs N` on Standard HDD.** Phase 9's --jobs 128 on D128 was throttled to ~15 MB/s aggregate disk I/O — far below CPU-parallel extrapolation. The bottleneck is **HDD random-IOPS contention**, not CPU. With 128 concurrent workers reading from 128 disjoint file offsets, the disk head spends most of its time seeking. Standard HDD does ~80 random IOPS = ~5 MB/s with chunked reads; the per-worker rate at high N collapses. **Lesson:** for parallel verifiers on Standard HDD, the sweet spot is ~16-32 workers; past that, IOPS contention dominates. To go faster, use Premium SSD scratch (high random IOPS) or a smaller VM with fewer workers (less contention). Cost impact this campaign: ~[cost redacted] overspend on D128 vs D32 sweet spot.
+1. **[cloud detail redacted] over-provisioning for `verify.py --jobs N` on [cloud detail redacted].** Phase 9's --jobs 128 on [cloud detail redacted] was throttled to ~15 MB/s aggregate disk I/O — far below CPU-parallel extrapolation. The bottleneck is **HDD random-IOPS contention**, not CPU. With 128 concurrent workers reading from 128 disjoint file offsets, the disk head spends most of its time seeking. [cloud detail redacted] does ~80 random IOPS = ~5 MB/s with chunked reads; the per-worker rate at high N collapses. **Lesson:** for parallel verifiers on [cloud detail redacted], the sweet spot is ~16-32 workers; past that, IOPS contention dominates. To go faster, use [cloud detail redacted] scratch (high random IOPS) or a smaller VM with fewer workers (less contention). Cost impact this campaign: ~[cost redacted] [cost detail redacted] on [cloud detail redacted] vs [cloud detail redacted] sweet spot.
 
 2. **Watcher's empty-sha bug.** The completion watcher's post-completion sha check used `ssh_run "sha256sum solutions.bin | awk ..."` with a 60s SSH timeout. sha256sum on 110 GB takes ~18 min, so the SSH timed out and returned an empty string. The watcher's "if sha != expected" check treated empty as mismatch and falsely flagged FATAL, refusing to deallocate. **Fix:** read the existing solutions.sha256 file (already written by solve --merge) instead of running fresh sha256sum — fast, no timeout risk. Patched 2026-05-09.
 
 3. **Chain relaunch via systemd-run --collect can vanish silently.** During phase 5→6 migration, the migration script's final `systemd-run --unit=t9d-chain --no-block --collect bash -c '...'` appeared to launch successfully but the chain never started running on the new VM. The `--collect` flag cleans up the unit immediately on exit; combined with systemd-run's behavior under SSH session teardown, the launch effectively didn't happen. **Fix:** when migrating to a new VM, the launch step must be a long-lived systemd-run unit (no --collect for the duration), OR the migration must explicitly poll for chain process presence after launch and retry. Manual relaunch was needed to complete the campaign.
 
-4. **Deallocated VMs still consume vCPU quota in Azure.** Provisioning the D128 for phase 9 hit `QuotaExceeded`: Current Limit 130, Current Usage 16, Required 144. The 16 came from `v1-recovery-d16-westus3` (T9+c.1's D16) that was deallocated days earlier — Azure deallocation stops compute billing but **does not release the vCPU quota allocation**. **Lesson:** when freeing quota for new provisioning, deallocated VMs must be DELETED (with disk preservation by detach-before-delete) to release their core count. Memory and operator-discipline rules updated to require an explicit "free quota" pre-flight before any large VM provisioning.
+4. **Deallocated VMs still consume vCPU quota in Azure.** Provisioning the [cloud detail redacted] for phase 9 hit `QuotaExceeded`: Current Limit 130, Current Usage 16, Required 144. The 16 came from `v1-recovery-[cloud detail redacted]` (T9+c.1's [cloud detail redacted]) that was deallocated days earlier — Azure deallocation stops compute [cost detail redacted] but **does not release the vCPU quota allocation**. **Lesson:** when freeing quota for new provisioning, deallocated VMs must be DELETED (with disk preservation by detach-before-delete) to release their core count. Memory and operator-discipline rules updated to require an explicit "free quota" pre-flight before any large VM provisioning.
 
 5. **NSG allow-rule had a stale Google IP** (<stale-IP>) instead of the orchestrator's actual outbound public IP (<orchestrator-public-IP>). Probably a copy-paste mistake when the rule was originally configured. SSH had been working all session via the cross-region Azure-internal `AllowVnetInBound` path, masking the issue. Discovered + fixed 2026-05-09. **Lesson:** NSG rules with explicit IPs are prone to silent staleness if the orchestrator's outbound IP changes; either use service tags (`AzureCloud`, `VirtualNetwork`) where appropriate, or audit explicit-IP allow-rules quarterly against `curl ipv4.icanhazip.com` from the actual orchestrator.
 
@@ -2136,7 +2136,7 @@ The campaign surfaced three distinct latent bugs (`solve --merge` exit hang, `ve
 
 **The `solve --merge` exit hang (`solve.c:10023`).** The bug is in code that's been on `main` since the initial `--merge` subcommand was added. The original 100T canonical (2026-04-19/20) was generated by `solve 0 128` (full-enum), which never enters the `--merge` standalone code path, so the hang never manifested. The 11.2T canonical (2026-05-01) used full-enum too. T9+c.1 is the first 100T-scale standalone `solve --merge` to actually reach exit. **What was missing:** a pre-pilot 100T-scale test of the standalone `--merge` invocation. The standing rule (#62 spirit: "test at the next scale before deploying") wasn't applied to the merge subcommand specifically because no canonical to date had used it at 100T.
 
-**The `verify.py` memory thrashing.** `verify.py` was added in task #73 with the design `chunk = f.read(n_chunk * 32)` — each worker slurps its full chunk into a Python `bytes` object. Math at any scale: `chunk_size × N workers = file_size` regardless of N. There is no `--jobs` value at which this fits in RAM smaller than the file. **What was missing, three places:** (1) author-time review should have flagged the slurp pattern as "won't scale past file ≤ RAM"; the streaming-batch alternative is a five-line change. (2) Test matrix at task #73 close should have included a "file size > RAM" scenario; the actual test matrix was 10T (~22 GB) and 11.2T (~24 GB), both well below D16's 32 GB. (3) At today's right-size migration (D128 → D16), I patched `--jobs 128 → --jobs 16` matching D16's core count but didn't validate the memory implication: `16 × (110 GB / 16) = 110 GB needed vs 32 GB available`. A 30-second mental check would have caught it. **The cost of skipping that check:** the original verify.py thrashed for 5h 5min before the OOM killer terminated it.
+**The `verify.py` memory thrashing.** `verify.py` was added in task #73 with the design `chunk = f.read(n_chunk * 32)` — each worker slurps its full chunk into a Python `bytes` object. Math at any scale: `chunk_size × N workers = file_size` regardless of N. There is no `--jobs` value at which this fits in RAM smaller than the file. **What was missing, three places:** (1) author-time review should have flagged the slurp pattern as "won't scale past file ≤ RAM"; the streaming-batch alternative is a five-line change. (2) Test matrix at task #73 close should have included a "file size > RAM" scenario; the actual test matrix was 10T (~22 GB) and 11.2T (~24 GB), both well below [cloud detail redacted]'s 32 GB. (3) At today's right-size migration ([cloud detail redacted] → [cloud detail redacted]), I patched `--jobs 128 → --jobs 16` matching [cloud detail redacted]'s core count but didn't validate the memory implication: `16 × (110 GB / 16) = 110 GB needed vs 32 GB available`. A 30-second mental check would have caught it. **The cost of skipping that check:** the original verify.py thrashed for 5h 5min before the OOM killer terminated it.
 
 **The master-script pruned-branch handling (`run_t9d_parallel.sh`).** Pair indices 4-0 and 4-1 are structurally invalid (pruned by C1 at depth 1) — `solve --branch` exits non-zero on pruned. The script's `|| { log "FAIL"; exit 1; }` treated this as fatal. **What was missing:** the script was ported from the original full-enum invocation (which handles pruned branches internally without going through a per-branch shell loop). The port should have considered "what does solve --branch return on a pruned branch?" but didn't. Cost: ~25 min idle time before operator caught the silent stall.
 
@@ -2146,13 +2146,13 @@ The campaign surfaced three distinct latent bugs (`solve --merge` exit hang, `ve
 
 1. **Streaming reads by default** for any chunk-based parallel reader. The `chunk = f.read(N * record_size)` pattern is banned for `N` that can scale to gigabytes. A streaming-batch loop with bounded per-worker memory is the standard. Will be enforced for any future verify-style tool.
 
-2. **Memory-budget validation at sizing-time.** Right-size migration scripts must pass a workload-aware sizing function: for chunk-based parallel jobs, validate `chunk_size × N_workers ≤ available_RAM × 0.7`. The D128 → D16 migration today silently violated this. Memory `feedback_right_size_single_thread.md` updated 2026-05-08 to require this check, not just a core-count match.
+2. **Memory-budget validation at sizing-time.** Right-size migration scripts must pass a workload-aware sizing function: for chunk-based parallel jobs, validate `chunk_size × N_workers ≤ available_RAM × 0.7`. The [cloud detail redacted] → [cloud detail redacted] migration today silently violated this. Memory `feedback_right_size_single_thread.md` updated 2026-05-08 to require this check, not just a core-count match.
 
 3. **Pre-pilot at next scale up, including memory-pressure regimes.** Task #62 already asks for this on 560T hardware. Extending to: any tool whose runtime behavior depends on input scale must be tested against an input that exceeds its assumed scaling regime. For verify.py specifically, that means testing at file > RAM at least once.
 
 4. **Code review for "what assumptions does this code embed about input size?"** before merging any change to a code path used in canonical-validation flow. The `chunk = f.read(...)` pattern in verify.py would have been caught by this kind of review focused specifically on scaling assumptions. Memory note added to `feedback_review_before_push.md`.
 
-5. **Right-size by workload, not by SKU symmetry.** When a migration script provisions a replacement VM, the new SKU should be chosen by analyzing the workload to come (single-thread merge → small VM; parallel verify → cores ≥ N_workers; chunked-parallel verify with f.read → enough RAM for total chunk*N), not by mirroring the old SKU. The 2026-05-08 D128 Regular auto-provisioned for the merge restart was a repeat of the 2026-05-04 verify.py-on-D128 incident — same pattern, different code path.
+5. **Right-size by workload, not by SKU symmetry.** When a migration script provisions a replacement VM, the new SKU should be chosen by analyzing the workload to come (single-thread merge → small VM; parallel verify → cores ≥ N_workers; chunked-parallel verify with f.read → enough RAM for total chunk*N), not by mirroring the old SKU. The 2026-05-08 [cloud detail redacted] Regular auto-provisioned for the merge restart was a repeat of the 2026-05-04 verify.py-on-[cloud detail redacted] incident — same pattern, different code path.
 
 The five lessons above are not new principles. They're each restatements of standing project rules that didn't get applied to the changed code paths in time. The honest answer to "was this avoidable?" is: **yes, fully — by applying rules the project already had, to the new contexts they didn't get applied to**. The campaign is still landing; the lessons are committed to memory now so the next campaign doesn't pay the same costs.
 
@@ -2172,7 +2172,7 @@ The refactor shipped in three phases per the audit doc `petersm3/roae-private:TA
 
 ### Measured speedup: 1.09× over v1
 
-A 90-second timed bench at canonical d=3 conditions (`SOLVE_DEPTH=3`, `SOLVE_NODE_LIMIT=11200000000000`, `SOLVE_PER_SUB_BRANCH_LIMIT=70723196`, `SOLVE_DFS_ITERATIVE=1`, `SOLVE_DFS_CHECKPOINT=1`, `SOLVE_THREADS=128`) on D128als_v7 Spot westus3 with Standard SSD scratch:
+A 90-second timed bench at canonical d=3 conditions (`SOLVE_DEPTH=3`, `SOLVE_NODE_LIMIT=11200000000000`, `SOLVE_PER_SUB_BRANCH_LIMIT=70723196`, `SOLVE_DFS_ITERATIVE=1`, `SOLVE_DFS_CHECKPOINT=1`, `SOLVE_THREADS=128`) on [cloud detail redacted] Spot [cloud detail redacted] with [cloud detail redacted] scratch:
 
 | Binary | Aggregate node-rate at 90s |
 |---|---|
@@ -2183,7 +2183,7 @@ Ratio: **1.09×**, at the lower end of the audit's predicted 1.1-1.5× range. Th
 
 ### The by-value detour (instructive, discarded)
 
-Early in the day I provisioned a D128 Spot and launched a Tier 1 11.2T canonical run on commit `2cf8771`. At 22 minutes in, the rate plateaued at 286 M/sec aggregate, projecting ~10-11 hours wall to complete the full 11.2T. I compared this to a "75-minute Tier 1 baseline" I had in memory from CURRENT_PLAN.md archive and panicked — interpreting it as an 8.7× regression vs v1.
+Early in the day I provisioned a [cloud detail redacted] Spot and launched a Tier 1 11.2T canonical run on commit `2cf8771`. At 22 minutes in, the rate plateaued at 286 M/sec aggregate, projecting ~10-11 hours wall to complete the full 11.2T. I compared this to a "75-minute Tier 1 baseline" I had in memory from CURRENT_PLAN.md archive and panicked — interpreting it as an 8.7× regression vs v1.
 
 Working hypothesis at the time: passing `pair_mask_t *used_mask` (by pointer) prevents the compiler from register-allocating the mask in the hot loop, because pointer-aliasing analysis can't prove `*used_mask` doesn't alias other writes like `budget[wd]--` or `fr->p++`. The compiler would conservatively reload `*used_mask` from memory every iteration.
 
@@ -2195,18 +2195,18 @@ The by-value patch was discarded (never committed to `main`). Investigation find
 
 ### What the "panic" was anchored on
 
-Re-reading CURRENT_PLAN.md archive: the "75 min Tier 1 11.2T baseline" reference was from the 2026-04-28 Tier 1 run during the validation campaign. That run was either on different storage (Premium SSD or local NVMe scratch instead of Standard SSD) or with different env vars (likely without `SOLVE_DFS_CHECKPOINT=1`, which writes a `.dfs_state` sidecar per BUDGETED sub-branch — at 158k sub-branches per 11.2T run, that's 158k file writes which create real I/O contention on Standard SSD). The real measured baseline at canonical params on Standard SSD is ~270 M/sec aggregate for both v1 and #72 — they hit the same storage I/O ceiling because the .dfs_state sidecar writes dominate, not the DFS hot-loop CPU.
+Re-reading CURRENT_PLAN.md archive: the "75 min Tier 1 11.2T baseline" reference was from the 2026-04-28 Tier 1 run during the validation campaign. That run was either on different storage ([cloud detail redacted] or local NVMe scratch instead of [cloud detail redacted]) or with different env vars (likely without `SOLVE_DFS_CHECKPOINT=1`, which writes a `.dfs_state` sidecar per BUDGETED sub-branch — at 158k sub-branches per 11.2T run, that's 158k file writes which create real I/O contention on [cloud detail redacted]). The real measured baseline at canonical params on [cloud detail redacted] is ~270 M/sec aggregate for both v1 and #72 — they hit the same storage I/O ceiling because the .dfs_state sidecar writes dominate, not the DFS hot-loop CPU.
 
 ### Lessons logged
 
 1. **Calibrate the baseline before claiming regressions.** A "X is N× slower than baseline Y" finding requires the SAME conditions producing baseline Y. Different storage, different env vars, or different code paths invalidate the comparison. Time-limited side-by-side benches on the same VM remove all those variables.
 2. **By-value vs by-pointer is not a one-way performance argument.** Register-allocation wins for by-value can be eaten by callee-saves-preservation across recursive calls. Measure, don't assume.
 3. **The audit's "1.1-1.5× standalone" prediction was right.** The mask form replaces byte-load+branch with bit-test+shift; that's a real but moderate win. The big speedups come from #69 + #71 (compounding to ~25-40×), which #72 unlocks.
-4. **Storage I/O can be the ceiling on Standard SSD at canonical scale.** The 158k `.dfs_state` sidecars are a real bottleneck. If we want to push the canonical-rate ceiling higher in future runs, options are: Premium SSD scratch, or in-memory checkpoint instead of file-per-sub-branch sidecars. Both are out of scope for #72; backlogged.
+4. **Storage I/O can be the ceiling on [cloud detail redacted] at canonical scale.** The 158k `.dfs_state` sidecars are a real bottleneck. If we want to push the canonical-rate ceiling higher in future runs, options are: [cloud detail redacted] scratch, or in-memory checkpoint instead of file-per-sub-branch sidecars. Both are out of scope for #72; backlogged.
 
 ### Cost ledger
 
-- D128als_v7 Spot westus3 + 256 GB Standard SSD scratch from 2026-05-10 22:09Z (provision) to 23:42Z teardown = **~[cost redacted] total**.
+- [cloud detail redacted] Spot [cloud detail redacted] + 256 GB [cloud detail redacted] scratch from 2026-05-10 22:09Z (provision) to 23:42Z teardown = **~[cost redacted] total**.
 - Full 11.2T validation runs on Spot + Regular were considered (operator asked) but not executed: at the storage-bound ~270 M/sec rate, each would have taken ~10-11 hours; combined ~[cost redacted] — over the standing [cost redacted]/session budget cap. The 90s timed bench provided sufficient differential signal to make the ship decision; the canonical-scale empirical confirmation is owed but deferred.
 
 ### What this unlocks
@@ -2253,7 +2253,7 @@ Three independent layers of evidence that #67 drops no valid solutions:
 2. **Gold-standard implementation check** — instrumented the prune predicate to recompute `partial_cd` from scratch via `seq[0..2k-1]` at each recursion step and compare to the incremental value. Zero mismatch events across the entire selftest. The incremental bookkeeping equals the from-scratch sum at every step.
 3. **Empirical superset check at two scales** (canonical-level comparison, see methodology section below):
    - Selftest (100M nodes, depth-2, 4 threads): v1 = 135,780 canonicals · v2 = 138,306 · v1-canon-only = 0 · v2 extras = 2,526 (+1.86%)
-   - 100B-d3-checkpoint gate (100B nodes, depth-3, `SOLVE_DFS_CHECKPOINT=1`, 128 threads on D128als_v7 Spot): v1 = 26,791,168 canonicals · v2 = 27,483,394 · v1-canon-only = 0 · v2 extras = 692,226 (+2.58%)
+   - 100B-d3-checkpoint gate (100B nodes, depth-3, `SOLVE_DFS_CHECKPOINT=1`, 128 threads on [cloud detail redacted] Spot): v1 = 26,791,168 canonicals · v2 = 27,483,394 · v1-canon-only = 0 · v2 extras = 692,226 (+2.58%)
 
 Both gates: `L_v1 ⊆ L_v2`. v2 reproduces every v1 canonical leaf and adds more (compensating for v1's compute spent on doomed-subtree exploration with deeper coverage of valid territory).
 
@@ -2278,7 +2278,7 @@ Both records have identical canonical key (every byte differs only in the low 2 
 
 ### Cost
 
-- 100B-d3-checkpoint gate: D128als_v7 Spot + 128 GB scratch SSD, 2h 18min total wall (1h v1 + 1h v2 + bootstrap + teardown). **~[cost redacted]**.
+- 100B-d3-checkpoint gate: [cloud detail redacted] Spot + 128 GB scratch SSD, 2h 18min total wall (1h v1 + 1h v2 + bootstrap + teardown). **~[cost redacted]**.
 - Selftest validation: free (local on orchestrator).
 - No 11.2T validation run for #67 alone — that's #81 re-baseline's job on the bundled v2.
 
@@ -2288,7 +2288,7 @@ A planned v1-vs-v2 comparison pipeline at 1T + 5.6T + 11.2T scales (per operator
 
 ### The pipeline (May 11)
 
-D128als_v7 Spot in westus3, 14:22–20:14 UTC, four enumerations:
+[cloud detail redacted] Spot in [cloud detail redacted], 14:22–20:14 UTC, four enumerations:
 
 | Phase | Binary | Params | Sha | Records |
 |---|---|---|---|---|
@@ -2306,7 +2306,7 @@ reconstructing an expansion would be worse than the gap. Only the v1 5.6T sha
 `f66920c10adfc4882cc75fce9aeb2f07a99d36159ecb8b2c58b2d22d13867a21` is published in full. None of the
 three is a canonical value, and none is registered in [CANONICAL_HASHES.md](CANONICAL_HASHES.md) —
 the canonical-sha invariant does not run on them. The underlying `solutions.bin` files are recorded
-in §"Files preserved" below as held on the `v1v2-compare-scratch` 256 GB StandardSSD managed disk
+in §"Files preserved" below as held on the [cloud detail redacted] 256 GB StandardSSD managed disk
 (unattached, not yet archived to [storage detail redacted] as of that date); that is this document's 2026-05-12 record of where
 they were put, not a re-verified statement of present-day disk state. **Scope:** what this note
 fixes is the citation, not the gap — the record-count and superset findings below are unaffected,
@@ -2371,16 +2371,16 @@ It does change:
 - **A bisect to the right answer can still teach you something wrong.** The static-analysis prime suspect (f42f2ae's all_top OOB) had a clean, plausible mechanism — it was deterministic-at-128-thread, scale-emergent, and structurally explained the symptoms. Empirically it was innocent. The lesson: extend bisect to BEFORE the candidate, not just to the candidate, before declaring root cause.
 - **Cross-build reproducibility is a stronger property than within-day reproducibility.** The 4-equivalence test was rigorous *for what it tested* but didn't catch the issue. Any future canonical should reproduce from a clean rebuild of the named commit, on at least two independent binary builds.
 - **Per-test script cleanup needs to happen AFTER sha capture, not before.** The Phase B-2 v1 attempt lost its shards because the wrapper's `find . -name "sub_*.bin" -delete` step ran in cleanup after the manual merge failed for disk reasons, leaving the run unrecoverable. Fixed in the v2 script (cleanup gated on `solutions.bin` existing).
-- **D128als_v7 has remote disk only** — no local NVMe ephemeral in this SKU, contrary to first-glance Azure docs. All scratch must be on attached managed disks. Spot eviction on this SKU loses ephemeral state but managed scratch persists; recovering 75-min-of-enum on the next VM (May 12) by re-attaching `v1v2-compare-scratch` saved ~[cost redacted] of compute.
+- **[cloud detail redacted] has remote disk only** — no local NVMe ephemeral in this SKU, contrary to first-glance Azure docs. All scratch must be on attached managed disks. Spot eviction on this SKU loses ephemeral state but managed scratch persists; recovering 75-min-of-enum on the next VM (May 12) by re-attaching [cloud detail redacted] saved ~[cost redacted] of compute.
 - **In-process merge SIGSEGVs at 5.6T scale in pre-572a34b code.** The cdd8575 binary repeatedly exited 139 after enum (in-process merge crash on `solve.c`'s ClosestEntry post-processing). 572a34b's fork-isolated merge fix was created exactly to repair this. Manual standalone `solve --merge` invocation reliably succeeds.
 
-- **Spot host CPU-frequency throttling is invisible to top/mpstat — check `/proc/cpuinfo MHz` on every fresh VM. Observed 2026-05-12.** During cascade Build A setup, a freshly-provisioned Spot D128als_v7 westus3 (AMD EPYC 9V45) ran the d3 5.6T enum at 230 M nodes/s vs the established 1293 M/s baseline — 5.6× too slow. Diagnosis: the host had parked CPUs at ~600 MHz. mpstat showed 0% steal time and 100% user CPU; `iostat` showed no disk bottleneck; the cpufreq governor files were not accessible from the guest kernel. The throttling was only visible by reading `/proc/cpuinfo | grep MHz` (showing 600 MHz instead of expected 2500-3500 MHz boost) and by observing the enum's throughput. Re-provisioning the Spot VM (Azure placed it on a different host) drew a host running at 3562 MHz / full 1293 M/s rate; cascade proceeded normally. **Standing rule:** every fresh VM that will run long enum work needs a CPU-frequency sanity check before launching the workload — see DEPLOYMENT.md §"Spot host CPU-frequency throttling — silently 5× slower" for the check script and the recovery procedure. The cost of the 5-line check is zero; the cost of skipping it on a throttled host is hours of wall time and dollars of compute. Also corrects a stale memory claim: D128als_v7's underlying SKU is AMD EPYC 9V45, not "Zen 5 Turin" as project memory previously asserted.
+- **Spot host CPU-frequency throttling is invisible to top/mpstat — check `/proc/cpuinfo MHz` on every fresh VM. Observed 2026-05-12.** During cascade Build A setup, a freshly-provisioned Spot [cloud detail redacted] (AMD EPYC 9V45) ran the d3 5.6T enum at 230 M nodes/s vs the established 1293 M/s baseline — 5.6× too slow. Diagnosis: the host had parked CPUs at ~600 MHz. mpstat showed 0% steal time and 100% user CPU; `iostat` showed no disk bottleneck; the cpufreq governor files were not accessible from the guest kernel. The throttling was only visible by reading `/proc/cpuinfo | grep MHz` (showing 600 MHz instead of expected 2500-3500 MHz boost) and by observing the enum's throughput. Re-provisioning the Spot VM (Azure placed it on a different host) drew a host running at 3562 MHz / full 1293 M/s rate; cascade proceeded normally. **Standing rule:** every fresh VM that will run long enum work needs a CPU-frequency sanity check before launching the workload — see DEPLOYMENT.md §"Spot host CPU-frequency throttling — silently 5× slower" for the check script and the recovery procedure. The cost of the 5-line check is zero; the cost of skipping it on a throttled host is hours of wall time and dollars of compute. Also corrects a stale memory claim: [cloud detail redacted]'s underlying SKU is AMD EPYC 9V45, not "Zen 5 Turin" as project memory previously asserted.
 
-- **Merge VMs must be right-sized Standard, not bundled with the enum VM. Caught (again) 2026-05-12.** When the cascade re-derivation work started, the initial design bundled enum + in-process merge on Spot D128als_v7 — the same mistake the project has fallen into repeatedly since 2026-04-20 despite an existing right-size rule. Across 2026-04-20 through 2026-05-12, merges that ought to have run on Standard D8/D16 at [cost redacted]/hr instead ran on D128 at [cost redacted]/hr, accumulating roughly [cost redacted] of avoidable overspend across the original pipeline (May 11 Spot D128), the c34390c0 recursive investigation (May 12 D128 Regular), and the initial cascade-runner design. The structural root cause: `solve.c`'s `solve 0 128` mode does enum + in-process merge atomically, hiding the cost division. The fix: a `SOLVE_SKIP_AUTOMERGE` env var that exits cleanly after enum, leaving shards on disk for a separate `solve --merge` invocation on a right-sized merge VM. **Note on landing:** an initial attempt (commit `85fff78`) accidentally duplicated a variable declaration in the patch, leaving main uncompilable for several hours; the commit's "Empirically verified on cascade Build A" claim was incorrect — the cascade binary in fact built from the prior commit `2cf8771` (verified by absence of the `SOLVE_SKIP_AUTOMERGE` string in the cascade binary). The corrected version landed later 2026-05-12 alongside the audit findings below. The standing rule going forward: any canonical enum that produces shards is planned with TWO VMs from the start — Spot parallel for enum-only via `SOLVE_SKIP_AUTOMERGE=1`, Standard right-sized for the standalone merge.
+- **Merge VMs must be right-sized Standard, not bundled with the enum VM. Caught (again) 2026-05-12.** When the cascade re-derivation work started, the initial design bundled enum + in-process merge on Spot [cloud detail redacted] — the same mistake the project has fallen into repeatedly since 2026-04-20 despite an existing right-size rule. Across 2026-04-20 through 2026-05-12, merges that ought to have run on Standard [cloud detail redacted] at [cost redacted]/hr instead ran on [cloud detail redacted] at [cost redacted]/hr, accumulating roughly [cost redacted] of avoidable [cost detail redacted] across the original pipeline (May 11 Spot [cloud detail redacted]), the c34390c0 recursive investigation (May 12 [cloud detail redacted] Regular), and the initial cascade-runner design. The structural root cause: `solve.c`'s `solve 0 128` mode does enum + in-process merge atomically, hiding the cost division. The fix: a `SOLVE_SKIP_AUTOMERGE` env var that exits cleanly after enum, leaving shards on disk for a separate `solve --merge` invocation on a right-sized merge VM. **Note on landing:** an initial attempt (commit `85fff78`) accidentally duplicated a variable declaration in the patch, leaving main uncompilable for several hours; the commit's "Empirically verified on cascade Build A" claim was incorrect — the cascade binary in fact built from the prior commit `2cf8771` (verified by absence of the `SOLVE_SKIP_AUTOMERGE` string in the cascade binary). The corrected version landed later 2026-05-12 alongside the audit findings below. The standing rule going forward: any canonical enum that produces shards is planned with TWO VMs from the start — Spot parallel for enum-only via `SOLVE_SKIP_AUTOMERGE=1`, Standard right-sized for the standalone merge.
 
 - **Two latent stack-OOB bugs found in follow-up code audit. 2026-05-12.** While auditing solve.c after the c34390c0 investigation closed, two latent bugs in the same family as the f42f2ae May 6 fix surfaced. Neither corrupted any extant canonical:
   - **`ClosestEntry all_top[64 * TOP_N]` at line 11804** in the `--sub-branch` parallel path — same OOB pattern f42f2ae fixed at line 12438 in the main-enum path. The fix author resized `threads[256]` and `thread_sub_count[256]` in this function (correctly noting the SOLVE_THREADS=128 OOB issue in the surrounding comment) but missed `all_top` two dozen lines below. At SOLVE_THREADS > 64 in `--sub-branch` mode, up to 128×TOP_N=2,560 writes would land in a 1,280-slot array — silent OOB into adjacent stack memory. This has NOT corrupted any canonical generated to date, because every depth-3 canonical was generated via the main-enum mode (`solve 0 128`), not the sub-branch mode; the PassA sub-branch campaigns ran at SOLVE_THREADS=64 (boundary-safe). But the latent path was real and is now fixed.
-  - **`MAX_THREADS = 256` was a comment-only convention** — no `#define`, no clamp. `SOLVE_THREADS=512` would silently overflow the various `threads[256]` arrays. Now a real `#define SOLVE_MAX_THREADS 256` with a stderr-warning clamp at both `n_threads` parse sites. The macro carries an explicit comment about what would need to change (stack→heap allocation, NUMA-aware thread pools, fresh selftest verification) to push the ceiling beyond 256 for future >128-core hardware. We have no canonicals at SOLVE_THREADS > 128 (D128als_v7 max), so this is forward-defense, not a fix to past results.
+  - **`MAX_THREADS = 256` was a comment-only convention** — no `#define`, no clamp. `SOLVE_THREADS=512` would silently overflow the various `threads[256]` arrays. Now a real `#define SOLVE_MAX_THREADS 256` with a stderr-warning clamp at both `n_threads` parse sites. The macro carries an explicit comment about what would need to change (stack→heap allocation, NUMA-aware thread pools, fresh selftest verification) to push the ceiling beyond 256 for future >128-core hardware. We have no canonicals at SOLVE_THREADS > 128 ([cloud detail redacted] max), so this is forward-defense, not a fix to past results.
 - **Audit takeaway:** the existing selftest (depth-2, SOLVE_THREADS=4, main-enum path) is not broad enough surface to catch sub-branch-path OOBs or thread-count-keyed bugs above 64 threads. The standing project test-surface gap and a prioritized remediation plan are documented in the private `petersm3/roae-private:AUDIT_PLAN_2026_05_12.md`, covering race-condition (TSan), heap (ASan-extended), UB (UBSan), and cross-build-determinism gates. Highest priority: operationalizing the cross-build regression gate that DEVELOPMENT.md already documents but the cascade re-derivations need to actually exercise.
 
 - **Phase C bug-class audits executed 2026-05-12 — canonical-affecting findings: ZERO.** Following the line-11804 + MAX_THREADS discovery above, an explicit audit pass exercised additional bug classes against the post-fix solve.c at selftest scale and at depth-3 small scale. All correctness audits passed:
@@ -2388,7 +2388,7 @@ It does change:
   - **AddressSanitizer** at selftest scale (full enum + bundled merge): PASS, sha `403f7202…`, 135,780 records, no heap or stack errors.
   - **AddressSanitizer** at depth-3, 10M nodes, 158k sub-branches (canonical code path that selftest does not exercise): IN PROGRESS at writing time, no ASan errors triggered after 60% of sub-branches.
   - **Optimization-level sha matrix** (`-O0`, `-O1`, `-O2`, `-O3`): all four levels produce selftest sha `403f7202…`.
-  - **Cross-build single-host signal**: a fresh build of the post-fix solve.c on `tsan-audit-westus3` (D128als_v7 Spot, AMD EPYC 9V45, stock Ubuntu 24.04 + gcc 13.3.0) produced selftest sha `403f7202…` byte-identically. (Full cross-build verification per canonical scale remains scheduled.)
+  - **Cross-build single-host signal**: a fresh build of the post-fix solve.c on `tsan-audit-[cloud detail redacted]` ([cloud detail redacted] Spot, AMD EPYC 9V45, stock Ubuntu 24.04 + gcc 13.3.0) produced selftest sha `403f7202…` byte-identically. (Full cross-build verification per canonical scale remains scheduled.)
   - **ThreadSanitizer** at selftest scale (4 threads, depth-2, 100M nodes): 10 race warnings reported, **but `solutions.bin` sha = `403f7202…` byte-identical to the canonical baseline** despite the TSan instrumentation's 5-15× slowdown and substantially-altered thread scheduling. If the races affected canonical correctness, TSan's timing perturbation would have produced a different sha. All race reports are the same pattern: main thread reading `threads[i].nodes/solutions_total/solutions_c3/solution_count/branches_completed/hash_collisions` for periodic progress-print output, while worker threads write to those same per-thread counter fields. The racing reads are stderr/stdout progress-print only; the post-enum aggregation that determines solutions.bin contents happens after `pthread_join` which is a POSIX memory barrier. On x86-64 the read/write of `long long` is single-MOV hardware-atomic. Combined with the UBSan and ASan selftest passes (both also at sha `403f7202…`), **three independent sanitizers now produce the canonical baseline byte-identically.** ThreadSanitizer was also exercised at 128 threads, depth-3 canonical thread count for a partial 1-hr window; same race pattern, no new race classes. A future quality-of-life session can mark these counters `_Atomic` for TSan-cleanliness; no canonical decision depends on it.
   - **gcc `-fanalyzer` static analysis**: 1 minor real finding (FILE leak on `write_sorted_chunk` failure path during merge; only triggered on disk-write failure, process exits immediately after, OS reclaims — cosmetic). 2 false positives (uninitialized-value in null-model code where the caller guarantees initialization; snprintf source/dest "overlap" where the two args are distinct array elements). Phase E follow-up E-2 will fix the FILE leak.
   - **`-Wstrict-aliasing=3`**: clean. No pointer-aliasing UB detected.
@@ -2405,9 +2405,9 @@ Three independent 5.6T runs archived (gzip -9, sha256, metadata.txt, run.log, me
   - `20260512_recursive_5.6T/` — post-#72 recursive path; sha `f66920c1…`
   - `20260512_1267a8e_5.6T/` — pre-f42f2ae bisect; sha `f66920c1…`
   - `20260512_cdd8575_5.6T/` — pre-1d4dc6e bisect endpoint; sha `f66920c1…` (proves irreproducibility)
-- **Warm copies on managed disk `solver-data-westus3` (3 TB, unattached):** same three runs at `/canonical_runs/20260512_*/`.
+- **Warm copies on managed disk [cloud detail redacted] (3 TB, unattached):** same three runs at `/canonical_runs/20260512_*/`.
 
-The original `v1v2-compare-scratch` 256 GB StandardSSD managed disk (Unattached, preserved) holds the original v1_1T (`e31ef86a…`), v2_1T (`c247b9f9…`), v2_5.6T (`467025fe…`) solutions.bin files (not yet archived to [storage detail redacted] — candidates for follow-up archival before disk decommission).
+The original [cloud detail redacted] 256 GB StandardSSD managed disk (Unattached, preserved) holds the original v1_1T (`e31ef86a…`), v2_1T (`c247b9f9…`), v2_5.6T (`467025fe…`) solutions.bin files (not yet archived to [storage detail redacted] — candidates for follow-up archival before disk decommission).
 
 Operator-facing detail and recommended cascade actions: `CANONICAL_C34390C0_IRREPRODUCIBILITY_INVESTIGATION_2026_05_12.md` (private staging repo, not publicly accessible).
 
@@ -2420,8 +2420,8 @@ Operator-facing detail and recommended cascade actions: `CANONICAL_C34390C0_IRRE
 
 ### Cost
 
-- May 11 pipeline (D128als_v7 Spot, ~6h compute + ~2h idle waiting for direction on sha mismatch): ~[cost redacted].
-- May 12 bisect (D128als_v7 Standard Regular, May 12 04:34–11:30 UTC ≈ 7h): ~[cost redacted].
+- May 11 pipeline ([cloud detail redacted] Spot, ~6h compute + ~2h idle waiting for direction on sha mismatch): ~[cost redacted].
+- May 12 bisect ([cloud detail redacted] Standard Regular, May 12 04:34–11:30 UTC ≈ 7h): ~[cost redacted].
 - [storage detail redacted]: <[cost redacted]/month going forward.
 - **Session total: ~[cost redacted]** (within ~[cost redacted] budget).
 
@@ -2464,39 +2464,39 @@ This pattern means **modern code's "fixed" output is what was always intended; t
 - **Run completion matters more than code version.** A canonical generated by stable code that ran to clean completion (e.g., `0c0fe37c`, `a09280fb`) reproduces on modern code. A canonical generated by interrupted-and-imperfectly-resumed runs (e.g., `c34390c0`, `f7b8c4fb`) does not.
 - **The budget axis is misleading.** d3 10T (Apr 18) differs from modern by 4607; d3 11.2T (May 1) matches modern exactly. Only 1.2T apart in budget but 13 days apart in code stability and 8-path validation discipline.
 - **Cross-build with date separation is what catches resume-bug-class issues.** A single-day 4-equivalence test on one binary cannot catch resume-mode imperfections that only surface on interrupted runs. The current SOP — two independent builds on different days/hosts — is the right durable check.
-- **`SOLVE_THREADS` is empirically order-stable.** Cascade Build A and B used `SOLVE_THREADS=64` due to westus3 D128 Spot capacity issues, yet produced byte-identical shas to the canonical `SOLVE_THREADS=128` for both d3 11.2T and d2 10T. Confirms the merge-dedup-order-stable property in CANONICAL_HASHES.md.
+- **`SOLVE_THREADS` is empirically order-stable.** Cascade Build A and B used `SOLVE_THREADS=64` due to [cloud detail redacted] Spot capacity issues, yet produced byte-identical shas to the canonical `SOLVE_THREADS=128` for both d3 11.2T and d2 10T. Confirms the merge-dedup-order-stable property in CANONICAL_HASHES.md.
 
 ### Cost — Phase B
 
 | Run | VM | Wall | Cost |
 |---|---|---|---|
-| d3 5.6T Build B (Spot D128 enum + D32 Standard merge) | D128/D32 | 77+51 min | ~[cost redacted] |
-| d3 10T Build A (Spot D64 enum + Standard D64 merge) | D64/D64 | 206+76 min | ~[cost redacted] |
-| d3 10T Build B (Spot D64 enum + Standard D64 merge) | D64/D64 | 218+79 min | ~[cost redacted] |
-| d2 10T Build A (Spot D64 enum + Standard D32 merge) | D64/D32 | 211+22 min | ~[cost redacted] |
-| d2 10T Build B (Spot D64 enum + Standard D32 merge) | D64/D32 | 211+23 min | ~[cost redacted] |
-| d3 11.2T Build A (Spot D64 enum + Standard D64 merge) | D64/D64 | 232+81 min | ~[cost redacted] |
-| d3 11.2T Build B (Spot D64 enum + Standard D64 merge) | D64/D64 | 232+62 min | ~[cost redacted] |
-| Throttled-host probes (3 × d3-10T Spot D128 hosts that landed at 600 MHz under load) | D128 | ~10 min each | ~[cost redacted] |
-| solver-data-westus3 shrink 3 TB → 256 GB | D2 Spot | ~30 min | ~[cost redacted] |
+| d3 5.6T Build B (Spot [cloud detail redacted] enum + [cloud detail redacted] Standard merge) | [cloud detail redacted] | 77+51 min | ~[cost redacted] |
+| d3 10T Build A (Spot [cloud detail redacted] enum + Standard [cloud detail redacted] merge) | [cloud detail redacted] | 206+76 min | ~[cost redacted] |
+| d3 10T Build B (Spot [cloud detail redacted] enum + Standard [cloud detail redacted] merge) | [cloud detail redacted] | 218+79 min | ~[cost redacted] |
+| d2 10T Build A (Spot [cloud detail redacted] enum + Standard [cloud detail redacted] merge) | [cloud detail redacted] | 211+22 min | ~[cost redacted] |
+| d2 10T Build B (Spot [cloud detail redacted] enum + Standard [cloud detail redacted] merge) | [cloud detail redacted] | 211+23 min | ~[cost redacted] |
+| d3 11.2T Build A (Spot [cloud detail redacted] enum + Standard [cloud detail redacted] merge) | [cloud detail redacted] | 232+81 min | ~[cost redacted] |
+| d3 11.2T Build B (Spot [cloud detail redacted] enum + Standard [cloud detail redacted] merge) | [cloud detail redacted] | 232+62 min | ~[cost redacted] |
+| Throttled-host probes (3 × d3-10T Spot [cloud detail redacted] hosts that landed at 600 MHz under load) | [cloud detail redacted] | ~10 min each | ~[cost redacted] |
+| [cloud detail redacted] shrink 3 TB → 256 GB | [cloud detail redacted] Spot | ~30 min | ~[cost redacted] |
 | [storage detail redacted] | n/a | n/a | [storage detail redacted] |
 | **Phase B total** | | | **~[cost redacted]** |
 
 ### What's next (post-2026-05-14)
 
-1. **Build B 11.2T cross-build completion — DONE 2026-05-14.** Build B enum on `d3-11-2T-buildb-westus3` Spot D64 (3.9 hr, SOLVE_THREADS=64, SOLVE_SKIP_AUTOMERGE=1) produced shards which were transferred over private vnet (13.5 min, 90 GB, 215,242 files) to a separate Standard D64als_v7 (`merge-d64-westus3`). In-memory `solve --merge` on the merge VM (62 min wall, 93 GB peak RSS) produced `solutions.bin` with sha `0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7` — byte-identical to Build A and to the historical canonical. The 11.2T canonical now has the formal two-witness cross-build pair (Build A + Build B archived in [storage detail redacted]). Both enum + merge VMs were deallocated post-archive.
-2. **Steady-state managed disks: just `solver-data-westus3` (256 GB, [cost redacted]/mo) + the `claude` orchestrator OS disk ([cost redacted]/mo).** All scratch + orphan OS disks were cleaned up 2026-05-13/14 (~[cost redacted]/mo recovered).
+1. **Build B 11.2T cross-build completion — DONE 2026-05-14.** Build B enum on `d3-11-2T-buildb-[cloud detail redacted]` Spot [cloud detail redacted] (3.9 hr, SOLVE_THREADS=64, SOLVE_SKIP_AUTOMERGE=1) produced shards which were transferred over private vnet (13.5 min, 90 GB, 215,242 files) to a separate Standard [cloud detail redacted] ([cloud detail redacted]). In-memory `solve --merge` on the merge VM (62 min wall, 93 GB peak RSS) produced `solutions.bin` with sha `0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7` — byte-identical to Build A and to the historical canonical. The 11.2T canonical now has the formal two-witness cross-build pair (Build A + Build B archived in [storage detail redacted]). Both enum + merge VMs were deallocated post-archive.
+2. **Steady-state managed disks: just [cloud detail redacted] (256 GB, [cost redacted]/mo) + the `claude` orchestrator OS disk ([cost redacted]/mo).** All scratch + orphan OS disks were cleaned up 2026-05-13/14 (~[cost redacted]/mo recovered).
 3. **[storage detail redacted] holds 14 directories** as of 2026-05-14: 3 diagnostic runs, 5.6T Build A+B, 10T Build A+B, 10T-d2 Build A+B, 11.2T Build A+B, and t9c1 (100T).
 4. **v2 work resumes** per CURRENT_PLAN.md once Build B 11.2T lands.
 
 ### Thursday 2026-05-14 morning — post-Build B teardown and mechanism-validation plan
 
-After the overnight Build B 11.2T completion (item 1 above) and archive, all remaining Build B compute resources were torn down: the `d3-11-2T-buildb-westus3` and `merge-d64-westus3` VMs were deleted along with their two OS disks, the two scratch SSDs (`d3-11.2T-buildb-scratch`, `d3-11.2T-scratch`), the two NICs, and the two public IPs. Three additional stale NIC + Public IP pairs from earlier sessions (`legacy-upload-westus2`, `merge-d32-westus3`, `shrink-tmp-westus3`) were also deleted. The Azure resource group now contains only the long-lived items: the `claude` orchestrator VM (D2as_v6, westus2), its OS disk (Premium SSD P4, 32 GB), `solver-data-westus3` (Standard HDD, 256 GB), and [storage detail redacted]. Total monthly run-rate: ~[cost redacted] (~[cost redacted] claude VM + ~[cost redacted] disks + ~[cost redacted] [storage detail redacted]).
+After the overnight Build B 11.2T completion (item 1 above) and archive, all remaining Build B compute resources were torn down: the `d3-11-2T-buildb-[cloud detail redacted]` and [cloud detail redacted] VMs were deleted along with their two OS disks, the two scratch SSDs (`d3-11.[cloud detail redacted]`, `d3-11.[cloud detail redacted]`), the two NICs, and the two public IPs. Three additional stale NIC + Public IP pairs from earlier sessions (`legacy-upload-[cloud detail redacted]`, [cloud detail redacted], `shrink-tmp-[cloud detail redacted]`) were also deleted. The Azure resource group now contains only the long-lived items: the `claude` orchestrator VM ([cloud detail redacted], [cloud detail redacted]), its OS disk ([cloud detail redacted], 32 GB), [cloud detail redacted] ([cloud detail redacted], 256 GB), and [storage detail redacted]. Total monthly run-rate: ~[cost redacted] (~[cost redacted] claude VM + ~[cost redacted] disks + ~[cost redacted] [storage detail redacted]).
 
 The resume-bug hypothesis (this section's "Hypothesis update" above) is currently the best circumstantial fit for the c34390c0 and f7b8c4fb deltas, but it has not yet been demonstrated as a mechanism. The next planned work (operator-approved 2026-05-14 Thu) is a two-part validation:
 
 1. **Static code review** of the four resume-bug fixes (`1d4dc6e`, `c3ad271`, `d11bc0d`, `c3d3ad6` — April 30 to May 2 commits). Identify the specific invariant each fix restored, and show the pre-fix resume path violates that invariant for some input class. Free, ~1-2 hr.
-2. **Controlled SIGTERM-resume experiment** on a rebuilt pre-fix binary at d3 5.6T canonical params. Run with a deliberate interruption at ~90% completion, resume from checkpoint, measure the delta against modern `f66920c10`. If the delta lands in the ~10²–10³ record range, the resume bug class is empirically demonstrated to produce undercounts at the observed magnitude. ~[cost redacted] on Spot D64, ~4 hr wall.
+2. **Controlled SIGTERM-resume experiment** on a rebuilt pre-fix binary at d3 5.6T canonical params. Run with a deliberate interruption at ~90% completion, resume from checkpoint, measure the delta against modern `f66920c10`. If the delta lands in the ~10²–10³ record range, the resume bug class is empirically demonstrated to produce undercounts at the observed magnitude. ~[cost redacted] on Spot [cloud detail redacted], ~4 hr wall.
 
 The experiment cannot reproduce the *exact* +1,030 / +4,607 deltas — Azure doesn't preserve eviction-mid-process state and the original solver didn't dump pre-resume snapshots, so the specific historical incidents aren't recoverable. The goal is mechanism-class demonstration, not incident reconstruction. Findings will be appended to the private investigation doc and summarized as a methodology-lessons entry here once both parts complete.
 
@@ -2573,7 +2573,7 @@ Operator greenlit v2 implementation start. Per the master plan in private `V2_IM
 1. **Greenlight v2 start:** YES, granted 2026-05-15 evening.
 2. **Branch strategy:** `main` stays at v1; per-task feature branches for Phase 1 sha-preservers merge to main on regression PASS; `v2-bundled` branch holds Phase 3 sha-changing work and fast-forwards `main` on Phase 5 PASS.
 3. **#69 MRV variable ordering:** deferred to optional Phase 7 (post-Phase-6, only if K from K-pilot underwhelming and re-baseline cost is amortized).
-4. **560T-on-v2 artifact storage:** lands on `solver-data-westus3` (256 GB Standard HDD, currently holds 100T canonical with ~154 GB free, mirrors v1 storage pattern).
+4. **560T-on-v2 artifact storage:** lands on [cloud detail redacted] (256 GB [cloud detail redacted], currently holds 100T canonical with ~154 GB free, mirrors v1 storage pattern).
 5. **HISTORY.md commit cadence:** per-phase entries during v2 work, with a final "v2 transition summary" capstone at completion.
 6. **560T launch is gated on operator review of ALL preceding v2 work + same Build A + Build B cross-build verification + [storage detail redacted] as v1's Phase B** (operator directive 2026-05-15). No autonomous 560T provisioning even if the v2 chain ends with all green gates.
 
@@ -2581,7 +2581,7 @@ Operator greenlit v2 implementation start. Per the master plan in private `V2_IM
 - `v2-bundled` (off `main` at commit `72fdfdf`) — holds Phase 3 sha-changing work. Pushed to `origin/v2-bundled`. Currently identical to `main`; diverges once Phase 3 prune implementations land.
 - (Phase 1 per-task feature branches will be created when each task starts: `avx512`, `pgo`, etc.)
 
-**Phase 1c — LTO selftest PASS (preliminary, 2026-05-15):** simple compile-flag change `-O3 -flto -pthread -fopenmp -march=native` produces canonical selftest sha `403f7202` byte-identically to the baseline build. Binary is ~1.2% smaller (305,592 vs 309,376 bytes — dead-code elimination + cross-translation-unit inlining; relevant for a single-file project but minor). Full Phase 1c LTO PASS gate requires the 11.2T canonical regression test ([cost redacted] + 1.5h D128 westus3 spot per the plan) — selftest is necessary but not sufficient. The 11.2T pilot waits for operator scheduling.
+**Phase 1c — LTO selftest PASS (preliminary, 2026-05-15):** simple compile-flag change `-O3 -flto -pthread -fopenmp -march=native` produces canonical selftest sha `403f7202` byte-identically to the baseline build. Binary is ~1.2% smaller (305,592 vs 309,376 bytes — dead-code elimination + cross-translation-unit inlining; relevant for a single-file project but minor). Full Phase 1c LTO PASS gate requires the 11.2T canonical regression test ([cost redacted] + 1.5h [cloud detail redacted] spot per the plan) — selftest is necessary but not sufficient. The 11.2T pilot waits for operator scheduling.
 
 **Status:** v2 work formally underway. Next concrete operator-decision point: when to schedule Phase 1a (AVX-512) implementation start (3-5 days engineering) + Phase 1 pilot compute (~[cost redacted] total for 4 pilots).
 
@@ -2591,8 +2591,8 @@ Per operator request 2026-05-15, each Phase 1 sha-preserver gets a quantified sp
 
 | Task | Host | Workload | Baseline (mean) | Optimized (mean) | Speedup | Sha preservation |
 |---|---|---|---|---|---|---|
-| #47 LTO | claude D2as_v6 (AMD EPYC Zen 4, 2-thread, x86_64) | 200M nodes depth-2 | 48.59s (4 trials, σ varies due to cold trial 1) | 48.36 ± 2.74s (4 trials) | **1.005× (within noise)** | selftest PASS (403f7202); 11.2T regression pending |
-| #47 PGO | claude D2as_v6 (AMD EPYC Zen 4, 2-thread, x86_64) | 200M nodes depth-2 | 48.59s (same baseline run) | 46.09 ± 0.83s (4 trials) | **1.054× (~5%)** | selftest PASS (403f7202); 11.2T regression pending |
+| #47 LTO | claude [cloud detail redacted] (AMD EPYC Zen 4, 2-thread, x86_64) | 200M nodes depth-2 | 48.59s (4 trials, σ varies due to cold trial 1) | 48.36 ± 2.74s (4 trials) | **1.005× (within noise)** | selftest PASS (403f7202); 11.2T regression pending |
+| #47 PGO | claude [cloud detail redacted] (AMD EPYC Zen 4, 2-thread, x86_64) | 200M nodes depth-2 | 48.59s (same baseline run) | 46.09 ± 0.83s (4 trials) | **1.054× (~5%)** | selftest PASS (403f7202); 11.2T regression pending |
 
 **Methodology lesson learned 2026-05-15 (and contamination correction):** an earlier LTO measurement reported 1.088× speedup (baseline 107.4s, LTO 98.7s). Investigation revealed that during that run, a stale `solve_new --verify-resume` orphan process from earlier work had been consuming a CPU core for ~30 minutes — halving effective parallelism for the 2-thread benchmark. The clean re-run above with no orphan processes shows baseline running at ~46s, ~2× faster than the contaminated baseline. Both LTO and baseline were equally contended in the original run, so the ratio was approximately preserved BUT the variance was inflated and the absolute timing was off by ~2×.
 
@@ -2602,11 +2602,11 @@ Per operator request 2026-05-15, each Phase 1 sha-preserver gets a quantified sp
 - **LTO** speedup is within the run-to-run noise floor (~5% stddev band on baseline). Cannot distinguish from "no improvement" at 4 trials. Consistent with the plan's prior "0-5% expected" range. Binary is 1.2% smaller from dead-code elimination — a small benefit but not a meaningful speedup at this scale on this host.
 - **PGO** speedup is ~5% with low variance (σ 1.8%). Cleanly positive but modest. PGO binary is 13% smaller than baseline (268,968 vs 309,376 bytes) — substantial cold-code elimination from the profile-driven layout, but most of the work in solve.c is in a hot path that's already well-optimized at `-O3`.
 
-**Caveat — selftest-scale only:** these are 200M-node depth-2 measurements on 2 ARM cores. Canonical-scale speedup (11.2T depth-3 on x86 D128 with 128 threads) is the actual gate behavior; the host's instruction-cache regime, memory pressure, and per-thread workload profile all differ. Full Phase 1c PASS gate requires the 11.2T regression on D128 westus3 spot, pending operator scheduling. Expect the canonical-scale picture may differ in either direction.
+**Caveat — selftest-scale only:** these are 200M-node depth-2 measurements on 2 ARM cores. Canonical-scale speedup (11.2T depth-3 on x86 [cloud detail redacted] with 128 threads) is the actual gate behavior; the host's instruction-cache regime, memory pressure, and per-thread workload profile all differ. Full Phase 1c PASS gate requires the 11.2T regression on [cloud detail redacted] spot, pending operator scheduling. Expect the canonical-scale picture may differ in either direction.
 
-#### Phase 1 D64 canonical-correlation measurements (2026-05-15 night)
+#### Phase 1 [cloud detail redacted] canonical-correlation measurements (2026-05-15 night)
 
-Operator authorized provisioning of a D64als_v7 Spot in westus3 (RG-V2-BENCH, isolated RG to work around a persistent ARM-deployment "subnet not found" bug on RG-CLAUDE — see Risk register). Host: AMD EPYC 9V45 96-core Zen 4, full AVX-512 stack, 125 GiB RAM. 4 trials per binary at 100B nodes 64-thread depth-2; reboot between binaries; v2_bench_d64.sh enforced the full protocol (throttling check, drop_caches, cooldown, per-trial freq capture).
+Operator authorized provisioning of a [cloud detail redacted] Spot in [cloud detail redacted] ([cloud detail redacted], isolated RG to work around a persistent ARM-deployment "subnet not found" bug on [cloud detail redacted] — see Risk register). Host: AMD EPYC 9V45 96-core Zen 4, full AVX-512 stack, 125 GiB RAM. 4 trials per binary at 100B nodes 64-thread depth-2; reboot between binaries; v2_bench_d64.sh enforced the full protocol (throttling check, drop_caches, cooldown, per-trial freq capture).
 
 | Binary | Trial wall times (s) | Mean ± σ | σ% | Speedup vs baseline (full means) | Trimmed-mean speedup (drop slowest) |
 |---|---|---|---|---|---|
@@ -2614,12 +2614,12 @@ Operator authorized provisioning of a D64als_v7 Spot in westus3 (RG-V2-BENCH, is
 | LTO | 100.98 / 100.99 / 101.21 / 101.19 | **101.09 ± 0.11** | **0.11%** | +2.06% | +0.06% |
 | PGO | 100.08 / 117.10 / 101.06 / 109.09 | 106.83 ± 6.88 | 6.44% | **−3.42% (slower)** | −2.22% |
 
-*(PGO trimmed-mean figure **recomputed 2026-08-09** from this table's own cells — it was printed as −2.28%. Trimmed means are 303.34/3 = 101.113 s baseline and 310.23/3 = 103.410 s PGO; 101.113/103.410 − 1 = **−2.22%**, using the same baseline/optimized − 1 convention that reproduces the full-means column exactly. **Scope of this recomputation:** the other thirteen derived cells were re-checked and all reproduce as printed — baseline 103.18 s and 101.11 s trimmed, LTO 101.09 s / +2.06% / +0.06%, PGO 106.83 s / −3.42%, and the three ± σ and three σ% cells (population σ). No trial time was changed, and the qualitative reading — PGO slower than baseline at D64 — is unaffected.)*
+*(PGO trimmed-mean figure **recomputed 2026-08-09** from this table's own cells — it was printed as −2.28%. Trimmed means are 303.34/3 = 101.113 s baseline and 310.23/3 = 103.410 s PGO; 101.113/103.410 − 1 = **−2.22%**, using the same baseline/optimized − 1 convention that reproduces the full-means column exactly. **Scope of this recomputation:** the other thirteen derived cells were re-checked and all reproduce as printed — baseline 103.18 s and 101.11 s trimmed, LTO 101.09 s / +2.06% / +0.06%, PGO 106.83 s / −3.42%, and the three ± σ and three σ% cells (population σ). No trial time was changed, and the qualitative reading — PGO slower than baseline at [cloud detail redacted] — is unaffected.)*
 
 **Key findings at canonical-correlation scale:**
 
-- **LTO is the cleanest Phase 1 candidate.** Stddev of 0.11% (0.1 second across 100-second runs) is the tightest variance any of today's benchmarks produced. Speedup is marginal (~2% full-mean, ~0% trimmed), but sha is preserved and there is no run-to-run noise. Recommend shipping to v1 main as a free, harmless build-flag change. The claude-scale 1.005× number was preserved at D64 scale — consistent across scale.
-- **PGO does NOT replicate its claude-scale speedup at D64.** On claude (2 ARM cores, 200M nodes), PGO was 5.4% faster with low variance. On D64 (64 Zen 4 cores, 100B nodes), PGO is *slower* than baseline with high variance. Most likely cause: the PGO profile was collected during a 100M-node run (the script's default profile-gen workload). At 100B nodes the per-sub-branch budget is larger and the workload exercises code paths the profiler didn't see — branch hints become inaccurate, layout decisions misaligned to actual hot path. Do NOT ship PGO based on this data; if Phase 1d is pursued, re-collect the profile at a larger budget (1B or 10B nodes) to better match canonical workload distribution.
+- **LTO is the cleanest Phase 1 candidate.** Stddev of 0.11% (0.1 second across 100-second runs) is the tightest variance any of today's benchmarks produced. Speedup is marginal (~2% full-mean, ~0% trimmed), but sha is preserved and there is no run-to-run noise. Recommend shipping to v1 main as a free, harmless build-flag change. The claude-scale 1.005× number was preserved at [cloud detail redacted] scale — consistent across scale.
+- **PGO does NOT replicate its claude-scale speedup at [cloud detail redacted].** On claude (2 ARM cores, 200M nodes), PGO was 5.4% faster with low variance. On [cloud detail redacted] (64 Zen 4 cores, 100B nodes), PGO is *slower* than baseline with high variance. Most likely cause: the PGO profile was collected during a 100M-node run (the script's default profile-gen workload). At 100B nodes the per-sub-branch budget is larger and the workload exercises code paths the profiler didn't see — branch hints become inaccurate, layout decisions misaligned to actual hot path. Do NOT ship PGO based on this data; if Phase 1d is pursued, re-collect the profile at a larger budget (1B or 10B nodes) to better match canonical workload distribution.
 - **Baseline trial 3 outlier** (109.38s vs ~101s for the other three baseline trials) and **PGO trials 2 + 4** (117.10s, 109.09s) suggest occasional co-tenant noise on this particular Spot host. The v2_bench_d64.sh per-trial frequency capture showed CPU freq oscillating between idle 2596 MHz and boost 4537 MHz mid-run — Genoa's AVX-512 frequency offset is real and contributes some of the variance.
 
 **Phase 1 status updated 2026-05-15:**
@@ -2628,7 +2628,7 @@ Operator authorized provisioning of a D64als_v7 Spot in westus3 (RG-V2-BENCH, is
 - **AVX-512 (#46): STILL THE HIGH-VALUE PHASE 1 ITEM.** Plan expects 1.4-2.0× per the implementation doc. Implementation hasn't started; needs 3-5 days engineering. Recommended next concrete operator-authorized work session. ⚠ **[REFUTED 2026-05-16 — the 1.4-2.0× expectation this status row carries did not survive measurement: the definitive 1T paired bench put AVX2 at 433.0 s against AVX-512 at 434.6 s (**0.9963×**, Welch t = −1.281, 95% CI [−4.05, +0.85] s, null not rejected), and #46 was closed via REVERT. Root cause: gcc 13.3 with `-march=native` already auto-vectorizes the one loop that benefits. The measurement and its commits are narrated in the May 18, 2026 PDT entry, item 3. The row is preserved as the status recorded on 2026-05-15; it was superseded the next day. This callout added 2026-09-02 (prose batch P64); it was owed and had not been written.]**
 - **Huge pages + NUMA (#47 remainder): not yet measured.** Need to be benchmarked but not blocking.
 
-**Compute cost:** [cost redacted]/hr × ~50 min D64 Spot uptime = ~[cost redacted]. RG + VM + vnet + NIC + PIP all deleted post-benchmark.
+**Compute cost:** [cost redacted]/hr × ~50 min [cloud detail redacted] Spot uptime = ~[cost redacted]. RG + VM + vnet + NIC + PIP all deleted post-benchmark.
 
 **Cost — full v1 campaign (Apr 2026 → 2026-05-15):** roughly bounded by the operator's running budget cap (~[cost redacted]/session, ~5-6 sessions for c34390c0 investigation + Phase B + Phase E + Phase E follow-up = ~[cost redacted] total this terminal chapter). Total v1 cost across the entire campaign is in the [cost redacted] range cumulatively, including the original 11.2T + 100T canonical runs.
 
@@ -2638,7 +2638,7 @@ Operator authorized provisioning of a D64als_v7 Spot in westus3 (RG-V2-BENCH, is
 
 All Python lives in `solve.py` as of 2026-04-21 (single-Python-file rule, modeled on the single-C-file rule): the P2 subcommands `solve.py --compute-stats`, `solve.py --marginals`, `solve.py --bivariate`, `solve.py --joint-density` read the 100T canonical `solutions.bin` / per-chunk parquet outputs and produce the distributional-analysis artifacts. The only Python file outside `solve.py` is `viz/visualize.py` (PCA plots); the `scripts/` subdirectory that briefly held `compute_stats.py`/`p2_marginals.py`/`p2_bivariate.py`/`p2_joint_density.py` during P2 development was retired on 2026-04-21 as those scripts were consolidated into `solve.py`.
 
-**Data.** Canonical v1 reference shas, record counts, reproducibility parameters, and validation status are centralized in [CANONICAL_HASHES.md](CANONICAL_HASHES.md). The current deepest partial enumeration is the d3 100T canonical (3,432,399,297 orderings). 100T solutions.bin (102 GB) lives on `solver-data-westus3` managed disk (westus3, 1.5 TB Standard_LRS, preserved across VM tear-down).
+**Data.** Canonical v1 reference shas, record counts, reproducibility parameters, and validation status are centralized in [CANONICAL_HASHES.md](CANONICAL_HASHES.md). The current deepest partial enumeration is the d3 100T canonical (3,432,399,297 orderings). 100T solutions.bin (102 GB) lives on [cloud detail redacted] managed disk ([cloud detail redacted], 1.5 TB [cloud detail redacted], preserved across VM tear-down).
 
 **Selftest baseline.** sha `403f7202…` (135,780 canonical orderings at 100M, format v1). Verified deterministic across 1/2/4/8 threads with `SOLVE_NODE_LIMIT` only. Full sha + parameters in [CANONICAL_HASHES.md](CANONICAL_HASHES.md).
 
@@ -2646,39 +2646,39 @@ All Python lives in `solve.py` as of 2026-04-21 (single-Python-file rule, modele
 
 **Next steps (as of 2026-04-22):**
 
-✅ **P1 COMPLETE** (commits `8a31025` + `201d706` + `cca1a40`) — parallel `--sub-branch` at depth-5 granularity with per-CCD counters + intra-sub-branch checkpointing. Validated end-to-end on Pass 1 real work (2 × 10T runs × 3 hrs each, ~6 VM-hours cumulative; zero correctness issues). Scaling data: `roae-private/P1_SCALING_MEASUREMENTS.md` (private staging repo). Cost-optimum config: D64 K=8 N=8 packing at [cost redacted]/branch at 50B budget.
+✅ **P1 COMPLETE** (commits `8a31025` + `201d706` + `cca1a40`) — parallel `--sub-branch` at depth-5 granularity with per-CCD counters + intra-sub-branch checkpointing. Validated end-to-end on Pass 1 real work (2 × 10T runs × 3 hrs each, ~6 VM-hours cumulative; zero correctness issues). Scaling data: `roae-private/P1_SCALING_MEASUREMENTS.md` (private staging repo). Cost-optimum config: [cloud detail redacted] K=8 N=8 packing at [cost redacted]/branch at 50B budget.
 
 ✅ **Campaign A Pass 1 CLOSED** (this dated section above) — yield-16 laggards at 10T both BUDGETED with 16.4M canonical solutions each. Super-linear growth (1,700× from 1T→10T) rules out exhaustion-via-budget for this class. **Not pursuing Pass 2/3/4 on A.**
 
-1. **Campaign C — cross-prefix-equivalence on 6 branches at yield 1,110,544 (free).** Analysis of existing 100T shards on `solver-data-westus3`, no new compute, ~15 min operator time. Potentially surfaces a pair-relabeling symmetry if the shards are byte-identical modulo canonical re-labeling. **Most interesting remaining single-branch scientific question; recommended next.**
+1. **Campaign C — cross-prefix-equivalence on 6 branches at yield 1,110,544 (free).** Analysis of existing 100T shards on [cloud detail redacted], no new compute, ~15 min operator time. Potentially surfaces a pair-relabeling symmetry if the shards are byte-identical modulo canonical re-labeling. **Most interesting remaining single-branch scientific question; recommended next.**
 2. ~~**Campaign B — orientation-symmetry test on `(20,*,21,*,26,*)` cluster.**~~ **CLOSED 2026-04-23** — 4 variants at 1T all BUDGETED, yields 4.79M–4.89M (2.0% spread); consistent with orientation symmetry but not proof. One orientation per prefix triple now treated as sufficient for yield-lower-bound campaigns. See `roae-private/PASSB_FINDINGS.md` (private staging repo).
 3. ~~**Campaign D — mid-yield calibration, 10 branches at yield=1,116 in 100T canonical.**~~ **CLOSED 2026-04-23** — 10 branches at 1T span yields 7.0M–19.5M (2.8× spread), all BUDGETED, growth 6,319×–17,476× from 100T-aggregate-share. "Yield=1,116" was a budget artifact, not a structural class. α = 0.72–0.77 across these branches. See `roae-private/PASSD_FINDINGS.md` (private staging repo).
 4. **P3 — SAT #counting weekend experiment** (ganak / d4 / sharpSAT-TD). Encode C1-C5 as CNF, hand to modern model-counter, see whether a closed-form exact count for the full C1-C5 ordering count is attainable. Low cost (~[cost redacted]), high variance on outcome.
 5. **Distributional-analysis v2 follow-ups**: schema drops the two C5-invariant dimensions (mean/max transition hamming); denser KDE on 1M+ anchor points; stratified analysis conditional on `position_2_pair`; formal joint-hypothesis testing with Bonferroni / permutation.
 6. **Technical paper / preprint drafting** — `roae-private/PAPER_OUTLINE.md` is the skeleton; P2 completion satisfied the key data-dependency. Ready to draft sections 1–5 now.
-7. **Azure Policy `DENY Standard_F*`** (pending user green light — single highest-value leak mitigation). See `roae-private/SOLVER_D3_POSTMORTEM.md` §5a.
+7. **Azure Policy `DENY [cloud detail redacted]*`** (pending user green light — single highest-value leak mitigation). See `roae-private/SOLVER_D3_POSTMORTEM.md` §5a.
 8. **Disk decommissioning review** (pending user approval):
-   - `solver-data` (westus2, 300 GB Unattached, stale partial shards) — candidate for deletion.
-   - `solver-d3_OsDisk_*` westus2 orphan — was cleaned up during the 2026-04-22 solver-d3 incident teardown.
-   - `solver-data-westus3` stays (holds 100T canonical + d2/d3 10T archive + passA artifacts).
+   - [cloud detail redacted] ([cloud detail redacted], 300 GB Unattached, stale partial shards) — candidate for deletion.
+   - `[cloud detail redacted]_OsDisk_*` [cloud detail redacted] orphan — was cleaned up during the 2026-04-22 [cloud detail redacted] incident teardown.
+   - [cloud detail redacted] stays (holds 100T canonical + d2/d3 10T archive + passA artifacts).
 9. **Scientific-review follow-ups** from `roae-private/SCIENTIFIC_REVIEW.md`: formal proof of Forced-Orientation theorem (Lean/Rocq Level 2), bootstrap CIs on older marginal claims (unblocked by 100T canonical).
 
 ## Infrastructure (2026-04-22)
 
-- **Orchestrator VM** (`claude`, D2as_v6, westus2 zone 2): orchestration, analysis, git. [cost redacted]/hr on-demand. Can't be stopped without ending the session.
+- **Orchestrator VM** (`claude`, [cloud detail redacted], [cloud detail redacted] zone 2): orchestration, analysis, git. [cost redacted]/hr [cost detail redacted]. Can't be stopped without ending the session.
 - **Enumeration VMs (standing rule — updated 2026-04-20 & 2026-04-21)**:
-  - **Spot for enumeration, on-demand right-sized for merge** (see CLAUDE.md §"Cost control — VM purchase type"). Mandatory pre-launch `az vm show --query priority` verification.
-  - **westus2 has 128-core spot quota (approved);** westus3 spot quota remains at 3 cores (quota increase denied 2026-04-20). New spot enumeration compute pivots to **westus2**.
-  - D128als_v7 spot: [cost redacted]/hr westus2. Zen 5 Turin, 128 cores, 256 GB RAM. Saturates at ~2.5B nodes/sec across 128 threads in full-enumeration mode; single-threaded `--sub-branch` = ~22M nodes/sec (P1 would change this).
-  - Single-branch campaigns at scales <10T: D16-D32als_v7 spot in westus2 is cost-efficient (~[cost redacted]/hr).
-- **Merge VMs**: **on-demand, right-sized** (merge is single-threaded heapsort; 1-2 cores used, rest idle). d3 10T merge → D16als_v7 on-demand (~[cost redacted]/hr × 1h). d3 100T merge → D32als_v7 on-demand (~[cost redacted]/hr × 5h). Never D128 or F-series for merge — wastes cores.
-- **F-series VMs BANNED** (2026-04-21, after two `solver-d3` F64als_v6 spot incidents cost ~[cost redacted] avoidable). All D-als-v7 family going forward. See CLAUDE.md §"Cost control — SKU family restrictions" and DEPLOYMENT.md §"Ad-hoc VM lifecycle rules."
+  - **Spot for enumeration, [cost detail redacted] right-sized for merge** (see CLAUDE.md §"Cost control — VM purchase type"). Mandatory pre-launch `az vm show --query priority` verification.
+  - **[cloud detail redacted] has 128-core spot quota (approved);** [cloud detail redacted] spot quota remains at 3 cores (quota increase denied 2026-04-20). New spot enumeration compute pivots to **[cloud detail redacted]**.
+  - [cloud detail redacted] spot: [cost redacted]/hr [cloud detail redacted]. Zen 5 Turin, 128 cores, 256 GB RAM. Saturates at ~2.5B nodes/sec across 128 threads in full-enumeration mode; single-threaded `--sub-branch` = ~22M nodes/sec (P1 would change this).
+  - Single-branch campaigns at scales <10T: [cloud detail redacted] spot in [cloud detail redacted] is cost-efficient (~[cost redacted]/hr).
+- **Merge VMs**: **[cost detail redacted], right-sized** (merge is single-threaded heapsort; 1-2 cores used, rest idle). d3 10T merge → [cloud detail redacted] [cost detail redacted] (~[cost redacted]/hr × 1h). d3 100T merge → [cloud detail redacted] [cost detail redacted] (~[cost redacted]/hr × 5h). Never [cloud detail redacted] or [cloud detail redacted] for merge — wastes cores.
+- **[cloud detail redacted] VMs BANNED** (2026-04-21, after two [cloud detail redacted] [cloud detail redacted] spot incidents cost ~[cost redacted] avoidable). All [cloud detail redacted] family going forward. See CLAUDE.md §"Cost control — SKU family restrictions" and DEPLOYMENT.md §"Ad-hoc VM lifecycle rules."
 - **Session-lifecycle VM discipline** (2026-04-21): every `az vm create` in a Claude-driven session must pair with teardown in the same command sequence or wakeup prompt. Session VM log at `/tmp/claude_session_vms.txt`. Reconcile at session end.
 - **Managed disks (current, as of 2026-04-21):**
-  - `solver-data-westus3` (westus3, 1500 GB Standard_LRS, **Unattached**): holds 100T canonical `solutions.bin` (sha `915abf30…`, 102 GB) at the root; also holds the archived d2 10T and d3 10T validation artifacts at `/data/archive/westus2/{d2,d3}/` (~540 GB compressed, 57,752 gzip-verified `.gz` shards + supporting metadata, integrity-re-verified 2026-04-21). **Primary scientific reference — never delete.**
-  - `solver-data` (westus2, 300 GB Standard_LRS, **Unattached**): stale partial shards from pre-100T runs; held pending decommission decision per user's "investigate later" directive.
-  - ~~`solver-validate-d2`~~, ~~`solver-validate-d3`~~ (westus2, formerly 300 GB each): **deleted 2026-04-21** after user authorization — contents migrated to `solver-data-westus3` archive path, sha-manifest-verified pre-delete, gzip-integrity-re-verified post-delete (see §"April 21, 2026 evening — Archive integrity incident and remediation").
-  - Premium SSD temp disks for external merges: ephemeral, provisioned/destroyed per merge.
+  - [cloud detail redacted] ([cloud detail redacted], 1500 GB [cloud detail redacted], **Unattached**): holds 100T canonical `solutions.bin` (sha `915abf30…`, 102 GB) at the root; also holds the archived d2 10T and d3 10T validation artifacts at `/data/archive/[cloud detail redacted]/{d2,d3}/` (~540 GB compressed, 57,752 gzip-verified `.gz` shards + supporting metadata, integrity-re-verified 2026-04-21). **Primary scientific reference — never delete.**
+  - [cloud detail redacted] ([cloud detail redacted], 300 GB [cloud detail redacted], **Unattached**): stale partial shards from pre-100T runs; held pending decommission decision per user's "investigate later" directive.
+  - ~~[cloud detail redacted]~~, ~~[cloud detail redacted]~~ ([cloud detail redacted], formerly 300 GB each): **deleted 2026-04-21** after user authorization — contents migrated to [cloud detail redacted] archive path, sha-manifest-verified pre-delete, gzip-integrity-re-verified post-delete (see §"April 21, 2026 evening — Archive integrity incident and remediation").
+  - [cloud detail redacted] temp disks for external merges: ephemeral, provisioned/destroyed per merge.
 - **Atomic file writes** in solve.c (write to .tmp, fsync, rename). Prevents mid-eviction corruption.
 - **Rotating checkpoints**: 3 copies maintained locally.
 - **All run outputs archived** in `runs/<YYYYMMDD>_<description>/` with README.md + sha256 verification. Most recent: `20260420_singlebranch1T_d32westus3/` (32×1T Recon).
@@ -2769,7 +2769,7 @@ gives the operator-relevant K.
 
 After landing the C5 prune (commit `bf58c65`), ran a v2 100B
 verification before stacking #70 on top. Same recipe as v1's 100B
-canonical (D64als_v7 Spot westus3, 64 threads, `SOLVE_NODE_LIMIT=10^11`,
+canonical ([cloud detail redacted] Spot [cloud detail redacted], 64 threads, `SOLVE_NODE_LIMIT=10^11`,
 default depth-2, canonical LTO build) but on v2-bundled HEAD `bf58c65`
 with C5 always-on.
 
@@ -2778,7 +2778,7 @@ with C5 always-on.
 | v2 100B sha | `de28fea6e4b2a902767ca44a53f1ffd552d0286b8ca2375ef79b04fe6c159ec8` |
 | v2 100B records | 25,318,023 |
 | v2 100B `solve --verify` | PASS (all 25,318,023 records satisfy C1-C5, sorted, no duplicates, King Wen present) ⚠ **[CORRECTED 2026-09-07 — this row's PASS cell lists King Wen's presence among the things `solve --verify` checked. `--verify` REPORTS King Wen; it does not gate on it.** In `solve.c`, `kw_found_v` reaches the reader through two unconditional `printf`s — the `King Wen found:` line and the whole-line `KW_PRESENT=YES\|NO` — while `fail_kw` is set only inside the `if (g_expect_kw && !kw_found_v)` guard and is the last term summed into `total_fail`. So on a default `--verify` an artifact with the King Wen record deleted returns `VERIFY=PASS`, rc 0 (measured 2026-09-02; cited by symbol rather than line number, re-verified against this tree 2026-09-07, because `solve.c` line numbers drift). **The observation stands — King Wen was present in this run's output** — but it is a fact the run reported, not a criterion it gated on, and the opt-in `--expect-kw` that does make absence a FAIL shipped 2026-09-04, so this run's binary had no code path by which King Wen could have moved the verdict. Default enforcement was **deliberately** retracted 2026-09-02 (registry `RP-60347080`), because a shard or a budgeted slice legitimately lacks the record and gating on absence would be a false reject; `tests.py`'s `TestSolveVerifyKingWenScope` pins the reported-not-enforced contract with a mutation test. Same class and date as the 560 T campaign entry below in this file and as [CANONICAL_HASHES.md](CANONICAL_HASHES.md)'s 560 T witness row. No sha, record count or verdict changes.]** |
-| Wall time | 168 s (D64 Spot westus3, single attempt) |
+| Wall time | 168 s ([cloud detail redacted] Spot [cloud detail redacted], single attempt) |
 | Cost | ~[cost redacted] |
 
 **For comparison, v1 100B (per HISTORY.md "100B intermediate
@@ -2807,7 +2807,7 @@ between session-end on 2026-05-15 and the [storage detail redacted]
 on 2026-05-16. The v1 100B sha `f1709ab0…` is recorded in
 `CANONICAL_HASHES.md` and HISTORY.md but the underlying
 `solutions.bin` is not currently retrievable from [storage detail redacted].
-Re-derivation cost ~[cost redacted] on D64 Spot, deferred to a separate
+Re-derivation cost ~[cost redacted] on [cloud detail redacted] Spot, deferred to a separate
 cleanup task; v1 100B sha can be re-confirmed by re-running v1
 binary with the same recipe at any time.
 
@@ -2826,7 +2826,7 @@ holds `v2_100b_solutions.bin` (810 MB) and `v2_100b_solve.log`.
 
 Resolved the documentation discrepancy noted above: re-derived v1 100B
 from main HEAD `3258f4c` with the canonical LTO recipe on a fresh
-D64als_v7 Spot host. Sha **reproduced byte-identically**:
+[cloud detail redacted] Spot host. Sha **reproduced byte-identically**:
 
 | | Value |
 |---|---|
@@ -2836,7 +2836,7 @@ D64als_v7 Spot host. Sha **reproduced byte-identically**:
 | Records | 12,386,121 |
 | `solve --verify` | PASS |
 | File size | 396,355,904 bytes |
-| Re-derivation wall | 114 s (D64 Spot westus3) |
+| Re-derivation wall | 114 s ([cloud detail redacted] Spot [cloud detail redacted]) |
 | Cost | ~[cost redacted] |
 
 Uploaded to [storage detail redacted] (the prior session's silent-failure
@@ -2873,7 +2873,7 @@ to #70 implementation on the v2-bundled branch.
 
 Shipped commit `438d297` based on the design doc estimate that #71
 would contribute 1.2-1.5× speedup compounded with #67/#68/#69. A 1T
-paired enum-only bench on Standard on-demand D128als_v7 (operator
+paired enum-only bench on Standard [cost detail redacted] [cloud detail redacted] (operator
 choice to avoid Spot eviction noise; matches v6d/v8 methodology)
 showed the OPPOSITE direction:
 
@@ -2928,7 +2928,7 @@ was negative: with C5+#67+#70 already in place, #71 adds cost without
 saving meaningful work.
 
 Cost of the bench-and-revert cycle: ~[cost redacted] (2 pairs × [cost redacted] each on
-D128 Standard on-demand) + ~[cost redacted] archive upload. Net learnings:
+[cloud detail redacted] Standard [cost detail redacted]) + ~[cost redacted] archive upload. Net learnings:
 (a) C5+#67+#70 sufficiently aggressive that one-step lookahead has
 no headroom to contribute; (b) design-doc speedup estimates need
 empirical validation before shipping. Saved ~[cost redacted] by aborting at
@@ -2964,8 +2964,8 @@ bytes in [storage detail redacted]; the sha itself stands.**
 | Solver | v2-bundled `9d00c48` (C5 + mid-walk C3 + C3 optimistic-completion) |
 | Build sha (solve binary) | `dbde04b0adf22b8d8e7044a5597c49238683dbaf3943539c2fdd753ae47df0c4` |
 | Params | `SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=11200000000000 SOLVE_PER_SUB_BRANCH_LIMIT=70723196 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=128` |
-| Enum wall | 14,027s (3h 54min) on D128als_v7 Spot |
-| Merge wall | 3,018s (50min 18sec) on D16als_v7 Standard + Premium SSD |
+| Enum wall | 14,027s (3h 54min) on [cloud detail redacted] Spot |
+| Merge wall | 3,018s (50min 18sec) on [cloud detail redacted] Standard + [cloud detail redacted] |
 
 **Records comparison vs v1 11.2T canonical `0c0fe37c…`:**
 
@@ -3024,7 +3024,7 @@ open via `fd 255`; the rename made bash's fd point to a
 reading from the deleted file. My edits were on disk but
 invisible to the live pipeline. Caught by `/proc/<pid>/fd/255 ->
 ... (deleted)`. Killed the pipeline (~50 min of enum + ~[cost redacted] of
-Spot D128 lost) and restarted with the fixed script in place.
+Spot [cloud detail redacted] lost) and restarted with the fixed script in place.
 **Future rule (recorded in MEMORY.md):** never use `Edit`/`Write`
 on a running script; use Python `open('w').write(...)` or shell
 redirect `> file` — both truncate the existing inode rather than
@@ -3039,20 +3039,20 @@ script's final step — upload `solutions.bin.gz` directly from the
 merge VM to [storage detail redacted] — used
 `curl -X PUT --data-binary @solutions.bin.gz`. **`--data-binary @file`
 loads the entire file into curl's memory buffer**; curl OOMed at
-2.93 GB on the 32 GB D16 VM with the error `curl: option
+2.93 GB on the 32 GB [cloud detail redacted] VM with the error `curl: option
 --data-binary: out of memory`. The script's "uploaded" log line
 was a literal `emit` that did not check curl's exit code — silent
 failure. The script proceeded to tear down the merge VM, deleting
 the only copy of `solutions.bin.gz`.
 
 **Design oversight that made the failure unrecoverable.** The
-merge VM was provisioned with only its (Premium SSD) OS disk for
-all storage. `solver-data-westus3` — the unattached managed disk
+merge VM was provisioned with only its ([cloud detail redacted]) OS disk for
+all storage. [cloud detail redacted] — the unattached managed disk
 that exists specifically as the durable-output safety net per the
 standing pattern — was never attached. Per CLAUDE.md, "Data
-disks like `solver-data-westus3` are NEVER deleted by Claude.
+disks like [cloud detail redacted] are NEVER deleted by Claude.
 Detach before VM delete." If the script had written
-`solutions.bin` + `solutions.bin.gz` to `/mnt/solver-data/`
+`solutions.bin` + `solutions.bin.gz` to `/mnt/[cloud detail redacted]/`
 (attached) and detached cleanly before teardown, the bytes would
 have survived the merge VM deletion. They did not, because the
 script did not attach the disk. **My error.**
@@ -3068,8 +3068,8 @@ script did not attach the disk. **My error.**
 - The 2.93 GB `solutions.bin.gz` itself, recoverable only by re-running the pipeline.
 
 **Total cost of attempt 1 (both runs combined):** ~[cost redacted]
-(D128 Spot enum first attempt [cost redacted] + D128 Spot enum second
-attempt [cost redacted] + D16 Standard merge [cost redacted] + Premium SSD [cost redacted]).
+([cloud detail redacted] Spot enum first attempt [cost redacted] + [cloud detail redacted] Spot enum second
+attempt [cost redacted] + [cloud detail redacted] Standard merge [cost redacted] + [cloud detail redacted] [cost redacted]).
 Per CLAUDE.md the sha256 is the reproducibility anchor — the
 canonical sha is preserved and reproducible by anyone with
 v2-bundled and the documented params. But the operator's explicit
@@ -3079,8 +3079,8 @@ ask was to put the bytes in [storage detail redacted]; that part failed.
 full pipeline (~[cost redacted], ~5h) with three concrete fixes:
 1. **Use `curl -T file <url>`** (streaming PUT) instead of
    `--data-binary @file` (in-memory PUT)
-2. **Attach `solver-data-westus3` to the merge VM**, mount via
-   `safe_disk_setup.sh`'s `mount_new_disk 256 /mnt/solver-data`
+2. **Attach [cloud detail redacted] to the merge VM**, mount via
+   `safe_disk_setup.sh`'s `mount_new_disk 256 /mnt/[cloud detail redacted]`
    (the disk was wiped 2026-05-06 and has no filesystem), write
    `solutions.bin` + `solutions.bin.gz` there, detach before VM
    teardown
@@ -3102,7 +3102,7 @@ through attempt 3: ~[cost redacted] (3 × [cost redacted] enum + small merge fra
 The headline lesson: **I patched each failure mode individually
 rather than stepping back to redesign for safety after attempt 1's
 loss.** The right move after attempt 1 — write shards to
-`solver-data-westus3` from the enum VM, premium SSD only for merge
+[cloud detail redacted] from the enum VM, [cloud detail redacted] only for merge
 temp per the standing pattern (`feedback_premium_ssd_for_merges`) —
 would have made every subsequent failure recoverable. I didn't make
 that move.
@@ -3110,11 +3110,11 @@ that move.
 **Attempt 2 — `az vm disk attach --ids` syntax error
 (2026-05-17 ~03:23Z → ~07:30Z).** Re-ran with two fixes: streaming
 `curl -T` (not `--data-binary @file`) for the upload, and
-`solver-data-westus3` attached as a data-disk safety net. Enum
+[cloud detail redacted] attached as a data-disk safety net. Enum
 completed clean (4h 03min, 14608s wall). Phase 2 started:
-`az vm disk attach -g $RG_MERGE --vm-name $VM_MERGE --name solver-data-westus3 --ids "$DISK_ID"`
+`az vm disk attach -g $RG_MERGE --vm-name $VM_MERGE --name [cloud detail redacted] --ids "$DISK_ID"`
 returned `ResourceNotFound`: Azure CLI parsed `--ids` as the VM
-identifier and looked up the VM under `RG-CLAUDE` (the disk's RG),
+identifier and looked up the VM under [cloud detail redacted] (the disk's RG),
 not `$RG_MERGE`. The correct syntax for cross-RG disk attach is
 `--disk "$DISK_ID"`. The ERR trap fired and — because the trap
 called both `teardown_enum` and `teardown_merge` — the enum VM
@@ -3127,13 +3127,13 @@ to an already-deleted RG.
 **Attempt 3 — `mount_new_disk` rejected existing ext4
 (2026-05-17 ~07:34Z → ~11:45Z).** Re-ran with three fixes: corrected
 `--disk` syntax, `exit 1` in the trap (no more cascade), and the
-`safe_disk_setup.sh` helper to mount `solver-data-westus3`. Enum
+`safe_disk_setup.sh` helper to mount [cloud detail redacted]. Enum
 again completed clean (4h 07min, 14857s wall). Phase 2 started:
 disk attach worked. Then `source safe_disk_setup.sh;
-mount_new_disk 256 /mnt/solver-data` failed with
+mount_new_disk 256 /mnt/[cloud detail redacted]` failed with
 `expected exactly 1 empty 256GB disk; found 0`. The helper's
 `new_disk_by_size` requires `FSTYPE=""` (empty filesystem) — but
-`solver-data-westus3` has an empty ext4 filesystem on it from the
+[cloud detail redacted] has an empty ext4 filesystem on it from the
 2026-05-06 mkfs incident (re-populated since with operator data,
 unbeknownst to me). Trap fired again, and even though it no longer
 called `teardown_enum`, the trap definition at that time still
@@ -3143,13 +3143,13 @@ attempt-3 failure event — too late for attempt 3.** ~[cost redacted] of enum
 work and 4 hours wall, gone.
 
 **Lesson belatedly applied — verify before depending.** Before
-attempt 4, I provisioned a [cost redacted] D2 test VM, attached
-`solver-data-westus3`, and ran the mount logic on the actual disk.
+attempt 4, I provisioned a [cost redacted] [cloud detail redacted] test VM, attached
+[cloud detail redacted], and ran the mount logic on the actual disk.
 This caught two things:
 1. The `--disk` flag works and emits only a deprecation warning
    (not an error) — confirms attempts 2-3 had specifically the
    wrong syntax form, not a permissions/quota issue
-2. **`solver-data-westus3` has 120 GB of operator data on it** —
+2. **[cloud detail redacted] has 120 GB of operator data on it** —
    `canonical_100T/`, `canonical_runs/`, recovery scripts from
    May 6-14. It was wiped on 2026-05-06 but re-populated since.
    My memory entry (`INCIDENT_2026_05_06_SOLVER_DATA_WIPED.md`)
@@ -3159,13 +3159,13 @@ The right design for attempt 4 (in flight at this writing):
 
 | Risk | Mitigation |
 |---|---|
-| Disk-attach syntax | Tested working on D2 + real disk before attempt 4 launch |
+| Disk-attach syntax | Tested working on [cloud detail redacted] + real disk before attempt 4 launch |
 | Mount of existing ext4 | Custom inline mount logic — `mkfs.ext4 -q` ONLY if `FSTYPE=""`, else `mount` an existing ext4 directly; never `mkfs -F` |
-| Overwriting operator data | Writes go to `/mnt/solver-data/$ARCHIVE_PREFIX/` subdirectory, never top-level |
+| Overwriting operator data | Writes go to `/mnt/[cloud detail redacted]/$ARCHIVE_PREFIX/` subdirectory, never top-level |
 | Trap kills enum VM on Phase 2 error | Trap removed `teardown_enum`; enum VM survives Phase 2 failure → SSH in, save shards, fix bug, re-run Phase 2 only (~[cost redacted] cost instead of another [cost redacted] enum) |
 | Spot eviction during enum | Eviction policy `Deallocate` + `SOLVE_DFS_CHECKPOINT=1` → OS disk preserved on evict, 21k+ `.dfs_state` files allow resume; eviction monitor armed to detect + recover |
 | Upload failure | `curl -T` streaming (verified via 100B test path), HTTP 201 hard-check, abort + preserve managed-disk copy on failure |
-| Triple storage redundancy | `/mnt/solver-data/$ARCHIVE_PREFIX/` + [storage detail redacted] + claude `/tmp` fallback (2.93GB fits in 4.6GB free) |
+| Triple storage redundancy | `/mnt/[cloud detail redacted]/$ARCHIVE_PREFIX/` + [storage detail redacted] + claude `/tmp` fallback (2.93GB fits in 4.6GB free) |
 
 **Why this took so many attempts (honest):** v2 11.2T should have
 been a 5-hour re-run on the first try. It became four-plus attempts
@@ -3176,7 +3176,7 @@ standing-pattern entries in my MEMORY.md
 (`feedback_premium_ssd_for_merges`, `feedback_preserve_assets`,
 `feedback_keep_managed_disk`) describe the architecture that would
 have made every failure non-destructive — durable storage of shards
-from the start, premium SSD as ephemeral scratch only, never
+from the start, [cloud detail redacted] as ephemeral scratch only, never
 auto-teardown of the enum VM. I had the knowledge, but did not
 apply it. The cumulative ~[cost redacted] cost of this saga is the price of
 that discipline gap, paid by the operator.
@@ -3191,7 +3191,7 @@ storage paths**:
 
 | Storage path | Location | Size |
 |---|---|---|
-| Managed disk (durable) | `solver-data-westus3:/20260516_v2bundled_11.2T_buildA_9d00c48/` | 25 GB bin + 2.93 GB gz + manifest + sha files |
+| Managed disk (durable) | `[cloud detail redacted]:/20260516_v2bundled_11.2T_buildA_9d00c48/` | 25 GB bin + 2.93 GB gz + manifest + sha files |
 | [storage detail redacted] | [storage detail redacted] | Same (2.93 GB gz uploaded via streaming `curl -T`, HTTP 201 verified) |
 | Claude `/tmp` fallback | `/tmp/v2_11.2T_results/solutions.bin.gz` | 2.93 GB gz, sha verified `4f1cd8b3…` |
 
@@ -3215,17 +3215,17 @@ Per the runbook, this was the recovery path:
 2. Write a Phase-2-only script with the FIXED mount logic
    (sidestep escaping by uploading the mount script as a separate
    file to the merge VM, no nested-shell quoting hell)
-3. Pre-flight [cost redacted] D2 test of the disk-attach + mount before
+3. Pre-flight [cost redacted] [cloud detail redacted] test of the disk-attach + mount before
    committing to a fresh merge VM
-4. Run Phase 2 only: provision new merge VM, attach solver-data,
+4. Run Phase 2 only: provision new merge VM, attach [cloud detail redacted],
    mount, rsync from enum (10 min), tear down enum, merge (50 min),
-   verify, save outputs to `/mnt/solver-data/$ARCHIVE_PREFIX/`,
+   verify, save outputs to `/mnt/[cloud detail redacted]/$ARCHIVE_PREFIX/`,
    upload to [storage detail redacted], pull to claude fallback, detach disk,
    tear down merge
 
 Wall: rsync 598s + merge 2968s + post-merge ~24min = ~1.5h
-recovery (vs ~5h full re-enum). Cost: ~[cost redacted] recovery (D16 Standard
-on Premium SSD OS disk for ~1.5h).
+recovery (vs ~5h full re-enum). Cost: ~[cost redacted] recovery ([cloud detail redacted] Standard
+on [cloud detail redacted] OS disk for ~1.5h).
 
 **Records comparison vs v1 11.2T canonical `0c0fe37c…`:**
 
@@ -3241,7 +3241,7 @@ on Premium SSD OS disk for ~1.5h).
 **What broke each time (for completeness):**
 1. Attempt 1: produced sha + verify, but `curl --data-binary @file` OOMed at 2.93 GB → bytes lost
 2. Attempt 2: `az vm disk attach --ids` wrong syntax (should be `--disk`) → trap torn down enum
-3. Attempt 3: `mount_new_disk` rejects existing ext4 on solver-data → trap torn down enum
+3. Attempt 3: `mount_new_disk` rejects existing ext4 on [cloud detail redacted] → trap torn down enum
 4. Attempt 4 (Phase 2 only with surviving enum): awk script broken by unescaped `"/dev/"` in outer-SSH heredoc → trap PRESERVED enum (fix worked) → Phase 2 recovery succeeded
 
 **Pipeline architecture lessons captured for future canonicals:**
@@ -3273,7 +3273,7 @@ Three pieces shipped together:
 
 - `documentation/PERFORMANCE_HISTORY.md` (the log itself)
 - `scripts/perf_bench.sh` (standardized paired-bench harness — single
-  D128 Spot, page-cache flush between paired runs, enum-only wall
+  [cloud detail redacted] Spot, page-cache flush between paired runs, enum-only wall
   separated from merge wall, multi-scale 1B / 1T / 11.2T selectable)
 - Process gate in `CLAUDE.md` and `DEVELOPMENT.md` requiring any
   commit modifying solve.c hot paths to add an entry before ship
@@ -3286,13 +3286,13 @@ placeholders.
 **2. PGO sha-preservation pilot — three runs, the v3 rerun is
 definitive (task #78).** Multi-scale validation:
 
-- 1B-node smoke test (D8als_v7 Spot): byte-identical sha between
+- 1B-node smoke test ([cloud detail redacted] Spot): byte-identical sha between
   control and PGO build at `3e6d1060…`, ~4% wall (warmup-noisy)
-- 1T retry (D128als_v7 Spot, 64 GB OS disk): hit disk-pressure race
+- 1T retry ([cloud detail redacted] Spot, 64 GB OS disk): hit disk-pressure race
   during Build C merge; Build C sha lost to teardown timing. Reported
   +4.8% wall but with methodology caveats (no preflight throttle
   probe, asymmetric-throttle concern un-rule-out-able)
-- 1T v3 rerun (D128als_v7 Spot, 128 GB OS disk, **preflight probe min
+- 1T v3 rerun ([cloud detail redacted] Spot, 128 GB OS disk, **preflight probe min
   3868 MHz ≥ 3664 threshold = healthy-host gate**, external-mode
   merge, wait-for-solutions.bin discipline): **+6.5% enum-only
   speedup (1067s → 997s), byte-identical sha at 1T (`f3a3e68c…`),
@@ -3380,7 +3380,7 @@ Validation:
   observable change at single-shot scale)
 - `./solve --selftest-resume`: PASS, resume sha `1f6a3b4a…` =
   single-shot sha (was the failing test, now passes)
-- **1B-scale stress test** (D8als_v7 Spot, ~[cost redacted], 8 min wall):
+- **1B-scale stress test** ([cloud detail redacted] Spot, ~[cost redacted], 8 min wall):
   BASELINE 1B single-shot vs PHASE_A 500M (writes 2,824 `.dfs_state`
   checkpoints across full depth-3 partition of `--branch 24 0`) +
   PHASE_B 1B (resumes from all 2,824 checkpoints). Both produced
@@ -3415,7 +3415,7 @@ commits to private roae-private. All pushed.
 ## May 18, 2026 PDT — #69 MRV K-pilot SHELVED + branch cleanup (avx512 → v2-bundled cherry-picks)
 
 **#69 MRV variable-ordering K-pilot — SHELVED.** Four scales
-(1B / 10B / 100B / 1T) on D8 + D128 Spot, paired numeric vs fail-first
+(1B / 10B / 100B / 1T) on [cloud detail redacted] + [cloud detail redacted] Spot, paired numeric vs fail-first
 runs with page-cache flush and canonical-level set-intersection diff
 via `byte & 0xFC` mask. Results:
 
@@ -3458,8 +3458,8 @@ on `v2-bundled`:
 
 Both are diagnostic-only (no enumeration; sha-preserving), and
 both support the `--cpu-freq` pre-flight probe — required by the
-"D128 paired-bench preflight throttle probe" operator-memory rule
-established 2026-05-16 after a D128als_v7 host handed back ~600 MHz
+"[cloud detail redacted] paired-bench preflight throttle probe" operator-memory rule
+established 2026-05-16 after a [cloud detail redacted] host handed back ~600 MHz
 cores instead of the expected 2596/3700 MHz. The
 `--cpu-freq` subcommand is the in-binary mid-bench companion: a
 bench harness can call it between phases to detect throttling that
@@ -3498,8 +3498,8 @@ their natural commits on the v2-bundled lineage:
 - `v1_C5_C3` (9f4b630) — v1 + #68 + #67
 - `v1_C5_C3_C3opt` (7b5ff6d) — v1 + #68 + #67 + #70 = current v2
 
-Each variant ran at four scales: 100M (claude local), 1B + 10B (D8
-Spot), 100B (D128 Spot with throttle preflight HEALTHY 3048 MHz min).
+Each variant ran at four scales: 100M (claude local), 1B + 10B ([cloud detail redacted]
+Spot), 100B ([cloud detail redacted] Spot with throttle preflight HEALTHY 3048 MHz min).
 Workload: full enumeration, default depth-2, page-cache flush between
 variants. Same scenario as `--selftest`, just scaled up. Captured
 record count, sha256, canonical-level sha (byte & 0xFC mask), and
@@ -3549,7 +3549,7 @@ own predicate's natural exhaustion at canonical scale. The crossover
 budget sits between 100B and 11.2T; we didn't measure intermediate
 points because the v1_C5_C3_C3opt variant's single-threaded in-memory
 merge at 70M+ pre-dedup records bottlenecked the schedule. The 1T
-phase of the D128 sweep was pre-emptively killed to free schedule;
+phase of the [cloud detail redacted] sweep was pre-emptively killed to free schedule;
 the 4-scale data already establishes the convergence trajectory
 decisively.
 
@@ -3618,8 +3618,8 @@ flush between every iter. Results:
 
 | Scale / Host | THP=always median | THP=never median | Δ |
 |---|---|---|---|
-| D8 Spot, 1B nodes (small) | 56.4s | 43.8s | THP=never is 22% **faster** |
-| D128 Spot, 100B nodes (canonical-equivalent) | 215s | 263s | THP=always is 22% **faster** |
+| [cloud detail redacted] Spot, 1B nodes (small) | 56.4s | 43.8s | THP=never is 22% **faster** |
+| [cloud detail redacted] Spot, 100B nodes (canonical-equivalent) | 215s | 263s | THP=always is 22% **faster** |
 
 The result reverses across scales. At small workload (4 GB total
 hash on 8 cores, 16 GB host RAM), THP allocation triggers
@@ -3632,7 +3632,7 @@ is correct for v2-bundled canonical builds.** No engineering change
 required — the existing default is already right.
 
 Lesson worth banking: **always measure perf knobs at
-canonical-relevant scale.** A D8-only measurement would have led to
+canonical-relevant scale.** A [cloud detail redacted]-only measurement would have led to
 the WRONG operational decision (turn off THP for canonical, costing
 +22% wall). The PERFORMANCE_HISTORY.md entry documents this so a
 future hand-tuning attempt doesn't regress.
@@ -3644,7 +3644,7 @@ sha `fe98e58a…` at 1B matches the 1B v2 isolation point). Total cost
 
 ### #47 jemalloc — null result, no dependency added
 
-Same paired-alternated pattern: D128 Spot, 100B paired, alternated
+Same paired-alternated pattern: [cloud detail redacted] Spot, 100B paired, alternated
 stock-vs-jemalloc, 3 iters per condition, page-cache flush between.
 jemalloc via `LD_PRELOAD=libjemalloc.so.2`; stock via unmodified
 launch.
@@ -3682,7 +3682,7 @@ Total cost [cost redacted], ~25 min wall.
 | AVX-512 (#46) | CLOSED (null, 2026-05-16) | 0% |
 | Huge pages | DONE (2026-05-19, default validated) | 0% (no change) |
 | jemalloc | DONE (2026-05-19, null, no dep) | 0% |
-| NUMA-local | Open (likely no-op on single-socket D128) | TBD |
+| NUMA-local | Open (likely no-op on single-socket [cloud detail redacted]) | TBD |
 
 Only NUMA-local remains in #47. Cumulative engineered speedup banked
 since v1 baseline: ~+9.2% sha-preserving at canonical (LTO + PGO);
@@ -3693,10 +3693,10 @@ all other CPU-bundle items contributed zero engineered gain.
 Source-level investigation in 2026-05-04 had identified Hypothesis I
 (orphan `sub_*.bin.tmp` from failed atomic renames during eviction)
 as the most likely cause of the original "2.99B raw vs 759M unique"
-symptom. The empirical follow-up — mount solver-data-westus3 and
+symptom. The empirical follow-up — mount [cloud detail redacted] and
 count orphan tmps — was deferred to "next time it's mounted."
 
-Mounted today: solver-data-westus3 holds **zero `sub_*.bin.tmp`
+Mounted today: [cloud detail redacted] holds **zero `sub_*.bin.tmp`
 orphans AND zero `sub_*.bin` proper shards**. The disk holds
 post-merge artifacts only — raw shards from each campaign were
 cleaned up at campaign-end (standard pattern: shards are huge, the
@@ -3727,7 +3727,7 @@ recommendation: if a future campaign shows >2× raw-records vs
 expected, instrument the per-cell logging proposed in the 2026-05-04
 design doc. Not blocking.
 
-Cost: [cost redacted] (D2 Spot, 3 min wall).
+Cost: [cost redacted] ([cloud detail redacted] Spot, 3 min wall).
 
 ### Cumulative state after this batch
 
@@ -3753,13 +3753,13 @@ Two final items in the extended-session-day, both null/dead-end results, both us
 
 ### #47 NUMA-local — null
 
-D128als_v7 was discovered to expose **2 NUMA nodes** under Ubuntu
+[cloud detail redacted] was discovered to expose **2 NUMA nodes** under Ubuntu
 24.04 (not the single-node topology originally hypothesized): 64
 cores + 128 GB on each node, distance ratio 10/11. The
 NUMA-aware-allocation test was therefore not the structural no-op
 expected — it was a genuine empirical question.
 
-Paired bench at D128 100B (3 iters each, alternated d-i-d-i-d-i):
+Paired bench at [cloud detail redacted] 100B (3 iters each, alternated d-i-d-i-d-i):
 
 | Mode | median ms | range |
 |---|---:|---:|
@@ -3778,7 +3778,7 @@ evenly across 64+64 cores, the default policy already achieves
 balanced ~64 GB per node, which is exactly what `--interleave=all`
 would force. No further work needed.
 
-Cost: ~[cost redacted] D128 Spot. Closes #47 fully.
+Cost: ~[cost redacted] [cloud detail redacted] Spot. Closes #47 fully.
 
 ### #47 final accounting
 
@@ -3884,7 +3884,7 @@ Implemented two analysis-only subcommands in solve.c and ran them across the ful
 
 Both subcommands sha-preserving (post-enumeration only). Both above the 30% restriction threshold suggested in the audit plan; both flagged for operator review before being promoted to spec as candidate C-rules.
 
-Detailed audit + decision criteria in `roae-private/MCKENNA_SPEC_AUDIT_AND_KPILOTS_2026_05_19.md` (private). Cost: ~[cost redacted] D2 Spot, ~7 min wall.
+Detailed audit + decision criteria in `roae-private/MCKENNA_SPEC_AUDIT_AND_KPILOTS_2026_05_19.md` (private). Cost: ~[cost redacted] [cloud detail redacted] Spot, ~7 min wall.
 
 The two new subcommands documented in `documentation/SOLVE_C_CLI.md` under `--verify-rule2` and `--verify-9th-six`.
 
@@ -3908,47 +3908,47 @@ After the K-pilot data landed (`solve --verify-rule2` and `--verify-9th-six` on 
 
 In preparation for the v2-bundled → main merge (see `roae-private/V2_MERGE_AUDIT_PACKET_2026_05_19.md`), the v2 11.2T canonical needed an ARM Cobalt cross-architecture witness — Gate G2 in the merge audit packet. (Gate G1, x86 same-SKU cross-build, was deliberately skipped per operator decision after the determinism evidence from selftest stability + attempt 1↔4 merge equality.)
 
-**Pre-flight (PASS).** D2ps_v6 Spot in westus2 ([cost redacted], ~10min): cloned v2-bundled @ `9d00c48`, built on stock gcc 13.3.0 ARM with `-O3 -pthread -fopenmp -mcpu=native`, ran `--selftest`. Selftest sha `56487ab581f13497a1725b5cc069c65f450ab3b29a0ef6a00360452ccded6edc` byte-identical to the x86 v2-bundled baseline. Strongest possible pre-canonical signal that the cross-arch enum would produce a matching `solutions.bin` sha. Pre-flight VM cleanly torn down.
+**Pre-flight (PASS).** [cloud detail redacted] Spot in [cloud detail redacted] ([cost redacted], ~10min): cloned v2-bundled @ `9d00c48`, built on stock gcc 13.3.0 ARM with `-O3 -pthread -fopenmp -mcpu=native`, ran `--selftest`. Selftest sha `56487ab581f13497a1725b5cc069c65f450ab3b29a0ef6a00360452ccded6edc` byte-identical to the x86 v2-bundled baseline. Strongest possible pre-canonical signal that the cross-arch enum would produce a matching `solutions.bin` sha. Pre-flight VM cleanly torn down.
 
-**Main attempt.** D96ps_v6 Spot in westus3 (96-core ARM Neoverse-N2, 384 GB RAM), `solver-data-westus3` attached. Launched 05:31 UTC with `SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=11200000000000 SOLVE_PER_SUB_BRANCH_LIMIT=70723196 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=96`, bundled enum+merge (matching v1 ARM precedent). Working directory `/mnt/solver-data/20260520_v2bundled_11.2T_armB_9d00c48/`. ARM binary sha `c435e8af5f2fcc92d07fae4eb16b10019d2efa8af566bbebdfad13293ffc1abf` (different from x86 binary, expected — different machine code, same algorithm).
+**Main attempt.** [cloud detail redacted] Spot in [cloud detail redacted] (96-core ARM Neoverse-N2, 384 GB RAM), [cloud detail redacted] attached. Launched 05:31 UTC with `SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=11200000000000 SOLVE_PER_SUB_BRANCH_LIMIT=70723196 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=96`, bundled enum+merge (matching v1 ARM precedent). Working directory `/mnt/[cloud detail redacted]/20260520_v2bundled_11.2T_armB_9d00c48/`. ARM binary sha `c435e8af5f2fcc92d07fae4eb16b10019d2efa8af566bbebdfad13293ffc1abf` (different from x86 binary, expected — different machine code, same algorithm).
 
-**Mid-run disk discovery.** At ~13min wall, observed solver-data-westus3 free space at 81 GB. With existing 170 GB of v2 Build A canonical + prior session content, the disk would have filled at ~93% enum completion. Executed online resize 256→512 GB via `az disk update --size-gb 512` while enum ran; `resize2fs /dev/sda` extended ext4 online to 503 GB total. v2 Build A canonical sha (`2cc966e4…`) verified intact pre- and post-resize. Enum continued without restart.
+**Mid-run disk discovery.** At ~13min wall, observed [cloud detail redacted] free space at 81 GB. With existing 170 GB of v2 Build A canonical + prior session content, the disk would have filled at ~93% enum completion. Executed online resize 256→512 GB via `az disk update --size-gb 512` while enum ran; `resize2fs /dev/sda` extended ext4 online to 503 GB total. v2 Build A canonical sha (`2cc966e4…`) verified intact pre- and post-resize. Enum continued without restart.
 
 **Failure mode.** At 09:33:39 UTC (4h03m wall), VM-side watchdog fired `HARD KILL: runtime exceeded 4h` — the watchdog's 4h cutoff (`$ELAPSED > 14400`) was sized from the v1 ARM 10T precedent (1h17m) without accounting for v2's ~3× per-node prune-stack overhead. The real v2 ARM 11.2T enum time is ~4h22m. The watchdog killed the run minutes before its expected completion.
 
 State at kill: 144,435 sub-branches BUDGETED + 96 INTERRUPTED (in-flight when SIGTERM arrived) = 91.3% complete, 13,833 sub-branches not yet started. 52,367 shard files on disk. solve responded to SIGTERM by forking a merge subprocess (Test A 2026-04-30 heap-isolation pattern), then exited. The forked merge subprocess subsequently exited without producing `solutions.bin` (cause not definitively determined — no OOM signature in dmesg; likely cleaned up by the watchdog's secondary `kill -KILL` after the 30s SIGTERM grace, OR was the merge's own internal teardown).
 
-**Why not resume.** v2 has true mid-walk resume (per #92 fix), and the .dfs_state checkpoints + 52,367 shards were preserved on solver-data. Resuming would have taken ~70min to complete the remaining 13,833 sub-branches + merge. Decision: **resume rejected to preserve G2's test validity.** Project history has multiple canonical-scale resume bug incidents (#57 inflation, #76 SIGTERM post-write, #91→#92 mw_delta). If the resumed enum produced a sha ≠ `2cc966e4…`, the divergence could not be cleanly attributed to "ARM cross-arch bug" (G2's actual question) vs "latent v2 resume bug." Cross-arch determinism requires a clean fresh enum.
+**Why not resume.** v2 has true mid-walk resume (per #92 fix), and the .dfs_state checkpoints + 52,367 shards were preserved on [cloud detail redacted]. Resuming would have taken ~70min to complete the remaining 13,833 sub-branches + merge. Decision: **resume rejected to preserve G2's test validity.** Project history has multiple canonical-scale resume bug incidents (#57 inflation, #76 SIGTERM post-write, #91→#92 mw_delta). If the resumed enum produced a sha ≠ `2cc966e4…`, the divergence could not be cleanly attributed to "ARM cross-arch bug" (G2's actual question) vs "latent v2 resume bug." Cross-arch determinism requires a clean fresh enum.
 
-**Teardown.** VM + NIC + PublicIP + OS disk deleted 09:47 UTC. solver-data-westus3 preserved with G2 partial artifacts and a postmortem at `/mnt/solver-data/20260520_v2bundled_11.2T_armB_9d00c48/G2_FAILURE_POSTMORTEM.txt`. Cost: ~[cost redacted] (4h on D96ps_v6 Spot ARM).
+**Teardown.** VM + NIC + PublicIP + OS disk deleted 09:47 UTC. [cloud detail redacted] preserved with G2 partial artifacts and a postmortem at `/mnt/[cloud detail redacted]/20260520_v2bundled_11.2T_armB_9d00c48/G2_FAILURE_POSTMORTEM.txt`. Cost: ~[cost redacted] (4h on [cloud detail redacted] Spot ARM).
 
 **Lessons.**
 
 1. **Watchdog sizing for canonical runs**: hard time-cutoffs sized from older / weaker-prune-stack runs are dangerous. Rule of thumb: `enum-ETA × 1.5` with a floor of 8h for canonical-scale work, OR no hard time cutoff at all (rely on Spot eviction as ultimate safety net + log-staleness watchdog only).
 2. **Post-completion watcher should track merge subprocess**, not just parent solve PID. When solve forks for heap-isolated merge, the parent exits before merge completes; checking solutions.bin immediately after parent-exit reports a spurious "missing" failure.
-3. **v2 ARM 11.2T baseline**: ~4h22m on D96ps_v6 Spot at 10.0 sub-branches/sec / 96.7% CPU sustained. This corrects the misleading "v1 ARM 10T = 1h17m" baseline that motivated the bad watchdog cutoff.
+3. **v2 ARM 11.2T baseline**: ~4h22m on [cloud detail redacted] Spot at 10.0 sub-branches/sec / 96.7% CPU sustained. This corrects the misleading "v1 ARM 10T = 1h17m" baseline that motivated the bad watchdog cutoff.
 
-**Next.** Operator chose to retry G2 with corrected watchdog (option 1 from the post-failure triage). Retry uses a fresh working directory (`20260520_v2bundled_11.2T_armB_9d00c48_attempt2/`) to keep attempt-1 artifacts intact for forensics, leaves the solver-data disk at 512 GB (no resize needed), and removes the hard time cutoff from the watchdog (log-staleness only). Cost projection: ~[cost redacted] for the retry.
+**Next.** Operator chose to retry G2 with corrected watchdog (option 1 from the post-failure triage). Retry uses a fresh working directory (`20260520_v2bundled_11.2T_armB_9d00c48_attempt2/`) to keep attempt-1 artifacts intact for forensics, leaves the [cloud detail redacted] disk at 512 GB (no resize needed), and removes the hard time cutoff from the watchdog (log-staleness only). Cost projection: ~[cost redacted] for the retry.
 
 ## May 20, 2026 UTC — G2 attempt 2 launched with a SECOND mistake (bundled enum+merge instead of split); operator-caught at +30min, restarted with proper pattern
 
-When restarting G2 ARM cross-arch validation after the attempt-1 watchdog failure, the bundled enum+merge configuration from the v1 ARM precedent was reused (single D96ps_v6 Spot VM, no `SOLVE_SKIP_AUTOMERGE=1`). This violated the **canonical pipeline pattern** that was codified in the post-#81 saga (2026-05-16/17) and is captured in `feedback_merge_on_right_sized_standard.md` + `feedback_canonical_pipeline_pattern.md`: the standing rule for any canonical ≥11.2T is **`SOLVE_SKIP_AUTOMERGE=1` on a Spot enum VM, then `solve --merge` on a separate right-sized Standard VM** — NOT bundled merge on the enum VM.
+When restarting G2 ARM cross-arch validation after the attempt-1 watchdog failure, the bundled enum+merge configuration from the v1 ARM precedent was reused (single [cloud detail redacted] Spot VM, no `SOLVE_SKIP_AUTOMERGE=1`). This violated the **canonical pipeline pattern** that was codified in the post-#81 saga (2026-05-16/17) and is captured in `feedback_merge_on_right_sized_standard.md` + `feedback_canonical_pipeline_pattern.md`: the standing rule for any canonical ≥11.2T is **`SOLVE_SKIP_AUTOMERGE=1` on a Spot enum VM, then `solve --merge` on a separate right-sized Standard VM** — NOT bundled merge on the enum VM.
 
 Operator caught the mistake at +30min into attempt 2 (18,971 sub-branches BUDGETED at 12.0% done, 10.22 subs/sec, 99.2% CPU saturation — the run itself was healthy, just configured wrong). Direction: "ensure that the merge/verify is on a standard not spot vm." Then, after the restart was in progress: "why didn't you do SOLVE_SKIP_AUTOMERGE=1 to begin with, this is an established pattern based upon prior runs."
 
-**Root cause of the second mistake:** Anchoring on the v1 ARM precedent (which did bundled enum+merge on a single D96 ARM) overrode the more recent standing rule. The v1 ARM precedent (2026-04-27/28) predates the canonical pipeline pattern (2026-05-16/17). The newer pattern exists precisely because of the ~[cost redacted] of overspend across April-May from repeatedly making this same mistake; deviating "just for cross-arch / matching the precedent" defeats the rule's purpose.
+**Root cause of the second mistake:** Anchoring on the v1 ARM precedent (which did bundled enum+merge on a single [cloud detail redacted] ARM) overrode the more recent standing rule. The v1 ARM precedent (2026-04-27/28) predates the canonical pipeline pattern (2026-05-16/17). The newer pattern exists precisely because of the ~[cost redacted] of [cost detail redacted] across April-May from repeatedly making this same mistake; deviating "just for cross-arch / matching the precedent" defeats the rule's purpose.
 
 **Lesson codified in memory:** `feedback_canonical_pipeline_no_exceptions.md` — for any canonical ≥11.2T, the split enum+merge with `SOLVE_SKIP_AUTOMERGE=1` is mandatory, with no exceptions for cross-arch, precedent matching, or simpler orchestration. The pattern is what the project has standardized on.
 
-**Restart action.** Killed the bundled run via SIGKILL (NOT SIGTERM — SIGTERM would have triggered the automerge subprocess fork via solve's signal handler). Cleaned the working directory. Restarted the enum on the same D96ps_v6 Spot ARM with `SOLVE_SKIP_AUTOMERGE=1` so it will write shards and exit cleanly after enum without bundling merge. After enum completes, a separate Standard ARM VM (D32ps_v6 or D64ps_v6, sized for ≥128 GB RAM for in-memory merge) will be provisioned in westus3 to run `solve --merge`, with `solver-data-westus3` attached to it.
+**Restart action.** Killed the bundled run via SIGKILL (NOT SIGTERM — SIGTERM would have triggered the automerge subprocess fork via solve's signal handler). Cleaned the working directory. Restarted the enum on the same [cloud detail redacted] Spot ARM with `SOLVE_SKIP_AUTOMERGE=1` so it will write shards and exit cleanly after enum without bundling merge. After enum completes, a separate Standard ARM VM ([cloud detail redacted] or [cloud detail redacted], sized for ≥128 GB RAM for in-memory merge) will be provisioned in [cloud detail redacted] to run `solve --merge`, with [cloud detail redacted] attached to it.
 
-**Cost of restart:** ~[cost redacted] (30 min lost on D96ps_v6 Spot ARM). Cumulative G2 spend after both mistakes: ~[cost redacted].
+**Cost of restart:** ~[cost redacted] (30 min lost on [cloud detail redacted] Spot ARM). Cumulative G2 spend after both mistakes: ~[cost redacted].
 
 ## May 21, 2026 UTC — G2 PASS + v2-bundled merged into main (v2 close-out complete)
 
 **G2 ARM cross-arch validation: PASS.**
 
-The G2 attempt 2 enum (D96ps_v6 Spot ARM westus3, `SOLVE_SKIP_AUTOMERGE=1`) completed cleanly at 04:23 UTC: 158,364 / 158,364 sub-branches BUDGETED in 15,720s (4h22m wall), 57,521 shards on solver-data, no errors. Merge phase then ran on a separate Standard `arm-g2-merge` D32ps_v6 ARM in westus3 (per `feedback_merge_on_right_sized_standard`). Because the initial in-memory merge from Standard HDD solver-data was disk-I/O bound at ~5 MB/s (would have taken ~5h), we attached a 256 GB Premium SSD scratch disk, rsync'd shards to it (~70 min HDD-read-bound), and re-ran the merge from Premium SSD. The merge bailed once on "187 GB needed, 143 available" — Premium SSD scratch was undersized; resized 256 → 512 GB online and re-launched. Merge then completed in 1h49m34s of CPU-bound dedup/sort (single-threaded; CPU climbed 0.7% → 86% as the merge progressed through phases).
+The G2 attempt 2 enum ([cloud detail redacted] Spot ARM [cloud detail redacted], `SOLVE_SKIP_AUTOMERGE=1`) completed cleanly at 04:23 UTC: 158,364 / 158,364 sub-branches BUDGETED in 15,720s (4h22m wall), 57,521 shards on [cloud detail redacted], no errors. Merge phase then ran on a separate Standard `arm-g2-merge` [cloud detail redacted] ARM in [cloud detail redacted] (per `feedback_merge_on_right_sized_standard`). Because the initial in-memory merge from [cloud detail redacted] was disk-I/O bound at ~5 MB/s (would have taken ~5h), we attached a 256 GB [cloud detail redacted] scratch disk, rsync'd shards to it (~70 min HDD-read-bound), and re-ran the merge from [cloud detail redacted]. The merge bailed once on "187 GB needed, 143 available" — [cloud detail redacted] scratch was undersized; resized 256 → 512 GB online and re-launched. Merge then completed in 1h49m34s of CPU-bound dedup/sort (single-threaded; CPU climbed 0.7% → 86% as the merge progressed through phases).
 
 **Final result:** `solutions.bin` sha256 = `2cc966e48399841ebb0c9ca67300f15bb578cc5481ed04fca5faffcb38ad6c4d` — **byte-identical to the v2 11.2T x86 Build A canonical.** 796,357,285 records. `solve --verify` PASS (all C1-C5 + sort + dedup + KW-present). ⚠ **[CORRECTED 2026-09-07 — the parenthetical after PASS reads `+ KW-present` as a fourth checked item. `--verify` REPORTS King Wen; it does not gate on it.** In `solve.c`, `kw_found_v` reaches the reader through two unconditional `printf`s — the `King Wen found:` line and the whole-line `KW_PRESENT=YES|NO` — while `fail_kw` is set only inside the `if (g_expect_kw && !kw_found_v)` guard and is the last term summed into `total_fail`. So on a default `--verify` an artifact with the King Wen record deleted returns `VERIFY=PASS`, rc 0 (measured 2026-09-02; cited by symbol rather than line number, re-verified against this tree 2026-09-07, because `solve.c` line numbers drift). **The observation stands — King Wen was present in this run's output** — but it is a fact the run reported, not a criterion it gated on, and the opt-in `--expect-kw` that does make absence a FAIL shipped 2026-09-04, so this run's binary had no code path by which King Wen could have moved the verdict. Default enforcement was **deliberately** retracted 2026-09-02 (registry `RP-60347080`), because a shard or a budgeted slice legitimately lacks the record and gating on absence would be a false reject; `tests.py`'s `TestSolveVerifyKingWenScope` pins the reported-not-enforced contract with a mutation test. Same class and date as the 560 T campaign entry below in this file and as [CANONICAL_HASHES.md](CANONICAL_HASHES.md)'s 560 T witness row. No sha, record count or verdict changes.]** ARM cross-architecture determinism for the v2 prune stack confirmed.
 
@@ -3981,7 +3981,7 @@ The G2 attempt 2 enum (D96ps_v6 Spot ARM westus3, `SOLVE_SKIP_AUTOMERGE=1`) comp
 - #71 one-step C2 lookahead — shipped + benched + reverted (10.7% regression)
 - #69 fail-first MRV — shelved (disjoint canonical-level sets, K<1 at scale)
 
-**Total G2 campaign spend across all attempts:** ~[cost redacted] (attempt 1 watchdog mistake + attempt 2 bundled-merge mistake + attempt 2b enum + merge with Premium SSD scratch).
+**Total G2 campaign spend across all attempts:** ~[cost redacted] (attempt 1 watchdog mistake + attempt 2 bundled-merge mistake + attempt 2b enum + merge with [cloud detail redacted] scratch).
 
 **Next:** 100T v2 canonical campaign (per `project_v2_100T_precedes_560T`) is the next compute step toward 560T. v4 biroco.com audit (per `project_v4_biroco_audit`, renumbered 2026-05-22 from v3) is the next analytical research direction. Both are post-merge work, not gated on this milestone.
 
@@ -3990,17 +3990,17 @@ The G2 attempt 2 enum (D96ps_v6 Spot ARM westus3, `SOLVE_SKIP_AUTOMERGE=1`) comp
 **Campaign `20260521_v2_100T_buildA`** — Single Build A v2 100T canonical bench, executed across 57 wall-clock hours with operator intermittently away. Establishes the v2/v1 record-uplift delta at 100T scale and seeds the v3 100T comparison (Phase 12 of the v3 roadmap).
 
 **Phase 1 enum** (2026-05-21 → 2026-05-23 04:55 UTC):
-- Spot D128als_v7 westus3, 128 threads, `SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=100000000000000 SOLVE_PER_SUB_BRANCH_LIMIT=631456644 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1`.
+- Spot [cloud detail redacted], 128 threads, `SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=100000000000000 SOLVE_PER_SUB_BRANCH_LIMIT=631456644 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1`.
 - 3 Spot evictions over the run; checkpoint+resume worked correctly each time. ~40h cumulative wall.
 - Produced 61,550 shards, 481 GB raw output. Phase 2 verification: 0 integrity failures.
 - Solver binary sha `6fdb10daaa1fc019d4f3409e71dced4e1bedc14586f11f83d8f674f382cdb220`.
 
 **Phase 3 merge** (2026-05-23 15:36 → 20:33 UTC, ~5h wall):
-- Standard D32als_v7 (32 vCPU, 64 GB RAM — D32als_v7 is the AMD low-memory variant; 256 GB peak-RSS in-memory merge mode not viable at 100T scale on 64 GB).
-- 1.5 TB Premium SSD scratch (shards rsync'd HDD → SSD as a separate pre-step due to HDD's catastrophic seek penalty on the multi-way merge access pattern).
+- Standard [cloud detail redacted] (32 vCPU, 64 GB RAM — [cloud detail redacted] is the AMD low-memory variant; 256 GB peak-RSS in-memory merge mode not viable at 100T scale on 64 GB).
+- 1.5 TB [cloud detail redacted] scratch (shards rsync'd HDD → SSD as a separate pre-step due to HDD's catastrophic seek penalty on the multi-way merge access pattern).
 - `solve --merge` autonomously chose external chunked-sort mode (chunk-sort 117 chunks × 128M records each, then multi-way merge of those chunks).
 - Output: `15,035,483,184` raw records → `3,663,580,914` unique canonical orderings. ⚠ **[LABEL CORRECTED 2026-09-02 (prose lane; sibling of the 2026-08-28 correction to the 560T figure 43,876,464,466) — "raw records" is the same mislabel, and the producer is now identified: this is `solve --merge`'s input total over the 61,550 shards (481 GB ÷ 32 B per record = 15.03 B, matching the figure to three digits), and a shard record is a per-sub-branch **canonical** key, not a raw oriented leaf — each thread's table masks the orient bits and is flushed after every sub-branch (`solve.c`'s header comment, present since commits `9569c4cf`/`9fb3cad2` of 2026-04-11/12, i.e. before this campaign's `6fdb10da…` build; the 2026-05-10 entry above records the lex-smallest-representative rule). So 15,035,483,184 counts cross-sub-branch rediscovery of canonical keys — 15,035,483,184 ÷ 3,663,580,914 = 4.10×, the rediscovery factor, not an orientation-dedup ratio — and as a count of raw oriented leaves it is a lower bound, never the quantity itself. The merge log is in neither repository; the identification rests on the two measurements just stated. No count, sha or verdict moves. See CORRECTIONS.md 2026-08-28.]**
-- **Mid-run lesson** (`roae-private/MERGE_OPTIMIZATION_LESSON_2026_05_23.md`): for v3 100T (Phase 12) and 560T, use E48s_v5 (48 vCPU, 384 GB RAM) + `SOLVE_MERGE_MODE=memory` direct from HDD source. Expected ~5-6× speedup + ~[cost redacted] cheaper vs SSD-scratch + external chunked-sort.
+- **Mid-run lesson** (`roae-private/MERGE_OPTIMIZATION_LESSON_2026_05_23.md`): for v3 100T (Phase 12) and 560T, use [cloud detail redacted] (48 vCPU, 384 GB RAM) + `SOLVE_MERGE_MODE=memory` direct from HDD source. Expected ~5-6× speedup + ~[cost redacted] cheaper vs SSD-scratch + external chunked-sort.
 
 **Result:**
 - solutions.bin sha256: **`cc4a5377199f0710c99406c6e82e44f311ef34b2e53b152d67f5d0fcd2ace091`**
@@ -4010,12 +4010,12 @@ The G2 attempt 2 enum (D96ps_v6 Spot ARM westus3, `SOLVE_SKIP_AUTOMERGE=1`) comp
 - `solve --verify` PASS: sort-order violations 0, duplicates 0, King Wen found. ⚠ **[CORRECTED 2026-09-07 — "King Wen found" is listed here as a third `solve --verify` result beside the sort-order and duplicate counts, both of which the verdict does gate on. `--verify` REPORTS King Wen; it does not gate on it.** In `solve.c`, `kw_found_v` reaches the reader through two unconditional `printf`s — the `King Wen found:` line and the whole-line `KW_PRESENT=YES|NO` — while `fail_kw` is set only inside the `if (g_expect_kw && !kw_found_v)` guard and is the last term summed into `total_fail`. So on a default `--verify` an artifact with the King Wen record deleted returns `VERIFY=PASS`, rc 0 (measured 2026-09-02; cited by symbol rather than line number, re-verified against this tree 2026-09-07, because `solve.c` line numbers drift). **The observation stands — King Wen was present in this run's output** — but it is a fact the run reported, not a criterion it gated on, and the opt-in `--expect-kw` that does make absence a FAIL shipped 2026-09-04, so this run's binary had no code path by which King Wen could have moved the verdict. Default enforcement was **deliberately** retracted 2026-09-02 (registry `RP-60347080`), because a shard or a budgeted slice legitimately lacks the record and gating on absence would be a false reject; `tests.py`'s `TestSolveVerifyKingWenScope` pins the reported-not-enforced contract with a mutation test. Same class and date as the 560 T campaign entry below in this file and as [CANONICAL_HASHES.md](CANONICAL_HASHES.md)'s 560 T witness row. No sha, record count or verdict changes.]**
 
 **Phase 4 archive** (2026-05-23 20:33 → ~23:45 UTC):
-- Managed-disk copy verified byte-identical (sha256 recompute on `solver-data-westus3:/20260521_v2_100T_buildA/final/solutions.bin` matched `cc4a5377…`).
-- gzip -9 of solutions.bin: 117,234,589,280 B → 13,462,264,289 B (`f6b554ea…`, **8.708× compression** — marginally better than the ~8× v2 11.2T precedent; ~1.5h wall single-threaded gzip on the D32 merge VM). ⚠ **[CORRECTED 2026-09-02, prose batch P47 sibling sweep — this line published a compression ratio ~7% too high and was the SECOND live site of it; the charge (Codex V2-F25 #11) named only the registry. The retired form is registered in [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) and keyed in [CORRECTIONS.md](CORRECTIONS.md) as `RP-9788f906`. The two sizes were written as "117 GB" and "12.54 GB", mixing a decimal-GB numerator with a binary-GiB denominator — 13,462,264,289 B is 12.54 GiB, not 12.54 GB — and that quotient is where the retired figure came from. Both are restated in bytes above so the ratio is checkable as written: `(3,663,580,914 × 32 + 32) / 13,462,264,289 = 8.708`. No sha, record count or archive location changes. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Historical (frozen lineages)" for the registry-side correction and its reproduction command.]**
+- Managed-disk copy verified byte-identical (sha256 recompute on `[cloud detail redacted]:/20260521_v2_100T_buildA/final/solutions.bin` matched `cc4a5377…`).
+- gzip -9 of solutions.bin: 117,234,589,280 B → 13,462,264,289 B (`f6b554ea…`, **8.708× compression** — marginally better than the ~8× v2 11.2T precedent; ~1.5h wall single-threaded gzip on the [cloud detail redacted] merge VM). ⚠ **[CORRECTED 2026-09-02, prose batch P47 sibling sweep — this line published a compression ratio ~7% too high and was the SECOND live site of it; the charge (Codex V2-F25 #11) named only the registry. The retired form is registered in [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) and keyed in [CORRECTIONS.md](CORRECTIONS.md) as `RP-9788f906`. The two sizes were written as "117 GB" and "12.54 GB", mixing a decimal-GB numerator with a binary-GiB denominator — 13,462,264,289 B is 12.54 GiB, not 12.54 GB — and that quotient is where the retired figure came from. Both are restated in bytes above so the ratio is checkable as written: `(3,663,580,914 × 32 + 32) / 13,462,264,289 = 8.708`. No sha, record count or archive location changes. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"Historical (frozen lineages)" for the registry-side correction and its reproduction command.]**
 - [storage detail redacted] to [storage detail redacted]: solutions.bin.gz + solutions.sha256 + solutions.bin.gz.sha256 + RUN_METADATA.txt + SHARDS_MANIFEST.txt + merge.log + solve binary + CAMPAIGN_SUMMARY.md.
 - **No Build B cross-build** — v2 100T is a comparison baseline against v1 (and a reference point for the v3 100T Phase 12 bench), not a load-bearing canonical for 560T extension.
 - **v2 shards deleted from managed disk** per operator directive 2026-05-23 (~481 GB freed). The v3 100T campaign (Phase 12) WILL preserve shards.
-- Merge VM (`v2-100t-merge`) + 1.5 TB Premium SSD scratch deleted post-archive. Solver-data managed disk preserved (NEVER deleted).
+- Merge VM (`v2-100t-merge`) + 1.5 TB [cloud detail redacted] scratch deleted post-archive. [cloud detail redacted] managed disk preserved (NEVER deleted).
 
 **Total campaign cost: ~[cost redacted]** (Phase 1 enum ~[cost redacted] + Phase 3 merge ~[cost redacted] + scratch SSD ~[cost redacted]) — within the [cost redacted] operator budget cap.
 
@@ -4023,7 +4023,7 @@ The G2 attempt 2 enum (D96ps_v6 Spot ARM westus3, `SOLVE_SKIP_AUTOMERGE=1`) comp
 
 **Operator role during campaign:** intermittent supervision with explicit autonomous-block authorization for the final ~5h (gzip + [storage detail redacted] + teardown + doc cascade + Phase 11 Build A launch).
 
-**Next:** Phase 11 — v3+v3.1 11.2T cross-build (Build A on D128 Spot via `/tmp/v3_phase11_launch.sh`, then Build B on a separate Spot host). Phase 12 — v3 100T full bench. v3 lineage extracts v2's sha-preserving speed wins (LTO + PGO + bitset, ~+9.2% net) onto v1's prune stack to produce a cost-efficient canonical pipeline; 560T solver decision (v1 vs v2 vs v3) gates on the Phase 12 bench data.
+**Next:** Phase 11 — v3+v3.1 11.2T cross-build (Build A on [cloud detail redacted] Spot via `/tmp/v3_phase11_launch.sh`, then Build B on a separate Spot host). Phase 12 — v3 100T full bench. v3 lineage extracts v2's sha-preserving speed wins (LTO + PGO + bitset, ~+9.2% net) onto v1's prune stack to produce a cost-efficient canonical pipeline; 560T solver decision (v1 vs v2 vs v3) gates on the Phase 12 bench data.
 
 ## May 24, 2026 UTC — v2 lineage CLOSED; v3 is canonical-producing lineage going forward
 
@@ -4074,13 +4074,13 @@ actual (v3+v3.1 Build A):    0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8
 
 **Witness-only archive** (no solutions.bin re-upload per operator directive — same sha as v1 11.2T means the bytes are already in the [storage detail redacted]): [storage detail redacted] contains solve binary, sha sidecar, merge.log, enum.log.gz (full + tail), metadata.json, campaign_scripts.tar.gz, and WITNESS.md cross-referencing the v1 11.2T archive. ~485 KB total. Local mirror in `/home/claude/staging/`.
 
-**Build B (same-SKU x86 cross-build) SKIPPED** per operator directive 2026-05-24: two D128als_v7 westus3 Spot instances differ only in physical-host selection — that witness isn't strong enough to justify ~[cost redacted] + ~5h wall.
+**Build B (same-SKU x86 cross-build) SKIPPED** per operator directive 2026-05-24: two [cloud detail redacted] Spot instances differ only in physical-host selection — that witness isn't strong enough to justify ~[cost redacted] + ~5h wall.
 
 **ARM Cobalt cross-arch witness DROPPED** per operator directive 2026-05-24 (second directive of the day). Transitive correctness argument: v1's 11.2T anchor was independently ARM-witnessed in task #61 (`Cobalt ARM cross-arch re-derivation of patched binary at 11.2T`, completed). v3 produces byte-identical bytes to v1 at 11.2T → v3 inherits v1's ARM witness for any sha-equivalent scale. A fresh ARM run could only catch sha-divergence, which is already a halt-condition gate — no witness run usefully tests for it. Saves ~[cost redacted] + few hours wall per v3 canonical and meaningfully simplifies the 560T launch chain.
 
 ### v1-vs-v3 paired speedup bench — +4.38% measured (vs predicted +9.2%) due to silent PGO failure
 
-Per the operator's interest in a clean v1-vs-v3 speedup number (now that v2 is closed), a paired bench was run on **Standard D128als_v7 westus3** — operator-authorized exception to the spot-only rule, for paired-measurement integrity. 1T enum-only, 3 reps each binary interleaved (v1, v3, v1, v3, v1, v3), page cache cleared between reps via `sync` + `echo 3 > /proc/sys/vm/drop_caches`.
+Per the operator's interest in a clean v1-vs-v3 speedup number (now that v2 is closed), a paired bench was run on **Standard [cloud detail redacted]** — operator-authorized exception to the spot-only rule, for paired-measurement integrity. 1T enum-only, 3 reps each binary interleaved (v1, v3, v1, v3, v1, v3), page cache cleared between reps via `sync` + `echo 3 > /proc/sys/vm/drop_caches`.
 
 Wall times (seconds):
 
@@ -4107,7 +4107,7 @@ Before this bench, the [storage detail redacted]'s smallest scale was 100B; it j
 
 Archived to:
 - [storage detail redacted] (gzip -9, 475 MB, 8.62× compression)
-- Managed disk: `solver-data-westus3:/20260524_1T_paired_bench_a2ead96_8b1658b/`
+- Managed disk: `[cloud detail redacted]:/20260524_1T_paired_bench_a2ead96_8b1658b/`
 - Local mirror: `/home/claude/staging/`
 
 Both 1T and 11.2T canonicals now have empirical v1==v3 sha-equivalence on record.
@@ -4125,7 +4125,7 @@ Two takeaways:
 
 ### Task #95 — v3.1 fast-skip eviction-recovery empirically validated
 
-Set up a small Spot D32als_v7 westus3 (`fast-skip-95`), built v3+v3.1, ran a 100B-scale enum until ~27,000 sub-branches had completed, then deliberately ran `az vm deallocate` followed by `az vm start` to simulate Spot eviction + recovery. On resume:
+Set up a small Spot [cloud detail redacted] (`fast-skip-95`), built v3+v3.1, ran a 100B-scale enum until ~27,000 sub-branches had completed, then deliberately ran `az vm deallocate` followed by `az vm start` to simulate Spot eviction + recovery. On resume:
 
 ```
 Resuming: 83476 sub-branches already completed (from checkpoint.txt)
@@ -4155,7 +4155,7 @@ The load-bearing safety is `-Werror=missing-profile`: any future change that bre
 
 ### Other observations / housekeeping
 
-- **`solver-data-westus3` UUID has changed** since the 2026-05-06 wipe + recovery. The original UUID `3620ba16-…` (referenced in `roae-private/safe_disk_setup.sh`'s example comment) is stale; current is `<disk-UUID-redacted>`. Verified by UUID + label "solverdata" cross-check + marker-directory presence before any write to the disk during the 1T archive copy.
+- **[cloud detail redacted] UUID has changed** since the 2026-05-06 wipe + recovery. The original UUID `3620ba16-…` (referenced in `roae-private/safe_disk_setup.sh`'s example comment) is stale; current is `<disk-UUID-redacted>`. Verified by UUID + label "solverdata" cross-check + marker-directory presence before any write to the disk during the 1T archive copy.
 - **Two VMs deallocated** at end of session: `v1-v3-bench` (Standard, bench done) and `fast-skip-95` (Spot, task #95 done). OS disks preserved per operator's "deallocate not delete" directive; managed disks untouched.
 - **No Phase 12 yet** — v3 100T full bench against `915abf30…` is queued but not pre-authorized for autonomous launch.
 
@@ -4180,7 +4180,7 @@ The chain has narrowed substantially — what remains is mostly infrastructure w
 
 Same-day follow-up to the morning's paired bench, this time with the `scripts/build_pgo.sh` hardened recipe ensuring PGO actually applied (verified: different binary sha `4ad70a0f…`, 254 KB vs the broken-PGO build's 305 KB, smaller from PGO's inlining + cold-path elimination, and `-Werror=missing-profile` didn't fire so the build had real profile data).
 
-**Re-run walls (seconds, 3 reps each on Standard D128als_v7 westus3):**
+**Re-run walls (seconds, 3 reps each on Standard [cloud detail redacted]):**
 
 | Rep | v1 (vanilla) | v3 (LTO + PGO + bitset) | v3/v1 |
 |---:|---:|---:|---:|
@@ -4191,7 +4191,7 @@ Same-day follow-up to the morning's paired bench, this time with the `scripts/bu
 
 **v3 measured 0.5% slower than v1 (median).** The +9.2% prediction from task #47's closure does NOT replicate at 1T canonical scale on Bergamo Zen 4c. Sha-equivalence preserved (`5a0f0bc2…`).
 
-Within-bench variance: v1 spread 4.6%, v3 spread **15.1%**. The bench is underpowered to detect ~5-10% effects when within-bench v3 variance exceeds 15% — host-quality noise on shared Spot D128 dominates.
+Within-bench variance: v1 spread 4.6%, v3 spread **15.1%**. The bench is underpowered to detect ~5-10% effects when within-bench v3 variance exceeds 15% — host-quality noise on shared Spot [cloud detail redacted] dominates.
 
 **Why the prediction didn't replicate** (best read after both benches):
 
@@ -4238,7 +4238,7 @@ Cherry-pick auto-merged cleanly (no conflicts) and produced commit `c849247` loc
 
 ### Three-gate validation before push
 
-Spun up a Spot D32als_v7 westus3 (~[cost redacted]) to validate the merged source before pushing:
+Spun up a Spot [cloud detail redacted] (~[cost redacted]) to validate the merged source before pushing:
 
 1. **Gate 1 — `--selftest`**: PASS. Binary produces expected canonical selftest sha `56487ab5…`.
 2. **Gate 2 — `--selftest-resume`**: **FAIL**.
@@ -4284,7 +4284,7 @@ Tags:
 Cleanup performed:
 - Local main reset to `origin/main` (cherry-pick `c849247` discarded locally)
 - `origin/merge-validate-tmp` deleted (broken combination not preserved on public repo)
-- `merge-validate` Spot VM deallocated
+- [cloud detail redacted] Spot VM deallocated
 - `origin/v3` branch retained (working v3.1 codebase for the fix work)
 
 ### Track record up to this point
@@ -4308,7 +4308,7 @@ The morning's `--selftest-resume` gate failure (HISTORY May 25 entry above) had 
 
 ### Six-enum 100B drift bisect (12:46 → 18:03 UTC, ~[cost redacted])
 
-D32als_v7 Spot in westus3 (`bisect-100b` VM). Six builds tested at `SOLVE_NODE_LIMIT=100000000000 SOLVE_PER_SUB_BRANCH_LIMIT=631545 SOLVE_DEPTH=3 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=32 ulimit -s unlimited`:
+[cloud detail redacted] Spot in [cloud detail redacted] (`bisect-100b` VM). Six builds tested at `SOLVE_NODE_LIMIT=100000000000 SOLVE_PER_SUB_BRANCH_LIMIT=631545 SOLVE_DEPTH=3 SOLVE_DFS_ITERATIVE=1 SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=32 ulimit -s unlimited`:
 
 | Commit | Date | 100B sha |
 |---|---|---|
@@ -4384,7 +4384,7 @@ Plus the sub-canonical hard-gate proposed during the 100B drift investigation:
 
 **Selftest sha preserved**: `solve --selftest` still produces `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e`. The --selftest fork harness sets `SOLVE_ALLOW_SUB_CANONICAL=1 SOLVE_SKIP_CANONICAL_LOCK=1` in the child env to bypass the new gates (selftest is a known-good within-binary test that intentionally runs at a sub-canonical scale).
 
-**Empirical test recipes verified locally** (D2 orchestrator, ~10 min total):
+**Empirical test recipes verified locally** ([cloud detail redacted] orchestrator, ~10 min total):
 - Sub-canonical gate fires correctly (exit 25) at `SOLVE_NODE_LIMIT=100M` without overrides
 - Gate suppressed when `SOLVE_PER_SUB_BRANCH_LIMIT` set explicitly (partition-invariance use case)
 - Gate suppressed with `SOLVE_ALLOW_SUB_CANONICAL=1` (override prints WARN, proceeds)
@@ -4409,7 +4409,7 @@ The hardening commit `bd7e5c7` landed 4 of 8 outliers from the v3.1 audit. This 
 
 **Sha impact**: zero. The `.bin` files are byte-identical; `solutions.bin` is computed over the same record bytes; all seven existing canonical shas (5.6T `f66920c10`, 10T `b85c887128`, 11.2T `0c0fe37c`, 100T `915abf30`, 1T `5a0f0bc2`, v2 11.2T `2cc966e4`, v2 100T `cc4a5377`) are preserved.
 
-**Empirical tests** (D2 orchestrator, ~2 min total):
+**Empirical tests** ([cloud detail redacted] orchestrator, ~2 min total):
 - Sidecar written on every flush: 384/384 .bin files had matching .budget sidecars after a quick enum
 - Sidecar content matches `current_per_branch_budget` exactly
 - Matching-budget resume: "promoted=384, integrity_failed=0" — sidecar match → promote
@@ -4421,9 +4421,9 @@ The hardening commit `bd7e5c7` landed 4 of 8 outliers from the v3.1 audit. This 
 
 ### Outlier #6 closure — runbook discipline (DEVELOPMENT.md)
 
-A new "Canonical run discipline" section added to DEVELOPMENT.md (above "Known gotchas") codifies the one-campaign-one-fresh-dir convention. Key points: every canonical-scale (≥1T) enum runs in its own subdirectory under `solver-data-westus3:/`, scoped by date + lineage + scale + campaign-ID (e.g., `20260521_v2_100T_buildA/`). Foreign `sub_*.bin` files MUST NOT be placed in a run dir; even a manually-copied shard from another campaign would be picked up by `promote_orphaned_shards()`. The `.budget` sidecar partially mitigates (sidecar mismatch → refuse) but a coincidentally-matching budget would still slip through, so the runbook discipline is the load-bearing layer.
+A new "Canonical run discipline" section added to DEVELOPMENT.md (above "Known gotchas") codifies the one-campaign-one-fresh-dir convention. Key points: every canonical-scale (≥1T) enum runs in its own subdirectory under `[cloud detail redacted]:/`, scoped by date + lineage + scale + campaign-ID (e.g., `20260521_v2_100T_buildA/`). Foreign `sub_*.bin` files MUST NOT be placed in a run dir; even a manually-copied shard from another campaign would be picked up by `promote_orphaned_shards()`. The `.budget` sidecar partially mitigates (sidecar mismatch → refuse) but a coincidentally-matching budget would still slip through, so the runbook discipline is the load-bearing layer.
 
-For 560T specifically: the run-dir convention is mandatory pre-launch per `project_560T_review_gate`, and the dir must be created on `solver-data-westus3` immediately before the enum VM is provisioned — no shared or reused dirs.
+For 560T specifically: the run-dir convention is mandatory pre-launch per `project_560T_review_gate`, and the dir must be created on [cloud detail redacted] immediately before the enum VM is provisioned — no shared or reused dirs.
 
 ### Summary of full hardening cycle
 
@@ -4456,7 +4456,7 @@ The 2026-05-25 main reset to v3 BRANCH solve.c (commit `9f10f05`) had lost the P
 
 **Selftest sha `403f7202…` preserved.** All re-landed items are sha-neutral by construction: the resume-invariants are gated on `ts->dfs_resume_active`, so fresh enums don't execute the new code; the metadata writes target sidecars (`.sha256`), not `solutions.bin`; the shard-manifest subcommands are diagnostic-only.
 
-**Empirical tests** (D2 orchestrator):
+**Empirical tests** ([cloud detail redacted] orchestrator):
 - `--emit-shard-manifest` produces 363 entries from a small enum, format correct
 - `--verify-shard-manifest` PASS on clean manifest
 - `--verify-shard-manifest` correctly detects MISSING (file deleted), SHRUNK (file truncated), DIVERGED (file rewritten with same length but different content); all three exit 22 with specific diagnostic line
@@ -4483,11 +4483,11 @@ Refactored the `--emit-shard-manifest` and `--verify-shard-manifest` subcommand 
 
 **Override**: `SOLVE_SKIP_AUTO_MANIFEST=1` skips both auto-verify and auto-emit (for dev iteration; not recommended for canonical campaigns).
 
-**Cost at canonical scale**: O(N_shards) sha256 ops at startup. At 11.2T (~48k non-empty shards), ~2-3 min wall on D32 — negligible vs the ~2h enum. The 158k shards at 100T would take ~5-10 min; still negligible.
+**Cost at canonical scale**: O(N_shards) sha256 ops at startup. At 11.2T (~48k non-empty shards), ~2-3 min wall on [cloud detail redacted] — negligible vs the ~2h enum. The 158k shards at 100T would take ~5-10 min; still negligible.
 
 **Sha-neutral**: helpers only READ shard files (size + sha256); never modify content. `solutions.bin` (the final merge output) is bit-identical regardless of whether manifest checks ran. Selftest sha `403f7202…` preserved.
 
-**Empirical tests** (D2 orchestrator):
+**Empirical tests** ([cloud detail redacted] orchestrator):
 - First run, no manifest: auto-verify skips (log "first-run or fresh dir"); auto-emit writes 0-entry manifest (no shards yet at point of startup); after enum completes shards exist on disk
 - Second run (after first run wrote shards): auto-verify PASS on a clean second startup; auto-emit re-snapshots with 310 entries
 - Second run with TAMPERED shard (mid-content bytes overwritten while size preserved): DIVERGED detected, exit 22, clear ERROR message with recovery guidance
@@ -4540,12 +4540,12 @@ auto_emit_shard_manifest_default()
 
 **For 560T launch**: every previously-manual pre-flight is now baked in. Operator workflow simplifies to:
 ```
-cd <fresh-run-dir-on-solver-data>
+cd <fresh-run-dir-on-[cloud detail redacted]>
 SOLVE_NODE_LIMIT=560000000000000 SOLVE_THREADS=128 ./solve 0
 ```
 That's it. Every gate fires automatically. The disk check, selftest, binary snapshot, lock, build-sha, manifest-verify, orphan-promote, manifest-emit all happen without the operator remembering any of it. Post-merge auto-verify catches C1-C5 violations. Strict-default `.budget` sidecar + strict-default missing-sidecar refuse make resume-corruption silently impossible.
 
-**Empirical tests on the orchestrator D2** confirmed all six fire correctly:
+**Empirical tests on the orchestrator [cloud detail redacted]** confirmed all six fire correctly:
 - A: --merge subprocess raised RLIMIT_STACK from 8 MB to unlimited
 - B: auto-verify after merge ran the C1-C5 verifier and reported PASS
 - C: at 1T budget, DFS-iterative + checkpoint logged "canonical-scale default, NODE_LIMIT >= 1T"; with explicit `=0` overrides, neither activated
@@ -4585,7 +4585,7 @@ Because the drift mechanism cannot be eliminated at compile-time, Task #110 intr
 
 Total diff: `solve.c +230 lines, documentation/DEVELOPMENT.md +31 lines`. Selftest sha `403f7202…` preserved.
 
-**Empirical 1T sha-gate (2026-05-28 02:08 UTC, D128als_v7 Spot westus3):**
+**Empirical 1T sha-gate (2026-05-28 02:08 UTC, [cloud detail redacted] Spot [cloud detail redacted]):**
 
 Built two binaries on the same VM: `c72eada` parent (pre-Tier-1) and `b579c1e` (post-Tier-1). Ran each at 1T canonical with identical env vars. Result:
 
@@ -4602,7 +4602,7 @@ Wall times: A (cold-cache) 4696s; B (warm-cache same VM) 1798s — the 2.6× spe
 **Operator-deferred (2026-05-28):**
 - Tier 2.1 — Docker container canonical build (substantial; needs container registry policy)
 - Tier 2.3 — CPU affinity pinning (needs cross-host empirical validation; Spot quota=1 makes that awkward)
-- 100T re-validation on c72eada/b579c1e lineage (blocked on solver-data disk-attach authorization)
+- 100T re-validation on c72eada/b579c1e lineage (blocked on [cloud detail redacted] disk-attach authorization)
 
 **Pre-560T implications.** The 11.2T anchor remains drift-robust and is the recommended gate for any pre-560T validation. The 1T anchor is host-fragile but cheaply re-derivable via `./solve --validate-canonical` on the campaign VM. ⚠ [2026-09-04: **not host-fragile** — see the correction under *Context* above. `./solve --validate-canonical … 1T` injects the published per-cell budget and therefore validates against `5a0f0bc2…`, the published-recipe 1T anchor, not against `74d39760…`.] The 100T anchor (`915abf30…`) is NOT yet re-validated on the current lineage; treat as POTENTIALLY drifted until then.
 
@@ -4668,7 +4668,7 @@ Validated live: the gate now passes at the head of an enum-only run.
 
 **Disk-IOPS gate retooled (#107 → #115).** The original IOPS gate ran a
 single-threaded 100-iteration `fsync` probe and refused below 1000
-fsync/sec ("HDD-class"). That fired a false exit-31 on a *Premium* SSD —
+fsync/sec ("HDD-class"). That fired a false exit-31 on a *[cloud detail redacted]* SSD —
 the single-thread number was 218/sec, but the disk does 2464/sec under
 concurrent load, and a single-thread probe simply can't see the disk's
 real throughput. Two flaws: the probe was single-threaded (didn't reflect
@@ -4677,7 +4677,7 @@ absolute number (didn't scale with the box). The retool fixes both: it
 runs a **concurrent** probe (`min(threads,32)` pthreads measuring
 *aggregate* fsync/sec) and gates on the **projected fraction of estimated
 wall** spent in fsync-wait (refuse if > 25%) rather than a raw IOPS floor.
-This adapts automatically to a D64 vs a D128 and to whatever storage is
+This adapts automatically to a [cloud detail redacted] vs a [cloud detail redacted] and to whatever storage is
 actually mounted. The probe result — aggregate fsync/sec, probe thread
 count, batch size, projected fsync-wait hours, wall fraction, verdict — is
 now recorded in `canonical-host-fingerprint.json` under `disk_iops`, so
@@ -4701,7 +4701,7 @@ anchors confirmed, the 100T anchor (`915abf30…`) — last produced on an
 older lineage — is being re-validated on real campaign hardware: a Phase A
 external-merge equivalence gate (in-memory merge vs external-merge spill
 produced byte-identical output) followed by a full 100T enumeration on a
-Spot D128. The run survived a real Spot eviction mid-enumeration, resuming
+Spot [cloud detail redacted]. The run survived a real Spot eviction mid-enumeration, resuming
 byte-clean from its `.dfs_state` checkpoints — the eviction-resilience the
 560T campaign depends on, now demonstrated end-to-end rather than only in
 injection tests.
@@ -4711,13 +4711,13 @@ Selftest sha `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` 
 ## May 30, 2026 UTC — 100T re-validation PASS + off-by-one record-count correction
 
 The 100T re-validation completed. The full pipeline ran autonomously
-overnight per operator authorization: Phase B enum on `c114-enum-100t`
-D128als_v7 Spot (~7h55m wall, [cost redacted] cost, one real Spot eviction survived
+overnight per operator authorization: Phase B enum on [cloud detail redacted]
+[cloud detail redacted] Spot (~7h55m wall, [cost redacted] cost, one real Spot eviction survived
 byte-clean from `.dfs_state` checkpoints, **60,533 final shards** — within
 the power-law-projected ~57–62k range from the scaling appendix), then
-Phase B merge on `c114-merge-100t` D16als_v7 Standard (~5h31m external-
-merge wall, Premium scratch), then recovery + [storage detail redacted] on
-`c114-recover-100t` D4als_v7 Spot. **sha256 of the merged `solutions.bin`
+Phase B merge on [cloud detail redacted] [cloud detail redacted] Standard (~5h31m external-
+merge wall, [cloud detail redacted] scratch), then recovery + [storage detail redacted] on
+[cloud detail redacted] [cloud detail redacted] Spot. **sha256 of the merged `solutions.bin`
 is `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` —
 byte-identical to the historical canonical.** The 100T canonical is
 reproducible on the current `4e15885` main lineage (which inherits
@@ -4761,7 +4761,7 @@ from the merged file's byte count) against the documented expected
 (3,432,399,297) and tripped the equality assertion. The sha had already
 matched the canonical at that point, but the script's structure aborted
 before the archive step. A recovery-and-archive supervisor was then run on
-a small D4 Spot, which re-verified the sha and completed the archive stage
+a small [cloud detail redacted] Spot, which re-verified the sha and completed the archive stage
 that the merge script's structure had prevented. **Lesson for the runbook:**
 when sha matches the canonical, trust the sha — record count is a derived
 quantity from a documentation field that can itself be wrong by ±1.
@@ -4789,36 +4789,36 @@ Selftest sha `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` 
 
 A two-pass dress rehearsal of the full 560T canonical pipeline (enum → merge → archive) was run at 11.2T scale on the night of 2026-05-30 into the morning of 2026-05-31, on the current `7ca55e8` main lineage. The rehearsal's purpose was to surface the kind of integration bug that costs ~[cost redacted] + 5 days if it fires mid-560T. It did exactly that — five real supervisor bugs were caught and fixed before the 560T launch, the 11.2T canonical sha was independently re-confirmed on the current lineage (the first empirical 11.2T test post the 2026-05-28 Tier 1 hardening), and a self-inflicted phantom-drift investigation surfaced a typo that had been propagating through hardcoded constants for three days.
 
-**Dress rehearsal v1 (2026-05-31 00:25 → 04:34 UTC, ≈[cost redacted]).** Enum stage ran cleanly on a fresh D128als_v7 Spot in westus3 with a small 256 GB Premium SSD ("dress-premium") attached as the shards target. 56,874 cells produced shards (the remaining ~101,490 of the 158,364 nominal depth-3 cells were eliminated by depth-1/depth-2 pruning before per-cell DFS started); the 11.2T budget gave each surviving cell 70,723,196 nodes. At sub-branch 124,798/158,364 (~80% done) the rehearsal manually triggered `az vm deallocate` to simulate a Spot eviction and exercise the eviction-recovery path. The supervisor detected the down VM, slept the policy wait, ran `az vm start`, captured the new public IP, waited for SSH, re-mounted both data disks by UUID, and re-launched solve which resumed from the per-cell `.dfs_state` checkpoints — every step worked. But the resumed solve then failed solve.c's `#107/#115` IOPS gate (the single-launch IOPS probe is noisy on a cold-cache post-restart VM; measured 223 fsync/sec on the Premium → projected 41% fsync-wall-fraction > 25% cap → exit 31), so the rehearsal aborted at the relaunch step. The eviction-recovery code path was structurally validated for seven of eight steps, with the eighth flagging a real solve.c bug.
+**Dress rehearsal v1 (2026-05-31 00:25 → 04:34 UTC, ≈[cost redacted]).** Enum stage ran cleanly on a fresh [cloud detail redacted] Spot in [cloud detail redacted] with a small 256 GB [cloud detail redacted] ("dress-[cloud detail redacted]") attached as the shards target. 56,874 cells produced shards (the remaining ~101,490 of the 158,364 nominal depth-3 cells were eliminated by depth-1/depth-2 pruning before per-cell DFS started); the 11.2T budget gave each surviving cell 70,723,196 nodes. At sub-branch 124,798/158,364 (~80% done) the rehearsal manually triggered `az vm deallocate` to simulate a Spot eviction and exercise the eviction-recovery path. The supervisor detected the down VM, slept the policy wait, ran `az vm start`, captured the new public IP, waited for SSH, re-mounted both data disks by UUID, and re-launched solve which resumed from the per-cell `.dfs_state` checkpoints — every step worked. But the resumed solve then failed solve.c's `#107/#115` IOPS gate (the single-launch IOPS probe is noisy on a cold-cache post-restart VM; measured 223 fsync/sec on the [cloud detail redacted] → projected 41% fsync-wall-fraction > 25% cap → exit 31), so the rehearsal aborted at the relaunch step. The eviction-recovery code path was structurally validated for seven of eight steps, with the eighth flagging a real solve.c bug.
 
-**Five real supervisor bugs caught + fixed.** With the enum stage's shards preserved on the dress-premium SSD, the rehearsal's stages 2 and 3 were rerun in a v2 pass after fixing the bugs in the public-launchable supervisors:
+**Five real supervisor bugs caught + fixed.** With the enum stage's shards preserved on the dress-[cloud detail redacted], the rehearsal's stages 2 and 3 were rerun in a v2 pass after fixing the bugs in the public-launchable supervisors:
 
 1. `dress_rehearsal_full.sh` had a literal `[cost redacted]` parsed by bash as `$2`+`.40` under `set -u`, fatal at line 38 (commit `b8d1f05`, escaped).
-2. The D128als_v7 Spot quota in westus3 is **128 cores, not 1 VM** — a parallel D32 Spot side-experiment plus the dress D128 would exceed the 128-core LowPriority cap. Pre-check baked into both the public `LAUNCH_560T_CAMPAIGN.sh` and the dress enum supervisor (commit `b8d1f05`).
+2. The [cloud detail redacted] Spot quota in [cloud detail redacted] is **128 cores, not 1 VM** — a parallel [cloud detail redacted] Spot side-experiment plus the dress [cloud detail redacted] would exceed the 128-core LowPriority cap. Pre-check baked into both the public `LAUNCH_560T_CAMPAIGN.sh` and the dress enum supervisor (commit `b8d1f05`).
 3. The #107/#115 IOPS gate fires on every relaunch because the post-restart probe runs cold-cache. For a 5-day 560T campaign with ~5–10 expected evictions, this would deadlock at the *first* eviction. Mitigation: `SOLVE_SKIP_IOPS_CHECK=1` in `launch_enum`'s env, since the first-launch gate already validated the disk and the disk doesn't change between resumes. **This is a bypass, not a fix** — the underlying probe-design issue (cold-cache noise on first I/O after `az vm start`) remains for post-560T work. (Commits `86276eb` and `6d6539f`.)
-4. `phase_b_merge_supervise.sh` and `phase_b_recover_and_archive_supervise.sh` were `(TEMPLATE)` skeletons, not implementations. Both contained a `log "(TEMPLATE) az vm create ..."` placeholder where the actual VM provisioning + disk attach should have been; both expected the VM and disks to already exist when the supervisor ran. The 100T re-validation had used a separate, fully-implemented `roae-private/scripts/campaign_100T_reval/phase_b_merge_supervise.sh`; the 560T versions were partial copies that had never been end-to-end exercised. Had the 560T main run reached the merge stage after ~5 days of enum, both stages would have failed in <1 second. Ported the working VM-creation + disk-attach pattern from the 100T supervisor; switched to directory-scratch on the Premium (sufficient at both 11.2T and 560T scales, no separate scratch disk needed); added an `EXPECTED_SHA` env-var-gated mode so the same script can either record-the-new-sha (560T main, no prior anchor) or sha-equality-gate (dress rehearsal, against the canonical anchor). (Commit `62dc54d`.)
-5. `phase_b_merge_supervise.sh` had a duplicate hardcoded `VM=c560-merge` line *before* the env-var-overridable `VM=${VM:-c560-merge}` line. First assignment wins, so callers' `VM=dress-merge-11-2T` env overrides were silently ignored. On the first dress-resume attempt this briefly provisioned a real `c560-merge` VM with the 560T main run's reserved name; torn down within ~1 minute, cost ~[cost redacted]. (Commit `76f428e`.)
+4. `phase_b_merge_supervise.sh` and `phase_b_recover_and_archive_supervise.sh` were `(TEMPLATE)` skeletons, not implementations. Both contained a `log "(TEMPLATE) az vm create ..."` placeholder where the actual VM provisioning + disk attach should have been; both expected the VM and disks to already exist when the supervisor ran. The 100T re-validation had used a separate, fully-implemented `roae-private/scripts/campaign_100T_reval/phase_b_merge_supervise.sh`; the 560T versions were partial copies that had never been end-to-end exercised. Had the 560T main run reached the merge stage after ~5 days of enum, both stages would have failed in <1 second. Ported the working VM-creation + disk-attach pattern from the 100T supervisor; switched to directory-scratch on the [cloud detail redacted] (sufficient at both 11.2T and 560T scales, no separate scratch disk needed); added an `EXPECTED_SHA` env-var-gated mode so the same script can either record-the-new-sha (560T main, no prior anchor) or sha-equality-gate (dress rehearsal, against the canonical anchor). (Commit `62dc54d`.)
+5. `phase_b_merge_supervise.sh` had a duplicate hardcoded `VM=[cloud detail redacted]` line *before* the env-var-overridable `VM=${VM:-[cloud detail redacted]}` line. First assignment wins, so callers' `VM=dress-[cloud detail redacted]` env overrides were silently ignored. On the first dress-resume attempt this briefly provisioned a real [cloud detail redacted] VM with the 560T main run's reserved name; torn down within ~1 minute, cost ~[cost redacted]. (Commit `76f428e`.)
 
-**Dress rehearsal v2 stages 2 + 3 (2026-05-31 07:24 → 11:00 UTC, ≈[cost redacted]).** With the supervisors fixed, merge ran on a D16als_v7 Standard (merge is uncheckpointable; Spot eviction would lose work mid external-sort) with directory-scratch on the dress-premium (96 min wall). The merged `solutions.bin` was 24,307,474,368 bytes (= 759,608,574 records by `bytes / 32`) and sha256-hashed to **`0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7`** — byte-identical to the 11.2T canonical anchor. `solve --verify` PASS on all 759,608,573 records (the off-by-one between `bytes / 32` and the verify report is the same documentation-derived bookkeeping artifact as the 2026-05-30 100T off-by-one). `verify.py --jobs 16` independent two-language verify also PASS. Stage 3 archived to [storage detail redacted] on a D4als_v7 Spot (73 min, [cost redacted]), including `shards.tar.gz` + `dfs_state.tar.gz` + `budget.tar.gz` per the firm 11.2T+ archive directive. **This is the first empirical confirmation that Tier 1 hardening (shipped 2026-05-28) is sha-neutral at canonical scale on the current main lineage** — the 2026-05-28 entry's "11.2T anchor remains drift-robust" claim was, at the time of writing, a transitive inference from the 2026-05-27 c72eada+#108 witness; it is now empirically verified at the head of the current main, `7ca55e8`.
+**Dress rehearsal v2 stages 2 + 3 (2026-05-31 07:24 → 11:00 UTC, ≈[cost redacted]).** With the supervisors fixed, merge ran on a [cloud detail redacted] Standard (merge is uncheckpointable; Spot eviction would lose work mid external-sort) with directory-scratch on the dress-[cloud detail redacted] (96 min wall). The merged `solutions.bin` was 24,307,474,368 bytes (= 759,608,574 records by `bytes / 32`) and sha256-hashed to **`0c0fe37cf449cbc6e2754583964a60c185a7b387ee522fa43a8aac4fdb055db7`** — byte-identical to the 11.2T canonical anchor. `solve --verify` PASS on all 759,608,573 records (the off-by-one between `bytes / 32` and the verify report is the same documentation-derived bookkeeping artifact as the 2026-05-30 100T off-by-one). `verify.py --jobs 16` independent two-language verify also PASS. Stage 3 archived to [storage detail redacted] on a [cloud detail redacted] Spot (73 min, [cost redacted]), including `shards.tar.gz` + `dfs_state.tar.gz` + `budget.tar.gz` per the firm 11.2T+ archive directive. **This is the first empirical confirmation that Tier 1 hardening (shipped 2026-05-28) is sha-neutral at canonical scale on the current main lineage** — the 2026-05-28 entry's "11.2T anchor remains drift-robust" claim was, at the time of writing, a transitive inference from the 2026-05-27 c72eada+#108 witness; it is now empirically verified at the head of the current main, `7ca55e8`.
 
-**Phantom 11.2T anchor-drift incident (2026-05-31 ~09:00 → ~13:30 UTC).** Stage 2's sha-gate exit code was rc=22 ("sha mismatch"), even though the produced sha matched the canonical. The cause was a hardcoded `ANCHOR_11_2T_SHA` value in the dress rehearsal scripts that does not correspond to any real artifact: `0c0fe37cdf3d92ba953b3c41a5e84d54c1f88b22e7d1e0e3e9a52deb8a3ef6c5`. Empirical sha256 of two independent archived `solutions.bin` files on solver-data both produced `0c0fe37cf449cbc6e275...` (the real canonical), and the trailing 56 hex characters of the wrong value (`df3d92ba…3ef6c5`) appear as a prefix or partial of zero known sha256 anywhere — they don't correspond to any real artifact in the codebase, on solver-data, or in [storage detail redacted]. The wrong value originated 2026-05-28 in `roae-private:TASK_110_TIER1_SHIPPED_2026_05_28.md`, as the `<sha>` token in a `./solve --validate-canonical <sha> <scale>` usage example. The session writing that doc was the AI assistant working on this project (Claude Code); when the language model produced the example, it generated a 64-character hex string that began with the canonical's known abbreviated prefix `0c0fe37c…` (present in context) and continued with 56 hex characters that were **not retrieved from any source-of-truth** (`CANONICAL_HASHES.md`, a `.sha256` sidecar, or a `sha256sum` computation). The result looked like a valid sha256 — and looked correct to a casual reader, because the first 8 hex characters matched the convention used in every section header in the project — but the trailing characters were invented by the language model. This is a known LLM failure mode: hallucinating plausible-looking content (a sha-shaped token) without grounding in a retrieved value. The hallucinated string then copy-pasted from the example into the dress rehearsal scripts on 2026-05-30 and 2026-05-31, becoming a hardcoded constant in three executable files. No sha-equality gate had ever fired against the bad value until the dress rehearsal Stage 2 gate, because all earlier validation work (Tier 1 1T sha-gate, #100 11.2T sha-check, #114 100T sha-gate) sourced sha values directly from `solutions.sha256` sidecar files or `CANONICAL_HASHES.md`. The incident cost ~6 hours of investigation work (briefly declared a 560T launch blocker, drafted a 5-phase investigation plan), and was resolved when an empirical sha256 of `solver-data:/t62_dress_11p2T/solutions.bin` (an unrelated archive from the 2026-05-28 t62 dress rehearsal on 560T hardware) produced the real canonical sha. **Lesson, structural rather than procedural:** when an LLM is writing documentation, scripts, or any artifact that requires a specific real sha256 value (or any other long, opaque identifier), it must retrieve the value from a source-of-truth in the same action — not generate it inline. The retrieval action — `cat CANONICAL_HASHES.md`, `cat solutions.sha256`, `sha256sum solutions.bin` — should appear in the same session that produces the documenting artifact. A `roae-private/PHANTOM_DRIFT_RESOLUTION_2026_05_31.md` writeup records the full lifecycle and the language-model-hallucination root cause in more detail.
+**Phantom 11.2T anchor-drift incident (2026-05-31 ~09:00 → ~13:30 UTC).** Stage 2's sha-gate exit code was rc=22 ("sha mismatch"), even though the produced sha matched the canonical. The cause was a hardcoded `ANCHOR_11_2T_SHA` value in the dress rehearsal scripts that does not correspond to any real artifact: `0c0fe37cdf3d92ba953b3c41a5e84d54c1f88b22e7d1e0e3e9a52deb8a3ef6c5`. Empirical sha256 of two independent archived `solutions.bin` files on [cloud detail redacted] both produced `0c0fe37cf449cbc6e275...` (the real canonical), and the trailing 56 hex characters of the wrong value (`df3d92ba…3ef6c5`) appear as a prefix or partial of zero known sha256 anywhere — they don't correspond to any real artifact in the codebase, on [cloud detail redacted], or in [storage detail redacted]. The wrong value originated 2026-05-28 in `roae-private:TASK_110_TIER1_SHIPPED_2026_05_28.md`, as the `<sha>` token in a `./solve --validate-canonical <sha> <scale>` usage example. The session writing that doc was the AI assistant working on this project (Claude Code); when the language model produced the example, it generated a 64-character hex string that began with the canonical's known abbreviated prefix `0c0fe37c…` (present in context) and continued with 56 hex characters that were **not retrieved from any source-of-truth** (`CANONICAL_HASHES.md`, a `.sha256` sidecar, or a `sha256sum` computation). The result looked like a valid sha256 — and looked correct to a casual reader, because the first 8 hex characters matched the convention used in every section header in the project — but the trailing characters were invented by the language model. This is a known LLM failure mode: hallucinating plausible-looking content (a sha-shaped token) without grounding in a retrieved value. The hallucinated string then copy-pasted from the example into the dress rehearsal scripts on 2026-05-30 and 2026-05-31, becoming a hardcoded constant in three executable files. No sha-equality gate had ever fired against the bad value until the dress rehearsal Stage 2 gate, because all earlier validation work (Tier 1 1T sha-gate, #100 11.2T sha-check, #114 100T sha-gate) sourced sha values directly from `solutions.sha256` sidecar files or `CANONICAL_HASHES.md`. The incident cost ~6 hours of investigation work (briefly declared a 560T launch blocker, drafted a 5-phase investigation plan), and was resolved when an empirical sha256 of `[cloud detail redacted]:/t62_dress_11p2T/solutions.bin` (an unrelated archive from the 2026-05-28 t62 dress rehearsal on 560T hardware) produced the real canonical sha. **Lesson, structural rather than procedural:** when an LLM is writing documentation, scripts, or any artifact that requires a specific real sha256 value (or any other long, opaque identifier), it must retrieve the value from a source-of-truth in the same action — not generate it inline. The retrieval action — `cat CANONICAL_HASHES.md`, `cat solutions.sha256`, `sha256sum solutions.bin` — should appear in the same session that produces the documenting artifact. A `roae-private/PHANTOM_DRIFT_RESOLUTION_2026_05_31.md` writeup records the full lifecycle and the language-model-hallucination root cause in more detail.
 
-**#116 (parallelize manifest sha256 sweep) — still NOT shipped.** A second attempt at the #116 sha-gate was made on 2026-05-30/31 with a paired-VM design (PARENT + PATCHED on the same D32als_v7 Spot at 1T scale, sha-equality-gate between them). The PATCHED side failed with bash rc=2 immediately at startup — `SOLVE_TEMP_DIR=/dev/shm/scratch_patched { time ./solve; } > log` is not valid bash (an env-var prefix is not legal before a compound `{ }`). The PARENT side ran clean and recorded the v3 BRANCH lineage 1T sha as `5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52` on the test host — different from the Tier 1 anchor `74d39760…`, confirming the 1T host-environment drift class is still active on the v3 BRANCH lineage. ⚠ **[CORRECTED 2026-09-04: this sentence records the first refutation of the "does not reproduce on current `main`" claim and reads it as a confirmation.** The PARENT ran `main` `7ca55e8` with the published budget — `Per-sub-branch node limit: 6315458` in its own log — and produced exactly the published-recipe 1T anchor. Nothing about a drift class was confirmed. See [CORRECTIONS.md](CORRECTIONS.md) §"2026-09-04 — the 1T anchor pair was two per-cell budgets".]** (At 11.2T scale this drift class does not propagate — the dress rehearsal v2 at git `7ca55e8` produced the canonical `0c0fe37cf449cbc6e275...` byte-identical to the 2026-05-27 c72eada+#108 witness, consistent with the existing project memory that drift sensitivity is inversely proportional to budget-vs-tree-size ratio.) #116 remains deferred to post-560T.
+**#116 (parallelize manifest sha256 sweep) — still NOT shipped.** A second attempt at the #116 sha-gate was made on 2026-05-30/31 with a paired-VM design (PARENT + PATCHED on the same [cloud detail redacted] Spot at 1T scale, sha-equality-gate between them). The PATCHED side failed with bash rc=2 immediately at startup — `SOLVE_TEMP_DIR=/dev/shm/scratch_patched { time ./solve; } > log` is not valid bash (an env-var prefix is not legal before a compound `{ }`). The PARENT side ran clean and recorded the v3 BRANCH lineage 1T sha as `5a0f0bc24eb91b364169a13d0240ee0ff0fcf824dc829754d2254ec101fb8f52` on the test host — different from the Tier 1 anchor `74d39760…`, confirming the 1T host-environment drift class is still active on the v3 BRANCH lineage. ⚠ **[CORRECTED 2026-09-04: this sentence records the first refutation of the "does not reproduce on current `main`" claim and reads it as a confirmation.** The PARENT ran `main` `7ca55e8` with the published budget — `Per-sub-branch node limit: 6315458` in its own log — and produced exactly the published-recipe 1T anchor. Nothing about a drift class was confirmed. See [CORRECTIONS.md](CORRECTIONS.md) §"2026-09-04 — the 1T anchor pair was two per-cell budgets".]** (At 11.2T scale this drift class does not propagate — the dress rehearsal v2 at git `7ca55e8` produced the canonical `0c0fe37cf449cbc6e275...` byte-identical to the 2026-05-27 c72eada+#108 witness, consistent with the existing project memory that drift sensitivity is inversely proportional to budget-vs-tree-size ratio.) #116 remains deferred to post-560T.
 
-**Cost summary** for the full dress rehearsal + investigation work: dress v1 enum [cost redacted], dress v2 merge + archive [cost redacted], drift investigation D2 Spots [cost redacted], brief orphan VM [cost redacted] — ≈ **[cost redacted] total**, well under the [cost redacted] operator-authorized investigation budget. The 560T main campaign trigger remains scheduled for 7 am PT Monday 2026-06-01 (= 14:00 UTC 2026-06-01).
+**Cost summary** for the full dress rehearsal + investigation work: dress v1 enum [cost redacted], dress v2 merge + archive [cost redacted], drift investigation [cloud detail redacted] Spots [cost redacted], brief orphan VM [cost redacted] — ≈ **[cost redacted] total**, well under the [cost redacted] operator-authorized investigation budget. The 560T main campaign trigger remains scheduled for 7 am PT Monday 2026-06-01 (= 14:00 UTC 2026-06-01).
 
 Selftest sha `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` preserved.
 
 ## June 1-8, 2026 — 560 T canonical campaign + post-merge SPOF discovery
 
-The 560 T canonical campaign launched 2026-06-01 00:03 UTC on a D128als_v7 Spot in westus3 with a 4 TB Premium SSD attached for shards (`SOLVE_PER_SUB_BRANCH_LIMIT=3,536,157,207` per cell × 158,364 cells = 560 T total node budget). Enumeration reached natural completion at 2026-06-08 03:34 UTC after 171.5 h of wall time, having scanned 100 % of cells (every `sub_<cell>.dfs_state` file present) and recorded solutions for 65,281 cells (41.2 % yield; ~58.8 % of cells produced zero solutions within budget). The supervisor handed off to the merge stage automatically — torn down the enum VM (Premium + solver-data detached and preserved), spun up a D16als_v7 Standard merge VM, re-attached both disks, ran selftest + throttle probe, launched `solve --merge`. Merge ran 18 h 42 m and produced **`solutions.bin`** with sha256 `9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`, **10,525,271,997 unique canonical solutions** (336,808,703,936 bytes on disk = 32-byte header + records × 32; the merge log's 336,808,703,904 is record-bytes only — the same header fence-post the 100T 2026-07-04 correction warns about), with a 4.17× dedup ratio against the 43.88 B pre-dedup raw records. `solve --verify` PASSED clean — all records satisfy C1-C5, sorted, no duplicates, **King Wen found: YES**. ⚠ **[CORRECTED 2026-09-07 — this sentence runs the King Wen observation into the `solve --verify` verdict clause, so it reads as a fourth gated criterion beside C1-C5, sort and dedup. `--verify` REPORTS King Wen; it does not gate on it.** In `solve.c`, `kw_found_v` reaches the reader through two unconditional `printf`s — the `King Wen found:` line and the whole-line `KW_PRESENT=YES|NO` — while `fail_kw` is set only inside the `if (g_expect_kw && !kw_found_v)` guard and is the last term summed into `total_fail`. So on a default `--verify` an artifact with the King Wen record deleted returns `VERIFY=PASS`, rc 0 (measured 2026-09-02; cited by symbol rather than line number, re-verified against this tree 2026-09-07, because `solve.c` line numbers drift). **The observation itself stands and is not withdrawn — King Wen IS present in the 560 T canonical**; only its billing as a gated criterion is. Decisively for this dated entry: `--expect-kw` did not exist on 2026-06-08. It shipped 2026-09-04, so the binary that produced this PASS had no code path by which King Wen's presence or absence could have moved the verdict. Default enforcement was **deliberately** retracted 2026-09-02 (registry `RP-60347080`), because a shard or a budgeted slice legitimately lacks the record and gating on absence would be a false reject; `tests.py`'s `TestVerifyRecordsPath.test_records_verdict_and_kw_scope_are_whole_line_tokens` pins the reported-not-enforced contract by assertion. NOT a mutation test, and NOT `TestSolveVerifyKingWenScope` — that class pins the C binary and its own docstring calls itself the cross-language CONTROL for the Python one; citing it here would name the wrong instrument. There is no `ROAE_TESTS_VERIFY_SRC` hook, so the Python side has no recorded mutant proving its assertion would fire. This is the third sibling of one claim about one run — the same 2026-06-08 verdict was corrected on this date at [CANONICAL_HASHES.md](CANONICAL_HASHES.md)'s 560 T witness row and at [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md)'s `solve --verify` row, and the class was opened at [TR-3](../reports/TR3_REPRODUCIBLE_ENUMERATION.md) v1.13. Nine further sites — eight in this file and one in [PERFORMANCE_HISTORY.md](PERFORMANCE_HISTORY.md) — carry a marker of this date pointing here; three of them — the 2026-04-20 100T canonical validation, the 2026-05-10 T9+d Phase 9 result and the 2026-05-21 G2 ARM cross-architecture result — were found by a whitespace-collapsed sweep of both files rather than named in the charge, and one of the nine attaches to `verify.py --jobs 128` rather than to `solve --verify`, which is the same defect in the other verifier. No sha, record count or verdict changes — PASS was and remains PASS on the C1-C5, sort and dedup checks.]** (Tier 1c `verify.py` two-language re-verify still in flight at time of writing.)
+The 560 T canonical campaign launched 2026-06-01 00:03 UTC on a [cloud detail redacted] Spot in [cloud detail redacted] with a 4 TB [cloud detail redacted] attached for shards (`SOLVE_PER_SUB_BRANCH_LIMIT=3,536,157,207` per cell × 158,364 cells = 560 T total node budget). Enumeration reached natural completion at 2026-06-08 03:34 UTC after 171.5 h of wall time, having scanned 100 % of cells (every `sub_<cell>.dfs_state` file present) and recorded solutions for 65,281 cells (41.2 % yield; ~58.8 % of cells produced zero solutions within budget). The supervisor handed off to the merge stage automatically — torn down the enum VM ([cloud detail redacted] + [cloud detail redacted] detached and preserved), spun up a [cloud detail redacted] Standard merge VM, re-attached both disks, ran selftest + throttle probe, launched `solve --merge`. Merge ran 18 h 42 m and produced **`solutions.bin`** with sha256 `9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`, **10,525,271,997 unique canonical solutions** (336,808,703,936 bytes on disk = 32-byte header + records × 32; the merge log's 336,808,703,904 is record-bytes only — the same header fence-post the 100T 2026-07-04 correction warns about), with a 4.17× dedup ratio against the 43.88 B pre-dedup raw records. `solve --verify` PASSED clean — all records satisfy C1-C5, sorted, no duplicates, **King Wen found: YES**. ⚠ **[CORRECTED 2026-09-07 — this sentence runs the King Wen observation into the `solve --verify` verdict clause, so it reads as a fourth gated criterion beside C1-C5, sort and dedup. `--verify` REPORTS King Wen; it does not gate on it.** In `solve.c`, `kw_found_v` reaches the reader through two unconditional `printf`s — the `King Wen found:` line and the whole-line `KW_PRESENT=YES|NO` — while `fail_kw` is set only inside the `if (g_expect_kw && !kw_found_v)` guard and is the last term summed into `total_fail`. So on a default `--verify` an artifact with the King Wen record deleted returns `VERIFY=PASS`, rc 0 (measured 2026-09-02; cited by symbol rather than line number, re-verified against this tree 2026-09-07, because `solve.c` line numbers drift). **The observation itself stands and is not withdrawn — King Wen IS present in the 560 T canonical**; only its billing as a gated criterion is. Decisively for this dated entry: `--expect-kw` did not exist on 2026-06-08. It shipped 2026-09-04, so the binary that produced this PASS had no code path by which King Wen's presence or absence could have moved the verdict. Default enforcement was **deliberately** retracted 2026-09-02 (registry `RP-60347080`), because a shard or a budgeted slice legitimately lacks the record and gating on absence would be a false reject; `tests.py`'s `TestVerifyRecordsPath.test_records_verdict_and_kw_scope_are_whole_line_tokens` pins the reported-not-enforced contract by assertion. NOT a mutation test, and NOT `TestSolveVerifyKingWenScope` — that class pins the C binary and its own docstring calls itself the cross-language CONTROL for the Python one; citing it here would name the wrong instrument. There is no `ROAE_TESTS_VERIFY_SRC` hook, so the Python side has no recorded mutant proving its assertion would fire. This is the third sibling of one claim about one run — the same 2026-06-08 verdict was corrected on this date at [CANONICAL_HASHES.md](CANONICAL_HASHES.md)'s 560 T witness row and at [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md)'s `solve --verify` row, and the class was opened at [TR-3](../reports/TR3_REPRODUCIBLE_ENUMERATION.md) v1.13. Nine further sites — eight in this file and one in [PERFORMANCE_HISTORY.md](PERFORMANCE_HISTORY.md) — carry a marker of this date pointing here; three of them — the 2026-04-20 100T canonical validation, the 2026-05-10 T9+d Phase 9 result and the 2026-05-21 G2 ARM cross-architecture result — were found by a whitespace-collapsed sweep of both files rather than named in the charge, and one of the nine attaches to `verify.py --jobs 128` rather than to `solve --verify`, which is the same defect in the other verifier. No sha, record count or verdict changes — PASS was and remains PASS on the C1-C5, sort and dedup checks.]** (Tier 1c `verify.py` two-language re-verify still in flight at time of writing.)
 
-**Spot eviction pattern, 5-for-5 weekday with 0 weekend evictions.** The 560 T enum ran across five weekdays Mon-Fri 2026-06-01 → 06-05 and the full weekend 06-06 / 06-07. Spot reclamation occurred once per weekday, all five times in a 37-minute morning window 07:12-07:49 PT (Mon 07:12, Tue 07:39, Wed 07:33, Thu 07:42, Fri 07:49 PT; Tue/Wed corrected 2026-08-01 from 07:28/07:25 to match the per-eviction table in CAMPAIGN_METHODOLOGY §7, TR-3's timeline figure, and viz/report_figures.py — 14:39:00Z/14:33:42Z). The weekend ran 0/2 evictions — strong empirical evidence that the eviction-generating mechanism in westus3's D128als_v7 Spot pool is **M-F scheduled reclamation**, not stochastic. This launch-window heuristic is now documented in [CAMPAIGN_METHODOLOGY.md §7](CAMPAIGN_METHODOLOGY.md). Per-eviction recovery used the PT-aware deferral policy (M-F 06:00-18:00 PT evictions defer to 18:01 PT same day; off-hours / weekend use 75-minute flat wait) which kept the campaign's eviction-recovery flow out of the M-F-daytime risk window in every case.
+**Spot eviction pattern, 5-for-5 weekday with 0 weekend evictions.** The 560 T enum ran across five weekdays Mon-Fri 2026-06-01 → 06-05 and the full weekend 06-06 / 06-07. Spot reclamation occurred once per weekday, all five times in a 37-minute morning window 07:12-07:49 PT (Mon 07:12, Tue 07:39, Wed 07:33, Thu 07:42, Fri 07:49 PT; Tue/Wed corrected 2026-08-01 from 07:28/07:25 to match the per-eviction table in CAMPAIGN_METHODOLOGY §7, TR-3's timeline figure, and viz/report_figures.py — 14:39:00Z/14:33:42Z). The weekend ran 0/2 evictions — strong empirical evidence that the eviction-generating mechanism in [cloud detail redacted]'s [cloud detail redacted] Spot pool is **M-F scheduled reclamation**, not stochastic. This launch-window heuristic is now documented in [CAMPAIGN_METHODOLOGY.md §7](CAMPAIGN_METHODOLOGY.md). Per-eviction recovery used the PT-aware deferral policy (M-F 06:00-18:00 PT evictions defer to 18:01 PT same day; off-hours / weekend use 75-minute flat wait) which kept the campaign's eviction-recovery flow out of the M-F-daytime risk window in every case.
 
-**Post-merge SPOF discovery and remediation.** During the post-verify phase 2026-06-08, while `verify.py` was still running, the operator flagged that no plan existed for copying `solutions.bin` to solver-data before the supervisor's `teardown_vm` fired. A reading of `phase_b_merge_supervise.sh` confirmed: the supervisor copies only LOGS, sidecars (sha256, provenance.json), and the gzipped merge log; **it does NOT copy `solutions.bin`, shards, or `.dfs_state` checkpoints from Premium SSD to solver-data**. After teardown, the canonical exists only on the detached Premium SSD — a single point of failure, especially because Premium is by standing pattern the project's "transient external-merge scratch" (i.e., the kind of disk a future operator on muscle memory might delete). Remediation in flight:
+**Post-merge SPOF discovery and remediation.** During the post-verify phase 2026-06-08, while `verify.py` was still running, the operator flagged that no plan existed for copying `solutions.bin` to [cloud detail redacted] before the supervisor's `teardown_vm` fired. A reading of `phase_b_merge_supervise.sh` confirmed: the supervisor copies only LOGS, sidecars (sha256, provenance.json), and the gzipped merge log; **it does NOT copy `solutions.bin`, shards, or `.dfs_state` checkpoints from [cloud detail redacted] to [cloud detail redacted]**. After teardown, the canonical exists only on the detached [cloud detail redacted] — a single point of failure, especially because [cloud detail redacted] is by standing pattern the project's "transient external-merge scratch" (i.e., the kind of disk a future operator on muscle memory might delete). Remediation in flight:
 
-1. Explicit data copy from Premium → solver-data launched while verify.py was still running (read-only on source, no interference).
-2. solver-data disk resized 2 TB → 4 TB online (the uncompressed 560 T artifacts at ~1.6 TB plus a gzipped [storage detail redacted] mirror at ~800 GB don't fit in the prior 2 TB envelope). Per the standing rule, resize is allowed; delete is not.
+1. Explicit data copy from [cloud detail redacted] → [cloud detail redacted] launched while verify.py was still running (read-only on source, no interference).
+2. [cloud detail redacted] disk resized 2 TB → 4 TB online (the uncompressed 560 T artifacts at ~1.6 TB plus a gzipped [storage detail redacted] mirror at ~800 GB don't fit in the prior 2 TB envelope). Per the standing rule, resize is allowed; delete is not.
 3. [storage detail redacted] to [storage detail redacted] (the durable offsite tier) + [storage detail redacted] at [storage detail redacted] follow the established 100T pattern.
 
 The structural fix for future campaigns is to bake the explicit copy step into `phase_b_merge_supervise.sh` so it runs before `teardown_vm` unconditionally — see [CAMPAIGN_METHODOLOGY.md §4.1](CAMPAIGN_METHODOLOGY.md) for the post-merge artifact-preservation rule. This is the third canonical campaign (11.2 T, 100 T, 560 T) where the gap existed but was caught manually each time; the supervisor-level fix is the durable answer.
@@ -4829,11 +4829,11 @@ Selftest sha `403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e` 
 
 ## June 10-11, 2026 — `solve --analyze` algorithmic + observability rewrites at canonical scale
 
-The 560 T post-merge `solve --analyze` pass surfaced three latent algorithmic issues that had been hidden at every smaller canonical, plus a generalized observability gap. All caught and fixed during a single ~8h working session on 2026-06-10 → 2026-06-11; the actual --analyze run at canonical scale was attempted three times (D64 Spot evicted, D64 Standard ran ~24h+ in §[10] alone without completing, D32 Standard ran ~3h with rewrites in place, D128 Standard finished cleanly with the same rewrites). Selftest sha unchanged at `403f7202…` throughout; every rewrite passed paired-test sha-equivalence against the original at 11.2T scale before shipping.
+The 560 T post-merge `solve --analyze` pass surfaced three latent algorithmic issues that had been hidden at every smaller canonical, plus a generalized observability gap. All caught and fixed during a single ~8h working session on 2026-06-10 → 2026-06-11; the actual --analyze run at canonical scale was attempted three times ([cloud detail redacted] Spot evicted, [cloud detail redacted] Standard ran ~24h+ in §[10] alone without completing, [cloud detail redacted] Standard ran ~3h with rewrites in place, [cloud detail redacted] Standard finished cleanly with the same rewrites). Selftest sha unchanged at `403f7202…` throughout; every rewrite passed paired-test sha-equivalence against the original at 11.2T scale before shipping.
 
 **Three algorithmic rewrites, all sha-preserving in stdout output**:
 
-1. **§[10] Pairwise mutual information (#141, commit `8ac5e8f`).** Original: `#pragma omp parallel for collapse(2)` over 32×32/2 = 496 (p, q) pairs, with each iteration doing a full pass over `n_sols` records (collect joint counts for that pair, compute MI). At 560T (10.5 B records, 336 GB `solutions.bin`) this is **496 × 336 GB = 167 TB of reads** through the mmap'd file — memory-bandwidth bound on D64 at ~5 cores effective. The 2026-06-10 attempt ran 24 h+ in §[10] alone without finishing. Rewrite: **tile by records — ONE pass over n_sols updating all 496 joint-count tables per record**. Same arithmetic, 496× fewer file passes. Per-thread 4 MB joint table reduced at end. Empirical 11.2T paired: OLD 116s → NEW 28s = 4.1× speedup at 11.2T; at 560T the projection is 50-200× because the OLD algorithm becomes memory-bandwidth-bound.
+1. **§[10] Pairwise mutual information (#141, commit `8ac5e8f`).** Original: `#pragma omp parallel for collapse(2)` over 32×32/2 = 496 (p, q) pairs, with each iteration doing a full pass over `n_sols` records (collect joint counts for that pair, compute MI). At 560T (10.5 B records, 336 GB `solutions.bin`) this is **496 × 336 GB = 167 TB of reads** through the mmap'd file — memory-bandwidth bound on [cloud detail redacted] at ~5 cores effective. The 2026-06-10 attempt ran 24 h+ in §[10] alone without finishing. Rewrite: **tile by records — ONE pass over n_sols updating all 496 joint-count tables per record**. Same arithmetic, 496× fewer file passes. Per-thread 4 MB joint table reduced at end. Empirical 11.2T paired: OLD 116s → NEW 28s = 4.1× speedup at 11.2T; at 560T the projection is 50-200× because the OLD algorithm becomes memory-bandwidth-bound.
 2. **§[11] Per-first-level-branch distinct configurations (#142, commit `fe58e71`).** Original: 1 pre-count pass + 31 outer iterations (one per p1), each iteration doing a full `n_sols` pass to extract pos 2..18 rows then qsort+dedup. Total 32 passes. At 560T projected ~9-12 h. Rewrite: **single n_sols pass, per-p1 open-addressing hash set (4096 slots × 17-byte keys = 69 KB each)**. HISTORY had noted that "every reachable branch admits 2-29 distinct pos-3-19 configurations" so 4096 slots is hugely conservative. Total memory 32 sets × ~70 KB = 2.2 MB. Empirical: OLD ~8-9 min at 11.2T → NEW 9s = ~60× speedup at 11.2T.
 3. **§[20] Complement-orbit analysis (#143, commit `bf8d8a5`).** Original: allocate `n_sols × 32 byte` buffer to materialize complemented records, qsort it, then merge-scan it against `all`. At 560T the buffer is 336 GB — would not fit in any reasonable VM RAM, would have segfaulted at malloc. Rewrite: since `all` is already sorted by --merge, **stream the complement per record and binary-search into `all` directly**. Total O(N log N) time, ZERO extra memory. Empirical 11.2T: OLD 392s → NEW 3s = **131× speedup**; at 560T NEW is feasible where OLD was not.
 
@@ -4841,17 +4841,17 @@ All three were validated via a paired test on the 11.2T canonical (796 M records
 
 **Universal --analyze observability**: stderr progress markers were added to every n_sols-iterating loop in --analyze (#144 + #146, commits `b1a51ed` and `c0ec4c3`), plus `[N] START` / `[N] DONE` markers on every section header (#145, commit `a330548`). Macros `ANALYZE_EMIT_PROGRESS` and `ANALYZE_PROGRESS_STEP` at the top of `solve.c` provide a single point-of-control: stderr-only (stdout untouched, sha-neutral), master-thread-only inside OpenMP regions, throttled per-1% of `n_sols`. `omp_in_parallel()` × `omp_get_num_threads()` correction was needed for sections inside `#pragma omp for` (master's local `i` covers only 1/T of the work under static scheduling); without that, §[10] displayed "1% ETA=5h" when actual progress was ~32%. Combined with the algorithmic rewrites, an operator watching the analyze log via `tail -f` now sees: section transitions in real time (`[N] START` / `[N] DONE`), within-section progress every 1 % (`[label] record I/T (P%) elapsed=Es ETA=Es`), and the entire run completes in a sane wall time at canonical scale.
 
-**Empirical analyze VM sizing at 560T**: D32 Standard with 64 GB RAM holds only 19 % of the 336 GB `solutions.bin` in page cache — every sub-section reading the records hits disk at ~450 MB/s Premium SSD bandwidth, which over a 336,808,703,936-byte file is **≈ 12.5 min per pass** (336,808,703,936 ÷ 450 × 10⁶ = 748 s). Projected total wall on D32: ~3 h. D128 Standard with 256 GB RAM holds 76 % of the file in cache; only the first [stream] pass is fully disk-bound, subsequent sections are mostly cache-resident. Projected total wall on D128: **~1.5 h** with the same code. **For 560T+ analyze the right floor is D128 (or D96 if quota constrains)**, not D32 as the methodology had earlier recommended based on incomplete data; the bottleneck for canonical-scale analyze is **page-cache fraction of the file**, not core count (analyze saturates at ~5-10 cores regardless of VM size). SKU cost comparison: **withdrawn — see the correction immediately below.**
+**Empirical analyze VM sizing at 560T**: [cloud detail redacted] Standard with 64 GB RAM holds only 19 % of the 336 GB `solutions.bin` in page cache — every sub-section reading the records hits disk at ~450 MB/s [cloud detail redacted] bandwidth, which over a 336,808,703,936-byte file is **≈ 12.5 min per pass** (336,808,703,936 ÷ 450 × 10⁶ = 748 s). Projected total wall on [cloud detail redacted]: ~3 h. [cloud detail redacted] Standard with 256 GB RAM holds 76 % of the file in cache; only the first [stream] pass is fully disk-bound, subsequent sections are mostly cache-resident. Projected total wall on [cloud detail redacted]: **~1.5 h** with the same code. **For 560T+ analyze the right floor is [cloud detail redacted] (or [cloud detail redacted] if quota constrains)**, not [cloud detail redacted] as the methodology had earlier recommended based on incomplete data; the bottleneck for canonical-scale analyze is **page-cache fraction of the file**, not core count (analyze saturates at ~5-10 cores regardless of VM size). SKU cost comparison: **withdrawn — see the correction immediately below.**
 
-⚠ **[CORRECTED 2026-09-02 (prose batch P70; Codex V2-F22 #7) — two numbers in this entry are corrected, and the two wall *projections* are deliberately left standing.** (1) **The per-pass disk time did not follow from the bandwidth stated beside it.** The entry gave both factors — a 336 GB file and ~450 MB/s — and then printed a per-pass figure ~76 % larger than their quotient; 336,808,703,936 ÷ 450 × 10⁶ is 748 s, i.e. ≈ 12.5 min, and the published figure instead implied ~255 MB/s. Corrected in place above. The dependent "~3 h on D32" is **not** re-derived, because it was built on the erroneous per-pass figure and no D32 analyze run at 560 T was ever executed to check it against. (2) **The SKU cost comparison is withdrawn, not rescaled.** It multiplied an hourly rate by the D128 *projection* and concluded D128 "finishes sooner" than D32 for marginally more money — a conclusion the measurement refutes at the numerator: the post-rewrite D128 run took **13,631 s (3 h 47 m)**, recorded eight lines below in this same entry, so the true D128 figure at the stated [cost redacted]/h rate is **~[cost redacted]**, ~2.5× what was published, and the D32 side of the comparison has no measured wall at all. **What is preserved and why:** "Projected total wall on D128: ~1.5 h" stays exactly as written. It is a correctly-labelled projection of that date, and it is the primary evidence [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) rule 8 cites when showing that the same figure was later restated there as an accomplished fact; deleting it would break that citation. **Provenance of this fix:** the 2026-09-01 pass that corrected rule 8 in `CAMPAIGN_METHODOLOGY.md` found this site, said so in its own marker, and explicitly left it — "reported, not edited". This closes that handoff. Both retired forms are registered in [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) and keyed in [CORRECTIONS.md](CORRECTIONS.md) as `RP-a8eb3931` and `RP-dd27f0bf`. No sha, record count, or scientific finding in this entry is affected — the §[6]–§[8] results below came from the real 3 h 47 m run.]**
+⚠ **[CORRECTED 2026-09-02 (prose batch P70; Codex V2-F22 #7) — two numbers in this entry are corrected, and the two wall *projections* are deliberately left standing.** (1) **The per-pass disk time did not follow from the bandwidth stated beside it.** The entry gave both factors — a 336 GB file and ~450 MB/s — and then printed a per-pass figure ~76 % larger than their quotient; 336,808,703,936 ÷ 450 × 10⁶ is 748 s, i.e. ≈ 12.5 min, and the published figure instead implied ~255 MB/s. Corrected in place above. The dependent "~3 h on [cloud detail redacted]" is **not** re-derived, because it was built on the erroneous per-pass figure and no [cloud detail redacted] analyze run at 560 T was ever executed to check it against. (2) **The SKU cost comparison is withdrawn, not rescaled.** It multiplied an hourly rate by the [cloud detail redacted] *projection* and concluded [cloud detail redacted] "finishes sooner" than [cloud detail redacted] for marginally more money — a conclusion the measurement refutes at the numerator: the post-rewrite [cloud detail redacted] run took **13,631 s (3 h 47 m)**, recorded eight lines below in this same entry, so the true [cloud detail redacted] figure at the stated [cost redacted]/h rate is **~[cost redacted]**, ~2.5× what was published, and the [cloud detail redacted] side of the comparison has no measured wall at all. **What is preserved and why:** "Projected total wall on [cloud detail redacted]: ~1.5 h" stays exactly as written. It is a correctly-labelled projection of that date, and it is the primary evidence [CAMPAIGN_METHODOLOGY.md](CAMPAIGN_METHODOLOGY.md) rule 8 cites when showing that the same figure was later restated there as an accomplished fact; deleting it would break that citation. **Provenance of this fix:** the 2026-09-01 pass that corrected rule 8 in `CAMPAIGN_METHODOLOGY.md` found this site, said so in its own marker, and explicitly left it — "reported, not edited". This closes that handoff. Both retired forms are registered in [RETRACTED_PHRASES.tsv](RETRACTED_PHRASES.tsv) and keyed in [CORRECTIONS.md](CORRECTIONS.md) as `RP-a8eb3931` and `RP-dd27f0bf`. No sha, record count, or scientific finding in this entry is affected — the §[6]–§[8] results below came from the real 3 h 47 m run.]**
 
-The §[10]/§[11]/§[20] rewrites collapse to a single architectural pattern: **at canonical scale, the only sustainable per-section design is one pass over `n_sols` records doing all per-record work inline**. Any anti-pattern (outer iteration over pairs/subsets/positions with inner full `n_sols` scan; allocate-then-sort a `n_sols`-sized buffer) becomes infeasible at 560T+ either by wall-time or by RAM. Documented as CAMPAIGN_METHODOLOGY §7 rule 14 (added in same session) so the next operator extending --analyze functionality starts with the right pattern. The §[10]+§[11]+§[20] rewrites + sizing fix together unblock the 1120T extension's analyze step from "infeasible" to **~3-5 h on D128**.
+The §[10]/§[11]/§[20] rewrites collapse to a single architectural pattern: **at canonical scale, the only sustainable per-section design is one pass over `n_sols` records doing all per-record work inline**. Any anti-pattern (outer iteration over pairs/subsets/positions with inner full `n_sols` scan; allocate-then-sort a `n_sols`-sized buffer) becomes infeasible at 560T+ either by wall-time or by RAM. Documented as CAMPAIGN_METHODOLOGY §7 rule 14 (added in same session) so the next operator extending --analyze functionality starts with the right pattern. The §[10]+§[11]+§[20] rewrites + sizing fix together unblock the 1120T extension's analyze step from "infeasible" to **~3-5 h on [cloud detail redacted]**.
 
 Six solve.c commits, all selftest-sha-preserving: `8ac5e8f` (§[10] + progress markers), `fe58e71` (§[11]), `bf8d8a5` (§[20]), `b1a51ed` (universal progress markers), `a330548` (section START/DONE), `c0ec4c3` (OpenMP progress correctness). Tag `pre-1120T-analyze-fast-2026-06-11` marks the canonical-scale analyze-ready state.
 
-### 560T `--analyze` scientific findings (D128 run, 2026-06-11)
+### 560T `--analyze` scientific findings ([cloud detail redacted] run, 2026-06-11)
 
-The post-rewrite D128 analyze run completed in **3 h 47 m wall** (analyze_v3_560T.log, 13,631 s). Selected scientific headline findings (full log archived at `roae-private/campaigns/campaign_2026_06_scripts/d128_analyze_v3/analyze_v3_560T.log` + [storage detail redacted]):
+The post-rewrite [cloud detail redacted] analyze run completed in **3 h 47 m wall** (analyze_v3_560T.log, 13,631 s). Selected scientific headline findings (full log archived at `roae-private/campaigns/campaign_2026_06_scripts/d128_analyze_v3/analyze_v3_560T.log` + [storage detail redacted]):
 
 - **§[1] file metadata**: 10,525,271,997 records, 336.81 GB
 - **§[2] per-position Shannon entropy**: pos 1 H = 0.000 (1 distinct pair — forced); pos 2 H = 4.272 (28 distinct pairs)
@@ -4859,7 +4859,7 @@ The post-rewrite D128 analyze run completed in **3 h 47 m wall** (analyze_v3_560
 - **§[7] exhaustive 3-subset disproof**: tested all C(31,3)=4,495 triples. Best 3-set {4, 25, 27} leaves 15 survivors. Triples reaching ≤1: **0**. No 3-subset isolates KW at 560T (minimum ≥ 4)
 - **§[8] all 4-subsets reducing survivors to ≤1: 0** — significant scale-dependent shift from 742M (4 sets — under the pre-format-v1 "survivors ≤ 4" convention, not the canonical-era "≤ 1"; see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md) §Result table), 11.2T (8 sets); at 560T no 4-tuple of boundaries reduces survivors to ≤1, consistent with the §[6] greedy minimum of 5. **Methodological consequence: "4-set uniquely identifies KW" was a scale-bounded empirical observation; at canonical depth the minimum is 5** *(corrected 2026-07-04)*
 - **§[9] boundary redundancy**: top-INDEPENDENT pairs include `{6,26}` (ratio 0.007), `{12,26}`, `{25,27}` (ratio 0.007) — quantifying why 25 + 27 appear in every minimum set across all canonicals
-- **§[10] pairwise mutual information** (~365 s on D128 with new tile-by-records algorithm; OLD code 24h+ infeasible): top pair **pos 12 ↔ pos 13 = 1.3417 bits**, followed by 19↔20 = 1.2977, 17↔18 = 1.2422, 13↔14 = 1.2360. Cascade-region positions 11–20 own the entire top-10. Mandatory boundaries 25, 27 do NOT appear in the top-20 MI pairs — confirming structural independence from the cascade-region MI cluster
+- **§[10] pairwise mutual information** (~365 s on [cloud detail redacted] with new tile-by-records algorithm; OLD code 24h+ infeasible): top pair **pos 12 ↔ pos 13 = 1.3417 bits**, followed by 19↔20 = 1.2977, 17↔18 = 1.2422, 13↔14 = 1.2360. Cascade-region positions 11–20 own the entire top-10. Mandatory boundaries 25, 27 do NOT appear in the top-20 MI pairs — confirming structural independence from the cascade-region MI cluster
 - **§[18] per-boundary conditional entropy**: baseline H = **77.81 bits** (sum_p H(pair at p)). Boundary 4 has the highest info gain at **45.14 bits** (over half the total entropy). Boundaries 25, 27 info gain: 10.73, 10.63 bits — mid-pack. The high-information boundaries are *not* the mandatory ones; mandatoriness is structural (specific to which non-KW orderings each boundary eliminates), not information-theoretic
 - **§[19] identity-level survivor dump**: dumps the survivor sets of the legacy 742M-era working 4-sets (non-empty output at 560T; none reaches KW-only, consistent with §[8]=0) *(corrected 2026-07-04: originally recorded as "empty at 560T")*
 - **§[28] edit-distance histogram**: mode at distance 30 with 2,789,988,449 records (26.5% of all canonicals); 96% of records are at edit-distance ≥ 25 from KW; distance 31 holds 1,880,042,588 records (17.9%). KW is structurally rare in the canonical-solution space at 560T scale
@@ -4894,17 +4894,17 @@ For the same v1 lineage, comparing 11.2T (sha `0c0fe37c…`, 759,608,573 records
 
 Implication for the 1120T extension projection: the simple power-law `records ∝ T^0.78` projects ~18.1 B records at 1120T *(corrected: α ≈ 0.67, ≈16.7 B — the 0.78 exponent was an arithmetic error; see the α refit correction in the June 1-8 entry above)*. The mechanism behind that projection is now better understood — a substantial fraction of the additional records will come from cells that produced 0 records at 560T, rather than from deeper trees in cells already yielding at 560T. Realistic 1120T range refined to ~14-22 B records.
 
-Methodology: 11.2T per-cell data extracted by streaming the merged `solutions.bin.gz` from [storage detail redacted] and binning each 32-byte record by bytes 1-3 (= encoded sub-branch key for positions 2, 3, 4; byte 0 is C1-fixed position 1 = pair 0). 560T per-cell data extracted from the 65,281 `sub_*.bin.provenance.json.gz` files in [storage detail redacted] via parallel curl + `cumulative_records_emitted` parse. Encoding alignment validated by p1-distinct-value cross-check (28 distinct values on both sides; identical set). Total compute cost: ~[cost redacted] (D2 Spot + [storage detail redacted]).
+Methodology: 11.2T per-cell data extracted by streaming the merged `solutions.bin.gz` from [storage detail redacted] and binning each 32-byte record by bytes 1-3 (= encoded sub-branch key for positions 2, 3, 4; byte 0 is C1-fixed position 1 = pair 0). 560T per-cell data extracted from the 65,281 `sub_*.bin.provenance.json.gz` files in [storage detail redacted] via parallel curl + `cumulative_records_emitted` parse. Encoding alignment validated by p1-distinct-value cross-check (28 distinct values on both sides; identical set). Total compute cost: ~[cost redacted] ([cloud detail redacted] Spot + [storage detail redacted]).
 
 Full report at `roae-private/PER_CELL_11_2T_VS_560T_COMPARISON_2026_06_11.md` (private; raw data archived to `roae-private/per_cell_comparison_2026_06_11/`).
 
 ### v3 100T re-derive launched (task #148) — initial framing corrected 2026-06-12
 
-The 100T canonical anchor `915abf30…` has multiple preserved-byte witnesses on the project's [storage detail redacted] (`solver-data-westus3:/canonical_100T/solutions.bin`, originating from the 2026-05-09 T9+c.1 recovery; sha256-verified `915abf30…` byte-identically on 2026-06-12). The 2026-05-30 #114 100T re-validation on the current main lineage sha-PASSED but its bytes were not uploaded to [storage detail redacted] (an earlier doc revision referenced an empty [storage detail redacted]; corrected during today's restructure). **Today's v3 100T re-derive was initially framed as motivated partly by "restoring preserved bytes" — that framing was inaccurate; the bytes have been continuously preserved on [storage detail redacted] since May 9.** The actual unique value of the v3 100T re-derive is preserving per-cell shards (the 2026-05-29 preserve-shards directive postdated the original 100T enum, so no 100T per-cell shards have ever been [storage detail redacted]), which unlocks the 3-point per-cell scaling trajectory (11.2T → 100T → 560T) with full BUDGETED/EXHAUSTED budget-status decomposition.
+The 100T canonical anchor `915abf30…` has multiple preserved-byte witnesses on the project's [storage detail redacted] (`[cloud detail redacted]:/canonical_100T/solutions.bin`, originating from the 2026-05-09 T9+c.1 recovery; sha256-verified `915abf30…` byte-identically on 2026-06-12). The 2026-05-30 #114 100T re-validation on the current main lineage sha-PASSED but its bytes were not uploaded to [storage detail redacted] (an earlier doc revision referenced an empty [storage detail redacted]; corrected during today's restructure). **Today's v3 100T re-derive was initially framed as motivated partly by "restoring preserved bytes" — that framing was inaccurate; the bytes have been continuously preserved on [storage detail redacted] since May 9.** The actual unique value of the v3 100T re-derive is preserving per-cell shards (the 2026-05-29 preserve-shards directive postdated the original 100T enum, so no 100T per-cell shards have ever been [storage detail redacted]), which unlocks the 3-point per-cell scaling trajectory (11.2T → 100T → 560T) with full BUDGETED/EXHAUSTED budget-status decomposition.
 
 See `petersm3/roae-private:LESSONS_LEARNED_2026_06_12_CANONICAL_PRESERVATION_CHECK.md` for the incident detail (mistake: I checked only [storage detail redacted] to determine "bytes preserved?", missed [storage detail redacted]; fix: query BOTH tiers before declaring bytes lost).
 
-Cost projection: ~[cost redacted] (D128 Spot ~16h × [cost redacted] + D16 Standard merge ~5h × [cost redacted] + 1 TB Premium SSD ~2 days + archive). Operator authorized "start it now on spot vms" at 2026-06-11 mid-afternoon PT; enum running since 23:22 UTC. Sha-gate: target `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` (byte-identical to v1 anchor per v3 sha-preservation).
+Cost projection: ~[cost redacted] ([cloud detail redacted] Spot ~16h × [cost redacted] + [cloud detail redacted] Standard merge ~5h × [cost redacted] + 1 TB [cloud detail redacted] ~2 days + archive). Operator authorized "start it now on spot vms" at 2026-06-11 mid-afternoon PT; enum running since 23:22 UTC. Sha-gate: target `915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5` (byte-identical to v1 anchor per v3 sha-preservation).
 
 Launcher: `roae-private/scripts/campaign_100T_v3_rederive/LAUNCH_100T_V3_RE_DERIVE.sh` — thin wrapper over the 560T launcher with PSB / NL / VM / RUN / LOGDIR / EXPECTED_SHA env overrides (the 560T launcher was retrofitted 2026-06-11 to accept these overrides + a parent_canonical.txt convention).
 
@@ -4932,7 +4932,7 @@ Two consecutive 2026-06-12 incidents surfaced root-cause discipline failures aro
 
 While discussing whether to launch a v3 100T re-derive, the user asked whether the 100T canonical bytes (`915abf30…`) were preserved. I checked [storage detail redacted], found no `20260530_100T_revalidation_4e15885/` archive, and concluded "bytes NOT preserved" — then "corrected" CANONICAL_HASHES.md to that effect (commit `7a3c0d5`).
 
-In reality the bytes were preserved on [storage detail redacted] at `solver-data-westus3:/canonical_100T/solutions.bin` since 2026-05-09 (T9+c.1 recovery output). I missed this because I implicitly assumed "if it's not in [storage detail redacted], it's not preserved." Surface verification 2026-06-12 via `sha256sum` confirmed the [storage detail redacted] file is byte-identical to the canonical anchor.
+In reality the bytes were preserved on [storage detail redacted] at `[cloud detail redacted]:/canonical_100T/solutions.bin` since 2026-05-09 (T9+c.1 recovery output). I missed this because I implicitly assumed "if it's not in [storage detail redacted], it's not preserved." Surface verification 2026-06-12 via `sha256sum` confirmed the [storage detail redacted] file is byte-identical to the canonical anchor.
 
 **Going-forward rule** (`feedback_canonical_preservation_check_warm_and_cold`): query BOTH [storage detail redacted] AND every attached managed data disk before declaring bytes lost. Never write "bytes NOT preserved" — be specific about which tier was checked.
 
@@ -4951,13 +4951,13 @@ Caught while reviewing CANONICAL_HASHES.md for the restructure (the user asked f
 
 **Implication:** the v3 100T enum that had been running with the buggy PSB would produce a sha distinct from `915abf30…` — not "the canonical 100T" but a different valid 100T-class canonical with a slightly higher per-cell budget.
 
-**Operator decision** (2026-06-12 mid-afternoon PT): kill the buggy run + restart with correct PSB. Quote: "canonical MEANS canonical." Cost: ~[cost redacted] sunk (15h × [cost redacted]/hr D128 Spot + 30 min × [cost redacted]/hr D16 Standard merge that had just started + Premium SSD overhead) + ~[cost redacted] fresh re-run.
+**Operator decision** (2026-06-12 mid-afternoon PT): kill the buggy run + restart with correct PSB. Quote: "canonical MEANS canonical." Cost: ~[cost redacted] sunk (15h × [cost redacted]/hr [cloud detail redacted] Spot + 30 min × [cost redacted]/hr [cloud detail redacted] Standard merge that had just started + [cloud detail redacted] overhead) + ~[cost redacted] fresh re-run.
 
 **Fix applied:**
 1. `LAUNCH_100T_V3_RE_DERIVE.sh` PSB corrected to `631,456,644` with a multi-line comment citing CANONICAL_HASHES.md as authoritative + the lessons-learned doc as the incident reference.
 2. `LAUNCH_11_2T_RE_DERIVE.sh` PSB corrected to `70,723,196` IN ADVANCE — before the orchestrator fired it (the 11.2T re-derive is scheduled to auto-fire after the 100T pipeline completes). Caught before any compute was spent.
-3. Buggy artifacts cleaned: c100v3-enum VM deleted, c100v3-merge VM deleted, 1 TB Premium SSD (`c100v3-premium-shards-20260611T232222Z`) holding buggy shards deleted.
-4. Fresh v3 100T launched 2026-06-12T23:17Z with corrected PSB; running cleanly at ~150 cells/min on the new D128 Spot host.
+3. Buggy artifacts cleaned: c100v3-enum VM deleted, c100v3-merge VM deleted, 1 TB [cloud detail redacted] (`c100v3-[cloud detail redacted]-shards-20260611T232222Z`) holding buggy shards deleted.
+4. Fresh v3 100T launched 2026-06-12T23:17Z with corrected PSB; running cleanly at ~150 cells/min on the new [cloud detail redacted] Spot host.
 
 **Going-forward rule** (`feedback_canonical_constants_from_recipe`, to be saved post-restart): for any canonical-reproducing launcher, copy `SOLVE_PER_SUB_BRANCH_LIMIT` verbatim from `CANONICAL_HASHES.md` Reproducibility-parameters table. Do not re-derive from any formula. The recipe values are the authoritative empirical PSBs that produced each published canonical sha; deriving from `floor(NL / 158,364)` will silently produce a different sha at certain scales (since the published recipe PSBs for 1T, 10T, and 11.2T are NOT exactly floor — see the PSB-formula caveat section now added to CANONICAL_HASHES.md).
 
@@ -5107,10 +5107,10 @@ outcome. This entry will be updated when the re-validation resolves.
 Following the #167 eviction-resume determinism fix and its canonical-scale validation (11.2T single- and
 multi-eviction reproductions of `0c0fe37c`, a 1T launcher smoke, and an **eviction-injected 11.2T dress
 rehearsal** that reproduced `0c0fe37c` byte-for-byte through 2 real Spot evictions on the production engine),
-the operator authorized a **from-scratch 560T re-run** (`LAUNCH_560T_RERUN.sh`: D128 Spot, 2 TB Premium, fixed
+the operator authorized a **from-scratch 560T re-run** (`LAUNCH_560T_RERUN.sh`: [cloud detail redacted] Spot, 2 TB [cloud detail redacted], fixed
 binary, 5-min IOPS telemetry) to produce a clean, single-lineage 560T that either reproduces the SUSPECT
 `9a968fa2` or supersedes it. The run is in flight (~5 days). The original campaign's per-cell forensic shards
-were [storage detail redacted]) before the 4 TB Premium
+were [storage detail redacted]) before the 4 TB [cloud detail redacted]
 holding them was retired.
 
 The launch itself surfaced — and we fixed — a series of bugs in the **telemetry sampler and its launch wiring**
@@ -5254,7 +5254,7 @@ true full-space cut is ×2.55×10⁶; ~105 bits (≈15–20 boundary constraints
 uniqueness (distinct from the ~126-bit total MDL residual — this is the C1–C7 → uniqueness gap only). The spec's Conjecture block now records the refutation with the measurement; every uniqueness
 claim in the project is scoped to the enumerated datasets, where the greedy-boundary identification result stands (5 boundaries at canonical depth; corrected 2026-07-04 from the earlier "4"). The
 honest arc of the day: the same estimator machinery that sized the C1–C5 space at ≈1.33×10³⁸ settled, for
-about a dollar of Spot compute, a question the project had carried as "unconfirmed at scale" since April.
+[cost detail redacted] of Spot compute, a question the project had carried as "unconfirmed at scale" since April.
 
 **Same day, the literature goes under the estimator.** New public findings doc
 LITERATURE_RULES_POPULATION_TESTS.md: the structural rules asserted by [Moore (2005](CITATIONS.md#moore2005) pair-positioning parity;
@@ -5333,7 +5333,7 @@ minimum ≥ 4 everywhere, §[8] = 0 at 100T/560T, all canonical shas and record 
 The full-31 exact count |C1∩C2∩C4∩C5| ran as a two-path race. PATH A (in-RAM, symmetry-quotient
 layered DP with C5-residual tracking, `--f1-exact-c1c2c4c5`): validated on a subset ladder
 (24p = 7,477,248,378,538,061,907,099,648 exact in 93 s at 4.6 GB; 25/27/28p likewise), then attempted
-at full scale on the largest reachable memory (2.79 TB M-series Spot + 5.6 TB striped swap). It
+at full scale on the largest reachable memory (2.79 TB [cloud detail redacted] Spot + 5.6 TB striped swap). It
 failed honestly: layer 15 exceeded 2.45 TB *while still growing* — with layer-14 co-residency the true
 in-RAM peak is ~4.2–5 TB, beyond any machine our quotas reach — and the run was retired at a
 pre-committed swap tripwire after a single pre-agreed grace period. **Lesson (memory math):** the
@@ -5643,7 +5643,7 @@ resolve-first decision; no four-class verdict exists. Developed with AI assistan
 ## 2026-07-09/16: The exact count lands — twelve evictions, zero lost work, and a 40-digit integer
 
 The full-31 production count — launched 2026-07-09 on the #223-retooled engine (see the 2026-07-08/09
-entry) — ran seven days on a D128als_v7 Spot in westus3 with a 4 TB scratch disk and landed 2026-07-16
+entry) — ran seven days on a [cloud detail redacted] Spot in [cloud detail redacted] with a 4 TB scratch disk and landed 2026-07-16
 ~06:18 UTC:
 
 **|C1 ∩ C2 ∩ C4 ∩ C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688** (≈ 1.097051 × 10³⁹,
@@ -5988,7 +5988,7 @@ made the two flagship constrained counts **independently two-instrument**:
   exact-cover mask DP with no inclusion–exclusion) reproduced it to the digit.
 - **C3|C1 = 6.4211367496%** and the **C2 unpinned rarity = 4.29341%** became exact (from Monte-Carlo).
 - The full flagship **|C1–C5| = 1.3287×10³⁸** was shown to be **irreducibly expensive** to make exact —
-  a quantified state-space argument (the C3 positional channel needs ~3,600 D128-core-years per pass;
+  a quantified state-space argument (the C3 positional channel needs ~3,600 [cloud detail redacted]-core-years per pass;
   no-free-lumping kills every shortcut) — so it stays a (well-characterized) estimate. A capstone
   "here is precisely why it cannot be made exact cheaply."
 
@@ -6410,7 +6410,7 @@ sampled: 200 samples per popcount class, measured on a 2-core box. The extrapola
 is 239.4 core-hours per prime pass. ⚠ **The pricing note explicitly instructs the reader not to quote
 the single-figure wall estimate**: at 128 threads the walk DP contends for memory bandwidth, and the
 honest planning figure is a **6–17 hour window**, over which at least one Spot eviction is likely.
-Recorded Spot rates put the compute at **roughly [cost redacted]** leaning high, before setup, disk and eviction
+Recorded [cost detail redacted] put the compute at **roughly [cost redacted]** leaning high, before setup, disk and eviction
 overhead — inside the standing approval gate but above the self-execute floor, so it is an operator
 decision. **The price exists; the authorisation does not, and the run has not been made.**
 
@@ -6835,12 +6835,12 @@ reproduction path**, and it should be quoted with its own hedges or not at all.
 - The **93,939,712 canonical subsets** are neither an extrapolation nor new. The probe *counts* them
   exactly, and the figure is a long-published constant of this project (TR-11 §3). Only the **timing**
   is sampled — 200 samples per popcount class, measured on a 2-core box.
-- **239.4 core-hours per prime pass**, and three passes at **5.61 h wall on a D128**, are the linear
+- **239.4 core-hours per prime pass**, and three passes at **5.61 h wall on a [cloud detail redacted]**, are the linear
   extrapolation of that timing. ⚠ The pricing note explicitly tells the reader **not** to quote 5.61 h:
   at 128 threads the walk DP contends for memory bandwidth, the realistic band is 5.6 h to roughly 3×
   that, and **the honest planning figure is a 6–17 h window.** Eviction over a run that long is likely
   at least once.
-- Recorded Spot rates give **[cost redacted] of compute**, before setup, disk and eviction overhead; leaning
+- Recorded [cost detail redacted] give **[cost redacted] of compute**, before setup, disk and eviction overhead; leaning
   high, **~[cost redacted]**. That sits inside the standing approval gate but above the self-execute floor, so it
   is an operator decision. **The price exists; the authorisation does not, and the run has not been
   made.**
@@ -7572,7 +7572,7 @@ fix eliminated its whole class, so the class was removed from the warning baseli
 
 ## 2026-09-04 — the 1T anchor pair resolves to two per-cell budgets; the second correction of one fact
 
-**How it started.** A fresh D128als_v7 built `solve.c` from public HEAD `82f96b6b` and ran
+**How it started.** A fresh [cloud detail redacted] built `solve.c` from public HEAD `82f96b6b` and ran
 `./solve --canonical-config 1T` — the project's own published recipe, `SOLVE_DEPTH=3
 SOLVE_NODE_LIMIT=1000000000000 SOLVE_PER_SUB_BRANCH_LIMIT=6315458 SOLVE_DFS_ITERATIVE=1
 SOLVE_DFS_CHECKPOINT=1 SOLVE_THREADS=128`. It produced `5a0f0bc2…`, 134,039,081 records: the value
@@ -7588,7 +7588,7 @@ provenance files most often cited as evidence of drift —
 `task_108_validation_20260527T0436Z` and `task_110_sha_gate_20260528T000322Z` — both record
 `final_budget_distribution {"6314566": 51578}`, and had done so since the day they were written.
 
-**The controlled runs.** One binary, built from unmodified public HEAD `82f96b6b`, on one Spot D128als_v7 in
+**The controlled runs.** One binary, built from unmodified public HEAD `82f96b6b`, on one Spot [cloud detail redacted] in
 one hour, with the per-cell budget as the only variable:
 
 | arm | per-cell budget | sha256 (of the decompressed stream) | Records |
@@ -7807,7 +7807,7 @@ measurement.
 `solve` run and had **`SOLVE_THREADS=4` hardcoded** into it. That child runs on every `solve.c`-touching
 push, inside the compile gate, so on a two-core box the push was twice oversubscribed against itself
 while the other gates ran. It is now `min(4, nproc)` — a no-op on every VM this project uses, since a
-D8 and a D128 both yield 4, and a reduction only on the two-core orchestrator. The second defect is a
+[cloud detail redacted] and a [cloud detail redacted] both yield 4, and a reduction only on the two-core orchestrator. The second defect is a
 trap that shed files each time it was rewritten: `pre_push_compile_gate.sh` reassigns its `EXIT` trap
 three times, and the third reassignment dropped two paths from the cleanup list, so **every *passing*
 run leaked** a warnings file and a ~200 KB verify binary onto a 120-IOPS OS disk. **A trap that looks
@@ -7931,10 +7931,10 @@ chunk, not an average. The old value authorised restarts on six hours of budget 
 takes a hundred and nineteen.
 
 **A rate that priced a different disk.** `GDISK_PREM_USD_HR` was commented as *"the
-Premium-over-StandardSSD delta on 8192 GiB"*, but was computed as P60 minus **E50**: an 8 TiB Premium
+[cloud detail redacted]-over-StandardSSD delta on 8192 GiB"*, but was computed as [cloud detail redacted] minus **E50**: an 8 TiB [cloud detail redacted]
 price minus a 4 TiB Standard one — two different capacities. Retail-verified live against
-`prices.azure.com`, westus3, all four meters: the g disk is 8,192 GiB, so the correct delta is
-P60 − E60. The shipped constant overstated it **2.26×**, and it feeds `EST_HIGH`, which is what
+`prices.azure.com`, [cloud detail redacted], all four meters: the g disk is 8,192 GiB, so the correct delta is
+[cloud detail redacted] − E60. The shipped constant overstated it **2.26×**, and it feeds `EST_HIGH`, which is what
 decides whether any ceiling can pass `BUDGET_APPROVAL`. New `GATE 0c DISK_PRICING` re-derives it from
 the size and SKU Azure reports and
 returns **UNKNOWN, never PASS**, when it cannot read them.
@@ -7944,7 +7944,7 @@ returns **UNKNOWN, never PASS**, when it cannot read them.
 *k* goes as `entries(k) × 2(31−k)` over a ladder whose measured per-layer volumes span **ten orders of
 magnitude**. The largest single chunk is **16.54% of the pass** — 61–119 h — against a measured MTBE
 of ~15 h and no resume inside a chunk. Expected Spot wall **2,958 h** (ideal) to **96,776 h**, against
-372–720 h on Standard, and the promoted disk bills through all of it.
+372–720 h on Standard, and the promoted disk [cost detail redacted] through all of it.
 
 **The two errors nearly cancelled**, which is why neither was caught for four days: §11.5's path A
 quoted a band built from an overstated disk and an understated VM, the two errors running in opposite
@@ -7952,11 +7952,11 @@ directions and leaving the total looking plausible. `KC_RUN_COST_PLAN.md` and
 `roae-private/scripts/kc_run_cost_model.py` (`--selftest` → `KC_COST_MODEL=PASS`) replace both, so no figure in the
 plan is hand-typed.
 
-**`Standard_L64s_v4` was measured for the first time**, both support-ticket quotas having landed
-(`Lasv4` and `Lsv4` both 0/64 in westus3). A 13-minute Spot probe, torn down and verified:
+**[cloud detail redacted] was measured for the first time**, both support-ticket quotas having landed
+([cloud detail redacted] and [cloud detail redacted] both 0/64 in [cloud detail redacted]). A 13-minute Spot probe, torn down and verified:
 **8 × 1,919,850,381,312 B = 15.359 TB of local NVMe**, 64 vCPU, 503 GiB RAM, and **3.0 GB/s per
 device with no degradation running all eight at once** — 1.388 s solo against 1.388–1.403 s under
-full load, so ≈**24 GB/s aggregate**, 48× a P60. A first pass summed all nine NVMe devices and got
+full load, so ≈**24 GB/s aggregate**, 48× a [cloud detail redacted]. A first pass summed all nine NVMe devices and got
 15.39 TB; the 32.2 GB *"MSFT NVMe Accelerator v1.0"* is a remote-disk accelerator, not local storage,
 and the figure was corrected before it reached a document.
 
@@ -7971,16 +7971,16 @@ all catches an invariance gate looping `g < 23` so `el[23]` is never checked. An
 in any tracked Python**, while `solve.c` cites them eight times and the module header makes that
 re-check a shipping condition.
 
-**Infrastructure.** `c284-staget` resized `D96als_v7` → `D16als_v7` at operator request: an
-accidental unattended month now costs **6× less**, and that one VM had been **68% of the fleet's**
+**Infrastructure.** [cloud detail redacted] resized [cloud detail redacted] → [cloud detail redacted] at operator request: an
+accidental unattended month now [cost detail redacted], and that one VM had been **68% of the fleet's**
 runaway exposure. `az vm resize` on a deallocated VM is metadata only. Priority cannot be changed in
 place — Azure fixes Regular-vs-Spot at creation — and Regular is the correct priority here anyway.
-The `c290-fable` orphan set (NIC, public IP, NSG, 256 GiB disk — all still metering with no VM
+The [cloud detail redacted] orphan set (NIC, public IP, NSG, 256 GiB disk — all still metering with no VM
 attached) was removed after confirming its A-prime evidence was already committed; the VM itself had
 been deleted, and the public IP is the resource that `--os-disk-delete-option Delete` does not cover.
 With it gone, a standing finding is
-now false: **westus3 and westus2 low-priority quota read 8/128 and 0/128**, where both regions were
-previously pinned at 128/128 by two deallocated D128 Spot VMs.
+now false: **[cloud detail redacted] and [cloud detail redacted] low-priority quota read 8/128 and 0/128**, where both regions were
+previously pinned at 128/128 by two deallocated [cloud detail redacted] Spot VMs.
 
 **What did not move.** No canonical sha, no record count, no archive, no theorem, and no published
 claim about the sequence. `solve.c` was **not edited**. The public tree stands at `8119678c`
@@ -8148,7 +8148,7 @@ Four more of the same family landed with it: a rehearsal could no longer write t
 arms a real launch; a dropped terminal could no longer tear down a five-hour copy, because the
 hangup is now ignored; "the backstop cannot be queried" is no longer read as "the backstop is gone",
 which had let a transient login failure discard hours of work; and a run that stops for any reason
-now re-arms the machine's auto-shutdown and reads it back, instead of leaving it billing behind a log
+now re-arms the machine's auto-shutdown and reads it back, instead of leaving it [cost detail redacted] behind a log
 line nobody renders.
 
 **What the tests taught, which is the part worth keeping.** Three of the cases written for these
@@ -8184,7 +8184,7 @@ interval. The scan has not run.
 
 ## 2026-09-13 — one rule underneath every defect in the preflight, and three fixes of mine that were wrong
 
-**What the day was supposed to be.** The operator authorised the L-series scan-rate measurement and
+**What the day was supposed to be.** The operator authorised the [cloud detail redacted] scan-rate measurement and
 said in the same breath that they did not know we were ready — and the second half is the binding
 one. The task was to finish the preflight and turn "ready" from a feeling into a checklist. Every
 suite was already green. What the preflight found instead was a family of defects that no green
@@ -8213,7 +8213,7 @@ conformance, not invention.
 *A routine Azure throttle, reported as a verified teardown.* One `az vm show` returning nothing —
 not an attack, a throttle, which is an expected event in a run that makes many `az` calls — made
 `teardown_vm` skip the ladder-attachment refusal entirely, emit the green token `TEARDOWN=VERIFIED`,
-exit 0, and delete the VM on the third call. Both ladder disks ended `Unattached` on `Premium_LRS`:
+exit 0, and delete the VM on the third call. Both ladder disks ended `Unattached` on [cloud detail redacted]:
 the meter running, on precisely the outcome the refusal exists to prevent. It strands **more** than an
 honest failure would, because skipping the block also skips the remediation that brings the disks
 home. The control — the identical scenario with a healthy `az` — refused correctly and left the VM
@@ -8328,7 +8328,7 @@ the other branch and asserted, having measured nothing, that supervisors were un
 verdict was read by position rather than by key, so a detector that died before printing its verdict
 read as a detector reporting health. A sibling of the same family landed beside it: the canary
 answered a finished-but-still-leaking run by **deleting the operator's alert file**, on a run whose
-promoted disks were genuinely still billing. It now requires positive evidence that there is nothing
+promoted disks were genuinely still [cost detail redacted]. It now requires positive evidence that there is nothing
 to watch, and an unparseable ledger alerts, because unknown must not read as closed.
 
 **What the operator ruled, and the plan that inverted which risk mattered.** D3, D4, D5, D6 and D8
@@ -8336,10 +8336,10 @@ were authorised, each recorded with its evidence rather than as a preference, al
 forward-port of the single non-Path-C hunk and the rule that the frozen baseline means "HEAD minus
 Path C"; separately, the VM bound goes to eight days and nothing is killed at ten hours. The
 operator's own operational sequence was written down for the first time — promote the ladder disks,
-copy into the L-series machine's local NVMe, and switch the disks back the moment the copy lands,
+copy into the [cloud detail redacted] machine's local NVMe, and switch the disks back the moment the copy lands,
 while *never* deallocating the machine until the queries are done, because deallocation wipes the
 15 TB copy. That re-weighted the whole document by two orders of magnitude: the promoted-disk
-exposure this preflight spent sections on is smaller than the L64 line it barely examined by a factor
+exposure this preflight spent sections on is smaller than the [cloud detail redacted] line it barely examined by a factor
 of roughly 40 to 125. It also inverts the standing reflex — the
 Azure auto-shutdown that bounds an unattended copy-in becomes a **destructive** action the instant
 the copy exists, which the code
@@ -8415,7 +8415,7 @@ private record and is not yet published.
 6 → **119**. The old values came from a 48–85 h scan estimate that `ATLAS_SCOPING` had refuted on
 2026-09-05 and that nothing had gone back to re-sized against; the corrected band is 372–720 h. Left
 as they were, `DEADLINE_H` would have halted supervision around day ten of a run of two to four
-weeks — **with the machine still running and still billing**, because the deadline branch leaves the
+weeks — **with the machine still running and still [cost detail redacted]**, because the deadline branch leaves the
 run alive by design — and `MAXRESTART` would have given up after six evictions where, at the
 recorded mean time between evictions, several dozen are expected. The governing rule is
 `feedback_canonical_watchdog_sizing`: never a wall cutoff below ETA-high × 1.5. **A watchdog that
@@ -8439,10 +8439,10 @@ the env file, which wins over the historical default, and "was it set by the cal
 the new topology leaves the tick behaving exactly as it always has.
 
 **A constant that priced a different disk.** `GDISK_PREM_USD_HR` was commented as *"the
-Premium-over-StandardSSD delta on 8192 GiB"*. It was nothing of the sort: it subtracted a **4 TiB**
-Standard tier's rate from an **8 TiB** Premium one, for a disk that is **8,192 GiB**. Re-derived
+[cloud detail redacted]-over-StandardSSD delta on 8192 GiB"*. It was nothing of the sort: it subtracted a **4 TiB**
+Standard tier's rate from an **8 TiB** [cloud detail redacted] one, for a disk that is **8,192 GiB**. Re-derived
 against the live retail price API for all four meters in the relevant region, the correct delta is
-the P60-over-E60 one, and the shipped constant was **overstated by a factor of 2.26**. That matters
+the [cloud detail redacted]-over-E60 one, and the shipped constant was **overstated by a factor of 2.26**. That matters
 beyond arithmetic because the constant feeds `EST_HIGH`, which is what decides whether any ceiling
 can pass `BUDGET_APPROVAL` at all. New **`GATE 0c DISK_PRICING`** re-derives the rate from the size
 and SKU Azure actually reports for the disk, and returns **UNKNOWN — never PASS** — when it cannot
@@ -8467,7 +8467,7 @@ end — so an eviction at hour *h* discards *h* hours. Against the recorded mean
 evictions of ~15 h, the probability that the largest chunk survives uninterrupted is **1.66%** at
 the low wall and **0.04%** at the high one, and the expected wall runs from **2,958 h** to
 **96,776 h** against 372–720 h on a non-pre-emptible machine — **8 to 134 times slower**, with the
-promoted disk billing through every hour of it. Chunking was never the wrong idea; it is still what
+promoted disk [cost detail redacted] through every hour of it. Chunking was never the wrong idea; it is still what
 makes a restart cheap for the other 26 chunks. **It simply does not reach the five chunks that are
 71% of the work.**
 
@@ -8481,7 +8481,7 @@ certified**. The scheduling model is **not measured**: whether one `--kc-layers`
 saturates the disk on its own decides whether the largest chunk runs for a sixth of the wall or for
 the whole of it, and the model deliberately reports the *favourable* case, so the unfavourable one
 is strictly worse and the conclusion does not wait on the answer. And the ~15 h eviction mean is a
-**D128** figure from the tick, never measured for the smaller machine; the operator declined to
+**[cloud detail redacted]** figure from the tick, never measured for the smaller machine; the operator declined to
 measure it, so it stays an assumption permanently and pre-emptible capacity stays off the table as a
 **closed decision rather than an open gap**. Both open measurements are carried as backlog rows.
 
@@ -8490,13 +8490,13 @@ non-pre-emptible, and the scan-rate measurement authorised afterwards was ruled
 **Standard, not Spot** — explicitly overriding two standing project rules that would otherwise have
 put it on pre-emptible capacity.
 
-**`Standard_L64s_v4` was measured for the first time.** Both Microsoft quota tickets had landed
-(`Lasv4` and `Lsv4`, each 0/64 in the home region), retiring a caveat that had ridden along in the
+**[cloud detail redacted] was measured for the first time.** Both Microsoft quota tickets had landed
+([cloud detail redacted] and [cloud detail redacted], each 0/64 in the home region), retiring a caveat that had ridden along in the
 plans unchecked since they were written. A **thirteen-minute** pre-emptible probe, torn down and
 verified, with its teardown plan written *before* the create: **8 × 1,919,850,381,312 B =
 15,358,803,050,496 B = 15.359 TB** of local NVMe, **64 vCPU**, **503 GiB** RAM, and **3.0 GB/s per
 device with no degradation running all eight at once** — 1.388 s solo against 1.388–1.403 s under
-full load, so the parallelism costs nothing and the aggregate is **≈24 GB/s**, **48×** a P60's rated
+full load, so the parallelism costs nothing and the aggregate is **≈24 GB/s**, **48×** a [cloud detail redacted]'s rated
 500 MB/s. A first pass summed all **nine** NVMe devices the kernel reports and got 15.39 TB; the
 32.2 GB *"MSFT NVMe Accelerator v1.0"* is a remote-disk accelerator, **not local storage**, and the
 figure was corrected before it reached any document.
@@ -8539,7 +8539,7 @@ regular is the correct priority for this work anyway.
 
 Separately, an orphan sweep found a **resource-count mismatch** — nine VMs against ten NICs, ten
 public IPs and ten NSGs — which is what surfaced it: a deleted VM had left a NIC, a public IP, an
-NSG and an unattached OS disk behind, all still billing. Deleted in dependency order, and the
+NSG and an unattached OS disk behind, all still [cost detail redacted]. Deleted in dependency order, and the
 evidence that machine had produced was confirmed already committed and tracked **before** anything
 was removed. Two things are worth keeping from it. **The public IP is the resource that
 `--os-disk-delete-option Delete` and `--nic-delete-option Delete` do not cover** — this is the
@@ -8689,7 +8689,7 @@ itself launched.
 **It was deferred for a reason that turned out to be wrong.** A provenance note written the day
 before ruled it off the run: uncheckpointed, ~20.5 h against a Spot MTBE of 13.7 h, and better spent
 later on a right-sized Standard VM. The duration estimate was sound — it took
-**25 h 47 m** — but the placement was not. The machine running the query set is a 64-core L64s_v4
+**25 h 47 m** — but the placement was not. The machine running the query set is a 64-core [cloud detail redacted]
 and the query program was using **two cores**. The check is single-threaded and needs only f and t,
 so it ran beside the main run on a core that was otherwise idle, at no measurable marginal cost. The
 deferral had priced the work correctly and the *opportunity* not at all.
@@ -8870,7 +8870,7 @@ gate had *never* passed. Then I treated a cumulative log as consecutive and conc
 **The underlying defect was also mine.** I gated `a1_q2c`/`a1_q2d` behind `TR12_RUN_Q2_ENUM`
 UNCONDITIONALLY. At n<31 those rows complete in seconds and diff against committed goldens, so the
 gate orphaned two goldens and moved the n=9 skip set. Fixed by scoping to n>=31 (`c633504e`),
-validated on a clean Spot D8: `CURRENT=NO → TR12_REPRO_GATE=PASS`, `Q2_WITNESS=PASS` (11 legs).
+validated on a clean Spot [cloud detail redacted]: `CURRENT=NO → TR12_REPRO_GATE=PASS`, `Q2_WITNESS=PASS` (11 legs).
 
 **Five wrong merge estimates before measuring one.** 87/89/111/126/141 h, then a "measured" 72.8 h
 that was itself wrong — it came from per-layer timings taken under 40-way contention. A lone
@@ -8889,11 +8889,11 @@ and `TR12-GATE-ORDER` were written as 6-cell rows with bare ids. The gate's popu
 `grep -c '^| \*\*Q-'` — 5 cells, bold `Q-` prefix. All three sat outside it, invisible, while three
 gates reported PASS. Still to be re-filed as Q-587/588/589.
 
-**Two orphaned Premium OS disks**, one per c307 run, from copying c306's
+**Two orphaned [cloud detail redacted] OS disks**, one per c307 run, from copying c306's
 `--os-disk-delete-option Detach` without noticing it leaves a disk behind — a small recurring
 charge against nothing. Deleted on
 operator approval after a preflight that asserted size, SKU, `Unattached` and `managedBy=None` —
-which mattered, because another VM's OS disk in the same subscription is also 30 GB Premium_LRS, so
+which mattered, because another VM's OS disk in the same subscription is also 30 GB [cloud detail redacted], so
 size and SKU alone would not have distinguished the orphans from a live disk.
 
 **A CPU spike on the 2-core orchestrator**, from running the n=9 battery while a scheduled canary
@@ -8928,7 +8928,7 @@ half). It cannot be used on this run.
 
 ### The parallel-merge patch is proved, not merely built
 
-**c308 v3: `C308_VERIFY=PASS`.** A Spot D8 built the patched engine, ran the K-1 layers battery at
+**c308 v3: `C308_VERIFY=PASS`.** A Spot [cloud detail redacted] built the patched engine, ran the K-1 layers battery at
 the baseline tip and at the patched commit, and compared the results. The merged atlas is
 **byte-identical on a full sha** — `c8e33162317e62ac4ca5ba08ac0191557951b5f98550775e09d3f39c63e1d0c1`,
 221,284 bytes, both sides — with **both controls firing**: `C308_PREPASS_CONTROL=PASS` (the patched

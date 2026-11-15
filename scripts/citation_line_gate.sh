@@ -291,7 +291,7 @@ ALL_PINS="${CITGATE_ALL_PINS-$ALL_PINS_DEFAULT}"
 TARGET_PINS_DEFAULT=$(cat <<'PINS'
 # file	target	key	hash	reason
 documentation/CRITIQUE.md	documentation/CRITIQUE.md	a few hours	ff409f27a01f	LANDS: line 60 is the Gray-code C3 rate bound 'scoped to its sampler', the over-reach correction the note refers back to (self-reference; re-hashed 2026-09-26, Opus EU: only line 60's two solve.c citations moved, +1 for batch 16's solve.c)
-documentation/CAMPAIGN_METHODOLOGY.md	documentation/HISTORY.md	origin/main	76d247e90143	LANDS: HISTORY.md line 4158 is the line carrying the 8-hex UUID prefix `3620ba16-…` the sentence describes
+documentation/CAMPAIGN_METHODOLOGY.md	documentation/HISTORY.md	origin/main	f0002261fb9e	LANDS: HISTORY.md line 4158 is the line carrying the 8-hex UUID prefix `3620ba16-…` the sentence describes (re-hashed 2026-11-15, Q-1140 B2c: the cloud-sweep redaction replaced the disk name on that line with a positional marker; the UUID prefix is unchanged)
 documentation/CAMPAIGN_METHODOLOGY.md	documentation/HISTORY.md	origin/main	0a6a430f95ad	LANDS: HISTORY.md line 1907 carries the `d63bb25c…` UUID token the sentence describes
 documentation/CAMPAIGN_METHODOLOGY.md	documentation/HISTORY.md	9a968fa2	db73f707cca7	LANDS: HISTORY.md line 5146-5147 carry the old/new pre-merge shard totals (43,876,464,466) the cell names
 documentation/CITATIONS.md	documentation/CITATIONS.md	6a3feaaa	c92bc6ec35bf	LANDS: line 401 is this section's preamble sentence (Suenaga ... initiated counting) that Q-127/Q-263 read; re-pinned by content 2026-09-25 (Q-791)
