@@ -67787,7 +67787,7 @@ class TestBatchFT3fDocs(unittest.TestCase):
         # F12-007#15's commands moved to the private notes with the cloud sweep D3 (Q-1140); the public stub keeps the rule.
         self.assertEqual(d.count("trap teardown EXIT"), 0)
         self.assertEqual(d.count('az vm create ... -g "$RG" -n temp-vm'), 0)
-        self._has(d, "registered before the work (an EXIT trap, not an `&&` chain, so a failed step cannot skip it)", "F12-007#15 (stub)")
+        self._has(d, "registered before the create (an EXIT trap, not an `&&` chain, so a failed step cannot skip it)", "F12-007#15 (stub)")
         self._lacks(d, "teardown is a trap set BEFORE the create", "F12-007#15 (moved)")
         self._has(d, "the parallel `--sub-branch` path clamps its workers to 64", "F12-007#7")
         self._has(d, "(64 workers on the current build; see the F12-007#7 note above)", "F12-007#7")
@@ -68508,7 +68508,7 @@ class TestD5R11BatteryRateRequired(unittest.TestCase):
 
 class TestD7NoXaDollarAnchorInReports(unittest.TestCase):
     """Operator decision D7 (2026-11-15; cloud sweep plan section 8; CX-37F-B): a published certificate never carries
-    a `$`-anchor. solve.py --atlas-xa prices branches from anchors the operator supplies; with --xa-usd-per-hour and
+    a `$`-anchor. solve.py --atlas-queries prices branches (its XA leg) from operator-supplied anchors; with --xa-usd-per-hour and
     --xa-budget-usd it echoes "$/hour = <n>" and "budget = $<n>" into its certificate, prints `$ exact` columns and a
     break-even in `$`, while --xa-budget-hours prices in hours with no money. This guard reads every tracked file
     under reports/ (gzip members decompressed, binary files skipped) and fails on any XA `$`-anchor value: the echo

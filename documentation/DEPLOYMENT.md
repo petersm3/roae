@@ -1002,7 +1002,7 @@ For any VM provisioned to mount a disk for a one-off inspection or a short task:
 
 1. The older compute-optimised VM family is retired on this project; never provision it.
 2. Pair every `az vm create` with its teardown in the same command sequence, registered
-   before the work (an EXIT trap, not an `&&` chain, so a failed step cannot skip it).
+   before the create (an EXIT trap, not an `&&` chain, so a failed step cannot skip it).
 3. Keep a session VM log, and reconcile it against the live VM list at session start and
    before the session ends.
 4. Never delete a data disk without explicit approval; detach it before deleting the VM.

@@ -40932,3 +40932,42 @@ before it calls sudo, mkdir or trap.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, cloud sweep integration lane; the decision is
 the operator's.
+
+## CX-37E-B — addendum to CX-37E-A: the sweep's later batches, two of which are not line-neutral (documentation/HISTORY.md; CLAUDE.md; documentation/DEPLOYMENT.md; lean/README.md; reports/README.md; runs/README.md)
+
+**2026-11-15.** Origin: backlog row Q-1140. CX-37E-A says that each later batch of the sweep records itself in a
+dated addendum at the end of this file. D5, D7 and the R11 follow-up have their own entries (CX-37F-A, CX-37F-B
+and CX-37F-C). This entry records the other batches, and it limits one sentence of CX-37E-A.
+
+**The sentence.** CX-37E-A says "No edit adds or removes a line in a file it touches, so no line citation
+moves." That holds for the rewording batches. It does not hold for D3 and B8 below, and B7 appends one revision
+row to each of five reports.
+
+- **B2b and B2c, HISTORY.md.** 836 spans on 427 lines were replaced in place: 759 by `[cloud detail redacted]`
+  and 77 by `[cost detail redacted]`. No line was added or removed.
+- **C4 and C5, an email address.** GATE 10 accepts a third positional marker, `[personal detail redacted]`, for
+  an email address. It replaces the operator's address on 4 lines of HISTORY.md.
+- **B5+B6, 23 documents.** 22 files under documentation/ and lean/README.md were reworded, line for line.
+- **B3+B4, CLAUDE.md and DEPLOYMENT.md.** Both were reworded, line for line, with five citing lines in three
+  other documents.
+- **D3, two moves.** The cloud-operations sections of CLAUDE.md and DEPLOYMENT.md moved to the project's private
+  operations notes. Short stubs that state the rules stay in their place. CLAUDE.md went from 529 lines to 463
+  and DEPLOYMENT.md from 1380 to 1207, so the lines after the moved sections have new numbers. The moved
+  DEPLOYMENT.md text includes the quota pre-flight and the VM teardown template that CX-37C-N corrected (Codex
+  F12-007#14 and #15). The public file no longer carries those commands. Its stubs keep the two rules in words: a
+  non-numeric quota answer is an error, and the teardown is registered before the create.
+- **B8, run and evidence records.** Prose under runs/ and reports/evidence/ was reworded. Machine outputs in
+  seven directories were redacted in place: a machine size, a region, or the name of a VM, disk or scratch
+  directory, and nothing else. The README beside each one records the edit and the file's sha256 before it. Those
+  notes add lines to six READMEs. The new runs/README.md says why some run-directory names still carry a machine
+  size or region.
+- **B9, code.** Comments and message strings in the programs, the gates and two files under lean/ now name core
+  counts and roles, line for line. So does the anchor note in `reports/tr12/xa_verdict.md`, and in the TR-12
+  command that writes it.
+- **B7, the reports.** TR-3, TR-4, TR-5, TR-11 and TR-12 each gain one revision row that lists its edits.
+  `reports/FULL31_EXACT_AGGREGATES.md` and the TR-3 row of `reports/README.md` change one line each.
+
+**Not changed.** No count, digest, theorem, verdict or published result.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 built the batches. This addendum's wording and
+counts are by Fable (claude-fable-5-2), from its pre-publication review of the stack.
