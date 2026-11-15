@@ -65084,8 +65084,10 @@ class TestBatchPerfBench(unittest.TestCase):
     PB = "scripts/perf_bench.sh"
     RP = "documentation/RETRACTED_PHRASES.tsv"
     RP_KEY = "Recorded in CORRECTIONS.md as RP-5e7da3fc."   # the row is found by its key: the retracted phrase itself would trip GATE 3 here
+    # Q-1140 B2a (CX-37E-A, 2026-11-15): the cloud sweep reworded one span of the row's note, the orchestrator's
+    # network name, to "the orchestrator's vnet"; every other word of the row is its own, as before.
     RP_OLD = ("provisions a fresh resource group with its own vnet at 10.0.0.0/16 (" ":104-105) rather than joining "
-              "claude-vnet, then creates the VM with --public-ip-sku Standard --nsg-rule SSH (" ":110) and connects with "
+              "the orchestrator's vnet, then creates the VM with --public-ip-sku Standard --nsg-rule SSH (" ":110) and connects with "
               "StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null (" ":118-119)")
     RP_NOTE = ("Note 2026-11-12 (CX-37D-A, Q-1085): this row's three line cites name no tree, and two of "
                "them are one line early. Measured at 9fe036ea, the commit that wrote this row, they are scripts/perf_bench.sh:105-106@9fe036ea "

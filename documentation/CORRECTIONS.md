@@ -2340,7 +2340,7 @@ TR-11's prior-art chain at the counting-question credit was extended accordingly
 
 `CLAUDE.md` stated: *"All VMs other than the … orchestrator MUST be Spot priority. No exceptions for
 merge VMs …"*, adding that this **supersedes** the 2026-04-20 split policy. `DEPLOYMENT.md` still
-presented that same split policy — *"Enumeration → spot … Merge → on-demand … (not spot) because merge
+presented that same split policy — *"Enumeration → spot … Merge → [cost detail redacted] … (not spot) because merge
 is fragile under eviction"* — as **STANDING**, with no supersession note anywhere.
 
 So a reader following one document provisioned differently from a reader following the other, and
@@ -2706,7 +2706,7 @@ enumeration from uncheckpointable work (`CLAUDE.md:131-134`), the template carri
 
 **A fourth site is still live as this is written.** `CLAUDE.md:396`, in §"Bi-region architecture",
 still reads *"**Spot** for ALL workloads, enumeration AND merge, per the 2026-04-29 standing policy …
-(which explicitly supersedes the earlier enumeration=Spot / merge=on-demand split…)"*. It
+(which explicitly supersedes the earlier enumeration=Spot / merge=[cost detail redacted] split…)"*. It
 contradicts §Cost control in its own file. It escaped both the 2026-08-29 reconciliation and the
 2026-08-30 fix because both worked the §Cost control section and the surviving copy is 250 lines
 below it — the same scope-too-narrow mechanism CX-34 and CX-13 record. It is written down here
@@ -3043,7 +3043,7 @@ reader cannot audit the count that decided it.
 
 **The seventh is not recoverable, and that is the honest answer.** The measurement was a live-subscription
 snapshot taken on 2026-08-29; no VM list from that date is preserved in either repository. A
-plausible candidate is the `c292-codex` review box, which `CLAUDE.md:139` records as having run
+plausible candidate is the [cloud detail redacted] review box, which `CLAUDE.md:139` records as having run
 `Regular` — but the entry does not say so, and reconstructing an inventory after the fact from a
 different document is not auditing it. **What the evidence supports is the weaker statement: at least
 five of seven were `Regular`, one was Spot, and the seventh's priority is unrecorded.** The policy
@@ -5355,7 +5355,7 @@ are registered as **two rows** because they share no substring — the morpholog
 
 The blanket "every VM must be Spot" rule was withdrawn 2026-08-29 after measurement on the live
 subscription showed five of seven non-orchestrator VMs were `Regular`: the rule had never been
-followed and it contradicted `DEPLOYMENT.md`'s standing enumeration=Spot / merge=on-demand split.
+followed and it contradicted `DEPLOYMENT.md`'s standing enumeration=Spot / merge=[cost detail redacted] split.
 
 **CENSUS CORRECTED DOWNWARD, from four sites to one.** The charge named four. Checked against current
 `main` rather than against the reviewed sha, **three had already been repaired in place** by public
@@ -5367,7 +5367,7 @@ withdrawal, and the section heading's instructions are the corrected ones.
 **The one survivor was worse than anything the charge described.** `CLAUDE.md` §"Bi-region
 architecture" still commanded Spot for enumeration *and* merge, "per the 2026-04-29 standing policy in
 §'Cost control — VM purchase type' above (which explicitly supersedes the earlier enumeration=Spot /
-merge=on-demand split)" — and the section it named as its authority is precisely the one carrying the
+merge=[cost detail redacted] split)" — and the section it named as its authority is precisely the one carrying the
 `[CORRECTED 2026-08-29]` block retracting that supersession. A cross-reference of the form "per §X,
 which supersedes Y" had outlived §X's own withdrawal of the supersession. It now states the split
 directly and marks the retraction inline.
@@ -5874,22 +5874,22 @@ on the words "search budget", which are legitimate throughout the corpus, and it
 
 `documentation/HISTORY.md`'s 2026-06-10/11 analyze-VM-sizing entry stated two figures and then a
 quotient that is not theirs. The file is 336,808,703,936 bytes and the entry names ~450 MB/s of
-Premium SSD bandwidth; that division is **748 s ≈ 12.5 min** per pass. The figure published beside
+[cloud detail redacted] bandwidth; that division is **748 s ≈ 12.5 min** per pass. The figure published beside
 it was about 76 % larger, implying ~255 MB/s. This is a division, not a forecast — one of the two
 stated numbers had to be wrong, and it was the derived one. It is corrected in place.
 
-The dependent "~3 h on D32" is **withdrawn rather than re-derived**: it was computed from the retired
-per-pass figure, and no D32 analyze run at 560 T was ever executed against which a replacement could
+The dependent "~3 h on [cloud detail redacted]" is **withdrawn rather than re-derived**: it was computed from the retired
+per-pass figure, and no [cloud detail redacted] analyze run at 560 T was ever executed against which a replacement could
 be checked.
 
-The same entry then priced the run by multiplying an hourly rate by the D128 **projection**, and
-concluded that D128 costs marginally more than D32 while finishing sooner. The measurement refutes
-the numerator: the post-rewrite D128 analyze run completed in **13,631 s (3 h 47 m)**, recorded eight
+The same entry then [cost detail redacted] the run by multiplying an [cost detail redacted] by the [cloud detail redacted] **projection**, and
+concluded that [cloud detail redacted] [cost detail redacted] marginally more than [cloud detail redacted] while finishing sooner. The measurement refutes
+the numerator: the post-rewrite [cloud detail redacted] analyze run completed in **13,631 s (3 h 47 m)**, recorded eight
 lines below in that same entry, so at the stated [cost redacted]/h the run cost **~[cost redacted]**, roughly 2.5× the
-published product. The comparison is withdrawn rather than rescaled, because its D32 half has no
+published product. The comparison is withdrawn rather than rescaled, because its [cloud detail redacted] half has no
 measured wall at any scale.
 
-**What was deliberately preserved.** The sentence "Projected total wall on D128: ~1.5 h" stands
+**What was deliberately preserved.** The sentence "Projected total wall on [cloud detail redacted]: ~1.5 h" stands
 exactly as written. It is correctly labelled a projection of that date, and it is the primary
 evidence `CAMPAIGN_METHODOLOGY.md` rule 8 cites when showing that the same figure was later restated
 *there* as an accomplished fact. Deleting it would have removed the ground under a correction that
@@ -6474,7 +6474,7 @@ corrected here with the rest, marked as such.
 ### The archival banner (Codex V2-F15 #9) — `RP-2e39a795`, `RP-456ed634`
 
 The section head banner declared the [storage detail redacted] flow designed but never stood up, no
-automation chosen, and the `solver-data` managed disk the sole tier of redundancy the project had.
+automation chosen, and the [cloud detail redacted] managed disk the sole tier of redundancy the project had.
 `CANONICAL_HASHES.md` records archives at every active-lineage canonical scale: d3 560T with a [storage detail redacted]
 gzip mirror and a [storage detail redacted] for the original campaign and again for the byte-identical 2026-06-30
 re-run, d3 100T with a [storage detail redacted] re-verified live 2026-07-17, d3 11.2T with a build-A/build-B pair
@@ -6497,7 +6497,7 @@ long-term-pause procedure's step 3 — **"Delete the managed disk"**, in bold, j
 over six months — stopped being harmless aspirational text and became an executable instruction
 contradicting the standing rule this repo states three times in `DEPLOYMENT.md` ("never delete data
 disks"; "Managed disks preserved = the win condition for every class of failure"; "Never delete
-`solver-data`"). It is corrected to retain-and-resize in the same pass, because the banner fix is
+[cloud detail redacted]"). It is corrected to retain-and-resize in the same pass, because the banner fix is
 what made it dangerous.
 
 ### The verify.py wall time (Codex V2-F15 #14) — `RP-e0ad193f`
@@ -6557,14 +6557,14 @@ correction marker carries it instead.
 The section’s claim that each new solver VM is created without a public IP or an NSG rule and
 therefore presents no external attack surface at all is contradicted unconditionally by `scripts/perf_bench.sh`, the standardized paired benchmark harness
 this same document endorses. It provisions a fresh resource group with its **own** `vnet`/`subnet`
-at `10.0.0.0/16` (`:104-105`) instead of joining `claude-vnet`, so no private path from the
+at `10.0.0.0/16` (`:104-105`) instead of joining [cloud detail redacted], so no private path from the
 orchestrator exists at all, then creates the VM with `--public-ip-sku Standard --nsg-rule SSH`
 (`:110`) and connects with `StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null`
 (`:118-119`). This happens on every invocation, including from the orchestrator — the existing
 laptop caveat does not cover it.
 
 The adjudication's mechanism was slightly off and is corrected here: it read the script as taking
-the public path *despite* sharing `claude-vnet`. It does not share it. The script builds its own
+the public path *despite* sharing [cloud detail redacted]. It does not share it. The script builds its own
 isolated network, which is *why* it cannot be reached privately — a structural reason, not an
 oversight, and it changes what the fix would have to be.
 
@@ -6574,7 +6574,7 @@ window; no credential or data-secrecy stake. One thing the charge did not note a
 says: `teardown()` is called explicitly at three sites with **no `trap`**, so an interrupted or
 crashed run leaves the public-IP VM standing until someone deletes the resource group by hand.
 
-**The preferred repair is not the one applied.** Putting the NIC on `claude-vnet/default` with no
+**The preferred repair is not the one applied.** Putting the NIC on [cloud detail redacted] with no
 public IP when the run originates on the orchestrator, keeping an explicit `--public` flag for the
 off-vnet case, fixes the posture instead of documenting the hole. That is a change to `scripts/`,
 which another lane owns this session. The exception is documented, the residual is stated plainly,
@@ -8591,12 +8591,12 @@ comparison that both earlier passes skipped.
 **What is true.** The two values are two points on the budget axis of one solver. `5a0f0bc2…` is what the
 published recipe (`SOLVE_PER_SUB_BRANCH_LIMIT=6315458`) produces; `74d39760…` is what the solver produces
 when the budget is left to auto-divide (`⌊10¹²/158,364⌋ = 6,314,566`, 892 nodes per cell less). On 2026-09-04
-one binary, built from unmodified `main` `82f96b6b`, on one Spot D128als_v7 host, in one hour, produced
+one binary, built from unmodified `main` `82f96b6b`, on one Spot [cloud detail redacted] host, in one hour, produced
 `5a0f0bc2…` at 6,315,458 and `74d39760…` at 6,314,566 — with the per-cell budget as the only variable, and
 with the second arm's sha and record count both written down as predictions before it ran. Each was confirmed
 on the **decompressed** stream (`gzip -dc solutions.bin | sha256sum`; `sha256sum solutions.bin` hashes the gz
 container and matches nothing in this registry). The record delta is 11,921 = 381,472 bytes / 32. Across
-fifteen prior recorded 1T runs — four VMs, D32/D64/D128, 32/64/128 threads, `-flto`/`-fno-lto`, `-O2`/`-O3`,
+fifteen prior recorded 1T runs — four VMs, [cloud detail redacted], 32/64/128 threads, `-flto`/`-fno-lto`, `-O2`/`-O3`,
 gz and raw shards, 2026-05-24 to 2026-07-01 — the sha is a function of the budget alone with no exception,
 and none of those runs had controlled for it. The status cell registered as `RP-bd45ad0e` was false when it
 was written on 2026-05-27: current `main` produced `5a0f0bc2…` on 2026-05-30, 2026-07-01 and twice on
@@ -8654,7 +8654,7 @@ which the project's own per-cell-budget nesting result predicts and which nothin
 **Credit and provenance.** Codex review V2-F25 #3 (2026-09-02) proposed the per-cell-budget confound for
 exactly this pair and was ruled REFUTED by this project's own adjudication, on the strength of a private
 sentence that was itself the uncontrolled comparison; that ruling is withdrawn and the finding is re-ruled
-true with credit. Found again independently on 2026-09-04, when a fresh D128 run of unmodified `main` under
+true with credit. Found again independently on 2026-09-04, when a fresh [cloud detail redacted] run of unmodified `main` under
 the published recipe returned `5a0f0bc2…` and the operator asked why the registry called that a
 non-reproduction. Archaeology by Fable (`petersm3/roae-private:ANCHOR_1T_DISCREPANCY_2026_09_04.md`); the two
 controlled runs and this text by Claude.
@@ -11289,7 +11289,7 @@ build was run, as none is needed for a comment.
 **7. `lean/README.md`'s provisioning table carried four peak-RSS figures that the same file's
 2026-08-21 note says were revised upward and can OOM a host (Q-753; Codex V3A-076#5).** **Fixed:**
 KingWen 7.9 → 8.04 GB, C3Decomposition 4.5 → 4.70, TrigramTheorems 4.4 → 4.79, PruneGInvariance
-3.9 → 4.13, from the 2026-08-21 D128 re-measurement (`/usr/bin/time -v`, one module at a time).
+3.9 → 4.13, from the 2026-08-21 [cloud detail redacted] re-measurement (`/usr/bin/time -v`, one module at a time).
 No host-sizing tier moves: the 8 GB exclusion of `KingWen.lean` is strengthened, not changed.
 
 **Published figures move: YES** — item 1 (the two-pair allowance → the measured §[2] counts),
@@ -11616,10 +11616,10 @@ The batch-6 record gave 1B as 354,108. The solver floors, so it is 354,107. **Fi
 under the table, which is the file's append-only convention. The record counts, K ratios and sha
 relationships were measured and do not move.
 
-**3. The same file's task #71 entry misreported its bench (V3A-039#1, P2).** It said "D128als_v7 Spot,
+**3. The same file's task #71 entry misreported its bench (V3A-039#1, P2).** It said "[cloud detail redacted] Spot,
 10 alternating reps, median compared" and a per-thread node-rate regression. HISTORY.md §"#71 —
-one-step C2 lookahead REVERTED" (`:2872-2888`) records **two pairs** on **Standard on-demand**
-D128als_v7, aborted after pair 2. The metric compared was **mean wall**: 1266 s and 1259 s against
+one-step C2 lookahead REVERTED" (`:2872-2888`) records **two pairs** on **Standard [cost detail redacted]**
+[cloud detail redacted], aborted after pair 2. The metric compared was **mean wall**: 1266 s and 1259 s against
 1144 s and 1135 s, a ratio of 0.903×. The −10.7% is that ratio read as a slowdown (1/0.903 = 1.107).
 **Fixed** by a ⚠ Correction. The NO-SHIP decision stands.
 
@@ -11627,9 +11627,9 @@ D128als_v7, aborted after pair 2. The metric compared was **mean wall**: 1266 s 
 V3A-039#2, P2).** `documentation/HISTORY.md:4198` and PERFORMANCE_HISTORY's 2026-05-24 re-run entry, at
 its headline and its reason 1, said the +6.5% was a "task #47" microbench on the 2-core `claude`
 orchestrator (Intel Skylake) at small workload. The +6.5% is task #78's v3 rerun. That rerun ran on
-D128als_v7 Spot at 128 threads, with enum-only walls of 1067 s → 997 s and a preflight probe at 3868 MHz
+[cloud detail redacted] Spot at 128 threads, with enum-only walls of 1067 s → 997 s and a preflight probe at 3868 MHz
 (PERFORMANCE_HISTORY's 2026-05-18 #78 entry; HISTORY `:3295-3298`). The broken-PGO bench also ran
-on D128als_v7 at 1T. Task #47 is the bundle that *banked* the #78 figure, and it contains no PGO
+on [cloud detail redacted] at 1T. Task #47 is the bundle that *banked* the #78 figure, and it contains no PGO
 microbench. The real differences between the benches are the ones PERFORMANCE_HISTORY's own
 2026-05-25 audit tabulates:
 - #78 measured LTO+PGO against an LTO control on one first-level branch (`--branch 24 0`) at 1T.
@@ -11671,7 +11671,7 @@ and its checkpoint column read ~50 GB, ~300 GB, ~400 GB and ~750 GB (V3A-007#3, 
 **Fixed:** the header now reads "On-disk total (mixed framing)". The checkpoint cells read ≈70 MB. The
 total and required-free columns are recomputed from the same rows without the old checkpoint figures:
 - On-disk total: 65 GB → 15 GB, 565 GB → 265 GB, 1.6 TB → 1.2 TB, 3.0 TB → 2.2 TB.
-- Required solver-data free: 95 GB → 45 GB, 815 GB → 515 GB, 2.4 TB → 2.0 TB, 4.5 TB → 3.7 TB.
+- Required [cloud detail redacted] free: 95 GB → 45 GB, 815 GB → 515 GB, 2.4 TB → 2.0 TB, 4.5 TB → 3.7 TB.
 
 The ⚠ note gives the raw-sizing rule, and the prose's "≈ 2.4 TB" points at it. The 560 T lesson
 stands: ≈2.0 TB is still far above the ≈800 GB that was free.
@@ -11782,7 +11782,7 @@ is the control, with wrap 3 and C3 = 776.
 
 **What was measured** (`reports/evidence/circular_census/`, 2026-09-24). The C5-budget-override walk
 was run at 2×10¹⁰ probes for each of M₂, M₄ and M′, as 20 chunks of 10⁹ per multiset, each chunk with
-its own seed. The instrument was a Spot D64als_v7 at about [cost redacted]. Each term is the absolute estimate for
+its own seed. The instrument was a Spot [cloud detail redacted] at about [cost redacted]. Each term is the absolute estimate for
 the one wrap bin that restores King Wen's circular multiset:
 
 | class | term | SE |
@@ -11996,10 +11996,10 @@ files, with a ⚠ note at the corrected cell. The no-sidecar exception, under wh
 tree's KW table is taken as written, is stated in both.
 
 **5. DEVELOPMENT.md recommended VM families this project does not use (Q-779, P3).** The resource
-paragraph said to keep enumeration "on a lean F-series SKU" and pay "for a memory-dense E/M-series VM
+paragraph said to keep enumeration "on a lean [cloud detail redacted] SKU" and pay "for a memory-dense [cloud detail redacted] VM
 during the brief merge", and the 1000T note suggested an M-series VM for analysis. The project retired
-F-series on 2026-04-19 for the D-als-v7 family (`CLAUDE.md`), and `DEPLOYMENT.md` §Two-phase
-deployment sizes merges on right-sized on-demand D-als-v7 VMs with the external merge. **Fixed** to
+[cloud detail redacted] on 2026-04-19 for the [cloud detail redacted] family (`CLAUDE.md`), and `DEPLOYMENT.md` §Two-phase
+deployment sizes merges on right-sized [cost detail redacted] [cloud detail redacted] VMs with the external merge. **Fixed** to
 that guidance, with ⚠ notes.
 
 **6. PERFORMANCE_HISTORY's #71 heading was dated 2026-05-17 (Q-779, P3).** Both commits are dated
@@ -12104,7 +12104,7 @@ final number.)
 **2026-09-25.** Origin: lane Opus SS in the 2026-09-24 queue run, under the operator's standing
 authorization ("anything that was declined but still reasonable to do, under [cost redacted], do it"). It
 builds on lane Opus PP's Q-772 W0-D certificate loader. Every build, run, gate and test claim below
-was executed on the worker (`c302-worker`, D8als_v7 Spot), on a clean clone at 5c296837 with
+was executed on the worker ([cloud detail redacted], [cloud detail redacted] Spot), on a clean clone at 5c296837 with
 batches 1–6, the Q-772 work and this change overlaid.
 
 **1. TR-12 §3 XA(iii) published the wrong direction (P1 for XA-c/d).** The paragraph said: "the
@@ -13205,14 +13205,14 @@ re-minted with this batch. It was not re-minted here.
 
 **2026-09-25.** Origin: backlog rows Q-705 (E4 fail-open inventory, Fable I; confirmed again by
 Opus CC) and Q-737 (Opus R), with the reconcile notes by Opus AC. Landed by Opus AJ. Every gate claim
-below was run on the D16 worker VM, on a fresh clone at 5c296837 with batches 1–11 and this change
+below was run on the [cloud detail redacted] worker VM, on a fresh clone at 5c296837 with batches 1–11 and this change
 overlaid.
 
 **1. Q-705: the verdict depended on host speed.** `scripts/failopen_closure_gate.sh` runs every
 token-emitting script in an empty skeleton. `c2c3_joint_null.py` is a Monte-Carlo computation with no
 tree input, and its allowlist row had the class `timeout`. That class covers only a run that is
 killed. Whether this script is killed depends on which engine it finds and on the host, not on the
-tree. Measured on the D16 worker:
+tree. Measured on the [cloud detail redacted] worker:
 - With the numpy engine it took 15.70–15.86 s over three runs, and 15.87 s in the skeleton. It
   printed `C2C3_JOINT_NULL=OK`, so the gate graded it OPEN. On the pristine tree the gate gave
   `FAILOPEN_CLOSURE=FAIL` (rc 1, OPEN=1, ALLOWED=0, 16.5 s wall).
@@ -13244,7 +13244,7 @@ pre-push row names the leg.
 - At 5c296837, `solve.py --atlas-probe` takes 0.59 s on the worker.
 - With batches 1–11 it takes 5.2 s CPU. cProfile puts 14.9 of 16.3 profiled seconds in Q-738's
   every-layer G48 invariant (solve.py, `atlas_probe`, the `any(... _tg_apply_perm ...)` generator).
-- The gate costs 4.9–5.5 s wall on the D16 worker and 7.0 s on the 2-core orchestrator (one run,
+- The gate costs 4.9–5.5 s wall on the [cloud detail redacted] worker and 7.0 s on the 2-core orchestrator (one run,
   nice 19). It needs no build.
 - `--selftest` runs four probes and costs 16.3–16.7 s, so the hook runs only the gate.
 - tests.py's docstring for the Q-734 test now gives both figures. No assertion changed.
@@ -13465,7 +13465,7 @@ now stable.
 **2026-09-25.** Origin: backlog row Q-785 (found 2026-09-25 by Fable CC): atlas query 1b runs 1,000
 separate `solve --kc-profile FDIR GDIR "walk" --kc-tsv` calls and every one pays a ladder open, about
 2.5 GB of f+g index at full-31, so the query costs about an hour at n=31 and its parallelism is capped
-by memory. Landed by Fable II. Every gate claim below was run on the worker VM (D16), on a fresh clone
+by memory. Landed by Fable II. Every gate claim below was run on the worker VM ([cloud detail redacted]), on a fresh clone
 at 5c296837 with batches 1–11 and this change overlaid, then the four-citation fix on top.
 
 **1. What was added.** One option and one gate, both in `solve.c` (the single-C-file rule), inserted
@@ -13624,7 +13624,7 @@ requires each of the six planted pages to get its expected verdict. The rungs ar
 each), so n = 18 and n = 19 are not behind a flag. The four tokens are added to DEVELOPMENT.md's
 standalone-gate table. REPRODUCE.md gets one paragraph that names the script and says what it checks.
 
-**4. Measured on the D16 worker.**
+**4. Measured on the [cloud detail redacted] worker.**
 - **Build.** 15–17 s with the page's build line.
 - **Rows.** n = 9: 541 ms; n = 13: 743 ms; n = 16: 1006 ms; n = 18: 1090 ms; n = 19: 1333 ms.
   All five digests, byte counts, file counts and totals match the page.
@@ -14437,7 +14437,7 @@ the `SOLVE_RESUME_HISTORY="..." ./solve 0 64` recipe, :920 → :944 (exec_lane.s
 exec_lane_verdict_gate.sh; the block moved by 20, from :923-925, so the old number was already three lines behind).
 
 **2. DEVELOPMENT.md's VM-family note (Q-779).** The resource paragraph already recommends D-als-v7 VMs
-only; its correction note gave `CLAUDE.md` as the authority for retiring F-series. It now points to
+only; its correction note gave `CLAUDE.md` as the authority for retiring [cloud detail redacted]. It now points to
 DEPLOYMENT.md §Ad-hoc VM lifecycle rules, rule 1, the public rule that says so. Same line count.
 Checked and unchanged: PERFORMANCE_HISTORY.md's task #71 heading already reads 2026-05-16, matching
 both commits' dates and HISTORY.md. SOLVE_C_CLI.md's build line without `-lz` is quoted inside a
@@ -14816,8 +14816,8 @@ DEVELOPMENT.md's four token rows for the new mode were added at integration (DEV
 keeps its file's line count, so no line citation anywhere moved.
 
 **Operations text.** DEPLOYMENT.md told readers to prefer `--ephemeral-os-disk true` for short-lived
-VMs. The Dalsv7 family has no local storage and does not support ephemeral OS disks, so the rule is
-now scoped to sizes with a local disk, and on Dalsv7 it says to create with
+VMs. The [cloud detail redacted] family has no local storage and does not support ephemeral OS disks, so the rule is
+now scoped to sizes with a local disk, and on [cloud detail redacted] it says to create with
 `--os-disk-delete-option Delete`. The same file's "the truth" command, `az vm show --query
 publicIpAddress`, prints nothing; it is now `az vm show -d … --query publicIps`, the form
 `scripts/perf_bench.sh` already uses. The checklist wrote `run_id.txt` before the stale-state wipe;
@@ -14828,7 +14828,7 @@ access, [storage detail redacted].
 
 **Claims narrowed.** CAMPAIGN_METHODOLOGY.md §6 blamed 1T sha differences on hosts, compilers and
 microcode two paragraphs above the marker that withdraws that evidence; it now says budget. Its 11.2T
-roster said seven witnesses on D128als_v7: Build A and Build B ran on D64als_v7, and the May 15
+roster said seven witnesses on [cloud detail redacted]: Build A and Build B ran on [cloud detail redacted], and the May 15
 re-checksum checks stored bytes and is not a derivation, so the roster now names six derivations and
 states the re-checksum separately. The §8 recipe now records `-DGIT_HASH`, sets
 `SOLVE_SKIP_AUTOMERGE=1` so it does not merge twice, and says that a build from a ref older than #169
@@ -28603,7 +28603,7 @@ credit: Codex (gpt-6-astra), push-path review Q835.
 ≈16-clause KW-fitting predicate space, published with its seed and probe count, reporting the
 median rarity with a CI". The instrument is `solve.py --tr8-dof-sampler` at
 `35782834ea709969910419cce4e739da39dac19f` (solve.py sha256 `38f3f886…`, CPython 3.12.3, one
-Standard D16als_v7 worker). It was run under a pre-registration frozen 2026-08-11, before any draw
+Standard [cloud detail redacted] worker). It was run under a pre-registration frozen 2026-08-11, before any draw
 (escrowed digest `4b307f07…`), with two dated annotations: A1, the instrument pin and every open
 parameter, published and escrowed before the run (CX-279); and A2, the admitted bank of 242 of 319
 clause templates, committed privately at 10:02:41 UTC after the calibration draw and before the
@@ -31446,7 +31446,7 @@ was an operator decision that had not been made.
 atlas and the committed certificate. Its inputs:
 
 - **Rate.** 1.5×10⁹ nodes/s, rounded up from the d3 11.2T canonical run: 11.2×10¹² nodes in
-  7,810 s on one D128als_v7 (`documentation/CANONICAL_HASHES.md` §d3 11.2T), about 1.43×10⁹. An
+  7,810 s on one [cloud detail redacted] (`documentation/CANONICAL_HASHES.md` §d3 11.2T), about 1.43×10⁹. An
   optimistic rate is the cautious side for INFEASIBLE.
 - **Hedge.** The default ×2, applied as the CX-348 band, so INFEASIBLE is called on the cost at
   3×10⁹ nodes/s.
@@ -31800,8 +31800,8 @@ to sizes that have local storage and left the same rule in CLAUDE.md, the operat
 halves cleanup work and guarantees OS disk doesn't leak." Q-763 carried that site as operator-owned.
 With the operator's approval given through the orchestrator (2026-10-11), the rule is now scoped the
 same way: only on a size that has local storage. The Dals_v7 family this project runs on has none,
-Microsoft's Dalsv7-series page lists "Ephemeral OS Disk — Not Supported", `az vm create` with the flag
-is refused there — observed on D4als_v7 and D8als_v7 in 2026-08, in this project's own launch records —
+Microsoft's [cloud detail redacted] page lists "Ephemeral OS Disk — Not Supported", `az vm create` with the flag
+is refused there — observed on [cloud detail redacted] and [cloud detail redacted] in 2026-08, in this project's own launch records —
 and the failed create leaves the NIC, public IP and NSG behind. On Dals_v7 the rule now says to create
 with `--os-disk-delete-option Delete`, which DEPLOYMENT.md rule 6 already says and the project's launch
 scripts already pass. The replacement text was verified by Fable (claude-fable-5-1) against
@@ -35126,7 +35126,7 @@ passed); both corrected before publication. Tokens `LEAN_AXIOM_CENSUS_<Module>=P
 37 + 70 + 80 + 151 + 27 + 99 + 111 + 7 + 198 + 158, the per-module counts of the attested runs); `NOT_RUN` when the
 kernel identity does not match the pin. The second compile is the price of leaving leg (A)'s command untouched. The
 README's hardware table listed fourteen modules; the `CompilerCorrectness.lean` figures now sit in the table's group
-row from the 2026-09-10 measurement (2.42 s wall, 757,468 kB peak on a D16-class host; 4.97 s / 0.67 GB on the 2-core
+row from the 2026-09-10 measurement (2.42 s wall, 757,468 kB peak on a [cloud detail redacted]-class host; 4.97 s / 0.67 GB on the 2-core
 orchestrator 2026-09-21) — folded into an existing row rather than added as one because
 `scripts/doc_gates.d/70_publication_surfaces.sh` cites the README's mathlib-revision line by number inside its
 append-only allowlist (tests.py Q-1003), so the lines above it may not move.
@@ -36112,7 +36112,7 @@ batch FT3h); push group G6.
 - *Recon campaign and the archived-runs bullet.* `runs/20260420_singlebranch1T_d32westus3/` is cited for full
   results and as archived; the directory has no tracked files (F06-007#11).
 - *T9+c.1.* "The first 100T canonical … had its merge killed by Spot eviction": the same file records that run's
-  VM as provisioned on-demand by mistake, and its own bug list says the original used full-enumeration mode, not
+  VM as provisioned [cost detail redacted] by mistake, and its own bug list says the original used full-enumeration mode, not
   `solve --merge`. "verify.py was written after the original 100T (task #73)": the verifier predates that run; task
   #73 added its multiprocessing (F06-007#12, F06-007#13).
 - *Wrapper-enforcement lesson.* "three months passed and three incidents accumulated": the dated passages put the
@@ -36150,7 +36150,7 @@ batch FT3h); push group G6.
   side is in CX-35X-M).
 - *CX-29/CX-35 summary.* "the rewrite never reached the public remote at all" is stronger than CX-35, which calls
   its own evidence not a proof (F06-008#16).
-- *v1-vs-v3 bench.* "host-quality noise on shared Spot D128": the bench ran on Standard D128 (the same entry and
+- *v1-vs-v3 bench.* "host-quality noise on shared Spot [cloud detail redacted]": the bench ran on Standard [cloud detail redacted] (the same entry and
   PERFORMANCE_HISTORY.md say so) (F06-008#17).
 - *Over-emission withdrawal.* "The entry is annotated in place": the in-place annotation of the 560T over-emission
   paragraph is the 2026-08-28 raw-versus-canonical label, which does not withdraw the surplus or its eviction
@@ -36187,7 +36187,7 @@ F06-008#12; triaged by Fable (fast-track batch FT3h); push group G6.
 "Dated notes (2026-10-22)" section, and the frozen data files, logs, JSON and registries are not edited.
 - *100T README.* "Merge chunks produced" was the input-file count; the merge wrote 104 chunks. The pre-dedup
   input is about 5× the 10T companion's, not tenfold. 102.3 is the GiB size. The edit-distance and C3
-  distributions are left-skewed (edit-distance skewness ≈ −1.84). The VM was on-demand, not Spot. The printed
+  distributions are left-skewed (edit-distance skewness ≈ −1.84). The VM was [cost detail redacted], not Spot. The printed
   re-enumeration recipe merges twice unless `SOLVE_SKIP_AUTOMERGE=1` is set on the first command. The deprecation
   note's cause for the 4,607-record undercount is the better-fitting hypothesis, not a finding. The archived
   analysis log's §[25] read 4,096 of 158,364 cells (fixed in CX-151) and its §[7] "minimum proven" line follows
@@ -36849,7 +36849,7 @@ what they would have said. Every changed site keeps its old value in a dated not
 
 **What was published, and what it says now.**
 - **The ARM row (CANONICAL_HASHES.md, the 11.2T cross-build and cross-architecture witness table).** Old: "2026-05-21
-  (ARM Cobalt) | v3+v3.1 ARM binary `e5cfc6cd…` | D96ps_v6 + D32ps_v6 Cobalt Neoverse-N2, gcc 13.3.0
+  (ARM Cobalt) | v3+v3.1 ARM binary `e5cfc6cd…` | [cloud detail redacted] + [cloud detail redacted] Cobalt Neoverse-N2, gcc 13.3.0
   `-mcpu=native` | `0c0fe37c…` byte-identical". That date and host pair belong to the v2 G2 run (HISTORY.md, May 21
   entry), which reproduced the v2 sha `2cc966e4…`, not `0c0fe37c…`, with the ARM binary `e5cfc6cd…` the row named
   (recorded in the v2 11.2T details; HISTORY.md's `c435e8af…` is the binary of the May 20 attempt 1, killed at 91.3%)
@@ -37345,7 +37345,7 @@ adjudicated by Fable (FV2 slice 1). Push group FV2-A.
 - RAM-to-file ratios (38%, 76%) are labelled upper bounds on usable cache; the "down-sizing saves nothing net" conclusion
   is withdrawn as unmeasured on comparable runs.
 - `parent_canonical.txt` is recorded for provenance and is not read by the solver.
-- Rule 13's "two D64 Standard VMs" now sizes the analyze VM per rule 8 (D128als_v7 for 560T+).
+- Rule 13's "two [cloud detail redacted] Standard VMs" now sizes the analyze VM per rule 8 ([cloud detail redacted] for 560T+).
 - The per-1% analyze-progress rule is marked not yet met in §[10] and §[20].
 - The `RLIMIT_NOFILE` auto-raise is in later builds, not the `2b01b15` build, and holds only with a hard limit above the
   chunk count.
@@ -40770,3 +40770,49 @@ control runs the same scan over the parent's README text and finds the unquoted 
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 made the edits; the Q-1140 audit lane
 (claude-opus-5-5) found the sites.
+
+## CX-37E-A — cloud details and cost wording removed from the current tree (documentation/CORRECTIONS.md; documentation/RETRACTED_PHRASES.tsv; documentation/CORRECTIONS_INVENTORY.tsv; scripts/doc_gates.d/40_generated_appendonly_ledger_regdupes.sh; scripts/doc_gates.sh; scripts/corrections_inventory.sh; tests.py)
+
+**2026-11-15.** Origin: backlog row Q-1140.
+
+**The decision.** On 2026-11-14 the operator decided that the public record names no cloud details and
+gives no costs. Cloud details are machine sizes and size families, regions, disk product tiers, and the
+names of the project's VMs, disks, networks and resource groups. Costs are prices, price ratios,
+discounts and stories about bills. Core counts, memory sizes and wall times stay, because they are
+methods content. Running on interruptible (Spot) capacity stays, because it is a method. The provider's
+name stays in technical sentences. The decision covers the current tree, the append-only ledgers
+included; git history is unchanged. It extends CX-230 (dollar figures) and CX-242 (storage detail).
+
+**How.** In a ledger, a span becomes `[cloud detail redacted]` (a size, family, region, disk tier or
+resource name) or `[cost detail redacted]` (cost wording, a price, a rate or a purchase type named by its
+price), and nothing else on the line changes. Elsewhere the text is reworded in place: a size becomes
+its cores and memory, a disk tier becomes plain words, a region is dropped or becomes "one region", a
+resource name becomes its role, and a cost clause is dropped or becomes its lesson. No edit adds or
+removes a line in a file it touches, so no line citation moves. The sweep is built and reviewed in
+batches. Each later batch records itself in a dated addendum at the end of this file.
+
+- **B1, the append-only gate.** GATE 10 (`appendonly-head`, `appendonly-history`) accepts the two new
+  markers by CX-242's positional rule. It also checks that each span is the kind of detail its marker
+  names: the span must hold a cue of its class. `[cost redacted]` still stands for a
+  dollar token only. `scripts/corrections_inventory.sh` redacts cloud detail in three commit subjects
+  of CORRECTIONS_INVENTORY.tsv; their ids are unchanged. Tests: `TestCX1140AppendOnlyCloudRedaction`
+  (19 cases, run against the real gate) and a new leg of `doc_gates.sh --selftest`.
+- **B2a, this file and the registry notes.** In earlier entries of this file, 65 spans on 52 lines were
+  replaced: 54 by `[cloud detail redacted]` and 11 by `[cost detail redacted]`. 46 of the lines come
+  from the sweep's search and 6 more were found while checking it. Left as they are: one line whose cost
+  words give no amount, ratio or bill; six citations of a
+  CLAUDE.md section title that contains the word "cost" but no cost; four lines whose hit is not a
+  cloud detail (a finding id, a word for "presenting as", a description of a network
+  position, and CX-230's own statement of its rule); one line naming the orchestrator by its host name,
+  which GATE 10's cues do not cover; the existing `[cost redacted]` markers and the words next to them;
+  and every run-directory path, including two run-directory names cited as names, because published
+  records cite them by those paths. In RETRACTED_PHRASES.tsv, six notes were reworded and no
+  registered phrase changed. `TestBatchPerfBench` pins the words of the RP-5e7da3fc note and follows
+  it.
+
+**Not changed.** No count, digest, theorem, verdict or published result. The generated inventories are
+regenerated; rows whose source line changed get new ids.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5. The plan and its style guide are by an
+Opus scoping lane (2026-11-14). The wording follows the precedent of Codex (gpt-6-astra) findings
+F10-001#3, F10-002#4 and F10-003#3 (CX-36B-C), and the CX-230 and CX-242 redactions.
