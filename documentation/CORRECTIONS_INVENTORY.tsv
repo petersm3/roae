@@ -1426,7 +1426,7 @@ INL-209615b0	2026-11-06	C3	corrections	inline	documentation/HISTORY_INDEX.md	261
 INL-1421ae93	2026-11-06	C1	withdrawals	inline	documentation/HISTORY_INDEX.md	262	| 234 | 2026-11-06 | iso | 12182 | [open](HISTORY.md#2026-11-06--batch-q1037b-three-withdrawals-three-scopings-and-two-tr-12tr-8-fixes-from-q-1037s-held-rows) 2026-11-06 — batch Q1037b: three withdrawals, three scopings and two TR-12/TR-8 fixes from Q-1037's held rows |
 INL-37c9e781	2026-11-10	C3	corrections	inline	documentation/HISTORY_INDEX.md	266	| 238 | 2026-11-10 | iso | 12239 | [open](HISTORY.md#2026-11-10--batch-q1037c-the-last-held-rows-of-the-published-figure-corrections) 2026-11-10 — batch Q1037c: the last held rows of the published-figure corrections |
 INL-26a6f788	2026-11-14	C3	corrected	inline	documentation/HISTORY_INDEX.md	285	| 257 | 2026-11-14 | iso | 12640 | [open](HISTORY.md#2026-11-14--batch-q1133-the-claim-to-artifact-audit-four-rows-corrected) 2026-11-14 — batch Q1133: the claim-to-artifact audit, four rows corrected |
-INL-324bcf8e	-	C3	corrections	inline	documentation/HISTORY_INDEX.md	294	| 148 | [open](HISTORY.md#missteps-and-corrections-summary) Missteps and corrections (summary) |
+INL-324bcf8e	-	C3	corrections	inline	documentation/HISTORY_INDEX.md	295	| 148 | [open](HISTORY.md#missteps-and-corrections-summary) Missteps and corrections (summary) |
 INL-50dd000	2026-09-01	C3	corrected	inline	documentation/KING_WEN_PROVENANCE.md	32	arrangement (Shaughnessy 2022, ch. 11). *(Corrected 2026-09-01: this previously described Xiping as
 INL-154b7ffc	-	C4	hedges	inline	documentation/KING_WEN_PROVENANCE.md	43	why this repository hedges whenever it refers to the sequence's age.
 INL-1b430e04	-	C3	typo	inline	documentation/KING_WEN_PROVENANCE.md	52	| **西仁村 pottery paddles** (長安, Shaanxi) | late Western Zhou at the latest — the excavator's typological date for surface finds; the numerals were incised before firing (曹瑋 2002) | Six numeral hexagrams on two paddles, surface-collected in 2001 from a kiln site since destroyed, which — read odd = yang / even = yin, with one numeral restored — give #7·8·9·10 and #63·64: two runs consecutive in the r [...truncated]
@@ -3784,6 +3784,7 @@ INL-1dbfba98	-	C3	corrections	inline	viz/viz_tr5_orbit_collapse.md	88	theory is 
 INL-34469d7c	-	C3	corrections	inline	viz/viz_tr6_parity_alternations.md	76	is claimed novel. Developed with AI assistance (Claude, Anthropic); corrections invited.*
 INL-59b1cb3	-	C3	corrected	inline	viz/viz_tr7_circular_cycle.md	63	picture, and no renderer existed; the documents were corrected to say so. CX-191.
 INL-13a1de3a	-	C3	corrections	inline	viz/viz_tr7_circular_cycle.md	75	Developed with AI assistance (Claude, Anthropic); corrections invited.*
+GIT-19462dc0	2026-11-15	C3	corrections	git	7af642f1	-	Q-1140 cloud sweep D5: the ops scripts' cloud defaults become required arguments (CX-37F-A)
 GIT-192d880d	2026-11-14	C3	correction	git	816fd255	-	Q-1140 cloud sweep B5+B6: VM sizes, regions, resource names and costs out of 23 live docs
 GIT-32d7170	2026-11-14	C3	corrections	git	f847e984	-	Q-1140 B2c: HISTORY.md lines 2101-end, cloud detail and cost wording redacted in place
 GIT-22fa1751	2026-11-15	C3	corrections	git	c08a3153	-	Q-1140 C5: the operator's email address leaves HISTORY.md (positional marker, in place)

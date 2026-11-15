@@ -68413,6 +68413,134 @@ class TestD5OpsScriptsRequiredInputs(unittest.TestCase):
 # end class TestD5OpsScriptsRequiredInputs
 
 
+class TestD7NoXaDollarAnchorInReports(unittest.TestCase):
+    """Operator decision D7 (2026-11-15; cloud sweep plan section 8; CX-37F-B): a published certificate never carries
+    a `$`-anchor. solve.py --atlas-xa prices branches from anchors the operator supplies; with --xa-usd-per-hour and
+    --xa-budget-usd it echoes "$/hour = <n>" and "budget = $<n>" into its certificate, prints `$ exact` columns and a
+    break-even in `$`, while --xa-budget-hours prices in hours with no money. This guard reads every tracked file
+    under reports/ (gzip members decompressed, binary files skipped) and fails on any XA `$`-anchor value: the echo
+    line, the `$` table columns or break-even, a `usd_per_hour`/`budget_usd` key with a value, or either option
+    followed by a value. The option NAMES stay (D7), so prose that names them without a value passes. Positive
+    controls: each pattern is tied to the format strings in solve.py, a money-mode copy of the published
+    reports/tr12/xa_verdict.md FAILS, and so does a planted .gz. Developed with AI assistance (Claude, Anthropic):
+    claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    XA_PATTERNS = (
+        r"--xa-(?:usd-per-hour|budget-usd)[\"'`]?(?:\s*[=,:]\s*|\s+)[\"'`]?[-+]?\$?[0-9.]",   # option with a value
+        r"\$/hour\s*=\s*[-+]?[0-9.]",                                                     # the echo line
+        r"budget\s*=\s*\$\s*[-+]?[0-9.]",
+        r"\|\s*\$ exact,\s*(?:fast|slow)\s*\|",                                           # the priced table
+        r"Break-even ceiling: .*` \$ \(about",
+        r"[\"'](?:usd_per_hour|budget_usd)[\"']\s*:\s*[\"']?[-+]?[0-9.]",                 # a key with a value
+    )
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    @classmethod
+    def _text(cls, path):
+        """The file's text, gzip members decompressed; None for a binary file."""
+        with open(path, "rb") as fh:
+            b = fh.read()
+        if b[:2] == b"\x1f\x8b":
+            b = gzip.decompress(b)
+        if b"\x00" in b[:8192]:
+            return None
+        return b.decode("utf-8", errors="replace")
+
+    @classmethod
+    def _hits(cls, root, rels):
+        hits, read = [], []
+        for rel in rels:
+            t = cls._text(os.path.join(root, rel))
+            if t is None:
+                continue
+            read.append(rel)
+            for n, line in enumerate(t.split("\n"), 1):
+                for p in cls.XA_PATTERNS:
+                    if re.search(p, line):
+                        hits.append("%s:%d: %s" % (rel, n, line[:200]))
+                        break
+        return hits, read
+
+    def _report_files(self):
+        r = subprocess.run(["git", "-C", self.ROOT, "ls-files", "-z", "--", "reports"], capture_output=True)
+        if r.returncode == 0 and r.stdout:
+            return [x.decode() for x in r.stdout.split(b"\x00") if x]
+        out = []
+        for d, _, fs in os.walk(os.path.join(self.ROOT, "reports")):
+            out += [os.path.relpath(os.path.join(d, f), self.ROOT) for f in fs]
+        return out
+
+    def test_tree_carries_no_xa_dollar_anchor(self):
+        rels = self._report_files()
+        hits, read = self._hits(self.ROOT, rels)
+        self.assertIn("reports/tr12/xa_verdict.md", read, "precondition: the XA certificate is in scope")
+        self.assertGreaterEqual(sum(1 for r in read if r.endswith(".gz")), 1, "precondition: gzip members are read")
+        self.assertGreaterEqual(len(read), 300, "precondition: the scan read the reports tree (%d files)" % len(read))
+        self.assertEqual(hits, [], "a committed file under reports/ carries an XA $-anchor (D7)")
+
+    def test_published_certificate_is_in_hours(self):
+        v = self._r("reports/tr12/xa_verdict.md").split("\n")
+        anchors = [l for l in v if l.startswith("Anchors (operator-supplied, echoed for the certificate): ")]
+        self.assertEqual(len(anchors), 1, "precondition: one anchor echo line")
+        self.assertIn("wall-clock ceiling = ", anchors[0])
+
+    def test_patterns_follow_solve_py_money_mode(self):
+        src = self._r("solve.py")
+        for fmt in ("$/hour = %g, ", "budget = $%g. ", "| $ exact, fast | $ exact, slow |",
+                    "\"\\nBreak-even ceiling: the least fast-end cost of any row is `%s` %s \"",
+                    'parser.add_argument("--xa-usd-per-hour"', 'parser.add_argument("--xa-budget-usd"'):
+            self.assertIn(fmt, src, "solve.py's money-mode format moved; re-tie the D7 patterns: " + fmt)
+
+    def test_planted_anchors_fail(self):
+        planted = (
+            "Anchors (operator-supplied, echoed for the certificate): nodes/sec = 1.5e+09, hedge = x2, "
+            "work factor = x1, $/hour = 0.5, budget = $" "1000. Effective rate band = 7.5e+08 .. 3e+09 nodes/sec",   # split: no money token in this file
+            "| branch | pair | t-units | nodes (upper t-units x F) | wall (h), fast..slow | $ exact, fast | $ exact, slow "
+            "| verdict | cost/budget, fast..slow |",
+            "Break-even ceiling: the least fast-end cost of any row is `12345/2` $ (about 6173). Every row reads",
+            "python3 solve.py --atlas-xa out --xa-nodes-per-sec 1.5e9 --xa-usd-per-hour 0.5 --xa-budget-usd 1000",
+            "--xa-budget-usd=1e3", '"--xa-usd-per-hour", "0.5"', '{"usd_per_hour": 0.5, "budget_usd": "1000"}',
+            "--xa-budget-usd -1 made every row EXHAUSTIBLE",
+        )
+        for line in planted:
+            self.assertTrue(any(re.search(p, line) for p in self.XA_PATTERNS), "a planted anchor passed: " + line)
+
+    def test_option_names_alone_pass(self):
+        for line in ("(from the R-1 pilot artifacts), `--xa-usd-per-hour`, and `--xa-budget-usd`.",
+                     "XA: give EITHER a wall-clock ceiling (--xa-budget-hours) OR the $ pair (--xa-usd-per-hour, "
+                     "--xa-budget-usd), not both", '{"usd_per_hour": null, "budget_usd": null}',
+                     "--xa-usd-per-hour \"$RATE\"", self._r("reports/tr12/xa_verdict.md")):
+            for l in line.split("\n"):
+                self.assertFalse(any(re.search(p, l) for p in self.XA_PATTERNS), "a name without a value FAILED: " + l)
+
+    def test_planted_certificate_and_gzip_fail_end_to_end(self):
+        d = tempfile.mkdtemp(prefix="d7xa_")
+        try:
+            v = self._r("reports/tr12/xa_verdict.md").split("\n")
+            i = next(k for k, l in enumerate(v) if l.startswith("Anchors (operator-supplied"))
+            v[i] = re.sub(r"wall-clock ceiling = (\S+) h\.", r"$/hour = 0.5, budget = $\1.", v[i])
+            self.assertIn("$/hour = 0.5, budget = $", v[i], "precondition: the copy is in money mode")
+            os.makedirs(os.path.join(d, "reports", "tr12"))
+            with open(os.path.join(d, "reports", "tr12", "xa_verdict.md"), "w", encoding="utf-8") as fh:
+                fh.write("\n".join(v))
+            with open(os.path.join(d, "reports", "tr12", "xa_run.log.gz"), "wb") as fh:
+                fh.write(gzip.compress(b"argv: --atlas-xa out --xa-usd-per-hour 0.5\n"))
+            rels = ["reports/tr12/xa_verdict.md", "reports/tr12/xa_run.log.gz"]
+            hits, read = self._hits(d, rels)
+            self.assertEqual(read, rels)
+            self.assertEqual([h.split(":")[0] for h in hits], rels, hits)
+            self.assertEqual(self._hits(self.ROOT, ["reports/tr12/xa_verdict.md"])[0], [],
+                             "control: the published certificate itself passes")
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+# end class TestD7NoXaDollarAnchorInReports
+
+
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))

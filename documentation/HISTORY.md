@@ -12674,3 +12674,11 @@ entry describes the review itself, which had none.)*
 - DEVELOPMENT.md and PERFORMANCE_HISTORY.md describe the new inputs. `TestD5OpsScriptsRequiredInputs` fails on the
   parent's scripts. No count, certificate, verdict or canonical sha changed. The held default traces to Codex's
   (gpt-6-astra) findings, via CX-36B-C.
+
+## 2026-11-15 — cloud sweep D7: a guard against `$`-anchors in published certificates
+
+- **tests.py (CX-37F-B).** Operator decision D7: a published certificate never carries a `$`-anchor.
+  `TestD7NoXaDollarAnchorInReports` reads every tracked file under reports/ (gzip members included) and fails on an
+  XA `$`-anchor value: solve.py's money-mode echo line, its `$` columns or break-even, or `--xa-usd-per-hour` or
+  `--xa-budget-usd` with a value. The option names stay. A planted money-mode certificate and a planted `.gz` fail.
+  Today's tree passes: the one XA certificate prices in hours. Nothing else changed.

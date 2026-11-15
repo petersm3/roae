@@ -40874,3 +40874,33 @@ No count, certificate, verdict, token or canonical sha changed; no VM was provis
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, cloud sweep lane D5; the decision is the
 operator's; the held default traces to Codex (gpt-6-astra) findings F10-001#3, F10-002#4 and F10-003#3.
+
+## CX-37F-B — a guard that fails if any committed file under reports/ carries an XA `$`-anchor (tests.py)
+
+**2026-11-15.** **Source.** Operator decision D7 in the cloud-detail sweep plan (section 8: "never publish a
+`$`-anchor in a certificate (add a guard)"). The plan's Q-903 notes held the XA pricer as a runtime site.
+
+**What it guards.** `solve.py --atlas-queries` prices branches (its XA leg) from anchors the operator supplies. With
+`--xa-usd-per-hour` and `--xa-budget-usd` it writes a `$/hour = <n>, budget = $<n>` echo line, `$ exact` table
+columns and a break-even in `$` into its certificate. With `--xa-budget-hours` it prices in hours and writes no
+money. Today the one published XA certificate, `reports/tr12/xa_verdict.md`, is in hours, and no committed file
+under reports/ carries a `$` anchor. Nothing in the tree changes. The option names stay, as D7 says.
+
+**The guard.** `TestD7NoXaDollarAnchorInReports` (6 tests) reads every tracked file under reports/ (gzip members
+decompressed, binary files skipped) and fails on any XA `$`-anchor value: the echo line, the `$` table columns, the
+`$` break-even, a `usd_per_hour` or `budget_usd` key with a value, or either option followed by a value. Prose that
+names an option without a value passes. Its controls: the patterns are tied to solve.py's money-mode format strings,
+so a change there fails the test; eight planted anchor forms all fail; a money-mode copy of `xa_verdict.md` and a
+planted `.gz` both fail end to end, while the published certificate passes; and option names alone, a null key and
+a shell-variable value all pass. On today's tree it reads all tracked files under reports/, the XA certificate and
+the gzip members among them, and finds nothing. With a money-mode line planted in the clone's own `xa_verdict.md`
+the tree test fails, naming that line.
+
+Not covered here: `reports/evidence/r11/r11_phase2_battery.sh:25` keeps its `RATE_PER_HR` default. It is an
+archived driver's abort-check rate, not an XA anchor in a certificate. The sweep's B9 left it for D7, and it is
+listed as a follow-up.
+
+No count, certificate, verdict, token or canonical sha changed.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, cloud sweep lane D7; the decision is the
+operator's.
