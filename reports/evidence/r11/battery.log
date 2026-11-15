@@ -1,4 +1,4 @@
-=== R11 Phase-2 battery start 2026-07-11T19:05:43Z host=c237-r11p2 threads=64 ===
+=== R11 Phase-2 battery start 2026-07-11T19:05:43Z host=<worker> threads=64 ===
 --- gate: --selftest ---
 selftest sha=403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e
 --- gate: --r11-verify ---
@@ -8,7 +8,7 @@ smoke gate PASS
 seed 1 (=1001) wall=9633s
 ABORT-CHECK: projected total wall=13.6h cost=[cost redacted]
 --- direct seed=2003 probes=55000000000 -> /home/solver/r11p2/results/seed2_2003.out 2026-07-11T21:52:19Z ---
-=== R11 Phase-2 battery start 2026-07-12T04:35:01Z host=c237-r11p2 threads=64 ===
+=== R11 Phase-2 battery start 2026-07-12T04:35:01Z host=<worker> threads=64 ===
 --- gate: --selftest ---
 selftest sha=403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e
 --- gate: --r11-verify ---

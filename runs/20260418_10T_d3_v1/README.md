@@ -26,3 +26,11 @@ accurate accounts of what that run did.
 Added from Codex's final review (gpt-6-astra); the record above is kept as written. [CORRECTIONS.md](../../documentation/CORRECTIONS.md) CX-35X-K.
 
 - **4,607.** "incomplete by 4,607 records lost through imperfect mid-walk resume" states the cause as settled. The undercount is measured; the cause is the better-fitting hypothesis in [HISTORY.md](../../documentation/HISTORY.md) (the f42f2ae re-assessment) and "likely" in CANONICAL_HASHES.md §Deprecated (Codex F12-020#14).
+
+## Redaction note (2026-11-15)
+
+`merge_output.log` line 15 named the merge scratch disk's mount path; that path alone is now `<scratch-dir>` (backlog Q-1140, cloud-sweep batch B8, under the operator's 2026-11-14 rule that public text names no machine size, region or resource name; in-place redaction as in CX-239 part 4, with the CX-36B-C placeholder forms from Codex findings F10-001#3, F10-002#4 and F10-003#3, gpt-6-astra). No other byte changed, and the log keeps its line count.
+
+| file | sha256 before the redaction | sha256 after |
+|---|---|---|
+| `merge_output.log` | `45989fb18d36f134cbb25ca447368c5b73b828ea4bd8be64700636b1b9c0d928` | `f17c97c091560db6ffc1806811edff2b5de3ed85b9665b3292f3f6388368bab1` |

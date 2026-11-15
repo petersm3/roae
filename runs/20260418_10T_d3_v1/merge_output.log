@@ -12,7 +12,7 @@ Merge mode: combining sub_*.bin files...
   Total records before dedup: 2772506921
   Merge: external (forced by SOLVE_MERGE_MODE)
 External merge-sort: 2772506921 records, chunk size 4 GB (134217728 records/chunk)
-External merge-sort: temp chunks in /mnt/merge-scratch
+External merge-sort: temp chunks in <scratch-dir>
   Chunk 0: 134217728 records sorted + written
   Chunk 1: 134217728 records sorted + written
   Chunk 2: 134217728 records sorted + written

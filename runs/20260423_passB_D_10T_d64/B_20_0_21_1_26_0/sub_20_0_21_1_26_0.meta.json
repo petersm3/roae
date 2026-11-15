@@ -22,8 +22,8 @@
   "record_size_bytes": 32,
   "file_size_bytes": 155778784,
   "solver_build_date": "2026-04-23",
-  "vm_sku": "D64als_v7 spot",
-  "vm_region": "westus3",
-  "archive_location": "solver-data-westus3:/data/20260423_passBD/B_20_0_21_1_26_0/",
+  "vm_sku": "[cloud detail redacted] spot",
+  "vm_region": "[cloud detail redacted]",
+  "archive_location": "<data-disk>:/data/20260423_passBD/B_20_0_21_1_26_0/",
   "archived_at": "2026-04-23"
 }

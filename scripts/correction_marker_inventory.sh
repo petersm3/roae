@@ -174,7 +174,7 @@ REVIEWED = {
         ('1', 'reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
     ('reports/TR12_QUERY_PROGRAM.md', '1b28d5b80ba3'):  # re-keyed 2026-11-14, CX-37C-V (was ecd34b2fee0c, itself re-keyed 2026-11-02 FV2-H from 9e4550568aa2; a dated Q-1134 note on the exact rational was added after the marker; verdict re-read, stands)
         ('1', 'reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
-    ('runs/20260419_100T_d3_d128westus3/README.md', '1703e96e2580'):
+    ('runs/20260419_100T_d3_d128westus3/README.md', '10db49377ced'):  # re-keyed 2026-11-15, Q-1140 cloud-sweep B8 (was 1703e96e2580; the scratch disk's tier name reworded; verdict re-read, stands)
         ('1', 'reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
     # tranche 1 (2026-09-26, the f11halfb evidence family). The marker at
     # reports/evidence/f11halfb/README.md:21@5a3b2917 was class 1 and has moved to the ledger, so it

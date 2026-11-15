@@ -26,7 +26,7 @@
 >
 > **This inverts the conclusion.** Sub-linear growth means the branch is *approaching* exhaustion
 > rather than running away from it. The tree-size estimate for the yield-16 laggards drops from
-> 10¹⁶⁺ to **10¹⁴–10¹⁵**, and exhaustion becomes feasible at **100T–1000T on Azure D64 Spot
+> 10¹⁶⁺ to **10¹⁴–10¹⁵**, and exhaustion becomes feasible at **100T–1000T on 64-core Spot VMs
 > ([cost redacted])**. The following statements on this page are therefore **superseded and should not be
 > cited**: the **Answer** line above ("super-linear growth persists … Exhaustion-via-budget is
 > infeasible for this class"); the "**~1,700× super-linear**" growth figure; the Pass-2/Pass-3
@@ -82,14 +82,14 @@ Growth from 1T → 10T: **17,118× yield / 10× budget = ~1,700× super-linear.*
 
 ## Binary output location
 
-Both `sub_*.bin` files (502 MB each) are archived on the `solver-data-westus3`
-managed disk at `/data/archive/passA_10T_d64_laggard/<branch>/sub_<branch>.bin`.
+Both `sub_*.bin` files (502 MB each) are archived on the data disk
+at `/data/archive/passA_10T_d64_laggard/<branch>/sub_<branch>.bin`.
 They are NOT committed to this public repo (too large for git comfort).
 sha256 + metadata + log (gzipped) are in each branch subdirectory.
 
 Verification recipe:
 ```bash
-# Attach solver-data-westus3 to any VM, then:
+# Attach the data disk to a VM, then:
 cd /data/archive/passA_10T_d64_laggard/22_0_30_1_20_0
 sha256sum -c sub_22_0_30_1_20_0.sha256  # (after copying .sha256 from this repo)
 #
@@ -109,8 +109,8 @@ sha256sum -c sub_22_0_30_1_20_0.sha256  # (after copying .sha256 from this repo)
 
 ## Compute summary
 
-- 2 × D64als_v7 spot in westus3, ~3 hrs each
-- 6 VM-hours on successful runs (D64 spot)
+- 2 × 64-core Spot VMs, ~3 hrs each
+- 6 VM-hours on successful runs
 - Plus some VM time wasted on a mid-run IP/name-mixup recovery (see operator log)
 - Checkpoint interval: 60s; no actual evictions hit during the run
 
@@ -137,3 +137,12 @@ Added from Codex's final review (gpt-6-astra); the record above is kept as writt
 - **"2,507 simultaneous tasks".** The 2026-09-19 correction box says the parallel solver spread the work across 2,507 simultaneous tasks. The run queued 2,507 depth-5 tasks for 64 worker threads, and both archived logs show `64/2507 tasks` on every progress line: 64 tasks were claimed, none finished, and the other 2,443 were never started. The like-for-like ratio (3.354×, α ≈ 0.53) is unaffected (Codex F07-010#5, F12-020#3).
 - **Tree size and exhaustion.** The same box's tree-size range and its "exhaustion becomes feasible" sentence do not follow from the ratio: α describes growth in distinct solutions found at two budgets, both BUDGETED, and gives no upper bound on the nodes left to walk — most queued tasks were never entered. The 2026-04-29 pilot at 100T on `22_0_30_1_20_0` also stayed BUDGETED, with 0 of 2,380 walked cells exhausted under a 40 G per-cell cap. Read the box's inference as withdrawn; the measured tables stand (F07-010#4, F12-020#4; [HISTORY.md](../../documentation/HISTORY.md)'s April 23 entry, append-only, is corrected by CX-35X-J).
 - **Units.** The output sizes are 525.8 MB (501.5 MiB) each; "502 MB" is the MiB figure (F07-010#13).
+
+## Redaction note (2026-11-15)
+
+In each of the 2 `sub_*.meta.json` files below, three values were redacted in place (backlog Q-1140, cloud-sweep batch B8, under the operator's 2026-11-14 rule that public text names no machine size, region or resource name; in-place redaction as in CX-239 part 4, with the CX-36B-C placeholder forms from Codex findings F10-001#3, F10-002#4 and F10-003#3, gpt-6-astra): `vm_sku` reads `"[cloud detail redacted] spot"`, `vm_region` reads `"[cloud detail redacted]"`, and the disk name at the start of `archive_location` reads `<data-disk>`. Each file is still valid JSON with the same keys and line count; no other byte changed, and no record count, wall time or sha256 of a `sub_*.bin` changed.
+
+| file | sha256 before the redaction | sha256 after |
+|---|---|---|
+| `22_0_30_1_20_0/sub_22_0_30_1_20_0.meta.json` | `aafdfca59549738cbfaf45dff37257fe8a4750d6f7381b0b0221819eac283de5` | `aea2b4ab83b2e695fa56f9f8db276e5b27d83eeb3b0ca2fc1e174a8a990a0973` |
+| `22_1_30_1_20_0/sub_22_1_30_1_20_0.meta.json` | `0507d13e11743a2021b54b3f85d3afc07ccf678e34efc9552d38f6bada20b960` | `a7c61e31ecc72b55c74fae68a3ac14ee92552646ec14287e53ed94662fa9e98f` |

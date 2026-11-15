@@ -17,8 +17,8 @@
   "file_size_bytes": 525815456,
   "solver_commit": "cca1a40",
   "solver_build_date": "2026-04-22",
-  "vm_sku": "D64als_v7 spot",
-  "vm_region": "westus3",
-  "archive_location": "solver-data-westus3:/data/archive/passA_10T_d64_laggard/22_0_30_1_20_0/",
+  "vm_sku": "[cloud detail redacted] spot",
+  "vm_region": "[cloud detail redacted]",
+  "archive_location": "<data-disk>:/data/archive/passA_10T_d64_laggard/22_0_30_1_20_0/",
   "archived_at": "2026-04-22"
 }

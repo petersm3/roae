@@ -66,7 +66,7 @@ layer, which is the point of a per-layer registry.
 
 ## Provenance
 
-Run on the Path C host while the managed disk `v4-staget-data-westus3` was mounted read-only at
+Run on the Path C host while the Stage T data disk was mounted read-only at
 `/mnt/staget/run_t`. Measured digests preserved in
 the operator's private working notes (not published). The comparison
 normalises path prefixes: the registry stores `run_t/t_layer_NN.bin`, the measurement stores the

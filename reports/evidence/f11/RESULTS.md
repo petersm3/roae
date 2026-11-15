@@ -330,7 +330,7 @@ such sequences (2 of 7,975 k = 3 events).
 ## 7. Reproduction
 
 Computed 2026-07-04. Evidence files (archived copies of the worker outputs; byte-identical to the
-`/tmp/f11_*.out` originals delivered from c222-f11):
+`/tmp/f11_*.out` originals delivered from the worker VM):
 
     reports/evidence/f11/f11_runA.out    # 2e10-probe joint violation histogram (main evidence)
     reports/evidence/f11/f11_runB.out    # 5e9-probe Moore-joint-strict walk + (0,0,v3) plane
@@ -366,7 +366,7 @@ Instrument provenance: the F11 estimator extension (SOLVE_KNUTH_F11_HIST joint h
 SOLVE_KNUTH_GENDER_STRICT in-walk prune; estimator-only, sha-neutral) ran on the worker as
 `solve_c_f11.patch` and was **merged into the public `solve.c` on 2026-07-04** (selftest sha
 `403f7202…` unchanged; both flags documented in [SOLVE_C_CLI.md](../../../documentation/SOLVE_C_CLI.md) §ENVIRONMENT), so the RUN A
-histogram is re-derivable from the public tree. Worker: c222-f11, Spot D32als_v7, launcher `f11_launch.sh`
+histogram is re-derivable from the public tree. Worker: a 32-core Spot VM, launcher `f11_launch.sh`
 (c215 pattern: throttle probe, selftest gate, auto-shutdown backstop, delete-on-completion).
 Deviation note: the delivered RUN C/C2 outputs contain the scoreboard only — the planned
 gender-strict prune output and its leaf-scorer mismatch line did NOT ship, so N_gs is derived

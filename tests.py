@@ -55931,8 +55931,10 @@ class TestBatchG6(unittest.TestCase):
         skew = sum((k - mu) ** 3 * v for k, v in h.items()) / n / var ** 1.5
         self.assertLess(skew, -1.5, "precondition: the histogram is left-skewed")
         r100 = self._g6h_f(d100 + "README.md")
+        # 2026-11-15 (Q-1140, cloud-sweep batch B8): the purchase-type note's wording follows the sweep's style
+        # guide ("on-demand" as a purchase type -> regular capacity); the fact pinned is unchanged.
         for frag in ("The external merge wrote **104** sorted chunks", "about **5×**", "Read \"left-skewed\"",
-                     "provisioned on-demand by mistake", "put `SOLVE_SKIP_AUTOMERGE=1` on the first command",
+                     "created on regular (non-interruptible) capacity by mistake", "put `SOLVE_SKIP_AUTOMERGE=1` on the first command",
                      "102.29 GiB"):
             self.assertIn(" ".join(frag.split()), r100, frag)
         pa = "runs/20260422_passA_10T_d64_laggard/"

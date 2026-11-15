@@ -35,7 +35,7 @@ Out-of-core symmetry-quotient dynamic program (`solve --f1-exact-c1c2c4c5 --f1-o
 | B0 boundary budget (d=1,2,3,4,6) | (2, 8, 13, 7, 1), sum = 31 [KW-derived] |
 | Pair-list hash | da2d4756d0535d0e |
 | Solver | `main` commit `14db3f5` (v2 zlib-blocked layers + intra-layer checkpointing) |
-| Hardware | D128als_v7 Spot, westus3, 4 TB scratch disk |
+| Hardware | one 128-core Spot VM (256 GB RAM), 4 TB scratch disk |
 | Launched / landed | 2026-07-09 / 2026-07-16 (~7 days wall) |
 | Spot evictions | 12, every one auto-recovered from the last complete-layer checkpoint (no lost work) |
 | Peak RSS | **24,122.0 MB** (≈23.6 GiB) — the highest `rss_peak` in the run's own `[f1c5-ooc]` telemetry, at `SOLVE_F1_OOC_SCRATCH_MB` = 16384 (see the correction below) |
@@ -73,7 +73,7 @@ Any reader can reproduce the count on commodity hardware (~64 GB RAM + ~4 TB dis
 
 ⚠ **[CORRECTED 2026-09-24 (Codex V3B-13#23, Q-742) — the example read `61440`. Resident memory runs at
 about 2.2× the setting, so 61440 asks for ≈132 GiB on the ~64 GB box this section sizes. 61440 is the
-production 256-GiB D128 setting. TR-11 v1.26 (2026-09-03) and `documentation/SOLVE_C_CLI.md` already give
+production setting for the 256-GiB, 128-core VM. TR-11 v1.26 (2026-09-03) and `documentation/SOLVE_C_CLI.md` already give
 16384 for this box, and this run README was not swept then.]**
 
 Every completed layer file in `DIR` is a checkpoint; after any interruption re-run with `--resume-from-layers`. Cross-mode equivalence: run any `--f1-pairs N` subset with and without `--f1-out-of-core` — totals must match, and with `SOLVE_F1_OOC_FORMAT=v1` the layer files must be byte-identical (under the v2 out-of-core default the files are content-identical but byte-different; compare with `--f1c5-verify-layer` — TR-11 §10(vi) precision note). See TR-11 Verification Guide.
@@ -88,3 +88,11 @@ Added from Codex's final review (gpt-6-astra); the record above is kept as writt
 - **Threads.** The run started at 64 threads and computed layers k1–k11 under that configuration (`run.out` lines 4–6); every later segment ran at 128 (F12-020#13).
 - **Evictions.** `run.out` records twelve `RESUME intra-layer checkpoint` lines: the evictions were recovered from intra-layer checkpoints, which kept the completed part of the interrupted layer, not from "the last complete-layer checkpoint". No work was lost either way (F06-008#15 and its run-README twin).
 - **Palindrome pairs.** `run.out` carries every layer k1–k31, so all fifteen mirror pairs k1/k30 … k15/k16 can be checked directly, not six; all hold ([layer_curve.md](layer_curve.md), note of this date).
+
+## Redaction note (2026-11-15)
+
+`count_result.json` line 23 (`hardware`) had its machine size and region each replaced in place by `[cloud detail redacted]` (backlog Q-1140, cloud-sweep batch B8, under the operator's 2026-11-14 rule that public text names no machine size, region or resource name; in-place redaction as in CX-239 part 4, with the CX-36B-C placeholder forms from Codex findings F10-001#3, F10-002#4 and F10-003#3, gpt-6-astra); it is now `"[cloud detail redacted] Spot, [cloud detail redacted], 4 TB scratch disk"`. The file is still valid JSON; no other byte changed, and no count, gate or digest in it changed. The notes above that say `count_result.json` is kept as written predate this edit.
+
+| file | sha256 before the redaction | sha256 after |
+|---|---|---|
+| `count_result.json` | `ee2665509b76410d751ab31991f4db687a99a54a2d4a10b9d1cabe1c8da99a73` | `de938cd474c682167dfe5cac733423a217be5237a1c2f2601ba9a92a978de1ac` |

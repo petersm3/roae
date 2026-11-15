@@ -15,8 +15,8 @@ sizing, ≤413 residual vectors/layer).
 more — a complete characterization shows NO two live residuals are ever future-equivalent. For
 KW-realistic budgets the measured collapse at the wide layers is only ~1.2–1.4x (not the
 conjectured 10–50x); the huge collapses (25x) appear only for pathologically skewed budgets.
-Projected peak memory 1.2–2.0 TB (3x64-bit CRT passes): NOT feasible on 256 GB D64 or 672 GB
-E96; marginal-to-feasible on a 2 TB+ M-series box or via out-of-core NVMe streaming.**
+Projected peak memory 1.2–2.0 TB (3x64-bit CRT passes): NOT feasible on a 256 GB or a 672 GB
+VM; marginal-to-feasible on a 2 TB+ memory-optimised VM or via out-of-core NVMe streaming.**
 
 ---
 
@@ -163,26 +163,26 @@ the operative one.
 
 ## 5. Verdict
 
-- **256 GB (D64): NOT feasible.** Off by ~5–8x even at the theoretical live floor.
+- **256 GB (64-core VM): NOT feasible.** Off by ~5–8x even at the theoretical live floor.
 - **672 GB (E96): NOT feasible** in RAM (floor ≈ 1.0 TB).
 - **2 TB M-series (M128s 2 TiB; M128ms 3.8 TiB): marginal-to-feasible.** f=0.30–0.40 @12 B fits
   in 2 TiB with thin margin; f=0.50 needs the 3.8 TiB SKU or 4-byte moduli (5 CRT passes,
   ~7 B/entry → 0.7–1.2 TB, comfortable). This is the only in-RAM route.
 - **Out-of-core alternative:** the DP is strictly layered; 1.2–2.0 TB layers stream to/from
   Premium NVMe with mask-partitioned gathers (predecessors of a mask block live in a bounded set
-  of predecessor blocks). Feasible on far cheaper hardware, at engineering cost; pairs naturally
+  of predecessor blocks). Feasible on far smaller hardware, at engineering cost; pairs naturally
   with per-layer checkpointing (Spot-safe).
 
 **Run plan sketch (if operator green-lights; NOT started).** C implementation inside the existing
 solve.c gate question (single-C-file rule): 3x (or 5x) CRT passes of the layered orbit-DP with
-budget-kill + mask-level box pruning; per-layer checkpoint to Premium SSD; validate by (i)
+budget-kill + mask-level box pruning; per-layer checkpoint to an SSD-backed managed disk; validate by (i)
 reproducing |C1C2C4| exactly with C5 disabled ((7.5706e41 anchor), (ii) reduced-size sha-equality
 against this instrument's Python totals, (iii) 3 CRT residues CRT-reconstructed and cross-checked
 against the 1.3287e38 ±0.02% estimator value. Hardware: Standard (not Spot) M-series for the
 in-RAM route — mid-layer eviction loses ~hours of uncheckpointed gather unless out-of-core
-spooling is built anyway. Time estimate (scoped, ±2x): M128s on-demand; edges
+spooling is built anyway. Time estimate (scoped, ±2x): a 128-core memory-optimised VM on regular capacity; edges
 1.0–1.7e13/pass, memory-latency-bound ~1–2e9 edge/s aggregate → 2–5 h/pass, 3 passes + overheads
-≈ 8–24 h; the out-of-core D64+NVMe route is cheaper but +days of implementation.
+≈ 8–24 h; the out-of-core route (a 64-core VM with NVMe) needs less memory but +days of implementation.
 Per feedback_cost_awareness this needs operator sign-off either way.
 
 **Caveats (honest).** (1) f is extrapolated from n=16–18 group-closed unions whose inter-pair

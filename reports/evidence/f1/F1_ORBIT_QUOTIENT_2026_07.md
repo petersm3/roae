@@ -39,7 +39,7 @@ masks is NOT free; handled by canonical representative + stabilizer-aware expans
 
 ## Step 3: feasibility recount under the quotient
 - |C1C2C4| exact: memory 149-447 GB / ~24 -> **6-19 GB**; ops ~2e12 edges + ~24x canonicalization
-  overhead ~5e13 simple ops -> C on D128: hours. **FEASIBLE.** Value: MDL cell 7.571e41 (+/-0.01%)
+  overhead ~5e13 simple ops -> C on a 128-core VM: hours. **FEASIBLE.** Value: MDL cell 7.571e41 (+/-0.01%)
   becomes EXACT; absolute estimator anchor at full scale.
 - |C1..C5| exact: ~2.5 TB layers even quotiented -> NOT feasible this window. Foothold: C5-residual
   dominance pruning + deeper class-collapse might close the gap for a future model.
@@ -60,4 +60,4 @@ Full-31-pair sizing EXACT via Burnside on k-subsets (cycle types of the 24 perms
 93,939,712 canonical (22.86x); entries 6.657e10 -> 2.912e9; peak two-live-layers k=16,17:
 1.863e10 -> 8.096e8 entries = **19.4 GB @24B single-pass or 6.5 GB @8B x3 CRT passes** — confirms
 Step 3's 6-19 GB band with exact numbers. Next: C implementation (in-solve.c gate question for
-operator) + D128 Spot cost estimate.
+operator).

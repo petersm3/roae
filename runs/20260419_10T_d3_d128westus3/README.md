@@ -1,20 +1,20 @@
-# 10T depth-3 D128als_v7 westus3 validation — archive
+# 10T depth-3 validation on a 128-core VM — archive
 
 **Date:** 2026-04-19
-**SKU:** Standard_D128als_v7 (spot, westus3)
+**VM:** one 128-core VM (256 GB RAM), Spot
 **Purpose:** Cross-region + cross-SKU + cross-generation empirical
 validation of the Partition Invariance theorem (see
 [PARTITION_INVARIANCE.md](../../documentation/PARTITION_INVARIANCE.md)).
 **Solver commit:** (pending — this run uses the uncommitted working tree
 containing in-place heapsort, [--sub-branch](../../documentation/SOLVE_C_CLI.md#--sub-branch) CLI, auto-threshold fix, and
 SOLVE_CONCENTRATE_BUDGET). The solve.c used here is **semantically
-identical** to the F64 canonical in enumeration path; changes affect
+identical** to the canonical from the older 64-core VM in enumeration path; changes affect
 merge path + new CLI mode only. Matching sha proves this.
 
 ## Canonical sha confirmation
 
 - **sha256**: `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e`
-- **Matches canonical**: YES (byte-identical to F64 westus2 Phase B / Phase C / heap-sort merge) — *note: the `f7b8c4fb…` 10T canonical was later deprecated 2026-05-13 and superseded by the modern-code re-derivation `b85c8871…` / 706,427,594 records (+4,607); the values here are the historical 2026-04-18 canonical, preserved as recorded. See [CANONICAL_HASHES.md](../../documentation/CANONICAL_HASHES.md).*
+- **Matches canonical**: YES (byte-identical to the older 64-core VM's, in a second region: Phase B / Phase C / heap-sort merge) — *note: the `f7b8c4fb…` 10T canonical was later deprecated 2026-05-13 and superseded by the modern-code re-derivation `b85c8871…` / 706,427,594 records (+4,607); the values here are the historical 2026-04-18 canonical, preserved as recorded. See [CANONICAL_HASHES.md](../../documentation/CANONICAL_HASHES.md).*
 - **Records**: 706,422,987 canonical pair orderings
 - **Solutions.bin size**: 22,605,535,616 bytes (22.6 GB)
 
@@ -32,9 +32,9 @@ merge path + new CLI mode only. Matching sha proves this.
 ## What's NOT in this directory (and why)
 
 `solutions.bin` (22.6 GB) is NOT archived here. It lives on
-`solver-data-westus3` managed disk (westus3, 300 GB Standard_LRS) and is
-byte-identical to the canonical on `solver-data` / `solver-validate-d3`
-(westus2). Storing a third copy adds no information.
+this run's data disk (a 300 GB standard managed disk) and is
+byte-identical to the canonical on the two data disks of the earlier runs
+(in a second region). Storing a third copy adds no information.
 
 ## Timings
 
@@ -42,18 +42,18 @@ byte-identical to the canonical on `solver-data` / `solver-validate-d3`
 |---|---|---|
 | Enumeration (158,364 sub-branches × 63M-node budget each, 128 threads) | **82m 57s** | 4977 |
 | In-memory heap-sort merge (2.77B pre-dedup → 706M canonical) | **51m 47s** | 3107 |
-| External merge (same shards, P20 Premium SSD temp via SOLVE_TEMP_DIR) | **42m 59s** | 2579 |
+| External merge (same shards, a 512 GB SSD-backed scratch disk via SOLVE_TEMP_DIR) | **42m 59s** | 2579 |
 | **Total (enum + both merge passes)** | **2h 57m 43s** | 10663 |
 
-**Cost (D128als_v7 spot + P20 Premium SSD prorated for external merge):
+**Cost (the VM and its merge scratch disk):
 [cost redacted].**
 
 ## 4-corners validation grid — complete
 
 | | External merge | In-memory heap-sort |
 |---|---|---|
-| F64 Zen 4 westus2 | ✅ Phase B canonical | ✅ heap-validate-vm (2026-04-19) |
-| **D128 Zen 5 westus3** | **✅ this run, sha match** | **✅ this run, sha match** |
+| 64-core Zen 4 VM, first region | ✅ Phase B canonical | ✅ heap-validate-vm (2026-04-19) |
+| **128-core Zen 5 VM, second region** | **✅ this run, sha match** | **✅ this run, sha match** |
 
 All 4 combinations of {CPU generation, merge algorithm} produce
 byte-identical canonical output. Empirical confirmation of
@@ -66,8 +66,8 @@ PARTITION_INVARIANCE.md Theorem.
 - Record size: 32 bytes
 - `SOLVE_DEPTH=3`, 158,364 sub-branches
 - `SOLVE_NODE_LIMIT=10000000000000` (10T)
-- `SOLVE_THREADS=128` (full D128als_v7)
-- External merge: `SOLVE_MERGE_MODE=external SOLVE_TEMP_DIR=/mnt/merge-scratch` (P20 Premium SSD 512 GB)
+- `SOLVE_THREADS=128` (all 128 cores)
+- External merge: `SOLVE_MERGE_MODE=external SOLVE_TEMP_DIR=<scratch-dir>` (a 512 GB SSD-backed managed disk)
 
 ## Verification status at archive time
 

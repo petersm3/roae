@@ -20,7 +20,7 @@
     "b0_over_distances": [1, 2, 3, 4, 6],
     "pair_list_hash": "da2d4756d0535d0e",
     "solver_commit": "14db3f5",
-    "hardware": "D128als_v7 Spot, westus3, 4 TB scratch disk",
+    "hardware": "[cloud detail redacted] Spot, [cloud detail redacted], 4 TB scratch disk",
     "launched": "2026-07-09",
     "landed": "2026-07-16",
     "wall_days_approx": 7,

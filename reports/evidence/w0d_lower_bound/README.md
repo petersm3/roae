@@ -60,7 +60,7 @@ ruling and TR-12 §3 (before its 2026-09-25 correction) assumed the opposite dir
 premise that production prunes with C3. An `upper-bound` certificate built on that premise would
 have made EXHAUSTIBLE rows unsound.
 
-## Measured (worker `c302-worker`, D8als_v7 Spot, 2026-09-25)
+## Measured (an 8-core Spot worker VM, 2026-09-25)
 
 Tree: 5c296837 plus integration batches 1–6, the Q-772 loader and this change (uncommitted, so
 `provenance.engine_git` reads `5c29683742b0+uncommitted`). Build:

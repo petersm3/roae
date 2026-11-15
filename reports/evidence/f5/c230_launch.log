@@ -1,8 +1,8 @@
 === c230 F5 batch launch Sun Jul  5 03:49:24 UTC 2026 ===
-WARNING: The default value of '--size' will be changed to 'Standard_D2s_v5' from 'Standard_DS1_v2' in a future release.
+WARNING: The default value of '--size' will be changed to '[cloud detail redacted]' from '[cloud detail redacted]' in a future release.
 WARNING: Argument '--max-price' is in preview and under development. Reference and support levels: https://aka.ms/CLI_refstatus
 WARNING: Consider upgrading security for your workloads using Azure Trusted Launch VMs. To know more about Trusted Launch, please visit https://aka.ms/TrustedLaunch.
-c230-f5 created Sun Jul  5 03:50:01 UTC 2026 (F5 tier-1 batch, Spot D64 westus3)
+<vm> created Sun Jul  5 03:50:01 UTC 2026 (F5 tier-1 batch, Spot [cloud detail redacted] [cloud detail redacted])
 backstop VERIFIED BY READBACK: Enabled @ 0650 UTC (+3h)
 cpu-freq probe: 2596 MHz
 debconf: unable to initialize frontend: Dialog
@@ -75,5 +75,5 @@ GAUGE_UPDOWN_BITREV6: 7,8,10,2,7,17,12,23,18,4,4
 GAUGE_BACKFRONT: 7,8,10,2,7,15,13,23,12,4,5
 === tier-1 run: 2e9 probes, SCORE_F5 + HIST, 64 threads Sun Jul  5 03:51:04 UTC 2026 ===
 --- teardown Sun Jul  5 03:55:05 UTC 2026
-c230-f5 deleted Sun Jul  5 03:55:18 UTC 2026
+<vm> deleted Sun Jul  5 03:55:18 UTC 2026
 === c230 F5 TIER-1 COMPLETE Sun Jul  5 03:55:18 UTC 2026; results /tmp/f5_batch/ + <private evidence dir> ===

@@ -70,7 +70,7 @@ bits (24 B, or 3 × 64-bit CRT residues at 8 B/pass).
   k = 15,16: C(31,15)·30 + C(31,16)·32 = 1.86×10¹⁰ entries → **447 GB @24 B** single pass, or
   **149 GB @8 B × 3 CRT passes** (ops then ×3 ≈ 6×10¹²).
 
-**Binding constraint: memory.** The 2.0×10¹² ops are ~0.5–2 h in tight C on a D32 (they were only
+**Binding constraint: memory.** The 2.0×10¹² ops are ~0.5–2 h in tight C on a 32-core VM (they were only
 "infeasible" in Python at ~µs/edge ≈ weeks); but 149 GB/pass minimum RAM (or an out-of-core
 streaming design) is what actually killed the route on available SKUs — and C5 makes it far worse (§4).
 

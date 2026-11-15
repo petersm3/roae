@@ -1,9 +1,9 @@
-# 100T depth-3 D128als_v7 westus3 canonical enumeration — archive
+# 100T depth-3 canonical enumeration on a 128-core VM — archive
 
 *Completed run 2026-04-20 00:45 UTC. **Superseded as deepest 2026-06-08 by 560T canonical `9a968fa21f74e36ad1d57b53453c867e1324ef9494856bd2a5d5f94ae3b5ee0e`** (10,525,271,997 orderings). 100T canonical remains the standing partition-invariance witness + sha anchor; see [`../../../documentation/CANONICAL_HASHES.md`](../../documentation/CANONICAL_HASHES.md) for the registry and [`../../../documentation/HISTORY.md`](../../documentation/HISTORY.md) "June 1-8, 2026" entry for the 560T campaign.*
 
 **Date:** 2026-04-19
-**SKU:** Standard_D128als_v7 (spot, westus3)
+**VM:** one 128-core VM (256 GB RAM), recorded here as Spot; see the purchase-type note below
 **Purpose:** First partial enumeration at 10× budget over the canonical
 10T d3 run. Establishes a deeper partial sha, supersedes 10T as the
 richest partial enumeration dataset.
@@ -19,7 +19,7 @@ the 100T sha depends only on solver + inputs, not subsequent doc edits).
 
 - **Solutions.bin size**: 109,836,777,536 bytes (102.3 GB)
 - **Pre-dedup records processed**: 13,832,832,979
-- **Merge chunks produced**: 104, from 60,533 input shard files (external merge via P40 Premium SSD scratch) *(corrected 2026-11-01: was "60,533", the input-file count; `enum_output.log.gz` says `104 sorted chunks created`, and 13,832,832,979 records / 134,217,728 per chunk rounds up to 104. See the note on merge chunks below. Codex F07-010#7, F12-020#10; [CORRECTIONS.md](../../documentation/CORRECTIONS.md) CX-36J-C.)*
+- **Merge chunks produced**: 104, from 60,533 input shard files (external merge via a 2 TB SSD-backed scratch disk) *(corrected 2026-11-01: was "60,533", the input-file count; `enum_output.log.gz` says `104 sorted chunks created`, and 13,832,832,979 records / 134,217,728 per chunk rounds up to 104. See the note on merge chunks below. Codex F07-010#7, F12-020#10; [CORRECTIONS.md](../../documentation/CORRECTIONS.md) CX-36J-C.)*
 - **Distinct from 10T sha** `f7b8c4fbf2980a169a203b17a6a92c3d175515b00ee74de661d80e949aa6187e` because 100T has a different `SOLVE_NODE_LIMIT` parameter. **DEPRECATION NOTE (added 2026-08-01):** that 10T d3 sha, and the 706,422,987 count derived from it, were **deprecated 2026-05-13** as a pre-resume-fix *undercount* (incomplete by 4,607 records lost via imperfect resume); the current 10T d3 canonical is `b85c887128ce9881229741380a799c4e1608335df438cedc3da9e087fd94dbbc` / 706,427,594 records — see [CANONICAL_HASHES.md](../../documentation/CANONICAL_HASHES.md) §Deprecated. Every 10T figure in this file (including the ~4.86x ratio below) is computed from the deprecated undercount and is left as-published for the historical record. The 100T sha, count and analysis in this file are unaffected. Both were valid canonical references at their respective budgets at archive time (per [PARTITION_INVARIANCE.md](../../documentation/PARTITION_INVARIANCE.md), sha is a function of solver + inputs).
 
 ## Relationship to 10T canonical
@@ -40,15 +40,15 @@ Expected count at launch was 1-2B; actual 3.43B exceeded the estimate.
 - Record size: 32 bytes
 - `SOLVE_DEPTH=3`, 158,364 sub-branches
 - `SOLVE_NODE_LIMIT=100000000000000` (100T)
-- `SOLVE_THREADS=128` (full D128als_v7)
-- External merge: `SOLVE_MERGE_MODE=external SOLVE_TEMP_DIR=/mnt/merge-scratch` (P40 Premium SSD 2 TB attached for merge duration, destroyed after per standing pattern)
+- `SOLVE_THREADS=128` (all 128 cores)
+- External merge: `SOLVE_MERGE_MODE=external SOLVE_TEMP_DIR=<scratch-dir>` (a 2 TB SSD-backed managed disk, attached for the merge and deleted after it)
 
 ## Timings
 
 | Phase | Wall time | Wall seconds |
 |---|---|---|
 | Enumeration (158,364 sub-branches × 631M-node budget each, 128 threads) | **11h 22m 07s** | **40,927** |
-| External merge (P40 Premium SSD temp, 2 TB) | **5h 25m 38s** | **19,538** |
+| External merge (2 TB SSD-backed scratch disk) | **5h 25m 38s** | **19,538** |
 | **Total (enum + merge)** | **16h 47m 45s** | **60,465** |
 
 Projected at launch (2026-04-19 08:00 UTC): enum ~11h (**actual 11h 22m 07s ✓ on target**), merge ~2-3h (**actual 5h 25m** — longer than projected; the 2-3h estimate was a rough guess, not a rigorous projection; 100T pre-dedup input at 13.8B records is ~10× the 10T input so ~10× merge time is realistic in retrospect), total ~13-14h (**actual 16h 48m** — a bit long but within tolerances).
@@ -67,22 +67,22 @@ Projected at launch (2026-04-19 08:00 UTC): enum ~11h (**actual 11h 22m 07s ✓ 
 
 ## What's NOT in this directory (and why)
 
-`solutions.bin` (actual 102.3 GB at 100T depth — exceeded the 30-65 GB estimate) is NOT archived here. It lives on the `solver-data-westus3` managed disk (westus3, 1.5 TB Standard_LRS). The sha is the reproducibility anchor; regenerating the bytes is a ~17-hour compute task if ever needed (measured 16h 47m 45s enum+merge; see Timings) (partition invariance guarantees byte-identical reproduction).
+`solutions.bin` (actual 102.3 GB at 100T depth — exceeded the 30-65 GB estimate) is NOT archived here. It lives on the data disk (a 1.5 TB standard managed disk). The sha is the reproducibility anchor; regenerating the bytes is a ~17-hour compute task if ever needed (measured 16h 47m 45s enum+merge; see Timings) (partition invariance guarantees byte-identical reproduction).
 
 ## How to re-obtain `solutions.bin`
 
-Option 1 - re-enumerate from scratch (budget **~17 h** on D128 spot, per this run's own measured Timings table above: 11h 22m enum + 5h 26m merge = 16h 47m 45s. The "~13 hrs" this line previously carried was the pre-run projection, not the measurement):
+Option 1 - re-enumerate from scratch (budget **~17 h** on a 128-core Spot VM, per this run's own measured Timings table above: 11h 22m enum + 5h 26m merge = 16h 47m 45s. The "~13 hrs" this line previously carried was the pre-run projection, not the measurement):
 ```
-ssh solver@<a D128als_v7 westus3 VM with 1.5 TB disk>
+ssh solver@<a 128-core VM (256 GB RAM) with a 1.5 TB disk>
 SOLVE_DEPTH=3 SOLVE_NODE_LIMIT=100000000000000 SOLVE_THREADS=128 ./solve 0
-SOLVE_MERGE_MODE=external SOLVE_TEMP_DIR=/mnt/merge-scratch ./solve --merge
+SOLVE_MERGE_MODE=external SOLVE_TEMP_DIR=<scratch-dir> ./solve --merge
 gzip -dc solutions.bin | sha256sum  # must equal 915abf30cc58160fe123c755df2495e7999315afcfc6ef23f0ae22da6b56c3c5
                                     # (this run predates #169 and wrote a RAW solutions.bin, for which plain
                                     #  `sha256sum solutions.bin` is correct; a re-derivation on current solve.c
                                     #  gets a gz-framed file, hence the gzip -dc form)
 ```
 
-Option 2 — mount `solver-data-westus3` disk on any westus3 VM and read directly.
+Option 2 — attach the data disk to a VM in the disk's own region and read it directly.
 
 ## Verification status at archive time
 
@@ -115,7 +115,7 @@ Option 2 — mount `solver-data-westus3` disk on any westus3 VM and read directl
 ## Visualization
 
 - 8 files in `viz/` (4 PNG + 4 SVG): `viz_edit_distance`, `viz_complement_dist`, `viz_position2_cluster`, `viz_adjacency`. **Correction 2026-08-01: all 8 ARE committed** (`git ls-files viz/`, run in this directory, lists them); the "NOT committed" clause here was stale. ⚠ *(corrected 2026-09-26: this parenthetical also read "and `viz/README.md` says so". Whether the top-level [viz/README.md](../../viz/README.md) lists these eight files depends on the revision; its PCA page, [viz_pca.md](../../viz/archive/viz_pca.md), draws the 560T canonical's copies, not these. The evidence for this directory is the `git ls-files` listing.)*
-- Generated 2026-04-20 on d128-westus3 after MERGEDONE.
+- Generated 2026-04-20 on the worker VM after MERGEDONE.
 - **Sampling methodology (fully deterministic, seed=42):**
   - Uniformly-random 1M-record subsample from the 3.43B canonical via one-pass vectorized reservoir sampling (Algorithm R) — produces identical output on every re-run with the same file + seed.
   - PCA projection to 2D on the full 1M sample.
@@ -127,7 +127,7 @@ Option 2 — mount `solver-data-westus3` disk on any westus3 VM and read directl
   - In the 2026-04-20 run on this canonical, KW was not in the random sample (as expected) and was injected at index 999,999.
 - visualize.py fixes applied this session (locally, not committed per uncommitted-viz directive):
   1. **Format-v1 magic-byte detection** — was auto-detecting format by file-size modulo, which collided at 100T scale (odd record count × 32 + 32 header happens to be divisible by 64).
-  2. **Vectorized reservoir sampling** — replaced 1M random-index mmap-seek pattern (~80 min on Standard HDD due to seek-per-record) with one-pass sequential read + in-chunk numpy-vectorized reservoir update. Empirical: ~7 min on this file (page-cache-warm) vs ~60 min for Python-loop scalar reservoir vs ~80 min for the original mmap-seek approach.
+  2. **Vectorized reservoir sampling** — replaced 1M random-index mmap-seek pattern (~80 min on a standard (slower) disk due to seek-per-record) with one-pass sequential read + in-chunk numpy-vectorized reservoir update. Empirical: ~7 min on this file (page-cache-warm) vs ~60 min for Python-loop scalar reservoir vs ~80 min for the original mmap-seek approach.
   3. **KW injection** — as described above.
   4. **Plot subtitle provenance** — subtitles now show sample size / total record count / seed so plots are self-describing.
 - `--c3-min` (Open Question #7 Phase A Day 1 MVP): **COMPLETE** (wall 227s first pass, 518s second pass with max-counting).
@@ -148,7 +148,7 @@ Option 2 — mount `solver-data-westus3` disk on any westus3 VM and read directl
 
 ## 4-corners validation context
 
-This run was generated on D128als_v7 (Zen 5 Turin) westus3 using external-merge mode. The 10T d3 companion run (see `../20260419_10T_d3_d128westus3/`) empirically validated that this hardware + merge-mode combo produces byte-identical output to F64 westus2 via both external and in-memory paths. The 100T sha here is expected to be reproducible via the same 4 corners (Zen 4 F64 + external merge, Zen 4 F64 + heap-sort, Zen 5 D128 + external, Zen 5 D128 + heap-sort — though only the D128-external path has been run at 100T scale so far).
+This run was generated on a 128-core Zen 5 (Turin) VM using external-merge mode. The 10T d3 companion run (see `../20260419_10T_d3_d128westus3/`) empirically validated that this hardware + merge-mode combo produces byte-identical output to an older 64-core compute-optimised Zen 4 VM in a second region, via both external and in-memory paths. The 100T sha here is expected to be reproducible via the same 4 corners (Zen 4 + external merge, Zen 4 + heap-sort, Zen 5 + external, Zen 5 + heap-sort — though only the Zen 5 external path has been run at 100T scale so far).
 
 ## Dated notes (2026-10-22)
 
@@ -158,7 +158,7 @@ Added from Codex's final review (gpt-6-astra); the record above is kept as writt
 - **Pre-dedup ratio.** The 100T pre-dedup input (13,832,832,979 records) is about **5×** the 10T companion run's (2,772,506,921 in `../20260419_10T_d3_d128westus3/external_merge.log.gz`), not the tenfold the Timings paragraph says; the budget, not the input, grew tenfold (F07-010#10, F12-020#11).
 - **Units.** 109,836,777,536 bytes is 109.84 GB, or 102.29 GiB; "102.3 GB" on this page is the GiB figure (F07-010#13).
 - **Skew.** Both distributions called "right-skewed" under the analysis notes have their long tail toward *smaller* values: the edit-distance histogram (§[28], mode 30, range 0–31) has standardized skewness ≈ −1.84, and the C3 distribution piles up at the 776 ceiling with its tail toward the 424 minimum. Read "left-skewed" (F07-010#11, F12-020#12).
-- **SKU.** The header says Spot; [HISTORY.md](../../documentation/HISTORY.md)'s retrospective on this run records that the VM was provisioned on-demand by mistake (F07-010#12).
+- **Purchase type.** The header says Spot; [HISTORY.md](../../documentation/HISTORY.md)'s retrospective on this run records that the VM was created on regular (non-interruptible) capacity by mistake (F07-010#12).
 - **Re-enumeration recipe.** As printed, Option 1 merges twice: the first command merges automatically at the end of enumeration (default merge settings, scratch in the working directory) unless `SOLVE_SKIP_AUTOMERGE=1` is set, and the second command merges again. For one enumeration and one scratch merge, put `SOLVE_SKIP_AUTOMERGE=1` on the first command (F12-020#6).
 - **4,607.** The deprecation note's "4,607 records lost via imperfect resume" states a cause the cited sources hold as the better-fitting hypothesis ([HISTORY.md](../../documentation/HISTORY.md), the f42f2ae re-assessment; CANONICAL_HASHES.md says "likely"); the undercount itself is measured (F12-020#14).
 - **`analyze_output.log.gz`.** Two sections of the archived log are known defective and the log is kept as written: §[25] read 4,096 of the 158,364 cells and keyed depth-3 cells by their depth-2 prefix, so its "Total solutions … 5281823723" exceeds the file's 3,432,399,297 records (the producer was fixed in CX-151); and §[7]'s line "4-boundary minimum proven for this dataset" follows only a disproof of all triples, which gives a lower bound of four — §[8] then finds zero working 4-subsets, and the minimum at 100T is five, as the analysis notes above say (F07-010#6, F07-010#19).

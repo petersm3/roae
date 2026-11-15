@@ -75,7 +75,7 @@ so `2>&1` is required or the artifact loses its seed provenance.
 | `solve.c` | built from `main` @ `3515441c`, clean tree; sha256 `2d45f5791390feb1cbd70063399f54a5d11cb222d8a792e3d22ec92021934a48` |
 | binary | sha256 `33cc19588954cba0e1ce7cb235d9e5578557c8d40d3980a38c766a76f8ae7799` |
 | compiler | `gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0`, flags `-O3 -pthread -fopenmp … -lm -lz` |
-| host | Azure `Standard_D128als_v7` Spot, westus3; AMD EPYC 9V45, 128 cores, 251 GB; Linux 6.17.0-1022-azure x86-64 |
+| host | one 128-core Spot VM; AMD EPYC 9V45, 128 cores, 251 GB; Linux 6.17.0-1022-azure x86-64 |
 
 Output is byte-identical only at the identical (probes, threads, seed) triple **and** binary; a
 different host or compiler may differ in the last digits.

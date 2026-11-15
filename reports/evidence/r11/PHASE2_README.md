@@ -140,10 +140,10 @@ as shown above, and TR-2 v1.23 restores it under this convention.
 
 ## Provenance
 
-- Phase-2 four-seed battery: worker `c237-r11p2` (Spot D64als_v7), 4 seeds ×
+- Phase-2 four-seed battery: a 64-core Spot worker VM, 4 seeds ×
   ~9,600–9,700 s each; `r11_phase2_battery.sh` archived here; battery complete
   2026-07-12T15:26:52Z, rc=0; VM and all resources deleted, zero orphans.
-- Repaired stratified run: worker `r11-strat` (Spot D32als_v7),
+- Repaired stratified run: a 32-core Spot worker VM,
   `r11_stratified_repair.sh` archived here; 56 branches × 3.57×10⁸ probes, wall ≈ 4,634 s;
   complete 2026-07-13T07:03:03Z, rc=0; VM deleted, zero orphans.
 
@@ -152,3 +152,11 @@ is standard prior art; nothing in the measurement methodology is claimed as nove
 modeled rules belong to their authors (Moore, Schulz, Cook, Hacker & Moore, Rutt). All
 population runs are reproducible from the public `solve.c` at the stated probe counts,
 seeds, and environment flags.
+
+## Redaction note (2026-11-15)
+
+`battery.log` lines 1 and 11 (the two battery-start lines) named the worker VM; that name alone is now `host=<worker>` (backlog Q-1140, cloud-sweep batch B8, under the operator's 2026-11-14 rule that public text names no machine size, region or resource name; in-place redaction as in CX-239 part 4, with the CX-36B-C placeholder forms from Codex findings F10-001#3, F10-002#4 and F10-003#3, gpt-6-astra). No other byte changed: the log keeps its line count, both start lines and both self-test lines.
+
+| file | sha256 before the redaction | sha256 after |
+|---|---|---|
+| `battery.log` | `28beb05c67204c504d842954e13421a56563fb961f1128c0ca9bf94d1dda8d73` | `33ec0b28edbbaaae7398fa42bb5983c1beecd3b292861a23c1cb0988f55a4ab3` |

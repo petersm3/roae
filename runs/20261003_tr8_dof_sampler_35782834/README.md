@@ -18,7 +18,7 @@ them can be recomputed from the per-shard hit files in about two seconds (§Repr
 - **Instrument.** `solve.py --tr8-dof-sampler` at commit `35782834ea709969910419cce4e739da39dac19f`,
   solve.py sha256 `38f3f886dcfed34b36fe5be4de17b2ed5363c719a63d3bde634934738aa4b609`
   (`CODE_SHA`, `SOLVE_PY_SHA256`), CPython 3.12.3 (`PYTHON`).
-- **Worker.** One Standard D16als_v7 (16 vCPU, `NPROC=16`), not Spot, so no eviction could
+- **Worker.** One 16-core VM (`NPROC=16`) on regular (non-interruptible) capacity, not Spot, so no eviction could
   interrupt a shard. The draws do not depend on the host.
 - **Counts.** Seed root `ROAE-TR8-DOFMATCH-2026-08-11`; N_pool = 10,000,000 pair-only-null draws per
   pool in 8 shards of 1,250,000; N_pred = 1,000 predicates at each K in {8, 12, 16, 20, 24};
@@ -94,20 +94,21 @@ N_pred, the K ladder, 8 shards, N_calib). The run passed them explicitly, with t
 | `pool{A,B}/results.json`, `RESULTS.md` | the public merge's statistics, byte-identical to the worker's |
 | `poolA/replication.json` | the public pool-B replication gate's output |
 
-Three differences, all to paths, none to a value:
+Four differences, none to a measured value:
 
 - **`TOKENS.txt`**: 8 lines (`KIT_WORK`, `PREREG_FILE`, `ANNOTATION_DRAFT`) carried the worker's
   home directory, which names operator-held infrastructure. That prefix is replaced by `~/`;
   nothing else in the file is changed.
+- **`TOKENS.txt`, 2026-11-15**: its five `HOST=` lines named the worker VM; that name alone is now `HOST=<worker>` (backlog Q-1140, cloud-sweep batch B8, under the operator's 2026-11-14 rule that public text names no machine size, region or resource name; in-place redaction as in CX-239 part 4, with the CX-36B-C placeholder forms from Codex findings F10-001#3, F10-002#4 and F10-003#3, gpt-6-astra). sha256 before this edit: `3f216837db281fe41127c1352d9263342100634d6f9091ca6af3c41eca5be4a5`; the table below gives the current file.
 - **`poolA/replication.json`** is the copy the first command above wrote here from the shipped
   files. It differs from the worker's copy only in `pool_a_dir` and `pool_b_dir`, which hold the
   directory each was run in.
-- **Not shipped:** the per-shard environment files and logs (Python version, shard index and wall time; the host name does appear once, as `HOST=`, in TOKENS.txt), the
+- **Not shipped:** the per-shard environment files and logs (Python version, shard index and wall time; the host name appeared in TOKENS.txt only on its `HOST=` lines, now redacted), the
   merge's console output, and the run kit. None holds a number the text quotes.
 
 | sha256 | file |
 |---|---|
-| `3f216837db281fe41127c1352d9263342100634d6f9091ca6af3c41eca5be4a5` | `TOKENS.txt` |
+| `37dcd1e585544f043d5404a04a51cdf0a6e67a7475d01c4df6f3d93e35ded497` | `TOKENS.txt` |
 | `b38805a0dbb000e44c582c8eed4946dcf68abb2078cd1d91fb61db591eee1cf6` | `analysis_RECORDED.json` |
 | `613225481b3f26a25d11879cb5783e4809271a4bf64da6897e66c27f18126f44` | `poolA/header.json` |
 | `ce2e28a566967f373f5b0a58f6c9737882227081147193a30091f977df360b08` | `poolB/header.json` |

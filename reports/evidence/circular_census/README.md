@@ -86,7 +86,7 @@ Any failed check exits non-zero; a parity violation still prints the figures, th
 
   The census binary's own sha256 was not recorded.
 - **Build.** `gcc -O3 -pthread -fopenmp -o solve solve.c -lm -lz`.
-- **Host.** Azure D64als_v7 Spot, westus3, 64 threads. A pre-run throttle probe read a 3567 MHz mean
+- **Host.** One 64-core Spot VM, 64 threads. A pre-run throttle probe read a 3567 MHz mean
   over 64 CPUs, and `--selftest` passed on the host before the run.
 - **Chunks.** 60 chunks of 1×10⁹ probes: M₂, M₄ and M′ × 20 each. Each chunk has its own seed,
   `SOLVE_KNUTH_SEED` = S = 2026100000 + 100·m + c, where m = 0 (M₂), 1 (M₄), 2 (M′) and c = 0..19.
