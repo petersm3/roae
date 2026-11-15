@@ -56103,30 +56103,28 @@ class TestBatchG7(unittest.TestCase):
             for name in ("RG-" + "CLAUDE", "solver-data-" + "westus3", "solver-validate-" + "d3", "Path on " + "disk:"):
                 self.assertNotIn(name, d, "%s carries %s" % (rel, name))
         # Q-1140 cloud sweep B3/B4 (2026-11-14): no VM size, region, resource name, disk tier or purchase-type
-        # cost word in CLAUDE.md or DEPLOYMENT.md, case-insensitive, outside the sections the private-runbook
-        # move (operator decision D3) will replace. Each cut asserts its heading is present, so a moved or
-        # renamed section fails here instead of silently widening the exclusion; the D3 batch removes the cuts.
-        cuts = {"CLAUDE.md": [("## Cost control — VM purchase type", "\n## Session-lifecycle VM discipline"),
-                              ("**Past incidents this rule exists to prevent", "\n## Never do without"),
-                              ("## Bi-region architecture", "\n## One-line rule of thumb")],
-                os.path.join("documentation", "DEPLOYMENT.md"): [("### Quota tracking", "\n### Spot host CPU-frequency"),
-                              ("### Ad-hoc VM lifecycle rules", "\n### Archival pattern"),
-                              ("### Quota accounting", "\n### Single-branch parallel")]}
+        # cost word in CLAUDE.md or DEPLOYMENT.md, case-insensitive. Operator decision D3 (2026-11-15) moved the
+        # six sections B3/B4 held (CLAUDE.md 112-186, 236-242, 513-522; DEPLOYMENT.md 251-297, 1038-1131,
+        # 1193-1255 at fd6165f6) to the private operations notes, so the whole file is scanned now, with no cuts.
+        # Red on 35eae2c7 (the held sections carry sizes, regions and resource names), green after D3.
         rx = re.compile(r"(?i)\b(?:west|east|central|north|south)(?:us|europe)\d?\b|\b[dfle]\d{1,3}[a-z]{1,5}_v\d\b"
                         r"|\bstandard_[a-z]|_lrs\b|\bpremium[ _]ssd\b|\bon-" + r"demand\b|\brg-" + r"claude\b|\bclaude-" + r"vnet\b"
                         r"|\bdeep-" + r"calib-|\bsolver-(?:data|d3|nic|vm)\b|\bmerge-" + r"scratch\b|\bf64_" + r"key\b")
-        for rel, secs in cuts.items():
+        moved = {"CLAUDE.md": ("## Cost control — VM purchase type", "## Cost control — SKU family restrictions",
+                               "**Past incidents this rule exists to prevent", "## Bi-region architecture"),
+                 os.path.join("documentation", "DEPLOYMENT.md"): ("**Pre-flight before any large `az vm create`:**",
+                               "**Incidents that motivated this section:**", "**Practical consequence.**")}
+        for rel, gone in moved.items():
             d = self._doc(rel)
-            n0 = len(d)
-            for start, end in secs:
-                i = d.find(start)
-                self.assertGreaterEqual(i, 0, "%s: D3 section %r not found (moved or renamed): update this cut" % (rel, start))
-                j = d.find(end, i + len(start))
-                self.assertGreater(j, i, "%s: the heading after D3 section %r not found: update this cut" % (rel, start))
-                d = d[:i] + d[j:]
-            self.assertGreater(len(d), 0.7 * n0, "%s: the D3 cuts removed more than 30%% of the file" % rel)
+            self.assertIn("the private operations notes", d, "%s: the D3 stubs are missing" % rel)
+            for g in gone:
+                self.assertNotIn(g, d, "%s still carries the moved section text %r" % (rel, g))
             left = sorted({m.group(0) for m in rx.finditer(d)})
-            self.assertEqual(left, [], "%s carries cloud detail outside the D3 sections: %s" % (rel, left))
+            self.assertEqual(left, [], "%s carries cloud detail: %s" % (rel, left))
+        # D3, second half: CLAUDE.md's pointers to the private repository name neither the repository nor a path in it.
+        c = self._doc("CLAUDE.md")
+        for g in ("roae-" + "private", "~/github/", "CURRENT_" + "STATE.md", "CURRENT_" + "PLAN.md", "safe_disk_" + "setup.sh"):
+            self.assertNotIn(g, c, "CLAUDE.md still names the private repository or a path in it: %r" % g)
 
     def test_g7_reproduction_commands_and_scopes(self):
         tr12 = self._doc(os.path.join("reports", "TR12_QUERY_PROGRAM.md"))
@@ -60398,8 +60396,11 @@ class TestBatchG7b(unittest.TestCase):
         """FT3f rows of this batch, one needle per cured claim; each was checked against the code first."""
         cases = [
             ("CLAUDE.md", "peaks at ~4.13 GB", "peaks at ~3.9 GB (an earlier"),                       # F12-019#3
-            ("CLAUDE.md", "Codex F12-019#4", None),                                                   # F12-019#4
-            ("CLAUDE.md", "it does NOT supersede the split rule", "(2026-04-29, supersedes the prior split rule)"),  # #5
+            # F12-019#4/#5: the two notes sat in CLAUDE.md §"Cost control — VM purchase type", which operator decision
+            # D3 (2026-11-15) moved to the private operations notes; the needles now hold the stub and keep both retired
+            # wordings out of the public file.
+            ("CLAUDE.md", "## VM purchase type and sizing", "PRACTICE HAS NEVER " + "FOLLOWED IT"),               # F12-019#4
+            ("CLAUDE.md", "the private operations notes", "(2026-04-29, supersedes the prior split rule)"),  # #5
             ("CLAUDE.md", "~451 KiB", "short, current, read this one"),                             # F12-019#6
             (".gitattributes", "`-text` alone only stops EOL normalisation", None),                  # F12-019#7
             ("documentation/SOLVE_C_CLI.md", "`TMPDIR`", None),                                      # F12-019#8
@@ -67648,7 +67649,7 @@ class TestBatchFT3fDocs(unittest.TestCase):
 
     ROOT = os.path.dirname(os.path.abspath(__file__))
     LINES = {"documentation/SOLVE_C_CLI.md": 4237, "documentation/DEVELOPMENT.md": 2835,
-             "documentation/CAMPAIGN_METHODOLOGY.md": 1530, "documentation/DEPLOYMENT.md": 1380,
+             "documentation/CAMPAIGN_METHODOLOGY.md": 1530, "documentation/DEPLOYMENT.md": 1207,  # 1380 until the cloud sweep D3 (Q-1140) moved two sections out
              "documentation/F1C5_LAYER_FORMAT.md": 622, "documentation/SOLUTIONS_FORMAT.md": 456,
              "documentation/PERFORMANCE_HISTORY.md": 1701}
 
@@ -67764,7 +67765,7 @@ class TestBatchFT3fDocs(unittest.TestCase):
         self._has(d, "**Atomic writes, where they exist.**", "F12-007#10")
         self._has(d, "Merge RAM scales with the pre-dedup input, not the output.", "F12-007#11")
         self._has(d, "up to about 29 core-hours (64 × ~27 min)", "F12-007#13")
-        self._has(d, 'for v in "$USED" "$LIMIT"; do case "$v" in', "F12-007#14")
+        self._has(d, "treat a non-numeric answer as an error, not a pass", "F12-007#14 (the pre-flight moved to the private notes with the cloud sweep D3; the stub keeps the rule)")
         self._lacks(d, 'case "$USED$LIMIT" in', "F12-007#14")
         self._has(d, "LOW=$(awk -F: '/cpu MHz/ && $2+0 < 2000 {n++} END {print n+0}' /proc/cpuinfo)", "F12-007#16")
         self._has(d, "~1.66 TB total I/O in logical bytes", "F12-007#17")
@@ -67778,11 +67779,11 @@ class TestBatchFT3fDocs(unittest.TestCase):
         self._has(c[i:i + 900], "if (n_threads_p > 64) n_threads_p = 64;", "the 64-worker clamp")
         self._has(c, '"Parallel --sub-branch: %d depth-5 tasks queued, %d worker threads\\n"', "the worker banner")
         d = self._read("documentation/DEPLOYMENT.md")
-        t = d.index("   trap teardown EXIT\n")
-        k = d.index('   az vm create ... -g "$RG" -n temp-vm\n')
-        self.assertLess(t, k, "F12-007#15: trap must precede the create")
-        self.assertEqual(d.count("trap teardown EXIT"), 1)
-        self._has(d, "teardown is a trap set BEFORE the create", "F12-007#15")
+        # F12-007#15's commands moved to the private notes with the cloud sweep D3 (Q-1140); the public stub keeps the rule.
+        self.assertEqual(d.count("trap teardown EXIT"), 0)
+        self.assertEqual(d.count('az vm create ... -g "$RG" -n temp-vm'), 0)
+        self._has(d, "registered before the work (an EXIT trap, not an `&&` chain, so a failed step cannot skip it)", "F12-007#15 (stub)")
+        self._lacks(d, "teardown is a trap set BEFORE the create", "F12-007#15 (moved)")
         self._has(d, "the parallel `--sub-branch` path clamps its workers to 64", "F12-007#7")
         self._has(d, "(64 workers on the current build; see the F12-007#7 note above)", "F12-007#7")
         # The two notes add no size or region name of their own.

@@ -3570,7 +3570,7 @@ with `SOLVE_DFS_CHECKPOINT=1`:
 Single-thread `--branch p o 0 1`: ~22M nodes/sec on the AMD EPYC 9V45.
 *(Architecture corrected 2026-09-01 in both lines above: the processor underlying
 the 128-core VM size is AMD EPYC 9V45 (96-core, 128-vCPU), per
-[DEPLOYMENT.md](DEPLOYMENT.md):335, which retracts the earlier Zen-5-family
+[DEPLOYMENT.md](DEPLOYMENT.md):296, which retracts the earlier Zen-5-family
 attribution these two lines carried.)*
 Multi-thread saturates at ~2.5B nodes/sec on 128 threads.
 
@@ -3598,7 +3598,7 @@ startup if RLIMIT_STACK is below the build's recommended threshold.
 thread, defaults to 512 MB/thread. At 128 threads that's 64 GB
 of RAM. Need at least ~80 GB system RAM for safe operation at
 the canonical budgets. The 128-core VM has 256 GB
-([DEPLOYMENT.md](DEPLOYMENT.md):197, :1336, :1360) — still ample.
+([DEPLOYMENT.md](DEPLOYMENT.md):197, :1163, :1187) — still ample.
 *(Corrected 2026-09-01: this read 384 GB.)*
 
 **Single C source file:** all functionality lives in `solve.c`

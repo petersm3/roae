@@ -619,8 +619,9 @@ F=sys.argv[1]
 # solver-data is the documented persistent DISK, so `az network nic show -n solver-data` is not closed by it.
 # Q-1140 cloud sweep B4 (2026-11-14): Appendix A now creates its data disk, NIC and VM under role names
 # and gives the shared vnet as a placeholder, so no az command references the vnet or the orchestrator.
-# The data-disk entry stays while the Ad-hoc VM lifecycle section (held for operator decision D3) still
-# attaches the disk by that name; fixture D06#15 also needs a name the pre-batch-44 gate allowed.
+# The data-disk entry stays for fixture D06#15, whose discrimination leg needs a name the pre-batch-44 gate
+# allowed. (Until 2026-11-15 the Ad-hoc VM lifecycle section also attached the disk by that name; operator
+# decision D3 moved that section's commands to the private operations notes.)
 ALLOW={("disk","solver-data")}
 # Q-970 (A10#14, Q-835 Codex review; adjudicated Q-962): AN ARGUMENT IS A SHELL WORD. `-n "spot-nic"`
 # names spot-nic exactly as `-n spot-nic` does, and the name pattern `[^\s"'\\]+` stopped at the

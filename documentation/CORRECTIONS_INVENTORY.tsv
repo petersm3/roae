@@ -3,22 +3,16 @@ INL-34110172	2026-08-28	C3	corrected	inline	CLAUDE.md	20	C1–C5. (Corrected 202
 INL-fbd6c2f	-	C1	retracted	inline	CLAUDE.md	22	[RETRACTED_PHRASES.tsv](documentation/RETRACTED_PHRASES.tsv) and recorded in
 INL-2fdd80db	-	C3	corrections	inline	CLAUDE.md	23	[CORRECTIONS.md](documentation/CORRECTIONS.md); the corrected statement of
 INL-e80c1a1	-	C4	caveat	inline	CLAUDE.md	104	reverted (with reasoning) or shipped with the caveat documented.
-INL-13ec3a94	2026-04-29	C3	supersede	inline	CLAUDE.md	114	**Current standing policy (2026-04-29; it does NOT supersede the split rule — see the correction below; this heading said "supersedes the prior split rule" until 2026-11-03, Codex F12-019#5):**
-INL-1ea43015	2026-08-29	C3	corrected	inline	CLAUDE.md	116	> **Every VM other than the 2-core 8GB `claude` orchestrator must be provisioned deliberately: **enumeration on Spot**, and **merge or any workload that cannot checkpoint on Regular/Standard, right-sized**. No VM of any priority may be created or started without a teardown plan stated in the same breath. If a workload genuinely cannot tolerate eviction, do not put it on Spot — design for checkpoin [...truncated]
-INL-271b0faf	2026-08-29	C3	corrected	inline	CLAUDE.md	118	⚠ **[CORRECTED 2026-08-29 — this said the blanket-Spot rule "supersedes the 2026-04-20 split policy (enumeration=Spot, merge=on-demand)". It does not, and PRACTICE HAS NEVER FOLLOWED IT: measured on the live subscription, five of the seven non-orchestrator VMs are `Regular` and only the enumeration VM is Spot. `documentation/DEPLOYMENT.md` still presents the split policy as STANDING with no supers [...truncated]
-INL-290fbcd1	2026-08-30	C3	corrected	inline	CLAUDE.md	167	⚠ **[CORRECTED 2026-08-30]** This paragraph previously read: *"even merge VMs are now Spot. If a
-INL-38c38b54	-	C1	withdrawn	inline	CLAUDE.md	169	systemic cost of forgotten Regular VMs."* **That is withdrawn.** Blanket-Spot made the rule
-INL-3181ec19	-	C3	corrections	inline	CLAUDE.md	361	at all" ([CORRECTIONS.md](documentation/CORRECTIONS.md)). Folding it into
-INL-31110d6f	-	C3	corrections	inline	CLAUDE.md	368	[SAT_CLI.md](documentation/SAT_CLI.md) NOTES, CORRECTIONS.md CX-36Z-A).
-INL-9cbd54b	-	C3	corrections	inline	CLAUDE.md	379	separate checker; [SAT_CLI.md](documentation/SAT_CLI.md) NOTES, CORRECTIONS.md CX-37A-A).
-INL-f40693b	2026-11-12	C3	renumber	inline	CLAUDE.md	383	- **`scripts/lratcheck/renumber_lrat.py`** (2026-11-12; operator approval 2026-11-12, Q-1094) — the
-INL-2ec14a99	-	C3	renumbering	inline	CLAUDE.md	384	consecutive-id renumbering between `drat-trim -L` and the Lean 4 LRAT checker in
-INL-35cb1d0a	2026-09-04	C3	corrected	inline	CLAUDE.md	390	alongside the results they produced. ⚠ **[CORRECTED 2026-09-04 — this read
-INL-164aed96	-	C3	correction	inline	CLAUDE.md	392	Measured at the time of the correction, `git ls-files 'reports/evidence/**/*.py'`
-INL-2c463233	2026-09-02	C3	corrected	inline	CLAUDE.md	418	exist precisely to be separate. Corrected 2026-09-02; the retired wording is
-INL-fbd6c2f	-	C1	retracted	inline	CLAUDE.md	420	[RETRACTED_PHRASES.tsv](documentation/RETRACTED_PHRASES.tsv) and recorded in
-INL-34b4f157	-	C3	corrections	inline	CLAUDE.md	421	[CORRECTIONS.md](documentation/CORRECTIONS.md).
-INL-2f32675a	2026-08-29	C1	withdrawn	inline	CLAUDE.md	516	- Compute: D128als_v7 in **westus3** (as of 2026-04-19 pivot). **Spot for enumeration and any other checkpointable work; Regular/Standard, right-sized, with a teardown plan stated in the same breath, for merge and any workload that cannot checkpoint** — per §"Cost control — VM purchase type" above. ⚠ This line previously claimed that a blanket Spot-for-everything policy superseded the enumeration= [...truncated]
+INL-3181ec19	-	C3	corrections	inline	CLAUDE.md	293	at all" ([CORRECTIONS.md](documentation/CORRECTIONS.md)). Folding it into
+INL-31110d6f	-	C3	corrections	inline	CLAUDE.md	300	[SAT_CLI.md](documentation/SAT_CLI.md) NOTES, CORRECTIONS.md CX-36Z-A).
+INL-9cbd54b	-	C3	corrections	inline	CLAUDE.md	311	separate checker; [SAT_CLI.md](documentation/SAT_CLI.md) NOTES, CORRECTIONS.md CX-37A-A).
+INL-f40693b	2026-11-12	C3	renumber	inline	CLAUDE.md	315	- **`scripts/lratcheck/renumber_lrat.py`** (2026-11-12; operator approval 2026-11-12, Q-1094) — the
+INL-2ec14a99	-	C3	renumbering	inline	CLAUDE.md	316	consecutive-id renumbering between `drat-trim -L` and the Lean 4 LRAT checker in
+INL-35cb1d0a	2026-09-04	C3	corrected	inline	CLAUDE.md	322	alongside the results they produced. ⚠ **[CORRECTED 2026-09-04 — this read
+INL-164aed96	-	C3	correction	inline	CLAUDE.md	324	Measured at the time of the correction, `git ls-files 'reports/evidence/**/*.py'`
+INL-2c463233	2026-09-02	C3	corrected	inline	CLAUDE.md	350	exist precisely to be separate. Corrected 2026-09-02; the retired wording is
+INL-fbd6c2f	-	C1	retracted	inline	CLAUDE.md	352	[RETRACTED_PHRASES.tsv](documentation/RETRACTED_PHRASES.tsv) and recorded in
+INL-34b4f157	-	C3	corrections	inline	CLAUDE.md	353	[CORRECTIONS.md](documentation/CORRECTIONS.md).
 INL-17ecca65	-	C2	scope note	inline	README.md	26	**What this does — and does not — mean.** Four scope notes worth carrying from the start:
 INL-16d7c735	-	C4	hedged	inline	README.md	60	**The finding, precisely.** The plain sentence above compresses a hedged one; here is the full
 INL-37a3c161	-	C4	hedged	inline	README.md	92	his own principle inventory and hedged, so the refutation does not contradict his thesis as stated), and
@@ -505,29 +499,27 @@ INL-2ba1ffc7	2026-09-03	C3	corrected	inline	documentation/DEPLOYMENT.md	166	- **
 INL-3589838c	2026-04-19	C3	superseded	inline	documentation/DEPLOYMENT.md	170	**An earlier revision (2026-04-19) briefly moved merges to spot by default on the reasoning that shards persist. That rule is SUPERSEDED** — at 100T+ scale, re-running a 5-hour merge after a spot eviction is worse than running it on regular capacity. Revert to regular (non-interruptible) capacity for merge; size it correctly instead.
 INL-3b671fee	2026-04-19	C3	corrected	inline	documentation/DEPLOYMENT.md	181	**Failure case this prevents:** on 2026-04-19/20, the 128-core compute VM was provisioned without `--priority Spot` by an earlier autonomous session; the 100T d3 enumeration + merge pipeline (16h 48m) was launched on it without verification. The whole run used regular capacity; under the corrected policy the enumeration would have been Spot and only the merge on regular capacity. The lesson: check [...truncated]
 INL-36fa9368	-	C4	caveat	inline	documentation/DEPLOYMENT.md	205	- Parallel `verify.py --jobs N`: with the streaming patch, ~32 MB × N for memory; mostly CPU-bound now. Match N to cores to maximize throughput. **For 100T-scale (3.43B records), expect ~3h on 16 cores at ~19k records/sec/worker; ~12h on 4 cores; ~46 min on 64 cores.** **For 560T-scale (10.525B records, 3.07× 100T), projection at the linear regime: ~9h on 16 cores, ~5h on 32 cores, ~2.4h on 64 cor [...truncated]
-INL-35af2c16	2026-09-25	C3	corrected	inline	documentation/DEPLOYMENT.md	335	The processor underlying the 128-core VM size is AMD EPYC 9V45 (96-core, 128-vCPU). The vendor's page for that VM family lists the family's processor as AMD EPYC 9005 (Turin), and §Measured scaling below calls it Zen 5c "Turin Dense"; the 9V45 is that generation's cloud part. ⚠ *(Corrected 2026-09-25, Q-763: this sentence called the earlier "Zen 5 Turin" label incorrect; it was right at the family [...truncated]
-INL-3153151e	2026-04-19	C3	superseded	inline	documentation/DEPLOYMENT.md	361	| **128-core VM (256 GB RAM) + in-memory heap-sort merge** | **~52 min** | measured 2026-04-19; **superseded** (see note) |
-INL-1d86b92d	2026-04-19	C3	superseded	inline	documentation/DEPLOYMENT.md	362	| **128-core VM + external merge on a 512 GB SSD-backed disk** | **~43 min** | measured 2026-04-19; faster than in-memory at 10T; **superseded** (see note) |
-INL-1e488a2b	-	C3	superseded	inline	documentation/DEPLOYMENT.md	363	| 64-core VM + in-memory merge (128 GB RAM, perfect fit) | ~52 min | half the cores of the 128-core VM, same wall — single-threaded merge ignores core count; Spot **superseded** (see note) |
-INL-22ae9247	2026-09-03	C2	scope note	inline	documentation/DEPLOYMENT.md	366	*(Scope note, 2026-09-03: the three 64/128-core rows are measurements from 2026-04-19, the
-INL-1518c5fb	-	C1	withdrawn	inline	documentation/DEPLOYMENT.md	371	and ignores core count; the size and priority in these rows are withdrawn.)*
-INL-33252192	2026-09-03	C3	corrected	inline	documentation/DEPLOYMENT.md	508	pre-dedup growth was 5.0× per 10× budget. Corrected 2026-09-03.)* In-memory
-INL-fe03c04	2026-09-01	C3	corrected	inline	documentation/DEPLOYMENT.md	583	⚠ **[CORRECTED 2026-09-01 — this read `./solve --merge /data/solutions.bin`,
-INL-2ac89373	-	C1	withdrawn	inline	documentation/DEPLOYMENT.md	610	and 128-core merges — both are withdrawn; the merge-VM wall times are unchanged
-INL-ce3f8ea	2026-09-03	C3	corrected	inline	documentation/DEPLOYMENT.md	662	*(Rows corrected 2026-09-03: the 100T row previously carried the ~27.7B / ~830 GB
-INL-14ad6b3b	2026-05-16	C3	supersedes	inline	documentation/DEPLOYMENT.md	688	runs and supersedes earlier ad-hoc scripts. The 2026-05-16/17 v2
-INL-2b96f4b2	2026-09-24	C3	corrected	inline	documentation/DEPLOYMENT.md	797	threads), growing at 75% load. ⚠ **[CORRECTED 2026-09-24 (Q-762, CX-82) — this box read "merge needs
-INL-e2e6109	2026-09-25	C3	corrected	inline	documentation/DEPLOYMENT.md	800	- [ ] `run_id.txt` written after the stale-state wipe and before solver start (compare, wipe, then write — the order of the worked example in §Deployment lifecycle). ⚠ *(Corrected 2026-09-25, Q-763: this read "write BEFORE wipe, not after"; an ID written before an interrupted wipe makes the next launch skip the wipe.)*
-INL-16a49e1b	2026-09-24	C3	corrected	inline	documentation/DEPLOYMENT.md	806	size itself. ⚠ **[CORRECTED 2026-09-24 (Q-762, CX-82) — this read "size % 32 == 0". Shards are
-INL-34b8a6f6	2026-09-03	C3	corrected	inline	documentation/DEPLOYMENT.md	847	corrected 2026-09-03.)* Provision with headroom
-INL-2de5fb7d	-	C4	caveat	inline	documentation/DEPLOYMENT.md	873	**Caveat:** Both VMs must share the vnet. Running from a laptop (not the
-INL-3b7d04d1	2026-11-14	C3	corrected	inline	documentation/DEPLOYMENT.md	1073	# GOOD: teardown is a trap set BEFORE the create, so it fires on success, failure, and Ctrl-C, including a Ctrl-C while the create is still running (corrected 2026-11-14, Codex final review F12-007#15: the trap was set after the create, which left that window uncovered)
-INL-c5ca700	2026-09-25	C3	corrected	inline	documentation/DEPLOYMENT.md	1124	az vm show -d -g <rg> -n <vmB> --query publicIps -o tsv # ⚠ corrected 2026-09-25 (Q-763): read `az vm show --query publicIpAddress`, which prints nothing: the plain view has no address field, and -d adds publicIps/privateIps
-INL-3183bfef	2026-09-03	C3	corrected	inline	documentation/DEPLOYMENT.md	1167	# CORRECTED 2026-09-03 (Q-406): this recipe read `gzip -dc … | sha256sum` with no
-INL-31687f07	2026-11-03	C3	corrected	inline	documentation/DEPLOYMENT.md	1180	# Sniff the first two bytes to tell them apart: `1f 8b` is gz-framed, anything else is raw (a raw `sub_*.bin` shard has no `ROAE` header, so it starts with a record; `ROAE` marks a header-bearing solutions.bin -- corrected 2026-11-03, Codex final review F12-007#18).
-INL-f51c053	-	C4	caveat	inline	documentation/DEPLOYMENT.md	1185	### Zone caveat for analysis VMs
-INL-ff7e4da	2026-09-24	C3	corrected	inline	documentation/DEPLOYMENT.md	1276	⚠ **[CORRECTED 2026-09-24 (Q-762, CX-82) — the 1-thread cell read `182s`, a factor of ten below the
-INL-552f50d	-	C3	transcription	inline	documentation/DEPLOYMENT.md	1366	🔴 **This is a lesson learned the hard way, not a spec-sheet transcription.** During the
+INL-35af2c16	2026-09-25	C3	corrected	inline	documentation/DEPLOYMENT.md	296	The processor underlying the 128-core VM size is AMD EPYC 9V45 (96-core, 128-vCPU). The vendor's page for that VM family lists the family's processor as AMD EPYC 9005 (Turin), and §Measured scaling below calls it Zen 5c "Turin Dense"; the 9V45 is that generation's cloud part. ⚠ *(Corrected 2026-09-25, Q-763: this sentence called the earlier "Zen 5 Turin" label incorrect; it was right at the family [...truncated]
+INL-3153151e	2026-04-19	C3	superseded	inline	documentation/DEPLOYMENT.md	322	| **128-core VM (256 GB RAM) + in-memory heap-sort merge** | **~52 min** | measured 2026-04-19; **superseded** (see note) |
+INL-1d86b92d	2026-04-19	C3	superseded	inline	documentation/DEPLOYMENT.md	323	| **128-core VM + external merge on a 512 GB SSD-backed disk** | **~43 min** | measured 2026-04-19; faster than in-memory at 10T; **superseded** (see note) |
+INL-1e488a2b	-	C3	superseded	inline	documentation/DEPLOYMENT.md	324	| 64-core VM + in-memory merge (128 GB RAM, perfect fit) | ~52 min | half the cores of the 128-core VM, same wall — single-threaded merge ignores core count; Spot **superseded** (see note) |
+INL-22ae9247	2026-09-03	C2	scope note	inline	documentation/DEPLOYMENT.md	327	*(Scope note, 2026-09-03: the three 64/128-core rows are measurements from 2026-04-19, the
+INL-1518c5fb	-	C1	withdrawn	inline	documentation/DEPLOYMENT.md	332	and ignores core count; the size and priority in these rows are withdrawn.)*
+INL-33252192	2026-09-03	C3	corrected	inline	documentation/DEPLOYMENT.md	469	pre-dedup growth was 5.0× per 10× budget. Corrected 2026-09-03.)* In-memory
+INL-fe03c04	2026-09-01	C3	corrected	inline	documentation/DEPLOYMENT.md	544	⚠ **[CORRECTED 2026-09-01 — this read `./solve --merge /data/solutions.bin`,
+INL-2ac89373	-	C1	withdrawn	inline	documentation/DEPLOYMENT.md	571	and 128-core merges — both are withdrawn; the merge-VM wall times are unchanged
+INL-ce3f8ea	2026-09-03	C3	corrected	inline	documentation/DEPLOYMENT.md	623	*(Rows corrected 2026-09-03: the 100T row previously carried the ~27.7B / ~830 GB
+INL-14ad6b3b	2026-05-16	C3	supersedes	inline	documentation/DEPLOYMENT.md	649	runs and supersedes earlier ad-hoc scripts. The 2026-05-16/17 v2
+INL-2b96f4b2	2026-09-24	C3	corrected	inline	documentation/DEPLOYMENT.md	758	threads), growing at 75% load. ⚠ **[CORRECTED 2026-09-24 (Q-762, CX-82) — this box read "merge needs
+INL-e2e6109	2026-09-25	C3	corrected	inline	documentation/DEPLOYMENT.md	761	- [ ] `run_id.txt` written after the stale-state wipe and before solver start (compare, wipe, then write — the order of the worked example in §Deployment lifecycle). ⚠ *(Corrected 2026-09-25, Q-763: this read "write BEFORE wipe, not after"; an ID written before an interrupted wipe makes the next launch skip the wipe.)*
+INL-16a49e1b	2026-09-24	C3	corrected	inline	documentation/DEPLOYMENT.md	767	size itself. ⚠ **[CORRECTED 2026-09-24 (Q-762, CX-82) — this read "size % 32 == 0". Shards are
+INL-34b8a6f6	2026-09-03	C3	corrected	inline	documentation/DEPLOYMENT.md	808	corrected 2026-09-03.)* Provision with headroom
+INL-2de5fb7d	-	C4	caveat	inline	documentation/DEPLOYMENT.md	834	**Caveat:** Both VMs must share the vnet. Running from a laptop (not the
+INL-3183bfef	2026-09-03	C3	corrected	inline	documentation/DEPLOYMENT.md	1048	# CORRECTED 2026-09-03 (Q-406): this recipe read `gzip -dc … | sha256sum` with no
+INL-31687f07	2026-11-03	C3	corrected	inline	documentation/DEPLOYMENT.md	1061	# Sniff the first two bytes to tell them apart: `1f 8b` is gz-framed, anything else is raw (a raw `sub_*.bin` shard has no `ROAE` header, so it starts with a record; `ROAE` marks a header-bearing solutions.bin -- corrected 2026-11-03, Codex final review F12-007#18).
+INL-f51c053	-	C4	caveat	inline	documentation/DEPLOYMENT.md	1066	### Zone caveat for analysis VMs
+INL-ff7e4da	2026-09-24	C3	corrected	inline	documentation/DEPLOYMENT.md	1103	⚠ **[CORRECTED 2026-09-24 (Q-762, CX-82) — the 1-thread cell read `182s`, a factor of ten below the
+INL-552f50d	-	C3	transcription	inline	documentation/DEPLOYMENT.md	1193	🔴 **This is a lesson learned the hard way, not a spec-sheet transcription.** During the
 INL-35bb1007	2026-09-02	C3	correction	inline	documentation/DESCRIPTION_LENGTH.md	21	conversion, understating the 95% interval by 1.96×, until 2026-09-02 (see the correction note below).
 INL-2cc9cb5e	-	C1	withdrawal	inline	documentation/DESCRIPTION_LENGTH.md	44	The withdrawal follows [TR-9](../reports/TR9_PRICING_THE_CONSTRAINTS.md) §5(f), where the same
 INL-395c37ec	2026-09-02	C1	withdrawn	inline	documentation/DESCRIPTION_LENGTH.md	45	bound was withdrawn on 2026-09-02; the universality (additive-constant) discussion is at
@@ -2185,7 +2177,7 @@ INL-212f00f8	2026-09-04	C3	corrected	inline	documentation/SOLVE_C_CLI.md	3527	[D
 INL-2798e856	2026-09-04	C3	corrections	inline	documentation/SOLVE_C_CLI.md	3533	([CORRECTIONS.md](CORRECTIONS.md) §"2026-09-04 — the 1T anchor pair was two
 INL-1b5387ac	-	C4	qualification	inline	documentation/SOLVE_C_CLI.md	3540	hardware and region without qualification.)*
 INL-217dc071	2026-09-01	C3	corrected	inline	documentation/SOLVE_C_CLI.md	3571	*(Architecture corrected 2026-09-01 in both lines above: the processor underlying
-INL-2c2f2562	-	C1	retract	inline	documentation/SOLVE_C_CLI.md	3573	[DEPLOYMENT.md](DEPLOYMENT.md):335, which retracts the earlier Zen-5-family
+INL-11df97f7	-	C1	retract	inline	documentation/SOLVE_C_CLI.md	3573	[DEPLOYMENT.md](DEPLOYMENT.md):296, which retracts the earlier Zen-5-family
 INL-d284458	2026-09-01	C3	corrected	inline	documentation/SOLVE_C_CLI.md	3602	*(Corrected 2026-09-01: this read 384 GB.)*
 INL-3022b1ec	2026-09-01	C3	corrected	inline	documentation/SOLVE_C_CLI.md	3611	*(Corrected 2026-09-01: the list omitted zlib and so could not provision a
 INL-2f3a9af9	-	C3	correction	inline	documentation/SOLVE_C_CLI.md	3972	The rejection message lists the accepted modifiers for that subcommand, so the correction is
@@ -3784,6 +3776,7 @@ INL-1dbfba98	-	C3	corrections	inline	viz/viz_tr5_orbit_collapse.md	88	theory is 
 INL-34469d7c	-	C3	corrections	inline	viz/viz_tr6_parity_alternations.md	76	is claimed novel. Developed with AI assistance (Claude, Anthropic); corrections invited.*
 INL-59b1cb3	-	C3	corrected	inline	viz/viz_tr7_circular_cycle.md	63	picture, and no renderer existed; the documents were corrected to say so. CX-191.
 INL-13a1de3a	-	C3	corrections	inline	viz/viz_tr7_circular_cycle.md	75	Developed with AI assistance (Claude, Anthropic); corrections invited.*
+GIT-2d45a72b	2026-11-14	C3	correction	git	cb4afe22	-	Q-1140 cloud sweep B3+B4 (rewording part): no VM sizes, regions, resource names, disk tiers or costs in CLAUDE.md and DEPLOYMENT.md live text
 GIT-36d5094f	2026-11-15	C3	corrections	git	98b9b3f4	-	Q-1140 cloud sweep D5 follow-up: r11_phase2_battery.sh's RATE_PER_HR is a required input (CX-37F-C, addendum to CX-37F-A)
 GIT-2726e9e9	2026-11-15	C3	corrections	git	eea0e28d	-	Q-1140 cloud sweep D7: a guard against $-anchors in published certificates (CX-37F-B)
 GIT-19462dc0	2026-11-15	C3	corrections	git	7af642f1	-	Q-1140 cloud sweep D5: the ops scripts' cloud defaults become required arguments (CX-37F-A)

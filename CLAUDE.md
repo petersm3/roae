@@ -54,7 +54,7 @@ what an enumeration artifact contains is
 | **`sat.py` SAT/certificate-layer CLI** (CNF emit, witness, C3 encoding) | [SAT_CLI.md](documentation/SAT_CLI.md) |
 | Azure deployment / VM sizing | [DEPLOYMENT.md](documentation/DEPLOYMENT.md) |
 | Visualization tooling + how-to-read | [viz/README.md](viz/README.md) |
-| **Live operational state** (current run, schedule, in-flight work) | `~/github/roae-private/CURRENT_STATE.md` — current, read its lead block by offset (it is ~8,300 lines, see §In-flight state; this cell said "short" until 2026-11-03, Codex F12-019#6) (**private repo, `petersm3/roae-private`** — not in this repo). `CURRENT_PLAN.md` beside it is ~451 KiB (measured 2026-09-18; this cell said ~416 KB) of append-only history: provenance only, never orientation |
+| **Live operational state** (current run, schedule, in-flight work) | The current-state file in the private notes (**not in this repo**) — current, read its lead block by offset (it is ~8,300 lines, see §In-flight state; this cell said "short" until 2026-11-03, Codex F12-019#6). The plan history beside it is ~451 KiB (measured 2026-09-18; this cell said ~416 KB) of append-only history: provenance only, never orientation |
 | Operator memory (user preferences, feedback rules, infra notes) | `~/.claude/projects/*/memory/MEMORY.md` |
 
 ## Canonical shas — INVARIANT
@@ -109,80 +109,16 @@ solve.c hot paths changed but PERFORMANCE_HISTORY.md did not is
 planned but not yet shipped; design pass needed first to avoid false
 positives on whitespace / comment-only edits.
 
-## Cost control — VM purchase type (STRICT, mandatory gate)
+## VM purchase type and sizing (STRICT, mandatory gate)
 
-**Current standing policy (2026-04-29; it does NOT supersede the split rule — see the correction below; this heading said "supersedes the prior split rule" until 2026-11-03, Codex F12-019#5):**
-
-> **Every VM other than the 2-core 8GB `claude` orchestrator must be provisioned deliberately: **enumeration on Spot**, and **merge or any workload that cannot checkpoint on Regular/Standard, right-sized**. No VM of any priority may be created or started without a teardown plan stated in the same breath. If a workload genuinely cannot tolerate eviction, do not put it on Spot — design for checkpoint/resume or provision Regular, and say which.** ⚠ **[CORRECTED 2026-08-29 — this read "All VMs … MUST be Spot priority. No exceptions for merge VMs, no exceptions for 'brief inspection' VMs, no exceptions for analysis VMs." Measured on the live subscription: five of seven non-orchestrator VMs are `Regular`, so the rule was never followed, and it contradicted `documentation/DEPLOYMENT.md`'s STANDING split policy. See documentation/CORRECTIONS.md]**
-
-⚠ **[CORRECTED 2026-08-29 — this said the blanket-Spot rule "supersedes the 2026-04-20 split policy (enumeration=Spot, merge=on-demand)". It does not, and PRACTICE HAS NEVER FOLLOWED IT: measured on the live subscription, five of the seven non-orchestrator VMs are `Regular` and only the enumeration VM is Spot. `documentation/DEPLOYMENT.md` still presents the split policy as STANDING with no supersession note, so the two documents contradicted each other and the one claiming priority was the one practice ignored. See documentation/CORRECTIONS.md]** ⚠ *(Note 2026-11-03, Codex F12-019#4: "never" in this note overstates its evidence. The measurement is one day's snapshot; it shows the rule was not followed on the date measured (2026-08-29), which is the form documentation/CORRECTIONS.md supports.)*
-
-**The operative rule, as actually practised:**
-
-- **Enumeration → Spot.** Eviction-resilient via sub-branch checkpoints, and roughly an 85% discount.
-- **Merge, and any workload that cannot checkpoint → Regular/Standard, RIGHT-SIZED.** A mid-merge eviction costs a full re-run, and paying for 128 cores to run a single-threaded heap-sort is ~4× over-spend.
-- **The `claude` orchestrator stays Regular.**
-
-**The cost concern behind the blanket rule was real but aimed at the wrong target.** What accumulated cost was *forgotten* VMs, not Regular *pricing*. So the requirement is: **pair every VM create or start with a teardown plan in the same breath**, and stand it down when the job ends. That is what prevents the overspend; blanket-Spot only made the rule unfollowable, which is why it was not followed.
-
-Spot SKU references (D-als-v7 family, westus3):
-- D128als_v7: 128 vCPU, 256 GB RAM; Spot runs at a steep discount to on-demand (~85%)
-- D64als_v7: 64 vCPU, 128 GB RAM
-- D32als_v7: 32 vCPU, 64 GB RAM
-- D16als_v7: 16 vCPU, 32 GB RAM
-
-**Mandatory pre-launch verification gate (EVERY time, for any workload >1 hour):**
-
-```
-az vm show -g <rg> -n <vm> --query priority -o tsv
-```
-
-**The answer depends on whether the workload can resume from a checkpoint.**
-
-- **Enumeration / checkpointable work** — output `Spot` → OK to launch. Output empty / `null` /
-  `Regular` → **STOP.** Either recreate with `--priority Spot --eviction-policy Deallocate
-  --max-price -1`, or escalate. An eviction here costs a resume, not a re-run.
-- **Merge, or any UNCHECKPOINTABLE work** — `Regular` / Standard, **right-sized**, is the
-  REQUIRED type, not a violation. An eviction here loses the whole run. Pair it with a teardown
-  plan in the same breath, because the real hazard for Standard is not its rate but being
-  forgotten.
-
-Live example (2026-08-30): `c292-codex` ran the Codex review sweep as **Regular D4als_v7** — correct,
-because a Codex review cannot resume from a checkpoint and a Spot eviction loses the run outright. It
-was paired with a teardown tick that deallocated it automatically at 111/111.
-
-**Creation command templates — pick by checkpointability, and pair BOTH with a teardown plan:**
-```
-# enumeration / checkpointable — the default
-az vm create ... --priority Spot --eviction-policy Deallocate --max-price -1
-
-# merge / uncheckpointable — right-size it, and say how it dies before you create it
-az vm create ... --size <right-sized>          # Regular; no --priority flag
-```
-
-Failure modes this rule prevents:
-- 2026-04-19: d128-westus3 was provisioned without `--priority Spot` by an earlier autonomous session, and the 100T run (16h 48m) was launched on it without verification. The run billed at on-demand rather than Spot rates for its full duration.
-- 2026-04-26 → 2026-04-29: deep-calib-westus3 was recreated as Regular D64als_v7 (intentionally, to avoid eviction during a calibration run) and then forgotten across multiple sessions. Idle Regular billing for ~3 days, kept alive by orphan monitor scripts.
-
-⚠ **[CORRECTED 2026-08-30]** This paragraph previously read: *"even merge VMs are now Spot. If a
-merge gets evicted mid-run, restart it; the marginal cost of a re-run is much smaller than the
-systemic cost of forgotten Regular VMs."* **That is withdrawn.** Blanket-Spot made the rule
-unfollowable for uncheckpointable work, which is why it was not followed — and an unfollowable rule
-is worse than none, because its existence suppresses the workable one. The operative split is above:
-enumeration → Spot, merge/uncheckpointable → Regular/Standard right-sized **with a teardown plan**.
-
-The systemic cost of forgotten Regular VMs is real, and the answer to it is the teardown plan, not
-banning the VM type that some workloads require.
-
-## Cost control — SKU family restrictions (STRICT)
-
-**Standing rule (repeated by user 2026-04-19 and 2026-04-20):**
-
-- **NEVER provision F-series (Falsv6, Fadsv6, etc.) VMs for any purpose.** F-series was retired from this project on 2026-04-19 when the D-als-v7 Turin family landed. Despite the retirement, F64als_v6 was accidentally spun up AT LEAST THREE TIMES (2026-04-19 06:09, 2026-04-20 ~00:32 — from solver-d3 recreations after deletions). Each incurred avoidable spend before being caught.
-- **Use D-als-v7 family exclusively**: D2als_v7 (analysis), D4als_v7 (data inspection), D16als_v7 (merge), D32als_v7 (merge / single-branch), D64als_v7 (parallel single-branch future), D128als_v7 (full enumeration).
-- **Right-size by workload**. Don't use F64 or D128 for a 10-minute data-mount task. Use D2 or D4.
-
-**If any past command in a session or autonomous wake prompt references F-series provisioning: STOP, redact, use D-als-v7.**
+Checkpointable enumeration runs on interruptible (Spot) capacity; merges and
+anything that cannot resume run on regular capacity, sized to the job, with
+a teardown plan stated before the VM is created. Check the VM's priority
+before any launch over an hour (`az vm show … --query priority`): an
+enumeration VM that does not report `Spot` is not launched. Machine sizes,
+regions and the rules' history are in the private operations notes. (This
+section replaces §"Cost control — VM purchase type" and §"Cost control —
+SKU family restrictions"; their text moved there on 2026-11-15.)
 
 ## Session-lifecycle VM discipline (STRICT, applies to any `az vm create`)
 
@@ -214,7 +150,8 @@ wastes real compute, and the waste accumulates across sessions.
    refused there (seen on its 4- and 8-core sizes, 2026-08) and the failed
    create still leaves the NIC, public IP and NSG behind. On that family,
    create with `--os-disk-delete-option Delete` so the managed OS disk is
-   removed with the VM (DEPLOYMENT.md rule 6, scoped 2026-09-25, Q-763).
+   removed with the VM (scoped 2026-09-25, Q-763; the fuller ad-hoc VM
+   rules are in the private operations notes).
 4. **Data disks (the project's managed data disks) are NEVER
    deleted by Claude.** Detach before VM delete. User explicit approval
    needed to touch data-disk contents or delete the disk itself.
@@ -233,12 +170,8 @@ wastes real compute, and the waste accumulates across sessions.
    a VM after Spot eviction will keep restarting it forever once the
    originating session ends.
 
-**Past incidents this rule exists to prevent (see HISTORY.md §Missteps):**
-
-- 2026-04-19 06:09 → 2026-04-20 14:11: solver-d3 F64als_v6 spot ran for ~32 hrs unnoticed
-- 2026-04-20 18:59 → 2026-04-21 04:35: solver-d3 F64als_v6 spot ran for ~9.5 hrs before operator caught it
-- campaign-westus2 OS disk orphaned for several hours after VM delete until user noticed
-- 2026-04-26 → 2026-04-29: deep-calib-westus3 (recreated as Regular D64als_v7) was kept alive by 3 orphan bash scripts left running on the `claude` orchestrator from sessions ending Apr 25-26 (`deep_calib_monitor.sh`, `deep_calib_milestone_watcher.sh`, `alpha_log_updater_loop.sh` — plus 2 stale `monitor_canonical.sh` from Apr 17). The monitor's auto-restart-on-eviction logic kept undoing manual `az vm deallocate` commands. The 2026-04-28 idle-VM incident was fixed by deallocating, but the monitor kept resurrecting the VM until 2026-04-29 14:30 when the orphan scripts were SIGKILL'd and the VM (along with `campaign-westus3` and `stats-westus3`) was deleted entirely. The resurrection cycle ran ~3 days.
+**Past incidents** behind these rules are recorded in HISTORY.md §Missteps
+and in the private operations notes.
 
 ## Never do without explicit user approval
 
@@ -251,8 +184,8 @@ wastes real compute, and the waste accumulates across sessions.
   commits" for specific paths (currently: the `.claude/` directory).
 - Push anything to `petersm3/roae` without the user having had a
   chance to review non-trivial changes. Staging-doc commits to
-  `petersm3/roae-private` (private) can proceed without per-commit review for
-  routine working-log updates.
+  the private notes (a separate repository) can proceed without per-commit
+  review for routine working-log updates.
 - Launch large compute (≥10T enumeration or ≥3 hr external merge)
   without the user's sign-off on the compute AND without running the VM-priority
   verification gate above.
@@ -326,9 +259,8 @@ those safeguards, retroactively codified.
 
 The helper functions `disk_by_uuid`, `new_disk_by_size`,
 `mount_known_disk`, `safe_mkfs`, and `preflight_assert_empty` are
-canonical implementations of these rules; see
-`petersm3/roae-private:safe_disk_setup.sh` (private staging repo). VM
-provisioning scripts should source it.
+canonical implementations of these rules; they are kept in the private
+notes. VM provisioning scripts should source them.
 
 ## Single C source file — `solve.c` — no new `.c` files
 
@@ -482,14 +414,14 @@ Past violations:
 - `.claude/` — local Claude Code metadata
 - `solutions.bin` itself — too large; the sha256 is the reproducibility
   anchor, not the bytes
-- Outside-repo staging docs — those live in `petersm3/roae-private/` (a
-  separate private repo). If an operator-planning doc is in the
-  working tree here, move it to `roae-private/`.
+- Outside-repo staging docs — those live in the private notes (a
+  separate repository). If an operator-planning doc is in the
+  working tree here, move it there.
 
 ## In-flight state
 
 For "what am I currently doing / what's running / what's next," read
-**`~/github/roae-private/CURRENT_STATE.md`** first — its lead `▶ RESUME HERE`
+**the current-state file in the private notes** first — its lead `▶ RESUME HERE`
 block carries the live campaign, supervisor pids, open operator decisions and
 active hazards. It is rewritten in place as state changes; this CLAUDE.md is
 stable. ⚠ **Read that lead block by offset, not the whole file.** Through
@@ -498,11 +430,11 @@ stable. ⚠ **Read that lead block by offset, not the whole file.** Through
 by ~55× and advised reading whole a file that no longer fits that advice.
 Re-measure before quoting any figure here rather than refreshing this one.
 
-**Do NOT read `CURRENT_PLAN.md` to orient.** It is the append-only history
+**Do NOT read the plan history to orient.** It is the append-only history
 behind that file and is now ~451 KiB (461,844 bytes, measured 2026-09-18 —
 the "~416 KB" this line carried until then was stale) — reading it whole
 costs ~100k tokens and
-its lead block only duplicates `CURRENT_STATE.md`. Consult it for provenance
+its lead block only duplicates the current-state file. Consult it for provenance
 (why a past decision was made), never for current state, and read it by
 targeted `grep`/offset rather than whole.
 
@@ -510,15 +442,11 @@ Also check scheduled wake-ups (the runtime fires these automatically
 when 100T/analysis/validation jobs hit milestones — the wake prompt
 itself contains the decision tree).
 
-## Bi-region architecture
+## Architecture
 
-- Orchestrator: `claude` VM (D2as_v6) in **westus2**.
-- Compute: D128als_v7 in **westus3** (as of 2026-04-19 pivot). **Spot for enumeration and any other checkpointable work; Regular/Standard, right-sized, with a teardown plan stated in the same breath, for merge and any workload that cannot checkpoint** — per §"Cost control — VM purchase type" above. ⚠ This line previously claimed that a blanket Spot-for-everything policy superseded the enumeration=Spot / merge=on-demand split; **that supersession was withdrawn 2026-08-29/30** and the split is the operative rule, so the section this line cites as its authority is the same section that retracts the old wording. See §Cost control above for the mandatory pre-launch verification gate. Note: the specific 100T d3 run on 2026-04-19/20 was inadvertently provisioned as on-demand by an earlier autonomous session; this is corrected-forward by the verification gate now documented here.
-- F64als_v6 westus2 is **retired**. New large-scale enumeration uses
-  Dalsv7 westus3 exclusively.
-- Managed disks are region-locked — cross-region needs snapshot+copy.
-  Disk and resource names are kept in the private runbook (Codex final
-  review, F10-002#4; CAMPAIGN_METHODOLOGY.md's boundary).
+A small always-on orchestrator VM and separate, larger compute VMs. Managed
+disks are region-locked, so moving data between regions needs a snapshot
+copy. Sizes, regions and resource names are in the private operations notes.
 
 ## One-line rule of thumb
 

@@ -2,13 +2,10 @@ file	line	kind	token	class	legs	review	line_sha
 CLAUDE.md	20	marker	Corrected	1	-	reviewed:sentence-already-states-the-lower-bound;note-is-provenance	f0219a4b2b25
 CLAUDE.md	22	ledger-link	RETRACTED	n/a	-	not-a-marker	7ba6bb332493
 CLAUDE.md	23	ledger-link	CORRECTION	n/a	-	not-a-marker	841e6af12c78
-CLAUDE.md	116	marker	CORRECTED	1	-	reviewed:rule-above-already-states-the-split-policy	00465bcfc043
-CLAUDE.md	118	marker	CORRECTED	1	-	reviewed:operative-rule-below-already-states-the-split-policy	a815cd1da874
-CLAUDE.md	167	marker	CORRECTED	1	-	reviewed:bare-date-tag;following-sentences-carry-the-withdrawal	d3a86349b512
-CLAUDE.md	361	ledger-link	CORRECTION	n/a	-	not-a-marker	e1b13e715649
-CLAUDE.md	390	marker	CORRECTED	1	-	reviewed:bullet-already-reads-14-files	d63457974d3b
-CLAUDE.md	420	ledger-link	RETRACTED	n/a	-	not-a-marker	7ba6bb332493
-CLAUDE.md	421	ledger-link	CORRECTION	n/a	-	not-a-marker	0c0ac50fdb9d
+CLAUDE.md	293	ledger-link	CORRECTION	n/a	-	not-a-marker	e1b13e715649
+CLAUDE.md	322	marker	CORRECTED	1	-	reviewed:bullet-already-reads-14-files	d63457974d3b
+CLAUDE.md	352	ledger-link	RETRACTED	n/a	-	not-a-marker	7ba6bb332493
+CLAUDE.md	353	ledger-link	CORRECTION	n/a	-	not-a-marker	0c0ac50fdb9d
 README.md	149	ledger-link	CORRECTION	n/a	-	not-a-marker	c2c141547338
 README.md	208	ledger-link	CORRECTION	n/a	-	not-a-marker	4e886eea8a35
 README.md	249	ledger-link	CORRECTION	n/a	-	not-a-marker	b1785c89acb7
@@ -189,13 +186,12 @@ documentation/CRITIQUE.md	710	ledger-link	CORRECTION	n/a	-	not-a-marker	ff5c80e8
 documentation/CRITIQUE.md	718	marker	Corrected	1	-	reviewed:sentence-now-says-only-the-KW-facing-integration-never-ran	c7e9ca794979
 documentation/CRITIQUE.md	720	marker	Corrected	1	-	reviewed:paragraph-already-says-the-calibration-ran-and-failed-and-the-rest-is-vetoed	7e8663968875
 documentation/DEPLOYMENT.md	145	marker	Corrected	1	-	reviewed:paragraph-states-q881-no-merge-of-a-stopped-run	da3191129c92
-documentation/DEPLOYMENT.md	335	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	5d135ad2265b
-documentation/DEPLOYMENT.md	583	marker	CORRECTED	1	-	reviewed:following-sentences-already-explain-merge-takes-no-arguments	4a49a542d6ee
-documentation/DEPLOYMENT.md	797	marker	CORRECTED	1	-	reviewed:box-already-sizes-from-pre-dedup-records	c108685b1733
-documentation/DEPLOYMENT.md	800	marker	Corrected	1	-	reviewed:item-already-reads-wipe-then-write	d79088c2324b
-documentation/DEPLOYMENT.md	806	marker	CORRECTED	1	-	reviewed:item-already-checks-decompressed-length	a6887a7e7e96
-documentation/DEPLOYMENT.md	1073	marker	Corrected	1	-	reviewed:snippet-below-sets-the-trap-before-the-create	b2acefcf44d4
-documentation/DEPLOYMENT.md	1276	marker	CORRECTED	1	-	reviewed:table-already-carries-1820-s	043dad8683eb
+documentation/DEPLOYMENT.md	296	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	5d135ad2265b
+documentation/DEPLOYMENT.md	544	marker	CORRECTED	1	-	reviewed:following-sentences-already-explain-merge-takes-no-arguments	4a49a542d6ee
+documentation/DEPLOYMENT.md	758	marker	CORRECTED	1	-	reviewed:box-already-sizes-from-pre-dedup-records	c108685b1733
+documentation/DEPLOYMENT.md	761	marker	Corrected	1	-	reviewed:item-already-reads-wipe-then-write	d79088c2324b
+documentation/DEPLOYMENT.md	767	marker	CORRECTED	1	-	reviewed:item-already-checks-decompressed-length	a6887a7e7e96
+documentation/DEPLOYMENT.md	1103	marker	CORRECTED	1	-	reviewed:table-already-carries-1820-s	043dad8683eb
 documentation/DESCRIPTION_LENGTH.md	89	marker	CORRECTED	1	-	reviewed:bare-registry-key-tag;following-sentences-carry-the-correction	a4a692a42886
 documentation/DESCRIPTION_LENGTH.md	105	ledger-link	CORRECTION	n/a	-	not-a-marker	c61cc43645a2
 documentation/DESCRIPTION_LENGTH.md	165	ledger-link	CORRECTION	n/a	-	not-a-marker	fce14c1a1ef1

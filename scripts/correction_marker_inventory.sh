@@ -217,12 +217,10 @@ REVIEWED = {
         ('1', 'reviewed:paragraph-states-q881-no-merge-of-a-stopped-run'),
     ('documentation/SOLVE_C_CLI.md', 'ab737789e737'):
         ('1', 'reviewed:row-states-brute_dfs_nodes-is-BR.nodes'),
-    ('CLAUDE.md', '00465bcfc043'):
-        ('1', 'reviewed:rule-above-already-states-the-split-policy'),
-    ('CLAUDE.md', 'a815cd1da874'):   # re-keyed 2026-11-03 (G7b, F12-019#4: a dated note appended to the line; verdict re-read, unchanged)
-        ('1', 'reviewed:operative-rule-below-already-states-the-split-policy'),
-    ('CLAUDE.md', 'd3a86349b512'):
-        ('1', 'reviewed:bare-date-tag;following-sentences-carry-the-withdrawal'),
+    # ('CLAUDE.md', '00465bcfc043') :116, ('CLAUDE.md', 'a815cd1da874') :118 and ('CLAUDE.md', 'd3a86349b512') :167,
+    # all class 1, RETIRED 2026-11-15 (Q-1140 cloud sweep, operator decision D3): the three markers sat in
+    # §"Cost control — VM purchase type", which moved verbatim to the private operations notes, so their rows
+    # leave the inventory and the keys would be reported stale. Restore them only if that text returns.
     ('CLAUDE.md', 'd63457974d3b'):
         ('1', 'reviewed:bullet-already-reads-14-files'),
     ('CLAUDE.md', 'f0219a4b2b25'):
