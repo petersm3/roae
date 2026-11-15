@@ -116,7 +116,11 @@ CLOUD_MARK='[cloud detail redacted]'
 CLOUD_RE='[Ss]tandard_[A-Za-z0-9_]+|[DEFLMdeflm][0-9]+[a-z]+_v[0-9]+|[DEFL](als|as|ps|ads)v[0-9]+|[DEFL]-als-v[0-9]+|[A-Z](/[A-Z])*-series|([Ww]est|[Ee]ast|[Cc]entral|[Nn]orth|[Ss]outh)([Uu][Ss]|[Ee]urope|[Aa]sia)[0-9]?|(solver|merge|temp|spot)-(data|nic|vm|vnet|nsg|scratch|d[0-9]+)|rg-[a-z0-9][a-z0-9-]*|c[0-9][0-9][0-9]-[a-z][a-z0-9-]*|[a-z0-9]+-(vnet|nic|nsg)|[Pp]remium SSD|[Ss]tandard SSD|[A-Za-z]+_[LZ]RS'
 CLOUD_BARE='[DFdf](2|4|8|16|32|48|64|96|128)'
 CLOUD_HOST='claude (orchestrator|VM|host)'
-CLOUD_CTX='(^|[^A-Za-z])(VMs?|[Ss]pot|on-demand|host|[Ww]orker|vCPUs?|SKUs?|infra|Azure|orchestrator)([^A-Za-z]|$)'
+CLOUD_CTX='(^|[^A-Za-z])(VMs?|[Ss]pot|on-demand|host|[Ww]orker|vCPUs?|SKUs?|infra|Azure|orchestrator|analyze)([^A-Za-z]|$)'
+# Fable review 2026-11-15 (F4, Q8): "analyze" is a context word (a subject sizing the analyze VM), and
+# the purchase type "on-demand" takes the cost-detail marker as a whole token, as in the ledgers.
+COSTD_MARK='[cost detail redacted]'
+ONDEMAND_RE='[Oo]n-demand'
 
 # ---------------------------------------------------------------------------
 # CLASS TOKEN TABLES.
@@ -261,7 +265,7 @@ redact_list() {
 #   detected and reported, not silently merged.
 classify() {
   CI_MONEY_RE="$MONEY_RE" CI_CLOUD_RE="$CLOUD_RE" CI_CLOUD_BARE="$CLOUD_BARE" \
-  CI_CLOUD_HOST="$CLOUD_HOST" CI_CLOUD_CTX="$CLOUD_CTX" awk -F'\t' \
+  CI_CLOUD_HOST="$CLOUD_HOST" CI_CLOUD_CTX="$CLOUD_CTX" CI_ONDEMAND_RE="$ONDEMAND_RE" CI_COSTD_MARK="$COSTD_MARK" awk -F'\t' \
     -v C1RE="$C1_RE" -v C2RE="$C2_RE" -v C3RE="$C3_RE" -v C4RE="$C4_RE" \
     -v MAXTEXT=400 -v REDACT_FILE="${REDACT_FILE:-}" -v REDMARK="$REDACT_MARK" \
     -v COSTMARK="$COST_MARK" -v CLOUDMARK="$CLOUD_MARK" '
@@ -333,14 +337,15 @@ classify() {
     # hyphen before it: a review id such as C-<size> is not a size) by CLOUDMARK, keeping the match from
     # character keep+1 on (keep = 0: the whole match goes). One pass per pattern, left to right; a match
     # that is part of a longer word is kept as text.
-    function cloudtok(s, re, keep, lb,   o, rs, rl, bc, ac) {
+    function cloudtok(s, re, keep, lb, mk,   o, rs, rl, bc, ac) {
+      if (mk == "") mk = CLOUDMARK
       o = ""
       while (match(s, re)) {
         rs = RSTART; rl = RLENGTH
         bc = (rs > 1) ? substr(s, rs - 1, 1) : substr(o, length(o), 1)
         ac = substr(s, rs + rl, 1)
         if (bc !~ /[A-Za-z0-9_]/ && ac !~ /[A-Za-z0-9_]/ && !(lb && bc == "-")) {
-          o = o substr(s, 1, rs - 1) CLOUDMARK (keep ? substr(s, rs + keep, rl - keep) : "")
+          o = o substr(s, 1, rs - 1) mk (keep ? substr(s, rs + keep, rl - keep) : "")
         } else {
           o = o substr(s, 1, rs + rl - 1)
         }
@@ -354,7 +359,7 @@ classify() {
         r = cloudtok(r, CLOUD_BARE, 0, 1)
         r = cloudtok(r, CLOUD_HOST, 6, 0)
       }
-      return r
+      return cloudtok(r, ONDEMAND_RE, 0, 0, COSTDMARK)
     }
     function hash(s,   i, h, n) {
       h = 0; n = length(s)
@@ -373,6 +378,7 @@ classify() {
       MONEY_RE = ENVIRON["CI_MONEY_RE"]   # via the environment: -v would eat the backslashes
       CLOUD_RE = ENVIRON["CI_CLOUD_RE"]; CLOUD_BARE = ENVIRON["CI_CLOUD_BARE"]
       CLOUD_HOST = ENVIRON["CI_CLOUD_HOST"]; CLOUD_CTX = ENVIRON["CI_CLOUD_CTX"]
+      ONDEMAND_RE = ENVIRON["CI_ONDEMAND_RE"]; COSTDMARK = ENVIRON["CI_COSTD_MARK"]
       nred = 0
       if (REDACT_FILE != "") while ((getline r < REDACT_FILE) > 0) if (r != "") red[++nred] = r
     }
@@ -778,16 +784,17 @@ selftest() {
   #      least 50 commit rows, and at least one of them has a non-empty body (else "text = subject"
   #      and "text = message" cannot be told apart). Verdict: every commit row's text equals its
   #      commit's subject, normalised as classify() normalises it; rows carrying either redaction
-  #      marker are skipped (anchors 15, 19 and 21 cover the replacements).
+  #      marker are skipped (anchors 15, 19 and 21 cover the replacements; the cost-detail marker
+  #      since the 2026-11-15 Fable review, Q8).
   local sout smap nrow nbody nbad
   sout=$(mktemp) && smap=$(mktemp) && {
     sweep > "$sout" 2>/dev/null
     git log --format='%x01%H%x1f%s%x1f%b' | tr -d '\r' | tr '\t' ' ' | tr '\n' ' ' | tr '\001' '\n' | tr '\037' '\t' \
       | awk -F'\t' 'NF >= 2 { b = $3; gsub(/[[:space:]]/, "", b); print substr($1, 1, 8) "\t" (b != "") "\t" $2 }' > "$smap"
-    read -r nrow nbody nbad < <(awk -F'\t' -v MAXTEXT=400 -v RM="$REDACT_MARK" -v CM="$COST_MARK" -v LM="$CLOUD_MARK" '
+    read -r nrow nbody nbad < <(awk -F'\t' -v MAXTEXT=400 -v RM="$REDACT_MARK" -v CM="$COST_MARK" -v LM="$CLOUD_MARK" -v DM="$COSTD_MARK" '
       FILENAME == ARGV[1] { hb[$1] = $2; s = $3; if (length(s) > MAXTEXT) s = substr(s, 1, MAXTEXT) "  [...truncated]"
                             gsub(/[[:space:]]+/, " ", s); sub(/^ /, "", s); sj[$1] = s; next }
-      FNR > 1 && $5 == "git" { n++; if (hb[$6]) nb++; if (index($8, RM) == 0 && index($8, CM) == 0 && index($8, LM) == 0 && $8 != sj[$6]) bad++ }
+      FNR > 1 && $5 == "git" { n++; if (hb[$6]) nb++; if (index($8, RM) == 0 && index($8, CM) == 0 && index($8, LM) == 0 && index($8, DM) == 0 && $8 != sj[$6]) bad++ }
       END { print n + 0, nb + 0, bad + 0 }' "$smap" "$sout")
     if [ "${nrow:-0}" -ge 50 ] && [ "${nbody:-0}" -gt 0 ] && [ "${nbad:-1}" -eq 0 ]; then
       echo "  [ok]   every commit row publishes its subject: $nrow rows ($nbody with a body), 0 differ"
@@ -854,8 +861,11 @@ selftest() {
   #      the verdict is vacuous). Verdict: exactly seven markers in A, the review id kept, " orchestrator"
   #      kept after its marker, no shape left; A and B publish the same text under different ids (the id
   #      is the unredacted text); C is unchanged.
+  #      Fable review 2026-11-15: A also holds a bare size glued to a word (nodes_<size>, which must stay:
+  #      the whole-token check, mutant I4) and the purchase type on-demand (Q8: the cost-detail marker,
+  #      once); row D sizes an analyze VM with two bare sizes and no other context word (F4: two markers).
   local cs crow ctxt ctxt2 cid cid2 cpre cc ccout P='F' Q='rg'
-  cs="docs: update the ${P}64 VM, M8qq_v9, northasia7, the ${P}alsv9 family, ${Q}-zz and zz-vnet; claude orchestrator; review C-${P}16 closed"
+  cs="docs: update the ${P}64 VM, M8qq_v9, northasia7, the ${P}alsv9 family, ${Q}-zz and zz-vnet; claude orchestrator; review C-${P}16 closed; nodes_${P}32 kept; the spot-vs-on-demand mistake"
   cpre=$(grep -o -E "$CLOUD_RE" <<< "$cs" | grep -c .)
   crow=$(printf 'git\tdeadbeef\t2026-01-01\tCorrected the M8qq_v9 note.\t%s\n' "$cs" | classify | tail -n +2)
   ctxt=$(printf '%s' "$crow" | cut -f8); cid=$(printf '%s' "$crow" | cut -f1)
@@ -863,13 +873,19 @@ selftest() {
   ctxt2=$(printf '%s' "$crow" | cut -f8); cid2=$(printf '%s' "$crow" | cut -f1)
   cc="docs: corrected the ${P}16 feature table"
   ccout=$(printf 'git\tfeedface\t2026-01-01\t%s\t%s\n' "$cc" "$cc" | classify | tail -n +2 | cut -f8)
+  local cd cdout
+  cd="docs: rule 8 corrected, ${P}64 to ${P}32 for analyze"
+  cdout=$(printf 'git\tfacade00\t2026-01-01\t%s\t%s\n' "$cd" "$cd" | classify | tail -n +2 | cut -f8)
   if [ "$cpre" -eq 5 ] && [ "$(grep -o -F "$CLOUD_MARK" <<< "$ctxt" | grep -c .)" -eq 7 ] \
      && [ "${ctxt#*"C-${P}16 closed"}" != "$ctxt" ] && [ "${ctxt#*"$CLOUD_MARK orchestrator"}" != "$ctxt" ] \
      && [ "$(grep -o -E "$CLOUD_RE" <<< "$ctxt" | grep -c .)" -eq 0 ] && [ "${ctxt#*claude}" = "$ctxt" ] \
-     && [ "$ctxt" = "$ctxt2" ] && [ -n "$cid" ] && [ -n "$cid2" ] && [ "$cid" != "$cid2" ] && [ "$ccout" = "$cc" ]; then
+     && [ "$ctxt" = "$ctxt2" ] && [ -n "$cid" ] && [ -n "$cid2" ] && [ "$cid" != "$cid2" ] && [ "$ccout" = "$cc" ] \
+     && [ "${ctxt#*"nodes_${P}32 kept"}" != "$ctxt" ] && [ "${ctxt#*on-demand}" = "$ctxt" ] \
+     && [ "$(grep -o -F "$COSTD_MARK" <<< "$ctxt" | grep -c .)" -eq 1 ] \
+     && [ "$(grep -o -F "$CLOUD_MARK" <<< "$cdout" | grep -c .)" -eq 2 ]; then
     echo "  [ok]   a commit subject's cloud details take the cloud marker (7 of 7), a review id and a context-free size are kept, id from the unredacted text"
   else
-    echo "  [FAIL] cloud redaction (Q-1140): precondition shapes=$cpre (want 5) text: $ctxt | context-free: $ccout | ids $cid/$cid2"
+    echo "  [FAIL] cloud redaction (Q-1140): precondition shapes=$cpre (want 5) text: $ctxt | context-free: $ccout | analyze: $cdout | ids $cid/$cid2"
     rc=1
   fi
 

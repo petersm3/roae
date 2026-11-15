@@ -704,7 +704,10 @@ for i, b in enumerate(data):
 # cloud machine size, region, disk tier or resource, and K for a cost clause (an amount in words, a
 # ratio, a price or a bill). Unlike S, each C or K span must be the detail it claims to hide:
 # span_ok() requires a cue of its class (CLOUD or COSTW below) and, once every cue is taken out,
-# only words from the short neutral list of that class (FILL). So a marker that hides "not", a verdict
+# only words from the short neutral list of that class (FILL). Fable review 2026-11-15 (F1-F3): a number
+# left in a cost span must be an amount or a ratio (a dollar amount, or a number before x, the times sign
+# or %); any character outside letters, digits, white space and a short list of marks fails the span; and
+# the resource-name cues no longer take ordinary hyphenated words (spot-checked, from-scratch, on-disk). So a marker that hides "not", a verdict
 # word, a name or, outside a cost clause, a number fails. A span never holds a marker of its own: a
 # marker already in the committed line must stand at the same place, as itself. `[cost redacted]`
 # keeps the CX-230 rule above: it stands for a dollar token only, never for words.
@@ -721,15 +724,18 @@ CLOUD = re.compile(r"""(?ix)
   | (?:west|east|central|north|south)\s?(?:us|europe|asia)(?:\s?[0-9])?\b
   | \bpremium\b | \bssd\b | \bhdd\b | \w*_[lz]rs\b | \bultra\s?disks?\b | \bephemeral\b
   | \bp(?:10|15|20|30|40|50|60|70|80)\b
-  | \b(?:rg|solver|merge|temp|spot)-[a-z0-9][a-z0-9-]*
+  | \brg-[a-z0-9][a-z0-9-]*
+  | \b(?:solver|merge|temp|spot)-(?:data|nic|vms?|vnet|nsg|scratch|validate|d[0-9]+|[0-9]+|(?:west|east|central|north|south)(?:us|europe|asia)[0-9]?)(?:-[a-z0-9]+)*\b
   | \bc[0-9]{3}-[a-z][a-z0-9-]*
-  | \b[a-z0-9]+(?:-[a-z0-9]+)*-(?:vms?|nic|vnet|nsg|ip|disk|scratch|worker|codex)\b
+  | \b(?!(?:[a-z0-9]+-)*(?:on|off|from|per|to|in|no|non|not|never|single|multi|one|two|three|four|[0-9]+)-)[a-z0-9]+(?:-[a-z0-9]+)*-(?:vms?|nic|vnet|nsg|ip|disk|scratch|worker|codex)\b
   | \b(?:vnet|subnet|nsg)\b | \bazure\b | \bmicrosoft\b | \bcobalt\b | \bon-demand\b
 """)
 COSTW = re.compile(r"""(?ix)
     \$
-  | \b\w*(?:pric|cost|cheap|expens|spend|spent|budget|discount|saving|dollar)\w*\b
-  | \bbill(?:s|ed|ing|able)?\b | \brates?\b | \bhourly\b | \bper[-\s]hour\b | \bon-demand\b
+  | \b(?:spot|hourly|per[-\s]hour|on-demand|billing|regular|standard)\s+rates?\b
+  | \b(?:cost|dollar|spending|cloud)\s+budgets?\b
+  | \b\w*(?:pric|cost|cheap|expens|spend|spent|discount|saving|dollar)\w*\b
+  | \bbill(?:s|ed|ing|able)?\b | \bhourly\b | \bper[-\s]hour\b | \bon-demand\b
   | \bcents?\b | \bpenn(?:y|ies)\b | \bfees?\b | \bpaid\b | \bpay(?:s|ing|ment|ments)?\b
 """)
 FILL = {
@@ -744,7 +750,9 @@ FILL = {
                  " multiplying multiplied projection estimate estimated x which as spot standard"
                  " regular".split())}
 WORDS = re.compile(r"[A-Za-z]+|[0-9]+")
-def span_ok(kind, t):
+KNUM = re.compile(r"\$\s?[0-9][0-9,.]*[KkM]?(?![A-Za-z0-9])|[0-9][0-9,.]*\s?(?:[\u00d7%]|x\b)")
+BADCH = re.compile(r"[^A-Za-z0-9\s`*_~()/,.:+\u00d7\u2013\u2014\u2248-]")
+def span_ok(kind, t, before="", after=""):
     if not t.strip() or ANYM.search(t):
         return False
     if kind == S:   # CX-242: a storage span has no fixed shape
@@ -752,13 +760,31 @@ def span_ok(kind, t):
     cue = CLOUD if kind == C else COSTW
     if not cue.search(t):
         return False
-    for x in WORDS.findall(cue.sub(" ", t)):
-        if x.isdigit():
-            if kind != K:
-                return False
-        elif x.lower() not in FILL[kind]:
+    rest = t
+    if kind == K:   # a number in a cost span must be an amount or a ratio, never a neighbouring count
+        rest = KNUM.sub(" ", rest)
+    rest = cue.sub(" ", rest)
+    if BADCH.search(rest):   # only letters, digits, white space and a short list of marks are checked words
+        return False
+    for x in WORDS.findall(rest):
+        if x.isdigit() or x.lower() not in FILL[kind]:
             return False
     return True
+# Q-1140 follow-up (2026-11-15), two false-FAIL fixes; neither widens what a span may hide, since every
+# alignment below is still one working line that the committed line matches piece for piece with each span
+# passing span_ok. (a) Candidates were tried shortest head first, and a
+# whole-line marker such as **[storage detail redacted]** (4 characters outside its marker, so it anchors)
+# matched every bold committed line before the working line it was really redacted into was tried. Now a
+# working line is never claimed by more committed lines than it has spare copies (its count in the
+# working file minus its count in the baseline): a claim beyond that can only show up as a lost line
+# anyway. And since an in-place edit keeps the order of lines, the candidate tried first is the one whose
+# next copy comes first after the working line the previous alignment took; then the rest, most literal
+# text first. (b) The pattern above takes the FIRST split of the line (lazy groups), and
+# two markers one space apart split at the first word, so a valid redaction failed span_ok. When that
+# first split fails, every split is now searched (pieces in order, memoised on piece and position).
+import bisect
+from collections import Counter
+from functools import lru_cache
 cands = {}
 wall = open(os.environ["DG_WORK"], encoding="utf-8", errors="surrogateescape").read().split("\n")
 wset = set(wall)
@@ -769,32 +795,92 @@ for w in wall:
     if len(PM.sub("", w).strip()) < 4:
         continue
     kinds = PM.findall(w)
-    rx = []
+    rx, prx = [], []
     for k, piece in enumerate(PM.split(w)):
         if k:
             rx.append("(?:%s|(.+?))" % re.escape(kinds[k - 1]))
+        one = []
         sub = piece.split(M)
         for j, q in enumerate(sub):
             if j:
-                rx.append("(?:%s|%s)" % (re.escape(M), TOK.pattern))
-            rx.append(re.escape(q))
+                one.append("(?:%s|%s)" % (re.escape(M), TOK.pattern))
+            one.append(re.escape(q))
+        rx += one
+        prx.append((piece if len(sub) == 1 else None, re.compile("".join(one), re.S)))
     head = ANYM.split(w, 1)[0][:12]
-    cands.setdefault(head, []).append((w, kinds, re.compile("".join(rx), re.S)))
+    cands.setdefault(head, []).append((len(PM.sub("", w)), w, kinds, re.compile("".join(rx), re.S), prx))
 lens = sorted({len(h) for h in cands})
+spare = Counter(wall)
+spare.subtract(Counter(data))
+where = {}
+for j, w in enumerate(wall):
+    where.setdefault(w, []).append(j)
+last = -1
+def order(c):
+    occ = where[c[1]]
+    k = bisect.bisect_right(occ, last)
+    return (0, occ[k], 0) if k < len(occ) else (1, 0, -c[0])
+@lru_cache(maxsize=None)
+def ok_at(kind, b, s, e):
+    t = b[s:e]
+    return t == kind or span_ok(kind, t, b[:s], b[e:])
+def any_split(b, kinds, prx):
+    n = len(prx) - 1
+    def ends(k, s):
+        lit, p = prx[k]
+        if lit is not None:
+            return (s + len(lit),) if b.startswith(lit, s) else ()
+        if not p.match(b, s):
+            return ()
+        return tuple(e for e in range(s, len(b) + 1) if p.fullmatch(b, s, e))
+    def starts(k, lo):
+        lit, p = prx[k]
+        if k == n and lit is not None:
+            s = len(b) - len(lit)
+            return (s,) if s >= lo and b.endswith(lit) else ()
+        if lit is not None:
+            out, s = [], b.find(lit, lo)
+            while s >= 0:
+                out.append(s)
+                s = b.find(lit, s + 1)
+            return out
+        return [s for s in range(lo, len(b) + 1) if p.match(b, s)]
+    @lru_cache(maxsize=None)
+    def go(k, s):
+        for e in ends(k, s):
+            if k == n:
+                if e == len(b):
+                    return True
+                continue
+            for t in starts(k + 1, e + 1):
+                if ok_at(kinds[k], b, e, t) and go(k + 1, t):
+                    return True
+        return False
+    return go(0, 0)
 for i, b in enumerate(data):
     if b in wset:   # a committed line still present verbatim is never re-aligned
         continue
-    hit = None
+    pool = []
     for L in lens:
-        for w, kinds, pat in cands.get(b[:L], ()):
-            m = pat.fullmatch(b) if w != b else None
-            if m and all(g is None or span_ok(kd, g) for kd, g in zip(kinds, m.groups())):
-                hit = w
-                break
-        if hit is not None:
+        pool += cands.get(b[:L], ())
+    pool.sort(key=order)
+    hit = None
+    for _, w, kinds, pat, prx in pool:
+        if spare[w] <= 0:
+            continue
+        m = pat.fullmatch(b)
+        if not m:
+            continue
+        if all(g is None or span_ok(kd, g, b[:m.start(j + 1)], b[m.end(j + 1):])
+               for j, (kd, g) in enumerate(zip(kinds, m.groups()))) or any_split(b, kinds, prx):
+            hit = w
             break
     if hit is not None:
         data[i] = hit
+        spare[hit] -= 1
+        k = bisect.bisect_right(where[hit], last)
+        if k < len(where[hit]):
+            last = where[hit][k]
 sys.stdout.buffer.write("\n".join(data).encode("utf-8", "surrogateescape"))
 '
 }

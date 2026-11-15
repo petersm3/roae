@@ -25753,7 +25753,7 @@ class TestCX1140AppendOnlyCloudRedaction(unittest.TestCase):
             "CX-2 ran on one Spot M8qq_v9 host in zz-vnet for an hour; the claim was not withdrawn.\n"
             "CX-3 the run took [cost redacted] on M8qq_v9 and the copy went to the far shelf; sha matched.\n"
             "CX-4 the note gave per-hour rates and fee totals, then the verdict: proved.\n"
-            "CX-5 the bytes sit at [storage detail redacted] on solver-zz in northasia7; re-verified.\n")
+            "CX-5 the bytes sit at [storage detail redacted] on solver-d9 in northasia7; re-verified.\n")
     _scratch = TestQ903AppendOnlyMoneyRedaction._scratch
 
     def _with(self, i, new):
@@ -25854,8 +25854,152 @@ class TestCX1140AppendOnlyCloudRedaction(unittest.TestCase):
         self._green(work, "a ledger whose only markers are the two new ones")
 
     def test_committed_storage_marker_relabelled_is_red(self):
-        self._red(self._with(4, "CX-5 the bytes sit at %s on solver-zz in northasia7; re-verified." % self.C),
+        self._red(self._with(4, "CX-5 the bytes sit at %s on solver-d9 in northasia7; re-verified." % self.C),
                   "a committed storage marker relabelled as a cloud marker")
+
+
+class TestCX1140AlignerFollowUp(unittest.TestCase):
+    """Q-1140 follow-up (2026-11-15) to GATE 10's positional aligner (_g10_money_align), from the
+    cloud-sweep B2a/B2b/B2c builds. Same scratch repo and both halves of GATE 10 as
+    TestCX1140AppendOnlyCloudRedaction; every size, path and name is synthetic.
+    Two false FAILs, fixed (each case was red before the fix, as the B2 ledgers showed):
+      GREEN  a committed whole-line `**[storage detail redacted]**` does not claim a bold line that
+             was redacted into a different working line (B2b HISTORY :1920, B2c :4183/:4588/:4844);
+      GREEN  a NEW whole-line marker and a bold redacted line, in that order (candidates are tried
+             most literal text first, not shortest head first);
+      GREEN  two committed lines that the most literal candidate both match: each working line is
+             claimed at most as many times as it has spare copies;
+      GREEN  two markers one space apart, where the first split fails span_ok and a later one is
+             valid (B2a :5885); every split is now searched.
+    And no false PASS, asserted:
+      RED    two markers one space apart where NO split is valid;
+      RED    a split that stops before the end of the line (the last piece occurs twice);
+      RED    two committed lines redacted to the same text with only one copy left in the file;
+      RED    a whole-line marker standing for a bold line that is not otherwise redacted.
+    Fable review 2026-11-15 (F1-F3): RED a digit in a cloud span; a count under a cost marker; a character
+    outside the allowlist (CJK, the not-equal sign); an ordinary hyphenated word as a resource name; a storage
+    marker over white space. GREEN an amount or a ratio under a cost marker; a resource name of an allowed shape."""
+
+    C = "[cloud detail redacted]"
+    K = "[cost detail redacted]"
+    S = "[storage detail redacted]"
+    _scratch = TestQ903AppendOnlyMoneyRedaction._scratch
+    _green = TestCX1140AppendOnlyCloudRedaction._green
+    _red = TestCX1140AppendOnlyCloudRedaction._red
+
+    def _run(self, base, work, green, why):
+        self.BASE = base
+        (self._green if green else self._red)(work, why)
+
+    def test_committed_whole_line_marker_does_not_claim_a_bold_line(self):
+        base = ("CX-1 first entry.\n**%s**\n**Walls on Spot M8qq_v9, three reps:**\nCX-2 end.\n" % self.S)
+        work = ("CX-1 first entry.\n**%s**\n**Walls on Spot %s, three reps:**\nCX-2 end.\n" % (self.S, self.C))
+        self.assertIn("**%s**" % self.S, base.split("\n"), "precondition: the whole-line marker is committed")
+        self._run(base, work, True, "a bold line redacted while a committed whole-line marker stands")
+
+    def test_new_whole_line_marker_before_a_redacted_bold_line(self):
+        base = ("CX-1 first entry.\n**Walls on Spot M8qq_v9, three reps:**\n**/zz/shelf/copy-2**\nCX-2 end.\n")
+        work = ("CX-1 first entry.\n**Walls on Spot %s, three reps:**\n**%s**\nCX-2 end.\n" % (self.C, self.S))
+        self._run(base, work, True, "a new whole-line marker after a redacted bold line")
+
+    def test_a_working_line_is_claimed_only_as_often_as_it_has_spare_copies(self):
+        base = ("CX-1 first entry.\nCX-8 sat at /zz/b on the far shelf.\nCX-8 sat at /zz/a on the far shelf.\nCX-2 end.\n")
+        work = ("CX-1 first entry.\nCX-8 sat at %s on the far %s.\nCX-8 sat at %s on the far shelf.\nCX-2 end.\n"
+                % (self.S, self.S, self.S))
+        self._run(base, work, True, "two committed lines that the most literal candidate both match")
+
+    def test_two_markers_one_space_apart_try_every_split(self):
+        base = "CX-1 first entry.\nCX-4 the entry then priced by the hour on M8qq_v9 the whole run.\nCX-2 end.\n"
+        work = "CX-1 first entry.\nCX-4 the entry then %s %s the whole run.\nCX-2 end.\n" % (self.K, self.C)
+        self._run(base, work, True, "a cost span and a cloud span one space apart")
+
+    def test_two_markers_one_space_apart_with_no_valid_split_is_red(self):
+        base = "CX-1 first entry.\nCX-4 the entry then priced by the hour, not on M8qq_v9 the whole run.\nCX-2 end.\n"
+        work = "CX-1 first entry.\nCX-4 the entry then %s %s the whole run.\nCX-2 end.\n" % (self.K, self.C)
+        self._run(base, work, False, "two markers one space apart that hide a negation in every split")
+
+    def test_a_split_must_reach_the_end_of_the_line(self):
+        # the last piece holds a `[cost redacted]` (so it is matched as a pattern, not a literal) and also
+        # occurs earlier in the committed line: only a split that ends at the line's end counts, so a
+        # sentence dropped after it still fails. The dollar sign is spelled \x24, as in TestQ903.
+        base = "CX-1 first entry.\nCX-4 the note gave rates by \x247 an hour. It was not by \x247 an hour.\nCX-2 end.\n"
+        work = "CX-1 first entry.\nCX-4 the note gave %s by [cost redacted] an hour.\nCX-2 end.\n" % self.K
+        self._run(base, work, False, "a cost span whose split stops before the end of the line")
+
+    def test_two_lines_redacted_to_one_remaining_copy_is_red(self):
+        base = "CX-1 first entry.\nCX-8 ran on M8qq_v9 Spot.\nCX-8 ran on M16qq_v9 Spot.\nCX-2 end.\n"
+        self._run(base, "CX-1 first entry.\nCX-8 ran on %s Spot.\nCX-8 ran on %s Spot.\nCX-2 end.\n" % (self.C, self.C),
+                  True, "two committed lines redacted to the same text, both copies kept")
+        self._run(base, "CX-1 first entry.\nCX-8 ran on %s Spot.\nCX-2 end.\n" % self.C,
+                  False, "two committed lines redacted to the same text with one copy deleted")
+
+    # ---- Fable review 2026-11-15 (FABLE_SWEEP_B1_REVIEW.md F1-F3 and its missing mutants M8-M12) ----
+    def _one(self, old, new, green, why):
+        self._run("CX-1 first entry.\n%s\nCX-2 end.\n" % old, "CX-1 first entry.\n%s\nCX-2 end.\n" % new, green, why)
+
+    def test_a_digit_in_a_cloud_span_is_red(self):   # M8
+        self._one("CX-9 the run used 3 M8qq_v9 hosts.", "CX-9 the run used %s hosts." % self.C, False,
+                  "a cloud marker over a count and a size")
+
+    def test_a_count_in_a_cost_span_is_red(self):   # F1 / M9
+        for old, new in (("CX-9 the count is 1,452 and the cost was low.", "CX-9 the count %s was low." % self.K),
+                         ("CX-9 the false-positive rate was 0 in the census.", "CX-9 the false-positive %s in the census." % self.K),
+                         ("CX-9 it was paid for; the 31 total is proved.", "CX-9 it was %s is proved." % self.K)):
+            with self.subTest(old=old):
+                self._one(old, new, False, "a cost marker over a neighbouring count")
+
+    def test_amounts_and_ratios_in_a_cost_span_are_green(self):   # F1 positive controls
+        for old, new in (("CX-9 it ran at 10\u00d7 the cost of the plan.", "CX-9 it ran at %s of the plan." % self.K),
+                         ("CX-9 the box costs ~80% less per hour here.", "CX-9 the box %s here." % self.K),
+                         ("CX-9 the box was about \x243 per hour then.", "CX-9 the box was %s then." % self.K)):
+            with self.subTest(old=old):
+                self._one(old, new, True, "an amount or a ratio under a cost marker")
+
+    def test_project_rates_and_budgets_in_a_cost_span_are_red(self):   # R1 / M13 (bare `rates?` back), M14 (`budget` back in the stems)
+        # Fable's second read of B1-FU (2026-11-15, R1): `rate` and `budget` are project words in the ledgers
+        # (acceptance and false-positive rates, node budgets), so alone they are not a cost cue.
+        for old, new in (("CX-9 the false-positive rate was 0% in the census.", "CX-9 the false-positive %s in the census." % self.K),
+                         ("CX-9 the pass rate is 100% here.", "CX-9 the pass %s here." % self.K),
+                         ("CX-9 it ran at 0.75x the rate then.", "CX-9 it ran at %s then." % self.K),
+                         ("CX-9 the failure rate is less than half here.", "CX-9 the failure %s here." % self.K),
+                         ("CX-9 the node budget is 2x over.", "CX-9 the node %s." % self.K),
+                         ("CX-9 the node budget is under a tenth of it.", "CX-9 the node %s of it." % self.K)):
+            with self.subTest(old=old):
+                self._one(old, new, False, "a cost marker over a project rate or budget")
+
+    def test_cost_rates_and_budgets_are_green(self):   # R1 positive controls
+        for old, new in (("CX-9 the Spot rates were lower that week.", "CX-9 the %s were lower that week." % self.K),
+                         ("CX-9 the hourly rate was quoted then.", "CX-9 the %s was quoted then." % self.K),
+                         ("CX-9 the per-hour rates changed then.", "CX-9 the %s changed then." % self.K),
+                         ("CX-9 the cost budget held then.", "CX-9 the %s held then." % self.K)):
+            with self.subTest(old=old):
+                self._one(old, new, True, "a rate or budget named with its cost word, under a cost marker")
+
+    def test_characters_outside_the_allowlist_are_red(self):   # F2 / M10
+        for old, new in (("CX-9 ran on M8qq_v9 \u4e0d\u6210\u7acb host; proved.", "CX-9 ran on %s host; proved." % self.C),
+                         ("CX-9 the bound on M8qq_v9 \u2260 5 holds here.", "CX-9 the bound %s 5 holds here." % self.C),
+                         ("CX-9 unspent budget \u2260 0 proved.", "CX-9 %s proved." % self.K)):
+            with self.subTest(old=old):
+                self._one(old, new, False, "a span holding a character outside the allowlist")
+
+    def test_ordinary_hyphenated_words_are_not_resource_names(self):   # F3 / M11
+        for old, new in (("CX-9 the result was spot-checked against the atlas.", "CX-9 the result was %s against the atlas." % self.C),
+                         ("CX-9 the proof is solver-free here.", "CX-9 the proof is %s here." % self.C),
+                         ("CX-9 a from-scratch re-derivation agreed.", "CX-9 a %s re-derivation agreed." % self.C),
+                         ("CX-9 the claim is not-on-disk anymore.", "CX-9 the claim is %s anymore." % self.C)):
+            with self.subTest(old=old):
+                self._one(old, new, False, "a cloud marker over an ordinary hyphenated word")
+        self._one("CX-9 the copy sat on solver-data-northasia7 then.", "CX-9 the copy sat on %s then." % self.C, True,
+                  "a resource name of an allowed shape (positive control)")
+
+    def test_a_white_space_storage_span_is_red(self):   # M12
+        self._one("CX-9 the copy sat on shelf one.", "CX-9 the copy sat on%sshelf one." % self.S, False,
+                  "a storage marker standing for a single space")
+
+    def test_whole_line_marker_for_an_unredacted_bold_line_is_red(self):
+        base = ("CX-1 first entry.\n**%s**\n**The claim stands: proved.**\nCX-2 end.\n" % self.S)
+        work = ("CX-1 first entry.\n**%s**\nCX-2 end.\n" % self.S)
+        self._run(base, work, False, "a bold line deleted next to a committed whole-line marker")
 
 
 class TestQ903HashedRetractedNeedle(unittest.TestCase):

@@ -3782,6 +3782,7 @@ INL-1dbfba98	-	C3	corrections	inline	viz/viz_tr5_orbit_collapse.md	88	theory is 
 INL-34469d7c	-	C3	corrections	inline	viz/viz_tr6_parity_alternations.md	76	is claimed novel. Developed with AI assistance (Claude, Anthropic); corrections invited.*
 INL-59b1cb3	-	C3	corrected	inline	viz/viz_tr7_circular_cycle.md	63	picture, and no renderer existed; the documents were corrected to say so. CX-191.
 INL-13a1de3a	-	C3	corrections	inline	viz/viz_tr7_circular_cycle.md	75	Developed with AI assistance (Claude, Anthropic); corrections invited.*
+GIT-12e9c47b	2026-11-14	C3	corrections	git	ac4092ef	-	Q-1140 B1: GATE 10 accepts positional cloud and cost-detail markers; the inventory redacts commit subjects
 GIT-2d17cf9b	2026-11-15	C1	withdrawn	git	c6e36d5e	-	Combined documentation batch: seven doc lanes in one commit (CX-37C-V, -Z, -W, -N, -Y, -U, -R)
 GIT-e180397	2026-11-14	C3	corrections	git	bf17a553	-	Q-1128: the n=31 atlas's 2-adic divisibility, proved, with its tables and reproducers (CX-37C-M)
 GIT-386c913c	2026-11-14	C3	correction	git	9d8d7329	-	Q-1007: the observable roster is built and the ledger total is derived from it, 1,452 (CX-37C-K)
@@ -4500,7 +4501,7 @@ GIT-68e06ea	2026-06-11	C2	scope note	git	77353be7	-	docs: 560T cascade pt2 — S
 GIT-18add16f	2026-06-11	C3	corrected	git	3a45e555	-	docs: 560T --analyze findings cascade (greedy min 4, §[8]=0, top MI 12↔13)
 GIT-8a49720	2026-06-10	C3	correction	git	74823440	-	HISTORY.md + CAMPAIGN_METHODOLOGY: 2026-06-10/11 --analyze rewrites + sizing correction
 GIT-204d80b7	2026-06-11	C4	caveat	git	493e43a9	-	CAMPAIGN_METHODOLOGY §7 rule 8: caveat — §[10] DOES read solutions.bin
-GIT-a2d100d	2026-06-10	C3	correction	git	8912d474	-	CAMPAIGN_METHODOLOGY §7 rule 8: D64 → D32 for analyze (empirical correction)
+GIT-a2d100d	2026-06-10	C3	correction	git	8912d474	-	CAMPAIGN_METHODOLOGY §7 rule 8: [cloud detail redacted] → [cloud detail redacted] for analyze (empirical correction)
 GIT-462e24c	2026-06-09	C3	correction	git	fd6fe9a1	-	CAMPAIGN_METHODOLOGY: §7 close-out lessons learned (560T → 1120T prep)
 GIT-3b715e04	2026-06-08	C3	superseded	git	74e41405	-	CANONICAL_HASHES.md: mark older canonicals "Superseded as deepest" by 560T
 GIT-24a45f3c	2026-06-08	C3	supersedes	git	cae583d2	-	docs: 560T closeout batch 2 — 100T→560T scoping caveats in 5 public docs
@@ -4559,7 +4560,7 @@ GIT-1f17238a	2026-04-21	C3	correction	git	ad4cddc1	-	Integrate P2 distributional
 GIT-357b2c75	2026-04-20	C2	propagates	git	50b654f2	-	align all in-repo markdowns with 100T d3 findings + boundary-minimum revision
 GIT-2537e3cf	2026-04-20	C3	superseded	git	767d6bcf	-	100T d3 analyze findings: 5-boundary minimum + edit-distance profile + Day 10 narrative
 GIT-3b1b274e	2026-04-19	C3	corrected	git	82044532	-	CLAUDE.md + DEPLOYMENT.md: codify spot-verification gate + revert "merges on spot"
-GIT-1293f6c5	2026-04-20	C3	corrections	git	98886eef	-	HISTORY.md: add honest retrospective on the spot-vs-on-demand mistake
+GIT-1293f6c5	2026-04-20	C3	corrections	git	98886eef	-	HISTORY.md: add honest retrospective on the spot-vs-[cost detail redacted] mistake
 GIT-19bd01c4	2026-04-19	C3	superseded	git	4740a67c	-	MCKENNA.md + GUIDE.md: reframe C2 given 3-of-4 ancient orderings satisfy it
 GIT-20e3a91e	2026-04-19	C3	correction	git	66adcf06	-	fix C1 multiplier math: 23.5× (C2) and 2,264× (C3) — minor correction
 GIT-227126ff	2026-04-19	C4	caveat	git	f49e2b83	-	KW adjacency decomposition + --null-gray-random + 100T README pre-stage
