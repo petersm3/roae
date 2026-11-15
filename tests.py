@@ -56466,6 +56466,59 @@ class TestBatchFV2H(unittest.TestCase):
             self.fail("git show %s:%s failed, so the red arm measured nothing: %s" % (self.BASE, rel, r.stderr[-300:]))
         return r.stdout
 
+    # Q-1140 (cloud sweep B1 follow-up C3, 2026-11-15; Fable FABLE_FV2H_B1=GO_WITH_FIXES). CORRECTIONS.md was
+    # strict-prefix here, but GATE 10 sanctions in-place markers (CX-230 `[cost redacted]`, CX-242 and Q-1140
+    # positional spans), and the cloud sweep puts them on lines BASE carries. So BASE is first passed through GATE
+    # 10's own aligner (`_g10_money_align` is not copied: the function is read from the gate file and run), which
+    # swaps a BASE line for the working line only when the two differ by sanctioned markers alone; what results
+    # must still be a prefix of the file. Any other change fails. Proposed by the B2a lane (b2a_work/fv2h_proposed.patch).
+    # So FV2H accepts exactly what GATE 10 accepts, the unchecked `[storage detail redacted]` span included (Fable
+    # FABLE_FV2H_B1=GO_WITH_FIXES, 2026-11-15, amending the 2026-11-07 ruling to "a strict prefix after GATE 10's
+    # alignment").
+    # The marked line is found by a machine-size SHAPE (letter, core count, letters, _v, digit), so this source
+    # names no real size (Fable review 2026-11-15, FV2H fix 3).
+    SIZE_SHAPE = re.compile(r"\b[DEFL][0-9]+[a-z]+_v[0-9]+\b")
+
+    @classmethod
+    def _g10_aligned(cls, base, tree):
+        with open(os.path.join(cls.ROOT, "scripts/doc_gates.d/40_generated_appendonly_ledger_regdupes.sh"), encoding="utf-8") as fh:
+            src = fh.read()
+        m = re.search(r"^_g10_money_align\(\) \{\n.*?^\}\n", src, re.M | re.S)
+        if m is None: raise AssertionError("precondition: GATE 10's aligner is in the gate file")
+        with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as t:
+            t.write(tree)
+        try:
+            r = subprocess.run(["bash", "-c", m.group(0) + '_g10_money_align "$1"', "_", t.name],
+                               input=base, capture_output=True, text=True, encoding="utf-8")
+        finally:
+            os.unlink(t.name)
+        if r.returncode != 0: raise AssertionError("GATE 10's aligner failed: " + r.stderr[-300:])
+        return r.stdout
+
+    def _corrections_append_only(self, tree=None):
+        base = self._base("documentation/CORRECTIONS.md")
+        tree = self._read("documentation/CORRECTIONS.md") if tree is None else tree
+        return tree.startswith(base) or tree.startswith(self._g10_aligned(base, tree))
+
+    def test_fv2h_corrections_prefix_allows_only_gate_markers(self):
+        base = self._base("documentation/CORRECTIONS.md")
+        tree = "\n## appended\n"   # the marked file is built from BASE alone, so this holds before and after the sweep
+        lines = base.split("\n")
+        i = next(k for k, x in enumerate(lines) if self.SIZE_SHAPE.search(x) and lines.count(x) == 1)
+        mk = "[cloud detail redacted]"
+        red = lines[:]; red[i] = self.SIZE_SHAPE.sub(mk, lines[i], count=1)
+        marked = "\n".join(red) + tree
+        self.assertFalse(marked.startswith(base), "precondition: the strict-prefix check alone fails on a marked BASE line")
+        self.assertTrue(self._corrections_append_only(marked), "a GATE 10 cloud marker over a size passes")
+        j = marked.index(mk) + len(mk)
+        self.assertFalse(self._corrections_append_only(marked[:j] + "X" + marked[j:]),
+                         "one character added beside a marker must fail")
+        k = next(k for k, x in enumerate(lines) if " not " in x and lines.count(x) == 1 and k != i)
+        bad = lines[:]; bad[k] = lines[k].replace(" not ", " %s " % mk, 1)
+        self.assertFalse(self._corrections_append_only("\n".join(bad) + tree),
+                         "a cloud marker over a negation must fail")
+        self.assertTrue(self._corrections_append_only(), "the tree itself still passes")
+
     # HISTORY.md's convention is annotate-never-rewrite (its :9103; 20 inline precedents before BASE). Append-only
     # therefore means: strip every dated inline withdrawal marker span that BASE does not already contain, and what
     # remains must start with BASE byte-for-byte. Rewording, deleting or reordering base text fails; so does editing
@@ -56473,9 +56526,32 @@ class TestBatchFV2H(unittest.TestCase):
     # (roae-private reviews/review_2026_09_27/FABLE_Q1037B_HISTORY_RULE.md, option C). CORRECTIONS.md stays strict-prefix.
     HISTORY_MARKER = re.compile(r" ⚠ \*\*\[WITHDRAWN \d{4}-\d{2}-\d{2} — [^\]\n]*\]\*\*")
 
+    # Q-1140 (cloud sweep B1 follow-up C3, 2026-11-15; Fable FABLE_FV2H_B1=GO_WITH_FIXES; needs B1-FU's aligner): HISTORY.md gets the
+    # same GATE 10 markers as CORRECTIONS.md (sweeps B2b/B2c). After the withdrawal markers are stripped, BASE is
+    # passed through GATE 10's aligner against the stripped tree, so a BASE line may differ from its tree line by
+    # sanctioned positional markers only; everything else is unchanged.
     @classmethod
     def _history_append_only(cls, cur, base):
-        return cls.HISTORY_MARKER.sub(lambda m: "" if m.group(0) not in base else m.group(0), cur).startswith(base)
+        cur = cls.HISTORY_MARKER.sub(lambda m: "" if m.group(0) not in base else m.group(0), cur)
+        return cur.startswith(base) or cur.startswith(cls._g10_aligned(base, cur))
+
+    def test_fv2h_history_prefix_allows_only_gate_markers(self):
+        base = self._base("documentation/HISTORY.md")
+        tree = self._read("documentation/HISTORY.md")
+        lines = base.split("\n")
+        i = next(k for k, x in enumerate(lines) if self.SIZE_SHAPE.search(x) and lines.count(x) == 1)
+        mk = "[cloud detail redacted]"
+        red = lines[:]; red[i] = self.SIZE_SHAPE.sub(mk, lines[i], count=1)
+        marked = "\n".join(red) + "\n## appended\n"
+        self.assertFalse(marked.startswith(base), "precondition: the strict-prefix check alone fails on a marked BASE line")
+        self.assertTrue(self._history_append_only(marked, base), "a GATE 10 cloud marker over a size passes")
+        j = marked.index(mk) + len(mk)
+        self.assertFalse(self._history_append_only(marked[:j] + "X" + marked[j:], base),
+                         "one character added beside a marker must fail")
+        k = next(k for k, x in enumerate(lines) if " not " in x and lines.count(x) == 1 and k != i)
+        bad = lines[:]; bad[k] = lines[k].replace(" not ", " %s " % mk, 1)
+        self.assertFalse(self._history_append_only("\n".join(bad), base), "a cloud marker over a negation must fail")
+        self.assertTrue(self._history_append_only(tree, base), "the tree itself still passes")
 
     def test_fv2h_history_append_only_rule(self):
         """Marker-stripping prefix rule: a marker-only insertion passes; any edit of base text fails."""
@@ -56644,8 +56720,7 @@ class TestBatchFV2H(unittest.TestCase):
         self.assertEqual(100 * 10 ** 12 // 158364, 631456644)
         lo, hi = (math.log(int(g.replace(",", ""))) / math.log(1e12 / 631456644) for g in m.groups())
         self.assertEqual(("%.2f" % lo, "%.2f" % hi), ("1.19", "1.33"))
-        self.assertTrue(self._read("documentation/CORRECTIONS.md").startswith(self._base("documentation/CORRECTIONS.md")),
-                        "CORRECTIONS.md is append-only")
+        self.assertTrue(self._corrections_append_only(), "CORRECTIONS.md is append-only (GATE 10's markers aside)")
         self.assertTrue(self._history_append_only(h, self._base("documentation/HISTORY.md")), "HISTORY.md is append-only")
 
         def chk(x):
