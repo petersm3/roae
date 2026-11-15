@@ -12662,3 +12662,15 @@ entry describes the review itself, which had none.)*
   "re-checked by a second Fable lane of this project, the six-pair V1 extension by a third".
 - The status line "independently re-derived; not formalised in Lean" is not changed. No count, figure, digest or
   canonical sha changed. `TestBatchQ1140R` holds the wording and fails on the parent tree.
+
+## 2026-11-15 — cloud sweep D5: the ops scripts' cloud defaults become required arguments
+
+- **spot_health_precheck.sh, perf_bench.sh, spot_pre_launch_check.sh (CX-37F-A).** Operator decision D5. The three
+  scripts defaulted to the project's own region, VM sizes, disk SKU, resource group and network names. Each such
+  input is now a required command-line argument with no default. A run missing one fails before any `az` call: the
+  precheck prints `SPOT_PRECHECK=ERROR` (rc 4) and perf_bench exits 2. The pre-launch check's capacity note now
+  fires only for a pair named with `--constrained`. With the old values passed, each script makes the same `az`
+  calls in the same order as before (stubbed `az`). perf_bench keeps its 699 lines, so its line cites still land.
+- DEVELOPMENT.md and PERFORMANCE_HISTORY.md describe the new inputs. `TestD5OpsScriptsRequiredInputs` fails on the
+  parent's scripts. No count, certificate, verdict or canonical sha changed. The held default traces to Codex's
+  (gpt-6-astra) findings, via CX-36B-C.

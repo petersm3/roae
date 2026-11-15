@@ -83,7 +83,7 @@ script at this commit, that overstates it on three counts, and the JSON it emits
 - **The VM size is per scale, not fixed.** 1B runs on an 8-core VM; 1T and 11.2T run on
   a 128-core VM (`scripts/perf_bench.sh:126-128`). Per-scale VM-size selection is fine — but it means a bench
   is comparable only to another bench at the same scale, and no entry below should be read as pairing numbers
-  across scales.
+  across scales. *(2026-11-15, operator decision D5: the script no longer picks the size. `--vm-size`, `--location` and `--disk-sku` are required arguments with no default, and `:126-128` now set only the node limit and OS-disk size for each scale; the two sizes above were its defaults until then. A bench is comparable only to another at the same scale and the same `--vm-size`. [CORRECTIONS.md](CORRECTIONS.md) CX-37F-A.)*
 - **The page-cache flush is now verified, and was not before 2026-09-02.** *(Fixed 2026-09-02, code lane.)*
   The flush used to end `|| true` with the JSON emitting `"page_cache_flushed": true` as an unconditional
   literal — a bench that never flushed shipped certified-looking JSON. The script now reports what it

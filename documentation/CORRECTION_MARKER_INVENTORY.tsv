@@ -201,6 +201,7 @@ documentation/DESCRIPTION_LENGTH.md	105	ledger-link	CORRECTION	n/a	-	not-a-marke
 documentation/DESCRIPTION_LENGTH.md	165	ledger-link	CORRECTION	n/a	-	not-a-marker	fce14c1a1ef1
 documentation/DESCRIPTION_LENGTH.md	264	ledger-link	CORRECTION	n/a	-	not-a-marker	f272fca47fba
 documentation/DEVELOPMENT.md	62	narration	now reads	1	-	reviewed:narration-inside-a-retired-warning-note;text-reads-correctly	1b52abae68a7
+documentation/DEVELOPMENT.md	178	ledger-link	CORRECTION	n/a	-	not-a-marker	7ff63e123482
 documentation/DEVELOPMENT.md	735	narration	now reads	1	-	reviewed:ordinary-present-tense-prose;not-a-correction-note	cdb2a142c870
 documentation/DEVELOPMENT.md	755	narration	now reads	2	-	reviewed:the-dated-note-is-what-says-the-rest-of-the-row-predates-the-Q-317-change	bb11bb8bf16c
 documentation/DEVELOPMENT.md	1043	marker	CORRECTED	1	-	reviewed:text-already-says-size-equals-stored-size	8c79421519c1
@@ -351,6 +352,7 @@ documentation/PASS1_TRAJECTORY_DETERMINISM.md	67	marker	CORRECTED	1	-	reviewed:s
 documentation/PASS1_TRAJECTORY_DETERMINISM.md	81	marker	CORRECTED	1	-	reviewed:item-already-says-not-a-basis-for-projection	8f7805de5217
 documentation/PASS1_TRAJECTORY_DETERMINISM.md	103	marker	CORRECTED	1	-	reviewed:paragraph-above-already-gives-the-manual-procedure	e9766e71f678
 documentation/PERFORMANCE_HISTORY.md	21	marker	Corrected	1	-	reviewed:sentence-already-limits-the-public-leg-to-entries-with-commits-and-parameters	fe06af327db9
+documentation/PERFORMANCE_HISTORY.md	86	ledger-link	CORRECTION	n/a	-	not-a-marker	68cb213c7c42
 documentation/PERFORMANCE_HISTORY.md	121	marker	Corrected	1	-	reviewed:sentence-already-excepts-raw-files	8e46fc4202a5
 documentation/PERFORMANCE_HISTORY.md	230	marker	CORRECTED	2	-	reviewed:bullet-above-still-lists-King-Wen-beside-the-gated-checks	7b2509beaa95
 documentation/PERFORMANCE_HISTORY.md	243	marker	Corrected	1	-	reviewed:sentence-already-says-every-11.2T-cell-is-budgeted	0b471e468373

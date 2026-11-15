@@ -4,8 +4,8 @@
 # Produces an entry suitable for `documentation/PERFORMANCE_HISTORY.md`.
 #
 # Methodology fixed by this script (do not vary without documenting why):
-#   - Single D128als_v7 Spot in westus3 (consistent SKU pool; see
-#     feedback_preflight_throttle_probe for the same-SKU 2× variance pattern).
+#   - Single Spot VM of --vm-size in --location, both named by the caller (keep both fixed across the benches you
+#     compare; see feedback_preflight_throttle_probe for the same-SKU 2× variance pattern).
 #   - Two builds compared head-to-head on the same VM (Build N = control,
 #     Build U = treatment); a single VM removes inter-machine variance.
 #   - PREFLIGHT THROTTLE PROBE (added 2026-09-02; mandatory per the 2026-05-18
@@ -14,11 +14,11 @@
 #     signal is a pure-CPU burn BEFORE the bench): `yes > /dev/null` on every
 #     core for --burn-seconds (default 60, floor 30), then per-core MHz is
 #     sampled at the end of the burn. The minimum must be >= --throttle-min-mhz
-#     (default 3664, the AVX-512 definitive-bench precedent for D128als_v7).
+#     (default 3664, the AVX-512 definitive-bench precedent for the 128-core bench VM).
 #     Reported as HEALTHY / THROTTLED / UNVERIFIED on its own token line; a
 #     THROTTLED or UNVERIFIED host is torn down BEFORE any bench runs (exit 5),
 #     because a bench without throttle evidence cannot enter the record either
-#     way and would only spend the VM.
+#     way and would only waste the run.
 #   - Page-cache flushed (`echo 3 > /proc/sys/vm/drop_caches`) between paired
 #     runs, and the flush is VERIFIED, not assumed: each run reports
 #     CONFIRMED / FAILED / UNVERIFIED and the script refuses to certify a
@@ -44,14 +44,14 @@
 #   - Output: JSON line to stdout that drops into a PERFORMANCE_HISTORY.md entry.
 #
 # Usage:
-#   perf_bench.sh --control-commit <sha> --treatment-commit <sha> [--treatment-pgo]
-#                 [--scale 1B|1T|11.2T] [--branch <p> <o>] [--threads N]
-#                 [--pgo-workload "<cmd>"] [--keep-vm]
-#                 [--throttle-min-mhz N] [--burn-seconds N]
+#   perf_bench.sh --control-commit <sha> --treatment-commit <sha> --location <region>
+#                 --vm-size <vm-size> --disk-sku <disk-sku> [--treatment-pgo] [--scale 1B|1T|11.2T]
+#                 [--branch <p> <o>] [--threads N] [--pgo-workload "<cmd>"] [--keep-vm]
+#                 [--throttle-min-mhz N] [--burn-seconds N]   (D5: the first five have no default)
 #
 # Exit codes:
 #   0  bench completed AND methodology confirmed (emits PERF_BENCH_METHODOLOGY=OK)
-#   2  bad arguments
+#   2  bad or missing arguments (--location, --vm-size and --disk-sku have no default: D5)
 #   1  VM never reachable
 #   3  bench ran but the page-cache flush was NOT confirmed for both builds —
 #      the JSON is emitted with "methodology_valid": false and must NOT be
@@ -65,7 +65,7 @@
 #
 # Gate on it with:  perf_bench.sh ... | grep -qx PERF_BENCH_METHODOLOGY=OK
 #
-# Wall (D128als_v7 Spot):
+# Wall (a 128-core Spot VM):
 #   - 1B scale: ≤10 min wall
 #   - 1T scale: ~3h wall (2 enum + 1 merge)
 #   - 11.2T scale: ~12h wall
@@ -82,7 +82,7 @@ exec > >(trap '' INT TERM HUP; exec tee /tmp/perf_bench_$$.log) 2>&1 3>&1 # Q-10
 CONTROL_COMMIT=""
 TREATMENT_COMMIT=""
 TREATMENT_PGO=0
-SCALE=1T
+SCALE=1T; LOC=""; VM_SIZE=""; DISK_SKU=""   # D5 (2026-11-15): region, VM size and OS-disk SKU are required arguments
 BRANCH_PAIR=24
 BRANCH_ORIENT=0
 THREADS=128
@@ -94,7 +94,7 @@ THREADS=128
 # Measured on the worker with the override: rc 0 in ~16 s (uninstrumented, 8 threads).
 PGO_WORKLOAD='SOLVE_ALLOW_SUB_CANONICAL=1 SOLVE_NODE_LIMIT=200000000 SOLVE_DEPTH=3 SOLVE_DFS_ITERATIVE=1 SOLVE_THREADS=8 "$INSTR_BIN" --branch 25 1'
 KEEP_VM=0
-THROTTLE_MIN_MHZ=3664   # AVX-512 definitive-bench precedent (PERFORMANCE_HISTORY.md, D128als_v7)
+THROTTLE_MIN_MHZ=3664   # AVX-512 definitive-bench precedent (PERFORMANCE_HISTORY.md, the 128-core bench VM)
 BURN_SECS=60            # sample is taken at the END of the burn; the 2026-05-18 finding needs >=30 s
 BURN_FLOOR=30
 
@@ -110,6 +110,7 @@ while [ $# -gt 0 ]; do
         --keep-vm) KEEP_VM=1; shift ;;
         --throttle-min-mhz) THROTTLE_MIN_MHZ="$2"; shift 2 ;;
         --burn-seconds) BURN_SECS="$2"; shift 2 ;;
+        --location) LOC="$2"; shift 2 ;;  --vm-size) VM_SIZE="$2"; shift 2 ;;  --disk-sku) DISK_SKU="$2"; shift 2 ;;
         *) echo "Unknown arg: $1"; exit 2 ;;
     esac
 done
@@ -118,14 +119,13 @@ done
 [ -z "$TREATMENT_COMMIT" ] && { echo "Required: --treatment-commit <sha>"; exit 2; }
 case "$THROTTLE_MIN_MHZ" in ''|*[!0-9]*) echo "--throttle-min-mhz must be an integer MHz"; exit 2 ;; esac
 case "$BURN_SECS" in ''|*[!0-9]*) echo "--burn-seconds must be an integer"; exit 2 ;; esac
-# A burn shorter than the floor is accepted so a harness can exercise the path, but the probe it
-# yields is UNVERIFIED by construction (below), never HEALTHY: there is no flag that turns the
-# throttle evidence off.
+# A burn shorter than the floor is accepted so a harness can exercise the path, but the probe it yields is
+# UNVERIFIED by construction (below), never HEALTHY: there is no flag that turns the throttle evidence off.
 
 case "$SCALE" in
-    1B)    NODE_LIMIT=1000000000      ; VM_SIZE=Standard_D8als_v7  ; DISK_GB=32  ;;
-    1T)    NODE_LIMIT=1000000000000   ; VM_SIZE=Standard_D128als_v7; DISK_GB=128 ;;
-    11.2T) NODE_LIMIT=11200000000000  ; VM_SIZE=Standard_D128als_v7; DISK_GB=256 ;;
+    1B)    NODE_LIMIT=1000000000      ; DISK_GB=32  ;;   # VM_SIZE is --vm-size (D5: was a per-scale default)
+    1T)    NODE_LIMIT=1000000000000   ; DISK_GB=128 ;;   # VM_SIZE is --vm-size
+    11.2T) NODE_LIMIT=11200000000000  ; DISK_GB=256 ;;   # VM_SIZE is --vm-size
     *) echo "Unknown scale: $SCALE (use 1B / 1T / 11.2T)"; exit 2 ;;
 esac
 
@@ -149,7 +149,7 @@ case "$PGO_WORKLOAD" in *./solve_inst*)
 LAUNCH_ID=$(date -u +%H%M)   # Q-856: the minute alone named the RG and VM below, so two benches in one minute shared an RG and one's `az group delete` took the other's VM
 RUN_RAND=$(od -An -N4 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n'); [ "${#RUN_RAND}" -eq 8 ] || { echo "FATAL: could not read 4 random bytes for a unique RG/VM name"; exit 1; }
 RUN_TAG="$(date -u +%Y%m%d)-${LAUNCH_ID}-$$-${RUN_RAND}"; RG="RG-PERFBENCH-${RUN_TAG}"; VM="perfbench-${RUN_TAG}"   # date, minute, PID, 32 random bits: <= 40 chars (Azure caps a Linux VM name at 64, an RG at 90); each teardown deletes only its own RG
-LOC=westus3
+_miss=""; for _a in "--location:$LOC" "--vm-size:$VM_SIZE" "--disk-sku:$DISK_SKU"; do [ -n "${_a#*:}" ] || _miss="$_miss ${_a%%:*}"; done; [ -z "$_miss" ] || { echo "Required (no default, D5):$_miss"; exit 2; }   # before anything is provisioned
 ADMIN=azureuser
 REPO=$(git -C "$(dirname "$0")/.." rev-parse --show-toplevel)
 
@@ -196,7 +196,7 @@ az vm create -g "$RG" -n "$VM" --image Ubuntu2404 --size "$VM_SIZE" \
     --priority Spot --eviction-policy Deallocate --max-price -1 \
     --admin-username "$ADMIN" --ssh-key-values "$HOME/.ssh/id_rsa.pub" \
     --vnet-name vnet --subnet subnet --public-ip-sku Standard --nsg-rule SSH \
-    --os-disk-size-gb "$DISK_GB" --storage-sku StandardSSD_LRS \
+    --os-disk-size-gb "$DISK_GB" --storage-sku "$DISK_SKU" \
     --query priority -o tsv 2>&1 | sed 's/^/  /'
 
 echo "$(date -u +%FT%TZ) $VM $RG perf-bench-${SCALE}" >> "${PB_SESSION_LOG:-/tmp/claude_session_vms.txt}"   # PB_SESSION_LOG: tests only (G5a)

@@ -3,13 +3,13 @@
 #
 # Answers: "is it currently safe to launch a Spot VM of <sku> in
 # <region>?" via three escalating signals:
-#   1. Azure-published SKU restrictions (cheap; az vm list-skus)
-#   2. Regional Spot vCPU quota headroom (cheap; az vm list-usage --
+#   1. Azure-published SKU restrictions (quick; az vm list-skus)
+#   2. Regional Spot vCPU quota headroom (quick; az vm list-usage --
 #      `lowPriorityCores`, the bucket a Spot launch actually draws on,
-#      NOT the per-family on-demand row)
-#   3. Empirical probe — launch a small D2als_v7 Spot, see if it
-#      provisions within 90s and doesn't immediately evict (definitive,
-#      and cheap per probe)
+#      NOT the per-family row for regular (non-interruptible) capacity)
+#   3. Empirical probe — launch a small Spot VM of --probe-sku, see if it
+#      provisions within 90s and doesn't immediately evict (definitive;
+#      the probe is small and short-lived)
 #
 # Exit codes:
 #   0 = OK to launch
@@ -18,7 +18,7 @@
 #   3 = HARD-FAIL (region restricted, quota exhausted, or probe error
 #       suggesting persistent issue — operator escalation needed)
 #   4 = ERROR — THIS CHECK COULD NOT RUN. Not a verdict about capacity:
-#       a malformed argument, or an `az` call that failed or returned
+#       a missing or malformed argument, or an `az` call that failed or returned
 #       something unparseable, or (Q-860) no random probe-name suffix
 #       could be read from /dev/urandom. Treat it exactly as a HARD-FAIL for the
 #       purposes of launching (do not launch), but escalate it as a
@@ -42,21 +42,68 @@
 # not a verdict.
 #
 # Usage:
-#   spot_health_precheck.sh [region] [target_sku] [need_vcpu]
+#   spot_health_precheck.sh <region> <target_sku> <need_vcpu> \
+#       --resource-group <rg> --probe-sku <size> --vnet <vnet> --nsg <nsg>
+#
+# Every argument is REQUIRED and none has a default (2026-11-15, operator decision D5, so no
+# region, VM size, resource group or network name is built into this public script). A
+# missing or empty one prints `missing required argument(s): <names>` and the usage line on
+# stderr, then SPOT_PRECHECK=ERROR (rc 4), before anything is read or provisioned. Options
+# may come before or after the three positional arguments. The `RG` environment variable an
+# earlier version read is no longer consulted (its default was the project's resource group,
+# held for this decision by CX-36B-C from Codex (gpt-6-astra) findings F10-001#3, F10-002#4, F10-003#3).
 #
 # Args:
-#   region      e.g. westus3 (default)
-#   target_sku  e.g. Standard_D128als_v7 (default)
-#   need_vcpu   vCPUs the target campaign needs (default: 128)
+#   region            the region to check, e.g. <region>
+#   target_sku        the VM size the campaign will launch, e.g. <vm-size>
+#   need_vcpu         vCPUs the target campaign needs (a plain integer)
+#   --resource-group  the resource group the probe VM is created in and deleted from
+#   --probe-sku       the small VM size the signal-3 probe launches
+#   --vnet            an existing vnet in <region> for the probe (subnet `default`)
+#   --nsg             an existing network security group in <region> for the probe
 #
 # Stdout: one line per signal checked + final OK/WAIT/HARD-FAIL verdict.
 # Stderr: errors and probe output.
 
 set -uo pipefail
 
-REGION="${1:-westus3}"
-TARGET_SKU="${2:-Standard_D128als_v7}"
-NEED_VCPU="${3:-128}"
+# D5: every input is an argument with no default. Argument problems are ERROR (rc 4), the code
+# for "this check could not run", printed before any `az` call or /dev/urandom read.
+usage() {
+    echo "usage: spot_health_precheck.sh <region> <target_sku> <need_vcpu> --resource-group <rg> --probe-sku <size> --vnet <vnet> --nsg <nsg>" >&2
+}
+arg_error() {
+    echo "$*" >&2
+    usage
+    echo "SPOT_PRECHECK=ERROR"
+    exit 4
+}
+POS=(); RG=""; PROBE_SKU=""; PROBE_VNET=""; PROBE_NSG=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --resource-group|--probe-sku|--vnet|--nsg)
+            [ $# -ge 2 ] || arg_error "missing value for $1"
+            case "$1" in
+                --resource-group) RG="$2" ;;
+                --probe-sku)      PROBE_SKU="$2" ;;
+                --vnet)           PROBE_VNET="$2" ;;
+                --nsg)            PROBE_NSG="$2" ;;
+            esac
+            shift 2 ;;
+        -*) arg_error "unknown option: $1" ;;
+        *) POS+=("$1"); shift ;;
+    esac
+done
+[ "${#POS[@]}" -le 3 ] || arg_error "too many positional arguments (${#POS[@]}); expected <region> <target_sku> <need_vcpu>"
+REGION="${POS[0]-}"
+TARGET_SKU="${POS[1]-}"
+NEED_VCPU="${POS[2]-}"
+_missing=""
+for _req in "region:$REGION" "target_sku:$TARGET_SKU" "need_vcpu:$NEED_VCPU" "--resource-group:$RG" \
+            "--probe-sku:$PROBE_SKU" "--vnet:$PROBE_VNET" "--nsg:$PROBE_NSG"; do
+    [ -n "${_req#*:}" ] || _missing="$_missing ${_req%%:*}"
+done
+[ -z "$_missing" ] || arg_error "missing required argument(s):$_missing (none has a default)"
 
 # Codex v2 / fail-open class: `[ "$FREE" -lt "$NEED_VCPU" ]` ERRORS when NEED_VCPU is
 # not an integer ("integer expression expected"), and bash treats a failed test as
@@ -78,7 +125,6 @@ if [ "${#NEED_VCPU}" -gt 6 ]; then
     exit 4
 fi
 
-PROBE_SKU="Standard_D2als_v7"
 # Q-860: the probe's name is the ONLY thing cleanup_probe() keys its `az vm delete` on, and RG
 # is shared. It was `spot-health-probe-$$`: PIDs collide across hosts (and recycle on one), so
 # two concurrent prechecks could create the same name and one run's delete could remove the
@@ -96,7 +142,6 @@ case "$PROBE_RAND" in
 esac
 PROBE_NAME="spot-health-probe-$$-${PROBE_RAND}"
 PROBE_TIMEOUT_SEC=90
-RG="${RG:-RG-CLAUDE}"
 
 log() { echo "[$(date -u +%FT%TZ)] $*"; }
 
@@ -118,7 +163,7 @@ log "Signal 1: Azure-published restrictions for $TARGET_SKU in $REGION"
 # ERROR on an unreadable quota; signal 1 was left reading a DEAD `az` as good news. With a
 # stub `az` that fails every call (the "not logged in" case, one `az account clear` away
 # on any host), this printed "signal-1 OK: no published restrictions for
-# Standard_D128als_v7" -- a positive attestation about Azure produced without reaching
+# <target_sku>" -- a positive attestation about Azure produced without reaching
 # Azure. Today signal 2 catches the same broken `az` a few lines later, so the script still
 # exits non-zero; that is luck, not design, and the OK line is false either way.
 #
@@ -184,14 +229,14 @@ print("REGION" if hit else "ELSEWHERE")
 esac
 
 # ===== Signal 2: regional Spot (low-priority) vCPU quota headroom =====
-# 🔴 THIS USED TO READ THE WRONG BUCKET. It queried `[?contains(name.value,'Dalsv7')]`,
-# which selects `StandardDalsv7Family` -- the ON-DEMAND bucket. A Spot VM does not consume
+# 🔴 THIS USED TO READ THE WRONG BUCKET. It queried the VM family's own usage row, the
+# bucket for REGULAR (non-interruptible) capacity. A Spot VM does not consume
 # family quota and a Regular VM does not consume Spot quota; DEPLOYMENT.md §quota states
 # they are two separate buckets. Everything this script does is about a `--priority Spot`
 # launch, so the family row is the wrong question and answering it produced false WAITs.
-# Measured read-only 2026-09-19: westus2 `StandardDalsv7Family` 4/10 -> FREE=6 -> WAIT at
-# the default NEED_VCPU=128, while `lowPriorityCores` was 0/128, i.e. the full 128 Spot
-# cores were free at that moment. (westus3 the same day: family 40/130, Spot 64/128.)
+# Measured read-only 2026-09-19 in one region: the family row 4/10 -> FREE=6 -> WAIT at
+# NEED_VCPU=128, while `lowPriorityCores` was 0/128, i.e. the full 128 Spot
+# cores were free at that moment. (A second region the same day: family 40/130, Spot 64/128.)
 log "Signal 2: regional Spot (low-priority) vCPU quota headroom in $REGION"
 if ! USAGE_JSON=$(az vm list-usage -l "$REGION" --query "[?name.value=='lowPriorityCores']|[0]" -o json 2>/dev/null); then
     verdict ERROR 4 "signal-2 ERROR: \`az vm list-usage\` failed; Spot quota was not measured."
@@ -233,14 +278,14 @@ FREE=$((LIMIT - USED))
 log "  regional Spot pool (lowPriorityCores): $USED / $LIMIT used; $FREE free"
 if [ "$FREE" -lt "$NEED_VCPU" ]; then
     log "  signal-2 WAIT: need $NEED_VCPU Spot vCPU but only $FREE free in the region"
-    log "  (a deallocated Spot VM still counts -- measured 2026-09-19: westus3 read"
-    log "   lowPriorityCores 64/128 while its only Spot VM, a D64als_v7, was deallocated;"
+    log "  (a deallocated Spot VM still counts -- measured 2026-09-19: one region read"
+    log "   lowPriorityCores 64/128 while its only Spot VM, a 64-core one, was deallocated;"
     log "   delete or shrink one to free quota)"
     verdict WAIT 2
 fi
 log "  signal-2 OK: $FREE vCPU free, enough for $NEED_VCPU"
 
-# ===== Signal 3: empirical probe (D2als_v7 Spot, cheap) =====
+# ===== Signal 3: empirical probe (a small --probe-sku Spot VM) =====
 log "Signal 3: empirical probe — provisioning $PROBE_SKU Spot for ${PROBE_TIMEOUT_SEC}s timeout"
 
 # Cleanup on exit
@@ -263,9 +308,9 @@ az vm create \
     --image Ubuntu2404 \
     --admin-username solver \
     --ssh-key-values "$HOME/.ssh/id_rsa.pub" \
-    --vnet-name "claude-vnet-${REGION}" \
+    --vnet-name "$PROBE_VNET" \
     --subnet default \
-    --nsg "claudeNSG-${REGION}" \
+    --nsg "$PROBE_NSG" \
     --public-ip-address "" \
     --os-disk-size-gb 32 \
     --tags purpose=spot_health_probe \

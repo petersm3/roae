@@ -15799,6 +15799,11 @@ class TestQ846SolvePyPairIndexBounds(unittest.TestCase):
 # end class TestQ846SolvePyPairIndexBounds (lane FG)
 
 
+# D5 (2026-11-15, CX-37F-A): perf_bench.sh has no default region, VM size or OS-disk SKU. Every stubbed run names
+# placeholder values; no test depends on what they are.
+PB_CLOUD_ARGS = ["--location", "region-stub", "--vm-size", "vm-size-stub", "--disk-sku", "disk-sku-stub"]
+
+
 class TestQ847PerfBenchFreshWorkdir(unittest.TestCase):
     """Lane FH: Q-847.
 
@@ -15884,7 +15889,7 @@ chmod +x "$out"
     def _bench(cls, *extra):
         argv = ["bash", cls.SCRIPT, "--control-commit", "HEAD", "--treatment-commit", "HEAD",
                 "--treatment-pgo", "--scale", "1B", "--burn-seconds", "30",
-                "--throttle-min-mhz", "0"] + list(extra)
+                "--throttle-min-mhz", "0"] + PB_CLOUD_ARGS + list(extra)
         p = subprocess.Popen(argv, cwd=cls.ROOT, env=cls.env, text=True,
                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         out, _ = p.communicate(timeout=300)
@@ -16829,7 +16834,7 @@ exec cp "$src" "$dst"
     @classmethod
     def _run_bench(cls, extra):
         argv = ["bash", cls.BENCH, "--control-commit", "HEAD", "--treatment-commit", "HEAD",
-                "--scale", "1B", "--burn-seconds", "30", "--throttle-min-mhz", "0"]
+                "--scale", "1B", "--burn-seconds", "30", "--throttle-min-mhz", "0"] + PB_CLOUD_ARGS
         p = subprocess.Popen(argv, cwd=cls.ROOT, env=dict(cls.benv, **extra), text=True,
                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         out, _ = p.communicate(timeout=300)
@@ -17616,7 +17621,7 @@ echo "s VERIFIED"
                    PB_SESSION_LOG=os.path.join(cls.tmp, "session_vms.txt"), PB_FAKE_HOME=os.path.join(cls.tmp, "fakehost"),
                    PB_PROBE_LOG=os.path.join(cls.tmp, "probe.log"))
         argv = ["bash", cls.BENCH, "--control-commit", "HEAD", "--treatment-commit", "HEAD",
-                "--scale", "1B", "--burn-seconds", "30", "--throttle-min-mhz", "0"]
+                "--scale", "1B", "--burn-seconds", "30", "--throttle-min-mhz", "0"] + PB_CLOUD_ARGS
         p = subprocess.Popen(argv, cwd=cls.ROOT, env=env, text=True,
                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         out, _ = p.communicate(timeout=300)
@@ -18407,8 +18412,10 @@ exit 0
         path = self.bin + os.pathsep + os.environ["PATH"]
         if extra_path:
             path = extra_path + os.pathsep + path
-        env = dict(os.environ, PATH=path, GD_AZ_LOG=log, RG="RG-STUB")
-        p = subprocess.Popen(["bash", self.PRECHECK, "westus3", "Standard_D128als_v7", "128"],
+        env = dict(os.environ, PATH=path, GD_AZ_LOG=log)
+        env.pop("RG", None)   # D5: the script no longer reads RG; the group is an argument
+        p = subprocess.Popen(["bash", self.PRECHECK, "region-stub", "vm-size-stub", "128", "--resource-group", "RG-STUB",
+                              "--probe-sku", "probe-size-stub", "--vnet", "vnet-stub", "--nsg", "nsg-stub"],
                              env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate(timeout=120)
         calls = []
@@ -23436,7 +23443,7 @@ exit $rc
                 env.pop(v)
         argv = ["bash", cls.SCRIPT, "--control-commit", "HEAD", "--treatment-commit", "HEAD",
                 "--treatment-pgo", "--scale", "1B", "--burn-seconds", "30", "--throttle-min-mhz", "0",
-                "--pgo-workload", workload]
+                "--pgo-workload", workload] + PB_CLOUD_ARGS
         p = subprocess.Popen(argv, cwd=cls.ROOT, env=env, text=True,
                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         out, _ = p.communicate(timeout=900)
@@ -61162,7 +61169,7 @@ int main(int argc, char **argv) {
         e = self._env(PB_SESSION_LOG=os.path.join(d, "session.txt"))
         e["PATH"] = sd + os.pathsep + e["PATH"]
         p = subprocess.Popen(["bash", self._sp("perf_bench.sh"), "--control-commit", "HEAD", "--treatment-commit", "HEAD",
-                              "--scale", "1B", "--burn-seconds", "30", "--throttle-min-mhz", "0"],
+                              "--scale", "1B", "--burn-seconds", "30", "--throttle-min-mhz", "0"] + PB_CLOUD_ARGS,
                              cwd=self.ROOT, env=e, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                              start_new_session=True, preexec_fn=self._default_signals)
         # Ready marker, not a fixed delay (Q-1112): the vnet stub has exec'd its sleep, i.e. the bench is
@@ -61213,7 +61220,8 @@ int main(int argc, char **argv) {
                 % (shlex.quote(log), shlex.quote(restrictions), shlex.quote(usage), shlex.quote(pow_)))
         sd = self._bin(d, "az", body)
         self._bin(d, "sleep", "#!/bin/sh\nexit 0\n")
-        r = self._bash("bash %s region1 sku1 %s" % (shlex.quote(self._sp("spot_health_precheck.sh")), need),
+        r = self._bash("bash %s region1 sku1 %s --resource-group g1 --probe-sku p1 --vnet v1 --nsg n1"
+                       % (shlex.quote(self._sp("spot_health_precheck.sh")), need),
                        cwd=d, path_prefix=sd, HOME=d)
         return r
 
@@ -65215,7 +65223,7 @@ class TestBatchPerfBench(unittest.TestCase):
             e["BASH_FUNC_az%%"] = '() {  echo "$*" >> %s; command az "$@"\n}' % shlex.quote(fnlog)
         p = subprocess.Popen(["bash", os.path.join(self.ROOT, self.PB), "--control-commit", "HEAD",
                               "--treatment-commit", "HEAD", "--scale", "1B", "--burn-seconds", "30",
-                              "--throttle-min-mhz", "0"], cwd=self.ROOT, env=e, stdout=subprocess.PIPE,
+                              "--throttle-min-mhz", "0"] + PB_CLOUD_ARGS, cwd=self.ROOT, env=e, stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT, text=True, start_new_session=True,
                              preexec_fn=self._default_signals)
         log = "/tmp/perf_bench_%d.log" % p.pid
@@ -65273,8 +65281,8 @@ class TestBatchPerfBench(unittest.TestCase):
         self.assertTrue(at(193).startswith("az network vnet create") and "--subnet-name subnet" in at(194))
         self.assertIn("--public-ip-sku Standard --nsg-rule SSH", at(198))
         self.assertTrue(at(207).startswith('SSH="ssh ') and at(208).startswith('SCP="scp '))
-        for n, scale in ((126, "1B)"), (127, "1T)"), (128, "11.2T)")):
-            self.assertTrue(at(n).lstrip().startswith(scale) and "VM_SIZE=" in at(n), n)
+        for n, scale in ((126, "1B)"), (127, "1T)"), (128, "11.2T)")):   # D5 (CX-37F-A): the size is --vm-size now
+            self.assertTrue(at(n).lstrip().startswith(scale) and "NODE_LIMIT=" in at(n) and "DISK_GB=" in at(n), n)
 
     # ---- Q-1084 ------------------------------------------------------------------------------------------------
     def test_q1084_interrupt_at_an_unredirected_step_tears_down(self):
@@ -68192,6 +68200,217 @@ class TestBatchQ1140R(unittest.TestCase):
                       "project, the six-pair V1 extension by a third\".", h[mine:])
 
 # end class TestBatchQ1140R
+
+
+class TestD5OpsScriptsRequiredInputs(unittest.TestCase):
+    """Operator decision D5 (2026-11-15; cloud sweep plan section 8; CX-37F-A): scripts/spot_health_precheck.sh,
+    scripts/perf_bench.sh and scripts/spot_pre_launch_check.sh defaulted to the project's own resource group,
+    region, VM sizes, disk SKU and network names. Each such input is now a required command-line argument with no
+    default and no environment fallback, and a run missing one fails loudly before any `az` call: the precheck with
+    SPOT_PRECHECK=ERROR (rc 4), perf_bench with exit 2. spot_pre_launch_check.sh needs no cloud input for its
+    time-window check; its capacity-constrained note fires only for a pair named with --constrained, where it used
+    to fire for one built-in pair. Everything runs against PATH stubs (az, ssh, sleep, date): no cloud call, no VM.
+    The residual scan has a planted positive control: each pattern must find the line it is written for.
+    CX-36B-C held the precheck's resource-group default for this decision, from Codex (gpt-6-astra) findings
+    F10-001#3, F10-002#4 and F10-003#3.
+    Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    SCRIPTS = ("scripts/spot_health_precheck.sh", "scripts/perf_bench.sh", "scripts/spot_pre_launch_check.sh")
+    # Built from pieces so this file does not carry the values it scans for.
+    CLOUD_PATTERNS = (
+        r"\b(?:west|east|north|south|central)(?:us|europe|asia)[0-9]?\b",   # region names
+        r"\bStandard_[A-Z][A-Za-z0-9_]*",                                    # VM size names
+        r"\bD[0-9]+[a-z]*_v[0-9]+\b",                                        # short VM size names
+        r"\b(?:Standard|Premium)(?:SSD|HDD)?_[A-Z]+\b",                      # disk SKUs
+        r"(?i)\bRG-" + "CLAUDE\\b",                                          # the resource group
+        r"(?i)\bclaude-?" + "vnet\\b", r"(?i)\bclaude-?" + "nsg\\b",         # the network names
+    )
+    PLANTED = ('RG="${RG:-RG-' + 'CLAUDE}"', 'LOC=west' + 'us3', 'VM_SIZE=Standard_' + 'D128als_v7',
+               'a D' + '64als_v7, was deallocated', '--storage-sku Standard' + 'SSD_LRS',
+               '--vnet-name "claude-' + 'vnet-${REGION}"', '--nsg "claude' + 'NSG-${REGION}"')
+    PRE_OPTS = (("--resource-group", "RG-STUB"), ("--probe-sku", "probe-size-stub"), ("--vnet", "vnet-stub"),
+                ("--nsg", "nsg-stub"))
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="d5ops_")
+        cls.bin = os.path.join(cls.tmp, "bin")
+        os.makedirs(cls.bin)
+        stubs = {
+            "az": "#!/bin/bash\necho \"$*\" >> \"$D5_AZ_LOG\"\ncase \"$*\" in\n"
+                  "  \"vm list-skus\"*) echo '[[]]' ;;\n"
+                  "  \"vm list-usage\"*) echo '{\"currentValue\": \"0\", \"limit\": \"512\"}' ;;\n"
+                  "  \"vm show\"*provisioningState*) echo Succeeded ;;\n"
+                  "  \"vm show\"*powerState*) echo \"VM running\" ;;\nesac\nexit 0\n",
+            "ssh": "#!/bin/sh\nexit 1\n",
+            "sleep": "#!/bin/sh\nexit 0\n",
+            "date": "#!/bin/bash\ncase \"$*\" in *%%u*) echo 6;; *%%H:%%M*) echo 'Sat 02:30 PST';; *%%H*) echo 02;; "
+                    "*) exec %s \"$@\";; esac\n" % shlex.quote(shutil.which("date")),
+        }
+        for name, body in stubs.items():
+            path = os.path.join(cls.bin, name)
+            with open(path, "w") as fh:
+                fh.write(body)
+            os.chmod(path, 0o755)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _run(self, script, args):
+        """Run a script with the PATH stubs; return (rc, stdout, stderr, az_calls)."""
+        log = os.path.join(self.tmp, "az_%d.log" % random.getrandbits(32))
+        env = {k: v for k, v in os.environ.items() if not k.startswith(("GIT_", "BASH_FUNC_")) and k != "RG"}
+        env.update(PATH=self.bin + os.pathsep + os.environ["PATH"], D5_AZ_LOG=log, HOME=self.tmp,
+                   PB_SESSION_LOG=os.path.join(self.tmp, "session.txt"))
+        p = subprocess.Popen(["bash", os.path.join(self.ROOT, script)] + list(args), cwd=self.ROOT, env=env,
+                             text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            out, err = p.communicate(timeout=180)
+        finally:
+            pblog = "/tmp/perf_bench_%d.log" % p.pid
+            if script.endswith("perf_bench.sh") and os.path.exists(pblog):
+                os.remove(pblog)
+        calls = []
+        if os.path.exists(log):
+            with open(log) as fh:
+                calls = fh.read().splitlines()
+        return p.returncode, out, err, calls
+
+    def _pre_args(self, drop=None):
+        pos = [a for name, a in (("region", "region-stub"), ("target_sku", "vm-size-stub"), ("need_vcpu", "128"))
+               if name != drop]
+        opts = [x for o, v in self.PRE_OPTS if o != drop for x in (o, v)]
+        return pos + opts
+
+    # ---- no built-in cloud values -------------------------------------------------------------------------------
+    def test_scan_patterns_find_the_planted_values(self):
+        for line in self.PLANTED:
+            self.assertTrue(any(re.search(p, line) for p in self.CLOUD_PATTERNS), "control: no pattern finds " + line)
+
+    def test_scripts_carry_no_cloud_values(self):
+        for rel in self.SCRIPTS:
+            for n, line in enumerate(self._r(rel).split("\n"), 1):
+                hits = [p for p in self.CLOUD_PATTERNS if re.search(p, line)]
+                self.assertEqual(hits, [], "%s:%d still names a cloud value: %s" % (rel, n, line))
+
+    # ---- spot_health_precheck.sh ---------------------------------------------------------------------------------
+    def test_precheck_all_inputs_reach_az(self):
+        rc, out, err, calls = self._run(self.SCRIPTS[0], self._pre_args())
+        self.assertEqual(rc, 0, "control: the stubbed run clears: " + out[-800:] + err[-800:])
+        self.assertEqual(out.splitlines()[-1], "SPOT_PRECHECK=OK")
+        self.assertTrue(any(c.startswith("vm list-skus -l region-stub ") and "vm-size-stub" in c for c in calls), calls)
+        create = [c for c in calls if c.startswith("vm create")]
+        self.assertEqual(len(create), 1, calls)
+        for want in ("--resource-group RG-STUB", "--location region-stub", "--size probe-size-stub",
+                     "--vnet-name vnet-stub", "--nsg nsg-stub"):
+            self.assertIn(want, create[0])
+        self.assertTrue(all(" -g RG-STUB " in c for c in calls if c.startswith(("vm show", "vm delete"))), calls)
+
+    def test_precheck_missing_input_is_an_error_before_any_az_call(self):
+        rc, out, err, calls = self._run(self.SCRIPTS[0], [])
+        self.assertEqual((rc, out.splitlines(), calls), (4, ["SPOT_PRECHECK=ERROR"], []), err)
+        self.assertIn("missing required argument(s): region target_sku need_vcpu --resource-group --probe-sku "
+                      "--vnet --nsg (none has a default)", err)
+        self.assertIn("usage: spot_health_precheck.sh <region> <target_sku> <need_vcpu> --resource-group", err)
+        for drop in ("region", "target_sku", "need_vcpu") + tuple(o for o, _ in self.PRE_OPTS):
+            args = self._pre_args(drop)
+            if drop in ("region", "target_sku"):
+                # dropping an earlier positional shifts the later ones left; the count is what is short
+                continue
+            rc, out, err, calls = self._run(self.SCRIPTS[0], args)
+            self.assertEqual(rc, 4, (drop, out, err))
+            self.assertEqual(out.splitlines(), ["SPOT_PRECHECK=ERROR"], drop)
+            self.assertIn("missing required argument(s): %s (none has a default)" % drop, err)
+            self.assertEqual(calls, [], "%s missing, yet az was called: %r" % (drop, calls))
+
+    def test_precheck_ignores_the_old_rg_environment_variable(self):
+        log = os.path.join(self.tmp, "az_env.log")
+        env = dict(os.environ, PATH=self.bin + os.pathsep + os.environ["PATH"], D5_AZ_LOG=log, RG="RG-STUB")
+        p = subprocess.run(["bash", os.path.join(self.ROOT, self.SCRIPTS[0])] + self._pre_args("--resource-group"),
+                           env=env, text=True, capture_output=True, timeout=120)
+        self.assertEqual(p.returncode, 4, p.stdout + p.stderr)
+        self.assertIn("missing required argument(s): --resource-group", p.stderr)
+        self.assertFalse(os.path.exists(log))
+
+    def test_precheck_option_without_value_is_an_error(self):
+        rc, out, err, calls = self._run(self.SCRIPTS[0], ["region-stub", "vm-size-stub", "128", "--nsg"])
+        self.assertEqual((rc, out.splitlines(), calls), (4, ["SPOT_PRECHECK=ERROR"], []))
+        self.assertIn("missing value for --nsg", err)
+
+    # ---- perf_bench.sh -------------------------------------------------------------------------------------------
+    PB_BASE = ["--control-commit", "HEAD", "--treatment-commit", "HEAD", "--scale", "1B"]
+
+    def test_perf_bench_inputs_reach_az(self):
+        rc, out, err, calls = self._run(self.SCRIPTS[1], self.PB_BASE + PB_CLOUD_ARGS)
+        self.assertEqual(rc, 1, "control: the stubbed run reaches the ssh wait and stops there: " + out[-800:])
+        self.assertTrue(any(c.startswith("group create ") and "-l region-stub" in c for c in calls), calls)
+        create = [c for c in calls if c.startswith("vm create")]
+        self.assertEqual(len(create), 1, calls)
+        self.assertIn("--size vm-size-stub", create[0])
+        self.assertIn("--storage-sku disk-sku-stub", create[0])
+        self.assertIn("  vm: vm-size-stub Spot @ region-stub, disk 32GB", out)
+        self.assertTrue(any(c.startswith("group delete") for c in calls), "control: the run tore its group down")
+
+    def test_perf_bench_missing_input_exits_2_before_any_az_call(self):
+        rc, out, err, calls = self._run(self.SCRIPTS[1], self.PB_BASE)
+        self.assertEqual((rc, calls), (2, []), out)
+        self.assertIn("Required (no default, D5): --location --vm-size --disk-sku", out)
+        for i in range(0, len(PB_CLOUD_ARGS), 2):
+            args = PB_CLOUD_ARGS[:i] + PB_CLOUD_ARGS[i + 2:]
+            rc, out, err, calls = self._run(self.SCRIPTS[1], self.PB_BASE + args)
+            self.assertEqual(rc, 2, out)
+            self.assertIn("Required (no default, D5): %s\n" % PB_CLOUD_ARGS[i], out)
+            self.assertEqual(calls, [], "%s missing, yet az was called" % PB_CLOUD_ARGS[i])
+
+    def test_perf_bench_per_scale_lines_no_longer_pick_a_size(self):
+        src = self._r(self.SCRIPTS[1])
+        self.assertEqual(src.count("\n"), 699, "precondition: perf_bench.sh keeps its line count (TestBatchPerfBench)")
+        self.assertNotIn("VM_SIZE=Standard", src)
+        self.assertIn('--location) LOC="$2"; shift 2 ;;  --vm-size) VM_SIZE="$2"; shift 2 ;;', src)
+
+    # ---- spot_pre_launch_check.sh --------------------------------------------------------------------------------
+    def test_pre_launch_constrained_note_only_for_a_named_pair(self):
+        rc0, out0, err0, _ = self._run(self.SCRIPTS[2], ["--sku", "size-a", "--region", "region-b"])
+        self.assertEqual(rc0, 0, "precondition: the stubbed clock reads a LOW window: " + out0)
+        self.assertNotIn("Note:", out0, "a note fired for a pair nobody named")
+        rc1, out1, err1, _ = self._run(self.SCRIPTS[2], ["--sku", "size-a", "--region", "region-b",
+                                                         "--constrained", "size-a", "region-b"])
+        self.assertEqual(rc1, rc0, "the note changed the exit code")
+        self.assertIn("Note: size-a in region-b was named capacity-constrained (--constrained);", out1)
+        rc2, out2, err2, _ = self._run(self.SCRIPTS[2], ["--sku", "size-a", "--region", "region-b",
+                                                         "--constrained", "size-a", "region-c"])
+        self.assertNotIn("Note:", out2, "a note fired for a different region")
+
+    def test_pre_launch_flag_without_value_is_an_error(self):
+        for args, want in ((["--constrained", "size-a"], "missing value for --constrained"),
+                           (["--sku"], "missing value for --sku"), (["--region"], "missing value for --region")):
+            rc, out, err, _ = self._run(self.SCRIPTS[2], args)
+            self.assertEqual(rc, 64, (args, out, err))
+            self.assertIn(want, err)
+
+    # ---- documentation -------------------------------------------------------------------------------------------
+    def test_usage_and_docs_name_the_required_inputs(self):
+        self.assertIn("#   spot_health_precheck.sh <region> <target_sku> <need_vcpu> \\\n"
+                      "#       --resource-group <rg> --probe-sku <size> --vnet <vnet> --nsg <nsg>", self._r(self.SCRIPTS[0]))
+        self.assertIn("--treatment-commit <sha> --location <region>\n#                 --vm-size <vm-size> --disk-sku "
+                      "<disk-sku>", self._r(self.SCRIPTS[1]))
+        self.assertIn("--constrained <vm-size> <region>", self._r(self.SCRIPTS[2]))
+        dev = self._r("documentation/DEVELOPMENT.md")
+        for want in ("**Required cloud inputs (2026-11-15, operator decision D5).**",
+                     "`--location <region> --vm-size <vm-size> --disk-sku <disk-sku>`",
+                     "`<region> <target_sku> <need_vcpu> --resource-group <rg> --probe-sku <vm-size> --vnet <vnet> --nsg <nsg>`",
+                     "`--constrained <vm-size> <region>`"):
+            self.assertEqual(dev.count(want), 1, want)
+        self.assertIn("*(2026-11-15, operator decision D5: the script no longer picks the size.",
+                      self._r("documentation/PERFORMANCE_HISTORY.md"))
+
+# end class TestD5OpsScriptsRequiredInputs
 
 
 if __name__ == "__main__":

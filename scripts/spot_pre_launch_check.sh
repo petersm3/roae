@@ -9,7 +9,7 @@
 #
 # Background:
 #   Empirically, Azure Spot eviction rates in US west regions correlate with
-#   US business-hours demand on the underlying on-demand SKU pool. Launching
+#   US business-hours demand for regular (non-interruptible) capacity of the same VM size. Launching
 #   into peak demand means a higher chance of eviction within the first few
 #   hours — which is the worst outcome for a canonical run, because the
 #   fast-skip phase at resume time on a recovery VM takes ~3-4h to catch up
@@ -33,7 +33,16 @@
 # Usage:
 #   ./spot_pre_launch_check.sh                    # check current time
 #   ./spot_pre_launch_check.sh --force            # override HIGH-risk block
-#   ./spot_pre_launch_check.sh --sku D128als_v7 --region westus3   # context-aware advice
+#   ./spot_pre_launch_check.sh --sku <vm-size> --region <region>   # context-aware advice
+#   ./spot_pre_launch_check.sh --sku <vm-size> --region <region> --constrained <vm-size> <region>
+#                                                 # also note a pair you know to be constrained
+#
+# Inputs (2026-11-15, operator decision D5): the script has no built-in VM size, region or
+# resource name. --sku and --region have no default (unset, the advice prints placeholders),
+# and the capacity-constrained note fires only for a pair the caller names with
+# --constrained <vm-size> <region> (repeatable); it used to fire for one hard-coded pair
+# from the project's own eviction history. A flag given without its value(s) is an error
+# (rc 64, as for an unknown argument). The time-window check needs no cloud input.
 #
 # Integration:
 #   Canonical-campaign launch scripts should call this BEFORE provisioning
@@ -58,12 +67,15 @@ FORCE=0
 SKU=""
 REGION=""
 QUIET=0
+CONSTRAINED=()   # "<vm-size> <region>" pairs from --constrained (D5: none built in)
 
+need_val() { [[ $1 -ge $2 ]] || { echo "missing value for $3 (expected $4)" >&2; exit 64; }; }
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --force) FORCE=1; shift ;;
-    --sku) SKU="$2"; shift 2 ;;
-    --region) REGION="$2"; shift 2 ;;
+    --sku) need_val $# 2 "$1" "<vm-size>"; SKU="$2"; shift 2 ;;
+    --region) need_val $# 2 "$1" "<region>"; REGION="$2"; shift 2 ;;
+    --constrained) need_val $# 3 "$1" "<vm-size> <region>"; CONSTRAINED+=("$2 $3"); shift 3 ;;
     --quiet) QUIET=1; shift ;;
     -h|--help)
       sed -n '2,/^set -/p' "$0" | head -n -2
@@ -115,18 +127,22 @@ if [[ -n "$REGION" ]]; then
   log "Region: $REGION"
 fi
 
-# Cross-region advice if SKU/region given
-if [[ "$SKU" == "Standard_D128als_v7" && "$REGION" == "westus3" ]]; then
+# Cross-region advice if SKU/region given and the caller named that pair as constrained
+_constrained=0
+for _pair in "${CONSTRAINED[@]+"${CONSTRAINED[@]}"}"; do
+  [[ -n "$SKU" && -n "$REGION" && "$_pair" == "$SKU $REGION" ]] && _constrained=1
+done
+if [[ $_constrained -eq 1 ]]; then
   log ""
-  log "Note: D128als_v7 in westus3 has been capacity-constrained in 2026"
-  log "(2 evictions observed during v2 100T campaign 2026-05-21/22)."
-  log "Consider westus2 or eastus2 if migration cost (cross-region"
-  log "solver-data snapshot copy) is acceptable for the campaign duration."
+  log "Note: $SKU in $REGION was named capacity-constrained (--constrained);"
+  log "Spot evictions there have been observed. Consider another region if"
+  log "copying the campaign's data across regions is acceptable for the"
+  log "campaign duration."
 fi
 
 log ""
 log "Manual Spot Advisor check (~30 sec, portal-only — no CLI/API available):"
-log "  portal.azure.com → Spot virtual machines → Compare prices and eviction rates"
+log "  portal.azure.com → Spot virtual machines → the eviction-rate comparison"
 log "  SKU=${SKU:-<your-sku>}  Region=${REGION:-<your-region>}"
 log ""
 

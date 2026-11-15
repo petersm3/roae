@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 11 place(s) over all 258 dated sections, 10 of them among the 182 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 11 place(s) over all 259 dated sections, 10 of them among the 183 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -284,6 +284,7 @@
 | 256 | 2026-11-14 | iso | 12613 | [open](HISTORY.md#2026-11-14--batch-q1140-banned-verification-phrases-a-lean-attribution-two-scope-claims-and-one-intent-reading) 2026-11-14 — batch Q1140: banned verification phrases, a Lean attribution, two scope claims and one intent reading |
 | 257 | 2026-11-14 | iso | 12640 | [open](HISTORY.md#2026-11-14--batch-q1133-the-claim-to-artifact-audit-four-rows-corrected) 2026-11-14 — batch Q1133: the claim-to-artifact audit, four rows corrected |
 | 258 | 2026-11-14 | iso | 12653 | [open](HISTORY.md#2026-11-14--batch-q1140r-the-q-735-proofs-second-and-third-reads-are-not-called-independent) 2026-11-14 — batch Q1140R: the Q-735 proof's second and third reads are not called independent |
+| 259 | 2026-11-15 | iso | 12666 | [open](HISTORY.md#2026-11-15--cloud-sweep-d5-the-ops-scripts-cloud-defaults-become-required-arguments) 2026-11-15 — cloud sweep D5: the ops scripts' cloud defaults become required arguments |
 
 ## Sections with no date in the heading, in file order
 

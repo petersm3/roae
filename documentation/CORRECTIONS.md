@@ -40816,3 +40816,61 @@ regenerated; rows whose source line changed get new ids.
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5. The plan and its style guide are by an
 Opus scoping lane (2026-11-14). The wording follows the precedent of Codex (gpt-6-astra) findings
 F10-001#3, F10-002#4 and F10-003#3 (CX-36B-C), and the CX-230 and CX-242 redactions.
+
+## CX-37F-A — the three ops scripts defaulted to the project's own cloud values; each is now a required argument (scripts/spot_health_precheck.sh; scripts/perf_bench.sh; scripts/spot_pre_launch_check.sh; documentation/DEVELOPMENT.md; documentation/PERFORMANCE_HISTORY.md; tests.py)
+
+**2026-11-15.** **Source.** Operator decision D5 in the cloud-detail sweep plan (section 8: "make the ops scripts'
+defaults required inputs"). CX-36B-C held the precheck's resource-group default for this decision, from Codex's
+(gpt-6-astra) final-review findings F10-001#3, F10-002#4 and F10-003#3. The sweep's batch B9 left these three
+scripts for this decision.
+
+**What was wrong.** Three public scripts carried the project's own cloud values as defaults. `spot_health_precheck.sh`
+defaulted its region, target VM size and vCPU count, read the resource group from `RG` with the project's group as
+the fallback, and hard-coded its probe VM size and the vnet and network-security-group names. `perf_bench.sh`
+hard-coded its region, picked a VM size per scale, and hard-coded its OS-disk SKU. `spot_pre_launch_check.sh`
+printed a capacity note for one built-in size and region pair, naming the project's eviction history and two other
+regions. Its usage example named the same pair.
+
+**What it does now.** One scheme in all three: every input that named one of our cloud values is a command-line
+argument with no default and no environment fallback.
+- `spot_health_precheck.sh <region> <target_sku> <need_vcpu> --resource-group <rg> --probe-sku <vm-size> --vnet <vnet>
+  --nsg <nsg>`. A missing or empty one prints `missing required argument(s): <names>` and the usage line on stderr,
+  then `SPOT_PRECHECK=ERROR` (rc 4), before any `az` call or `/dev/urandom` read. `RG` is no longer read.
+- `perf_bench.sh ... --location <region> --vm-size <vm-size> --disk-sku <disk-sku>`. A missing one prints
+  `Required (no default, D5): <flags>` and exits 2 before anything is provisioned. The per-scale lines (`:126-128`)
+  now set only the node limit and OS-disk size. The edits are in place: the script keeps its 699 lines, and every
+  unpinned line cite to it (DEVELOPMENT.md `:158-163`, `:193-194`, `:198`, `:207-208`, `:211`, `:323`, `:391`,
+  `:635`; PERFORMANCE_HISTORY.md `:126-128`) still lands. RETRACTED_PHRASES.tsv's row RP-5e7da3fc pins its cites
+  to 9fe036ea, so it is unaffected.
+- `spot_pre_launch_check.sh` needs no cloud input for its time-window check, so nothing became mandatory there.
+  `--sku` and `--region` stay optional, and the capacity note fires only for a pair the caller names with
+  `--constrained <vm-size> <region>` (repeatable), with generic wording. A flag given without its value is now an
+  error (rc 64, as for an unknown argument).
+
+Comments and log strings in the three scripts lost their sizes, regions, disk SKU and cost words ("cheap",
+"on-demand", "Compare prices"). The logic is unchanged apart from where these inputs come from. Measured with a
+stubbed `az`, `ssh` and `sleep` on PATH and the old values passed explicitly. The precheck made the same 8 `az`
+calls in the same order, with the same output. perf_bench made the same 36 calls (ssh refused) and the same 137
+(ssh accepted, through to the throttle-probe exit 5) at 1B and 11.2T, again with the same output. The pre-launch
+check gave the same exit code and output in 1,008 runs (every hour of every weekday, six argument sets) apart from
+the reworded portal line. The constrained-pair run had the same exit code and the reworded note. Kept as they
+were: the `az` option names (`--priority Spot --eviction-policy ... --max-price -1`, `--public-ip-sku Standard`),
+the per-run group name pattern `RG-PERFBENCH-<date>-<minute>-<pid>-<hex>` (created and deleted by each run), the
+image and admin user names, and the provider name.
+
+**Docs.** DEVELOPMENT.md's perf_bench paragraph and `SPOT_PRECHECK` token row, and PERFORMANCE_HISTORY.md's
+"Standard bench harness" section, describe the required inputs, edited on their existing lines. The token row also
+now says signal 2 reads the regional Spot pool, as it has since 2026-09-19 (it said "family vCPU quota headroom").
+
+**Tests.** `TestD5OpsScriptsRequiredInputs` (12 tests). Each missing input fails with its message and makes no
+`az` call; the supplied values reach the `az` calls; the old `RG` variable is ignored; the constrained note fires
+only for a named pair; a residual scan of the three scripts finds no cloud value, and its patterns find each of
+seven planted lines. 11 of the 12 fail on the parent's scripts; the twelfth is the planted control. The six stubbed
+perf_bench harnesses (TestQ847, TestQ851, TestQ856, TestQ877, the CX-36Q-A interrupt test, TestBatchPerfBench) and
+the two precheck harnesses (TestQ860Q861, the CX-36Q-B `_spot` helper) now pass placeholder values.
+`TestBatchPerfBench`'s `:126-128` check reads `NODE_LIMIT=` and `DISK_GB=` there in place of `VM_SIZE=`.
+
+No count, certificate, verdict, token or canonical sha changed; no VM was provisioned.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, cloud sweep lane D5; the decision is the
+operator's; the held default traces to Codex (gpt-6-astra) findings F10-001#3, F10-002#4 and F10-003#3.
