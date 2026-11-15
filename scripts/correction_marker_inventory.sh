@@ -191,8 +191,8 @@ REVIEWED = {
     # must be rewritten first (Q-938). The review token says which text the verdict rests on.
     # FT3f-docs (2026-11-14, CX-37C-N): ten new dated markers, each read in its sentence. Class 1: the
     # sentence around each marker states the corrected fact, and the marker only records what it said before.
-    ('documentation/DEPLOYMENT.md', 'b2acefcf44d4'):
-        ('1', 'reviewed:snippet-below-sets-the-trap-before-the-create'),
+    # ('documentation/DEPLOYMENT.md', 'b2acefcf44d4'), class 1, RETIRED 2026-11-15 (Q-1140 cloud sweep D3): its marker sat in the
+    # teardown template that moved to the private operations notes, so the key matched no line. Restore it only if that text returns.
     ('documentation/PERFORMANCE_HISTORY.md', 'fe06af327db9'):
         ('1', 'reviewed:sentence-already-limits-the-public-leg-to-entries-with-commits-and-parameters'),
     ('documentation/PERFORMANCE_HISTORY.md', '8e46fc4202a5'):
