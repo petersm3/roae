@@ -3,16 +3,16 @@ INL-34110172	2026-08-28	C3	corrected	inline	CLAUDE.md	20	C1–C5. (Corrected 202
 INL-fbd6c2f	-	C1	retracted	inline	CLAUDE.md	22	[RETRACTED_PHRASES.tsv](documentation/RETRACTED_PHRASES.tsv) and recorded in
 INL-2fdd80db	-	C3	corrections	inline	CLAUDE.md	23	[CORRECTIONS.md](documentation/CORRECTIONS.md); the corrected statement of
 INL-e80c1a1	-	C4	caveat	inline	CLAUDE.md	104	reverted (with reasoning) or shipped with the caveat documented.
-INL-3181ec19	-	C3	corrections	inline	CLAUDE.md	293	at all" ([CORRECTIONS.md](documentation/CORRECTIONS.md)). Folding it into
-INL-31110d6f	-	C3	corrections	inline	CLAUDE.md	300	[SAT_CLI.md](documentation/SAT_CLI.md) NOTES, CORRECTIONS.md CX-36Z-A).
-INL-9cbd54b	-	C3	corrections	inline	CLAUDE.md	311	separate checker; [SAT_CLI.md](documentation/SAT_CLI.md) NOTES, CORRECTIONS.md CX-37A-A).
-INL-f40693b	2026-11-12	C3	renumber	inline	CLAUDE.md	315	- **`scripts/lratcheck/renumber_lrat.py`** (2026-11-12; operator approval 2026-11-12, Q-1094) — the
-INL-2ec14a99	-	C3	renumbering	inline	CLAUDE.md	316	consecutive-id renumbering between `drat-trim -L` and the Lean 4 LRAT checker in
-INL-35cb1d0a	2026-09-04	C3	corrected	inline	CLAUDE.md	322	alongside the results they produced. ⚠ **[CORRECTED 2026-09-04 — this read
-INL-164aed96	-	C3	correction	inline	CLAUDE.md	324	Measured at the time of the correction, `git ls-files 'reports/evidence/**/*.py'`
-INL-2c463233	2026-09-02	C3	corrected	inline	CLAUDE.md	350	exist precisely to be separate. Corrected 2026-09-02; the retired wording is
-INL-fbd6c2f	-	C1	retracted	inline	CLAUDE.md	352	[RETRACTED_PHRASES.tsv](documentation/RETRACTED_PHRASES.tsv) and recorded in
-INL-34b4f157	-	C3	corrections	inline	CLAUDE.md	353	[CORRECTIONS.md](documentation/CORRECTIONS.md).
+INL-3181ec19	-	C3	corrections	inline	CLAUDE.md	296	at all" ([CORRECTIONS.md](documentation/CORRECTIONS.md)). Folding it into
+INL-31110d6f	-	C3	corrections	inline	CLAUDE.md	303	[SAT_CLI.md](documentation/SAT_CLI.md) NOTES, CORRECTIONS.md CX-36Z-A).
+INL-9cbd54b	-	C3	corrections	inline	CLAUDE.md	314	separate checker; [SAT_CLI.md](documentation/SAT_CLI.md) NOTES, CORRECTIONS.md CX-37A-A).
+INL-f40693b	2026-11-12	C3	renumber	inline	CLAUDE.md	318	- **`scripts/lratcheck/renumber_lrat.py`** (2026-11-12; operator approval 2026-11-12, Q-1094) — the
+INL-2ec14a99	-	C3	renumbering	inline	CLAUDE.md	319	consecutive-id renumbering between `drat-trim -L` and the Lean 4 LRAT checker in
+INL-35cb1d0a	2026-09-04	C3	corrected	inline	CLAUDE.md	325	alongside the results they produced. ⚠ **[CORRECTED 2026-09-04 — this read
+INL-164aed96	-	C3	correction	inline	CLAUDE.md	327	Measured at the time of the correction, `git ls-files 'reports/evidence/**/*.py'`
+INL-2c463233	2026-09-02	C3	corrected	inline	CLAUDE.md	353	exist precisely to be separate. Corrected 2026-09-02; the retired wording is
+INL-fbd6c2f	-	C1	retracted	inline	CLAUDE.md	355	[RETRACTED_PHRASES.tsv](documentation/RETRACTED_PHRASES.tsv) and recorded in
+INL-34b4f157	-	C3	corrections	inline	CLAUDE.md	356	[CORRECTIONS.md](documentation/CORRECTIONS.md).
 INL-17ecca65	-	C2	scope note	inline	README.md	26	**What this does — and does not — mean.** Four scope notes worth carrying from the start:
 INL-16d7c735	-	C4	hedged	inline	README.md	60	**The finding, precisely.** The plain sentence above compresses a hedged one; here is the full
 INL-37a3c161	-	C4	hedged	inline	README.md	92	his own principle inventory and hedged, so the refutation does not contradict his thesis as stated), and
@@ -3776,6 +3776,7 @@ INL-1dbfba98	-	C3	corrections	inline	viz/viz_tr5_orbit_collapse.md	88	theory is 
 INL-34469d7c	-	C3	corrections	inline	viz/viz_tr6_parity_alternations.md	76	is claimed novel. Developed with AI assistance (Claude, Anthropic); corrections invited.*
 INL-59b1cb3	-	C3	corrected	inline	viz/viz_tr7_circular_cycle.md	63	picture, and no renderer existed; the documents were corrected to say so. CX-191.
 INL-13a1de3a	-	C3	corrections	inline	viz/viz_tr7_circular_cycle.md	75	Developed with AI assistance (Claude, Anthropic); corrections invited.*
+GIT-10d797c8	2026-11-15	C3	correction	git	4465dfe7	-	Q-1140 cloud sweep D3: CLAUDE.md and DEPLOYMENT.md cloud-operations sections move to the private notes, with public stubs
 GIT-2d45a72b	2026-11-14	C3	correction	git	cb4afe22	-	Q-1140 cloud sweep B3+B4 (rewording part): no VM sizes, regions, resource names, disk tiers or costs in CLAUDE.md and DEPLOYMENT.md live text
 GIT-36d5094f	2026-11-15	C3	corrections	git	98b9b3f4	-	Q-1140 cloud sweep D5 follow-up: r11_phase2_battery.sh's RATE_PER_HR is a required input (CX-37F-C, addendum to CX-37F-A)
 GIT-2726e9e9	2026-11-15	C3	corrections	git	eea0e28d	-	Q-1140 cloud sweep D7: a guard against $-anchors in published certificates (CX-37F-B)

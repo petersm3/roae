@@ -116,9 +116,12 @@ anything that cannot resume run on regular capacity, sized to the job, with
 a teardown plan stated before the VM is created. Check the VM's priority
 before any launch over an hour (`az vm show … --query priority`): an
 enumeration VM that does not report `Spot` is not launched. Machine sizes,
-regions and the rules' history are in the private operations notes. (This
-section replaces §"Cost control — VM purchase type" and §"Cost control —
-SKU family restrictions"; their text moved there on 2026-11-15.)
+regions and the rules' history are in the private operations notes.
+
+**Cost control — VM purchase type** and
+**Cost control — SKU family restrictions** were this section's two headings
+until 2026-11-15, when their text moved to the private operations notes; the
+ledgers and a pre-registration addendum cite them by those names.
 
 ## Session-lifecycle VM discipline (STRICT, applies to any `az vm create`)
 
@@ -447,6 +450,9 @@ itself contains the decision tree).
 A small always-on orchestrator VM and separate, larger compute VMs. Managed
 disks are region-locked, so moving data between regions needs a snapshot
 copy. Sizes, regions and resource names are in the private operations notes.
+
+**Bi-region architecture** was this section's heading until 2026-11-15, when
+its text moved to the private operations notes.
 
 ## One-line rule of thumb
 

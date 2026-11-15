@@ -2,10 +2,10 @@ file	line	kind	token	class	legs	review	line_sha
 CLAUDE.md	20	marker	Corrected	1	-	reviewed:sentence-already-states-the-lower-bound;note-is-provenance	f0219a4b2b25
 CLAUDE.md	22	ledger-link	RETRACTED	n/a	-	not-a-marker	7ba6bb332493
 CLAUDE.md	23	ledger-link	CORRECTION	n/a	-	not-a-marker	841e6af12c78
-CLAUDE.md	293	ledger-link	CORRECTION	n/a	-	not-a-marker	e1b13e715649
-CLAUDE.md	322	marker	CORRECTED	1	-	reviewed:bullet-already-reads-14-files	d63457974d3b
-CLAUDE.md	352	ledger-link	RETRACTED	n/a	-	not-a-marker	7ba6bb332493
-CLAUDE.md	353	ledger-link	CORRECTION	n/a	-	not-a-marker	0c0ac50fdb9d
+CLAUDE.md	296	ledger-link	CORRECTION	n/a	-	not-a-marker	e1b13e715649
+CLAUDE.md	325	marker	CORRECTED	1	-	reviewed:bullet-already-reads-14-files	d63457974d3b
+CLAUDE.md	355	ledger-link	RETRACTED	n/a	-	not-a-marker	7ba6bb332493
+CLAUDE.md	356	ledger-link	CORRECTION	n/a	-	not-a-marker	0c0ac50fdb9d
 README.md	149	ledger-link	CORRECTION	n/a	-	not-a-marker	c2c141547338
 README.md	208	ledger-link	CORRECTION	n/a	-	not-a-marker	4e886eea8a35
 README.md	249	ledger-link	CORRECTION	n/a	-	not-a-marker	b1785c89acb7
