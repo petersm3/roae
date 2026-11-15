@@ -22,7 +22,7 @@ SOLVE="${SOLVE:-$WORK/solve}"
 OUT="${OUT:-$WORK/results}"
 THREADS="${THREADS:-64}"
 HARDCAP_MIN="${HARDCAP_MIN:-1860}"      # 31 h guest hard cap (> 30 h abort budget)
-RATE_PER_HR="${RATE_PER_HR:-0.50}"      # hourly rate for the abort check (figure redacted in comments/messages, 2026-09-29)
+RATE_PER_HR="${RATE_PER_HR:-}"; [[ "$RATE_PER_HR" =~ ^[0-9]+([.][0-9]+)?$ ]] || { echo "r11_phase2_battery.sh: Required (no default, 2026-11-15): RATE_PER_HR, the hourly rate the seed-1 abort check uses (a plain number)" >&2; exit 2; }   # checked before anything else runs
 SELFTEST_SHA="403f7202a33a9337b781f4ee17e497d5c0773c2656e16fa0db87eeccd6f3332e"
 
 # Battery sizes (probes)

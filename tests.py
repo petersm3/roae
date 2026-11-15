@@ -68413,6 +68413,68 @@ class TestD5OpsScriptsRequiredInputs(unittest.TestCase):
 # end class TestD5OpsScriptsRequiredInputs
 
 
+
+class TestD5R11BatteryRateRequired(unittest.TestCase):
+    """Operator decision, 2026-11-15, after D5 and D7 (CORRECTIONS.md CX-37F-C, an addendum to CX-37F-A):
+    reports/evidence/r11/r11_phase2_battery.sh read RATE_PER_HR (the hourly rate its seed-1 abort check multiplies
+    by) with a built-in default. It now has none. Missing or not a plain number: a "Required (no default ...)"
+    message on stderr and rc 2, at line 25, before the script makes its output directory, starts its hard-cap
+    backstop or sets its EXIT trap. Supplied: the value is used as given. Only the script's first 25 lines are run
+    here, because the rest of it halts the VM it runs on; the precondition checks that line 25 is the check and that
+    nothing before it calls sudo, mkdir or trap.
+    Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    REL = os.path.join("reports", "evidence", "r11", "r11_phase2_battery.sh")
+
+    def _head(self):
+        with open(os.path.join(self.ROOT, self.REL), encoding="utf-8") as f:
+            lines = f.read().split("\n")
+        self.assertEqual(len(lines), 173, "precondition: the archived driver keeps its line count (172 lines)")
+        head = lines[:25]
+        self.assertTrue(head[24].startswith('RATE_PER_HR="${RATE_PER_HR:-}"; '), "precondition: line 25 is the check")
+        for w in ("sudo", "mkdir", "trap ", "shutdown"):
+            self.assertFalse(any(w in l for l in head if not l.lstrip().startswith("#")),
+                             "precondition: nothing before the check runs %s" % w)
+        return "\n".join(head) + '\necho "RATE_SEEN=$RATE_PER_HR"\n'
+
+    def _run(self, env_rate):
+        d = tempfile.mkdtemp(prefix="r11rate_")
+        try:
+            p = os.path.join(d, "head.sh")
+            with open(p, "w", encoding="utf-8") as f:
+                f.write(self._head())
+            env = {k: v for k, v in os.environ.items() if k != "RATE_PER_HR"}
+            env["WORK"] = os.path.join(d, "work")
+            if env_rate is not None:
+                env["RATE_PER_HR"] = env_rate
+            r = subprocess.run(["bash", p], env=env, capture_output=True, text=True, timeout=30)
+            return r.returncode, r.stdout, r.stderr, os.path.exists(env["WORK"])
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    def test_missing_or_malformed_rate_is_an_error_at_line_25(self):
+        for rate in (None, "", "abc", "1,5", "-1"):
+            with self.subTest(rate=rate):
+                rc, out, err, made = self._run(rate)
+                self.assertEqual(rc, 2, out + err)
+                self.assertIn("Required (no default, 2026-11-15): RATE_PER_HR", err)
+                self.assertNotIn("RATE_SEEN=", out)
+                self.assertFalse(made)
+
+    def test_supplied_rate_is_used_as_given(self):
+        for rate in ("0.5", "3", "12.25"):
+            with self.subTest(rate=rate):
+                rc, out, err, _ = self._run(rate)
+                self.assertEqual((rc, err), (0, ""))
+                self.assertEqual(out, "RATE_SEEN=%s\n" % rate)
+
+    def test_the_abort_check_still_reads_the_variable(self):
+        with open(os.path.join(self.ROOT, self.REL), encoding="utf-8") as f:
+            src = f.read()
+        self.assertEqual(src.count("RATE_PER_HR"), 5, "line 25 (3 uses + the message) and the abort check's awk")
+        self.assertIn('-v r="$RATE_PER_HR"', src)
+
 class TestD7NoXaDollarAnchorInReports(unittest.TestCase):
     """Operator decision D7 (2026-11-15; cloud sweep plan section 8; CX-37F-B): a published certificate never carries
     a `$`-anchor. solve.py --atlas-xa prices branches from anchors the operator supplies; with --xa-usd-per-hour and

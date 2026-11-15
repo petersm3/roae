@@ -1,6 +1,6 @@
 # R11 Phase-2 — N_gs re-measurement battery (stop-flag resolution evidence)
 
-> **Reproduce:** `ulimit -s unlimited; bash r11_phase2_battery.sh`
+> **Reproduce:** `ulimit -s unlimited; RATE_PER_HR=<hourly rate> bash r11_phase2_battery.sh` (`RATE_PER_HR` is required, no default, since 2026-11-15; only the seed-1 abort check reads it)
 > (calibration leg: `python3 r11_calibration.py --phase <gates|draws|pcomplete|hits|score|report>`).
 > ⚠ **Scope, stated plainly (2026-08-21, execution-lane findings):** (1) `--phase` is required —
 > the bare calibration command errors with a usage message; (2) the battery's estimator legs need

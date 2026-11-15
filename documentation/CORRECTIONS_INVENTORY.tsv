@@ -3784,6 +3784,7 @@ INL-1dbfba98	-	C3	corrections	inline	viz/viz_tr5_orbit_collapse.md	88	theory is 
 INL-34469d7c	-	C3	corrections	inline	viz/viz_tr6_parity_alternations.md	76	is claimed novel. Developed with AI assistance (Claude, Anthropic); corrections invited.*
 INL-59b1cb3	-	C3	corrected	inline	viz/viz_tr7_circular_cycle.md	63	picture, and no renderer existed; the documents were corrected to say so. CX-191.
 INL-13a1de3a	-	C3	corrections	inline	viz/viz_tr7_circular_cycle.md	75	Developed with AI assistance (Claude, Anthropic); corrections invited.*
+GIT-2726e9e9	2026-11-15	C3	corrections	git	eea0e28d	-	Q-1140 cloud sweep D7: a guard against $-anchors in published certificates (CX-37F-B)
 GIT-19462dc0	2026-11-15	C3	corrections	git	7af642f1	-	Q-1140 cloud sweep D5: the ops scripts' cloud defaults become required arguments (CX-37F-A)
 GIT-192d880d	2026-11-14	C3	correction	git	816fd255	-	Q-1140 cloud sweep B5+B6: VM sizes, regions, resource names and costs out of 23 live docs
 GIT-32d7170	2026-11-14	C3	corrections	git	f847e984	-	Q-1140 B2c: HISTORY.md lines 2101-end, cloud detail and cost wording redacted in place

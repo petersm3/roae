@@ -40904,3 +40904,31 @@ No count, certificate, verdict, token or canonical sha changed.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, cloud sweep lane D7; the decision is the
 operator's.
+
+## CX-37F-C — addendum to CX-37F-A: the archived R11 battery driver's `RATE_PER_HR` is a required input too (reports/evidence/r11/r11_phase2_battery.sh; reports/evidence/r11/PHASE2_README.md; tests.py)
+
+**2026-11-15.** **Source.** Operator decision, 2026-11-15, after D5 (CX-37F-A) and D7 (CX-37F-B). CX-37F-B left
+`reports/evidence/r11/r11_phase2_battery.sh:25` as a follow-up: the driver read `RATE_PER_HR`, the hourly rate
+its seed-1 abort check uses, with a built-in default. The operator ruled that it becomes a required input, as D5
+did for the three ops scripts.
+
+**What changed.** Line 25 reads the variable with no default. Missing, or not a plain number, the script prints
+`Required (no default, 2026-11-15): RATE_PER_HR ...` on stderr and exits 2. That happens before it makes its
+output directory, starts its hard-cap backstop or sets its EXIT trap, so a missing rate starts nothing. Supplied,
+the value is used as given, and the abort check is still its only reader. The file keeps its 172 lines, so
+`:25` and every other line citation still hold. The Reproduce line of `reports/evidence/r11/PHASE2_README.md`
+names the variable. This changes the driver as shipped now; the archived run's logs and results are unchanged.
+
+| file | sha256 before | sha256 after |
+|---|---|---|
+| `reports/evidence/r11/r11_phase2_battery.sh` | `0a491ace00a6be0c274e69f12072b3d1d8eee0e6219e5a71a0378fb4877c30cd` | `02be14cd3a0a7a219c4f5c520e7c18e7cedf4fe0eb446a98c7af0bebde7e9c76` |
+
+**Tests.** `TestD5R11BatteryRateRequired` runs only the script's first 25 lines, because the rest halts the VM it
+runs on. A missing, empty or malformed rate gives rc 2 with the message and makes no directory; a supplied rate
+comes through unchanged. Its precondition checks the line count, that line 25 is the check, and that nothing
+before it calls sudo, mkdir or trap.
+
+**Not changed.** No count, measurement, verdict, figure, token or canonical sha.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, cloud sweep integration lane; the decision is
+the operator's.
