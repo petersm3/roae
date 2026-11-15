@@ -3782,6 +3782,7 @@ INL-1dbfba98	-	C3	corrections	inline	viz/viz_tr5_orbit_collapse.md	88	theory is 
 INL-34469d7c	-	C3	corrections	inline	viz/viz_tr6_parity_alternations.md	76	is claimed novel. Developed with AI assistance (Claude, Anthropic); corrections invited.*
 INL-59b1cb3	-	C3	corrected	inline	viz/viz_tr7_circular_cycle.md	63	picture, and no renderer existed; the documents were corrected to say so. CX-191.
 INL-13a1de3a	-	C3	corrections	inline	viz/viz_tr7_circular_cycle.md	75	Developed with AI assistance (Claude, Anthropic); corrections invited.*
+GIT-1f25c8ba	2026-11-15	C3	corrections	git	de05e90b	-	Q-1140 B1-FU: GATE 10's aligner without its false FAILs, span_ok tightened (Fable F1-F4, Q8)
 GIT-12e9c47b	2026-11-14	C3	corrections	git	ac4092ef	-	Q-1140 B1: GATE 10 accepts positional cloud and cost-detail markers; the inventory redacts commit subjects
 GIT-2d17cf9b	2026-11-15	C1	withdrawn	git	c6e36d5e	-	Combined documentation batch: seven doc lanes in one commit (CX-37C-V, -Z, -W, -N, -Y, -U, -R)
 GIT-e180397	2026-11-14	C3	corrections	git	bf17a553	-	Q-1128: the n=31 atlas's 2-adic divisibility, proved, with its tables and reproducers (CX-37C-M)

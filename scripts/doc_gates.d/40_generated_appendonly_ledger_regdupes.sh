@@ -668,6 +668,15 @@ gate_generated() {
 # or any other claim fails as a reworded line does. A marker never covers another marker, and a marker
 # already in the committed line must stay where it is. Tested in tests.py (TestCX1140AppendOnlyCloudRedaction)
 # and by the GATE 10 cloud-marker leg of doc_gates.sh --selftest.
+# Q-1140 follow-up (2026-11-15): cues the B2 ledger sweeps could not mark. The orchestrator host name,
+# in lower case and only where the next word is orchestrator, VM or host (as the inventory's CLOUD_HOST); the two-digit Standard SSD tiers (E10-E80; E1-E6
+# stay out, since the ledgers use them as ids) and the one-word tier names; a whole hyphenated resource
+# name whose last part is a size or a region, under the F3 stem stop-list (before, only that part
+# could be marked); "metering"; and
+# cost compounds (cost-efficient, cost cap, cost control), as one cue each, so the second word is never a
+# neutral word on its own. A cost marker straight after a section sign stands for a section title
+# ("Cost control"), not a cost, and fails; a cloud marker there may stand for a tier that a section
+# anchor carries (B2b: a disk tier in a DEPLOYMENT.md anchor). Tested in tests.py (TestCX1140AlignerFollowUp).
 _g10_money_align() {
   if ! grep -qF -e '[cost redacted]' -e '[storage detail redacted]' -e '[cloud detail redacted]' -e '[cost detail redacted]' "$1" 2>/dev/null; then cat; return $?; fi   # CX-36S-D: a failed copy is not an empty baseline
   DG_WORK="$1" python3 -c '
@@ -717,13 +726,16 @@ K = "[cost detail redacted]"
 PM = re.compile("|".join(re.escape(x) for x in (S, C, K)))
 ANYM = re.compile("|".join(re.escape(x) for x in (S, C, K, M)))
 CLOUD = re.compile(r"""(?ix)
-    \bstandard_\w+
+    (?<![\w.-])(?!(?:[a-z0-9]+-)*(?:on|off|from|per|to|in|no|non|not|never|single|multi|one|two|three|four|[0-9]+)-)[a-z0-9]+(?:-[a-z0-9]+)*-(?:[bdeflmnp](?:2|4|8|16|32|48|64|96|128)(?:[a-z]{1,6}(?:_v[0-9]+)?)?
+        | (?:west|east|central|north|south)(?:us|europe|asia)[0-9]?)\b
+  | \bstandard_\w+
   | \b[bdeflmnp](?:2|4|8|16|32|48|64|96|128)(?:[a-z]{1,6}(?:_v[0-9]+)?)?\b
   | \b[defl]-?[a-z]{0,5}-?v[0-9]+(?:-series)?\b
   | \b[a-z](?:/[a-z])*-series\b
   | (?:west|east|central|north|south)\s?(?:us|europe|asia)(?:\s?[0-9])?\b
   | \bpremium\b | \bssd\b | \bhdd\b | \w*_[lz]rs\b | \bultra\s?disks?\b | \bephemeral\b
-  | \bp(?:10|15|20|30|40|50|60|70|80)\b
+  | \bp(?:10|15|20|30|40|50|60|70|80)\b | \be(?:10|15|20|30|40|50|60|70|80)\b
+  | \b(?:standard|premium)ssd(?:_[lz]rs)?\b | \bstandardhdd(?:_[lz]rs)?\b
   | \brg-[a-z0-9][a-z0-9-]*
   | \b(?:solver|merge|temp|spot)-(?:data|nic|vms?|vnet|nsg|scratch|validate|d[0-9]+|[0-9]+|(?:west|east|central|north|south)(?:us|europe|asia)[0-9]?)(?:-[a-z0-9]+)*\b
   | \bc[0-9]{3}-[a-z][a-z0-9-]*
@@ -731,7 +743,9 @@ CLOUD = re.compile(r"""(?ix)
   | \b(?:vnet|subnet|nsg)\b | \bazure\b | \bmicrosoft\b | \bcobalt\b | \bon-demand\b
 """)
 COSTW = re.compile(r"""(?ix)
-    \$
+    \bcost[-\s](?:efficien(?:t|cy)|effective(?:ness)?|caps?|control)\b
+  | \bmeter(?:ed|ing)\b
+  | \$
   | \b(?:spot|hourly|per[-\s]hour|on-demand|billing|regular|standard)\s+rates?\b
   | \b(?:cost|dollar|spending|cloud)\s+budgets?\b
   | \b\w*(?:pric|cost|cheap|expens|spend|spent|discount|saving|dollar)\w*\b
@@ -750,20 +764,41 @@ FILL = {
                  " multiplying multiplied projection estimate estimated x which as spot standard"
                  " regular".split())}
 WORDS = re.compile(r"[A-Za-z]+|[0-9]+")
+HOST = re.compile(r"`?\bclaude\b`?")
+HOSTNEXT = re.compile(r"\s+(?:orchestrator|VM|host)\b")
+TITLE = re.compile(r"\u00a7\s*[\"\u201c]?\Z")
 KNUM = re.compile(r"\$\s?[0-9][0-9,.]*[KkM]?(?![A-Za-z0-9])|[0-9][0-9,.]*\s?(?:[\u00d7%]|x\b)")
 BADCH = re.compile(r"[^A-Za-z0-9\s`*_~()/,.:+\u00d7\u2013\u2014\u2248-]")
+def _gaps(cue, s, lo):   # the stretches of s[lo:] left once every cue match starting at lo or later is cut out
+    pos = lo
+    for m in cue.finditer(s):
+        if m.start() >= lo:
+            yield pos, max(pos, m.start())
+            pos = max(pos, m.end())
+    yield pos, len(s)
 def span_ok(kind, t, before="", after=""):
     if not t.strip() or ANYM.search(t):
         return False
     if kind == S:   # CX-242: a storage span has no fixed shape
         return True
+    if kind == K and TITLE.search(before):   # a cost span after a section sign is a section title
+        return False
     cue = CLOUD if kind == C else COSTW
-    if not cue.search(t):
+    host = False
+    if kind == C:   # the host name (lower case) is a cue only where the next word is orchestrator, VM or host
+        for h in reversed(list(HOST.finditer(t))):
+            if HOSTNEXT.match(t[h.end():] + after):
+                t, host = t[:h.start()] + " " + t[h.end():], True
+    # cues are matched with one character of the committed text before the span, so a name that starts
+    # mid-token (after a dot or a hyphen) is not taken for a whole resource name
+    ctx = before[-1:]
+    if not (host or any(m.start() >= len(ctx) for m in cue.finditer(ctx + t))):
         return False
     rest = t
     if kind == K:   # a number in a cost span must be an amount or a ratio, never a neighbouring count
         rest = KNUM.sub(" ", rest)
-    rest = cue.sub(" ", rest)
+    rest = ctx + rest
+    rest = "".join(rest[m0:m1] for m0, m1 in _gaps(cue, rest, len(ctx)))
     if BADCH.search(rest):   # only letters, digits, white space and a short list of marks are checked words
         return False
     for x in WORDS.findall(rest):

@@ -26002,6 +26002,94 @@ class TestCX1140AlignerFollowUp(unittest.TestCase):
         self._run(base, work, False, "a bold line deleted next to a committed whole-line marker")
 
 
+class TestCX1140CueFollowUp(unittest.TestCase):
+    """Q-1140 follow-up (2026-11-15): GATE 10 cues for the details the B2 ledger sweeps could not mark
+    (B2a/B2b/B2c hand-backs). Each new cue has a GREEN case (red before the cue existed) and at least one
+    RED case: a marker over a span that is NOT such a detail, with the cue word beside it, still fails.
+      host name    lower case only, and only where the next word is orchestrator / VM / host;
+      disk tiers   E10-E80 and the one-word tier names (E1-E6 are ids in the ledgers and stay out);
+      stems        a whole hyphenated resource name ending in a size or a region (F3 stop-list);
+      cost words   "metering", and the compounds cost-efficient / cost cap / cost control;
+      titles       a cost marker straight after a section sign fails (a section title, not a cost);
+                   a cloud marker there passes (a tier that a section anchor carries).
+    Same scratch repo and both halves of GATE 10 as TestCX1140AppendOnlyCloudRedaction; every name, size
+    and region is synthetic except the orchestrator host name, which is the cue itself."""
+
+    C = "[cloud detail redacted]"
+    K = "[cost detail redacted]"
+    _scratch = TestQ903AppendOnlyMoneyRedaction._scratch
+    _green = TestCX1140AppendOnlyCloudRedaction._green
+    _red = TestCX1140AppendOnlyCloudRedaction._red
+
+    def _case(self, old, new, green, why):
+        self.BASE = "CX-1 first entry.\n%s\nCX-2 end.\n" % old
+        self.assertNotEqual(old, new, "precondition: the line is edited")
+        (self._green if green else self._red)("CX-1 first entry.\n%s\nCX-2 end.\n" % new, why)
+
+    def test_host_name(self):
+        old = "CX-9 the bench ran on the 2-core `claude` orchestrator for a day."
+        self._case(old, "CX-9 the bench ran on the 2-core %s orchestrator for a day." % self.C, True,
+                   "the host name before 'orchestrator'")
+        self._case("CX-9 the claude VM was idle.", "CX-9 the %s was idle." % self.C, True,
+                   "the host name and 'VM' in one span")
+        self._case(old, "CX-9 the bench ran on the 2-core %s." % self.C, False,
+                   "a host span running past 'orchestrator' into a duration")
+        self._case("CX-9 claude proved it on the orchestrator.", "CX-9 %s proved it on the orchestrator." % self.C,
+                   False, "the name where the next word is not orchestrator/VM/host")
+        self._case("CX-9 the finding was reviewed by the Claude orchestrator and stands.",
+                   "CX-9 the finding was reviewed by the %s orchestrator and stands." % self.C, False,
+                   "the assistant's name (capitalised) before 'orchestrator' (Fable review 2026-11-15)")
+
+    def test_disk_tiers(self):
+        self._case("CX-9 the disk was E60 and full.", "CX-9 the disk was %s and full." % self.C, True, "an E-tier")
+        self._case("CX-9 a 256 GB StandardSSD managed disk.", "CX-9 a 256 GB %s managed disk." % self.C, True,
+                   "a one-word tier name")
+        self._case("CX-9 the E60 disk was not full.", "CX-9 the %s full." % self.C, False,
+                   "an E-tier span that eats a negation")
+        self._case("CX-9 see checklist row E3 for it.", "CX-9 see checklist row %s for it." % self.C, False,
+                   "a one-digit E id, which is not a tier")
+
+    def test_resource_name_stems(self):
+        self._case("CX-9 the deep-zz-m8qq box ran.", "CX-9 the %s box ran." % self.C, True,
+                   "a hyphenated name ending in a size")
+        self._case("CX-9 the keystone-northasia7 VM ran.", "CX-9 the %s VM ran." % self.C, True,
+                   "a hyphenated name ending in a region")
+        self._case("CX-9 the deep-zz-m8qq failed.", "CX-9 the %s." % self.C, False,
+                   "a stem span that eats a verdict word")
+        self._case("CX-9 the claim is not-proved-m8 here.", "CX-9 the claim is %s here." % self.C, False,
+                   "a stem holding a stop-list word (Fable review 2026-11-15)")
+        self._case("CX-9 the deep-zz-run box ran.", "CX-9 the %s box ran." % self.C, False,
+                   "a hyphenated name whose last part is not a size or a region")
+        self._case("CX-9 the verify.zz-m8 check ran.", "CX-9 the verify.%s check ran." % self.C, False,
+                   "a stem that starts after a dot (a file name, not a resource)")
+
+    def test_cloud_detail_in_a_section_anchor(self):
+        self._case("CX-9 see `D.md \u00a7Premium-SSD-attach` for it.", "CX-9 see `D.md \u00a7%s-attach` for it." % self.C,
+                   True, "a disk tier inside a section anchor")
+
+    def test_cost_words(self):
+        for old, new, why in (
+                ("CX-9 the cost-efficient path held.", "CX-9 the %s path held." % self.K, "cost-efficient"),
+                ("CX-9 under a cost cap of one day.", "CX-9 under a %s of one day." % self.K, "cost cap"),
+                ("CX-9 the Cost control rule held.", "CX-9 the %s rule held." % self.K, "Cost control"),
+                ("CX-9 the metering of that hour.", "CX-9 the %s of that hour." % self.K, "metering")):
+            with self.subTest(why=why):
+                self._case(old, new, True, why)
+        for old, new, why in (
+                ("CX-9 the cost-efficient path held.", "CX-9 the %s held." % self.K, "a compound plus a noun"),
+                ("CX-9 the cost cap was lifted.", "CX-9 the %s." % self.K, "a compound plus a verb"),
+                ("CX-9 the metering was wrong.", "CX-9 the %s." % self.K, "metering plus a verdict"),
+                ("CX-9 the control rule held.", "CX-9 the %s rule held." % self.K, "'control' with no cost word"),
+                ("CX-9 the budget and control were fine.", "CX-9 the %s were fine." % self.K,
+                 "'control' beside another cost word, not in the compound"),
+                ("CX-9 see the \u00a7Cost control section.", "CX-9 see the \u00a7%s section." % self.K,
+                 "a section title after a section sign"),
+                ("CX-9 see \u00a7\"Cost control \u2014 VM\".", "CX-9 see \u00a7\"%s \u2014 VM\"." % self.K,
+                 "a quoted section title after a section sign")):
+            with self.subTest(why=why):
+                self._case(old, new, False, why)
+
+
 class TestQ903HashedRetractedNeedle(unittest.TestCase):
     """CX-230: a RETRACTED_PHRASES.tsv needle that carries a dollar figure is registered as
     `sha256:<hex>/<n>` (the phrase's digest and length), never as text. hashed_row_parse and
