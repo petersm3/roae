@@ -3776,6 +3776,7 @@ INL-1dbfba98	-	C3	corrections	inline	viz/viz_tr5_orbit_collapse.md	88	theory is 
 INL-34469d7c	-	C3	corrections	inline	viz/viz_tr6_parity_alternations.md	76	is claimed novel. Developed with AI assistance (Claude, Anthropic); corrections invited.*
 INL-59b1cb3	-	C3	corrected	inline	viz/viz_tr7_circular_cycle.md	63	picture, and no renderer existed; the documents were corrected to say so. CX-191.
 INL-13a1de3a	-	C3	corrections	inline	viz/viz_tr7_circular_cycle.md	75	Developed with AI assistance (Claude, Anthropic); corrections invited.*
+GIT-33934e33	2026-11-14	C3	correction	git	f69fbdab	-	Q-1140 cloud sweep B7: machine sizes, regions and cost wording removed from the reports (TR-3, TR-4, TR-5, TR-11, TR-12, FULL31)
 GIT-28c5ca25	2026-11-14	C3	correction	git	e5f50986	-	Cloud sweep B9: code comments and strings name roles and core counts, not machine sizes, resource names or costs
 GIT-35a01391	2026-11-14	C3	correction	git	c72c2712	-	Q-1140 cloud-sweep B8: run and evidence READMEs, machine outputs, and the runs/ directory-name note (D1)
 GIT-1685d901	2026-11-15	C3	corrections	git	c3c8363f	-	Q-1140 cloud sweep D3: CLAUDE.md stubs keep the moved headings as bold-label anchors (GATE 4b)
