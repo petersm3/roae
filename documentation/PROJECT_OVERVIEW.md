@@ -125,7 +125,7 @@ Full §[1]–§[28] analyze findings: see [HISTORY.md](HISTORY.md) "June 10-11, 
 The 100T d3 canonical (sha `915abf30…`, 3,432,399,297 orderings, established 2026-04-20) was the deepest published enumeration prior to the 560T canonical above. Its findings are preserved here as a historical scale-comparison reference; 560T headline numbers above are now authoritative. *(Revision 2026-07-04: the 100T record count throughout this document was corrected 3,432,399,298 → 3,432,399,297 — a 2026-05-30 doc-level "correction" had divided the file size by 32 without subtracting the 32-byte header; sha256 anchors unaffected. See [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §d3 100T.)* Findings (100T scope):
 
 - **Boundary minimum was 5 at 100T** (greedy-optimal set **{1, 4, 21, 25, 27}**); the d2 10T and d3 10T canonicals had 4 specific boundaries uniquely determining KW. Boundaries {25, 27} remain in the greedy minimum across all three partitions (the greedy-scope caveat above applies). Note: the 560T re-evaluation above confirms the greedy minimum **stays 5 at 560T with the identical set {1, 4, 21, 25, 27}** — the trajectory is monotone 4 → 5 → 5 (corrected; [CORRECTIONS](CORRECTIONS.md) CX-06).
-- **Complement distance (C3) = 776 is the CEILING, not the floor.** KW's C3 is at the maximum of the constraint. about **1 in 10 (~10%)** of records tie at exactly 776 — this is a fraction measured over the enumerated set, not a universal constant: 9.91% over the 100T canonical (340,179,649 of 3.43B) and 10.11% over the deeper 560T canonical (1,063,580,364 of 10.5B), both correct at their depth and converging near 10% (the full-space value is unknown — the space was never fully enumerated). Minimum C3 is 424 (221 records) at 100T, 392 at 560T. Axiom "minimize C3" does NOT pick KW; KW is in a large ~10% equivalence cohort at the C3 ceiling. Rule 3 is a ceiling constraint, not a minimization (see updated §Rule 3). *Reference baseline (exact, added 2026-07-22):* the bare C1&C4 null — no C2/C5 conditioning, no budget truncation — already gives a ceiling-tie share of 7.86% (P(C3 = 776 | C3 ≤ 776), `verify.py --check-null-g`), close to the observed ~10%; the populations are not like-for-like, so this is a baseline, not a refutation — but it indicates the tie fraction is largely generic to the pair-slot geometry rather than King-Wen-specific structure.
+- **Complement distance (C3) = 776 is the CEILING, not the floor.** KW's C3 is at the maximum of the constraint, which holds by the rule's definition: the ceiling is KW's own value (2026-11-14, CX-37C-Z). about **1 in 10 (~10%)** of records tie at exactly 776 — this is a fraction measured over the enumerated set, not a universal constant: 9.91% over the 100T canonical (340,179,649 of 3.43B) and 10.11% over the deeper 560T canonical (1,063,580,364 of 10.5B), both correct at their depth and converging near 10% (the full-space value is unknown — the space was never fully enumerated). Minimum C3 is 424 (221 records) at 100T, 392 at 560T. Axiom "minimize C3" does NOT pick KW; KW is in a large ~10% equivalence cohort at the C3 ceiling. Rule 3 is a ceiling constraint, not a minimization (see updated §Rule 3). *Reference baseline (exact, added 2026-07-22):* the bare C1&C4 null — no C2/C5 conditioning, no budget truncation — already gives a ceiling-tie share of 7.86% (P(C3 = 776 | C3 ≤ 776), `verify.py --check-null-g`), close to the observed ~10%; the populations are not like-for-like, so this is a baseline, not a refutation — but it indicates the tie fraction is largely generic to the pair-slot geometry rather than King-Wen-specific structure.
 - **Edit-distance distribution concentrated toward KW's far side (left-skewed).** (corrected; [CORRECTIONS](CORRECTIONS.md) CX-35T-G) Mode at edit distance 30 (867,721,617 records = 25.28%); only 10.87% of records within edit distance 25 of KW (§[28] cumulative). The same caveat as at 560T above applies: `edit_dist_kw` is a KW-referencing dimension — KW is the unique record at distance 0, percentile 0.0000% ([DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md)) — and no non-KW reference was measured, so no sparseness of KW's neighborhood follows from this shape.
 - **Shift-pattern conformance: 0.077%** (2,635,756 of 3.43B). Trajectory: d2 2.69% → d3 10T 0.062% → d3 100T 0.077%. Not monotonically decreasing.
 - **Mean per-position Shannon entropy: 2.37 bits** (of 5.0 max). Similar shape to 10T; only 1 of the 32 position slots (3.1 %, position 1) is determined by the data (§[2] of the analyzer log); this sentence read "~7%" until 2026-10-01, a figure with no derivation on record.
@@ -178,7 +178,7 @@ it's the constraint itself, re-expressed). So any aggregate statistic of that
 multiset (mean, max, variance) is structurally constant — not observable
 variation to analyze.
 
-Reproducibility — **the published CLI does not reach the corrected headline.**
+Reproducibility — **the corrected headline cannot be regenerated from the public tree.**
 `solve.py --compute-stats` → per-record parquet, then `solve.py --marginals`
 and `solve.py --bivariate`, reproduces the marginal and bivariate tables.
 `solve.py --joint-density` does **not** reproduce the ≈ 30th-percentile figure
@@ -187,12 +187,12 @@ fixed seven-element list in `solve.py` (`edit_dist_kw`, `c3_total`,
 `c6_c7_count`, `fft_dominant_freq`, `fft_peak_amplitude`,
 `shift_conformant_count`, `first_position_deviation`) and `p2_joint_density`
 consumes it verbatim. The two-dimension re-analysis exists in the code —
-`p2_joint_density_v2` accepts `dims=`, `seed=` and `bandwidth_method=` — but
-`--joint-density-dims` and `--joint-density-seed` are not exposed on the
-command line (`grep -c "joint-density-dims" solve.py` → `0`), so **no public
-invocation at this revision reproduces the ≈ 30th-percentile figure or any of
-its five seeds**. The gap, the recipe that becomes runnable once those two
-parameters are wired through argparse, and the archived per-run outputs are
+`p2_joint_density_v2` accepts `dims=`, `seed=` and `bandwidth_method=` — and
+since 2026-11-06 (FV2-P D1490) `--joint-density-v2` takes `--joint-density-dims` and
+`--joint-density-seed` on the command line. Its inputs (the 100 T canonical's parquet chunks), the list of
+recorded seeds and an archived output are not public, so **the ≈ 30th-percentile figure and its five seeds
+still cannot be regenerated from the public tree alone** (corrected; [CORRECTIONS](CORRECTIONS.md) CX-37C-U). The recipe and the
+remaining gap are
 recorded in [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md)
 §"Reproducing this figure".
 Full analysis: [DISTRIBUTIONAL_ANALYSIS.md](DISTRIBUTIONAL_ANALYSIS.md).

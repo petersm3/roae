@@ -17,8 +17,8 @@ opens the v2 prune ladder that #70 refines. Read the date in each header, not th
 > `roae-private`, the project's private staging repository, which is not publicly accessible. Those
 > citations are provenance pointers, not evidence a reader can fetch: a perf figure whose only cited
 > support is a `roae-private` file is operator-attested (disclosable to an auditor, not checkable
-> from this repository alone). The sha gates named in entries are the public leg — they are
-> reproducible from this repository per [CANONICAL_HASHES.md](CANONICAL_HASHES.md).
+> from this repository alone). The sha gates named in entries are the public leg where the entry gives its source commits and parameters — those are
+> reproducible from this repository per [CANONICAL_HASHES.md](CANONICAL_HASHES.md); where the commits are not in the public history or the parameters were not recorded (the LTO and AVX entries below say so), the sha gate is operator-attested too. *(corrected 2026-11-14, Codex final review F12-016#17: this said every named sha gate is reproducible from this repository)*
 
 ## Why this exists
 
@@ -118,7 +118,7 @@ script at this commit, that overstates it on three counts, and the JSON it emits
   (`gzip -dc solutions.bin | sha256sum`, the convention of every anchor in CANONICAL_HASHES.md), reports the
   container sha separately as `container_sha`, prints a `framing` field (`gzip` / `raw` / `absent`), and a
   failed decompression yields `sha=DECOMPRESS-FAILED` rather than a hash of partial bytes. **A harness `sha`
-  in any entry dated before 2026-09-02 is a container sha and is not comparable to any anchor.**
+  in any entry dated before 2026-09-02 is a container sha and is not comparable to any anchor** — unless that run's `solutions.bin` was raw (every build before #169's gzip default, 2026-06-17, and any `SOLVE_COMPRESS=0` run): a raw file's bytes are the logical stream, so its plain sha is the anchor convention. *(corrected 2026-11-14, Codex final review F12-016#12: the raw-file case was not excepted)*
 
 All three halves of the 2026-08-30 correction — the flush verdict, the throttle probe, and the logical sha —
 landed 2026-09-02. This paragraph previously read "the preflight throttle burn has not"; that is no longer
@@ -240,7 +240,7 @@ For each within-pair distance d, remaining `budget[d]` must be ≥ count of unpl
 ### Notes
 **Methodology pivot landed with this commit**: sha-match-vs-v1 is structurally incompatible with any feasibility prune at budgeted runs — the prune frees up node budget that gets spent finding more solutions → different sha. Replaced by (1) solution-set inclusion via `solve --verify-superset`, (2) independent C1–C5 verification via `solve --verify`, (3) v2 canonical shas at stabilization (task #81). See `roae-private/SEARCH_TREE_PRUNING_BUDGET_INCOMPATIBILITY_2026_05_06.md` (private staging) for the underlying argument.
 
-**The +68.6% at 100M does NOT extrapolate linearly to canonical budgets.** Most cells naturally terminate at large per-cell budgets, so the prune's marginal gain tapers. Task #81's 11.2T re-baseline shows the canonical-scale K-ratio: only +4.83% records vs v1 at 11.2T (vs +68.6% at 100M). Empirical scale-dependence captured.
+**The +68.6% at 100M does NOT extrapolate linearly to canonical budgets.** The prune's marginal gain tapers, but not because cells terminate naturally: the 11.2T canonical is BUDGETED in every cell (the 2026-05-18 #80a/#85/#86 entry below corrects the same reading; `CANONICAL_HASHES.md` §"100B and sub-canonical reference shas"), so this is the same finite-budget convergence-rate effect. *(corrected 2026-11-14, Codex final review F12-016#9: this read most cells naturally terminate at large per-cell budgets)* Task #81's 11.2T re-baseline shows the canonical-scale K-ratio: only +4.83% records vs v1 at 11.2T (vs +68.6% at 100M). Empirical scale-dependence captured.
 
 ---
 
@@ -360,7 +360,7 @@ Three sites in the DFS hot path are vectorizable to AVX-512: complement-distance
 - **v8 retry 1T paired bench**: AVX2 mean 433.0s, AVX-512 mean 434.6s → **0.9963× ≈ statistically zero**
   - 95% CI [−4.05, +0.85]s crosses zero
   - Welch t = −1.281, |t| < 2.3 threshold → null hypothesis NOT rejected
-- output sha: byte-identical (sha-preservation gate trivially passed since both builds run the same vectorized code; the only differences are register-allocation noise)
+- output sha: byte-identical (a measured match: the AVX2-only build and the AVX-512 build select different instructions, so the gate was not trivially passed) *(corrected 2026-11-14, Codex final review F12-016#18: this said both builds run the same vectorized code and differ only by register-allocation noise)*
 
 ### Delta vs baseline (scalar / AVX2-only at same commit, 1T)
 - enum_wall: **+0.37% (statistically zero, well within noise)** *(corrected 2026-11-01: was "−0.37%". From the means above, (434.6 − 433.0) / 433.0 = +0.37%: the AVX-512 build was 0.37% slower than the AVX2 baseline, not faster, and the difference is noise either way. Codex F12-016#14; [CORRECTIONS.md](CORRECTIONS.md) CX-36J-A.)*
@@ -653,7 +653,7 @@ Closes Phase E.2 defense item 1 (selftest-resume gating) and the gating gap for 
 ## 2026-05-18 — task #69: MRV variable ordering (fail-first pair iteration) — **SHELVED after K-pilot**
 
 **Category**: prune (search-order — turned out NOT to produce a superset relation)  
-**Sha impact**: would be forking in `fail-first` mode (byte-level AND canonical-level, at every scale tested)  
+**Sha impact**: would be forking in `fail-first` mode (byte-level AND canonical-level, at every scale tested above the 100M selftest, where the shas match) *(corrected 2026-11-14, Codex final review F12-016#14: this read at every scale tested)*  
 **Decision**: **SHELVE** — K-pilot at canonical-equivalent scale shows fail-first finds 23% FEWER records than numeric AND the two orderings explore completely disjoint canonical-level record sets
 
 ### Hypothesis (original)
@@ -712,7 +712,7 @@ Paired numeric-vs-fail-first runs on `--branch 24 0` (largest first-level branch
 
 ### Sha gate
 - Numeric mode: PASS (selftest sha `56487ab5…` byte-identical to current v2 canonical baseline)
-- Fail-first mode: at every scale tested, both byte-level shas AND canonical-level shas differ from numeric; canonical-set intersection at 100B is empty
+- Fail-first mode: at every scale tested above the 100M selftest (where they match, see above), both byte-level shas AND canonical-level shas differ from numeric; canonical-set intersection at 100B is empty
 - 1T numeric reproducibility: sha `f3a3e68c…` byte-identical to today's PGO 1T v3 bench (cross-host reproducibility confirmed)
 
 ### Decision
@@ -1101,8 +1101,8 @@ empirical record, not a guarantee that optimizer decisions cannot reach the sha.
 
 > **⚠ Correction (2026-08-30):** this sentence originally read "sha is determined by prune predicates, not optimizer branch hints", which is
 > an unsupportable universal in a solver whose canonical runs are BUDGETED in every cell. `CANONICAL_HASHES.md`
-> §"100B and sub-canonical reference shas" documents a DFS-neutral commit (`d683794`) flipping the 100B sha via
-> exactly this route — compiler layout perturbing OpenMP scheduling — and states the rule: "You cannot predict
+> §"100B and sub-canonical reference shas" documents a DFS-neutral commit (`d683794`) flipping the 100B sha, and names
+> compiler layout perturbing OpenMP scheduling as the likely mechanism (a hypothesis there, not established) *(corrected 2026-11-14, Codex final review F12-016#13: this read via exactly this route)* — and states the rule: "You cannot predict
 > from source-reading whether a commit will flip 100B sha — only empirically." Reworded to the measured claim.
 > **The byte-identical 1T match above stands as measured**, and it remains a genuine sha-preservation data
 > point; what is withdrawn is the reasoning that made such a gate look unnecessary. See also the 2026-05-13 LTO
@@ -1147,7 +1147,7 @@ The load-bearing safety is `-Werror=missing-profile`: any future change that bre
 The earlier #78 entry (above) reports +6.5% from PGO at 1T on a clean LTO-only baseline. Current entry's 4.38% from v3 vs v1 with broken PGO is consistent with that decomposition:
 
 - LTO contribution (#47 closure): +2.53%
-- Bitset (#72) contribution at 1T: near-zero standalone perf delta (the +8.7% per-thread at 1B from #72 was at a smaller scale with different memory pressure; at 1T the per-thread rate gains are mostly absorbed by hash-table and merge bottlenecks)
+- Bitset (#72) contribution at 1T: near-zero standalone perf delta (the +8.7% from #72 is an aggregate figure from a 90-second, 128-thread timed run under an 11.2T configured budget, not a 1B per-thread bench — see the 2026-08-30 correction under #72 — so a smaller scale does not explain the difference *(corrected 2026-11-14, Codex final review F12-016#10: this read per-thread at 1B, at a smaller scale with different memory pressure)*; at 1T the per-thread rate gains are mostly absorbed by hash-table and merge bottlenecks)
 - PGO contribution **at this bench**: **0%** (build bug)
 
 So this bench's v3-vs-v1 delta of 4.38% ≈ LTO 2.53% + small residual gains from bitset + statistical variance. **Re-run with the fixed `build_pgo.sh` is needed to validate the predicted +9.2% LTO+PGO+bitset stack.**
@@ -1187,7 +1187,7 @@ Sub-branch 83477/158364 BUDGETED ... 0s
 **What this validates:**
 - `promote_orphaned_shards()` (v3.1 patch) correctly identifies completed shards.
 - `checkpoint.txt` (12 MB at 100B scale, ~100 MB at 100T projected) is the sole resume input — no slow shard-file scan needed. *(Corrected 2026-10-01, Codex V3A-039 #6: not the sole input. `promote_orphaned_shards()`, named two lines up, opens the run directory and reads every entry to find `sub_*.bin` shards that checkpoint.txt does not yet list; the measurement shows that scan was fast here, not that it is absent.)*
-- Recovery is scale-invariant — wall time scales with checkpoint parse, not shard count.
+- Recovery wall grows with the run directory's entry count (every entry is read, and orphan shards are validated), not with checkpoint parse alone; it is not scale-invariant. *(corrected 2026-11-14, Codex final review F12-016#8: this read recovery is scale-invariant, not shard count)*
 - Graceful SIGTERM gives solve enough time to flush in-flight shards (27,008 → 29,588 between deallocate and process exit).
 
 **What this does NOT test:**
@@ -1346,7 +1346,7 @@ In rough order of explanatory power:
 ### What this means for the canonical build recipe
 
 - **LTO**: keep it. It's free at build time, no measured downside, and even if the +2.53% was overstated, the canonical pipeline pattern (`feedback_canonical_pipeline_pattern`) bakes it in as default.
-- **bitset (#72)**: keep it. Measured +8.7% per-thread at 1B; even if that doesn't fully transfer to 1T, the broken-PGO bench yesterday (LTO + bitset only) measured +4.4% over vanilla v1 — that's the closest direct measurement of the LTO+bitset stack.
+- **bitset (#72)**: keep it. Measured +8.7% (aggregate, 90-second 128-thread bench; see the #72 correction); even if that doesn't fully transfer to 1T, the broken-PGO bench yesterday (LTO + bitset only) measured +4.4% over vanilla v1 — that's the closest direct measurement of the LTO+bitset stack.
 - **PGO**: **drop from the 560T build** unless a future bench with throttle probe + 6+ reps + canonical-scale profile-gen demonstrates a measurable advantage. Saves ~100 min profile-gen wall per VM provisioning at no measurable cost.
 - **The build-recipe hardening (`scripts/build_pgo.sh` + `-Werror=missing-profile`) remains shipped.** It prevents future silent no-PGO regressions if/when PGO is re-enabled.
 
@@ -1524,7 +1524,7 @@ eviction-resilient — **without changing the computed count** (the DP is determ
 - gzip level: **L1 = 953 s / 881 MB · L6 = 1002 s / 789 MB · L9 = 2071 s / 767 MB** → L9 is ~2× slower for ~3%
   smaller. **Embedded default = 6** (a −9 default was tried, commit `6465418`, then reversed, `c810600`).
 - Compression (live n=31): ~12–16× on the layer data; disk footprint projecting **< 1 TB** vs ~8 TB raw.
-- The count DP is **compute-bound** (layer wall ≈ count time; gzip/I-O negligible) → this is a
+- Layer wall ≈ the printed count time, but in out-of-core mode that interval spans the whole layer builder (reads, decompression, compression, writes, finalization), so it does not separate compute from gzip/I-O and no bottleneck is established by it *(corrected 2026-11-14, Codex final review F12-016#7: this read compute-bound, gzip/I-O negligible)* → this is a
   disk/cost/eviction-resilience win, **not a speed change** to the count.
 - **Level-invariant**: identical count at gzip levels 1 / 6 / 9.
 

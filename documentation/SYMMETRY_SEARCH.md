@@ -6,8 +6,8 @@ system admits an exact symmetry group: the **48 bit-position permutations that c
 group and every sequence S, **S satisfies C1–C5 if and only if σ(S) does** — proven, not sampled.
 **Completeness (2026-07-18): the group is complete over ALL 64! hexagram relabelings** — no
 permutation of the hexagram set outside these 48 preserves the C1–C5 predicate family (C1+C2+C4
-already force membership; §Completeness below, machine-verified by
-`solve.py --symmetry-completeness`). The full
+already force membership; §Completeness below, checked by the Python enumeration
+`solve.py --symmetry-completeness`). ⚠ *(reworded 2026-11-14, CX-37C-Y: this read "machine-verified by"; the check is a Python program, not a formal proof.)* The full
 solution set is therefore a disjoint union of orbits of size dividing 48; per-cell true solution counts and
 entire backtrack subtrees are exactly orbit-invariant. At the canonical-record level (pair-sequences after
 orientation dedup), bit-reversal itself acts trivially, so the effective group is **B₃/{±I} ≅ S₄ (order 24)**

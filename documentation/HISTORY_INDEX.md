@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 11 place(s) over all 251 dated sections, 10 of them among the 175 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 11 place(s) over all 258 dated sections, 10 of them among the 182 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -277,6 +277,13 @@
 | 249 | 2026-11-13 | iso | 12509 | [open](HISTORY.md#2026-11-13--q-1065-the-127-follow-up-queries-and-the-q7-witness-rank-are-published-each-with-a-check-a-reader-can-run) 2026-11-13 — Q-1065: the §12.7 follow-up queries and the Q7 witness rank are published, each with a check a reader can run |
 | 250 | 2026-11-13 | iso | 12533 | [open](HISTORY.md#2026-11-13--batch-q1007-the-observable-roster-is-built-and-the-ledgers-total-is-derived-from-it) 2026-11-13 — batch Q1007: the observable roster is built, and the ledger's total is derived from it |
 | 251 | 2026-11-13 | iso | 12548 | [open](HISTORY.md#2026-11-13--batch-q1128-the-n31-atlass-2-adic-divisibility-proved) 2026-11-13 — batch Q1128: the n=31 atlas's 2-adic divisibility, proved |
+| 252 | 2026-11-14 | iso | 12562 | [open](HISTORY.md#2026-11-14--batch-q1134-dated-notes-on-nine-front-door-figures-and-the-exact-exchangeability-bound-printed) 2026-11-14 — batch Q1134: dated notes on nine front-door figures, and the exact exchangeability bound printed |
+| 253 | 2026-11-14 | iso | 12577 | [open](HISTORY.md#2026-11-14--batch-q1140-n1-king-wens-top-c3-position-is-stated-as-a-consequence-of-the-rules-definition) 2026-11-14 — batch Q1140-N1: King Wen's top C3 position is stated as a consequence of the rule's definition |
+| 254 | 2026-11-14 | iso | 12589 | [open](HISTORY.md#2026-11-14--batch-q1135-the-python-cli-references-checked-against-their-parsers) 2026-11-14 — batch Q1135: the Python CLI references checked against their parsers |
+| 255 | 2026-11-14 | iso | 12601 | [open](HISTORY.md#2026-11-14--batch-ft3f-docs-the-remaining-ft3f-documentation-rows) 2026-11-14 — batch FT3f-docs: the remaining FT3f documentation rows |
+| 256 | 2026-11-14 | iso | 12613 | [open](HISTORY.md#2026-11-14--batch-q1140-banned-verification-phrases-a-lean-attribution-two-scope-claims-and-one-intent-reading) 2026-11-14 — batch Q1140: banned verification phrases, a Lean attribution, two scope claims and one intent reading |
+| 257 | 2026-11-14 | iso | 12640 | [open](HISTORY.md#2026-11-14--batch-q1133-the-claim-to-artifact-audit-four-rows-corrected) 2026-11-14 — batch Q1133: the claim-to-artifact audit, four rows corrected |
+| 258 | 2026-11-14 | iso | 12653 | [open](HISTORY.md#2026-11-14--batch-q1140r-the-q-735-proofs-second-and-third-reads-are-not-called-independent) 2026-11-14 — batch Q1140R: the Q-735 proof's second and third reads are not called independent |
 
 ## Sections with no date in the heading, in file order
 

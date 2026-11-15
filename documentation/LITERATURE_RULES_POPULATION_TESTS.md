@@ -191,11 +191,11 @@ deliberately **not** published here; the level is stated instead. The number, CI
 unchanged: `reports/evidence/r11/r11_moore_strict.out:8` reads
 `leaves_canonical_C1C5 : est=1.131036e+29  95%CI=[1.0942e+29, 1.1679e+29]  relerr=1.66%`.)*
 
-Certificates are archived and independently verified by **two external checkers**: drat-trim
+Certificates are archived and checked by **two external checkers**: drat-trim
 (2026-07-03: all four UNSAT proofs — alt-le-14, alt-ge-16, moore-strict-near-2, rc4-strict-near-2 —
 check `s VERIFIED` against regenerated CNFs), and **cake_lpr**, the *formally verified* LRAT checker
 whose soundness is machine-checked in HOL4 down to the machine code, which on 2026-07-27 verified the
-then-complete **21-certificate archive**, these four included. Per certificate:
+then-complete **21-certificate archive**, these four included. ⚠ *(reworded 2026-11-14, CX-37C-Y: this read "archived and independently verified by".)* Per certificate:
 
     drat-trim <cnf> <drat> -L <lrat>     # re-prints `s VERIFIED`, emits the LRAT
     cake_lpr  <cnf> <lrat>               # prints `s VERIFIED UNSAT`
@@ -371,7 +371,7 @@ not a bound.
 The literature's four strongest rules are **jointly unsatisfiable**: no C1∩C2∩C4∩C5-valid ordering achieves
 Moore's 2005 parity (18/18), Moore's 1989 rhythm (0 breaks), the Schulz gender rule (0 violations), and
 the Schulz S25–28 trigram configuration simultaneously (UNSAT under C1+C2+C4+C5, hence a fortiori with
-C3; certificate independently verified). The pieces fit together sharply:
+C3; certificate checked by drat-trim). ⚠ *(reworded 2026-11-14, CX-37C-Y: this read "independently verified".)* The pieces fit together sharply:
 
 - King Wen keeps the trigram configuration **exactly** and misses the other three by two each (16/18,
   2 breaks, 2 violations). *(Corrected 2026-09-01: this read "by the **minimal measured margins**". The

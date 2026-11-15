@@ -12558,3 +12558,107 @@ entry describes the review itself, which had none.)*
 - No count, digest or canonical sha changed. `TestQ735TwoAdicEvidence` holds the evidence and fails on the parent
   tree. Found and proved by Fable; independently verified by a separate Fable lane, the six-pair V1 extension by a
   third; citations from the Q-1129 survey.
+
+## 2026-11-14 — batch Q1134: dated notes on nine front-door figures, and the exact exchangeability bound printed
+
+- **TR-12 (CX-37C-V).** Dated notes, each appended to its line: §Open Problems row 7 gives 0.04151; §12.7 and
+  row 10 give the unrounded lookup counts behind 27.6× and ≈ 65 h (27.55× and 2.250×) and §R.0's 11.57 TB; the
+  Confidence Ledger says which numbering "rows 2–30" uses (layers 1–29, slots 3–31) and where the two
+  external-anchor tokens are. Revision row v1.43.
+- **solve.py --atlas-probe** prints `EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS_EXACT`, the exact rational TR-12 §12.6
+  quotes and no shipped command printed until now (the CX-72 class). SOLVE_PY_CLI.md names it.
+- **SEARCH_SPACE_SIZE.** The "≈1 part in 10²⁷" derived from the withdrawn 3×10³⁷ is withdrawn with it; the C6/C7
+  row and §"Absolute validation" point to the exact 5.16880×10³², TR-4's third anchor.
+- **CRITIQUE.** The corpus-control counts (9, 9 and 3 of 11) are marked as resting on a private record, with
+  Corpus control II as the reproducible version.
+- No figure, count, canonical sha or verdict changed. `TestBatchQ1134` checks each note against the atlas and
+  receipts it describes and fails on the parent tree. Audit and build in Opus lanes.
+
+## 2026-11-14 — batch Q1140-N1: King Wen's top C3 position is stated as a consequence of the rule's definition
+
+- **LEADERBOARD and SOLVE banners, with siblings in SOLVE §Rule 3, CRITIQUE and PROJECT_OVERVIEW (CX-37C-Z).**
+  Backlog Q-1140, wording audit item N1. Two page banners called it a novel finding that King Wen has the highest
+  C3, 776, among the C1–C5 records. C3 is defined as C3 ≤ 776, King Wen's own value, so that position could not
+  have failed. The banners now say so, and state what was measured: at 100T the minimum is 424 (221 records),
+  90.09 % of records lie strictly below 776 and 9.91 % tie King Wen; at 560T the minimum is 392 (cited). "Minimize
+  C3" picks the records at the minimum, not King Wen. Each banner keeps its old heading in a dated note, and
+  CORRECTIONS quotes both old lines in full.
+- No canonical sha, count, certificate, token or verdict changed. `TestBatchQ1140N1` fails on the parent tree.
+  Found by the Opus wording audit; approved by the operator; built in an Opus lane.
+
+## 2026-11-14 — batch Q1135: the Python CLI references checked against their parsers
+
+- **SOLVE_PY_CLI.md, VERIFY.md, ROAE_PY_CLI.md, SAT_CLI.md (CX-37C-W).** Backlog Q-1135. Every documented flag is in
+  its parser and every complete example parses; 28 token lists, exit-status rows and range statements had drifted
+  from the code and now match it. Among them: the n=9 atlas consumer runs 33 gates (36 with the Q3 trace), re-run
+  for this batch; `TR12_A5_ORBIT_MEMBERSHIP` is listed; `--sigma-limit 48` or more can read PASS (docstring and
+  `--help` too); `--recount-finite` has a mode row; roae.py's own exit-2 refusals are listed; four inline `sat.py` /
+  `k37_isclause_port.py` commands gain their missing path. Dated notes are appended, never reworded. Two unsure
+  items are left as they stand.
+- No count, certificate, token, verdict or canonical sha changed. `TestBatchQ1135` holds each fragment, binds it to
+  the code, and fails on the parent tree. Audited and built by an Opus lane.
+
+## 2026-11-14 — batch FT3f-docs: the remaining FT3f documentation rows
+
+- **Seven documentation files (CX-37C-N).** 58 rows of Codex's FT3f set that disagreed with the code, fixed
+  line-neutral with a dated note on each changed sentence: SOLVE_C_CLI.md's KC tool rows, DEVELOPMENT.md's gate,
+  token, run and verify rows, CAMPAIGN_METHODOLOGY.md's extension and analyze rows, DEPLOYMENT.md's completion,
+  sizing, merge and snippet rows, F1C5_LAYER_FORMAT.md and SOLUTIONS_FORMAT.md, and PERFORMANCE_HISTORY.md.
+- **Two rows released from the operator hold.** DEPLOYMENT.md's teardown example sets its trap before the create,
+  and its single-branch table notes that the parallel `--sub-branch` path runs at most 64 workers. Neither adds an
+  identifier.
+- No code, count, digest or canonical sha changed. `TestBatchFT3fDocs` pins the rows and fails on the parent tree.
+  Found by Codex (gpt-6-astra), final review; triaged and built in an Opus lane.
+
+## 2026-11-14 — batch Q1140: banned verification phrases, a Lean attribution, two scope claims and one intent reading
+
+- **VERIFY, LARGE_SCALE_CAMPAIGNS, CITATIONS, TR-1, TR-3, TR-6, LITERATURE_RULES_POPULATION_TESTS, SYMMETRY_SEARCH
+  (CX-37C-Y).** Backlog Q-1140, the project's own wording audit. "Independently reproduces" and "independently
+  verified" now say who checked what: `verify.py` is a second program by the same author, the campaign sha matches
+  are same-author re-runs, and the DRAT certificates were checked by drat-trim. "Machine-verified" is kept for
+  kernel-checked mathematics; a Python check now says it is one.
+- **Notes on four earlier sentences of this file (CX-37C-Y).** This file is append-only, so they stand as written
+  and are scoped here.
+  - The 2026-08-08/08-30 narrative and its bullet list say the n = 18 rung of TR-11 §4b was reproduced
+    "independently" by the DP in `verify.py`: that means recomputed by a second program by the same author (verify.py's DP); no
+    independent party reproduced it. TR-11 §4b and its v1.18 row say the n = 18 integer is not from an independent
+    external source and carries that table's authorship caveat.
+  - The 2026-07-05 entry ("all captured, audited, and machine-verified via `solve.py --books-verify`"):
+    "machine-verified" there means checked by a Python script against the transcriptions, not a formal proof.
+  - The 2026-07-04/05 entry ("so the count's primary sanity gate rests on machine-verified mathematics"): scoped by
+    CX-232 (row R4). The Lean theorems prove that 24 divides the RECORD-level count; the ÷24 gate on the published
+    orientation-explicit counts rests on the paper-proved free order-48 action (TR-5; lean/README.md, the
+    2026-08-30 correction to the `twenty_four_dvd_*` description), not on Lean.
+- **SOLVE_SUMMARY, CLAUDE.md, TR-2 (CX-37C-Y).** Byte-identity is claimed within the tested toolchain class, as
+  CX-35T-J scoped TR-3; partition invariance is said to prove invariance to shard partitioning, while identity
+  across hardware, region and merge mode is measured. TR-2's summary line no longer says "not corruption": damage
+  to the three-rule precursor stays open.
+- Ten audit items needed the operator (B6, T1–T6, N1–N3): N1 was approved and is batch Q1140-N1 above; nine wait. No canonical sha, count or certificate changed.
+  `TestBatchQ1140` holds the new wording and fails on the parent tree. Found by an Opus audit lane; built in an
+  Opus lane.
+
+## 2026-11-14 — batch Q1133: the claim-to-artifact audit, four rows corrected
+
+- **CLAIM_TO_ARTIFACT rows 3, 14, 15 and 17, DISTRIBUTIONAL_ANALYSIS, PROJECT_OVERVIEW (CX-37C-U).** Backlog Q-1133.
+  An audit of all 21 ledger rows found 15 OK and 6 needing a fix; four are fixed here. Row 3 now says the IE
+  transfer-walk shares one lemma with the DP and that both are project-authored. Row 14 now says the published CPOG
+  hashes were matched by the 2026-11-07 regeneration. Row 15 cites `kw_no_five` for C2 beside `kw_valid`. Row 17
+  and its two sibling pages give the `--joint-density-dims`/`--joint-density-seed` invocation, wired 2026-11-06,
+  and keep "not reproducible from the public tree" because the inputs and an archived output are not public.
+- **verify_all.sh and solve.py comments.** The section 3 comment now counts 24 certificates and names the cake_lpr
+  and Lean legs; the registry comment notes that D7's 8 is KW-derived.
+- Rows 13 and 8 are not changed here. No count, certificate or canonical sha changed. `TestBatchQ1133` pins the new
+  text and fails on the parent tree. Audit by an Opus lane; built in an Opus lane.
+
+## 2026-11-14 — batch Q1140R: the Q-735 proof's second and third reads are not called independent
+
+- **Evidence README and TR-12 (CX-37C-R).** The Q-735 evidence README's dated note said a separate Fable lane
+  "independently verified" the theorem and a third Fable lane "independently verified" the six-pair argument. Both
+  were AI model lanes working under this project's direction, so neither check is independent examination
+  (METHODS.md, "Authorship independence"). The note now says "re-checked" by a second and a third Fable lane of this
+  project and quotes the old wording. TR-12's §12 note and v1.42 revision row each gain a dated note that says the same.
+- **This file's batch Q1128 section** says the theorem was "independently verified by a separate Fable lane, the
+  six-pair V1 extension by a third". This file is append-only, so that sentence stands as written. Read it as
+  "re-checked by a second Fable lane of this project, the six-pair V1 extension by a third".
+- The status line "independently re-derived; not formalised in Lean" is not changed. No count, figure, digest or
+  canonical sha changed. `TestBatchQ1140R` holds the wording and fails on the parent tree.

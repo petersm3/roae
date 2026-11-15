@@ -1561,7 +1561,7 @@ solve.c, just operational patterns worth knowing about:
 
    **Why this isn't a correctness risk:** the canonical sha
    produced by a fresh-shell `solve --merge` from intact shards
-   has been independently verified across multiple campaigns
+   has matched its reference sha in repeated campaigns ⚠ *(reworded 2026-11-14, CX-37C-Y: this read "has been independently verified across multiple campaigns"; the matches are same-author re-runs.)*
    (sha-equivalence to Tier 1 reference at 11.2T, two-language
    constraint verification per §12 item 5). A crash at the
    post-enum cleanup boundary cannot corrupt the on-disk shards

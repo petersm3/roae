@@ -42,8 +42,8 @@ the whole run. Keep them independent.
 
 ## Solver invariants the monitor depends on
 
-- **Atomic writes.** `solve.c` writes to `foo.tmp` then renames. A mid-write
-  snapshot by the monitor must never read a truncated file.
+- **Atomic writes, where they exist.** `solve.c` writes shards to `sub_*.bin.tmp` then renames, but `progress.txt`, `solve_results.json` and (on the in-process merge) `solutions.bin` are written under their final names. A mid-write
+  snapshot by the monitor can therefore read an empty or partial file of that kind; retry rather than act on it. *(2026-11-14, Codex final review F12-007#10: this said every write is tmp-then-rename)*
 - **Per-sub-branch node limits.** Thread scheduling varies, but each sub-branch
   has a deterministic node budget, so per-cell results are reproducible regardless of
   how threads pick up work; the record set of a parallel `--sub-branch` run under one global budget can vary between runs (solve.c's own note; Codex final review, F12-007#4).
@@ -99,9 +99,9 @@ launcher should scan for the partitionless ext4 volume rather than hardcoding
   mode** (`SOLVE_SKIP_AUTOMERGE=1` — mandatory for canonical runs ≥11.2T) the
   enum process returns *before* the completion report and before the JSON is
   written, so the enum VM never produces `solve_results.json` at all. There the
-  signal is solver exit rc=0 **plus** the `SOLVE_SKIP_AUTOMERGE set; skipping
-  bundled merge` line in `solve_output.txt` **plus** filesystem truth (shard
-  count and `shard_manifest.txt` state) — or, better, the supervisor-written
+  signal is solver exit rc=0 **plus** the whole-line `ENUM_RUN=FINISHED` printed after the `SOLVE_SKIP_AUTOMERGE set; skipping
+  bundled merge` line in `solve_output.txt` (a stopped run exits 0 and prints the same skip line, with `ENUM_RUN=STOPPED`; a relaunch over a directory whose every sub-branch is already checkpointed exits 0 with `All N sub-branches already completed.` and neither line) **plus** filesystem truth (shard
+  count; `shard_manifest.txt` records names, sizes and digests, not completion) — or, better, the supervisor-written *(2026-11-14, Codex final review F12-007#1: rc 0 plus the skip line was given as the signal; it does not tell a stopped run from a finished one)*
   `done.marker` / `fail.marker` pair the canonical campaign scripts use.
   Treating an absent `solve_results.json` as failure in split mode is the
   §Lessons item 4 incident (monitor tore down a successful run) re-instructed.
@@ -132,8 +132,8 @@ Observed behavior:
 - After ~9h wall time: 47/3030 committed, 12.5T wasted nodes, projected ~30 days
 
 **Rule of thumb:** committed-work granularity should be *smaller* than the mean
-time between interruptions, not larger. At 1.3B nodes/sec and ~25s per
-sub-branch, 64 threads dropping means losing ~30 minutes of aggregate compute
+time between interruptions, not larger. At 1.3B nodes/sec across 64 threads (about 20M nodes/sec each), a ~33B-node
+sub-branch takes about 27 min on its thread, so 64 threads dropping means losing up to about 29 core-hours (64 × ~27 min) *(2026-11-14, Codex final review F12-007#13: this read ~25s per sub-branch and ~30 minutes, dividing a branch budget by the aggregate rate)*
 per eviction — acceptable only if evictions are rare. When they aren't, add
 intra-sub-branch checkpointing (periodic state flush within the branch, then
 resume from the saved frontier).
@@ -196,12 +196,12 @@ Concrete example: `verify.py --jobs 16` on a 110 GB `solutions.bin`:
 - D16als_v7 has 32 GB → **thrashes** (empirically: 13× re-read multiplier, OOM-killed at 5h 5min)
 - D128als_v7 has 256 GB → fits, no thrashing
 
-This bit on 2026-05-08 (T9+c.1 phase 4 on D16). Patched verify.py in this repo uses 32 MB streaming batches and is no longer subject to the memory-vs-N constraint — it just needs cores. But the patched verifier is the floor: any chunk-parallel verifier added later should follow the same streaming pattern.
+This bit on 2026-05-08 (T9+c.1 phase 4 on D16). Patched verify.py in this repo uses 32 MB streaming batches and is no longer subject to the memory-vs-N constraint — it needs cores and, for a gzip-framed input (the default since #169), free space under `TMPDIR` (default `/tmp`) for the whole decompressed file, which it writes before its workers start: about 110 GB at 100T and 337 GB at 560T, so point `TMPDIR` at the data disk. *(2026-11-14, Codex final review F12-007#8: this said it just needs cores)* But the patched verifier is the floor: any chunk-parallel verifier added later should follow the same streaming pattern.
 
 **Rule of thumb for VM-sizing decisions:**
 
 - Single-thread merge: pick the smallest SKU that has enough RAM for the merge buffer (`SOLVE_MERGE_CHUNK_GB` × 2). D8/D16 are usually right.
-- Single-thread [`solve --verify`](SOLVE_C_CLI.md#--verify) (C-side): RAM doesn't matter (mmap + sequential read). Smallest SKU is fine. Disk speed (Standard HDD ~85 MB/s) dominates wall time — ~21 min for a 100T-scale 109.8 GB `solutions.bin`. This is the fast single-threaded check; `verify.py --jobs 1` is CPU-bound and two orders of magnitude slower (see §Sizing rule for verify.py).
+- Single-thread [`solve --verify`](SOLVE_C_CLI.md#--verify) (C-side): RAM doesn't matter (a streaming zlib reader that decodes and checks every record; not mmap). Smallest SKU is fine. ~21 min is the raw read time of a 100T-scale 109.8 GB `solutions.bin` at Standard HDD's ~85 MB/s, a floor: decompression and the per-record checks are not in it, and no wall was measured. *(2026-11-14, Codex final review F12-007#21: this said mmap + sequential read and gave ~21 min as the wall)* This is the fast single-threaded check; `verify.py --jobs 1` is CPU-bound and two orders of magnitude slower (see §Sizing rule for verify.py).
 - Parallel `verify.py --jobs N`: with the streaming patch, ~32 MB × N for memory; mostly CPU-bound now. Match N to cores to maximize throughput. **For 100T-scale (3.43B records), expect ~3h on 16 cores at ~19k records/sec/worker; ~12h on 4 cores; ~46 min on 64 cores.** **For 560T-scale (10.525B records, 3.07× 100T), projection at the linear regime: ~9h on 16 cores, ~5h on 32 cores, ~2.4h on 64 cores.** Important caveat: verify.py's per-record decode path is **pure Python at every sha** — the only numpy import in the file is inside `check_t5_c3` (the T5/C3 recompute, unrelated to record verification), so installing numpy does not speed record verification up. The 560T campaign did observe roughly a 3× shortfall against the projected 19k records/sec/worker rate, but that shortfall was **misattributed** to a missing numpy package; disk contention (see §HDD-IOPS contention below) is the leading candidate, and the 19k projection itself may be optimistic. Budget from a measured rate on your own hardware, not from a package install.
 
 Don't reflexively right-size for a single-thread phase and then run a multi-core verify on the same too-small VM. Either re-size for the verify phase, or pick a VM that fits both — the cost delta is usually small over a multi-hour campaign.
@@ -230,7 +230,7 @@ The memory-budget rule above tells you when verify.py won't OOM. It doesn't tell
   disk-bound (3.43B records ÷ ~19k records/sec/worker = ~50 h; measured
   single-worker throughput on a small file is ~27k records/sec, giving ~35 h).
   The ~21 min figure this row used to carry is the *C-side* number
-  (109.8 GB ÷ ~85 MB/s of Standard HDD read) and belongs to the mmap'd C
+  (109.8 GB ÷ ~85 MB/s of Standard HDD read), a read-time floor for the streaming C
   verifier. For a single-threaded disk-speed check, use
   [`solve --verify`](SOLVE_C_CLI.md#--verify), not `verify.py --jobs 1`.
 - `--jobs 16` on D16: ~3h (CPU-bound at ~620 KB/sec per worker after the streaming patch)
@@ -274,9 +274,9 @@ USED=$(az vm list-usage -l "$REGION" \
 LIMIT=$(az vm list-usage -l "$REGION" \
   --query "[?name.value=='$BUCKET'].limit | [0]" -o tsv)
 # az renders a null result as the string "None"; a broken query must ERROR, not pass.
-case "$USED$LIMIT" in
+for v in "$USED" "$LIMIT"; do case "$v" in   # each one: an empty USED beside a numeric LIMIT passed the joint test (Codex final review F12-007#14)
   ''|*[!0-9]*) echo "QUOTA_PREFLIGHT=ERROR (non-numeric: USED='$USED' LIMIT='$LIMIT')"; exit 1;;
-esac
+esac; done
 if [ $((USED + NEED)) -le "$LIMIT" ]; then
     echo "QUOTA_PREFLIGHT=OK ($USED + $NEED <= $LIMIT cores)"
 else
@@ -311,13 +311,13 @@ The most surprising property: **the slowdown is invisible to all standard busy-V
 **Mandatory pre-launch check for every fresh Azure VM that will run enum work:**
 
 ```bash
-# Right after SSH succeeds, before launching enum:
-FREQ=$(grep "cpu MHz" /proc/cpuinfo | head -1 | awk -F: '{print $2}' | xargs printf '%.0f')
-if [ "$FREQ" -lt 2000 ]; then
-    echo "FAIL: CPU at ${FREQ} MHz; D128als_v7 should be 2500-3500 MHz on healthy host. Re-provision."
+# Right after SSH succeeds, before launching enum. EVERY core, not the first (Codex final review F12-007#16):
+TOTAL=$(grep -c "cpu MHz" /proc/cpuinfo); LOW=$(awk -F: '/cpu MHz/ && $2+0 < 2000 {n++} END {print n+0}' /proc/cpuinfo)
+if [ "$TOTAL" -eq 0 ] || [ "$LOW" -gt 0 ]; then
+    echo "FAIL: $LOW of $TOTAL CPUs below 2000 MHz (2500-3500 MHz on a healthy host). Re-provision."
     exit 1
 fi
-echo "OK: CPU at ${FREQ} MHz"
+echo "OK: all $TOTAL CPUs at or above 2000 MHz"
 ```
 
 **Resolution when triggered:** there is no in-VM remediation. The fix is:
@@ -514,8 +514,8 @@ practical path at 100T is **external merge on Premium SSD**:
   64 GB RAM — the F64als_v6 this bullet used to name is retired) + Premium
   SSD P40 (2 TB, 250 MB/s) as temp dir
 - `SOLVE_TEMP_DIR=/mnt/merge-scratch SOLVE_MERGE_MODE=external`
-- ~1.4 TB total I/O (read 443 GB of shards once, write and read back 443 GB
-  of chunks, write the 110 GB output)
+- ~1.66 TB total I/O in logical bytes (read 443 GB of shards once, write and read back 443 GB
+  of sorted chunks, write and read back the 110 GB of deduplicated records in `temp_merge_records.bin`, write the 110 GB output), before hashing and the automatic verify *(2026-11-14, Codex final review F12-007#17: this read ~1.4 TB and left out the deduplicated-record file)*
 - **5h 25m 38s wall measured** on the 2026-04-19/20 run (on a D128 the
   standing policy now forbids for merge; the wall does not depend on core
   count) → about 5.5 h of D32als_v7 on-demand plus a P40 for the same span.
@@ -532,7 +532,7 @@ Two compile-time / runtime limits cap how far external merge can scale:
 | Limit | Source | Ceiling at default | Mitigation |
 |---|---|---|---|
 | `MAX_SORTED_CHUNKS = 4096` | `solve.c` constant | 4096 × 4 GB = **16 TB pre-dedup** (≥ ~3,600T node enumeration at the measured 100T d3 rate of 443 GB per 100T, linear) | Raise `SOLVE_MERGE_CHUNK_GB` (e.g., to 16 or 32) — multiplies ceiling; no code change. Or bump the constant (one-line source change) |
-| `ulimit -n` (open FDs) | OS per-shell default | Linux default 1024 → ≥ ~900T before hitting it (1024 × 4 GB chunks = 4 TB pre-dedup, same rate) | `ulimit -n 16384` before running [`./solve --merge`](SOLVE_C_CLI.md#--merge) |
+| `ulimit -n` (open FDs) | the **hard** limit: `--merge` raises the soft limit to it at start (`SOLVE_MERGE_NOFILE` pins a target, `SOLVE_SKIP_NOFILE_RAISE=1` turns the raise off) | a hard limit of 1024 → ≥ ~900T before hitting it (1024 × 4 GB chunks = 4 TB pre-dedup, same rate) | raise the hard limit (`ulimit -Hn`, or the host's limits configuration) before running [`./solve --merge`](SOLVE_C_CLI.md#--merge) *(2026-11-14, Codex final review F12-007#20: this named the shell's default soft limit, which `--merge` raises itself)* |
 
 **Implications.** At any enumeration scale we're realistically considering
 (10T through 1,000T), both limits have comfortable headroom with default
@@ -555,7 +555,7 @@ combination gives an ~64 TB pre-dedup ceiling and >4096 concurrent FDs.
 | Phase | Bottleneck | Scales with |
 |---|---|---|
 | Enumeration | cores (one pthread per `SOLVE_THREADS`, ~21M nodes/thread-sec) | node budget (linear) |
-| Merge | RAM (`malloc(total_records × 32)`) | unique solution count |
+| Merge | RAM (`malloc(total_records × 32)`) | pre-dedup shard record count (443 GB of input for 110 GB of unique records at d3 100T) |
 
 Enumeration RAM is flat *in the node budget*, but it scales with thread count
 and hash-table size: `threads × 2^SOLVE_HASH_LOG2 × 32 B` is committed at
@@ -567,7 +567,7 @@ auto-resize at 75%)`
 (`runs/20260419_100T_d3_d128westus3/enum_output.log.gz`). Do not provision a
 "lean" enumeration VM off a fixed RAM figure: compute it from the thread count
 you intend to run, or lower `SOLVE_HASH_LOG2` (22 → 128 MB/thread, 20 → 32
-MB/thread). Merge RAM scales with output size.
+MB/thread). Merge RAM scales with the pre-dedup input, not the output. *(2026-11-14, Codex final review F12-007#11: this and the table row above said unique solution count / output size)*
 
 **Two-phase pattern:**
 
@@ -595,7 +595,7 @@ MB/thread). Merge RAM scales with output size.
    E-/M-series are not used here: merge is a single-threaded heap-sort sized
    by RAM and I/O, and external merge (`SOLVE_MERGE_MODE=external`, shipped)
    keeps a modest SKU sufficient by streaming chunks instead of buffering
-   `unique_records × 32 bytes` in RAM.
+   `total_records × 32 bytes` (pre-dedup) in RAM.
 
 **Wall-time illustration (westus3 D-series; enum on Spot, merge on-demand — 2026-04-19 measured + projected):**
 
@@ -620,12 +620,12 @@ Savings scale with wall-clock time; for ≥100T external merge with Premium SSD 
   In split mode the enum process returns *before* the completion report and
   before `solve_results.json` is written (the `SOLVE_SKIP_AUTOMERGE` early
   return), so that file never appears on the enum VM: key on solver exit rc=0
-  **plus** the `SOLVE_SKIP_AUTOMERGE set; skipping bundled merge` line in
-  `solve_output.txt` **plus** shard/`shard_manifest.txt` filesystem state — or
+  **plus** the whole-line `ENUM_RUN=FINISHED` after the `SOLVE_SKIP_AUTOMERGE set; skipping bundled merge` line in
+  `solve_output.txt` (not the skip line alone: a stopped run prints it too, with `ENUM_RUN=STOPPED`) **plus** shard/`shard_manifest.txt` filesystem state — or
   on the supervisor-written `done.marker` / `fail.marker` pair. The
   `SEARCH_COMPLETE` status field in `solve_results.json` is the *single-VM*
-  (bundled-merge) signal, and in split mode it is written by the merge VM when
-  the merge finishes. Never key on stderr regex (§Lessons item 4).
+  (bundled-merge) signal only: a standalone `./solve --merge` on the merge VM writes no `solve_results.json`, so key the merge on its exit status and the
+  `solutions.sha256` it writes beside `solutions.bin`. *(2026-11-14, Codex final review F12-007#1, #2: this said the merge VM writes `solve_results.json` when the merge finishes)* Never key on stderr regex (§Lessons item 4).
 - Managed data disk survives. Run-ID file on disk identifies the run.
 - A separate merge script provisions the merge VM, attaches the same disk,
   verifies the run-ID matches, runs `./solve --merge`, copies the resulting
@@ -1070,7 +1070,7 @@ inspection or a short-lived compute task.
    the data disk still attached. Both incidents above are exactly that.
 
    ```bash
-   # GOOD: teardown is a trap, so it fires on success, failure, and Ctrl-C
+   # GOOD: teardown is a trap set BEFORE the create, so it fires on success, failure, and Ctrl-C, including a Ctrl-C while the create is still running (corrected 2026-11-14, Codex final review F12-007#15: the trap was set after the create, which left that window uncovered)
    RG=rg-claude
    teardown() {
      az vm disk detach -g "$RG" --vm-name temp-vm --name solver-data || true
@@ -1082,8 +1082,8 @@ inspection or a short-lived compute task.
        az disk delete -g "$RG" -n "$d" --yes --no-wait
      done
    }
-   az vm create ... -g "$RG" -n temp-vm
    trap teardown EXIT
+   az vm create ... -g "$RG" -n temp-vm
    az vm disk attach -g "$RG" --vm-name temp-vm --name solver-data
    ssh solver@<ip> '<inspection commands>'
    ```
@@ -1286,7 +1286,7 @@ gives only 4% additional speedup, at double the VM cost.
 
 | Scenario | Recommended VM | Per-branch wall (50B budget) |
 |---|---|---|
-| Wall-time critical, one branch | D128als_v7 spot, K=1 N=128 | 51s wall |
+| Wall-time critical, one branch | D128als_v7 spot, K=1 N=128 | 51s wall *(2026-11-14, Codex final review F12-007#7: the parallel `--sub-branch` path clamps its workers to 64 and has since it was committed on 2026-04-22, so `SOLVE_THREADS=128` or a positional 128 starts 64 workers, as its `Parallel --sub-branch: … worker threads` line says; N=128 cannot be run as written, and this row is the 2026-04-21 measurement only)* |
 | **Cost optimized, one branch** | **D64als_v7 spot, K=1 N=64** | 72s wall |
 | Noisy-neighbor tolerant | D32als_v7 spot, K=1 N=32 | ~78s wall, projected |
 
@@ -1311,7 +1311,7 @@ atomic-contention ceiling.
 
 | Scenario | Recommended |
 |---|---|
-| 1 branch, ASAP | **D128 spot, K=1 N=128** |
+| 1 branch, ASAP | **D128 spot, K=1 N=128** (64 workers on the current build; see the F12-007#7 note above) |
 | 1 branch, cheap | **D64 spot, K=1 N=64** |
 | 8-branch batch, cheapest | **D64 spot, K=8 N=8 packing** |
 | 16-branch batch, balanced | D64 K=8 × 2 VMs parallel, OR D128 K=16 N=8 |

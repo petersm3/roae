@@ -40336,3 +40336,437 @@ against EXPECTED_TOKENS.txt, pins the README's statement and the TR-12 note, and
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 assembled the evidence and the edits; the theorem
 was found and proved by Fable (claude-fable-5-2) and independently verified by a separate Fable lane; the six-pair
 extension was verified by a third Fable lane.
+
+## CX-37C-V — Nine front-door figures get dated notes on their sources, numbering or precision, and the exact exchangeability bound is printed by the public probe (reports/TR12_QUERY_PROGRAM.md; documentation/SEARCH_SPACE_SIZE.md; documentation/CRITIQUE.md; solve.py; documentation/SOLVE_PY_CLI.md; tests.py)
+
+**2026-11-14.** **Source.** Backlog Q-1134, a front-door numeric consistency audit run in an Opus lane. Every figure
+in README, TR-12's summary, §12, Open Problems and Confidence Ledger, CRITIQUE's selection accounting, METHODS'
+ledger and SEARCH_SPACE_SIZE was traced to its source of record. The audit found 42 items; 9 are carried here.
+Two others (METHODS' "itemised roster" and CRITIQUE's "by wide margins") belonged to Q-1007 and were handled by
+CX-37C-K. Each item below was re-checked against the tree before it was edited.
+
+**What was published, and what it says now.** Each edit is a dated note appended to the existing text; nothing is
+reworded and no line number moves in the three documents.
+- **TR-12 §Open Problems row 7** still gave the exchangeability bound as 0.0415. §12.6, the executive summary and
+  the abstract have read 0.04151 since CX-36J-D. A note gives 0.04151 and the exact 0.0415012.
+- **TR-12 §12.6** quoted the exact layer-4 rational 1121676961526360448677589295423047 /
+  27027598732681779457028289005338315. No shipped command printed it: `--atlas-probe` printed the maximum to
+  four decimals. This is the CX-72 class, and it is closed the same way, by printing more. The probe now prints
+  `EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS_EXACT=<p>/<q>`, the same maximum as a reduced fraction, right after its
+  4-dp twin. On the published atlas it prints the rational above. §12.6 and the §12.9 token table carry a
+  dated note, and SOLVE_PY_CLI.md names the token. The probe's other tokens and its pass condition are unchanged.
+  solve.py keeps its line count (a blank line below the block is removed).
+- **TR-12 §12.7 and §Open Problems row 10** gave 27.6× and ≈ 65 h beside the rounded inputs 3.49×10¹⁴,
+  1.27×10¹³ and 2.3×, which give 27.5× and 66.5 h. Both figures were computed from the atlas's unrounded
+  `counts`, and the note now prints them. Summed over the 31 layers: 12,652,870,597,409 first-scan g-lookups
+  (`st_lookups`); 348,601,554,325,640 naive g-lookups (layer k's nonzero children, `st_nz1`+…+`st_nz6`, times
+  2(n−k−1)); and 15,821,691,908,506 f-lookups for the second route (layer k+1's `st_entries` times 2k). The
+  ratios are 27.55× and 2.250×, so 796 h and 65.0 h at 28.9 h per scan. Those two published figures are right.
+- **TR-12 §12.7 and §Open Problems row 10** said "11.5 TB" for the f + g read-back. §R.0 of the same report
+  gives 11.57 TB. A note gives the §R.0 figure.
+- **TR-12 Confidence Ledger, "The three negatives"**, said "interior positional field (rows 2–30)". §12.5 and
+  the probe say slots 3–31, layers 1–29. The window is the same. "Rows" are the 31 rows of the per-layer table
+  counted from 1, as in the recomputation the label came from (CX-35Y-H): row r is layer r − 1 and slot r + 1.
+  This was checked on the atlas: only rows 1 and 31 (layers 0 and 30) have a positional TV above 0.0329, at
+  0.1324 and 0.4839. The interior maximum is 0.0328917, at layer 28. A note states the numbering.
+- **TR-12 Confidence Ledger, "The two external anchors"**, cited `evidence/tr12/VERDICTS_n31_20260922.txt` for
+  `TR12_A2_SLOT=FAIL` and `TR12_A3_EXTERNAL=FAIL`. That file has neither token, only the downstream consumer and
+  repro FAILs (lines 98, 100, 120). The two tokens are lines 1–2 of `reports/tr12/VERDICTS.txt`. A note points
+  there and to the evidence README's section that ties the FAILs together.
+- **SEARCH_SPACE_SIZE, the headline and Implications item 1**, kept "≈1 part in 10²⁷" after the 3×10³⁷ figure
+  it was derived from was withdrawn on 2026-08-24. In like units the gap is at most 23.9 decades, below 27. A
+  note withdraws the derived ratio with its source and gives the raw-unit ratio, 7.9×10⁻²⁹, as a ratio across
+  counting units.
+- **SEARCH_SPACE_SIZE, the C1+C2+C4+C5 + C6/C7-pins row and §"Absolute validation"**, still gave that quantity
+  only as an estimate and listed two full-scale anchors. It has been exact since 2026-07-25/26 (5.16880×10³²,
+  METHODS §"Canonical quantities"), and TR-4 scores it as the third anchor, 3 of 3. Two notes say so.
+- **CRITIQUE §"Corpus control test"** cites its 9 of 11, 9 of 11, 3 of 11 and 0 of 11 to a results file that
+  is not in the public tree, and no shipped command reproduces the 11-axis table. A note says the counts rest
+  on a private record and points to Corpus control II (`solve.py --r7-corpus`) as the reproducible version.
+  README quotes these counts, so they now point to a disclosed private record. The counts themselves are unchanged.
+
+**Not changed.** No figure, count, digest, canonical sha, token value or verdict changed; one probe token is
+added. Every corrected figure was already right at its published precision, and each note adds its source,
+numbering or precision.
+
+**Tests.** `TestAtlasProbe` gains a test that recomputes the exact maximum on the n=9 atlas it builds, by full
+enumeration of the null's support, and pins the new token to it. It then moves one unit of `rid_mass` between two
+cells of the arg-max layer and requires the token to move to the mutant's recomputed value. `TestBatchQ1134`
+checks each note against what it describes. It recomputes the exact maximum on the published n=31 atlas and runs
+the probe there; it recomputes the three lookup counts and their ratios, the positional TV of all 31 layers, the
+SEARCH_SPACE_SIZE arithmetic and the two receipts' contents. Both fail on the parent tree. The TR-12
+revision-row pins of `TestBatchQ1056`, `TestBatchQ1114Q1118Q1120` and `TestQ735TwoAdicEvidence` accept v1.43.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 ran the audit and built the batch.
+
+## CX-37C-Z — King Wen's top C3 position was headlined as a "novel finding"; it holds by the rule's definition (enumeration/LEADERBOARD.md; documentation/SOLVE.md; documentation/CRITIQUE.md; documentation/PROJECT_OVERVIEW.md; tests.py)
+
+**2026-11-14.** **Source.** The 2026-11-14 public wording audit, item N1 (backlog Q-1140); the operator approved its
+recommendation the same day.
+
+**What was published.** The banners at the top of enumeration/LEADERBOARD.md (line 5) and documentation/SOLVE.md
+(line 11) called it a novel finding that King Wen's C3 of 776 is the maximum among the C1–C5 canonical records, and
+SOLVE.md's banner added that "no record exceeds it on complement proximity". C3 is defined as C3 ≤ 776, and 776 is
+King Wen's own value (SPECIFICATION.md §C3: "extracted from KW — 776 is King Wen's own value"; `solve.c`
+`KW_C3_CEILING 776`). Every record that satisfies C1–C5 therefore has C3 ≤ 776, so King Wen's top position could
+not have failed. It is a consequence of the definition, not a measurement. The word "novel" was unhedged, and no
+prior-art survey was run for it.
+
+**What was measured, and what the banners say now.** The spread below the ceiling, and the negative result for
+"minimize C3". Re-read for this entry from the committed 100T log
+(`runs/20260419_100T_d3_d128westus3/c3_min_output.log`): 3,432,399,297 records, minimum C3 424 (221 records),
+maximum 776 (340,179,649 records, 9.91 %), so 3,092,219,648 records (90.09 %) lie strictly below 776; every
+histogram bucket in the log is at most 776 and a multiple of 8. King Wen's 776 was recomputed with `verify.py`
+(`compute_comp_dist`). The 560T figures (minimum 392; 10.11 % tied, 1,063,580,364 of 10,525,271,997) are cited
+from PROJECT_OVERVIEW.md; the 560T `--c3-min` log is not committed (TR-12 §Q4). Since 424 < 776, "minimize C3"
+selects the 221 records at 424, not King Wen; that negative result for Open Question #7 Phase A stands. Both
+banners now state these numbers, say that King Wen's top position holds by the rule's definition, and carry a dated
+note quoting the old heading. No banner calls the result novel, first or new.
+
+**Siblings treated the same way.** SOLVE.md line 94 ("The C3-ceiling finding (KW sits at the C3 *maximum* …)"),
+CRITIQUE.md line 359 ("Within C1–C5, KW is at the C3-maximum") and PROJECT_OVERVIEW.md line 128 ("KW's C3 is at the
+maximum of the constraint") each gain a dated clause saying the position holds by the rule's definition. Left as
+they are: runs/20260419_100T_d3_d128westus3/README.md line 103 ("no record exceeds the C3 ceiling") is a
+verification statement about that artifact, which is what it should say; HISTORY.md's 2026-04-20 entry is the
+historical record. LEADERBOARD.md line 7's "Second novel finding" is audit item N2, a separate operator decision,
+and is not changed here.
+
+Every edit keeps its line count. The old banner lines, verbatim:
+
+> enumeration/LEADERBOARD.md:5 (until 2026-11-14):
+>
+> **Novel finding from 100T [`--c3-min`](../documentation/SOLVE_C_CLI.md#--c3-min) analysis (2026-04-20; 560T re-affirmed 2026-06-11):** KW is **not** the C3-minimum under C1–C5. At 100T: minimum complement distance = **424** (221 records); KW sits at C3 = 776 (ceiling of the constraint). At 560T (3.07× the scale), KW's position at the C3 = 776 *ceiling* is reaffirmed. The simple axiom "minimize C3" does not derive KW — this is a confirmed negative result for Open Question #7 Phase A across both scales.
+
+> documentation/SOLVE.md:11 (until 2026-11-14):
+>
+> **Novel 2026-04-20 finding (from d3 100T [--c3-min](SOLVE_C_CLI.md#--c3-min) analysis):** King Wen's C3 of 776 is the **maximum** observed among the 3.43B canonical records, not the minimum. Minimum C3 = 424 (221 records). KW sits at the ceiling of the constraint C3 ≤ 776, NOT the floor. The common framing "KW places complements unusually close" is now refined: relative to orderings satisfying every *other* constraint (C1+C2+C4+C5 — the differential population, C3 itself not applied), yes (KW is at the 3.9th percentile of that sampled population; scope label corrected 2026-07-22 — earlier text said "C1-only", but the project's own C1-scope figures are 6.4-8.1% — C3|C1 = 6.42% via `--null-pair-constrained` (exact: 6.4211367496%, `verify.py --check-null-g --unpinned`), exact 8.106% at C1&C4 via `verify.py --check-null-g` — so no C1-only scope supports 3.9% — and the 3.9% is itself **flagged 2026-08-01**, see §Rule 3); relative to the C1–C5 canonical population that solve.c enumerates, KW is actually at the C3-maximum, with 90.09 % of canonical records strictly below it in C3 (3,092,219,648 of 3,432,399,297) and the remaining 9.91 % (340,179,649 records) tied with it at 776 — no record exceeds it on complement proximity. **This breaks the derivability axiom "minimize C3"** (negative result for Open Question #7 Phase A Day 1 MVP). The 221 C3=424 records form a "C3-extremal family" structurally distinct from KW.
+
+**Tests.** `TestBatchQ1140N1` holds the new wording at each site, requires "Novel finding" and "Novel 2026-04-20
+finding" to be absent from public Markdown except in dated quotes (this ledger, HISTORY.md, and the two banners'
+own dated notes), re-reads the 100T log's numbers and recomputes King Wen's 776, and fails on the parent tree.
+
+No canonical sha, count, certificate, token or verdict changed.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, the 2026-11-14 wording audit (item N1) and this
+build.
+
+## CX-37C-W — the Python CLI references against their parsers: token lists, exit tables and ranges that had drifted from the code (documentation/SOLVE_PY_CLI.md; documentation/VERIFY.md; documentation/ROAE_PY_CLI.md; documentation/SAT_CLI.md; verify.py; roae.py; tests.py)
+
+**2026-11-14.** **Source.** Backlog Q-1135: an audit of the four Python CLI references and every `python3 *.py`
+command line under documentation/ against the live parsers and the code each mode runs (an Opus audit lane,
+claude-opus-5-5). No documented flag was missing from its parser and every complete documented example parsed; the
+defects are token lists, exit-status tables and range statements. Twenty-eight are corrected here, each re-checked
+against the current source before it was changed. Two items the audit marked unsure are not changed (see the end).
+
+**SOLVE_PY_CLI.md, the TR-12 atlas consumer.**
+- The n=9 gate block said "31 gates (34 with --atlas-q3-trace)". Re-run for this entry on a fresh n=9 build:
+  `--atlas-selftest` prints `33 gate(s) run` without a trace and `36 gate(s) run` with one, both
+  `ATLAS_CONSUMER=PASS`; the trace run's gate lines match the committed golden `scripts/tr12_expected/n9/c_consumer.txt`.
+  It now reads 33 and 36.
+- The `--kc-class-swap-detect --json` key list lacked `N_total`, which the dump writes.
+- The consumer's verdict-token list ended "and at n=31 `TR12_A5_ORBIT_COLUMNS`". `TR12_A5_ORBIT_MEMBERSHIP` is
+  emitted under the same selector, and below full-31 both are written as `SKIP:n=<n>`; the n=9 golden lists 18
+  tokens. The `a5` selector's note said the check "gates the group-SIZE multiset, not pair membership"; that is
+  `TR12_A5_ORBIT_COLUMNS`, and pair membership is the separate membership verdict.
+- `--atlas-fault` has eleven choices, so "any of the other eight faults" now reads "ten".
+- `--xa-w0d-lb-cert` also prints `W0D_LB_CERT_PATH=` on PASS.
+
+**SOLVE_PY_CLI.md, exit status, verifiers and files.**
+- The 2026-09-21 note that six descriptive modes exit 2 on a directory with no `chunk_*.parquet` gains a dated
+  note: `--joint-permutation-test` and `--stratified-by-position-2-pair` reach `_p2_v2_load_sample`, which exits 1
+  with `[v2] no chunk_*.parquet files in DIR` on stderr. The note itself is not reworded.
+- `--perm-verify` SEQ mode (and the EXIT STATUS example) exit 1 when SEQ is not a permutation of 0..63
+  (`_g5b_perm_arg`), not only when it is not 64 integers.
+- EXIT STATUS rows 1 and 2 read as closed lists. A dated scope note, on the line that follows the table, names the
+  modes that also exit 1 on their FAIL verdict and the refusals that also exit 2; each mode's own row stays
+  authoritative.
+- FILES, "Writes", now names the `--sat-encode` sidecars, `compute_stats.json`, the atlas consumer outputs, the
+  TR-8 artifacts, the V3 spectrum TSV and two JSON dumps, all documented in their own sections.
+- `--tr8-dof-merge` (and the whole-pool sampler) exit 1, with the results still written, when sanity gate H-a or
+  H-b fails (`_tr8_finish`).
+- `--kc-x-recheck` also prints the `KC_X_PYCHECK_CHECKED=` / `_AGREE=` / `_REFUSED=` / `_FAILED=` counts,
+  `KC_X_PYCHECK_ERROR=<why>` on stderr, and the row verdict `UNREADABLE`.
+- `--c1-constants-check` also prints `STRUCTURED_SEQUENCES` and `RANDOM_C1_SEQUENCES`; `--r7-palace-sweep` also
+  prints `N=… SEED=…`, `CANONICAL_JF_EXTREMES` and `ORDERS_TESTED`, and has a third FAIL cause, `_r7_jingfang()`
+  not being the eight world-stage palaces.
+
+**VERIFY.md, the verify.py surface.**
+- `--sigma-limit N` "can never read `PASS`": `--sigma-limit 48` or more runs all 48 σ and can (HISTORY's
+  2026-10-29 FV2-V section recorded this as a documentation defect left for the doc lane). For N < 48 it reads
+  `PARTIAL`; N < 1 is refused, exit 1. The same sentence in `verify.py`'s docstring, the comment above it and the
+  flag's `--help` is corrected in the same words.
+- `--recount-finite` had no mode row; it gains one (TR-5's classification, TR-6's tallies, TR-7's rotation
+  counterexample, the rev = partner count), checked against `recount_finite`'s gates.
+- `--check-c2-shift [N]`: what `N` is, its default when bare, the fixed seed and the 5σ acceptance-identity gate.
+- `--check-midjoin`'s ERROR list gains the unreadable manifest, the `pl_hash` mismatch and the unchecked `t` block
+  (`MIDJOIN_CHECK_T=UNCHECKED`); a manifest whose `b0` does not sum to n is FAIL.
+- `--q1-labeling-oracle` prints `Q1_LABELING_ORACLE<TAB>PASS` (a tab, not KEY=value), and without `--q1-anchor`
+  exits 2.
+
+**ROAE_PY_CLI.md and SAT_CLI.md.**
+- roae.py's exit-2 row named only argparse; `roae.py` also exits 2 on its own refusals (`--explain` outside 1–63,
+  a negative `--seed`, `--gs-batches` ≥ 10000, `--gs-workers` outside 1–9899, a report path that is the checkpoint
+  file). The `--gs-workers` row states its range, and the `_g5b_pos_int` flags their lower bound.
+- The 2026-09-21 checkpoint precision note gains a dated note: since G5b (Codex F04-015#2) and FV2-P (D894, Codex
+  F12-012#8) the loader also refuses a row with an unknown `batch`, a wrong `n` or a wrongly shaped `hits`, and an
+  unparsable or non-object row. Only `trials` and the hit counts are still taken on trust.
+- The zero-hit paragraph's "18.49 bits" at N_eval = 10⁶ gains a dated precision note: the bound is 18.4954 bits and
+  the run prints `be=>= 18.50`. No grade moves. One `tests.py` comment now reads 18.495; two `roae.py` comments still say
+  18.49 and are left for a code batch; CORRECTIONS.md's earlier entry is append-only and stands.
+- `--trials` reaches the `--html` / `--markdown` exporters only when spelled in full (`roae.py` tests `sys.argv` for
+  `--trials` or `--trials=`); an argparse abbreviation such as `--trial 500` parses but the exporters keep 10,000.
+  The text now says so. The code is not changed here; `allow_abbrev=False` or a sentinel default would close it, and
+  that is noted for a later code batch.
+- NOTES: re-measured with `git ls-files`, `reports/evidence/` holds 27 Python files (not 12) and `scripts/` twelve,
+  where the text named one.
+- `--kw-control`'s token table gains `KW_CONTROL_TARGET=<target>`, printed first. The EXIT STATUS sentence for
+  `--rigidity-cnf --run` also covers `--ccn4-equiv-cnf SIDE OUT.cnf --run`, which shares `_run_expect_unsat`.
+  Three inline `sat.py --emit-cnf f1c5 --f1-pairs N` commands and one `scripts/k37_isclause_port.py 10` command
+  lacked their output or input path (as written they exit 1 and raise an IndexError); they now carry one.
+
+Every edit keeps its file's line count (this ledger, HISTORY.md and tests.py are appended to). The two inserted table rows (VERIFY.md, SAT_CLI.md) are each offset by
+re-wrapping the next prose paragraph by one line, so no cited line moves. The dated notes are appended; nothing old
+in them is reworded.
+
+**Not changed.** SOLVE_PY_CLI.md's "Three of these carry QUALIFIED values" (2026-09-04) depends on how "qualified"
+is read; VERIFY.md's "`SOLVE_BIN` or `./solve`" is wrong only when `./solve` is read as the working directory.
+The audit's code observations (verify.py modifiers that are dropped silently when given alone, `--jobs` clamped to
+1) are not doc defects and are not filed here.
+
+**Tests.** `TestBatchQ1135` holds each new fragment once and no old one, with a red half that puts the old fragments
+back; data checks bind the fragments to the code (the `--atlas-fault` choices, the n=9 golden's gate and token
+counts, the JSON keys, `_g5b_perm_arg`, the `KC_X_PYCHECK_` and Q-944 tokens, `--sigma-limit`'s PASS branch, the
+`--recount-finite` gates, the Wilson bound at 10⁶, the exporters' `sys.argv` test, the tracked file counts, and
+`KW_CONTROL_TARGET`). It fails on the parent tree.
+
+No canonical sha, count, certificate, token or verdict changed.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 audited the parsers and built the edits.
+
+## CX-37C-N — The remaining documentation rows of Codex's FT3f set that disagreed with the code: KC tools, gate tokens, run and verify reference, campaign method, deployment, layer and solutions formats, performance history (documentation/SOLVE_C_CLI.md; documentation/DEVELOPMENT.md; documentation/CAMPAIGN_METHODOLOGY.md; documentation/DEPLOYMENT.md; documentation/F1C5_LAYER_FORMAT.md; documentation/SOLUTIONS_FORMAT.md; documentation/PERFORMANCE_HISTORY.md; tests.py)
+
+**2026-11-14.** **Source.** Codex (gpt-6-astra), final review, batch FT3f (the rows named below); the 114 rows left
+after G7, G7b and G7c (CX-36L, CX-36N) were triaged against the code in an Opus lane, and each fix was checked again
+against this tree's code before it was built. Documentation only: no code, count, digest, canonical sha or verdict
+changed, and every edited file keeps its line count, so no cited line moves. Each changed sentence carries a dated
+note naming its row.
+
+- **SOLVE_C_CLI.md, KC tools (F12-003#5, #15; F12-024#7, #12, #16, #17, #20, #21).** The P9, D6 and W5 selftest
+  legs call `kc_profile_main`, `kc_dead_census_main` and `kc_witness_walks_main` directly, not through the
+  dispatcher. The `--kc-tsv` file is the stdout table plus the two one-column trailers, n + 4 lines, without the
+  `#profile-summary` and `#provenance` lines; the filter example uses bash `$'\t'`. Every T-certificate field except
+  `t_root_eq_f_layer_sum` collapses to "see fails". The scan issues *up to* `2·(31−k)` lookups (orientations refused
+  by C2 or the budget are skipped first). Two executables built from one source do merge, as `SOURCE-BOUND`.
+  `KC_EXTREMAL_WITNESS` can read `NOT-REQUESTED`. `--kc-build`, `--kc-count`, `--kc-t-build` and `--kc-t-check`
+  print a `Usage:` line from a shared template; the page quotes each.
+- **DEVELOPMENT.md, gates and tokens (F12-008#7, #11, #12, #16; F12-009#6, #7).** The M5 mutant checks counts and
+  verdict, not sha equality. `TR12_N31_GOLDEN` has six values with their exits and precedence. The resume-167 gate's
+  pre-run refusals print no counters. `EXEC_LANE_DIFF_UNSTATED` and `EXEC_LANE_FRAGMENT` count skips (a strict
+  unjustified fragment is a `FAIL`) and `EXEC_LANE_UNDOC_DEP` counts failures. The CLI-metadata gate's
+  positional-default exception and the transcript gate's shape-only evidence check are stated.
+- **DEVELOPMENT.md, run and verify reference (F09-H01#1; F12-009#8, #9, #10, #11, #13, #14, #16).** The 100T recipe
+  states the per-thread hash-table RAM. The reference enumeration is pair-only C4 in either orientation, with its
+  tokens. A dated note on the archived log's §[14] constant. The depth-3 shard name has six numbers. The merge writes
+  `solutions.sha256`. `verify.py` batch memory is at most `N × 64 MB`. Its exits include 1 for a reserved header
+  byte and 30 for a zero-record header. `binary_full_sha256` is measured like the sidecars' field since Q-840.
+- **CAMPAIGN_METHODOLOGY.md (F12-010#1, #7, #8, #9, #11, #16, #17).** An extension keeps every parent pair identity
+  per cell and rewrites each shard whole in slot order; it does not append. The extension progress count, the resume
+  inputs versus the audit files, the resume thread-count contract (exit 34), the budget-nesting check (not a
+  partition-invariance witness), §[13]'s two passes, and the 1120T analyze file size (~576 GB at ~18 B records, about 44% of it cached).
+- **DEPLOYMENT.md (F12-007#1, #2, #7, #8, #10, #11, #13, #14, #15, #16, #17, #20, #21).** Completion is keyed on
+  the whole-line `ENUM_RUN=FINISHED`, since a stopped run prints the same skip line; a standalone `--merge` writes no
+  `solve_results.json`. Only shards are written tmp-then-rename. `verify.py` needs `TMPDIR` space for a gzip input;
+  `--verify` is a streaming reader and ~21 min is a read-time floor. Merge RAM scales with the pre-dedup input. The
+  eviction arithmetic is ~27 min per sub-branch per thread, up to ~29 core-hours. The quota and CPU-frequency
+  snippets test each value and every core. External merge is ~1.66 TB of logical I/O. The binding file-descriptor
+  limit is the hard one. **Released from the operator hold for this batch:** the teardown example now sets its
+  trap *before* the create, so an interrupt while the create is running still tears down (#15; checked with a mocked
+  create that is interrupted after the resource exists: the old order left it, the new order deleted it); and the
+  single-branch table notes that the parallel `--sub-branch` path clamps its workers to 64, so an N=128 request
+  starts 64 (#7; the binary prints `64 worker threads` for `SOLVE_THREADS=128`). Neither note adds a size, region or
+  other identifier; the other held rows stay held.
+- **F1C5_LAYER_FORMAT.md and SOLUTIONS_FORMAT.md (F12-013#3, #4, #9, #10, #11, #12, #13).** A kill loses every
+  chunk since the last snapshot plus the one in progress. Only chunk-boundary progress writes are throttled. The
+  rolling window keeps the final two layers. The directory `fsync` is best-effort and an existing sidecar is left
+  untouched. `total_layers` is `n`. The orientation variants are counted by `fiber_count(perm)`, and
+  `--recount-fiber` runs King Wen's order only.
+- **PERFORMANCE_HISTORY.md (F12-016#7, #8, #9, #10, #12, #13, #14, #17, #18).** In-place dated notes: sha gates are
+  public only where commits and parameters are given; raw files are excepted from the container-sha rule; the 11.2T
+  canonical is budgeted in every cell; an AVX2/AVX-512 match is measured; "every scale tested" means above the 100M
+  selftest; the commit-layout route is a likely mechanism; +8.7% is an aggregate figure; recovery grows with entry
+  count; the out-of-core count time spans the whole builder.
+
+**Not in this entry.** F12-014#6 (a `solve.c` comment) is left for a batch that touches `solve.c`. The twelve
+FIX-CODE rows, the three rows that need a Fable ruling (F12-009#1, F12-010#10, F12-021#1) and the held rows
+F12-007#9, #22, #23 and F12-010#12 are open. The other 36 rows of the 114 were already fixed by earlier batches.
+
+**Tests.** `TestBatchFT3fDocs` pins each changed sentence, each with the code fact it relies on where there is one,
+and fails on the parent tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 triaged the rows, drafted and built the fixes;
+the defects were found by Codex (gpt-6-astra), final review.
+
+## CX-37C-Y — "independently reproduced/verified", "machine-verified", a Lean attribution, two scope claims and one intent reading, put back to what the record shows (documentation/VERIFY.md; documentation/HISTORY.md; documentation/LARGE_SCALE_CAMPAIGNS.md; documentation/CITATIONS.md; reports/TR6_PARITY_SKELETON.md; reports/TR1_EIGHT_CENTURIES_MEASURED.md; documentation/LITERATURE_RULES_POPULATION_TESTS.md; reports/TR3_REPRODUCIBLE_ENUMERATION.md; documentation/SYMMETRY_SEARCH.md; documentation/SOLVE_SUMMARY.md; CLAUDE.md; reports/TR2_THE_RULES_CONFLICT.md; tests.py)
+
+**2026-11-14.** **Source.** The project's wording-rules audit of the public tree (an Opus audit lane, read-only;
+backlog Q-1140). This entry applies the audit's non-operator items B1–B5, B7, B8, L1, L2, S1, S2 and I1. Each site
+was re-checked against the tree before it was changed. Live documents are reworded and quote the old wording in a
+dated note; HISTORY.md is not edited above its new section, which scopes the four HISTORY sentences, and no earlier
+CORRECTIONS entry is touched. Every edit
+keeps its file's line count; the four TR revision rows are appended.
+
+**What was published, and what it says now.**
+
+- **"Independently reproduce(s/d)" (B1, B2).** VERIFY.md's `verify.py --recount` row said the recount
+  "independently reproduces" the small-n facts. `verify.py` is a second implementation by the same author. The row
+  now says it recomputes them "with verify.py's own code (a second implementation by the same author)". HISTORY.md's
+  2026-08-08/08-30 narrative and its bullet list both said the n = 18 rung was "independently reproduced by the DP in
+  `verify.py`"; the batch's appended HISTORY section says that this means a second program by the same author, and
+  that TR-11 §4b gives the integer's provenance as not independent.
+- **"Independently verified" (B3, B4, B5).** LARGE_SCALE_CAMPAIGNS.md said the fresh-shell merge's sha "has been
+  independently verified across multiple campaigns"; it now says the sha "has matched its reference sha in repeated
+  campaigns", which are same-author re-runs. CITATIONS.md's C2 status line said ROAE "independently verifies" the
+  five-line absence across the canonical datasets; those datasets are enumerated under C2, so it now says the check is
+  a consistency check, not evidence for the rule. Five drat-trim sites (TR-6's abstract and §Sections item 4, TR-1
+  §Sections item 5, and LITERATURE_RULES_POPULATION_TESTS.md's certificate paragraph and conflict-theorem section)
+  said certificates were "independently verified"; they now say the certificates were checked by drat-trim, which
+  prints `s VERIFIED`. The facts do not change: drat-trim is a checker this project did not write. CORRECTIONS.md's
+  own line 2095 ("an independently verified certificate") sits in an earlier entry and is not edited.
+- **"Independent re-derivation" (B7).** TR-3 §"What is demonstrated" now reads "Re-derivation across machines,
+  regions, thread counts and merge paths": both 560T derivations are this project's own. The CX-35T-J region
+  scoping after it stands.
+- **"Machine-verified" for Python checks (B8).** In this project "machine-verified" is used for kernel-checked
+  mathematics. HISTORY.md's 2026-07-05 entry used it for `solve.py --books-verify`; the appended HISTORY section says this was a
+  Python check against the transcriptions, not a formal proof. SYMMETRY_SEARCH.md's completeness sentence now says
+  the result is "checked by the Python enumeration `solve.py --symmetry-completeness`", as documentation/README.md
+  already splits it.
+- **Lean wording (L1, L2).** HISTORY.md's 2026-07-04/05 entry said the count's DIV-24 gate "rests on machine-verified
+  mathematics". CX-232 (row R4) scoped this everywhere else: the Lean theorems prove that 24 divides the
+  record-level count, and the gate on the published orientation-explicit counts rests on the paper-proved free
+  order-48 action (TR-5; lean/README.md). The appended HISTORY section says so; the entry is not reworded. CITATIONS.md's
+  2026-11-10 note said two formally verified checkers are cited "for the certified counts"; it now says "for the
+  per-piece checks behind the certified counts", because those checkers accepted each piece and the sum is not
+  theirs (SAT_CLI.md NOTES). No sentence anywhere says Lean verified a count; this was re-checked.
+- **Scope (S1, S2), the siblings of CX-35T-J.** SOLVE_SUMMARY.md said each count is "reproducible byte-identically
+  across hardware and region". It now says "within the tested toolchain class", with CX-35T-J's TR-3 wording: the
+  region variation is the 10T campaign's, and both 560T derivations ran in one region. The public CLAUDE.md said
+  partition invariance "proves these are reproducible across hardware, region, merge algorithm, and enumeration vs.
+  independent-shard-merge paths". The theorem is about shard partitioning (PARTITION_INVARIANCE.md §1); identity
+  across hardware, region and merge mode is the empirical record of its §5a. It now says the theorem proves
+  invariance to shard partitioning, and identity across hardware, region and merge algorithm is measured, not
+  proved (SOLVE_C_CLI.md §REPRODUCIBILITY).
+- **Intent (I1).** TR-2's section-summary item 5 read "trade-off, not corruption", which reads the history as
+  settled. TR-2's own executive summary limits "not damage" to a four-rule-perfect original, which never existed,
+  and keeps the corruption-vs-tendency question "recorded, not claimed". The item now says the received order is
+  consistent with a forced trade-off and is not damage to a four-rule-perfect original (none exists), while damage
+  to the three-rule precursor stays open (§"A Bayesian comparison").
+
+**Not changed here (operator decisions).** The audit's B6 (the TR-3 row of reports/README.md), T1–T6 (a cost in words,
+on-demand price ratios, resource and VM names, SKU and region text, the billing narrative in the public CLAUDE.md,
+and a drive size in an earlier CORRECTIONS entry) and N1–N3 (the LEADERBOARD.md and SOLVE.md "novel finding" banners,
+"monotone in scale", and README.md's priority sentence) needed the operator and are not touched in this entry. N1 was approved the same day and is CX-37C-Z above; N2 and N3 wait.
+
+**Not changed here (siblings found during the build).** reports/evidence/q735_two_adic/README.md lines 5 and 7 and
+HISTORY.md's 2026-11-13 batch Q1128 section say a Fable lane "independently verified" the 2-adic theorem; that
+wording landed in CX-37C-M, after the audit's base, and is left for a follow-up row with the CX-37C-M wording (CX-37C-R below).
+
+**Tests.** `TestBatchQ1140` holds every new fragment, checks that each old phrase appears in its file only inside a
+dated note, and fails on the parent tree. `TestBatchFV2A`'s, `TestBatchQ1116`'s, `TestBatchQ1113`'s and
+`TestBatchQ1114Q1118Q1120`'s revision-row pins accept the new current rows (TR-3 v1.22, TR-2 v1.48, TR-6 v1.19,
+TR-1 v1.48).
+
+No canonical sha, count, certificate, token or verdict changed.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, the audit lane that found these and the build lane
+that applied them.
+
+## CX-37C-U — CLAIM_TO_ARTIFACT.md audit: four ledger rows corrected or scoped (rows 3, 14, 15, 17), with the joint-density siblings and two code comments (documentation/CLAIM_TO_ARTIFACT.md; documentation/DISTRIBUTIONAL_ANALYSIS.md; documentation/PROJECT_OVERVIEW.md; reports/certificates/verify_all.sh; solve.py; tests.py)
+
+**2026-11-14.** **Source.** Backlog Q-1133: an audit of all 21 rows of CLAIM_TO_ARTIFACT.md, each checked for the
+artifact, the number and its rounding, the reproducer against the argument dispatch, and the wording. It found 15
+rows OK and 6 needing a fix. This entry applies four of the six.
+
+**What was published, and what it says now.** Each ledger cell keeps its old wording in a dated ⚠ marker.
+- **Row 3 (|C1∩C2∩C4∩C5|).** The Artifact cell said "independent IE transfer-walk". `verify.c`'s own banner says it
+  shares no code or state with `solve.c` but shares one lemma, orbit-stabilizer weighting under the 24-group, and
+  TR-11's v1.11 row records that both instruments are project-authored. The cell now states both. The count and its
+  EXACT label are unchanged.
+- **Row 14 (n=9 count 26,112).** The Status cell said a second match of the published CPOG hashes "is not yet
+  published". SAT_CLI §NOTES and row 19 have published, since 2026-11-08, that the 2026-11-07 regeneration matched
+  all three hashes. The cell now says so, and that the host of that run is not stated.
+- **Row 15 (King Wen satisfies C1/C2/C4/C5).** The Artifact cell cited `kw_valid` alone. Its predicate `validC15`
+  is C1 ∧ C4 ∧ C5 ∧ (C3 ≤ 776) and does not contain C2, which is `kw_no_five` (in general `c5_implies_c2`). The cell
+  now cites both, as `lean/README.md` already did. The claim was true; the cited theorem alone did not carry it.
+- **Row 17 (joint-density percentile ≈ 30%).** The Reproduce cell said the 2-D `dims=`/`seed=` parameters are not
+  on the command line. `--joint-density-dims` and `--joint-density-seed` were wired on 2026-11-06 (FV2-P D1490,
+  from Codex's F02-H05#17). The cell now gives the invocation, and the Status cell keeps the verdict "not
+  reproducible from the public tree" for the reason that still holds: the per-seed list, the input chunks and an
+  archived output are not public.
+- **Siblings of row 17.** DISTRIBUTIONAL_ANALYSIS.md §"Reproducing this figure" and PROJECT_OVERVIEW.md's
+  Reproducibility paragraph said the same. DISTRIBUTIONAL_ANALYSIS is corrected with the old wording quoted in a
+  dated note. PROJECT_OVERVIEW, which carries pointers rather than in-place notes (CX-355), was headed "the
+  published CLI does not reach the corrected headline" and read "`--joint-density-dims` and `--joint-density-seed`
+  are not exposed on the command line (`grep -c "joint-density-dims" solve.py` → `0`), so **no public invocation at
+  this revision reproduces the ≈ 30th-percentile figure or any of its five seeds**"; that grep now returns 3. It now
+  says the flags exist and the inputs are not public, with a pointer to this entry.
+- **reports/certificates/verify_all.sh, section 3 comment.** It said 22 certificates carry both checkers as of
+  2026-09-02 and that the cake_lpr leg is run out of band. There are 24, all with cake_lpr since 2026-09-19, and the
+  script has the opt-in cake_lpr leg (section 3c) and the Lean 4 LRAT leg (section 3d). Comment only.
+- **solve.py, the comment above `REGISTRY_KW_EXPECTED`.** It listed D7=8 among the values the registry states
+  explicitly. That is literally so, but D7's 8 is read off King Wen's own xiaoxi positions, so it is KW-derived (the
+  ledger's 2026-09-07 classification, row 16). Comment only.
+
+Every edit keeps its file's line count.
+
+**Not changed here.** Row 13 (the Lean 15/15 attestation of 2026-09-10 attests the sources at `9f91cc70`; all 15
+`.lean` files have changed since) and row 8 (that the four two-rule cores are the only ones also needs {parity,
+CC-N8} and {rhythm, CC-N8} to be satisfiable, and no archived witness covers either). Each is to be closed by a run
+(a current-tree Lean census; two archived SAT witnesses) or by a scope marker, and is left open in the backlog.
+
+**Tests.** `TestBatchQ1133` requires each new fragment once and no old one, puts the old fragments back to show it
+goes red, checks that the four cited Lean names exist and that `validC15` has no `c2ok`, and checks that `solve.py`
+declares both joint-density flags. It fails on the parent tree.
+
+No count, certificate, canonical sha, token or verdict changed.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5. The audit was by Claude (claude-opus-5-5), an
+Opus audit lane, read-only against public `1b0bb9d2`; the edits were built in a separate Opus lane.
+
+## CX-37C-R — The Q-735 proof's second and third reads were called "independently verified"; they were checks by this project's own model lanes (reports/evidence/q735_two_adic/README.md; reports/evidence/q735_two_adic/SHA256SUMS; reports/TR12_QUERY_PROGRAM.md; documentation/HISTORY.md; tests.py)
+
+**2026-11-14.** **Source.** The project's wording-rules audit (backlog Q-1140, an Opus lane) found this as a
+sibling of CX-37C-Y and did not change it there. The sites were re-read against the tree before this entry.
+
+**What was published, and what it says now.**
+- **The evidence README's dated note** said the theorem was "independently verified by a separate Fable lane with
+  its own code", called that lane "That verifying lane", and said the six-pair argument was one "which a third
+  Fable lane, again with its own code, independently verified". All three lanes were AI model lanes working under
+  this project's direction. On [METHODS.md](../reports/METHODS.md) §"Authorship independence", checks of that kind
+  are not independent examination. The note now says the theorem was "re-checked by a second Fable lane of this
+  project, with code written for that check", and the six-pair argument was "re-checked" by a third such lane.
+  It says that neither check is independent examination and quotes the old wording in a dated clause. The same
+  README's corrections paragraph said "The independent check found three wording defects"; it now says "The
+  second lane's check", and the old wording is quoted. The file keeps its 226 lines. Its line in SHA256SUMS is
+  regenerated, and every listed digest matches its file (`TestQ735TwoAdicEvidence`).
+- **TR-12.** The §12 dated note of v1.42 said the theorem was "independently verified by a separate Fable lane",
+  and the v1.42 revision row said that and "the six-pair V1 extension verified by a third". Neither is reworded.
+  A dated CX-37C-R note is appended to each line and says what the checks were. The line count is unchanged.
+- **This file's CX-37C-M** says three times that the theorem or the six-pair extension was "independently
+  verified" by a separate or a third Fable lane. That entry is not edited. Read each of those sentences as
+  "re-checked by a second (or third) Fable lane of this project, with code written for that check".
+- **HISTORY.md's batch Q1128 section** says "independently verified by a separate Fable lane". The section
+  appended for this entry scopes that sentence; the earlier lines are not edited.
+- **`TestQ735TwoAdicEvidence`**'s docstring and its two README pins follow the new wording.
+
+**Not changed.** The status line "a hand proof with exhaustive finite tables, independently re-derived; not
+formalised in Lean" stands, as do its copies in TR-12 §12, solve.py and CX-37C-M. The re-derivation used code
+written apart from the author's scripts: two code paths, which is a claim on METHODS.md's rungs 2–3 and not about
+who checked. The mathematics, the tables, the reproducers and every count are unchanged. No Lean claim is added
+or changed.
+
+**Tests.** `TestBatchQ1140R` pins the new README and TR-12 wording. It checks that the old phrases occur in those
+two files only inside a dated CX-37C-R note, and that the CX-37C-M and HISTORY sentences are scoped here. A positive
+control runs the same scan over the parent's README text and finds the unquoted phrases. It fails on the parent tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 made the edits; the Q-1140 audit lane
+(claude-opus-5-5) found the sites.

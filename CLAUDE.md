@@ -66,8 +66,8 @@ hashes — with reproducibility parameters, record counts, and validation
 status per canonical — lives in [CANONICAL_HASHES.md](documentation/CANONICAL_HASHES.md).
 
 Partition invariance (see [PARTITION_INVARIANCE.md](documentation/PARTITION_INVARIANCE.md))
-proves these are reproducible across hardware, region, merge
-algorithm, and enumeration vs. independent-shard-merge paths — but the
+proves these are invariant to shard partitioning, including enumeration vs. independent-shard-merge paths (a model-level theorem); identity across hardware, region and merge
+algorithm is measured, not proved (PARTITION_INVARIANCE.md §5a; SOLVE_C_CLI.md §REPRODUCIBILITY; "proves these are reproducible across hardware, region, merge algorithm" until 2026-11-14, CX-37C-Y, the sibling of CX-35T-J) — and the
 proof is about the **model** of the computation; the bridge from that
 model to the shipped binary is carried by the runtime gates
 (`--selftest`, the canonical-scale sha gates, two-language cross-checks),

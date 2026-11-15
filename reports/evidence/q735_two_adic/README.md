@@ -2,9 +2,9 @@
 
 *Dated note, added 2026-11-13 (backlog Q-1128). Status: **a hand proof with exhaustive finite tables,
 independently re-derived; not formalised in Lean.** The theorem was found and proved by a Fable lane
-(Claude Fable 5.2) and independently verified by a separate Fable lane with its own code. That
-verifying lane also supplied the argument for the six V1 pairs with trivial stabiliser (§3, "V1, the
-six pairs"), which a third Fable lane, again with its own code, independently verified. This directory
+(Claude Fable 5.2) and re-checked by a second Fable lane of this project, with code written for that check. That
+checking lane also supplied the argument for the six V1 pairs with trivial stabiliser (§3, "V1, the
+six pairs"), which a third Fable lane of this project, again with code written for that read, re-checked. These are checks by AI model lanes working under this project's direction, not independent examination ([METHODS.md](../../METHODS.md), "Authorship independence"). "Independently re-derived" in the status line means that the tables and the n = 31 checks were rebuilt with code written apart from the author's scripts; the hand argument was read step by step. ⚠ (reworded 2026-11-14, CX-37C-R: this read "independently verified by a separate Fable lane with its own code", "That verifying lane" and "which a third Fable lane, again with its own code, independently verified".) This directory
 was assembled from the three lanes' scripts. Developed with AI assistance (Claude, Anthropic).
 It is a statement about divisibility of counts. It says nothing about why King Wen's sequence is what
 it is.*
@@ -155,7 +155,7 @@ cosets) shows that a half pin costs at most **one** factor of 2 (none for s = 0)
 v2(F_p + F_{p′}) ≥ 33 − t − 1 ≥ 19 for every skeleton and class sequence, and 2^19 divides every V1 cell
 of the six pairs. ∎
 
-*Corrections relative to the private write-up.* The independent check found three wording defects in
+*Corrections relative to the private write-up.* The second lane's check ⚠ *(reworded 2026-11-14, CX-37C-R: this read "The independent check")* found three wording defects in
 the author's text, none used by the argument; this README carries the corrected forms. (i) Step 4: a
 class-6 boundary costs at most one factor, as the table and Step 5 use, not two. (ii) The summary
 formula for this budget is 33 − t, not "34 − t − (0 or 1)". (iii) The atlas V1 block for the complement

@@ -1888,7 +1888,7 @@ rows):
 — Q3's "g of each alternative" in full. It is off by default because at n=31
 step 1 alone has up to 62 alternatives. `--kc-tsv OUT.tsv` writes the label
 line + header + data rows to a file through the **same writer** used for
-stdout, so the file is the stdout block verbatim. `scripts/tr12_repro.sh` row `a2_q3_profile` writes it as `<artifact-root>/q3_profile_exact.tsv`, and the atlas consumer accepts it as `--atlas-q3-trace`.
+stdout, so the file is the stdout table (label line, header, n rows) verbatim, then the two one-column trailers `KC_PROFILE_PRODUCT=…` and `KC_PROFILE=OK` (n + 4 lines; the stdout `#profile-summary` and `#provenance` lines are not in it). *(2026-11-14, Codex final review F12-024#16: this said the file is the stdout block verbatim; the trailers date from RCQ02 F3, 2026-09-09)* `scripts/tr12_repro.sh` row `a2_q3_profile` writes it as `<artifact-root>/q3_profile_exact.tsv`, and the atlas consumer accepts it as `--atlas-q3-trace`.
 ⚠ *(corrected 2026-09-25, Q-684: this read that the file is the artifact TR-12 files as `q3_profile_kw.tsv`. That table is the consumer's output, with different columns.)*
 
 **Batch mode — `--kc-walks WALKS.tsv` (Q-785, 2026-09-25).** Atlas query 1b
@@ -1904,8 +1904,8 @@ and `#` lines are skipped. For walk *i* the batch emits a label line
 **exactly the stdout block a single `--kc-profile FDIR GDIR SPEC [--kc-alts]`
 call emits** for that walk (or the bare `KC_PROFILE=FAIL` of a non-member),
 then, after the last walk, `#batch-summary<TAB>walks=N<TAB>ok=K<TAB>fail=N−K`
-and `KC_PROFILE_WALKS=OK|FAIL`. So `grep -v -e '^#walk<TAB>'
--e '^#batch-summary<TAB>' -e '^KC_PROFILE_WALKS='` of the batch stdout is the
+and `KC_PROFILE_WALKS=OK|FAIL`. So (bash) `grep -v -e $'^#walk\t'
+-e $'^#batch-summary\t' -e '^KC_PROFILE_WALKS='` of the batch stdout is the
 N single stdouts concatenated, **byte for byte**, and `--kc-tsv OUT.tsv` is the
 N single `--kc-tsv` files concatenated, each block preceded by its `#walk`
 line, through the same writer (the `#walk` line has five columns, so the
@@ -1988,7 +1988,7 @@ enumeration of all 26,112 walks — P1 the flow identity and every alternative's
 `orbit(cm)·f` against a brute count of all distinct oriented prefixes landing
 on that stored state, P4 `alts`, P5 the band and `choice_rank`, P6 row-for-row
 agreement with `--kc-o3-rank --kc-trace`, P7 the product token, P8 rejection of
-a non-member walk, P9 an end-to-end argv leg through the real dispatcher
+a non-member walk, P9 an argv leg that calls `kc_profile_main` directly (not the dispatcher)
 including `--kc-tsv`, and P10 the `--kc-c3-max` refusal. It prints one
 `PASS`/`FAIL` line per gate and ends with `KC_PROFILE_SELFTEST=PASS` or
 `=FAIL`; exit **0** / **1**. It runs in well under a second, is
@@ -2043,7 +2043,7 @@ are guarded by the direct t recursion, which the tail attempts only when `N <= 2
 they do not run at all**; the other two run whenever `--kc-tdir` is given. Any failure among the
 twelve increments `gate_fails`, and `gate_fails` is what `fails` reports. The object is therefore
 **coarse but never false-positive**: by the emitter's standing convention every advertised field
-collapses to the string `"see fails"` the moment *any* gate failed, including one it does not name.
+except `t_root_eq_f_layer_sum` collapses to the string `"see fails"` the moment *any* gate failed, including one it does not name; `t_root_eq_f_layer_sum` reports its own check (`true` while that identity holds, whatever else failed), and the two raw-frame keys read `"not-emitted"` without the raw frame. *(2026-11-14, Codex final review F12-024#21: this said every field collapses)*
 Read `fails` first; the seven keys say which invariants were *asserted*, not how many exist.
 
 🔴 **There is deliberately NO vertical `quotient_marginal` gate, and adding one would be
@@ -2080,8 +2080,8 @@ granularity floor is one layer — this is not mid-layer resume.
 replacement figure is published here.** That number was an *assumed* total read volume (~10.9 TB, the
 f and g ladders' combined **footprint** as then estimated; ⚠ *Q-725, 2026-09-24: the measured footprint is 3.29 TB + 8.27 TB = **11.57 TB**, per TR-12 §R.0's measured table, so even that estimate was low*) divided by a measured rate. The assumption is wrong, and it
 is wrong in the direction that matters: `kc_h_scan_layers` does **not** stream the g ladder. It
-streams f sequentially and then, for **every f entry** at layer `k`, issues `2·(31−k)` **random point
-lookups** into g (`kc_glookup`), served through a fixed-size OOC block cache that at n=31 covers a
+streams f sequentially and then, for **every f entry** at layer `k`, issues up to `2·(31−k)` **random point
+lookups** into g (`kc_glookup`; one per orientation that passes C2 and the budget test, the refused ones are skipped before the lookup, so 56 of the 62 at the full-31 root), served through a fixed-size OOC block cache that at n=31 covers a
 small fraction of a single mid layer. The physical read volume is therefore very much larger than the
 ladders' size, and the wall is correspondingly longer — days-to-weeks in the chunked shape below, not
 hours. It has never been measured end to end, so this file states the mechanism and gives no number.
@@ -2160,7 +2160,7 @@ irrelevant; rows are placed by `k`.
 2. **Identity binding.** `n`, `N_total`, `pl_hash`, `start_exit`, `b0`,
    `want_raw`, `fdir`, `gdir`, `engine_git`, `engine_source_sha` must agree
    across every chunk *and* with the ladders the merge just opened. Chunks from
-   two builds or two ladders never merge.
+   two ladders never merge, nor chunks whose well-formed source digests differ; two executables built from one source (equal `engine_source_sha`) do merge, as `SOURCE-BOUND` (see `KC_SCAN_MERGE_ENGINE` below). *(2026-11-14, Codex final review F12-024#17: this said chunks from two builds never merge)*
 3. **Ladder-bytes binding, re-checked at merge time.** The merge recomputes
    each f layer's decompressed-stream sha256 (the `--f1c5-layer-sha` digest)
    and requires it to equal what the chunk recorded — so "all chunks read the
@@ -2557,7 +2557,7 @@ written after `KC_EXTREMAL_NULL_VS_G=INCONSISTENT` looked like a passing one
 (Q-771).
 
 Verdict tokens: `KC_EXTREMAL_INVARIANT=yes|no`, `KC_EXTREMAL_WITNESS=VERIFIED|
-FAILED`, `KC_EXTREMAL_NULL_VS_G=CONSISTENT|INCONSISTENT` (with `--kc-gdir`),
+FAILED|NOT-REQUESTED` (`NOT-REQUESTED` without `--kc-witness`; *(2026-11-14, Codex final review F12-024#12: it was missing here)*), `KC_EXTREMAL_NULL_VS_G=CONSISTENT|INCONSISTENT` (with `--kc-gdir`),
 `KC_EXTREMAL_LIST=OK` (list mode) and `KC_EXTREMAL=OK|FAIL`. Exit **0** / **1**
 (gate failure or refused functional) / **2** (usage, unknown functional, bad
 direction, `--kc-c3-max`, or an out-of-core ladder).
@@ -2684,7 +2684,7 @@ per-class step histogram (no `rid` decoding, no ladder): D1 prefixes per cell, D
 distinct canonical states per cell, D3 fresh deaths per layer against the brute
 "dead child of a live parent" count, D4 the g-free census against the g-ladder census
 on every layer with ≤ 5 remaining pairs (and refusal beyond), D5 the identity at every
-layer, D6 an argv leg through the real dispatcher. Two negatives prove the comparator
+layer, D6 an argv leg that calls `kc_dead_census_main` directly (not the dispatcher). Two negatives prove the comparator
 has power: N1 a corrupted census cell **is** caught; N2 a brute tally keyed **wrongly**
 (exhausted at `b0−1`) is **rejected**. A planted source mutant with that wrong key
 turns D1 red (measured 2026-09-24). Ends with `KC_DEAD_CENSUS_SELFTEST=PASS|FAIL`; exit
@@ -2737,7 +2737,7 @@ a real atlas through `--kc-scan`'s own driver, then W0 the witness count equals 
 independent count of `x_w` fields in the file, W1 every realised walk validates, W2
 every one is a member of the exhaustive brute enumeration of all 26,112 walks, W3 every
 one passes through its witness state **and** takes the witness step, W4 `f`, `g`, `w`
-agree with the atlas, W5 an argv leg through the real dispatcher whose row count equals
+agree with the atlas, W5 an argv leg that calls `kc_witness_walks_main` directly (not the dispatcher) whose row count equals
 the witness count. Two negatives: N1 a **valid** walk that deviates at the witness step
 (another admissible `g > 0` successor, completed from there) is **rejected** with
 `through=0`; N2 a corrupted walk (a repeated exit) is rejected as invalid. A planted
@@ -3677,7 +3677,7 @@ Dispatched as a subcommand at `solve.c:39148`; takes **none**.
 #### `--kc-build`
 
 Dispatched as a subcommand at `solve.c:39276`; takes **see code**.
-`solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
+Run without DIR it prints `Usage: solve --kc-build DIR [args] [--f1-pairs N] [--kc-c3-max T] [--kc-limit M] [--kc-ooc] [--kc-cache-mb MB] [--kc-class-uniform] [--kc-record]` (from a shared `%s` template, which is why no literal `Usage:` string names it). *(2026-11-14, Codex final review F12-003#15: this said solve.c carries no `Usage:` string for it)*
 
 #### `--kc-cert-selftest`
 
@@ -3687,7 +3687,7 @@ Dispatched as a subcommand at `solve.c:39125` (the `--kc-cert-selftest` dispatch
 #### `--kc-count`
 
 Dispatched as a subcommand at `solve.c:39287`; takes **see code**.
-`solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
+Run without DIR it prints `Usage: solve --kc-count DIR [args] [--f1-pairs N] [--kc-c3-max T] [--kc-limit M] [--kc-ooc] [--kc-cache-mb MB] [--kc-class-uniform] [--kc-record]` (from a shared `%s` template, which is why no literal `Usage:` string names it). *(2026-11-14, Codex final review F12-003#15: this said solve.c carries no `Usage:` string for it)*
 
 #### `--kc-g-status`
 
@@ -3901,7 +3901,7 @@ Dispatched as a subcommand at `solve.c:38889`; takes **none**.
 #### `--kc-t-build`
 
 Dispatched as a subcommand at `solve.c:39086`; takes **see code**.
-`solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
+Run without FDIR TDIR it prints `Usage: solve --kc-t-build FDIR TDIR [--kc-ooc] [--kc-cache-mb MB]` (from a shared `%s` template, which is why no literal `Usage:` string names it). *(2026-11-14, Codex final review F12-003#15: this said solve.c carries no `Usage:` string for it)*
 
 #### `--kc-t-cert`
 
@@ -3913,7 +3913,7 @@ Usage: solve --kc-t-cert OUT.json Emits the t-unit node-accounting convention ce
 #### `--kc-t-check`
 
 Dispatched as a subcommand at `solve.c:39086`; takes **see code**.
-`solve.c` carries no `Usage:` string for it, so no argument grammar is asserted here.
+Run without FDIR TDIR it prints `Usage: solve --kc-t-check FDIR TDIR [--kc-ooc] [--kc-cache-mb MB]` (from a shared `%s` template, which is why no literal `Usage:` string names it). *(2026-11-14, Codex final review F12-003#15: this said solve.c carries no `Usage:` string for it)*
 
 #### `--kc-t-selftest`
 

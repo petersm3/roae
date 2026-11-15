@@ -227,8 +227,8 @@ those runs are not canonical and are not entered into `CANONICAL_HASHES.md`.
 >   measured compressed footprint, and never below the largest measured peak of a prior run. (Do not
 >   size to an estimate alone.)
 > - **Integrity:** measured per-cell counts + per-shard checkpoint verification at restore; a post-merge
->   sha for the new canonical; and the invariant that the new canonical contains **every** parent record
->   as a per-cell prefix (verified by an ordered-subset diff).
+>   sha for the new canonical; and the invariant that the new canonical contains **every** parent pair identity
+>   per cell, representatives and record order free to change (verified by the masked-identity containment test of §3, which is a subset-plus-growth check, not a prefix check). *(2026-11-14, Codex final review F12-010#1: this read every parent record as a per-cell prefix, verified by an ordered-subset diff)*
 >
 > **Decision (2026-08-08): the SKU, region and microcode identifiers below are RETAINED
 > deliberately.** This paragraph previously carried a live "Pre-publish TODO (operator review) —
@@ -424,8 +424,8 @@ provenance sidecars, and an `EXTENSION_RECIPE.txt`):
    execution on both branches. See documentation/CORRECTIONS.md CX-52.]**
 
    The enumerator picks up each cell from its `.dfs_state` checkpoint and
-   walks forward to the new per-cell budget, appending only the additional
-   records to each `sub_<cell>.bin` — **for the cells that have a shard.**
+   walks forward to the new per-cell budget; the cell's shard is loaded into its hash table and `sub_<cell>.bin` is rewritten whole, old and new
+   records together in hash-slot order (`flush_sub_solutions_d3`), not appended to — **for the cells that have a shard.** *(2026-11-14, Codex final review F12-010#1: this read appending only the additional records)*
    ⚠ **[SCOPED 2026-09-03 — as written this described every cell, and at
    the shipped `solve.c` it is true only of the 65,281 cells (41.2 %) whose
    source walk found ≥ 1 solution.** A zero-yield cell writes no
@@ -653,8 +653,8 @@ that rather than claiming the stronger check.
 time. Use it on fixtures and sub-canonical artifacts to establish the method, and implement the
 same two-pointer walk in the C path for a real 560 T-scale lineage attestation.*
 
-This is a **partition-invariance witness** at a different scale — see
-[PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md).
+This is a budget-nesting check, **not** a partition-invariance witness: it varies the budget, not the partition — see
+[PARTITION_INVARIANCE.md](PARTITION_INVARIANCE.md), which says the same of the 11.2 T ⊆ 100 T ⊆ 560 T nesting. *(2026-11-14, Codex final review F12-010#11: this called it a partition-invariance witness at a different scale)*
 
 ---
 
@@ -753,7 +753,7 @@ under the partition-invariance theorem
 | Spot vs Regular VM | None for enum (eviction is recoverable via DFS-state checkpoints); merge needs Regular because the external sort isn't checkpointable |
 | Westus2 vs westus3 (same Microsoft-Datacenter microcode class) | None |
 | One Premium SSD for everything vs separate scratch | None — operational choice for IOPS isolation |
-| Thread count (128 vs 64 vs 16) | None for enum (per-cell budget pins the work) |
+| Thread count (128 vs 64 vs 16) | None for a fresh enum (per-cell budget pins the work). A resume over a live `.dfs_state` frontier must keep the thread count and depth that `resume_contract.txt` records, or it stops with exit 34; `SOLVE_RESUME_SHAPE_OVERRIDE=1` proceeds but voids the byte-reproducibility claim for that directory *(2026-11-14, Codex final review F12-010#9: the resume case was not stated)* |
 | Reboot mid-campaign | None — checkpoint resume is byte-clean |
 
 These are **operations choices** to optimize cost, wall time, and blast
@@ -1029,7 +1029,7 @@ Completed 2026-06-08; this section now records actuals. The campaign launched 20
   ```
 
   is the authoritative cells-scanned count and the right "% of campaign
-  complete" denominator.
+  complete" denominator for a fresh campaign. In a budget extension the restored parent `.dfs_state` files are all present before any cell reaches the new budget, so this count reads the full parent inventory from the start; there, count the cells whose `checkpoint_t*.txt` line ends in `budget <new per-cell budget>`. *(2026-11-14, Codex final review F12-010#7: the extension case was not stated)*
 
   **Important nuance** (empirically established mid-run on the 2026-06
   560T campaign): the `sub_*.bin` shard-file count is **NOT** a valid
@@ -1211,14 +1211,14 @@ specific symptom that motivated it.
    projected. Down-sizing to D64 or D32 was not measured on comparable runs, so no
    net saving either way is claimed; D32 hits a "this won't fit" regime once the
    file exceeds ~5× cache size. For 1120T extension
-   (file ~540 GB projected): D128's 256 GB cache still fits 47% of the
-   file — analyze remains feasible there.
+   (file ~576 GB at the ~18 B records used below, 32 B a record; the §4 table's power-law projection is ~620 GB): D128's 256 GB cache fits about 44% of the
+   file — analyze remains feasible there. *(2026-11-14, Codex final review F12-010#17: this read ~540 GB and 47%, which do not follow from the 18 B records used below)*
    §[10]/§[11]/§[20] are now algorithmic-rewrite-bound rather than core-
    count-bound (see rule 14). Measured --analyze wall after the rewrites:
    **13,631 s (3 h 47 m) at 10.5 B records (560T) on D128.** Scaling that
    base linearly by record count, 1120T at ~18 B records projects to
    **≥6.5 h** (13,631 s × 18 / 10.525 = 23,311 s) — and ≥ is the right
-   relation, because D128's cache fraction falls from 76 % to 47 % on the
+   relation, because D128's cache fraction falls from 76 % to about 44 % on the
    larger file, so the disk-bound sections get worse than linearly. Budget
    ≥6.5 h of D128 wall for a 1120T analyze run.
    ⚠ **[CORRECTED 2026-09-01 — the cost read "[cost redacted]/hr × 1.5 h = [cost redacted]" and
@@ -1326,8 +1326,8 @@ specific symptom that motivated it.
       future archive readers can verify the milestone-extension chain
       back to the lineage root.)
 
-    Without any one of the above, a fresh-VM + fresh-storage extension
-    cannot resume byte-faithfully.
+    Without a resume input (the shards, `.dfs_state` and budget sidecars), a fresh-VM + fresh-storage extension
+    cannot resume byte-faithfully. The merged `solutions.bin.gz` and its sha files, `parent_canonical.txt` and `EXTENSION_RECIPE.txt` are not read by the resume (see "not needed to resume" in §3); without them the extension can still run but cannot be checked against its parent or traced to the lineage root. *(2026-11-14, Codex final review F12-010#8: this said the extension cannot resume without any one of the above)*
 
     **Rule — Category B (forensic / audit completeness; SHOULD be present):**
     - `merge.full.log` (merge stage trace)
@@ -1400,8 +1400,8 @@ specific symptom that motivated it.
     - §[20] complement orbit: ONE parallel pass, ZERO extra memory,
       streams each complement into `all` via binary search
     Similarly-structured anti-pattern survives in §[12]-§[19]/§[21]-
-    §[28] (each one re-reads the `n_sols` records once for its own
-    aggregate). These remaining sections are cheap individually (~1-3
+    §[28] (each one re-reads the `n_sols` records at least once for its own
+    aggregate; §[13] reads them twice, once for the palindrome test and once for the self-complement test *(2026-11-14, Codex final review F12-010#16: this read once for every section)*). These remaining sections are cheap individually (~1-3
     min each at 560T on D128's cached file) but the cumulative effect
     of N sections × one pass × 336 GB is what makes D128's 76% cache
     fraction matter so much. A future pass to collapse multiple

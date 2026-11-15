@@ -233,8 +233,8 @@ different sha.]**
 
 The output counts **unique pair orderings**, not unique oriented
 sequences. Other orientation variants for any canonical ordering are
-**recoverable without storing them** — by the **31-step transfer DP**
-shipped as `python3 verify.py --recount-fiber`, not by testing all 2^31
+**not stored, and their number is computed** by the **31-step transfer DP**
+(`fiber_count(perm)` in `verify.py`; `python3 verify.py --recount-fiber` runs it for King Wen's pair order only and takes no ordering), not by testing all 2^31 *(2026-11-14, Codex final review F12-013#4: this said the variants are recoverable by `--recount-fiber`)*
 combinations against C2/C5 (2,147,483,648 candidate tests per record;
 291,585,329,725,440 over the 135,780-record selftest artifact). The DP
 returns King Wen's C4-oriented fiber directly — 1,720,320 = 3·5·7·2^14,

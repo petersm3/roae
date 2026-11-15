@@ -4314,8 +4314,8 @@ def recount_gender_null():
 # the "~1-2 min" that documentation/VERIFY.md publishes for --recount-subtree.
 # Folding it in would silently falsify a published runtime; so it ships behind
 # its own flag with its own stated cost, and --recount-subtree is untouched.
-# --sigma-limit N runs the first N sigma as a smoke test and can NEVER print
-# the PASS token: a partial sweep is reported as PARTIAL.
+# --sigma-limit N runs the first N sigma as a smoke test; for N < 48 it can NEVER print
+# the PASS token: a partial sweep is reported as PARTIAL (N >= 48 is the full run).
 
 _PAIR_INDEX = {frozenset(pr): i for i, pr in enumerate(PAIRS)}
 
@@ -4827,7 +4827,7 @@ def sigma_isomorphism_all48(limit=None):
     KW 9-free anchors (tree_nodes 9,422,793 / canonical leaves 16,504).
     ~27 s per sigma in CPython (measured 2026-09-02) -> ~21.5 min for all 48.
     Prints SIGMA_ISOMORPHISM_ALL48=PASS only when all 48 ran and matched;
-    a --sigma-limit run prints PARTIAL.  Returns 0 iff every sigma that ran
+    a --sigma-limit N < 48 run prints PARTIAL (N >= 48 is the full run).  Returns 0 iff every sigma that ran
     matched AND the structural gates (48 sigma, 48 distinct prefixes, the
     hard-coded _SIGMA_PREFIX among them) held."""
     import time
@@ -7132,7 +7132,7 @@ def main():
                              'Prints SIGMA_ISOMORPHISM_ALL48=PASS only after all 48 match.')
     parser.add_argument('--sigma-limit', type=int, metavar='N', default=None,
                         help='With --sigma-isomorphism-all48: run only the first N sigma (smoke test). '
-                             'Never yields PASS; the verdict token reads PARTIAL.')
+                             'For N < 48 never yields PASS (the verdict token reads PARTIAL); N >= 48 is the full run.')
     parser.add_argument('--orbit-cv', metavar='TABLE', default=None,
                         help='TR-5 §3(iii): recompute the orbit-CV statistics (4,183 classes, within-orbit '
                              'CV 0.112, population CV 0.72) from the archived 65,281-cell Knuth per-cell '

@@ -341,7 +341,7 @@ and `V_{k+1}` is the number of rids with digit sum `k+1`. Snapshots are
 taken **at chunk boundaries only**, and no more often than ~300 s of wall
 time (`SOLVE_F1_CKPT_SEC`) — that is a *minimum interval between*
 snapshots, not a bound on the work at risk. Nothing subdivides a chunk on
-time, so the worst case lost to a kill is one whole chunk, whose duration
+time, and a chunk boundary reached sooner than the interval after the last snapshot is not snapshotted, so a kill loses every chunk completed since the last snapshot (up to ~300 s of them) plus the chunk in progress *(2026-11-14, Codex final review F12-013#3: this said the worst case is one whole chunk)*. A chunk's duration
 follows from `chunk_cap` and therefore from the scratch budget: a large
 `SOLVE_F1_OOC_SCRATCH_MB` on a slow layer produces a chunk that can run far
 longer than 300 s. A deterministic test kill hook
@@ -561,7 +561,7 @@ latter.
 ### `<prefix>_layer_stats_<kk>.json` — the per-layer statistics sidecar
 
 Written atomically (temp file, `fsync`, `rename`, directory `fsync`) once per
-layer commit, and non-fatally: any failure warns and the build continues.
+layer commit, and non-fatally: a failed write, file `fsync` or `rename` warns and the build continues; the directory `fsync` is best-effort and its failure is not reported. A build that finds the layer's sidecar already there (a run that died between the sidecar pass and the manifest advance) leaves it untouched (`[sidecar] EXISTS … left untouched`), so its compressed-representation fields such as `bin_bytes` can describe an earlier finalization at another compression level; `--f1c5-sidecar-retrofit` regenerates it. *(2026-11-14, Codex final review F12-013#11, #12: this said any failure warns and the sidecar is written at every layer commit)*
 *(2026-10-03, Q-418: non-fatal, but not silent. When the sidecar is enabled and was not written, the build
 also prints `ERROR: [sidecar] … was committed WITHOUT its stats sidecar` and the line
 `F1C5_LAYER_SIDECAR=MISSING`, then continues. The sidecar is now written for `--f1-c3-hist` layers
@@ -583,8 +583,8 @@ also prints `ERROR: [sidecar] … was committed WITHOUT its stats sidecar` and t
 `main` branch only, absent on `v4-canonical`, and disabled by
 `SOLVE_F1_PROGRESS_JSON=0`. Written to a temp file and `rename`d, so a reader
 sees the old object or the new one and never a torn one. Emitted at layer
-begin, layer end, each out-of-core chunk boundary and run completion, throttled
-to at most one write per 5 s — there is **no** timer thread, so during a long
+begin, layer end, each out-of-core chunk boundary and run completion; the chunk-boundary writes are throttled
+to at most one per 5 s, and the other three always write, so two writes can land within 5 s *(2026-11-14, Codex final review F12-013#9: this throttled every write)* — there is **no** timer thread, so during a long
 non-out-of-core layer these fields simply do not move. A watchdog must key on
 phase transitions, not on the age of this file.
 
@@ -592,8 +592,8 @@ phase transitions, not on the age of this file.
 |---|---|
 | `run_params` | the four knobs the run was launched with, as one object: `n`, `ooc` (out-of-core, boolean), `v2_gz` and `keep_layers`. It is a record of the invocation, not of progress, and it does not change during a run |
 | `v2_gz` | inside `run_params`: the v2 per-block zlib compression level in force for this build (the `gz` in the name is historical; the blocks are RFC-1950 zlib, not gzip). It is the number that makes `bin_bytes` comparable — two runs at different levels produce different compressed sizes from identical layer content |
-| `keep_layers` | inside `run_params`: `true` when intermediate layers are retained rather than deleted after the layer that consumes them. This is what decides whether the run leaves a ladder behind or only its final layer |
-| `total_layers` | how many layers this run intends to build — the denominator for `current_layer`. It comes from the invocation, so it does not shrink when a run is resumed part-way |
+| `keep_layers` | inside `run_params`: `true` when intermediate layers are retained rather than deleted after the layer that consumes them. This is what decides whether the run leaves a ladder behind or only its final two layers (`n−1` and `n`, the rolling window above) *(2026-11-14, Codex final review F12-013#10: this read only its final layer)* |
+| `total_layers` | the problem dimension `n` — the denominator for `current_layer`. It comes from the invocation, so it does not shrink when a run is resumed part-way, and it stays `n` when `SOLVE_F1_MAX_LAYER` stops the run at an earlier layer *(2026-11-14, Codex final review F12-013#13: this read how many layers this run intends to build)* |
 | `current_layer` | the layer index being worked on now; also repeated as `layer.k`, and the two are always the same variable |
 | `layer_started_utc` | when the current layer began, ISO-8601 UTC. Every rate and ETA below is measured from **this** instant, not from run start, so on resume they describe the resumed layer only |
 | `masks_frac` | `masks_done / masks_target` for the current layer, `0.0` when the target is unknown. A **measured** fraction: both sides are counted masks |

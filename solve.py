@@ -8097,7 +8097,7 @@ def reg_c2(seq):
 # KW EXPECTED VALUE fields; for count-form rules the registry gives R-S2=20,
 # MM-T5=0, D7=8, R4=120 explicitly; MM-T3=4, MM-T6=0, C1=24 and the C2
 # histogram are KW-measured anchors (registry states only qualitative/percentile
-# expectations for those).
+# expectations for those). D7's 8 is read off KW's own xiaoxi positions, so it is KW-derived (LITERATURE_RULES_POPULATION_TESTS.md; noted 2026-11-14, CX-37C-U).
 REGISTRY_KW_EXPECTED = [
     ("rs1", True), ("rs2", 20), ("ccn1", True), ("ccn2", True),
     ("ccn3", True), ("ccn4", True), ("ccn6", True), ("ccn7", True),
@@ -16075,6 +16075,7 @@ def atlas_probe(atlas_path):
         tok("RID_SUPPORT_CELLS_TOTAL", sum(supp))
         tok("RID_SUPPORT_CELLS_WITH_ZERO_OBSERVED_MASS", sum(supp) - sum(ncell))
         tok("EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS", "%.4f" % max(tv_hyper))
+        tok("EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS_EXACT", "%d/%d" % (Fraction(max(tv_hyper)).numerator, Fraction(max(tv_hyper)).denominator))  # 2026-11-14, Q-1134 (CX-37C-V): the same maximum as an exact reduced fraction, the figure TR-12 12.6 quotes; the CX-72 class (one blank line below removed so later lines keep their numbers)
         tok("EXCHANGEABLE_NULL_TV_BY_LAYER", ",".join("%.4f" % x for x in tv_hyper))
         tok("EXCHANGEABLE_NULL_OMITTED_MASS_MAX_OVER_LAYERS", "%.6f" % max(omit_h))
         tok("EXCHANGEABLE_NULL_OMITTED_MASS_BY_LAYER", ",".join("%.6f" % x for x in omit_h))
@@ -16092,7 +16093,6 @@ def atlas_probe(atlas_path):
             "ratio=%.3f layer=%s digits=%s" % (worst[0], worst[1], worst[2]))
         tok("EXCHANGEABLE_NULL_MOST_ENHANCED_CELL",
             "ratio=%.3f layer=%s digits=%s" % (best[0], best[1], best[2]))
-
         # the reference walk `kwrank` tracks: King Wen at n=31, the O3 midpoint below it
         kwsrc = sorted({str(l["kwrank"]["kw_src"]) for l in L})
         tok("REF_WALK_SOURCE", "|".join(kwsrc))

@@ -64,7 +64,7 @@ been verified in **three modalities (two independently sufficient)**: a short pr
 odd-distance count); a **Lean 4 kernel-checked general theorem** (`alternations_15_general` — every C1+C5
 sequence of 64 six-bit values has exactly 15 alternations, proven by structural argument, not finite
 enumeration; core Lean 4, no mathlib); and a **SAT decision** (both "≤14 alternations" and "≥16
-alternations" are UNSAT under C1+C2+C4+C5, with DRAT certificates independently verified by drat-trim).
+alternations" are UNSAT under C1+C2+C4+C5, with DRAT certificates checked by drat-trim, which prints `s VERIFIED`). ⚠ *(reworded 2026-11-14, CX-37C-Y: this read "independently verified".)*
 Building the SAT encoding surfaced and corrected a four-cell tabulation error in the published
 within/between-pair distance decomposition — formalization is the project's best error detector. The
 skeleton sits beneath a genuine literature lineage of empirical parity observations (Zhu Yuansheng, 13th
@@ -107,8 +107,8 @@ inherits.
 4. **Modality 3 — SAT, certificate-verified.** The SAT layer (`sat.py`, encoding derived from solve.py's
    constraint definitions, external kissat solver) decides both directions exactly: "≤14 alternations" and
    "≥16 alternations" are **UNSAT under C1+C2+C4+C5** — a mechanized corroboration of the counting step.
-   Certificates are archived and independently verified: drat-trim (2026-07-03) checks `s VERIFIED` for
-   both alt-le-14 and alt-ge-16 (and the two other project UNSAT proofs) against regenerated CNFs. The
+   Certificates are archived and checked by drat-trim (2026-07-03), which prints `s VERIFIED` for
+   both alt-le-14 and alt-ge-16 (and the two other project UNSAT proofs) against regenerated CNFs. ⚠ *(reworded 2026-11-14, CX-37C-Y: this read "archived and independently verified: drat-trim (2026-07-03) checks".)* The
    encoder's round-trip validation's first solver model, pleasingly, is King Wen itself (⚠ *2026-09-25, Codex v3 review, V3B-09#6: the target is `plain`, C1+C2+C4+C5. `python3 sat.py --witness plain` needs `kissat` on PATH; re-run with kissat 4.0.4, its `attempt 0` model decodes to `solve.py`'s `binary_hexagrams` exactly. Which model a solver returns first depends on the solver and its version, so this is an observation, not a property of the encoding. Output archived in [evidence/sat_witness_models/](evidence/sat_witness_models/)*). Three modalities,
    three failure surfaces: a prose proof can hide a lemma gap, a Lean proof trusts the formalization of
    the statement, a SAT proof trusts the encoding — their agreement is the point.
@@ -207,4 +207,5 @@ main theorem's three modalities (prose proof and kernel proof — the measuremen
 | v1.15 | 2026-10-17 | **The archived core's 356 ordering variables are labelled a recorded count with no extracting command (Codex's final review, gpt-6-astra; CAL-009#1; triaged by Fable; fast-track batch FT2b-2).** The execution-lane note says `scripts/exec_lane.sh` executes every command it classifies as runnable, not every documented command (the lane never runs its OPS, placeholder or fragment classes; Codex's final review, gpt-6-astra, CAL-009#62, CAL-010#97; triaged by Fable; fast-track batch FT2b-2). No figure changes. See CORRECTIONS.md (fast-track batches FT2b-2..4). |
 | v1.16 | 2026-10-17 | **Three wording fixes (Codex's final review, gpt-6-astra; triaged by Fable; push group G4; F01-004#4, F08-012#14, F11-013#2).** The exact prefix prune cannot fire before the tenth pair (PARITY_ALTERNATION.md), not "from the earliest placements"; the 30-switch corollary's two modalities are the prose proof and the kernel proof; the Lean expectation is the module's `#print axioms` reports, not silence. No figure changes. See CORRECTIONS.md CX-35T-J. |
 | v1.17 | 2026-10-29 | **The two pair classes are named for what the code computes: an even or an odd number of solid lines (popcount parity), not "even" and "odd" line-balance, which is always even (Codex's final review, gpt-6-astra; triaged by Fable; push group FV2-A, CX-36C-F; F11-013#1).** No count or theorem changed |
-| v1.18 *(current)* | 2026-11-12 | **The Verification Guide's `#print axioms` count is 47 (backlog Q-1113, push group Q1113, CX-37C-G; built in the Fable lane).** `lean/KingWen.lean` now carries a directive for `circular_ratio_3_to_1` (in the file since 2026-07-31; kernel-only axioms), so a successful run prints 47 reports, not 46; the old count is kept in a dated note. Line-neutral; no result changes. |
+| v1.18 | 2026-11-12 | **The Verification Guide's `#print axioms` count is 47 (backlog Q-1113, push group Q1113, CX-37C-G; built in the Fable lane).** `lean/KingWen.lean` now carries a directive for `circular_ratio_3_to_1` (in the file since 2026-07-31; kernel-only axioms), so a successful run prints 47 reports, not 46; the old count is kept in a dated note. Line-neutral; no result changes. |
+| v1.19 *(current)* | 2026-11-14 | **"Independently verified" reworded at two sites (backlog Q-1140, the wording audit's B5; CX-37C-Y).** The abstract and §Sections item 4 now say the DRAT certificates were checked by drat-trim, which prints `s VERIFIED`; the facts are unchanged, and the old wording is quoted in dated notes. Line-neutral; no result changes. |

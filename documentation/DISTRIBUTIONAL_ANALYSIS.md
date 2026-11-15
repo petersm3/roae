@@ -231,22 +231,22 @@ the orientation-bearing sequence under an undeclared retention convention, and o
 `k ∈ [1,31]` with the Nyquist bin excluded — see the schema-table caveat and
 Appendix B.)
 
-**Reproducing this figure — the public CLI does not reach it (gap recorded
-2026-08-30).** The [Reproducibility](#reproducibility) section's
+**Reproducing this figure — the flags are public, the inputs are not (gap recorded
+2026-08-30; the two flags wired 2026-11-06, FV2-P D1490).** The [Reproducibility](#reproducibility) section's
 `solve.py --joint-density` runs the **seven-dimensional** analysis whose headline
 is withdrawn above; it does not run this two-dimensional re-analysis. The
 re-analysis's parameters exist in the code — `p2_joint_density_v2` accepts
-`dims=`, `seed=` and `bandwidth_method=` — but `--joint-density-dims` and
-`--joint-density-seed` are **not exposed on the command line**, and the CLI
-dispatch passes neither. Consequently **no public invocation at this revision
-reproduces the ≈ 30% figure, any of its five seeds, or the 2-D histogram
-cross-check**, and the figure is published ahead of its public reproduction
-command. The outstanding fix is to wire those two parameters through argparse and
-document them in [SOLVE_PY_CLI.md](SOLVE_PY_CLI.md); the recipe that becomes
-runnable is `solve.py --joint-density-v2 <chunks_dir> <out.md>
+`dims=`, `seed=` and `bandwidth_method=` — and since 2026-11-06 `--joint-density-dims` and
+`--joint-density-seed` reach them from the command line ([SOLVE_PY_CLI.md](SOLVE_PY_CLI.md)). The
+recipe is `solve.py --joint-density-v2 <chunks_dir> <out.md>
 --joint-density-dims fft_dominant_freq,fft_peak_amplitude --joint-density-seed
 <seed> --joint-density-bandwidth {silverman,cv}`, run once per recorded seed over
-the `--compute-stats` parquet chunks of the sha-`915abf30…` 100 T canonical. The
+the `--compute-stats` parquet chunks of the sha-`915abf30…` 100 T canonical. Those
+chunks, the list of recorded seeds and an archived output are not public, so the ≈ 30% figure, any of its
+five seeds and the 2-D histogram cross-check still **cannot be regenerated from the public tree alone**.
+⚠ **[Corrected 2026-11-14 (CX-37C-U): until this date this paragraph was headed "the public CLI does not reach it"
+and said that `--joint-density-dims` and `--joint-density-seed` "are **not exposed on the command line**, and the CLI dispatch passes neither. Consequently **no public invocation at this revision reproduces the ≈ 30% figure, any of its five seeds, or the 2-D histogram cross-check**, and the figure is published ahead of its public reproduction command.
+The outstanding fix is to wire those two parameters through argparse and document them in SOLVE_PY_CLI.md". That was true until 2026-11-06, when FV2-P (D1490) wired both flags; what is still missing is the inputs and an archived output.]** The
 per-run outputs (seeds, bandwidths, bin edges) are archived in
 `roae-private/P2_JOINT_DENSITY.md` *(private staging repo — not publicly
 accessible)*.

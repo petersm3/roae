@@ -147,6 +147,9 @@ documentation/CLAIMS_DECIDED.md	80	marker	CORRECTED	1	-	reviewed:clause-already-
 documentation/CLAIMS_DECIDED.md	101	marker	CORRECTED	2	-	reviewed:sentence-above-still-names-two-rows-and-the-promised-follow-up	3cd5418430f8
 documentation/CLAIM_TO_ARTIFACT.md	17	marker	Corrected	1	-	reviewed:label-text-already-states-the-approx-convention	2ae9ba270ae1
 documentation/CLAIM_TO_ARTIFACT.md	43	marker	CORRECTED	1	-	reviewed:row-already-records-the-cake_lpr-leg	324f7ccfdaf1
+documentation/CLAIM_TO_ARTIFACT.md	45	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	f5e69af0e0ab
+documentation/CLAIM_TO_ARTIFACT.md	46	marker	Corrected	1	-	reviewed:row-already-cites-kw_valid-and-kw_no_five	9e353b0b2b4b
+documentation/CLAIM_TO_ARTIFACT.md	48	marker	Corrected	1	-	reviewed:row-already-gives-the-invocation-and-says-the-figures-are-not-reproducible-from-the-tree	51464cd5f30f
 documentation/CRITIQUE.md	5	marker	Corrected	1	-	reviewed:note-already-says-the-boundary-minimum-did-not-shift	f6d65e4b454d
 documentation/CRITIQUE.md	7	marker	CORRECTED	1	-	reviewed:update-already-states-minimum-5-and-the-overlap-reading-of-ratio-0.007	e7a0456a1486
 documentation/CRITIQUE.md	7	marker	Correction	1	-	reviewed:update-already-states-minimum-5-and-the-overlap-reading-of-ratio-0.007	e7a0456a1486
@@ -176,7 +179,7 @@ documentation/CRITIQUE.md	341	marker	CORRECTED	1	-	reviewed:answer-already-says-
 documentation/CRITIQUE.md	345	marker	Corrected	1	-	reviewed:item-already-states-the-5-boundary-minimum-at-560T	2ba747fae63b
 documentation/CRITIQUE.md	367	ledger-link	CORRECTION	n/a	-	not-a-marker	3b812e27fe7e
 documentation/CRITIQUE.md	367	marker	Corrected	1	-	reviewed:sentence-already-gives-the-raw-estimate-and-the-slice-counts;re-read-2026-10-17-after-the-B1-B4-clause	3b812e27fe7e
-documentation/CRITIQUE.md	395	marker	Corrected	2	-	reviewed:marker-holds-the-only-statement-of-the-rerun-result-Mawangdui-9-of-11	12cf3ecada50
+documentation/CRITIQUE.md	395	marker	Corrected	2	-	reviewed:marker-holds-the-only-statement-of-the-rerun-result-Mawangdui-9-of-11	801cfa3e6e7d
 documentation/CRITIQUE.md	490	marker	Corrected	1	-	reviewed:sentence-now-gives-the-measured-octet-pattern	3e6748823c1e
 documentation/CRITIQUE.md	544	marker	CORRECTED	1	-	reviewed:sentence-already-gives-the-3.4th-4.8th-percentile	508d410785a6
 documentation/CRITIQUE.md	551	ledger-link	CORRECTION	n/a	-	not-a-marker	dd648106ba08
@@ -191,6 +194,7 @@ documentation/DEPLOYMENT.md	583	marker	CORRECTED	1	-	reviewed:following-sentence
 documentation/DEPLOYMENT.md	797	marker	CORRECTED	1	-	reviewed:box-already-sizes-from-pre-dedup-records	c108685b1733
 documentation/DEPLOYMENT.md	800	marker	Corrected	1	-	reviewed:item-already-reads-wipe-then-write	d79088c2324b
 documentation/DEPLOYMENT.md	806	marker	CORRECTED	1	-	reviewed:item-already-checks-decompressed-length	a6887a7e7e96
+documentation/DEPLOYMENT.md	1073	marker	Corrected	1	-	reviewed:snippet-below-sets-the-trap-before-the-create	b2acefcf44d4
 documentation/DEPLOYMENT.md	1276	marker	CORRECTED	1	-	reviewed:table-already-carries-1820-s	043dad8683eb
 documentation/DESCRIPTION_LENGTH.md	89	marker	CORRECTED	1	-	reviewed:bare-registry-key-tag;following-sentences-carry-the-correction	a4a692a42886
 documentation/DESCRIPTION_LENGTH.md	105	ledger-link	CORRECTION	n/a	-	not-a-marker	c61cc43645a2
@@ -203,7 +207,7 @@ documentation/DEVELOPMENT.md	1043	marker	CORRECTED	1	-	reviewed:text-already-say
 documentation/DEVELOPMENT.md	1195	marker	Corrected	1	-	reviewed:text-already-separates-count-matching-and-set-matching-K	d4dcb7a62cd6
 documentation/DEVELOPMENT.md	1272	ledger-link	CORRECTION	n/a	-	not-a-marker	9d2b26a1da33
 documentation/DEVELOPMENT.md	1503	marker	CORRECTED	2	-	reviewed:sentence-above-still-says-proc-self-exe;the-marker-carries-the-fix-and-pre-fix-WARN-path	79ba53ed0166
-documentation/DEVELOPMENT.md	1615	marker	CORRECTED	1	-	reviewed:row-already-reads-proc-pid-exe	328a7e1a9a6a
+documentation/DEVELOPMENT.md	1615	marker	CORRECTED	1	-	reviewed:row-already-reads-proc-pid-exe	50ebb2e9e5a5
 documentation/DEVELOPMENT.md	1659	marker	CORRECTED	1	-	reviewed:row-already-reads-build-id-sha1	1ee2c8ff61f6
 documentation/DEVELOPMENT.md	1665	ledger-link	CORRECTION	n/a	-	not-a-marker	fdde236ba43a
 documentation/DEVELOPMENT.md	1665	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	fdde236ba43a
@@ -346,17 +350,26 @@ documentation/PASS1_TRAJECTORY_DETERMINISM.md	65	marker	CORRECTED	1	-	reviewed:l
 documentation/PASS1_TRAJECTORY_DETERMINISM.md	67	marker	CORRECTED	1	-	reviewed:sentence-already-says-consistent-with-but-cannot-confirm	74eb5fead8b8
 documentation/PASS1_TRAJECTORY_DETERMINISM.md	81	marker	CORRECTED	1	-	reviewed:item-already-says-not-a-basis-for-projection	8f7805de5217
 documentation/PASS1_TRAJECTORY_DETERMINISM.md	103	marker	CORRECTED	1	-	reviewed:paragraph-above-already-gives-the-manual-procedure	e9766e71f678
+documentation/PERFORMANCE_HISTORY.md	21	marker	Corrected	1	-	reviewed:sentence-already-limits-the-public-leg-to-entries-with-commits-and-parameters	fe06af327db9
+documentation/PERFORMANCE_HISTORY.md	121	marker	Corrected	1	-	reviewed:sentence-already-excepts-raw-files	8e46fc4202a5
 documentation/PERFORMANCE_HISTORY.md	230	marker	CORRECTED	2	-	reviewed:bullet-above-still-lists-King-Wen-beside-the-gated-checks	7b2509beaa95
+documentation/PERFORMANCE_HISTORY.md	243	marker	Corrected	1	-	reviewed:sentence-already-says-every-11.2T-cell-is-budgeted	0b471e468373
+documentation/PERFORMANCE_HISTORY.md	363	marker	Corrected	1	-	reviewed:bullet-already-calls-it-a-measured-match	78bbb7f5900e
 documentation/PERFORMANCE_HISTORY.md	366	ledger-link	CORRECTION	n/a	-	not-a-marker	8f0215edb575
 documentation/PERFORMANCE_HISTORY.md	366	marker	Corrected	1	-	reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	8f0215edb575
 documentation/PERFORMANCE_HISTORY.md	438	ledger-link	CORRECTION	n/a	-	not-a-marker	48dca795956e
 documentation/PERFORMANCE_HISTORY.md	438	marker	Corrected	1	-	reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	48dca795956e
+documentation/PERFORMANCE_HISTORY.md	656	marker	Corrected	1	-	reviewed:sentence-already-says-above-the-100M-selftest	b921feeefb72
 documentation/PERFORMANCE_HISTORY.md	863	ledger-link	CORRECTION	n/a	-	not-a-marker	f560492aad78
 documentation/PERFORMANCE_HISTORY.md	863	marker	Corrected	1	-	reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	f560492aad78
 documentation/PERFORMANCE_HISTORY.md	987	ledger-link	CORRECTION	n/a	-	not-a-marker	c7ce73c0ffbd
 documentation/PERFORMANCE_HISTORY.md	987	marker	Corrected	1	-	reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	c7ce73c0ffbd
+documentation/PERFORMANCE_HISTORY.md	1105	marker	Corrected	1	-	reviewed:sentence-already-calls-it-the-likely-mechanism	765ae31d892c
+documentation/PERFORMANCE_HISTORY.md	1150	marker	Corrected	1	-	reviewed:bullet-already-calls-8.7-percent-an-aggregate-figure	ae0f98a42691
 documentation/PERFORMANCE_HISTORY.md	1189	marker	Corrected	2	-	reviewed:bullet-above-still-says-checkpoint-is-the-sole-resume-input	e459f31d3a93
+documentation/PERFORMANCE_HISTORY.md	1190	marker	Corrected	1	-	reviewed:bullet-already-says-recovery-grows-with-entry-count	f049c3d80fa9
 documentation/PERFORMANCE_HISTORY.md	1426	marker	Corrected	2	-	reviewed:bullet-above-still-carries-the-withdrawn-5.6T-days-derivation	75cfed7a5f0e
+documentation/PERFORMANCE_HISTORY.md	1527	marker	Corrected	1	-	reviewed:bullet-already-says-the-interval-spans-the-whole-builder	6a4f4dee8118
 documentation/PREREGISTRATION_ESCROW.md	381	ledger-link	CORRECTION	n/a	-	not-a-marker	e8c644cef239
 documentation/PREREGISTRATION_ESCROW.md	402	ledger-link	CORRECTION	n/a	-	not-a-marker	72b7489475c1
 documentation/PREREGISTRATION_ESCROW.md	449	ledger-link	CORRECTION	n/a	-	not-a-marker	4f56990fed9d
@@ -390,6 +403,7 @@ documentation/PROJECT_OVERVIEW.md	121	ledger-link	CORRECTION	n/a	-	not-a-marker	
 documentation/PROJECT_OVERVIEW.md	127	ledger-link	CORRECTION	n/a	-	not-a-marker	f6c355aa68e9
 documentation/PROJECT_OVERVIEW.md	129	ledger-link	CORRECTION	n/a	-	not-a-marker	1c372546b44b
 documentation/PROJECT_OVERVIEW.md	152	ledger-link	CORRECTION	n/a	-	not-a-marker	7016a1667869
+documentation/PROJECT_OVERVIEW.md	194	ledger-link	CORRECTION	n/a	-	not-a-marker	3c72412e0648
 documentation/QUERY_INVENTORY.md	222	marker	Corrected	1	-	reviewed:cell-already-states-the-lower-bound-direction	43d2a74c994c
 documentation/QUERY_INVENTORY.md	244	marker	Corrected	1	-	reviewed:stale-narrowing-is-already-struck-through	f6d6a86e800e
 documentation/QUERY_INVENTORY.md	250	marker	Corrected	2	-	reviewed:cell-above-still-gives-the-unbuilt-sat-witness-and-cert-path	dacbcd2e9d4c
@@ -413,7 +427,7 @@ documentation/REBUILD_FROM_SPEC.md	402	marker	CORRECTED	1	-	reviewed:bullet-alre
 documentation/REBUILD_FROM_SPEC.md	420	marker	CORRECTED	1	-	reviewed:paragraph-above-already-scopes-the-verifier	a07fdd7ef677
 documentation/REBUILD_FROM_SPEC.md	439	marker	CORRECTED	1	-	reviewed:following-text-already-says-it-is-closed	27b224f7bdae
 documentation/ROAE_PY_CLI.md	174	marker	Corrected	1	-	reviewed:summaries-above-already-corrected;closure-note-follows	9a1179f2ba84
-documentation/ROAE_PY_CLI.md	297	marker	CORRECTED	1	-	reviewed:row-already-lists-the-validated-fields	ea4057a94fd9
+documentation/ROAE_PY_CLI.md	297	marker	CORRECTED	1	-	reviewed:row-already-lists-the-validated-fields	765dc2ccbf63
 documentation/ROAE_PY_CLI.md	302	marker	Corrected	1	-	reviewed:paragraph-already-says-negative-seeds-are-refused	56e82d36e5cb
 documentation/ROAE_PY_CLI.md	355	ledger-link	CORRECTION	n/a	-	not-a-marker	fa5d2ed2020a
 documentation/ROAE_PY_CLI.md	382	marker	CORRECTED	1	-	reviewed:following-text-already-states-the-Wilson-bound-rule	1a9d70c8317f
@@ -421,11 +435,11 @@ documentation/ROAE_PY_CLI.md	825	marker	CORRECTED	1	-	reviewed:following-text-al
 documentation/SAT_CLI.md	84	ledger-link	CORRECTION	n/a	-	not-a-marker	134457b932e4
 documentation/SAT_CLI.md	99	marker	SUPERSEDED	2	-	reviewed:the-stale-2026-09-01-caveat-it-supersedes-is-still-above-it	a6342c40e3e4
 documentation/SAT_CLI.md	371	marker	Corrected	1	-	reviewed:Q54-dated-correction;sentence-already-gives-the-eighteen-size-domain	d51d9aa40437
-documentation/SEARCH_SPACE_SIZE.md	3	marker	WITHDRAWN	3	GATE 27	reanchored:GATE-27=ledger-anchor	d2005eee5ef3
+documentation/SEARCH_SPACE_SIZE.md	3	marker	WITHDRAWN	3	GATE 27	reanchored:GATE-27=ledger-anchor	fb1d6b009b97
 documentation/SEARCH_SPACE_SIZE.md	11	ledger-link	CORRECTION	n/a	-	not-a-marker	442325e3cae4
 documentation/SEARCH_SPACE_SIZE.md	35	ledger-link	CORRECTION	n/a	-	not-a-marker	5d0062947151
 documentation/SEARCH_SPACE_SIZE.md	44	marker	WITHDRAWN	3	GATE 27	reanchored:GATE-27=ledger-anchor	1d4bec207986
-documentation/SEARCH_SPACE_SIZE.md	113	marker	WITHDRAWN	3	GATE 26,GATE 27	reanchored:GATE-26=ledger-anchor+GATE-27=ledger-anchor	dbdc2b960872
+documentation/SEARCH_SPACE_SIZE.md	113	marker	WITHDRAWN	3	GATE 26,GATE 27	reanchored:GATE-26=ledger-anchor+GATE-27=ledger-anchor	796f57b2b8a9
 documentation/SEARCH_SPACE_SIZE.md	122	marker	Corrected	1	-	reviewed:paragraph-already-says-refuses-and-exits-1	c3471d3127f8
 documentation/SEARCH_SPACE_SIZE.md	156	marker	Withdrawn	2	-	reviewed:tag-is-what-qualifies-the-15-20-figure-in-the-same-sentence	046d3091ca0b
 documentation/SEARCH_SPACE_SIZE.md	159	ledger-link	CORRECTION	n/a	-	not-a-marker	103878a86f9a
@@ -446,6 +460,7 @@ documentation/SOLUTIONS_FORMAT.md	293	marker	Corrected	1	-	reviewed:bullet-alrea
 documentation/SOLUTIONS_FORMAT.md	361	marker	CORRECTED	1	-	reviewed:step-6-already-says-solve-performs-the-check	b029690dda6e
 documentation/SOLUTIONS_FORMAT.md	380	marker	CORRECTED	1	-	reviewed:paragraph-above-already-sizes-the-core-and-the-file	985d51d9032d
 documentation/SOLUTIONS_FORMAT.md	411	marker	CORRECTED	1	-	reviewed:paragraph-above-already-gives-the-DGIT_HASH-build	16e8291fe7e1
+documentation/SOLVE.md	11	ledger-link	CORRECTION	n/a	-	not-a-marker	4e21b8496d7a
 documentation/SOLVE.md	27	marker	Corrected	1	-	reviewed:sentence-already-gives-the-four-independent-constraints	9628b670d156
 documentation/SOLVE.md	106	marker	Corrected	1	-	reviewed:bullet-already-gives-12.1%-ledger-and-12.09%-direct-estimate	9823cbd1f2ae
 documentation/SOLVE.md	166	marker	Corrected	1	-	reviewed:sentence-already-says-not-to-something-unique	fc308b1604d4
@@ -547,13 +562,13 @@ documentation/SOLVE_PY_CLI.md	335	marker	CORRECTED	2	-	reviewed:only-statement-t
 documentation/SOLVE_PY_CLI.md	403	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	8b35a66b7c6f
 documentation/SOLVE_PY_CLI.md	434	marker	Corrected	1	-	reviewed:dated-label;sentence-already-reads-correctly	69dfe1571f39
 documentation/SOLVE_PY_CLI.md	570	marker	CORRECTED	1	-	reviewed:sentence-already-true-since-the-gate-moved-to-the-emitter	388d511cb961
-documentation/SOLVE_PY_CLI.md	1167	marker	Corrected	1	-	reviewed:row-already-names-flow_div_24	07976c4b6454
-documentation/SOLVE_PY_CLI.md	1473	ledger-link	CORRECTION	n/a	-	not-a-marker	2b526e83b072
-documentation/SOLVE_PY_CLI.md	1473	marker	Corrected	1	-	reviewed:paragraph-already-gives-the-measured-4.349-percent	2b526e83b072
-documentation/SOLVE_PY_CLI.md	1475	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	f4d16d863d12
-documentation/SOLVE_PY_CLI.md	1602	marker	Corrected	3	GATE 18	reanchored:GATE-18=ruling-token	dd82609b73e9
-documentation/SOLVE_PY_CLI.md	1679	marker	CORRECTED	1	-	reviewed:paragraph-above-already-omits-F5	adef18abb0c4
-documentation/SOLVE_PY_CLI.md	1739	ledger-link	CORRECTION	n/a	-	not-a-marker	468da51ea775
+documentation/SOLVE_PY_CLI.md	1172	marker	Corrected	1	-	reviewed:row-already-names-flow_div_24	07976c4b6454
+documentation/SOLVE_PY_CLI.md	1478	ledger-link	CORRECTION	n/a	-	not-a-marker	2b526e83b072
+documentation/SOLVE_PY_CLI.md	1478	marker	Corrected	1	-	reviewed:paragraph-already-gives-the-measured-4.349-percent	2b526e83b072
+documentation/SOLVE_PY_CLI.md	1480	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	f4d16d863d12
+documentation/SOLVE_PY_CLI.md	1607	marker	Corrected	3	GATE 18	reanchored:GATE-18=ruling-token	dd82609b73e9
+documentation/SOLVE_PY_CLI.md	1684	marker	CORRECTED	1	-	reviewed:paragraph-above-already-omits-F5	adef18abb0c4
+documentation/SOLVE_PY_CLI.md	1744	ledger-link	CORRECTION	n/a	-	not-a-marker	468da51ea775
 documentation/SOLVE_SUMMARY.md	85	marker	CORRECTED	1	-	reviewed:sentence-already-names-the-distance-5-block	ee32cf8d5224
 documentation/SOLVE_SUMMARY.md	178	ledger-link	CORRECTION	n/a	-	not-a-marker	9db47b8ca8fc
 documentation/SOLVE_SUMMARY.md	191	marker	CORRECTED	1	-	reviewed:table-text-already-re-derived-from-the-logs	3c5b8586e07b
@@ -575,7 +590,7 @@ documentation/SOLVE_SUMMARY.md	264	marker	CORRECTED	1	-	reviewed:bullet-already-
 documentation/SOLVE_SUMMARY.md	290	marker	Corrected	1	-	reviewed:paragraph-already-says-the-scale-is-not-measured	d11bb25a2b20
 documentation/SOLVE_SUMMARY.md	292	marker	CORRECTED	3	GATE 18	reanchored:GATE-18=ruling-token	c053df664431
 documentation/SOLVE_SUMMARY.md	305	marker	CORRECTED	1	-	reviewed:sentence-already-scopes-3-to-1-to-the-circular-reading	73e5a645e093
-documentation/SOLVE_SUMMARY.md	310	marker	Corrected	1	-	reviewed:bullet-already-states-the-560T-figure-hedged	9a7dc3e54e17
+documentation/SOLVE_SUMMARY.md	310	marker	Corrected	1	-	reviewed:bullet-already-states-the-560T-figure-hedged	aebb44cfebbe
 documentation/SOLVE_SUMMARY.md	318	marker	Corrected	1	-	reviewed:dated-label;item-already-reads-2-of-4	19ad9b11bcfb
 documentation/SOLVE_SUMMARY.md	324	marker	CORRECTED	1	-	reviewed:paragraph-already-says-Costas-is-closed	d62604a92ae6
 documentation/SOLVE_SUMMARY.md	335	marker	CORRECTED	1	-	reviewed:paragraph-already-gives-the-same-and-reverse-order-couples	725c72fe2a77
@@ -624,6 +639,7 @@ documentation/VERIFY.md	1233	ledger-link	CORRECTION	n/a	-	not-a-marker	9690cbc0b
 documentation/VERIFY.md	1283	ledger-link	CORRECTION	n/a	-	not-a-marker	643fc4077a58
 documentation/VERIFY.md	1342	ledger-link	CORRECTION	n/a	-	not-a-marker	5323f5a21fba
 documentation/VERIFY.md	1428	marker	Corrected	2	-	reviewed:paragraph-above-still-says-the-witness-row-does-not-exist	4b56db87bbf7
+enumeration/LEADERBOARD.md	5	ledger-link	CORRECTION	n/a	-	not-a-marker	7ea8d3dc0dfd
 enumeration/LEADERBOARD.md	7	marker	CORRECTED	1	-	reviewed:sentence-already-calls-it-an-overlap-ratio	8628a4b667a1
 enumeration/LEADERBOARD.md	81	ledger-link	CORRECTION	n/a	-	not-a-marker	b81099d87ee1
 enumeration/LEADERBOARD.md	102	marker	CORRECTED	1	-	reviewed:paragraph-already-reads-from-the-742M-archive	2cb7abe5c0a2
@@ -741,11 +757,11 @@ reports/TR12_QUERY_PROGRAM.md	2161	ledger-link	CORRECTION	n/a	-	not-a-marker	5b9
 reports/TR12_QUERY_PROGRAM.md	2161	marker	CORRECTED	1	-	reviewed:cell-already-says-the-2026-07-21-run-is-attested-and-names-its-replay-check	5b94d2067942
 reports/TR12_QUERY_PROGRAM.md	2178	marker	Corrected	1	-	reviewed:sentence-already-scopes-12.10	787d37353231
 reports/TR12_QUERY_PROGRAM.md	2196	marker	Corrected	1	-	reviewed:text-already-says-the-file-is-distributed	655061a87291
-reports/TR12_QUERY_PROGRAM.md	2236	ledger-link	CORRECTION	n/a	-	not-a-marker	4686fc6cf653
+reports/TR12_QUERY_PROGRAM.md	2236	ledger-link	CORRECTION	n/a	-	not-a-marker	f3749123444f
 reports/TR12_QUERY_PROGRAM.md	2286	marker	Corrected	1	-	reviewed:scope-already-states-the-one-sided-relation	a5ce32451652
 reports/TR12_QUERY_PROGRAM.md	2396	marker	Corrected	1	-	reviewed:text-already-separates-all-slots-and-interior	747e86000ac1
-reports/TR12_QUERY_PROGRAM.md	2420	ledger-link	CORRECTION	n/a	-	not-a-marker	ecd34b2fee0c
-reports/TR12_QUERY_PROGRAM.md	2420	marker	Corrected	1	-	reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	ecd34b2fee0c
+reports/TR12_QUERY_PROGRAM.md	2420	ledger-link	CORRECTION	n/a	-	not-a-marker	1b28d5b80ba3
+reports/TR12_QUERY_PROGRAM.md	2420	marker	Corrected	1	-	reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	1b28d5b80ba3
 reports/TR12_QUERY_PROGRAM.md	2496	ledger-link	CORRECTION	n/a	-	not-a-marker	48d2f8a91dbc
 reports/TR12_QUERY_PROGRAM.md	2630	marker	Corrected	1	-	reviewed:text-already-says-solve.c-differs	1c6c27f1c56a
 reports/TR12_QUERY_PROGRAM.md	2657	ledger-link	CORRECTION	n/a	-	not-a-marker	bf86a36d3823
@@ -821,6 +837,7 @@ reports/TR3_REPRODUCIBLE_ENUMERATION.md	177	ledger-link	CORRECTION	n/a	-	not-a-m
 reports/TR3_REPRODUCIBLE_ENUMERATION.md	201	marker	Corrected	1	-	reviewed:sentence-now-says-completed-cells-are-skipped-and-in-progress-cells-rewalked	7a5e3fbf522c
 reports/TR3_REPRODUCIBLE_ENUMERATION.md	370	marker	CORRECTED	1	-	reviewed:code-comment-above-already-says-reported-not-enforced	c8ebf3cacb0b
 reports/TR3_REPRODUCIBLE_ENUMERATION.md	414	changelog	now reads	keep	-	revision-row	a4785b23bf10
+reports/TR3_REPRODUCIBLE_ENUMERATION.md	427	changelog	now reads	keep	-	revision-row	d1cc50bd6eb9
 reports/TR4_SIZE_OF_THE_SPACE.md	36	marker	WITHDRAWN	2	-	reviewed:the-withdrawn-3.3e37-figure-is-still-printed-in-the-sentence-above	98d091511a86
 reports/TR4_SIZE_OF_THE_SPACE.md	40	ledger-link	CORRECTION	n/a	-	not-a-marker	33c2b273d593
 reports/TR4_SIZE_OF_THE_SPACE.md	40	ledger-link	RETRACTED	n/a	-	not-a-marker	33c2b273d593

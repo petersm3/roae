@@ -291,10 +291,10 @@ Parameters (all shared machinery flags are prefixed `--gs-`):
 |---|---|
 | `--gs-samples N` | Rarity sample size (default 1,000,000). Reused as N_eval by `--prereg-h1h3`. |
 | `--gs-probe N` | Probe-set size for signature dedup (default 256; seed stream disjoint from the rarity sample). |
-| `--gs-workers N` | Worker processes (default 0 = all cores). |
+| `--gs-workers N` | Worker processes (default 0 = all cores). A negative value or a value ≥ 9900 is refused, exit 2 (seed-stream disjointness: the probe stream is seed+100+w). `--gs-samples`, `--gs-probe`, `--gs-batches` and `--ph-thr-samples` must be integers ≥ 1 (else argparse exit 2), and a `--gs-json` path that resolves to the `--gs-checkpoint` file is refused, exit 2, before any sampling. |
 | `--gs-batches N` | Number of checkpointable rarity batches (default 100). |
 | `--gs-json PATH` | JSON report path (default `u2_report.json`): pre-registration record, per-phase tallies, MDL ledger, verdict. |
-| `--gs-checkpoint PATH` | JSONL rarity checkpoint (default `u2_checkpoint.jsonl`). Completed batches are skipped on re-run. Every row carries `batch`/`n`/`trials`/`ncand`/`cands`/`seed`/`batches`/`nsamp`/`want`/`hits`; the fields that select the sample are checked on load (`trials` is recorded but not compared, and `hits` is the reused payload — detail below). A row that mismatches any of them is REFUSED and counted in the `IGNORED` report, never silently reused. *(Precision, measured 2026-09-21: the row carries all ten keys, but the ones **compared** on load are the six that select the sample — `seed`, `ncand`, `cands`, `batches`, `nsamp` and `want` (`_ck_ident` plus the per-batch `want` check in `roae.py`); `batch` is the lookup key and `n`/`trials`/`hits` are the payload the resume reuses. A checkpoint with `hits`, `trials` and `n` hand-edited resumed as "3 batches already complete" — nothing on load can validate a payload except by recomputing it. A changed `--seed` is refused as documented: `[D] checkpoint: IGNORED 3 row(s) — mismatched cands,seed`.)* ⚠ **[CORRECTED 2026-09-20 — this read "The candidate count (`ncand`) is the only field validated on load … records no seed, sample count, probe size or batch count … is silently reused". That described a state two fixes ago. `seed`, `batches` and `nsamp` were already written and validated; Q-646 adds `cands`, a digest of WHICH candidates were rarity-tested and in what order, because `ncand` is a COUNT and not an IDENTITY — two runs with equal candidate counts but different candidates were merged BY POSITION, misattributing hits while every identity check passed.]** **Rows written before 2026-09-20 carry no `cands` key and are therefore refused: an existing checkpoint will restart rather than resume, which is the safe outcome, not a fault.** Delete the checkpoint file when changing any run parameter. |
+| `--gs-checkpoint PATH` | JSONL rarity checkpoint (default `u2_checkpoint.jsonl`). Completed batches are skipped on re-run. Every row carries `batch`/`n`/`trials`/`ncand`/`cands`/`seed`/`batches`/`nsamp`/`want`/`hits`; the fields that select the sample are checked on load (`trials` is recorded but not compared, and `hits` is the reused payload — detail below). A row that mismatches any of them is REFUSED and counted in the `IGNORED` report, never silently reused. *(Precision, measured 2026-09-21: the row carries all ten keys, but the ones **compared** on load are the six that select the sample — `seed`, `ncand`, `cands`, `batches`, `nsamp` and `want` (`_ck_ident` plus the per-batch `want` check in `roae.py`); `batch` is the lookup key and `n`/`trials`/`hits` are the payload the resume reuses. A checkpoint with `hits`, `trials` and `n` hand-edited resumed as "3 batches already complete" — nothing on load can validate a payload except by recomputing it. A changed `--seed` is refused as documented: `[D] checkpoint: IGNORED 3 row(s) — mismatched cands,seed`.)* *[Superseded in part 2026-11-14, CX-37C-W: since G5b (2026-10-22, Codex F04-015#2) the loader also refuses a row whose `batch` is not one of this run's batches, whose `n` is not that batch's sample count, or whose `hits` is not a list of one entry per candidate (`IGNORED … mismatched want/batch/n/hits`), and since FV2-P (2026-11-03, D894, Codex F12-012#8) an unparsable or non-object row (`mismatched unparsable row` / `not an object`). A hand-edited `n` is therefore refused. Only `trials` and the hit counts inside a correctly shaped `hits` are still taken on trust.]* ⚠ **[CORRECTED 2026-09-20 — this read "The candidate count (`ncand`) is the only field validated on load … records no seed, sample count, probe size or batch count … is silently reused". That described a state two fixes ago. `seed`, `batches` and `nsamp` were already written and validated; Q-646 adds `cands`, a digest of WHICH candidates were rarity-tested and in what order, because `ncand` is a COUNT and not an IDENTITY — two runs with equal candidate counts but different candidates were merged BY POSITION, misattributing hits while every identity check passed.]** **Rows written before 2026-09-20 carry no `cands` key and are therefore refused: an existing checkpoint will restart rather than resume, which is the safe outcome, not a fault.** Delete the checkpoint file when changing any run parameter. |
 
 `--seed` sets the base seed; when omitted, this mode (unlike the
 Monte-Carlo analysis sections) defaults to the fixed pre-registered seed
@@ -405,7 +405,7 @@ false; the review approved that half as written. Every run prints the token
 No published verdict moves: the one recorded run of this mode (2026-07-26,
 see the cross-check note below) stopped at the cross-check gate and issued
 no verdicts. Regression tests: `tests.py` `TestPreregZeroHitStops`,
-including a case at N_eval = 10⁶ where the two readings of the rule differ.
+including a case at N_eval = 10⁶ where the two readings of the rule differ. *[Precision 2026-11-14, CX-37C-W: at N_eval = 10⁶ the bound is 18.4954 bits and the run prints it as `be=>= 18.50` (two decimals); "18.49" above is that figure truncated, not what the program prints. No grade moves.]*
 
 A validity gate cross-checks the evaluation stream's mass(A ≤ 648)
 against the independently measured F4′ `dist_autocorr` figure
@@ -455,7 +455,7 @@ so U2 artifacts are never clobbered.
 --order N          Compute Nth-order difference of the wave (default: 1)
 --trials N         Number of Monte Carlo trials (default: 100,000; an integer >= 1, else exit 2 since 2026-10-22, CX-35V-G). Consumed by
                    --stats and --bootstrap, and (since 2026-11-03, FV2-P D889) by the
-                   --html / --markdown exporters when given explicitly (without it
+                   --html / --markdown exporters when given explicitly and spelled in full, `--trials N` or `--trials=N` — an abbreviation such as `--trial N` is accepted by argparse but does not reach the exporters (without it
                    they keep 10,000). --constraints does NOT read it:
                    that mode hard-codes 10,000 unconstrained permutation trials
                    and 100,000 pair-constrained trials, so passing --trials
@@ -538,7 +538,7 @@ Optional packages enable richer output:
 |---|---|
 | 0 | Success, including a `--self-test` run in which every check passed. |
 | 1 | `--verify` ground-truth failure — including the "could not load solve.py" failure when `--verify` is run from outside the repository directory *(the working-directory clause is stale since 2026-09-02, when the loader became `__file__`-relative; measured 2026-09-21, `--verify` passes from `/tmp`. "Could not load solve.py" now means the sibling file is missing or unreadable, and it still exits 1 — see META FLAGS)* — **and a `--self-test` run with one or more failures**. 🔴 This table said the opposite until 2026-09-07: it claimed a failing self-test still exits 0 and that `--self-test` "cannot be used as a CI gate", instructing readers to parse stdout instead. The code has carried the opposite behaviour and an explicit comment saying so — `roae.py:5475` is `return 1 if print_self_test() else 0`, directly below the comment "exit non-zero when checks fail, so `roae.py --self-test` can gate CI". Measured, not inferred. Use the exit code: `python3 roae.py --self-test` is a valid gate. Recorded as **CX-40**. *(That line number was re-pinned on 2026-09-21, again on 2026-09-25 (Q-791), and twice more the same day (Q-758, after the zero-hit grader helpers were inserted above it, and after the Fable zero-hit ruling widened that grader); the behaviour was re-measured on 2026-09-21 — 49/49 pass, rc 0 — and the line is the one to grep for.)* |
-| 2 | Invalid argument or unrecognised flag (emitted by `argparse`) |
+| 2 | Invalid argument or unrecognised flag — from `argparse` (including a non-positive `--trials`, `--gs-samples`, `--gs-probe`, `--gs-batches` or `--ph-thr-samples`), and from `roae.py`'s own refusals: `--explain` not an integer in 1–63; and, in `--grammar-search` / `--prereg-h1h3`, a negative `--seed`, `--gs-batches` ≥ 10000, `--gs-workers` outside 1–9899 after the 0 → all-cores substitution, or `--gs-json` naming the checkpoint file |
 | 3 | `--prereg-h1h3` cross-check-gate failure (hard stop, no verdicts issued) — the only `sys.exit(3)` in `roae.py` |
 
 ## EXAMPLES
@@ -838,9 +838,9 @@ The rule's actual scope — one file per role:
 | independent verifier | `verify.py` (plus `verify.c`) |
 | regression harness | `tests.py` |
 
-Outside those roles the repo also tracks `scripts/c2c3_joint_null.py`, three `viz/`
+Outside those roles the repo also tracks twelve Python files under `scripts/` (`git ls-files 'scripts/*.py'`; among them `c2c3_joint_null.py` and the Lean/LRAT/cover-certificate drivers), three `viz/`
 plotting scripts (`visualize.py`, `growth_curve.py`, `report_figures.py` — heavy
-dependencies, not part of any gate), and **12** one-shot instruments under
+dependencies, not part of any gate), and **27** Python files (as of 2026-11-14; one-shot instruments and their helpers, re-measure with `git ls-files 'reports/evidence/*.py'`) under
 `reports/evidence/` that are archived beside the results they produced. Those are
 evidence, not solver surface; the rule constrains the six files above.
 

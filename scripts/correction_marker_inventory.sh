@@ -172,7 +172,7 @@ REVIEWED = {
         ('1', 'reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
     ('documentation/SOLVE.md', '59fd3abf40bf'):
         ('1', 'reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
-    ('reports/TR12_QUERY_PROGRAM.md', 'ecd34b2fee0c'):  # re-keyed 2026-11-02, FV2-H (was 9e4550568aa2; Fable FIX-3 reworded the line; verdict re-read, stands)
+    ('reports/TR12_QUERY_PROGRAM.md', '1b28d5b80ba3'):  # re-keyed 2026-11-14, CX-37C-V (was ecd34b2fee0c, itself re-keyed 2026-11-02 FV2-H from 9e4550568aa2; a dated Q-1134 note on the exact rational was added after the marker; verdict re-read, stands)
         ('1', 'reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
     ('runs/20260419_100T_d3_d128westus3/README.md', '1703e96e2580'):
         ('1', 'reviewed:FV2-H-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value'),
@@ -189,6 +189,28 @@ REVIEWED = {
     # not restate the withdrawn claim. Class 2: deleting the marker would leave the withdrawn wording
     # standing, or the marker carries the only statement of a caveat the text depends on, so the text
     # must be rewritten first (Q-938). The review token says which text the verdict rests on.
+    # FT3f-docs (2026-11-14, CX-37C-N): ten new dated markers, each read in its sentence. Class 1: the
+    # sentence around each marker states the corrected fact, and the marker only records what it said before.
+    ('documentation/DEPLOYMENT.md', 'b2acefcf44d4'):
+        ('1', 'reviewed:snippet-below-sets-the-trap-before-the-create'),
+    ('documentation/PERFORMANCE_HISTORY.md', 'fe06af327db9'):
+        ('1', 'reviewed:sentence-already-limits-the-public-leg-to-entries-with-commits-and-parameters'),
+    ('documentation/PERFORMANCE_HISTORY.md', '8e46fc4202a5'):
+        ('1', 'reviewed:sentence-already-excepts-raw-files'),
+    ('documentation/PERFORMANCE_HISTORY.md', '0b471e468373'):
+        ('1', 'reviewed:sentence-already-says-every-11.2T-cell-is-budgeted'),
+    ('documentation/PERFORMANCE_HISTORY.md', '78bbb7f5900e'):
+        ('1', 'reviewed:bullet-already-calls-it-a-measured-match'),
+    ('documentation/PERFORMANCE_HISTORY.md', 'b921feeefb72'):
+        ('1', 'reviewed:sentence-already-says-above-the-100M-selftest'),
+    ('documentation/PERFORMANCE_HISTORY.md', '765ae31d892c'):
+        ('1', 'reviewed:sentence-already-calls-it-the-likely-mechanism'),
+    ('documentation/PERFORMANCE_HISTORY.md', 'ae0f98a42691'):
+        ('1', 'reviewed:bullet-already-calls-8.7-percent-an-aggregate-figure'),
+    ('documentation/PERFORMANCE_HISTORY.md', 'f049c3d80fa9'):
+        ('1', 'reviewed:bullet-already-says-recovery-grows-with-entry-count'),
+    ('documentation/PERFORMANCE_HISTORY.md', '6a4f4dee8118'):
+        ('1', 'reviewed:bullet-already-says-the-interval-spans-the-whole-builder'),
     # G7b (2026-11-03): two new dated markers, each read in its paragraph. Class 1: the text around each
     # marker states the corrected fact, and the marker only records what the line said before.
     ('documentation/DEPLOYMENT.md', 'da3191129c92'):
@@ -377,7 +399,7 @@ REVIEWED = {
         ('1', 'reviewed:row-already-reads-build-id-sha1'),
     ('documentation/DEVELOPMENT.md', '2236f1c55fc2'):
         ('1', 'reviewed:text-above-already-gives-63145664-and-893'),
-    ('documentation/DEVELOPMENT.md', '328a7e1a9a6a'):
+    ('documentation/DEVELOPMENT.md', '50ebb2e9e5a5'):   # re-keyed 2026-11-14 (FT3f-docs, F12-009#16: the row's sidecar comparison reworded; verdict re-read, stands)
         ('1', 'reviewed:row-already-reads-proc-pid-exe'),
     ('documentation/DEVELOPMENT.md', '33fde66d7234'):
         ('1', 'reviewed:bullet-already-checks-decompressed-length'),
@@ -603,8 +625,12 @@ REVIEWED = {
         ('1', 'reviewed:paragraph-above-already-puts-the-range-test-first'),
     ('documentation/ROAE_PY_CLI.md', '1a9d70c8317f'):
         ('1', 'reviewed:following-text-already-states-the-Wilson-bound-rule'),
-    ('documentation/ROAE_PY_CLI.md', 'ea4057a94fd9'):  # re-keyed 2026-10-29, push group FV2-A (line edited; verdict re-read, stands)
+    ('documentation/ROAE_PY_CLI.md', '765dc2ccbf63'):  # re-keyed 2026-11-14, CX-37C-W (dated note appended; verdict re-read, stands)
         ('1', 'reviewed:row-already-lists-the-validated-fields'),
+    ('documentation/CLAIM_TO_ARTIFACT.md', '9e353b0b2b4b'):  # 2026-11-14, CX-37C-U (row 15)
+        ('1', 'reviewed:row-already-cites-kw_valid-and-kw_no_five'),
+    ('documentation/CLAIM_TO_ARTIFACT.md', '51464cd5f30f'):  # 2026-11-14, CX-37C-U (row 17)
+        ('1', 'reviewed:row-already-gives-the-invocation-and-says-the-figures-are-not-reproducible-from-the-tree'),
     ('documentation/ROAE_PY_CLI.md', '56e82d36e5cb'):
         ('1', 'reviewed:paragraph-already-says-negative-seeds-are-refused'),
     ('documentation/ROAE_PY_CLI.md', '9a1179f2ba84'):
@@ -814,7 +840,7 @@ REVIEWED = {
         ('1', 'reviewed:sentence-already-scopes-3-to-1-to-the-circular-reading'),
     ('documentation/SOLVE_SUMMARY.md', '99d0ad144096'):
         ('1', 'reviewed:bullet-already-says-definitional-not-forced'),
-    ('documentation/SOLVE_SUMMARY.md', '9a7dc3e54e17'):
+    ('documentation/SOLVE_SUMMARY.md', 'aebb44cfebbe'):  # re-keyed 2026-11-14, CX-37C-Y (was 9a7dc3e54e17; the reproducibility clause was scoped to the tested toolchain class; verdict re-read, stands)
         ('1', 'reviewed:bullet-already-states-the-560T-figure-hedged'),
     ('documentation/SOLVE_SUMMARY.md', 'a53b5628cc8b'):
         ('1', 'reviewed:dated-label;bullet-already-says-coupled-not-free'),
@@ -1232,7 +1258,7 @@ REVIEWED = {
         ('1', 'reviewed:answer-already-says-three-of-seven-families-cannot-exclude-KW'),
     ('documentation/CRITIQUE.md', '2ba747fae63b'):
         ('1', 'reviewed:item-already-states-the-5-boundary-minimum-at-560T'),
-    ('documentation/CRITIQUE.md', '12cf3ecada50'):
+    ('documentation/CRITIQUE.md', '801cfa3e6e7d'):  # re-keyed 2026-11-14, CX-37C-V (was 12cf3ecada50; a dated Q-1134 note on the private 11-axis record was added before the marker; verdict re-read, stands)
         ('2', 'reviewed:marker-holds-the-only-statement-of-the-rerun-result-Mawangdui-9-of-11'),
     ('documentation/CRITIQUE.md', '508d410785a6'):
         ('1', 'reviewed:sentence-already-gives-the-3.4th-4.8th-percentile'),

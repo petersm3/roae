@@ -567,6 +567,7 @@ each a whole-line token:
 
 | Token | Passing value means |
 |---|---|
+| `KW_CONTROL_TARGET=<target>` | printed first: the target as given, with `c3>=N` appended after a space when a C3 minimum is set; not a leg |
 | `KW_CONTROL_EXPECTED=<f1>;<f2>…` | the families KW may falsify: the target's theorem family (`alternation bound (alt-le-14)`, `C3 >= N bound`, the permuted faces of `ccn4-kwfail` (since 2026-10-27), the shifted locus of `ccn8-kwfail`, the chain negation of `ccn8-kwchain-not`) plus `rule <r>` for each enforced rule the scorers say KW violates. `none` for a target KW satisfies |
 | `KW_CONTROL_REFUTED=FALSIFIED` | leg 1: KW's 31 literals refute the full formula (for `EXPECTED=none`, `SATISFIED`: KW is a model) |
 | `KW_CONTROL_REST_FALSIFIED=0`, `KW_CONTROL_REST_FOREIGN=0` | leg 2: on the formula **minus** the expected families, nothing is falsified — the exclusion form, which is propagation-order independent (`model_check` docstring) where "which clause ended up falsified" is not |
@@ -575,8 +576,7 @@ each a whole-line token:
 | `KW_CONTROL_FORM=direct` / `closure(<base>)` | a `-noY` subset's clauses name no ordering variable, so KW's literals propagate nothing there; the control then evaluates KW's unit-propagation closure on the full base formula minus the expected families (conflict-free, hence unique) against the subset |
 | `KW_CONTROL=PASS` | all legs; exit 0 iff `PASS` |
 
-`KW_CONTROL_FALSIFIED_BY_FAMILY=` is printed for the record and is **not** a
-leg: on a partial model it is a first-conflict attribution (a gender forbid
+`KW_CONTROL_FALSIFIED_BY_FAMILY=` is printed for the record and is **not** a leg: on a partial model it is a first-conflict attribution (a gender forbid
 and the counter implication it contradicts blame each other), which is
 exactly why the legs use exclusion.
 
@@ -798,7 +798,7 @@ DRAT/LRAT certificate checker, not from `sat.py`'s own exit status.
 `--certify-count` exits non-zero on a `--expect` `FAIL`, on any toolchain
 failure, and (like `--witness` with `kissat`) when its required external
 binaries are not on `PATH` — the latter with a clear install message.
-`--rigidity-cnf --run` exits non-zero when `kissat` is absent, when the
+`--rigidity-cnf --run` and `--ccn4-equiv-cnf SIDE OUT.cnf --run` (a SIDE other than `fwd`/`rev` exits 1 before anything is built) exit non-zero when `kissat` is absent, when the
 verdict is not UNSAT (whole line **and** exit status 20, since
 2026-09-03), or when `drat-trim` is present and does not verify the
 proof. `--c5-selfcheck` exits 0 iff every verdict token has its passing
@@ -867,7 +867,7 @@ traceback after the build.
   commit 2026-09-01; it was previously asserted with neither.)*
 - **Certified counts at n=3, 4, 6 and 7: 48, 144, 1,920 and 38,016**
   (run 2026-11-05; published 2026-11-08). Each is a certified model count
-  of the CNF `sat.py --emit-cnf f1c5 --f1-pairs N` emits, with the scope
+  of the CNF `sat.py --emit-cnf f1c5 OUT.cnf --f1-pairs N` emits, with the scope
   stated for n=12 below. These rungs are small enough that each was
   certified whole, as one CPOG certificate checked by `cpog-check`, by the
   driver used for n=12 (`scripts/decomp_certify_v3.py` with
@@ -883,7 +883,7 @@ traceback after the build.
   checker shipped with CPOG (`VerifiedChecker/`, built at Lean v4.4.0-rc1).
 - **Certified count at n=12: 133,118,976** (run finished 2026-11-07;
   published 2026-11-08). The count is a certified model count of the CNF
-  `sat.py --emit-cnf f1c5 --f1-pairs 12` emits (sha256
+  `sat.py --emit-cnf f1c5 n12.cnf --f1-pairs 12` emits (sha256
   `4ef27df3622dbf82be5a1f22fbbe61d73e19082fea315cd32e0713a815427025`,
   924 variables, 13,816 clauses): `cpog-check` (an unverified C prototype)
   and `drat-trim` certify each piece and a syntactic partition check
@@ -954,10 +954,10 @@ traceback after the build.
   2026-11-08 with CX-36Z-A.)*
 - **Certified count at n=10: 123,677,568** (run 2026-11-08; published
   2026-11-10). It is a certified model count of the CNF
-  `sat.py --emit-cnf f1c5 --f1-pairs 10` emits (sha256
+  `sat.py --emit-cnf f1c5 n10.cnf --f1-pairs 10` emits (sha256
   `271e80a6c264bfb31a2e373b7119945467adb68dbe8f3408f3a6afdb976bf5a0`,
   550 variables, 7,834 clauses), with the scope stated for n=12 above;
-  `scripts/k37_isclause_port.py 10` gives `K37_BRIDGE_N10=MATCH`. The
+  `scripts/k37_isclause_port.py 10 n10.cnf` gives `K37_BRIDGE_N10=MATCH`. The
   method is the n=12 one. The run made 1,050 cuts and ended with 19,951
   pieces: `cpog-check` certified the 9,497 pieces that have models and
   `cadical` + `drat-trim` the 10,454 that have none, and

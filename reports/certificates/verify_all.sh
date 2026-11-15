@@ -467,12 +467,12 @@ fi
 # certificates were skipped. Measured on a fresh host: DRAT_CERTS_CHECKED=24, 75 passed, 0 failed.
 echo "== 3. DRAT certificates (regenerated CNF vs archived proof; all 24 archived certs) =="
 # No SAT solver is invoked here — see the header note. $DRAT is probed in section 0.
-# All 22 certificates carry BOTH checkers as of 2026-09-02: the 21 archived earlier passed the
-# formally verified cake_lpr in the 2026-07-27 batch, and core_gender_ccn4_unsat (the fourth
-# two-rule core, shipped 2026-09-02) went through the same drat-trim -> LRAT -> cake_lpr chain that
-# day, on a rebuild of pin a36874a8 whose compiled sha is byte-identical to the batch binary
-# (README.md §"Checker coverage"). This script supplies only the drat-trim leg; the cake_lpr leg is
-# run out of band and recorded there, so a PASS here is NOT evidence about cake_lpr.
+# All 24 archived certificates carry BOTH drat-trim and the formally verified cake_lpr as of 2026-09-19
+# (README.md §"Checker coverage" and §"The 2026-09-19 full-archive run, and the binary that produced it").
+# This section supplies the drat-trim leg; cake_lpr is the opt-in leg in section 3c below (set CAKE_LPR),
+# and the Lean 4 LRAT checker is section 3d (added 2026-11-12), so a PASS here alone is NOT evidence about
+# cake_lpr. [CORRECTED 2026-11-14, CX-37C-U: this read "All 22 certificates carry BOTH checkers as of
+# 2026-09-02 ... This script supplies only the drat-trim leg; the cake_lpr leg is run out of band".]
 #
 # [CLOSED 2026-09-02 — this paragraph previously read "KNOWN GAP, queued: the drat-trim invocation
 #  below pipes into `grep -q`, so this log records only the PASS line and never the checker's own

@@ -7966,6 +7966,31 @@ class TestMissingInputIsRefusedNotCrashed(unittest.TestCase):
             S.h2_parse_dump = real
 
 
+def _q1134_exchangeable_tv(a):
+    """Q-1134 (CX-37C-V): per-layer TV of an atlas's rid_mass joint from the multivariate-hypergeometric null of
+    its b0 multiset, as exact Fractions, by full enumeration of each layer's support {c : 0 <= c_d <= b0_d,
+    sum c = k} (the probe instead adds the omitted null mass as 1 - sum over stored cells)."""
+    import math
+    from fractions import Fraction
+    from math import comb
+    n = int(a["n"]); N = int(a["N_total"]); L = a["layers"]
+    b0 = [sum(int(l["by_class"][c]) for l in L) // N for c in ("d1", "d2", "d3", "d4", "d6")]
+    rad = [1]
+    for d in range(4):
+        rad.append(rad[-1] * (b0[d] + 1))
+    supp = [dg for dg in itertools.product(*[range(b + 1) for b in b0]) if sum(dg) < n]
+    out = []
+    for k in range(n):
+        obs = {}
+        for kk, v in L[k]["rid_mass"].items():
+            r = int(kk[1:])
+            obs[tuple((r // rad[d]) % (b0[d] + 1) for d in range(5))] = Fraction(int(v), N)
+        out.append(sum(abs(obs.get(dg, Fraction(0))
+                           - Fraction(math.prod(comb(b0[d], dg[d]) for d in range(5)), comb(n, k)))
+                       for dg in supp if sum(dg) == k) / 2)
+    return out
+
+
 class TestAtlasProbe(unittest.TestCase):
     """`solve.py --atlas-probe` (TR-12 §12, 2026-09-21): the public reproduction command for
     every figure derived from the n=31 `--kc-scan --kc-raw` atlas.  This class builds a REAL
@@ -8671,6 +8696,50 @@ class TestAtlasProbe(unittest.TestCase):
         # defect it exists to prevent.
         self.assertTrue(any(abs(x - round(x, 4)) > 1e-9 for x in vals),
                         "no value differs from its own 4-dp rounding: the _FULL token adds nothing")
+
+    def test_the_exchangeable_tv_maximum_is_printed_as_an_exact_fraction(self):
+        """Q-1134 (CX-37C-V, 2026-11-14), the CX-72 class.  TR-12 12.6 quotes the n=31 layer-4 maximum as an exact
+        rational, but EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS prints it to four decimals and no shipped command printed
+        the rational.  EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS_EXACT=<p>/<q> now does.  Pinned here to a FULL
+        ENUMERATION of the hypergeometric null in exact rationals (_q1134_exchangeable_tv, a different derivation
+        from the probe's 1 - sum identity), on the built n=9 atlas AND on a mutant with one unit of rid_mass moved
+        between two cells of the arg-max layer: the exact token must move to the mutant's recomputed value.  Red on
+        the parent tree (no such token).  The last assertion is the CX-72 guard: an exact token that equals its own
+        4-dp rounding would add nothing."""
+        self.assertTrue(self.build_ok, self.build_err)
+        import json, os
+        from fractions import Fraction
+        with open(self.atlas) as fh:
+            a = json.load(fh)
+        tvh = _q1134_exchangeable_tv(a)
+        rc, lines, out = self._probe(self.atlas)
+        self.assertEqual(rc, 0, out)
+        ex = [l for l in lines if l.startswith("EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS_EXACT=")]
+        self.assertEqual(len(ex), 1, "EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS_EXACT missing (CX-37C-V):\n%s" % out)
+        want = max(tvh)
+        self.assertEqual(ex[0], "EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS_EXACT=%d/%d" % (want.numerator, want.denominator))
+        self.assertIn("EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS=%.4f" % want, lines, out)
+        # the mutant: one unit moved between two stored cells of the arg-max layer (the layer sum stays N)
+        k = tvh.index(want)
+        cells = sorted(a["layers"][k]["rid_mass"], key=lambda c: int(a["layers"][k]["rid_mass"][c]))
+        self.assertGreaterEqual(len(cells), 2, "precondition: two stored rid_mass cells in layer %d" % k)
+        src, dst = cells[-1], cells[0]
+        rm = a["layers"][k]["rid_mass"]
+        conv = str if isinstance(rm[src], str) else int
+        rm[src], rm[dst] = conv(int(rm[src]) - 1), conv(int(rm[dst]) + 1)
+        tvm = _q1134_exchangeable_tv(a)
+        self.assertNotEqual(max(tvm), want, "precondition: the edit moves the exact maximum")
+        mutant = os.path.join(self.tmp, "atlas9_q1134_mutant.json")
+        with open(mutant, "w") as fh:
+            json.dump(a, fh)
+        rcm, linesm, outm = self._probe(mutant)
+        self.assertIn(rcm, (0, 1), outm)
+        exm = [l for l in linesm if l.startswith("EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS_EXACT=")]
+        self.assertEqual(exm, ["EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS_EXACT=%d/%d"
+                               % (max(tvm).numerator, max(tvm).denominator)], outm)
+        self.assertNotEqual(exm, ex, "the exact token did not move with the data")
+        # CX-72's load-bearing guard: the token must carry precision the 4-dp one cannot
+        self.assertNotEqual(want, Fraction("%.4f" % want), "the exact maximum equals its 4-dp rounding")
 
     def test_the_kernel_score_scale_tokens_are_recomputed_and_read_the_data(self):
         """Codex KCR1-7 / TRQ1-F5a (2026-09-22): TR-12 §12.4's -0.102 bits was published with no
@@ -10503,7 +10572,7 @@ class TestPreregZeroHitStops(unittest.TestCase):
         # predicate PASSes when its one-sided 95% Wilson lower bound on bits-explained
         # clears the bar, and is stopped (ZERO-HIT:STOP) only when it cannot. The N = 1000
         # fixture above cannot tell that rule from "always stop" (8.53 < 10.06 either way);
-        # the pre-registered N_eval = 10**6 can (18.49 > 11.17).
+        # the pre-registered N_eval = 10**6 can (18.495 > 11.17).
         import math
         # PRECONDITIONS: the two sample sizes really sit on opposite sides of their bars.
         lo_big = -math.log2(1.0 - roae._gs_wilson_lower(10**6, 10**6))
@@ -58058,7 +58127,7 @@ class TestBatchFV2A(unittest.TestCase):
         self._has("reports/TR3_REPRODUCIBLE_ENUMERATION.md", "identity is of the decompressed bytes",
                   "the SIGTERM-mid-walk subtest of `python3 solve.py --extended-selftest`",
                   "**weekday-daytime deferral plus a 75-minute backoff**", "from a clone with the project's hooks installed",
-                  "(`Argument list too long`, status 126)", "with `SOLVE_SKIP_IOPS_CHECK=1` added", "| v1.21 *(current)* |")
+                  "(`Argument list too long`, status 126)", "with `SOLVE_SKIP_IOPS_CHECK=1` added", "| v1.21 |")  # marker moved to v1.22 by Q-1140 (CX-37C-Y)
         self._has("reports/TR5_SYMMETRY.md", "no criterion invariant under hexagram relabeling can distinguish",
                   "consistent with a search-orientation effect", "by extrapolation — a verified subset still yields lower bounds",
                   "apparently independently", "| v2.26 |")  # marker moved to v2.27 by Q-1113 (CX-37C-G)
@@ -61878,7 +61947,7 @@ class TestBatchQ1056(unittest.TestCase):
         # Q1049R (CX-37C-A) appended v1.38 and moved the marker; v1.37 stays the row after v1.36 either way
         # (Q-1065 appended v1.41 and moved it again)
         self.assertEqual(len(cur), 1, cur)
-        self.assertIn(cur[0], ("| v1.37 *(current)* |", "| v1.38 *(current)* |", "| v1.39 *(current)* |", "| v1.40 *(current)* |", "| v1.41 *(current)* |", "| v1.42 *(current)* |"))  # Q-1113 (CX-37C-G) appended v1.39; v1.40: Q-1120 (CX-37C-J); v1.41: Q-1065 (CX-37C-L); v1.42: Q-1128 (CX-37C-M)
+        self.assertIn(cur[0], ("| v1.37 *(current)* |", "| v1.38 *(current)* |", "| v1.39 *(current)* |", "| v1.40 *(current)* |", "| v1.41 *(current)* |", "| v1.42 *(current)* |", "| v1.43 *(current)* |"))  # Q-1113 (CX-37C-G) appended v1.39; v1.40: Q-1120 (CX-37C-J); v1.41: Q-1065 (CX-37C-L); v1.42: Q-1128 (CX-37C-M); v1.43: Q-1134 (CX-37C-V)
         self.assertRegex(t, r"\| v1\.37(?: \*\(current\)\*)? \| 2026-11-05 \| \*\*Two items of §10, this report's DONE-contract section")
         self.assertIn("| v1.36 | 2026-11-01 |", t)
         self.assertNotIn("| v1.36 *(current)* |", t)
@@ -64273,9 +64342,11 @@ class TestBatchQ1116(unittest.TestCase):
 
     def test_q1116_revision_row_and_ledger_entry(self):
         rows = [l for l in self._r(self.T2).split("\n") if l.startswith("| v1.")]
-        self.assertTrue(rows[-1].startswith("| v1.47 *(current)* | 2026-11-11 |"), rows[-1][:60])
+        r47 = [l for l in rows if l.startswith(("| v1.47 *(current)* | 2026-11-11 |", "| v1.47 | 2026-11-11 |"))]   # Q-1140 (CX-37C-Y) appended v1.48 and moved the marker
+        self.assertEqual(len(r47), 1, rows[-1][:60])
+        self.assertTrue(rows[-1] == r47[0] or rows[-1].startswith("| v1.48 *(current)* | 2026-11-14 |"), rows[-1][:60])
         self.assertEqual(sum("*(current)*" in l.split("|")[1] for l in rows), 1, "one current revision row")
-        self.assertIn("CX-37C-D", rows[-1])
+        self.assertIn("CX-37C-D", r47[0])
         self.assertIn("\n## CX-37C-D — ", self._r("documentation/CORRECTIONS.md"))
 
 # end class TestBatchQ1116
@@ -64843,6 +64914,8 @@ class TestBatchQ1113(unittest.TestCase):
                 t = self._r(rel)
                 if rel == self.T12 and "\n| v1.39 | 2026-11-12 |" in t:   # Q-1120 (CX-37C-J) appended v1.40 and moved the marker
                     cur = "| v1.39 | 2026-11-12 |"
+                if rel == self.T6 and "\n| v1.18 | 2026-11-12 |" in t:   # Q-1140 (CX-37C-Y) appended v1.19 and moved the marker
+                    cur = "| v1.18 | 2026-11-12 |"
                 self.assertEqual(t.count("*(current)*"), 1, rel)
                 self.assertEqual(t.count("\n" + cur), 1, rel)
                 self.assertEqual(t.count("\n" + prev), 1, rel)
@@ -64997,11 +65070,15 @@ class TestBatchQ1114Q1118Q1120(unittest.TestCase):
                              ("reports/TR9_PRICING_THE_CONSTRAINTS.md", "v1.40", "CX-37C-H")):
             rows = [l for l in self._r(rel).split("\n") if l.startswith("| v1.")]
             row, want = rows[-1], "| %s *(current)* | 2026-11-12 |" % ver
+            if rel == self.T12 and row.startswith("| v1.43 *(current)* | 2026-11-14 |"):   # Q-1134 (CX-37C-V) appended v1.43 after Q-1128's v1.42
+                row, want = rows[-4], "| %s | 2026-11-12 |" % ver
             if rel == self.T12 and row.startswith("| v1.42 *(current)* | 2026-11-13 |"):   # Q-1128 (CX-37C-M) appended v1.42 after Q-1065's v1.41
                 row, want = rows[-3], "| %s | 2026-11-12 |" % ver
             if rel == self.T12 and row.startswith("| v1.41 *(current)* | 2026-11-13 |"):   # Q-1065 (CX-37C-L) appended v1.41 and moved the marker
                 row, want = rows[-2], "| %s | 2026-11-12 |" % ver
             if rel.endswith("TR9_PRICING_THE_CONSTRAINTS.md") and row.startswith("| v1.41 *(current)* | 2026-11-13 |"):   # Q-1007 (CX-37C-K) appended v1.41 and moved the marker
+                row, want = rows[-2], "| %s | 2026-11-12 |" % ver
+            if rel == self.T1 and row.startswith("| v1.48 *(current)* | 2026-11-14 |"):   # Q-1140 (CX-37C-Y) appended v1.48 and moved the marker
                 row, want = rows[-2], "| %s | 2026-11-12 |" % ver
             self.assertTrue(row.startswith(want), (rel, row[:60]))
             self.assertEqual(sum("*(current)*" in l.split("|")[1] for l in rows), 1, rel)
@@ -66340,8 +66417,8 @@ class TestQ735TwoAdicEvidence(unittest.TestCase):
     limits, runs the four reproducers' fast legs against EXPECTED_TOKENS.txt, binds the reproducers' hexagram table to
     solve.py, and pins the README's statement, the TR-12 note and the gate rename.  Every test fails on the parent tree
     (the directory, the note and the renamed gate do not exist there).  Developed with AI assistance (Claude,
-    Anthropic): claude-opus-5-5; the theorem was found and proved by Fable and independently verified by a separate
-    Fable lane, the six-pair V1 extension by a third."""
+    Anthropic): claude-opus-5-5; the theorem was found and proved by Fable and re-checked by a second Fable lane of
+    this project, the six-pair V1 extension by a third (CX-37C-R: not independent examination)."""
 
     ROOT = os.path.dirname(os.path.abspath(__file__))
     D = "reports/evidence/q735_two_adic"
@@ -66431,14 +66508,14 @@ class TestQ735TwoAdicEvidence(unittest.TestCase):
                      "and 2^21 divides every V1 cell of the 3 complement pairs. In particular 16 divides every raw V1 cell.",
                      "cell(k, p) = Σ_c Σ_{s•} F_p(s•, c) = Σ_c Σ_{orbits {s•, τs•}} [F_p(s•, c) + F_p(τs•, c)]",
                      "Nothing is divided by the symmetry: τ only regroups the sum.",
-                     "which a third Fable lane, again with its own code, independently verified.",
+                     "which a third Fable lane of this project, again with code written for that read, re-checked.",
                      "For context only: the standard count of the Hamiltonian cycles of the 6-cube is Haanpää and Östergård",
                      "**each class-6 boundary costs at\nmost one factor of 2**",
                      "- **Not shown — kernel cells.** The raw one-step kernel cells are open.",
                      "That generalisation follows from the same steps but has not been tested on any other n = 31 budget.",
                      "That it is exactly 2^21·3 is read from\n  the atlas",
                      "Hammons, Kumar, Calderbank, Sloane and Solé, IEEE Trans.\nInform. Theory 40(2) (1994) 301–319",
-                     "The theorem was found and proved by a Fable lane\n(Claude Fable 5.2) and independently verified by a separate Fable lane"):
+                     "The theorem was found and proved by a Fable lane\n(Claude Fable 5.2) and re-checked by a second Fable lane of this project"):
             self.assertIn(" ".join(frag.split()), t)
         for bad in ("Lean-verified", "independently reproduced", "new method", "novel", "first proof", "explains the gcd",
                     "surprising"):
@@ -66463,7 +66540,11 @@ class TestQ735TwoAdicEvidence(unittest.TestCase):
                      "(evidence/q735_two_adic/README.md)"):
             self.assertIn(frag, note[0])
         rows = [l for l in t.split("\n") if l.startswith("| v1.")]
-        self.assertTrue(rows[-1].startswith("| v1.42 *(current)* | 2026-11-13 |"), rows[-1][:60])   # after Q-1065's v1.41 (CX-37C-L)
+        cur = rows[-1]
+        if cur.startswith("| v1.43 *(current)* | 2026-11-14 |"):   # Q-1134 (CX-37C-V) appended v1.43 and moved the marker
+            self.assertTrue(rows[-2].startswith("| v1.42 | 2026-11-13 |"), rows[-2][:60])
+        else:
+            self.assertTrue(cur.startswith("| v1.42 *(current)* | 2026-11-13 |"), cur[:60])   # after Q-1065's v1.41 (CX-37C-L)
         self.assertEqual(sum("*(current)*" in l.split("|")[1] for l in rows), 1)
         self.assertTrue(t.endswith(rows[-1] + "\n"))
 
@@ -66489,6 +66570,1110 @@ class TestQ735TwoAdicEvidence(unittest.TestCase):
             self.assertEqual(cit.count(who), 1, who)
 
 # end class TestQ735TwoAdicEvidence
+
+
+class TestBatchQ1134(unittest.TestCase):
+    """Backlog Q-1134 (2026-11-14; CORRECTIONS CX-37C-V): a front-door numeric consistency audit's nine items,
+    carried by dated notes appended to existing lines of TR-12, SEARCH_SPACE_SIZE and CRITIQUE, plus the probe
+    token EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS_EXACT (TestAtlasProbe pins it at n=9 and on a mutant).  Each test
+    recomputes what its note states from the published atlas or receipt, then requires the note.  Every test
+    fails on the parent tree (no note there).  Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    T12 = "reports/TR12_QUERY_PROGRAM.md"
+    SSS = "documentation/SEARCH_SPACE_SIZE.md"
+    CRIT = "documentation/CRITIQUE.md"
+    ATLAS = "runs/20260906_kc_ladders_n31/atlas_n31.json"
+    EXACT = "1121676961526360448677589295423047/27027598732681779457028289005338315"
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _atlas(self):
+        import json
+        with open(os.path.join(self.ROOT, self.ATLAS), encoding="utf-8") as fh:
+            return json.load(fh)
+
+    def _line(self, rel, start):
+        rows = [l for l in self._r(rel).split("\n") if l.startswith(start)]
+        self.assertEqual(len(rows), 1, (rel, start))
+        return rows[0]
+
+    def test_n2_the_published_atlas_prints_the_exact_rational_tr12_quotes(self):
+        import hashlib, re
+        from fractions import Fraction
+        t = self._r(self.T12)
+        pins = re.findall(r"The atlas every §12 figure is read from \|[^|\n]*sha256 `([0-9a-f]{64})`", t)
+        self.assertEqual(len(pins), 1, pins)
+        with open(os.path.join(self.ROOT, self.ATLAS), "rb") as fh:
+            self.assertEqual(hashlib.sha256(fh.read()).hexdigest(), pins[0])
+        p, q = map(int, self.EXACT.split("/"))
+        self.assertEqual(max(_q1134_exchangeable_tv(self._atlas())), Fraction(p, q), "the rational TR-12 quotes")
+        r = subprocess.run([sys.executable, _py_src("solve"), "--atlas-probe", os.path.join(self.ROOT, self.ATLAS)],
+                           capture_output=True, text=True)
+        lines = r.stdout.splitlines()
+        self.assertEqual(r.returncode, 0, r.stdout[-2000:] + r.stderr[-2000:])
+        self.assertEqual([l for l in lines if l.startswith("EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS")][:2],
+                         ["EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS=0.0415",
+                          "EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS_EXACT=" + self.EXACT])
+        tok = "`EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS_EXACT=%s`" % self.EXACT
+        n26 = [l for l in t.split("\n") if l.startswith("maximal at k = 4 ⚠ *(corrected 2026-11-01")]
+        self.assertEqual(len(n26), 1)
+        self.assertIn("CX-36J-D.)* ⚠ *(noted 2026-11-14, Q-1134: until this date no shipped command printed this "
+                      "rational.", n26[0])
+        self.assertIn(tok, n26[0])
+        self.assertIn("the CX-72 class", n26[0])
+        row = self._line(self.T12, "| residual budget vs exchangeable null, max TV over layers")
+        self.assertIn("`EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS=0.0415` (n=9: `0.5686`) ⚠ *(noted 2026-11-14, "
+                      "Q-1134: exact, " + tok + ")* |", row)
+        self.assertIn("EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS_EXACT (added\n                             2026-11-14, "
+                      "Q-1134:", self._r("documentation/SOLVE_PY_CLI.md"))
+
+    def test_n1_open_problems_row_7_gives_0_04151(self):
+        from fractions import Fraction
+        p, q = map(int, self.EXACT.split("/"))
+        x = Fraction(p, q)
+        self.assertEqual(("%.5f" % x, "%.7f" % x, "%.4f" % x), ("0.04150", "0.0415012", "0.0415"))
+        self.assertTrue(x > Fraction(415, 10000))
+        row = self._line(self.T12, "| 7 | **Is §12.6's near-exchangeability informative")
+        self.assertIn("the TV **0.0415** ships as a measurement ⚠ *(noted 2026-11-14, Q-1134: 0.04151 to five "
+                      "figures. The exact layer-4 maximum is 0.0415012, above 0.0415, and the token prints it as "
+                      "0.0415;", row)
+        t = self._r(self.T12)
+        self.assertGreaterEqual(t.count("0.04151"), 4)
+
+    def test_n5_the_unrounded_lookup_counts_give_27_6_and_65_h(self):
+        from fractions import Fraction
+        a = self._atlas()
+        n, C = int(a["n"]), [l["counts"] for l in a["layers"]]
+        g = sum(int(c["st_lookups"]) for c in C)
+        naive = sum(sum(int(C[k]["st_nz%d" % d]) for d in (1, 2, 3, 4, 6)) * 2 * (n - k - 1) for k in range(n))
+        par = sum(int(C[k + 1]["st_entries"]) * 2 * k for k in range(n - 1))
+        self.assertEqual((g, naive, par), (12652870597409, 348601554325640, 15821691908506))
+        r1, r2, h = Fraction(naive, g), Fraction(par + g, g), Fraction(289, 10)
+        self.assertEqual(("%.1f" % r1, "%.2f" % r1, "%.3f" % r2, "%.0f" % (r1 * h), "%.1f" % (r2 * h)),
+                         ("27.6", "27.55", "2.250", "796", "65.0"))
+        # the printed, rounded inputs do not give the published figures
+        self.assertEqual(("%.1f" % (349 / 12.7), "%.1f" % (2.3 * 28.9)), ("27.5", "66.5"))
+        t = self._r(self.T12)
+        notes = [l for l in t.split("\n") if l.startswith("64-thread scan, if lookup-bound), or ≈ 2.3× that scan (≈ 65 h) ⚠ *(noted 2026-11-14, Q-1134:")]
+        self.assertEqual(len(notes), 1)
+        for frag in ("12,652,870,597,409 first-scan g-lookups (`st_lookups`)", "348,601,554,325,640 naive g-lookups",
+                     "15,821,691,908,506 f-lookups", "27.55× (796 h at 28.9 h per scan) and 2.250× (65.0 h)",
+                     "give 27.5×, and 2.3 × 28.9 h is 66.5 h"):
+            self.assertIn(frag, notes[0])
+        row = self._line(self.T12, "| 10 | **Two-step joints, and per-branch per-layer marginals**")
+        self.assertIn("a time cost, with no dollar price) ⚠ *(noted 2026-11-14, Q-1134: 2.250 × the first scan's 28.9 h",
+                      row)
+
+    def test_n6_both_11_5_tb_sites_point_to_the_r0_figure(self):
+        t = self._r(self.T12)
+        self.assertIn("an f+g reproducer **11.57 TB**", t)
+        note = "11.5 TB *(11.57 TB — f + g, §R.0; noted 2026-11-14, Q-1134)* read-back"
+        self.assertEqual(t.count(note), 2)
+        body = "\n".join(l for l in t.split("\n") if not l.startswith("| v1."))   # revision rows quote it
+        self.assertEqual(body.count("11.5 TB"), 2, "no unnoted 11.5 TB site")
+
+    def test_n4_rows_2_to_30_are_layers_1_to_29(self):
+        from fractions import Fraction
+        a = self._atlas()
+        n, N = int(a["n"]), int(a["N_total"])
+        tv = []
+        for l in a["layers"]:
+            mr = {int(x[4:]): int(v) for x, v in l["marginal_raw"].items()}
+            tv.append(sum(abs(Fraction(mr.get(p, 0), N) - Fraction(1, n)) for p in range(1, n + 1)) / 2)
+        self.assertEqual(len(tv), 31)
+        over = [r for r in range(1, 32) if tv[r - 1] > Fraction(329, 10000)]   # row r = layer r - 1
+        self.assertEqual(over, [1, 31])
+        self.assertEqual(("%.4f" % tv[0], "%.4f" % tv[30], "%.4f" % max(tv[1:30])), ("0.1324", "0.4839", "0.0329"))
+        row = self._line(self.T12, "| TR-12 | The three negatives |")
+        self.assertIn("interior positional field (rows 2–30) flat to **0.0329** ⚠ *(noted 2026-11-14, Q-1134: rows of "
+                      "the atlas's 31-row per-layer table counted from 1, so row r is layer r − 1 and slot r + 1. Rows "
+                      "2–30 are layers 1–29, interior slots 3–31: the window of §12.5 and `INTERIOR_LAYER_WINDOW=1,29`. "
+                      "Only rows 1 and 31 exceed 0.0329, at 0.1324 and 0.4839.)* |", row)
+        self.assertIn('tok("INTERIOR_LAYER_WINDOW", "%d,%d" % (lo_w, hi_w))', self._r("solve.py"))
+        self.assertIn("lo_w, hi_w = 1, n - 2", self._r("solve.py"))
+
+    def test_n3_the_anchor_tokens_are_in_verdicts_txt_not_in_the_cited_receipt(self):
+        rec = self._r("reports/evidence/tr12/VERDICTS_n31_20260922.txt").split("\n")
+        self.assertFalse([l for l in rec if "A2" in l or "A3" in l or "SLOT" in l or "EXTERNAL" in l])
+        self.assertEqual((rec[97], rec[99], rec[119]), ("TR12_ATLAS_CONSUMER=FAIL:nonzero-exit(1)",
+                                                       "TR12_CONSUMER_VERDICTS=FAIL:nonzero-exit(1)", "TR12_REPRO=FAIL"))
+        self.assertEqual(self._r("reports/tr12/VERDICTS.txt").split("\n")[:2],
+                         ["TR12_A2_SLOT=FAIL", "TR12_A3_EXTERNAL=FAIL"])
+        self.assertIn("\n## The three FAILs are one fault", self._r("reports/evidence/tr12/README.md"))
+        row = self._line(self.T12, "| TR-12 | The two external anchors |")
+        self.assertIn("(evidence/tr12/VERDICTS_n31_20260922.txt) ⚠ *(noted 2026-11-14, Q-1134: that receipt carries "
+                      "only the downstream `TR12_ATLAS_CONSUMER=FAIL:nonzero-exit(1)` (line 98), "
+                      "`TR12_CONSUMER_VERDICTS` (line 100) and `TR12_REPRO` (line 120). The two tokens themselves are "
+                      "lines 1–2 of [`reports/tr12/VERDICTS.txt`](tr12/VERDICTS.txt)", row)
+
+    def test_n8_the_derived_10_27_ratio_is_withdrawn_with_its_source(self):
+        import math
+        self.assertEqual("%.1e" % (10525271997 / 1.3287e38), "7.9e-29")
+        self.assertEqual("%.1f" % math.log10(math.factorial(31) / 10525271997), "23.9")
+        self.assertIn("19.7 to 23.9 decades above the 560T count", self._r(self.T12))
+        L = self._r(self.SSS).split("\n")
+        for i in (2, 112):
+            self.assertIn("1 part in 10²⁷", L[i])
+            self.assertIn("ceiling by ~4,013×; see documentation/CORRECTIONS.md]** ⚠ *(noted 2026-11-14, Q-1134: "
+                          "the \"≈1 part in 10²⁷\" on this line is derived from the figure that marker names and goes with it.",
+                          L[i])
+            self.assertIn("1.0525×10¹⁰ / 1.3287×10³⁸ ≈ 7.9×10⁻²⁹", L[i])
+            self.assertIn("at most 23.9 decades", L[i])
+
+    def test_n9_the_c67_no_c3_row_and_absolute_validation_name_the_exact_count(self):
+        import re
+        from fractions import Fraction
+        x = 516880238445773965371923491676160
+        self.assertIn("| \\|C1–C7\\|, C3 dropped | 516,880,238,445,773,965,371,923,491,676,160 ≈ 5.16880×10³² | **exact**",
+                      self._r("reports/METHODS.md"))
+        c67 = [l for l in self._r("reports/evidence/c67_probe.out").split("\n") if "leaves_C1C2C4C5" in l][-1]
+        m = re.search(r"est=([0-9.e+]+)\s+95%CI=\[([0-9.e+]+), ([0-9.e+]+)\]\s+relerr=([0-9.]+)%", c67)
+        est, lo, hi, rel = (Fraction(v) for v in m.groups())
+        self.assertTrue(lo <= x <= hi)
+        self.assertEqual("%.2f" % ((est - x) / est / (rel / 100)), "1.25")
+        self.assertIn("**Coverage: 3 of 3 (95 % intervals).**", self._r("reports/TR4_SIZE_OF_THE_SPACE.md"))
+        s = self._r(self.SSS)
+        row = self._line(self.SSS, "| C1+C2+C4+C5 + C6/C7 pins (no C3) | 5.18×10³² | [5.16, 5.21]×10³² | 0.25% ⚠ *(noted 2026-11-14, Q-1134:")
+        self.assertIn("516,880,238,445,773,965,371,923,491,676,160 ≈ 5.16880×10³²", row)
+        self.assertIn("1.25 relative SE below the estimate", row)
+        self.assertIn("see TR-11 §10(ii).) ⚠ *(noted 2026-11-14, Q-1134: there is a third full-scale anchor.", s)
+
+    def test_n11_the_corpus_control_counts_are_marked_private(self):
+        c = self._r(self.CRIT)
+        note = [l for l in c.split("\n") if "(Results file with the full table and script: project archive.) ⚠ *(noted 2026-11-14, Q-1134:" in l]
+        self.assertEqual(len(note), 1)
+        for frag in ("rest on a private record", "no shipped command reproduces the 11-axis table",
+                     "`solve.py --r7-corpus`", "`reports/evidence/r7/`"):
+            self.assertIn(frag, note[0])
+        self.assertTrue(os.path.isdir(os.path.join(self.ROOT, "reports", "evidence", "r7")))
+        self.assertIn('"--r7-corpus"', self._r("solve.py"))
+
+    def test_ledger_entries_and_revision_row(self):
+        c = self._r("documentation/CORRECTIONS.md")
+        self.assertEqual(c.count("\n## CX-37C-V — "), 1)
+        self.assertEqual(self._r("documentation/HISTORY.md").count(
+            "\n## 2026-11-14 — batch Q1134: dated notes on nine front-door figures, and the exact exchangeability "
+            "bound printed\n"), 1)
+        t = self._r(self.T12)
+        rows = [l for l in t.split("\n") if l.startswith("| v1.")]
+        self.assertTrue(rows[-1].startswith("| v1.43 *(current)* | 2026-11-14 |"), rows[-1][:60])
+        self.assertIn("CX-37C-V", rows[-1])
+        self.assertTrue(rows[-2].startswith("| v1.42 | 2026-11-13 |"))
+        self.assertEqual(sum("*(current)*" in l.split("|")[1] for l in rows), 1)
+        self.assertTrue(t.endswith(rows[-1] + "\n"))
+
+# end class TestBatchQ1134
+
+
+class TestBatchQ1140N1(unittest.TestCase):
+    """Backlog Q-1140 (CX-37C-Z), wording audit item N1: the LEADERBOARD.md and SOLVE.md banners called King Wen's
+    top C3 position a "novel finding". C3 is defined as C3 <= 776, King Wen's own value, so the position holds by
+    the rule's definition. The banners now say so and state the measured spread below the ceiling; three siblings
+    gain a dated clause. The cured test requires each new fragment once and no old one; the red test puts the old
+    lines back; the data test re-reads the committed 100T --c3-min log and recomputes King Wen's 776; the sweep
+    requires the two old headings to be gone from public Markdown outside dated quotes. The text tests fail on the
+    parent tree. Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    LB = "enumeration/LEADERBOARD.md"
+    SO = "documentation/SOLVE.md"
+    LOG = "runs/20260419_100T_d3_d128westus3/c3_min_output.log"
+    NOTE = "⚠ *(Reworded 2026-11-14, CX-37C-Z:"
+    OLD_HEADS = ("Novel finding", "Novel 2026-04-20 finding")
+    # (row, file, line number, old fragment, new fragment)
+    PAIRS = (
+        ('LB-head', LB, 5, "> **Novel finding from 100T",
+         "> **C3 below the ceiling, from the 100T [`--c3-min`](../documentation/SOLVE_C_CLI.md#--c3-min) analysis (2026-04-20; 560T 2026-06-11):**"),
+        ('LB-definition', LB, 5, "At 560T (3.07× the scale), KW's position at the C3 = 776 *ceiling* is reaffirmed.",
+         "KW's top C3 position holds by the rule's definition, not by measurement. What was measured is the spread below the ceiling."),
+        ('LB-spread', LB, 5, "this is a confirmed negative result",
+         "3,092,219,648 of the 3,432,399,297 records (90.09 %) lie strictly below 776, and 340,179,649 (9.91 %) tie KW at 776"),
+        ('LB-minimize', LB, 5, "KW sits at C3 = 776 (ceiling of the constraint).",
+         "The simple axiom \"minimize C3\" does not derive KW: it picks the 221 records at 424, not KW at 776"),
+        ('SO-head', SO, 11, "> **Novel 2026-04-20 finding (from d3 100T",
+         "> **C3 below the ceiling (2026-04-20, from the d3 100T [--c3-min](SOLVE_C_CLI.md#--c3-min) analysis):** King Wen's C3 of 776 is the highest value among the 3.43B canonical records, and that holds by the rule's definition"),
+        ('SO-exceeds', SO, 11, "KW is actually at the C3-maximum, with",
+         "KW is at the ceiling that every record must meet or undercut, with 90.09 % of canonical records strictly below it in C3 (3,092,219,648 of 3,432,399,297)"),
+        ('SO-rule3', SO, 94, "> (KW sits at the C3 *maximum* within the C1–C5 canonical) is unaffected.",
+         "that position holds by the rule's definition, since the ceiling is KW's own 776 — 2026-11-14, CX-37C-Z) is unaffected."),
+        ('CRITIQUE', "documentation/CRITIQUE.md", 359, "KW is at the C3-maximum. *(**Flagged",
+         "KW is at the C3-maximum. *(Note 2026-11-14, CX-37C-Z: that position holds by the rule's definition"),
+        ('OVERVIEW', "documentation/PROJECT_OVERVIEW.md", 128, "KW's C3 is at the maximum of the constraint. about",
+         "KW's C3 is at the maximum of the constraint, which holds by the rule's definition: the ceiling is KW's own value (2026-11-14, CX-37C-Z)."),
+    )
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _lines(self):
+        return {rel: self._r(rel).split("\n") for rel in {p[1] for p in self.PAIRS}}
+
+    def _strip_notes(self, line):
+        out, i = [], 0
+        while True:
+            j = line.find(self.NOTE, i)
+            if j < 0:
+                out.append(line[i:])
+                return "".join(out)
+            k = line.find(")*", j)
+            if k < 0:
+                raise AssertionError("dated note opened but never closed: %r" % line[j:j + 80])
+            out.append(line[i:j])
+            i = k + 2
+
+    def _problems(self, lines):
+        probs = []
+        for row, rel, n, old, new in self.PAIRS:
+            text = "\n".join(lines[rel])
+            if text.count(new) != 1:
+                probs.append("%s: new fragment present %d times" % (row, text.count(new)))
+            elif new not in lines[rel][n - 1]:
+                probs.append("%s: new fragment not on %s:%d" % (row, rel, n))
+            if old in self._strip_notes(lines[rel][n - 1]):
+                probs.append("%s: old fragment still present" % row)
+        for rel, n in ((self.LB, 5), (self.SO, 11)):
+            body = self._strip_notes(lines[rel][n - 1])
+            for w in ("novel", "Novel", "first", "First", " new ", "no record exceeds"):
+                if w in body:
+                    probs.append("%s:%d: banner body has %r" % (rel, n, w))
+            if lines[rel][n - 1].count(self.NOTE) != 1:
+                probs.append("%s:%d: dated note present %d times" % (rel, n, lines[rel][n - 1].count(self.NOTE)))
+        return probs
+
+    def test_banners_cured(self):
+        probs = self._problems(self._lines())
+        self.assertEqual(probs, [], "\n".join(probs))
+
+    def test_red_old_banners_detected(self):
+        lines = self._lines()
+        with open(os.path.join(self.ROOT, "documentation/CORRECTIONS.md"), encoding="utf-8") as fh:
+            c = fh.read()
+        sec = c[c.index("\n## CX-37C-Z — "):]
+        olds = [l for l in sec.split("\n") if l.startswith("> **Novel")]
+        self.assertEqual(len(olds), 2, "CX-37C-Z must quote both old banner lines verbatim")
+        lines[self.LB][4] = next(l for l in olds if "Novel finding from 100T" in l)
+        lines[self.SO][10] = next(l for l in olds if "Novel 2026-04-20 finding" in l)
+        probs = self._problems(lines)
+        for row in ("LB-head", "LB-definition", "SO-head", "SO-exceeds"):
+            self.assertTrue(any(p.startswith(row + ":") for p in probs), (row, probs))
+        self.assertTrue(any("'no record exceeds'" in p for p in probs), probs)
+
+    def test_old_headings_gone_outside_dated_quotes(self):
+        allowed = {"documentation/CORRECTIONS.md", "documentation/HISTORY.md"}
+        scanned, hits = 0, []
+        for dp, dns, fns in os.walk(self.ROOT):
+            dns[:] = [d for d in dns if not d.startswith(".")]
+            for fn in fns:
+                if not fn.endswith(".md"):
+                    continue
+                rel = os.path.relpath(os.path.join(dp, fn), self.ROOT).replace(os.sep, "/")
+                if rel in allowed:
+                    continue
+                scanned += 1
+                with open(os.path.join(dp, fn), encoding="utf-8", errors="replace") as fh:
+                    for i, line in enumerate(fh, 1):
+                        body = self._strip_notes(line)
+                        for h in self.OLD_HEADS:
+                            if h in body:
+                                hits.append("%s:%d: %s" % (rel, i, h))
+        self.assertGreater(scanned, 100, "the sweep read too few Markdown files to mean anything")
+        self.assertEqual(hits, [], "\n".join(hits))
+        # positive control: the stripper does not hide a heading outside a note
+        self.assertIn("Novel finding", self._strip_notes("x Novel finding y " + self.NOTE + " Novel finding)* z"))
+
+    def test_measured_numbers_from_the_log(self):
+        import re
+        import verify
+        log = self._r(self.LOG)
+        n = int(re.search(r"(?m)^Records: (\d+)$", log).group(1))
+        mn = int(re.search(r"Minimum C3 observed:\s+(\d+)", log).group(1))
+        nmn = int(re.search(r"Count of records at min: (\d+)", log).group(1))
+        mx = int(re.search(r"Maximum C3 observed:\s+(\d+)", log).group(1))
+        nmx = int(re.search(r"Count of records at max: (\d+)", log).group(1))
+        self.assertEqual((n, mn, nmn, mx, nmx), (3432399297, 424, 221, 776, 340179649))
+        self.assertEqual(n - nmx, 3092219648)
+        self.assertEqual("%.2f" % (100.0 * (n - nmx) / n), "90.09")
+        self.assertEqual("%.2f" % (100.0 * nmx / n), "9.91")
+        kw = verify.compute_comp_dist(verify.KW)
+        self.assertEqual(kw, 776)
+        self.assertEqual(mx, kw, "the 100T maximum is King Wen's value, the ceiling")
+        self.assertLess(mn, kw, "'minimize C3' must select records other than King Wen")
+        buckets = [int(v) for v in re.findall(r"C3=(\d+)\s+\d+ records", log)]
+        self.assertEqual(len(buckets), 20)
+        for v in buckets:
+            self.assertLessEqual(v, 776)
+            self.assertEqual(v % 8, 0)
+        self.assertIn("#define KW_C3_CEILING 776", self._r("solve.c"))
+        self.assertIn("**extracted from KW** — 776 is King Wen's own value", self._r("documentation/SPECIFICATION.md"))
+
+    def test_ledgers(self):
+        import re
+        c = self._r("documentation/CORRECTIONS.md")
+        self.assertEqual(len(re.findall(r"\n## CX-37C-Z — ", c)), 1)
+        self.assertEqual(self._r("documentation/HISTORY.md").count(
+            "\n## 2026-11-14 — batch Q1140-N1: King Wen's top C3 position is stated as a consequence of the rule's definition\n"), 1)
+
+# end class TestBatchQ1140N1
+
+
+class TestBatchQ1135(unittest.TestCase):
+    """Backlog Q-1135 (CX-37C-W): the Python CLI references checked against their parsers. SOLVE_PY_CLI.md (atlas
+    consumer tokens, exit status, verifiers, FILES), VERIFY.md (the verify.py surface), ROAE_PY_CLI.md and SAT_CLI.md
+    had token lists, exit-status rows and ranges that had drifted from the code. The cured test requires each new
+    fragment once and, where the old wording was replaced rather than annotated, no old one; the red test puts the
+    old fragments back; the data checks bind each fragment to the code it describes. The text tests fail on the parent
+    tree. Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    SP = "documentation/SOLVE_PY_CLI.md"
+    VF = "documentation/VERIFY.md"
+    RP = "documentation/ROAE_PY_CLI.md"
+    SC = "documentation/SAT_CLI.md"
+    # (row, file, old, new, replaced): `replaced` rows must no longer carry `old`; the others append to it.
+    PAIRS = (
+        ("P02", SP, "# ... 31 gates (34 with --atlas-q3-trace)", "# ... 33 gates (36 with --atlas-q3-trace)", True),
+        ("P03", SP, "`draws`, `cells`,", "`draws`, `N_total`, `cells`,", True),
+        ("P04", SP, "and at n=31 `TR12_A5_ORBIT_COLUMNS` — matched",
+         "and `TR12_A5_ORBIT_COLUMNS` and `TR12_A5_ORBIT_MEMBERSHIP` (both `SKIP:n=<n>` below full-31; 18 tokens in all) — matched", True),
+        ("P05", SP, "                             It gates the group-SIZE multiset, not pair membership.",
+         "pair membership is the separate `TR12_A5_ORBIT_MEMBERSHIP` verdict (`atlas_orbit_membership`), emitted under the same selector.", True),
+        ("P06", SP, "(or any of the other eight faults)", "(or any of the other ten faults)", True),
+        ("P12", SP, "W0D_LB_ATLAS_BRANCH_SET_EQ. Verdict", "W0D_LB_ATLAS_BRANCH_SET_EQ, then (PASS only) W0D_LB_CERT_PATH. Verdict", True),
+        ("P01", SP, "", " ⚠ *[Re-measured against source 2026-11-14, CX-37C-W: `--joint-permutation-test` and `--stratified-by-position-2-pair` do not take this path; both reach `_p2_v2_load_sample`, which exits **1**", False),
+        ("P07a", SP, "(exit 1 only if SEQ is not 64 integers)", "(exit 1 only if SEQ is not a permutation of 0..63)", True),
+        ("P07b", SP, "given other than 64 integers).; or", "given anything but a permutation of 0..63); or", True),
+        ("P08", SP, "", "⚠ *(Scoped 2026-11-14, CX-37C-W: rows 1 and 2 are not exhaustive. Exit 1 is also the FAIL verdict of `--atlas-queries`,", False),
+        ("P09", SP, "(`--sat-encode`), CSV/JSON", "(`--sat-encode`, with its `.meta.json` sidecar and, under `--sat-c3 pb`, the `.opb` companion), `compute_stats.json` (`--compute-stats`),", True),
+        ("P10", SP, "", " Once merged, it exits 1 (with `results.json` and `RESULTS.md` still written) when sanity gate H-a or H-b fails, and 0 otherwise;", False),
+        ("P11", SP, "per certificate and the whole-line verdict", "the counts `KC_X_PYCHECK_CHECKED=`/`_AGREE=`/`_REFUSED=`/`_FAILED=` (and `KC_X_PYCHECK_ERROR=<why>` on stderr for ERROR)", True),
+        ("P13a", SP, "Prints `TOTAL_SEQUENCES`,", "Prints `STRUCTURED_SEQUENCES`, `RANDOM_C1_SEQUENCES`, `TOTAL_SEQUENCES`,", True),
+        ("P13b", SP, "Prints `CANONICAL_JF_EXTREME_COUNT`, `EXTREME_COUNT_HISTOGRAM`,",
+         "Prints `N=… SEED=…`, `CANONICAL_JF_EXTREME_COUNT`, `CANONICAL_JF_EXTREMES`, `ORDERS_TESTED`, `EXTREME_COUNT_HISTOGRAM`,", True),
+        ("P13c", SP, "(N < 1, or the percentile cross-check disagrees)", "(N < 1, `_r7_jingfang()` not 8 world-stage palaces, or the percentile cross-check disagrees)", True),
+        ("V1", VF, "is a smoke test whose verdict token reads `PARTIAL` and can never read `PASS",
+         "is a smoke test: for 1 ≤ N < 48 its verdict token reads `PARTIAL` (or `FAIL` on a mismatch) and cannot read `PASS`; N ≥ 48 runs all 48 and is the full gate", True),
+        ("V2", VF, "", "| `python3 verify.py --recount-finite` | the **finite record-mode and wrap/parity tallies**:", False),
+        ("V3", VF, "", "drawn under the fixed seed 20260724, so a given `N` is reproducible; the run is gated on the acceptance identity", False),
+        ("V4", VF, "or n > 13; a layer JSON", "or the layer JSONs carry a `t` block but `--midjoin-tdir` was not given (then also `MIDJOIN_CHECK_T=UNCHECKED`", True),
+        ("V5", VF, "| `Q1_LABELING_ORACLE  PASS`,", "| `Q1_LABELING_ORACLE<TAB>PASS` (tab-separated, not KEY=value", True),
+        ("R1", RP, "| 2 | Invalid argument or unrecognised flag (emitted by `argparse`) |", "and from `roae.py`'s own refusals: `--explain` not an integer in 1–63;", True),
+        ("R2", RP, "| Worker processes (default 0 = all cores). |", "| Worker processes (default 0 = all cores). A negative value or a value ≥ 9900 is refused, exit 2", True),
+        ("R3", RP, "", "*[Superseded in part 2026-11-14, CX-37C-W: since G5b (2026-10-22, Codex F04-015#2) the loader also refuses a row whose `batch`", False),
+        ("R4", RP, "", "*[Precision 2026-11-14, CX-37C-W: at N_eval = 10⁶ the bound is 18.4954 bits and the run prints it as `be=>= 18.50`", False),
+        ("R5", RP, "when given explicitly (without it", "when given explicitly and spelled in full, `--trials N` or `--trials=N` — an abbreviation such as `--trial N`", True),
+        ("R6a", RP, "**12** one-shot instruments under", "**27** Python files (as of 2026-11-14;", True),
+        ("R6b", RP, "also tracks `scripts/c2c3_joint_null.py`,", "also tracks twelve Python files under `scripts/`", True),
+        ("T1", SC, "", "| `KW_CONTROL_TARGET=<target>` | printed first:", False),
+        ("T2", SC, "--rigidity-cnf --run` exits non-zero", "--rigidity-cnf --run` and `--ccn4-equiv-cnf SIDE OUT.cnf --run` (a SIDE other than `fwd`/`rev` exits 1", True),
+        ("T3", SC, "scripts/k37_isclause_port.py 10` gives", "scripts/k37_isclause_port.py 10 n10.cnf` gives", True),
+        ("T4a", SC, "`sat.py --emit-cnf f1c5 --f1-pairs N`", "`sat.py --emit-cnf f1c5 OUT.cnf --f1-pairs N`", True),
+        ("T4b", SC, "`sat.py --emit-cnf f1c5 --f1-pairs 12`", "`sat.py --emit-cnf f1c5 n12.cnf --f1-pairs 12`", True),
+        ("T4c", SC, "`sat.py --emit-cnf f1c5 --f1-pairs 10`", "`sat.py --emit-cnf f1c5 n10.cnf --f1-pairs 10`", True),
+        ("V1-code", "verify.py", "'Never yields PASS; the verdict token reads PARTIAL.'", "'For N < 48 never yields PASS (the verdict token reads PARTIAL); N >= 48 is the full run.'", True),
+        ("V1-docstring", "verify.py", "    a --sigma-limit run prints PARTIAL.", "    a --sigma-limit N < 48 run prints PARTIAL (N >= 48 is the full run).", True),
+    )
+    # line counts at the parent (fadfc575): every edit is line-neutral. SOLVE_PY_CLI.md is 1805 + 5: the Q-1134
+    # batch (CX-37C-V), combined into the same commit, adds 5 lines to the --atlas-probe token list.
+    LINES = {SP: 1810, VF: 1532, RP: 869, SC: 1091}
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _texts(self):
+        return {rel: self._r(rel) for rel in {p[1] for p in self.PAIRS}}
+
+    def _problems(self, texts):
+        probs = []
+        for row, rel, old, new, replaced in self.PAIRS:
+            t = texts[rel]
+            if t.count(new) != 1:
+                probs.append("%s: new fragment present %d times" % (row, t.count(new)))
+            elif replaced and old in t:
+                probs.append("%s: old fragment still present" % row)
+        return probs
+
+    def test_q1135_cured(self):
+        texts = self._texts()
+        self.assertEqual(self._problems(texts), [])
+        for rel, n in self.LINES.items():
+            self.assertEqual(texts[rel].count("\n"), n, "%s: line count moved" % rel)
+
+    def test_q1135_red_on_old(self):
+        texts = self._texts()
+        for row, rel, old, new, replaced in self.PAIRS:
+            self.assertEqual(texts[rel].count(new), 1, "precondition: %s new fragment present once" % row)
+            texts[rel] = texts[rel].replace(new, old)
+        self.assertEqual(len(self._problems(texts)), len(self.PAIRS))
+
+    def test_q1135_atlas_consumer_bindings(self):
+        src = self._r("solve.py")
+        m = re.search(r'add_argument\("--atlas-fault",.*?choices=\((.*?)\),', src, re.S)
+        self.assertIsNotNone(m, "precondition: --atlas-fault declares its choices")
+        faults = re.findall(r'"([a-z0-9-]+)"', m.group(1))
+        self.assertEqual(len(faults), 11)
+        self.assertIn("v2-class-swap", faults)
+        gold = self._r("scripts/tr12_expected/n9/c_consumer.txt")
+        self.assertIn("[atlas-consumer] 36 gate(s) run, 0 failure(s)\n", gold)
+        gates = [l for l in gold.splitlines() if l.startswith("[atlas-consumer] ") and l.endswith(" PASS")]
+        q3 = [l for l in gates if l.startswith("[atlas-consumer] Q3: ")]
+        self.assertEqual((len(gates), len(q3)), (36, 3))   # 33 without --atlas-q3-trace
+        vt = self._r("scripts/tr12_expected/n9/c_consumer_verdicts.txt")
+        self.assertIn("consumer_verdict_count\t18\n", vt)
+        self.assertIn("consumer_verdict\tTR12_A5_ORBIT_MEMBERSHIP\n", vt)
+        self.assertIn('verdicts["TR12_A5_ORBIT_MEMBERSHIP"] = "SKIP:n=%s" % n', src)
+        self.assertIn('"N_total": total, "cells": res["cells"]', src)
+        self.assertIn('tok("W0D_LB_CERT_PATH", out_path)', src)
+
+    def test_q1135_solve_exit_and_token_bindings(self):
+        src = self._r("solve.py")
+        S = _load("solve")
+        self.assertEqual(S._g5b_perm_arg(" ".join(["0"] * 64)), [], "64 integers, not a permutation")
+        self.assertEqual(S._g5b_perm_arg(",".join(map(str, range(64)))), list(range(64)))
+        self.assertIn('raise SystemExit(f"[v2] no chunk_*.parquet files in {chunks_dir}")', src)
+        self.assertIn("return 0 if (hb_ok and ha_ok) else 1", src)
+        for tok in ("KC_X_PYCHECK_CHECKED=", "KC_X_PYCHECK_AGREE=", "KC_X_PYCHECK_REFUSED=", "KC_X_PYCHECK_FAILED=",
+                    "KC_X_PYCHECK_ROW=%s UNREADABLE", 'print(f"STRUCTURED_SEQUENCES=', 'print(f"RANDOM_C1_SEQUENCES=',
+                    'print(f"N={n} SEED={seed}")', '"CANONICAL_JF_EXTREMES="', 'print(f"ORDERS_TESTED=',
+                    "ERROR: _r7_jingfang() is not 8 world-stage palaces"):
+            self.assertIn(tok, src)
+
+    def test_q1135_verify_bindings(self):
+        src = self._r("verify.py")
+        self.assertIn("todo = imgs if limit is None else imgs[:limit]", src)
+        self.assertIn('    elif ran == 48:\n        verdict = "PASS"', src)
+        self.assertIn('print("[*FAIL*] --sigma-limit must be >= 1")', src)
+        self.assertIn("type=int, nargs='?', const=200_000", src)
+        self.assertIn("def check_c2_shift(n_samples=200_000, seed=20260724, verbose=True):", src)
+        self.assertIn("gate_ok = abs(acc_hat - exact_acc) <= 5.0 * se_acc", src)
+        self.assertIn('MIDJOIN_CHECK_T=UNCHECKED")', src)
+        self.assertIn('print("Q1_LABELING_ORACLE\\tPASS")', src)
+        self.assertIn('print("--q1-labeling-oracle needs --q1-anchor"); sys.exit(2)', src)
+        body = src[src.index("def recount_finite():"):src.index("\ndef ", src.index("def recount_finite():") + 1)]
+        for want in ("len(valid), 48)", 'first_fail.get("C1", 0), 672)', "len(recs) - 1, 23)", "range(31)), 15)",
+                     "range(32)), 16)", "range(62)), 30)", "arr(0, 0, 0, 0), 82818450)", "rot_slotmap[1:]), 21)",
+                     "rot_slotmap[1:]), 10)", "rot_slotmap[4], 888)", "rot_slotmap[16], 1240)", "max(rot_slotmap), 1320)",
+                     "len(rev_eq_partner), 56)", "KW_ROTATIONS_VIOLATING_C3=", "REV_EQUALS_PARTNER_COUNT="):
+            self.assertIn(want, body)
+
+    def test_q1135_roae_sat_bindings(self):
+        import math
+        R = _load("roae")
+        n = 10 ** 6
+        f_hi = 1.0 - R._gs_wilson_lower(n, n)
+        be = -math.log2(f_hi)
+        self.assertAlmostEqual(be, 18.4954, places=4)
+        self.assertEqual("%.2f" % be, "18.50")
+        self.assertAlmostEqual(-math.log2(1.0 - R._gs_wilson_lower(1000, 1000)), 8.5335, places=4)
+        rsrc = self._r("roae.py")
+        self.assertIn('any(a == "--trials" or a.startswith("--trials=") for a in sys.argv[1:]) else 10000', rsrc)
+        self.assertNotIn("allow_abbrev=False", rsrc, "R5 is documented, not fixed; drop this line if the code changes")
+        self.assertIn('sys.exit(2)   # G5b F12-012#11', rsrc)
+        self.assertIn("if workers >= _SEED_STREAM_GAP - _SEED_STREAM_OFFSETS[\"probe\"]:", rsrc)
+        evid = [p for d, _s, fs in os.walk(os.path.join(self.ROOT, "reports", "evidence")) for p in fs if p.endswith(".py")]
+        scr = [p for d, _s, fs in os.walk(os.path.join(self.ROOT, "scripts")) for p in fs if p.endswith(".py")]
+        self.assertGreaterEqual(len(evid), 27)
+        self.assertGreaterEqual(len(scr), 12)
+        ssrc = self._r("sat.py")
+        k = ssrc.index("def _print_kw_control(out):")
+        first = re.search(r'\n    print\("([A-Z_]+)=', ssrc[k:]).group(1)
+        self.assertEqual(first, "KW_CONTROL_TARGET")
+        self.assertEqual(ssrc.count('_run_expect_unsat(out, "--ccn4-equiv-cnf")'), 1)
+        self.assertIn("N = int(sys.argv[1]); path = sys.argv[2]", self._r("scripts/k37_isclause_port.py"))
+
+# end class TestBatchQ1135
+
+
+class TestBatchFT3fDocs(unittest.TestCase):
+    """Batch FT3f-docs (CX-37C-N): the remaining documentation rows of Codex's FT3f set (final review, Q-1019),
+    fixed line-neutral in seven documentation files, plus F12-007#15 and #7 released from the operator hold. Each
+    test asserts the code fact the new text relies on where there is one (the precondition), then the new text, then
+    that the old text is gone; each fails on the parent tree. No code, count or sha changes. Developed with AI
+    assistance (Claude, Anthropic): claude-opus-5-5, from Codex (gpt-6-astra) final-review findings."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    LINES = {"documentation/SOLVE_C_CLI.md": 4237, "documentation/DEVELOPMENT.md": 2835,
+             "documentation/CAMPAIGN_METHODOLOGY.md": 1530, "documentation/DEPLOYMENT.md": 1380,
+             "documentation/F1C5_LAYER_FORMAT.md": 622, "documentation/SOLUTIONS_FORMAT.md": 456,
+             "documentation/PERFORMANCE_HISTORY.md": 1701}
+
+    def _read(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as f:
+            return f.read()
+
+    @staticmethod
+    def _ws(x):
+        return " ".join(x.split())
+
+    def _has(self, text, needle, why):
+        if self._ws(needle) not in self._ws(text):
+            raise AssertionError("missing (%s): %r" % (why, needle))
+
+    def _lacks(self, text, needle, why):
+        if self._ws(needle) in self._ws(text):
+            raise AssertionError("still present (%s): %r" % (why, needle))
+
+    def test_line_counts_kept(self):
+        # Other files cite lines of these seven (exec_lane.sh, 95_derived, RETRACTED_PHRASES.tsv); the batch is
+        # line-neutral, and each file must also carry at least one of this batch's notes.
+        for rel, n in self.LINES.items():
+            d = self._read(rel)
+            self.assertEqual(d.count("\n"), n, rel)
+            self.assertIn("2026-11-14, Codex final review F", d, rel)
+
+    def test_solve_c_cli_kc_rows(self):
+        c = self._read("solve.c")
+        self._has(c, "kc_prof_capture_main(kc_profile_main", "P9 calls the handler directly")
+        self._has(c, 'printf("KC_EXTREMAL_WITNESS=NOT-REQUESTED\\n");', "NOT-REQUESTED is printed")
+        self._has(c, "SOURCE-BOUND", "same-source executables merge as SOURCE-BOUND")
+        d = self._read("documentation/SOLVE_C_CLI.md")
+        for fn in ("kc_profile_main", "kc_dead_census_main", "kc_witness_walks_main"):
+            self._has(d, "an argv leg that calls `%s` directly (not the dispatcher)" % fn, "F12-024#7, F12-003#5")
+        self._lacks(d, "argv leg through the real dispatcher", "F12-024#7")
+        self._has(d, "`KC_PROFILE=OK` (n + 4 lines; the stdout `#profile-summary` and `#provenance` lines are not in it)",
+                  "F12-024#16")
+        self._has(d, "-e $'^#batch-summary\\t'", "F12-024#16 bash tab")
+        self._has(d, "except `t_root_eq_f_layer_sum` collapses to the string", "F12-024#21")
+        self._has(d, "issues up to `2·(31−k)` **random point", "F12-024#20")
+        self._has(d, "so 56 of the 62 at the full-31 root", "F12-024#20")
+        self._has(d, "do merge, as `SOURCE-BOUND`", "F12-024#17")
+        self._lacks(d, "two builds or two ladders never merge.", "F12-024#17")
+        self._has(d, "`KC_EXTREMAL_WITNESS=VERIFIED| FAILED|NOT-REQUESTED`", "F12-024#12")
+        # F12-003#15: 13 -> 9; the nine left are the KC selftests, which take no operands and print no Usage line.
+        self.assertEqual(d.count("carries no `Usage:` string for it, so no argument grammar is asserted here."), 9)
+        for u in ("Usage: solve --kc-build DIR [args] [--f1-pairs N]", "Usage: solve --kc-count DIR [args] [--f1-pairs N]",
+                  "Usage: solve --kc-t-build FDIR TDIR [--kc-ooc] [--kc-cache-mb MB]",
+                  "Usage: solve --kc-t-check FDIR TDIR [--kc-ooc] [--kc-cache-mb MB]"):
+            self._has(d, u, "F12-003#15")
+
+    def test_development_gate_and_token_rows(self):
+        g = self._read("scripts/selftest_resume_167_gate.sh")
+        self._has(g, 'M5) exp=FAIL;    [ "$G_D" -eq 1 ] && [ "$G_R" -eq $((G_Z-1)) ] && why=ok ;;', "M5 has no G_SHAEQ")
+        t = self._read("scripts/tr12_n31_golden_gate.sh")
+        self._has(t, "Precedence when several apply: MISMATCH > ERROR > MINTED-UNVERIFIED > OK.", "golden precedence")
+        self._has(self._read("scripts/exec_lane.sh"), "EXEC_LANE_STRICT_FRAGMENT", "strict fragment mode")
+        d = self._read("documentation/DEVELOPMENT.md")
+        self._has(d, "the kill test checks those counts and the verdict only, not that the sha stayed equal, unlike M7 and M8",
+                  "F12-008#7")
+        self._has(d, "`OK` \\| `MINTED-UNVERIFIED` \\| `MISMATCH` \\| `PLACEHOLDER` \\| `ABSENT` \\| `ERROR`, whole line; "
+                     "exit 0 for `OK`, 2 for `ERROR`, 1 otherwise.", "F12-008#11")
+        self._has(d, "Once the gate has run, every token is emitted,", "F12-008#12")
+        self._lacks(d, "Every token is emitted on **every** exit path", "F12-008#12")
+        self._has(d, "`EXEC_LANE_UNDOC_DEP` counts failures", "F12-008#16")
+        self._has(d, "so a `store_true` flag documented with a file-name default is not caught", "F12-009#6")
+        self._has(d, "checked by shape: `YYYY-MM-DD` digits, not a calendar date", "F12-009#7")
+
+    def test_development_run_and_verify_rows(self):
+        c = self._read("solve.c")
+        self._has(c, "sol_hash_log2 = 24", "default hash log2")
+        self._has(c, "KW is NOT in this class here", "section [14] header is measured")
+        v = self._read("verify.py")
+        self._has(v, "PAIR_ONLY_ORIENTATION_FREE", "reference C4 token")
+        self._has(v, "sys.exit(30)", "verify exit 30")
+        d = self._read("documentation/DEVELOPMENT.md")
+        self._has(d, "512 MiB per thread at the default `SOLVE_HASH_LOG2=24`", "F09-H01#1")
+        self._has(d, "printed as `REFERENCE_C4=PAIR_ONLY_ORIENTATION_FREE`", "F12-009#8")
+        self._has(d, "a current build prints `KW is NOT in this class here`", "F12-009#9")
+        self._has(d, "Writes a single `sub_P1_O1_P2_O2_P3_O3.bin` shard", "F12-009#10")
+        self._has(d, "- `solutions.bin` and `solutions.sha256` (after the merge)", "F12-009#11")
+        self._has(d, "is at most `N × 64 MB`", "F12-009#13")
+        self._lacks(d, "Total memory at `--jobs N` is `N × 32 MB`", "F12-009#13")
+        self._has(d, "30 (`VERIFY=ERROR`) on a header that declares zero records", "F12-009#14")
+        self._has(d, "Like `writes[].binary_sha256` in the shard sidecars since Q-840", "F12-009#16")
+        self._lacks(d, "Unlike `binary_sha256` in the shard sidecars", "F12-009#16")
+
+    def test_campaign_methodology_rows(self):
+        c = self._read("solve.c")
+        self._has(c, "return 34;", "resume shape mismatch exits 34")
+        d = self._read("documentation/CAMPAIGN_METHODOLOGY.md")
+        self._has(d, "is rewritten whole, old and new", "F12-010#1")
+        self._lacks(d, "budget, appending only the additional records", "F12-010#1")
+        self._has(d, "count the cells whose `checkpoint_t*.txt` line ends in `budget <new per-cell budget>`", "F12-010#7")
+        self._has(d, "are not read by the resume", "F12-010#8")
+        self._has(d, "or it stops with exit 34", "F12-010#9")
+        self._has(d, "This is a budget-nesting check, **not** a partition-invariance witness", "F12-010#11")
+        self._has(d, "§[13] reads them twice", "F12-010#16")
+        self._has(d, "(file ~576 GB at the ~18 B records used below", "F12-010#17")
+        self._lacks(d, "fits 47% of the", "F12-010#17")
+
+    def test_deployment_rows(self):
+        c = self._read("solve.c")
+        self._has(c, 'printf("ENUM_RUN=%s\\n", global_timed_out ? "STOPPED" : "FINISHED");', "ENUM_RUN line")
+        self._has(c, '"SOLVE_SKIP_NOFILE_RAISE"', "nofile raise switch")
+        self._has(c, "temp_merge_records.bin", "external merge's record file")
+        self._has(self._read("verify.py"), "tempfile.mkstemp(prefix='verify_solbin_'", "verify.py decompresses to TMPDIR")
+        d = self._read("documentation/DEPLOYMENT.md")
+        self._has(d, "whole-line `ENUM_RUN=FINISHED` printed after the", "F12-007#1")
+        self._has(d, "a standalone `./solve --merge` on the merge VM writes no `solve_results.json`", "F12-007#2")
+        self._has(d, "free space under `TMPDIR` (default `/tmp`) for the whole decompressed file", "F12-007#8")
+        self._has(d, "**Atomic writes, where they exist.**", "F12-007#10")
+        self._has(d, "Merge RAM scales with the pre-dedup input, not the output.", "F12-007#11")
+        self._has(d, "up to about 29 core-hours (64 × ~27 min)", "F12-007#13")
+        self._has(d, 'for v in "$USED" "$LIMIT"; do case "$v" in', "F12-007#14")
+        self._lacks(d, 'case "$USED$LIMIT" in', "F12-007#14")
+        self._has(d, "LOW=$(awk -F: '/cpu MHz/ && $2+0 < 2000 {n++} END {print n+0}' /proc/cpuinfo)", "F12-007#16")
+        self._has(d, "~1.66 TB total I/O in logical bytes", "F12-007#17")
+        self._has(d, "the **hard** limit: `--merge` raises the soft limit to it at start", "F12-007#20")
+        self._has(d, "(a streaming zlib reader that decodes and checks every record; not mmap)", "F12-007#21")
+
+    def test_deployment_released_holds(self):
+        # F12-007#15: the trap is set before the create. F12-007#7: the parallel --sub-branch path clamps to 64.
+        c = self._read("solve.c")
+        i = c.index("if (single_sub_branch_mode && parallel_sub_branch_enabled && n_sub == 1) {")
+        self._has(c[i:i + 900], "if (n_threads_p > 64) n_threads_p = 64;", "the 64-worker clamp")
+        self._has(c, '"Parallel --sub-branch: %d depth-5 tasks queued, %d worker threads\\n"', "the worker banner")
+        d = self._read("documentation/DEPLOYMENT.md")
+        t = d.index("   trap teardown EXIT\n")
+        k = d.index('   az vm create ... -g "$RG" -n temp-vm\n')
+        self.assertLess(t, k, "F12-007#15: trap must precede the create")
+        self.assertEqual(d.count("trap teardown EXIT"), 1)
+        self._has(d, "teardown is a trap set BEFORE the create", "F12-007#15")
+        self._has(d, "the parallel `--sub-branch` path clamps its workers to 64", "F12-007#7")
+        self._has(d, "(64 workers on the current build; see the F12-007#7 note above)", "F12-007#7")
+        # The two notes add no size or region name of their own.
+        for line in d.splitlines():
+            if "F12-007#7" in line or "F12-007#15" in line:
+                tail = line[line.index("F12-007#"):]
+                for bad in ("als_v", "westus", "eastus", "Standard_"):
+                    self.assertNotIn(bad, tail, line[:80])
+
+    def test_layer_and_solutions_format_rows(self):
+        c = self._read("solve.c")
+        self._has(c, "left untouched", "existing sidecar left alone")
+        self._has(c, "(void)fsync(dfd)", "directory fsync is best-effort")
+        self._has(self._read("verify.py"), "def fiber_count", "fiber_count exists")
+        d = self._read("documentation/F1C5_LAYER_FORMAT.md")
+        self._has(d, "a kill loses every chunk completed since the last snapshot", "F12-013#3")
+        self._has(d, "the chunk-boundary writes are throttled", "F12-013#9")
+        self._has(d, "or only its final two layers (`n−1` and `n`", "F12-013#10")
+        self._has(d, "the directory `fsync` is best-effort and its failure is not reported", "F12-013#11")
+        self._has(d, "`--f1c5-sidecar-retrofit` regenerates it", "F12-013#12")
+        self._has(d, "| `total_layers` | the problem dimension `n`", "F12-013#13")
+        s = self._read("documentation/SOLUTIONS_FORMAT.md")
+        self._has(s, "**not stored, and their number is computed**", "F12-013#4")
+        self._lacks(s, "**recoverable without storing them**", "F12-013#4")
+
+    def test_performance_history_rows(self):
+        d = self._read("documentation/PERFORMANCE_HISTORY.md")
+        for row, needle in (
+                ("F12-016#17", "where the entry gives its source commits and parameters"),
+                ("F12-016#12", "a raw file's bytes are the logical stream"),
+                ("F12-016#9", "the 11.2T canonical is BUDGETED in every cell"),
+                ("F12-016#18", "the AVX2-only build and the AVX-512 build select different instructions"),
+                ("F12-016#14", "tested above the 100M selftest, where the shas match"),
+                ("F12-016#13", "as the likely mechanism (a hypothesis there, not established)"),
+                ("F12-016#10", "is an aggregate figure from a 90-second, 128-thread timed run"),
+                ("F12-016#8", "it is not scale-invariant"),
+                ("F12-016#7", "it does not separate compute from gzip/I-O")):
+            self._has(d, needle, row)
+        self._lacks(d, "The count DP is **compute-bound**", "F12-016#7")
+
+    def test_ledger_entries(self):
+        import re
+        c = self._read("documentation/CORRECTIONS.md")
+        self.assertEqual(len(re.findall(r"\n## CX-37C-N — The remaining documentation rows of Codex's FT3f set", c)), 1)
+        i = c.index("\n## CX-37C-N — ")
+        self._has(c[i:], "the defects were found by Codex (gpt-6-astra), final review", "Codex credited")
+        self.assertEqual(self._read("documentation/HISTORY.md").count(
+            "\n## 2026-11-14 — batch FT3f-docs: the remaining FT3f documentation rows\n"), 1)
+
+# end class TestBatchFT3fDocs
+
+
+class TestBatchQ1140(unittest.TestCase):
+    """Batch Q1140 (CX-37C-Y): the wording audit's non-operator items B1-B5, B7, B8, L1, L2, S1, S2 and I1 (backlog
+    Q-1140). Each site's new wording is present once; each old phrase survives in its file only inside a dated
+    note that quotes it (live documents); HISTORY.md carries no annotation above the batch's appended section,
+    which quotes and scopes its four sentences (append-only); the four TR revision rows and the ledger/history
+    entries exist.
+    The red half puts each old wording back and requires the checker to name it. Red on the parent tree
+    (fadfc575), which has none of the new wording. Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    MARK = "2026-11-14, CX-37C-Y"
+    # (item, file, old fragment as published, new fragment)
+    PAIRS = (
+        ("B1", "documentation/VERIFY.md", "the exact COUNTS: independently reproduces the small-n structural facts,",
+         "the exact COUNTS: recomputes, with verify.py's own code (a second implementation by the same author), the small-n structural facts,"),
+        ("B3", "documentation/LARGE_SCALE_CAMPAIGNS.md", "   has been independently verified across multiple campaigns\n",
+         "   has matched its reference sha in repeated campaigns ⚠ *(reworded 2026-11-14, CX-37C-Y: this read \"has been independently verified across multiple campaigns\"; the matches are same-author re-runs.)*\n"),
+        ("B4", "documentation/CITATIONS.md", "C2 and independently verifies it across the canonical datasets.",
+         "C2 and re-checks it in every record of the canonical datasets (which are enumerated under C2, so the check is a consistency check, not evidence for the rule)."),
+        ("B5a", "reports/TR6_PARITY_SKELETON.md", "with DRAT certificates independently verified by drat-trim).",
+         "with DRAT certificates checked by drat-trim, which prints `s VERIFIED`)."),
+        ("B5b", "reports/TR6_PARITY_SKELETON.md", "Certificates are archived and independently verified: drat-trim (2026-07-03) checks `s VERIFIED` for",
+         "Certificates are archived and checked by drat-trim (2026-07-03), which prints `s VERIFIED` for"),
+        ("B5c", "reports/TR1_EIGHT_CENTURIES_MEASURED.md", "C3; certificate independently verified). The pieces fit together sharply: King Wen",
+         "C3; certificate checked by drat-trim). ⚠ *(reworded 2026-11-14, CX-37C-Y: this read \"independently verified\".)* The pieces fit together sharply: King Wen"),
+        ("B5d", "documentation/LITERATURE_RULES_POPULATION_TESTS.md", "Certificates are archived and independently verified by **two external checkers**",
+         "Certificates are archived and checked by **two external checkers**"),
+        ("B5e", "documentation/LITERATURE_RULES_POPULATION_TESTS.md", "C3; certificate independently verified). The pieces fit together sharply:\n",
+         "C3; certificate checked by drat-trim). ⚠ *(reworded 2026-11-14, CX-37C-Y: this read \"independently verified\".)* The pieces fit together sharply:\n"),
+        ("B7", "reports/TR3_REPRODUCIBLE_ENUMERATION.md", "byte-identical both times. Independent re-derivation across machines",
+         "byte-identical both times. Re-derivation across machines"),
+        ("B8", "documentation/SYMMETRY_SEARCH.md", "§Completeness below, machine-verified by\n",
+         "§Completeness below, checked by the Python enumeration\n"),
+        ("L2", "documentation/CITATIONS.md", "are now cited for the certified counts in",
+         "are now cited for the per-piece checks behind the certified counts in"),
+        ("S1", "documentation/SOLVE_SUMMARY.md", "reproducible byte-identically across hardware and region —",
+         "reproducible byte-identically within the tested toolchain class (the region variation is the 10T campaign's; both 560T derivations ran in one region, TR-3 §\"What is demonstrated\";"),
+        ("S2", "CLAUDE.md", "proves these are reproducible across hardware, region, merge\nalgorithm, and enumeration vs. independent-shard-merge paths — but the\n",
+         "proves these are invariant to shard partitioning, including enumeration vs. independent-shard-merge paths (a model-level theorem); identity across hardware, region and merge\nalgorithm is measured, not proved ("),
+        ("I1", "reports/TR2_THE_RULES_CONFLICT.md", "**Reading the received order** — trade-off, not corruption;",
+         "**Reading the received order** — consistent with a forced trade-off, and not damage to a four-rule-perfect original (none exists); whether it is damage to the three-rule precursor stays open (§\"A Bayesian comparison\";"),
+    )
+    # Old phrases that may survive in a live file only inside a quoted dated note on the same line.
+    QUOTED = (
+        ("documentation/VERIFY.md", "independently reproduces"),
+        ("documentation/LARGE_SCALE_CAMPAIGNS.md", "independently verified"),
+        ("documentation/CITATIONS.md", "independently verifies"),
+        ("documentation/CITATIONS.md", "for the certified counts"),
+        ("reports/TR6_PARITY_SKELETON.md", "independently verified"),
+        ("reports/TR1_EIGHT_CENTURIES_MEASURED.md", "independently verified"),
+        ("documentation/LITERATURE_RULES_POPULATION_TESTS.md", "independently verified"),
+        ("reports/TR3_REPRODUCIBLE_ENUMERATION.md", "Independent re-derivation"),
+        ("documentation/SYMMETRY_SEARCH.md", "machine-verified"),
+        ("documentation/SOLVE_SUMMARY.md", "across hardware and region"),
+        ("CLAUDE.md", "reproducible across hardware"),
+        ("reports/TR2_THE_RULES_CONFLICT.md", "trade-off, not corruption"),
+    )
+    # HISTORY.md is append-only: the old sentence stays as written, and the batch's appended section scopes it.
+    HIST = "documentation/HISTORY.md"
+    HIST_HEAD = "\n## 2026-11-14 — batch Q1140: banned verification phrases, a Lean attribution, two scope claims and one intent reading\n"
+    HIST_SITES = (
+        ("B2", "independently reproduced", "that means recomputed by a second program by the same author (verify.py's DP); no\n    independent party reproduced it."),
+        ("B8", "machine-verified via `solve.py --books-verify`", "\"machine-verified\" there means checked by a Python script against the transcriptions, not a formal proof."),
+        ("L1", "rests on machine-verified mathematics", "scoped by\n    CX-232 (row R4). The Lean theorems prove that 24 divides the RECORD-level count; the ÷24 gate on the published\n    orientation-explicit counts rests on the paper-proved free order-48 action"),
+    )
+    TR_ROWS = (("reports/TR1_EIGHT_CENTURIES_MEASURED.md", "| v1.48 *(current)* | 2026-11-14 |", "| v1.47 | 2026-11-12 |"),
+               ("reports/TR2_THE_RULES_CONFLICT.md", "| v1.48 *(current)* | 2026-11-14 |", "| v1.47 | 2026-11-11 |"),
+               ("reports/TR3_REPRODUCIBLE_ENUMERATION.md", "| v1.22 *(current)* | 2026-11-14 |", "| v1.21 | 2026-11-02 |"),
+               ("reports/TR6_PARITY_SKELETON.md", "| v1.19 *(current)* | 2026-11-14 |", "| v1.18 | 2026-11-12 |"))
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _texts(self):
+        rels = {p[1] for p in self.PAIRS} | {q[0] for q in self.QUOTED} | {self.HIST}
+        return {rel: self._r(rel) for rel in rels}
+
+    def _quoted_in_dated_note(self, line, i, phrase):
+        # Inside this batch's ⚠ *( ... )* note, or quoted just before `" until 2026-11-14, CX-37C-Y`, or quoted in
+        # this batch's own revision row.
+        k = line.rfind("⚠ *(", 0, i)
+        if k >= 0 and ")*" not in line[k:i]:
+            end = line.find(")*", i)
+            if self.MARK in line[k:end if end >= 0 else len(line)]:
+                return True
+        q = line.rfind('"', 0, i)
+        quoted = q >= 0 and i - q <= 40
+        if quoted and ('" until ' + self.MARK) in line[i:i + 200]:
+            return True
+        return quoted and line.startswith("| v") and "| 2026-11-14 |" in line and "CX-37C-Y" in line
+
+    def _problems(self, texts):
+        out = []
+        for item, rel, old, new in self.PAIRS:
+            if texts[rel].count(new) != 1:
+                out.append("%s: new wording not present once in %s" % (item, rel))
+        for rel, phrase in self.QUOTED:
+            for line in texts[rel].split("\n"):
+                start = 0
+                while True:
+                    i = line.find(phrase, start)
+                    if i < 0:
+                        break
+                    if not self._quoted_in_dated_note(line, i, phrase):
+                        out.append("%s: %r outside a quoted dated note" % (rel, phrase))
+                    start = i + 1
+        h = texts[self.HIST]
+        head, sec = (h.split(self.HIST_HEAD, 1) + [""])[:2]
+        if not sec:
+            out.append("HISTORY: no batch Q1140 section")
+        for item, phrase, note in self.HIST_SITES:
+            if phrase not in head:
+                out.append("%s: HISTORY anchor %r missing" % (item, phrase))
+            if note not in sec.split("\n## ", 1)[0]:
+                out.append("%s: HISTORY section has no note for %r" % (item, phrase))
+        return out
+
+    def test_q1140_wording(self):
+        self.assertEqual(self._problems(self._texts()), [])
+
+    def test_q1140_red_on_old(self):
+        texts = self._texts()
+        for item, rel, old, new in self.PAIRS:
+            self.assertEqual(texts[rel].count(new), 1, "precondition: %s new fragment present once" % item)
+            texts[rel] = texts[rel].replace(new, old)
+        probs = self._problems(texts)
+        for item, rel, old, new in self.PAIRS:
+            self.assertTrue(any(p.startswith(item + ":") for p in probs), item)
+        # an old banned phrase put back outside a note is named, not passed
+        t = self._texts()
+        t["documentation/VERIFY.md"] += "\nThe recount independently reproduces it.\n"
+        self.assertIn("documentation/VERIFY.md: 'independently reproduces' outside a quoted dated note", self._problems(t))
+        # HISTORY: a note dropped from one site is named
+        t = self._texts()
+        h = self.HIST_SITES[2][2]
+        self.assertEqual(t[self.HIST].count(h), 1, "precondition: L1 note present once")
+        t[self.HIST] = t[self.HIST].replace(h, "")
+        self.assertTrue(any(p.startswith("L1: HISTORY section has no note") for p in self._problems(t)))
+
+    def test_q1140_history_sites_are_appended_not_reworded(self):
+        h = self._r(self.HIST)
+        head, sec = h.split(self.HIST_HEAD, 1)
+        self.assertNotIn("CX-37C-Y", head, "nothing above the batch's section is annotated")
+        for old in ("pre-registered before it ran. The n = 18 rung was filled in TR-11 §4b and independently reproduced\n"
+                    "by the DP in `verify.py` — recorded as *a gap closed, not a correction*, because nothing published\n"
+                    "had been wrong.\n",
+                    "- **The n=18 rung** was filled in TR-11 §4b and independently reproduced by the DP in `verify.py`\n"
+                    "  (`30b0c7aa`, `5d04b8d6`) — recorded as *a gap closed, not a correction*.\n",
+                    "Shaughnessy 2022 — all captured, audited, and machine-verified via `solve.py --books-verify`,\n",
+                    "count's primary sanity gate rests on machine-verified mathematics.\n"):
+            self.assertEqual(head.count(old), 1, old[:70])
+        self.assertIn("2026-08-30 correction to the `twenty_four_dvd_*` description), not on Lean.", sec)
+
+    def test_q1140_dated_markers_quote_the_old_wording(self):
+        for rel, frag in (
+                ("documentation/VERIFY.md", "⚠ *(reworded 2026-11-14, CX-37C-Y: this read \"independently reproduces\"; the code is separate, the author is the same.)* |"),
+                ("documentation/CITATIONS.md", "⚠ *(reworded 2026-11-14, CX-37C-Y: this read \"independently verifies it across the canonical datasets\".)*"),
+                ("documentation/CITATIONS.md", "\"Cited for the certified counts\" until 2026-11-14, CX-37C-Y: those checkers accepted each piece; the sum is not theirs.)*"),
+                ("reports/TR6_PARITY_SKELETON.md", "⚠ *(reworded 2026-11-14, CX-37C-Y: this read \"archived and independently verified: drat-trim (2026-07-03) checks\".)*"),
+                ("documentation/LITERATURE_RULES_POPULATION_TESTS.md", "⚠ *(reworded 2026-11-14, CX-37C-Y: this read \"archived and independently verified by\".)* Per certificate:"),
+                ("reports/TR3_REPRODUCIBLE_ENUMERATION.md", "(scoped 2026-10-17, CX-35T-J; \"Independent re-derivation\" until 2026-11-14, CX-37C-Y, since both derivations are this project's own)"),
+                ("documentation/SYMMETRY_SEARCH.md", "⚠ *(reworded 2026-11-14, CX-37C-Y: this read \"machine-verified by\"; the check is a Python program, not a formal proof.)*"),
+                ("documentation/SOLVE_SUMMARY.md", "\"across hardware and region\" until 2026-11-14, CX-37C-Y, the sibling of CX-35T-J) — and, to our knowledge"),
+                ("CLAUDE.md", "(PARTITION_INVARIANCE.md §5a; SOLVE_C_CLI.md §REPRODUCIBILITY; \"proves these are reproducible across hardware, region, merge algorithm\" until 2026-11-14, CX-37C-Y, the sibling of CX-35T-J) — and the\nproof is about the **model**"),
+                ("reports/TR2_THE_RULES_CONFLICT.md", "\"trade-off, not corruption\" until 2026-11-14, CX-37C-Y); Schulz's 2011 reading")):
+            with self.subTest(file=rel, frag=frag[:40]):
+                self.assertEqual(self._r(rel).count(frag), 1)
+
+    def test_q1140_revision_rows(self):
+        for rel, cur, prev in self.TR_ROWS:
+            with self.subTest(file=rel):
+                t = self._r(rel)
+                rows = [l for l in t.split("\n") if l.startswith("| v")]
+                self.assertEqual(sum("*(current)*" in l.split("|")[1] for l in rows), 1, rel)
+                last = [l for l in rows if l.startswith(cur)]
+                if not last:   # a later batch moved the marker on
+                    last = [l for l in rows if l.startswith(cur.replace(" *(current)*", ""))]
+                self.assertEqual(len(last), 1, rel)
+                self.assertIn("Q-1140", last[0])
+                self.assertIn("CX-37C-Y", last[0])
+                self.assertEqual(t.count("\n" + prev), 1, rel)
+
+    def test_q1140_ledger_and_history_entries(self):
+        c = self._r("documentation/CORRECTIONS.md")
+        self.assertEqual(c.count("\n## CX-37C-Y — "), 1)
+        entry = c.split("\n## CX-37C-Y — ", 1)[1].split("\n## ", 1)[0]
+        for frag in ("**Not changed here (operator decisions).** The audit's B6", "T1–T6", "N1–N3",
+                     "reports/evidence/q735_two_adic/README.md lines 5 and 7", "`TestBatchQ1140`"):
+            self.assertIn(frag, entry)
+        self.assertEqual(self._r(self.HIST).count(
+            "\n## 2026-11-14 — batch Q1140: banned verification phrases, a Lean attribution, two scope claims and one intent reading\n"), 1)
+
+# end class TestBatchQ1140
+
+
+class TestBatchQ1133(unittest.TestCase):
+    """Backlog Q-1133 (CX-37C-U): the CLAIM_TO_ARTIFACT.md audit's Opus-safe fixes. Rows 3 (the IE transfer-walk
+    shares one lemma and is project-authored), 14 (the 2026-11-07 regeneration matched the published hashes),
+    15 (`kw_no_five` carries C2; `validC15` does not contain it) and 17 (the joint-density flags are wired; the
+    inputs are not public), the two row-17 sibling pages, and the verify_all.sh section 3 and solve.py registry
+    comments. The cured test requires each new fragment once and no old one; the red test puts the old fragments
+    back; the source checks bind rows 15 and 17 to the code. The text tests fail on the parent tree. Rows 13 and 8
+    are not changed here. Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    CTA = "documentation/CLAIM_TO_ARTIFACT.md"
+    DA = "documentation/DISTRIBUTIONAL_ANALYSIS.md"
+    PO = "documentation/PROJECT_OVERVIEW.md"
+    VA = "reports/certificates/verify_all.sh"
+    PAIRS = (
+        ('row3', CTA, "| DP + independent IE transfer-walk |",
+         "| DP + IE transfer-walk (`verify.c`; no code or state shared with `solve.c`, one lemma shared — orbit-stabilizer weighting under the 24-group, as its banner states; both instruments project-authored) ⚠"),
+        ('row14', CTA, "for one run; a second-host **match** of those hashes is not yet published |",
+         "for one run; a second run on 2026-11-07 regenerated all three and matched them (SAT_CLI §NOTES; row 19). The host of that run is not stated there."),
+        ('row15', CTA, "| `lean/KingWen.lean` `kw_valid` |",
+         "| `lean/KingWen.lean` `kw_valid` (C1 ∧ C4 ∧ C5, and C3 ≤ 776) + `kw_no_five` (C2; generally `c5_implies_c2`) ⚠"),
+        ('row17-reproduce', CTA, "| **no public invocation at this revision** — `python3 solve.py --joint-density` runs",
+         "| `python3 solve.py --joint-density-v2 CHUNKS_DIR OUT.md --joint-density-dims fft_dominant_freq,fft_peak_amplitude --joint-density-seed SEED --joint-density-bandwidth {silverman,cv}` (flags wired 2026-11-06, FV2-P D1490)."),
+        ('row17-status', CTA, "until the two parameters are wired through argparse and the per-seed invocations plus an archived output are published.",
+         "until the per-seed invocations and an archived output are published (the two parameters were wired through argparse 2026-11-06;"),
+        ('DA', DA, "`--joint-density-seed` are **not exposed on the command line**, and the CLI\n",
+         "`--joint-density-seed` reach them from the command line ([SOLVE_PY_CLI.md](SOLVE_PY_CLI.md)). The\n"),
+        ('DA-head', DA, "**Reproducing this figure — the public CLI does not reach it (gap recorded\n",
+         "**Reproducing this figure — the flags are public, the inputs are not (gap recorded\n"),
+        ('PO', PO, "`--joint-density-dims` and `--joint-density-seed` are not exposed on the\n",
+         "still cannot be regenerated from the public tree alone** (corrected; [CORRECTIONS](CORRECTIONS.md) CX-37C-U). The recipe and the\nremaining gap are\n"),
+        ('PO-head', PO, "Reproducibility — **the published CLI does not reach the corrected headline.**\n",
+         "Reproducibility — **the corrected headline cannot be regenerated from the public tree.**\n"),
+        ('verify_all', VA, "# All 22 certificates carry BOTH checkers as of 2026-09-02: the 21 archived earlier passed the\n",
+         "# All 24 archived certificates carry BOTH drat-trim and the formally verified cake_lpr as of 2026-09-19\n"),
+        ('solve.py-d7', "solve.py", "# expectations for those).\nREGISTRY_KW_EXPECTED = [",
+         "# expectations for those). D7's 8 is read off KW's own xiaoxi positions, so it is KW-derived (LITERATURE_RULES_POPULATION_TESTS.md; noted 2026-11-14, CX-37C-U).\nREGISTRY_KW_EXPECTED = ["),
+    )
+    LINES = {CTA: 59, DA: 623, PO: 208}
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _texts(self):
+        return {rel: self._r(rel) for rel in {p[1] for p in self.PAIRS}}
+
+    def _problems(self, texts):
+        probs = []
+        for row, rel, old, new in self.PAIRS:
+            t = texts[rel]
+            if t.count(new) != 1:
+                probs.append("%s: new fragment present %d times" % (row, t.count(new)))
+            elif old in t:
+                probs.append("%s: old fragment still present" % row)
+        return probs
+
+    def test_fixes_applied(self):
+        texts = self._texts()
+        self.assertEqual(self._problems(texts), [])
+        self.assertEqual(texts[self.CTA].count("CX-37C-U"), 5)
+        for rel, n in self.LINES.items():
+            self.assertEqual(texts[rel].count("\n"), n, "%s keeps its line count" % rel)
+
+    def test_red_on_old(self):
+        texts = self._texts()
+        for row, rel, old, new in self.PAIRS:
+            self.assertEqual(texts[rel].count(new), 1, "precondition: %s new fragment present once" % row)
+            texts[rel] = texts[rel].replace(new, old)
+        self.assertEqual(len(self._problems(texts)), len(self.PAIRS))
+
+    def test_row15_lean_names(self):
+        kw = self._r("lean/KingWen.lean")
+        m = re.search(r"(?m)^def validC15 \(l : List Nat\) : Bool := (.*)$", kw)
+        self.assertIsNotNone(m, "precondition: validC15 is defined")
+        self.assertNotIn("c2ok", m.group(1), "validC15 does not contain C2, which is why kw_no_five is cited")
+        for name in ("theorem kw_valid :", "theorem kw_no_five :", "theorem c5_implies_c2 ", "def c3ok (l : List Nat) : Bool := c3x64 l ≤ 776"):
+            self.assertEqual(kw.count(name), 1, name)
+
+    def test_row17_flags_declared(self):
+        s = self._r("solve.py")
+        for flag in ("--joint-density-v2", "--joint-density-dims", "--joint-density-seed", "--joint-density-bandwidth"):
+            self.assertEqual(s.count('parser.add_argument("%s"' % flag), 1, flag)
+        self.assertEqual(s.count("joint-density-dims"), 3, "PROJECT_OVERVIEW's note says the grep returns 3")
+
+    def test_ledger_and_history_entries(self):
+        c = self._r("documentation/CORRECTIONS.md")
+        self.assertEqual(len(re.findall(r"\n## CX-37C-U — CLAIM_TO_ARTIFACT\.md audit: four ledger rows", c)), 1)
+        self.assertEqual(self._r("documentation/HISTORY.md").count(
+            "\n## 2026-11-14 — batch Q1133: the claim-to-artifact audit, four rows corrected\n"), 1)
+
+# end class TestBatchQ1133
+
+
+class TestBatchQ1140R(unittest.TestCase):
+    """CX-37C-R (2026-11-14; a sibling found by the Q-1140 wording audit, CX-37C-Y): the Q-735 evidence README and
+    TR-12's v1.42 §12 note and revision row said the theorem and the six-pair V1 argument were "independently
+    verified" by a separate and a third Fable lane.  Those were AI model lanes working under this project's direction,
+    so neither is independent examination (reports/METHODS.md, "Authorship independence").  Pins the new README
+    wording with the old phrases only inside a dated CX-37C-R note, and the two TR-12 lines (append-only) each
+    followed by a CX-37C-R note; pins the ledger entries
+    (CX-37C-M and HISTORY's batch Q1128 section are append-only and are scoped, not edited).  A positive control
+    runs the scan on the old README sentence and on a note with the wrong id.  Fails on the parent tree.  Developed
+    with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    README = "reports/evidence/q735_two_adic/README.md"
+    T12 = "reports/TR12_QUERY_PROGRAM.md"
+    OLD = ("independently verified", "independent check", "That verifying lane")
+    # the dated note this batch writes; its quoted text holds no ")" (README, inside italics: no inner asterisks)
+    NOTE = re.compile(r"⚠ \*?\((?:reworded|Dated note, added) 2026-11-14, CX-37C-R: [^)]*\)\*?")
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return " ".join(fh.read().split())
+
+    def _unquoted_old(self, text):
+        """The old phrases that occur in text outside a CX-37C-R dated note."""
+        rest = self.NOTE.sub(" ", " ".join(text.split()))
+        return [p for p in self.OLD if p in rest]
+
+    def test_positive_control_the_scan_finds_the_old_wording(self):
+        old5 = ("(Claude Fable 5.2) and independently verified by a separate Fable lane with its own code. That\n"
+                "verifying lane also supplied the argument")
+        self.assertEqual(self._unquoted_old(old5), ["independently verified", "That verifying lane"])
+        quoted = 'x ⚠ (reworded 2026-11-14, CX-37C-R: this read "independently verified by a separate Fable lane".) y'
+        self.assertEqual(self._unquoted_old(quoted), [])
+        self.assertEqual(self._unquoted_old(quoted.replace("CX-37C-R", "CX-37C-Q")), ["independently verified"])
+        self.assertEqual(self._unquoted_old("The independent check found three"), ["independent check"])
+
+    def test_readme_new_wording_and_old_only_quoted(self):
+        t = self._r(self.README)
+        self.assertEqual(len(self.NOTE.findall(t)), 2, "precondition: both dated CX-37C-R notes are in the README")
+        for frag in ("(Claude Fable 5.2) and re-checked by a second Fable lane of this project, with code written for "
+                     "that check. That checking lane also supplied the argument",
+                     "which a third Fable lane of this project, again with code written for that read, re-checked.",
+                     "These are checks by AI model lanes working under this project's direction, not independent "
+                     "examination ([METHODS.md](../../METHODS.md), \"Authorship independence\").",
+                     "The second lane's check ⚠ *(reworded 2026-11-14, CX-37C-R: this read \"The independent check\")* "
+                     "found three wording defects",
+                     "independently re-derived; not formalised in Lean.**"):
+            self.assertIn(frag, t)
+        self.assertEqual(self._unquoted_old(t), [])
+        self.assertTrue(os.path.isfile(os.path.join(self.ROOT, "reports/METHODS.md")))
+        with open(os.path.join(self.ROOT, self.README), encoding="utf-8") as fh:
+            self.assertEqual(len(fh.read().split("\n")) - 1, 226, "the README keeps its line count")
+
+    def test_tr12_v142_row_carries_the_note(self):
+        with open(os.path.join(self.ROOT, self.T12), encoding="utf-8") as fh:
+            lines = fh.read().split("\n")
+        rows = [l for l in lines if l.startswith("| v1.42 ")]
+        self.assertEqual(len(rows), 1, "precondition: one v1.42 row")
+        row = rows[0]
+        self.assertIn("Found and proved by Fable, independently verified by a separate Fable lane", row,
+                      "the row itself is not reworded")
+        self.assertIn("CX-37C-R", row, "the v1.42 row carries a CX-37C-R note")
+        self.assertLess(row.index("independently verified by a separate"), row.index("CX-37C-R"))
+        self.assertIn("mean re-checked by a second and a third Fable lane of this project", row)
+        self.assertIn("not independent examination ([METHODS.md](METHODS.md), \"Authorship independence\")", row)
+        self.assertTrue(row.rstrip().endswith(")* |"), "the note sits inside the last cell")
+        # the §12 note of v1.42 carries the same note; nowhere else in TR-12 is the phrase used for these lanes
+        note = [l for l in lines if "(Dated note, added 2026-11-13, v1.42; Q-1128.)" in l]
+        self.assertEqual(len(note), 1, "precondition: the §12 note")
+        self.assertIn("CX-37C-R", note[0], "the §12 note carries a CX-37C-R note")
+        self.assertLess(note[0].index("independently verified by a separate Fable lane"), note[0].index("CX-37C-R"))
+        self.assertIn("mean re-checked by a second and a third Fable lane of this project, each with code written for that "
+                      "check. These are not independent examination ([METHODS.md](METHODS.md), \"Authorship independence\").)*",
+                      note[0])
+        self.assertEqual([i for i, l in enumerate(lines)
+                          if "independently verified by a separate" in l and l not in (row, note[0])], [])
+
+    def test_ledger_entries_scope_the_append_only_sentences(self):
+        c = self._r("documentation/CORRECTIONS.md")
+        self.assertEqual(c.count("## CX-37C-R — "), 1)
+        self.assertLess(c.index("## CX-37C-M — "), c.index("## CX-37C-R — "))
+        e = c[c.index("## CX-37C-R — "):]
+        for frag in ("This file's CX-37C-M** says three times", "That entry is not edited.",
+                     "\"re-checked by a second (or third) Fable lane of this project, with code written for that check\"",
+                     "HISTORY.md's batch Q1128 section** says \"independently verified by a separate Fable lane\"",
+                     "`TestBatchQ1140R`"):
+            self.assertIn(frag, e)
+        # CX-37C-M itself is untouched (append-only)
+        self.assertIn("was found and proved by Fable (claude-fable-5-2) and independently verified by a separate Fable "
+                      "lane; the six-pair extension was verified by a third Fable lane.", c)
+        h = self._r("documentation/HISTORY.md")
+        q1128 = h.index("## 2026-11-13 — batch Q1128: ")
+        mine = h.index("## 2026-11-14 — batch Q1140R: ")
+        self.assertLess(q1128, mine)
+        self.assertIn("independently verified by a separate Fable lane, the six-pair V1 extension by a third",
+                      h[q1128:mine], "the Q1128 sentence stands as written")
+        self.assertIn("so that sentence stands as written. Read it as \"re-checked by a second Fable lane of this "
+                      "project, the six-pair V1 extension by a third\".", h[mine:])
+
+# end class TestBatchQ1140R
 
 
 if __name__ == "__main__":

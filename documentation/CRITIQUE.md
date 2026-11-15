@@ -356,7 +356,7 @@ Falsifiable follow-ups surfaced by the current analysis. These are not claims; t
     - **Minimum C3 observed: 424** (across 221 records)
     - **Maximum C3 observed: 776** (ceiling of the constraint C3 ≤ 776)
     - **KW's C3 = 776** — KW sits at the **CEILING**, not the floor. KW is the **least** C3-optimal among C1–C5 solutions.
-    - The earlier "3.9th percentile" claim is among orderings satisfying every other constraint (C1+C2+C4+C5, pre-C3-filter; scope label corrected 2026-07-22 — this line previously said "C1-only", where the measured tail is ~6-8%, see §"What holds up"). Within C1–C5, KW is at the C3-maximum. *(**Flagged 2026-08-01, lens sweep** — the 3.9th-percentile figure is not supported by the population it is labelled with; the suite's own ledger gives ≈12% at this scope. Do not cite it: see [SOLVE.md](SOLVE.md) §Rule 3.)*
+    - The earlier "3.9th percentile" claim is among orderings satisfying every other constraint (C1+C2+C4+C5, pre-C3-filter; scope label corrected 2026-07-22 — this line previously said "C1-only", where the measured tail is ~6-8%, see §"What holds up"). Within C1–C5, KW is at the C3-maximum. *(Note 2026-11-14, CX-37C-Z: that position holds by the rule's definition — the C3 ceiling is KW's own 776 — so it is not a measurement; what was measured is the spread below it, 424 to 776.)* *(**Flagged 2026-08-01, lens sweep** — the 3.9th-percentile figure is not supported by the population it is labelled with; the suite's own ledger gives ≈12% at this scope. Do not cite it: see [SOLVE.md](SOLVE.md) §Rule 3.)*
     - **Implication for Open Question #7**: the simple axiom "minimize C3" does not uniquely derive KW — it picks out 221 "C3-extremal" records at C3 = 424. **Negative result for Phase A Day 1 MVP.**
     - Remaining: characterize the 221 C3=424 records. What else distinguishes them? Is there a structured family? Do they share boundary features with KW? (Follow-up post-analyze.)
 
@@ -392,7 +392,7 @@ any "specificity" claim can be, and the positive-control logic (the battery dete
 construction) is sound only as far as it goes. Within that limit, the methodology distinguishes *which*
 orderings are structured and *where*; additional attested historical orderings, if verifiable to
 source-grade standards, would harden this gate and are sought (see the standing invitation in
-[CITATIONS.md](CITATIONS.md)). (Results file with the full table and script: project archive.) *(Corrected 2026-07-05: the original 2026-07-03 run
+[CITATIONS.md](CITATIONS.md)). (Results file with the full table and script: project archive.) ⚠ *(noted 2026-11-14, Q-1134: that results file and its script are not in this repository, and no shipped command reproduces the 11-axis table, so the 9 of 11, 9 of 11, 3 of 11 and 0 of 11 counts above rest on a private record. Corpus control II below, at the constraint-family level, is the publicly reproducible version: `solve.py --r7-corpus`, evidence in `reports/evidence/r7/`.)* *(Corrected 2026-07-05: the original 2026-07-03 run
 used the erroneous pre-correction Mawangdui array and reported 7 of 11 extremes with a parenthetical
 rationalizing the rule/data mismatch its own cross-validation had flagged — that rationalization was
 wrong; the array was simply incorrect. Rerun on the corrected array (Shaughnessy 2022 Table 11.2),
