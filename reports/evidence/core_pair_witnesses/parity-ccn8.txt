@@ -1,0 +1,6 @@
+# Pinned SAT witness -- target five-sub-parity+ccn8: C1&C2&C4&C5, C3 <= 776, Moore-2005 parity
+# (all 18) AND Schulz CC-N8 (0 violations). Produced ONCE with kissat 4.0.4 on 2026-11-15
+# (README.md beside this file: commands, CNF and model sha256). It shows that this one ordering
+# satisfies both rules; it is an existence result, not a proof about any other ordering.
+# One SEQ= line: the 64 hexagram values (SPECIFICATION.md section H), C4 anchor 63,0 first.
+SEQ=63,0,20,10,42,21,6,24,60,15,48,3,53,43,13,44,57,39,41,37,55,59,2,16,38,25,28,14,47,61,40,5,19,50,8,4,54,27,12,51,7,56,11,52,23,58,32,1,33,30,17,34,62,31,26,22,46,29,9,36,45,18,49,35

@@ -41030,3 +41030,66 @@ that quote the filter line (`TestQ994Q995Batch47`, `TestBatchG3`) now quote the 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, small public fixes lane. The rule's scope is the
 operator's decision; the Q-474 evaluation that proposed it was written in an Opus lane. The pre-publication read,
 the two marker verdicts and the wording that came out of the read are claude-fable-5-2's (2026-11-16).
+
+## CX-37G-B — CLAIM_TO_ARTIFACT.md row 13 re-cited to the Lean run of 2026-11-15, row 8's "exactly four cores" gets its two missing witnesses, and the IsClause bridge runs in tests.py (documentation/CLAIM_TO_ARTIFACT.md; reports/evidence/core_pair_witnesses/; reports/evidence/q7_witnesses/README.md; reports/certificates/README.md; tests.py)
+
+**2026-11-15.** **Source.** Backlog rows Q-1133 (the CLAIM_TO_ARTIFACT.md audit of 2026-11-14, rows 13 and 8; the
+other four rows were corrected in CX-37C-U) and Q-1097. The Lean run, the two SAT witnesses and the wording of
+both ledger cells are by Fable (claude-fable-5-2); the IsClause port is Fable's, from its K-37 scope review.
+
+**Row 13, before.** The Status cell cited the Lean run of 2026-09-10 at `9f91cc70` (15/15 modules, 123
+`#print axioms` report lines) and called it the current attestation. Fourteen of the 15 `.lean` files changed
+after that run (10 commits through `fedc7b3d`; `PruneSafety.lean` did not change), and the in-file directives went
+from 123 to 196. The claim was true; the evidence cited for it was stale.
+
+**Row 13, after.** The cell opens with a run of 2026-11-15 on `c6e36d5e` (where the Lean sources had last changed
+at `fedc7b3d`): section 4 of `reports/certificates/verify_all.sh` run on its own, legs (B), (C) and (D), not the
+whole script. 15/15 modules pass, the 196 report lines all stay inside `[propext, Classical.choice, Quot.sound]`,
+the census counts 1,500 constants with 0 hits against a floor of 1,500, and the source census passes; 34 checks
+passed, 0 failed, 0 skipped. A dated marker says what changed. The 2026-09-10 text stays in full after "Superseded
+record:", and its closing clause now says that run was the current attestation until 2026-11-15. The run's logs are
+not published. The run is one comment line behind this commit's tree: after `c6e36d5e` the cloud sweep reworded a
+host description in a docstring of `lean/Automorphism.lean`. No declaration changed, and the cell says so. The
+audit's fallback text said all 15 files had changed since September; that is not right (14 did), and it is not
+used.
+
+**Row 8, before.** "Four minimal two-rule cores" needs the other six of the ten rule pairs to be satisfiable.
+Four of them were covered by archived orderings (`grand-strict.txt` and King Wen). {parity, CC-N8} and
+{rhythm, CC-N8} were not; that half rested on the 2026-08-28 lattice census, which is not archived.
+
+**Row 8, after.** `reports/evidence/core_pair_witnesses/` holds one ordering for each of the two pairs, found
+with kissat 4.0.4 (`--with-c3`, so each also has C3 ≤ 776) and re-verified without a solver by
+`solve --check-arrangement` and `sat.target_verdict`; its README gives the commands, the CNF and model hashes and
+the controls. The row gains a WITNESSED clause naming the six satisfiable pairs and their orderings, with a dated
+marker. Each witness is an existence result for that one ordering. The clause names each file by its full
+path, so `TestBatchFT1`'s check that every row-8 path exists reads them. `reports/evidence/q7_witnesses/README.md` gains
+a dated note pointing to the new directory; the Q7 battery row does not read it.
+
+| file | sha256 |
+|---|---|
+| `reports/evidence/core_pair_witnesses/parity-ccn8.txt` | `5e81e2af688157b55ceebae98e3f47303cce81d1feb162dbe96900bbf224d88b` |
+| `reports/evidence/core_pair_witnesses/rhythm-ccn8.txt` | `ccecda3e3ee47fb749456961428900af880b22265914a08a9ab5a37bd6ff77d5` |
+| `reports/evidence/core_pair_witnesses/README.md` | `b59c29c278e8924d05180d88b3b2abb16c067ce5174c476209e1ba8e23f95524` |
+
+**Q-1097.** `scripts/k37_isclause_port.py` re-emits the sixteen `IsClause` constructors of
+`lean/SatEncodingFidelity.lean` in Python and compares them, as clause sets, with the file `sat.py --emit-cnf f1c5
+--f1-pairs N` writes. It was run by hand. `TestQ1097IsClauseBridge` now runs it at N = 3, 4, 6, 7, 9, 10 and 12,
+every certified rung, and requires `K37_BRIDGE_N<N>=MATCH`; its negative controls (the n=12 file with one clause
+removed, and the n=12 constructors against the n=10 file) must print MISMATCH. `reports/certificates/README.md`
+gains a dated note at the end of its 2026-09-24 scope marker: for those rung CNFs the bridge is measured at every
+certified rung, still not machine-checked, and the full-31 `build()` family is not covered. The row also asks for
+the same sentence in the header of `lean/SatEncodingFidelity.lean`. That edit is held until the next Lean re-run,
+so that one run covers both it and the docstring change noted above.
+
+**Tests.** `TestQ1133CorePairWitnesses` pins both witness files by sha256, requires `sat.target_verdict(...,
+with_c3=True)["ok"]` for each one's pair, requires King Wen to fail both targets (the control), checks that the
+six satisfiable pairs are covered by King Wen, `grand-strict.txt` and the two files while none of them satisfies
+one of the four certified-UNSAT pairs, and pins the two ledger edits. `TestQ1097IsClauseBridge` is described
+above. Both are new.
+
+**Not changed.** No count, certificate, theorem, verdict or canonical sha. Row 8's UNSAT halves stay CERTIFIED and
+its new half is WITNESSED; nothing here is proved in Lean.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, small public fixes lane, landed Fable's
+(claude-fable-5-2) run, witnesses and wording. Fable's pre-publication read (2026-11-16) found that the row-13 cell
+misdated the Lean sources at this tree; the wording above about the one docstring line is from that read.

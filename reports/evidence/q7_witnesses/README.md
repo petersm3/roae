@@ -179,3 +179,5 @@ It is a walk rank; the class rank (the number of distinct records preceding) is 
 script is fast only because the witness leaves King Wen's pair order late: it refuses, by name, an
 arrangement that would need a count over more than 12 unplaced pairs (`--max-free`), and it is not a
 replacement for `--kc-o3-rank`.
+
+*(Note 2026-11-15, Q-1133: witnesses for the rule pairs {parity, CC-N8} and {rhythm, CC-N8} are in [../core_pair_witnesses/](../core_pair_witnesses/README.md). They are separate from the two Q7 targets and are not read by the battery row described here.)*

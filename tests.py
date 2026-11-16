@@ -68790,6 +68790,147 @@ class TestQ1142InventoryShaStringCompare(unittest.TestCase):
 # end class TestQ1142InventoryShaStringCompare
 
 
+class TestQ1097IsClauseBridge(unittest.TestCase):
+    """Q-1097 (CORRECTIONS.md CX-37G-B): the measured bridge between lean/SatEncodingFidelity.lean's model of the
+    reduced-subset encoder and the file sat.py writes, run at every certified rung. scripts/k37_isclause_port.py
+    re-emits the sixteen `IsClause` constructors in Python from the Lean statement (it imports sat.py only for the
+    rung's parameters, never its emitter) and compares the result with the emitted DIMACS file as clause SETS,
+    modulo the two differences the Lean header declares (order; pairwise clauses per unordered vs ordered pair).
+    For N in {3, 4, 6, 7, 9, 10, 12} the port must print K37_BRIDGE_N<N>=MATCH. Negative controls: the n=12 file
+    with one clause removed, and the n=12 constructors against the n=10 file, must both print MISMATCH. This is a
+    measured correspondence, not a machine-checked one, and it covers the f1c5 rung CNFs only, not the full-31
+    `build()` family. Port by Fable (FABLE_K37 scope review); landed in tests.py by an Opus lane.
+    Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    RUNGS = (3, 4, 6, 7, 9, 10, 12)
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q1097_")
+        cls.cnf = {}
+        for n in cls.RUNGS:
+            p = os.path.join(cls.tmp, "n%d.cnf" % n)
+            r = subprocess.run([sys.executable, "sat.py", "--emit-cnf", "f1c5", p, "--f1-pairs", str(n)],
+                               cwd=cls.ROOT, capture_output=True, text=True, timeout=900)
+            if r.returncode != 0 or not os.path.exists(p):
+                raise RuntimeError("sat.py --emit-cnf f1c5 --f1-pairs %d failed: %s" % (n, r.stderr[-800:]))
+            cls.cnf[n] = p
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _port(self, n, path):
+        r = subprocess.run([sys.executable, os.path.join("scripts", "k37_isclause_port.py"), str(n), path],
+                           cwd=self.ROOT, capture_output=True, text=True, timeout=900)
+        tok = [l for l in r.stdout.split("\n") if l.startswith("K37_BRIDGE_N")]
+        return r.returncode, (tok[-1] if tok else "NONE"), r.stdout + r.stderr
+
+    def test_every_certified_rung_matches(self):
+        for n in self.RUNGS:
+            with self.subTest(n=n):
+                rc, tok, out = self._port(n, self.cnf[n])
+                self.assertEqual((rc, tok), (0, "K37_BRIDGE_N%d=MATCH" % n), out[-1500:])
+                self.assertIn("in IsClause not in DIMACS: 0 ; in DIMACS not in IsClause: 0", out)
+
+    def test_one_clause_removed_is_a_mismatch(self):
+        with open(self.cnf[12], encoding="utf-8") as fh:
+            lines = fh.read().split("\n")
+        body = [i for i, l in enumerate(lines) if l.strip() and not l.startswith(("c", "p"))]
+        self.assertGreater(len(body), 100, "precondition: the n=12 file has clauses")
+        # remove a clause that occurs once (the file also carries duplicate pairwise clauses, which a set ignores)
+        from collections import Counter
+        counts = Counter(" ".join(sorted(lines[i].split()[:-1])) for i in body)
+        k = next(i for i in reversed(body) if counts[" ".join(sorted(lines[i].split()[:-1]))] == 1)
+        cut = os.path.join(self.tmp, "n12_minus_one.cnf")
+        with open(cut, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(lines[:k] + lines[k + 1:]))
+        rc, tok, out = self._port(12, cut)
+        self.assertEqual((rc, tok), (1, "K37_BRIDGE_N12=MISMATCH"), out[-1500:])
+        self.assertIn("in IsClause not in DIMACS: 1 ;", out)
+
+    def test_wrong_n_is_a_mismatch(self):
+        rc, tok, out = self._port(12, self.cnf[10])
+        self.assertEqual((rc, tok), (1, "K37_BRIDGE_N12=MISMATCH"), out[-1500:])
+
+# end class TestQ1097IsClauseBridge
+
+class TestQ1133CorePairWitnesses(unittest.TestCase):
+    """Q-1133 rows 8 and 13 (CORRECTIONS.md CX-37G-B). CLAIM_TO_ARTIFACT.md row 8 says the five-rule conflict has
+    exactly four minimal two-rule cores. That needs the other six rule pairs to be satisfiable; two of them,
+    {parity, CC-N8} and {rhythm, CC-N8}, had no archived ordering. Fable found one ordering for each with kissat
+    4.0.4 and verified it without a solver; they ship in reports/evidence/core_pair_witnesses/. This class re-checks
+    them on every run: both files keep their pinned sha256, each sequence passes sat.target_verdict for its pair
+    with C3 in the formula, King Wen fails both targets (the control), and the six satisfiable pairs are covered
+    by the archived orderings while none of them satisfies one of the four certified-UNSAT pairs. It also pins the
+    row-8 insertion and the row-13 re-citation to the ledger.
+    Developed with AI assistance (Claude, Anthropic): claude-opus-5-5; witnesses and ledger wording by Fable."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    DIR = os.path.join("reports", "evidence", "core_pair_witnesses")
+    PINS = {"parity-ccn8.txt": ("five-sub-parity+ccn8", "5e81e2af688157b55ceebae98e3f47303cce81d1feb162dbe96900bbf224d88b"),
+            "rhythm-ccn8.txt": ("five-sub-rhythm+ccn8", "ccecda3e3ee47fb749456961428900af880b22265914a08a9ab5a37bd6ff77d5")}
+    UNSAT = (("parity", "ccn4"), ("rhythm", "ccn4"), ("gender", "ccn4"), ("gender", "ccn8"))
+    SATP = (("parity", "rhythm"), ("parity", "gender"), ("rhythm", "gender"), ("ccn4", "ccn8"),
+            ("parity", "ccn8"), ("rhythm", "ccn8"))
+
+    def _seq(self, rel):
+        with open(os.path.join(self.ROOT, rel), "rb") as fh:
+            raw = fh.read()
+        seqs = [l[4:] for l in raw.decode("utf-8").split("\n") if l.startswith("SEQ=")]
+        self.assertEqual(len(seqs), 1, "%s carries one SEQ= line" % rel)
+        return [int(x) for x in seqs[0].split(",")], hashlib.sha256(raw).hexdigest()
+
+    def test_witness_files_are_pinned_and_pass_their_targets(self):
+        for f, (target, sha) in self.PINS.items():
+            with self.subTest(witness=f):
+                s, h = self._seq(os.path.join(self.DIR, f))
+                self.assertEqual(h, sha, "the archived witness changed")
+                self.assertEqual(sorted(s), list(range(64)), "precondition: a permutation of the 64 hexagrams")
+                self.assertNotEqual(s, list(sat.KW))
+                v = sat.target_verdict(s, target, with_c3=True)
+                self.assertTrue(v["ok"], v)
+                self.assertTrue(v["base"], v)
+
+    def test_king_wen_control_fails_both_targets(self):
+        for f, (target, _) in self.PINS.items():
+            with self.subTest(target=target):
+                v = sat.target_verdict(list(sat.KW), target, with_c3=True)
+                self.assertFalse(v["ok"], "control: King Wen must fail %s, else the check proves nothing" % target)
+                self.assertTrue(v["rule_viol"], v)
+
+    def test_six_pairs_witnessed_four_certified_pairs_not(self):
+        orderings = {"King Wen": list(sat.KW)}
+        orderings["grand-strict"] = self._seq(os.path.join("reports", "evidence", "q7_witnesses", "grand-strict.txt"))[0]
+        for f in self.PINS:
+            orderings[f] = self._seq(os.path.join(self.DIR, f))[0]
+        def ok(a, b):
+            return [n for n, s in orderings.items()
+                    if sat.target_verdict(s, "five-sub-%s+%s" % (a, b), with_c3=True)["ok"]]
+        for a, b in self.SATP:
+            with self.subTest(pair=(a, b)):
+                self.assertTrue(ok(a, b), "no archived ordering satisfies {%s, %s}" % (a, b))
+        for a, b in self.UNSAT:
+            with self.subTest(pair=(a, b)):
+                self.assertEqual(ok(a, b), [], "an archived ordering satisfies a certified-UNSAT pair")
+                self.assertTrue(os.path.exists(os.path.join(self.ROOT, "reports", "certificates",
+                                                            "core_%s_%s_unsat.drat.gz" % (a, b))))
+
+    def test_ledger_rows_8_and_13(self):
+        with open(os.path.join(self.ROOT, "documentation", "CLAIM_TO_ARTIFACT.md"), encoding="utf-8") as fh:
+            rows = {l.split("|")[1].strip(): l for l in fh.read().split("\n") if l.startswith("| ") and l.count("|") > 3}
+        self.assertIn("`reports/evidence/core_pair_witnesses/parity-ccn8.txt` and "
+                      "`reports/evidence/core_pair_witnesses/rhythm-ccn8.txt`", rows["8"])
+        self.assertIn("each witness is an existence result for that one ordering", rows["8"])
+        r13 = rows["13"]
+        self.assertTrue(r13.split("|")[6].strip().startswith("KERNEL — **15/15 executed 2026-11-15** at `c6e36d5e`"), r13[:300])
+        self.assertIn("Superseded record: **15/15 executed 2026-09-10** at `9f91cc70` on", r13)
+        self.assertNotIn("the 15/15 figure above is the current attestation", r13)
+
+# end class TestQ1133CorePairWitnesses
+
+
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))

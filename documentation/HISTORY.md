@@ -12696,3 +12696,16 @@ entry describes the review itself, which had none.)*
 - **scripts/correction_marker_inventory.sh (CX-37G-A).** Two `REVIEWED` rows, for the SYMMETRY_SEARCH.md markers
   at lines 302 and 306. Both left class 3 when the comment pointer that held them there was repaired; each was
   read in its sentence and is class 1.
+
+## 2026-11-15 — CLAIM_TO_ARTIFACT rows 13 and 8; the IsClause bridge in tests.py
+
+- **CLAIM_TO_ARTIFACT.md row 13 (CX-37G-B, Q-1133).** Re-cited to a Lean run of 2026-11-15 on `c6e36d5e` (section 4
+  of `verify_all.sh` alone: 15/15 modules, 196 `#print axioms` lines inside the standard three, census 1,500
+  constants with 0 hits, 34 checks passed). The 2026-09-10 run it cited predates changes to 14 of the 15 files;
+  its text stays as the superseded record.
+- **Row 8 and reports/evidence/core_pair_witnesses/ (CX-37G-B, Q-1133).** Two orderings, for {parity, CC-N8} and
+  {rhythm, CC-N8}, found with kissat and checked without a solver, so each of the six satisfiable rule pairs now has
+  an archived witness. `TestQ1133CorePairWitnesses` re-checks them, with King Wen as the failing control.
+- **tests.py (CX-37G-B, Q-1097).** `TestQ1097IsClauseBridge` runs `scripts/k37_isclause_port.py` at every certified
+  rung (N = 3, 4, 6, 7, 9, 10, 12) with two negative controls. The `.lean` header note is held. Run, witnesses and
+  wording by Fable.

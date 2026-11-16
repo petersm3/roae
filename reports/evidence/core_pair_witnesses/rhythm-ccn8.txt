@@ -1,0 +1,6 @@
+# Pinned SAT witness -- target five-sub-rhythm+ccn8: C1&C2&C4&C5, C3 <= 776, Moore-1989 rhythm
+# (0 breaks) AND Schulz CC-N8 (0 violations). Produced ONCE with kissat 4.0.4 on 2026-11-15
+# (README.md beside this file: commands, CNF and model sha256). It shows that this one ordering
+# satisfies both rules; it is an existence result, not a proof about any other ordering.
+# One SEQ= line: the 64 hexagram values (SPECIFICATION.md section H), C4 anchor 63,0 first.
+SEQ=63,0,50,19,13,44,26,22,37,41,49,35,14,28,17,34,55,59,10,20,21,42,32,1,57,39,36,9,46,29,7,56,53,43,40,5,58,23,38,25,61,47,8,4,60,15,45,18,33,30,16,2,54,27,24,6,62,31,12,51,3,48,52,11
