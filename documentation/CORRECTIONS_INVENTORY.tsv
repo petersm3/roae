@@ -3779,6 +3779,7 @@ INL-1dbfba98	-	C3	corrections	inline	viz/viz_tr5_orbit_collapse.md	88	theory is 
 INL-34469d7c	-	C3	corrections	inline	viz/viz_tr6_parity_alternations.md	76	is claimed novel. Developed with AI assistance (Claude, Anthropic); corrections invited.*
 INL-59b1cb3	-	C3	corrected	inline	viz/viz_tr7_circular_cycle.md	63	picture, and no renderer existed; the documents were corrected to say so. CX-191.
 INL-13a1de3a	-	C3	corrections	inline	viz/viz_tr7_circular_cycle.md	75	Developed with AI assistance (Claude, Anthropic); corrections invited.*
+GIT-dcecdb0	2026-05-17	C3	corrections	git	37cb645f	-	Q-1111 + Q-1058: the TR-4 figure's k = 14 label regenerated without "no far end"; the single-cell probe's bounds stated in time (CX-37G-C)
 GIT-b95d15e	2026-11-15	C3	superseded	git	f13505fb	-	Q-1133 rows 13 and 8 + Q-1097: CLAIM_TO_ARTIFACT row 13 re-cited to the 2026-11-15 Lean run, row 8's two missing pair witnesses archived, the IsClause bridge in tests.py (CX-37G-B)
 GIT-3a39735e	2026-11-15	C3	corrections	git	e3d7d8f1	-	Q-1141 + Q-1142: doc-gate comment pointers get a stale check, 21 stale ones repaired; the inventory check compares sha8 as a string (CX-37G-A)
 GIT-1d7dbb3f	2026-11-15	C3	correction	git	6c3e847d	-	Q-1140 cloud sweep D3 follow-up: retire the REVIEWED key whose marker moved to the private notes
