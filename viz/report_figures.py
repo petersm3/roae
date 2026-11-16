@@ -299,7 +299,7 @@ FIGURE_LABEL_MANIFEST = {
         'S(k) = fraction of the full C1–C5 population (orientation-explicit)\nagreeing with KW (log scale)',
         'The boundary-information curve S(k) — slice-uniqueness vs space-uniqueness\n(the first 4 of the 5 boundaries that identify KW in the 560T slice still admit ≈8.4×10²⁵ full-space orderings)',
         'k = number of King Wen boundary constraints imposed',
-        'k ≈ 14: the earliest the\npair-ordering floor is\nreached IF no later boundary\ngains more than the 8th\nmeasured one (6.14 bits).\nA scale marker, not a bound;\nno far end set by the data.',
+        'k ≈ 14: the earliest the\npair-ordering floor is\nreached IF no later boundary\ngains more than the 8th\nmeasured one (6.14 bits).\nA scale marker, not a bound.\nFor this prefix the pins\nreach the floor by k = 23.',
         'one ORIENTED ordering:\n1/1.3287×10³⁸ = 7.53×10⁻³⁹,\n20.71 bits lower. Pins fix pair\nidentity, not orientation, so\nno k reaches this level.',
         'reachable floor: S = 1,720,320/1.3287×10³⁸ = 1.29×10⁻³² (one surviving pair-ordering class)',
     ),
@@ -839,13 +839,16 @@ def fig_tr4_boundary_information():
     # conditional line at k = 14, labelled as a scale marker: hold every later gain at the 8th's
     # 6.14 bits and the floor is first reached at k = 8 + ceil(32.57 / 6.14) = 14. It is a line,
     # not a band, because the data set no far end (a continued decline: k ~ 28 or never).
+    # Q-1111 (2026-11-15; CX-37B-A, Codex F11-002#2): the pin structure does set one. The eight measured
+    # boundaries leave 16 of the 32 slots free, so the floor is reached by k = 8 + 16 - 1 = 23 for this
+    # prefix; the label's last line says so, and "no far end set by the data" is gone from the figure.
     ax.axvline(14, color="#388e3c", lw=1.3, ls="-", alpha=0.8)
     # Q-889 (2026-09-28): re-wrapped to stay inside the axes. At five lines it ran ~30 px past the
     # right spine into the figure margin (the longest line, "not a bound; no far end set by the
     # data.", was wider than k = 14.25..20.5 at 10 pt). Same words, six narrower lines.
     ax.text(14.25, 1e0, "k ≈ 14: the earliest the\npair-ordering floor is\nreached IF no later boundary\n"
                          "gains more than the 8th\nmeasured one (6.14 bits).\n"
-                         "A scale marker, not a bound;\nno far end set by the data.",
+                         "A scale marker, not a bound.\nFor this prefix the pins\nreach the floor by k = 23.",
             fontsize=10, color="#2e7d32", ha="left", va="top")
 
     ax.set_xlim(0.5, 20.5)

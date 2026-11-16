@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 11 place(s) over all 262 dated sections, 10 of them among the 186 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 11 place(s) over all 263 dated sections, 10 of them among the 187 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -288,6 +288,7 @@
 | 260 | 2026-11-15 | iso | 12678 | [open](HISTORY.md#2026-11-15--cloud-sweep-d7-a-guard-against--anchors-in-published-certificates) 2026-11-15 — cloud sweep D7: a guard against `$`-anchors in published certificates |
 | 261 | 2026-11-15 | iso | 12686 | [open](HISTORY.md#2026-11-15--doc-gate-comment-pointers-checked-inventory-sha8-compared-as-a-string) 2026-11-15 — doc-gate comment pointers checked; inventory sha8 compared as a string |
 | 262 | 2026-11-15 | iso | 12700 | [open](HISTORY.md#2026-11-15--claim_to_artifact-rows-13-and-8-the-isclause-bridge-in-testspy) 2026-11-15 — CLAIM_TO_ARTIFACT rows 13 and 8; the IsClause bridge in tests.py |
+| 263 | 2026-11-15 | iso | 12713 | [open](HISTORY.md#2026-11-15--tr-4-figure-label-regenerated-the-single-cell-probe-timed) 2026-11-15 — TR-4 figure label regenerated; the single-cell probe timed |
 
 ## Sections with no date in the heading, in file order
 

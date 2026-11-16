@@ -87,21 +87,21 @@ documentation/CANONICAL_HASHES.md	367	marker	CORRECTED	1	-	reviewed:text-already
 documentation/CANONICAL_HASHES.md	375	marker	Corrected	1	-	reviewed:dated-label-on-a-heading;notes-are-the-corrected-version	c7837a45af23
 documentation/CANONICAL_HASHES.md	385	marker	CORRECTED	1	-	reviewed:text-already-reads-4909e18-and-4900000-T	dcb1fc46614d
 documentation/CANONICAL_HASHES.md	387	ledger-link	CORRECTION	n/a	-	not-a-marker	5d280f8b6727
-documentation/CANONICAL_HASHES.md	412	ledger-link	CORRECTION	n/a	-	not-a-marker	14ca9b4e60d2
-documentation/CANONICAL_HASHES.md	435	ledger-link	CORRECTION	n/a	-	not-a-marker	111a9a1c9f61
-documentation/CANONICAL_HASHES.md	459	marker	CORRECTED	1	-	reviewed:scale-list-already-omits-d2-10T	50d1907facd1
-documentation/CANONICAL_HASHES.md	480	marker	CORRECTED	1	-	reviewed:paragraph-above-already-states-the-corrected-rule	403d25d6040d
-documentation/CANONICAL_HASHES.md	495	marker	Corrected	1	-	reviewed:bullet-already-drops-the-stack-claim	645bb4f2c6ca
-documentation/CANONICAL_HASHES.md	500	ledger-link	CORRECTION	n/a	-	not-a-marker	d46663749df0
-documentation/CANONICAL_HASHES.md	500	ledger-link	RETRACTED	n/a	-	not-a-marker	d46663749df0
-documentation/CANONICAL_HASHES.md	500	marker	CORRECTED	2	-	reviewed:the-bullet-above-defers-to-it-for-what-the-floor-is;span-unclosed	d46663749df0
-documentation/CANONICAL_HASHES.md	533	marker	CORRECTED	1	-	reviewed:table-already-carries-the-corrected-floors	eb39ffef9153
-documentation/CANONICAL_HASHES.md	555	marker	Corrected	1	-	reviewed:sentence-already-gives-both-arms-stddev	dc9d199b3da5
-documentation/CANONICAL_HASHES.md	581	marker	CORRECTED	1	-	reviewed:bullet-already-lists-the-real-checks-and-the-shipped-expect-kw	5e0096ec8528
-documentation/CANONICAL_HASHES.md	581	marker	Corrected	1	-	reviewed:bullet-already-lists-the-real-checks-and-the-shipped-expect-kw	5e0096ec8528
-documentation/CANONICAL_HASHES.md	607	marker	CORRECTED	1	-	reviewed:convention-already-reads-logical-decompressed-size	466f5d4840e1
-documentation/CANONICAL_HASHES.md	609	marker	WITHDRAWN	3	GATE 26,GATE 27	reanchored:GATE-26=ledger-anchor+GATE-27=ledger-anchor	46cabaff2300
-documentation/CANONICAL_HASHES.md	618	ledger-link	CORRECTION	n/a	-	not-a-marker	6d9a9c9312a2
+documentation/CANONICAL_HASHES.md	414	ledger-link	CORRECTION	n/a	-	not-a-marker	14ca9b4e60d2
+documentation/CANONICAL_HASHES.md	437	ledger-link	CORRECTION	n/a	-	not-a-marker	111a9a1c9f61
+documentation/CANONICAL_HASHES.md	461	marker	CORRECTED	1	-	reviewed:scale-list-already-omits-d2-10T	50d1907facd1
+documentation/CANONICAL_HASHES.md	482	marker	CORRECTED	1	-	reviewed:paragraph-above-already-states-the-corrected-rule	403d25d6040d
+documentation/CANONICAL_HASHES.md	497	marker	Corrected	1	-	reviewed:bullet-already-drops-the-stack-claim	645bb4f2c6ca
+documentation/CANONICAL_HASHES.md	502	ledger-link	CORRECTION	n/a	-	not-a-marker	d46663749df0
+documentation/CANONICAL_HASHES.md	502	ledger-link	RETRACTED	n/a	-	not-a-marker	d46663749df0
+documentation/CANONICAL_HASHES.md	502	marker	CORRECTED	2	-	reviewed:the-bullet-above-defers-to-it-for-what-the-floor-is;span-unclosed	d46663749df0
+documentation/CANONICAL_HASHES.md	535	marker	CORRECTED	1	-	reviewed:table-already-carries-the-corrected-floors	eb39ffef9153
+documentation/CANONICAL_HASHES.md	557	marker	Corrected	1	-	reviewed:sentence-already-gives-both-arms-stddev	dc9d199b3da5
+documentation/CANONICAL_HASHES.md	583	marker	CORRECTED	1	-	reviewed:bullet-already-lists-the-real-checks-and-the-shipped-expect-kw	5e0096ec8528
+documentation/CANONICAL_HASHES.md	583	marker	Corrected	1	-	reviewed:bullet-already-lists-the-real-checks-and-the-shipped-expect-kw	5e0096ec8528
+documentation/CANONICAL_HASHES.md	609	marker	CORRECTED	1	-	reviewed:convention-already-reads-logical-decompressed-size	466f5d4840e1
+documentation/CANONICAL_HASHES.md	611	marker	WITHDRAWN	3	GATE 26,GATE 27	reanchored:GATE-26=ledger-anchor+GATE-27=ledger-anchor	46cabaff2300
+documentation/CANONICAL_HASHES.md	620	ledger-link	CORRECTION	n/a	-	not-a-marker	6d9a9c9312a2
 documentation/CIRCULAR_KING_WEN.md	21	ledger-link	RETRACTED	n/a	-	not-a-marker	0a9af710aaee
 documentation/CIRCULAR_KING_WEN.md	61	marker	Corrected	1	-	reviewed:paragraph-above-already-says-C3-alone-breaks-rotation	24de4f00e658
 documentation/CIRCULAR_KING_WEN.md	64	ledger-link	RETRACTED	n/a	-	not-a-marker	8a37cde55342
@@ -855,7 +855,7 @@ reports/TR4_SIZE_OF_THE_SPACE.md	177	ledger-link	CORRECTION	n/a	-	not-a-marker	0
 reports/TR4_SIZE_OF_THE_SPACE.md	294	ledger-link	CORRECTION	n/a	-	not-a-marker	fb64cc709b92
 reports/TR4_SIZE_OF_THE_SPACE.md	294	marker	CORRECTED	1	-	reviewed:dated-note-CX-37B-A-bounds-k-by-23	fb64cc709b92
 reports/TR4_SIZE_OF_THE_SPACE.md	302	ledger-link	CORRECTION	n/a	-	not-a-marker	ea7843c8daf2
-reports/TR4_SIZE_OF_THE_SPACE.md	310	ledger-link	CORRECTION	n/a	-	not-a-marker	a59d6aae85f6
+reports/TR4_SIZE_OF_THE_SPACE.md	310	ledger-link	CORRECTION	n/a	-	not-a-marker	564913e6f203
 reports/TR4_SIZE_OF_THE_SPACE.md	315	marker	Corrected	1	-	reviewed:paragraph-already-says-refuses-and-exits-1	44d9ab0566a4
 reports/TR4_SIZE_OF_THE_SPACE.md	341	marker	CORRECTED	1	-	reviewed:bullet-already-prints-the-probe-count	d266588052e1
 reports/TR4_SIZE_OF_THE_SPACE.md	382	ledger-link	CORRECTION	n/a	-	not-a-marker	3316857e4f87
@@ -994,9 +994,9 @@ viz/viz_scale.md	141	marker	Corrected	1	-	reviewed:item-already-says-week-long-a
 viz/viz_scale.md	186	marker	Corrected	1	-	reviewed:heading-already-reads-decided	ebc0122e15c3
 viz/viz_tr1_rules_tradeoff.md	74	ledger-link	CORRECTION	n/a	-	not-a-marker	3070fa0dd4f0
 viz/viz_tr3_campaign_timeline.md	65	ledger-link	CORRECTION	n/a	-	not-a-marker	19700485ed8b
-viz/viz_tr4_boundary_information.md	44	ledger-link	CORRECTION	n/a	-	not-a-marker	4597c3528c63
-viz/viz_tr4_boundary_information.md	44	marker	CORRECTED	1	-	reviewed:dated-note-CX-37B-A-bounds-k-by-23	4597c3528c63
-viz/viz_tr4_boundary_information.md	77	ledger-link	CORRECTION	n/a	-	not-a-marker	5ae76a22f09d
+viz/viz_tr4_boundary_information.md	46	ledger-link	CORRECTION	n/a	-	not-a-marker	4597c3528c63
+viz/viz_tr4_boundary_information.md	46	marker	CORRECTED	1	-	reviewed:dated-note-CX-37B-A-bounds-k-by-23	4597c3528c63
+viz/viz_tr4_boundary_information.md	79	ledger-link	CORRECTION	n/a	-	not-a-marker	5ae76a22f09d
 -	-	population	-	n/a	CITATION LINE GATE	reviewed:summary-counts-only;legB-all-targets-and-excluded-counts-fall-with-citations-written-inside-deleted-spans;legA-A2-summary-moves-on-any-edit;verdict-tokens-follow-FAILs-already-tied-by-line	-
 documentation/SOLVE.md	-	population	-	n/a	CITATION LINE GATE	reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE.md-one-file-run-prints-it;SOLVE.md-markers-are-class-3-by-line	-
 documentation/SOLVE_PY_CLI.md	-	population	-	n/a	CITATION LINE GATE	reviewed:weak-pin-unmatched-list-of-the-content-rule-FAIL;the-SOLVE_PY_CLI.md-one-file-run-prints-it;its-citing-markers-are-class-3-by-line	-

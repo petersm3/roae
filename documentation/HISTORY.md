@@ -12709,3 +12709,14 @@ entry describes the review itself, which had none.)*
 - **tests.py (CX-37G-B, Q-1097).** `TestQ1097IsClauseBridge` runs `scripts/k37_isclause_port.py` at every certified
   rung (N = 3, 4, 6, 7, 9, 10, 12) with two negative controls. The `.lean` header note is held. Run, witnesses and
   wording by Fable.
+
+## 2026-11-15 — TR-4 figure label regenerated; the single-cell probe timed
+
+- **reports/figures/fig_tr4_boundary_information.png/.svg (CX-37G-C, Q-1111).** The k = 14 label no longer ends "no far
+  end set by the data"; it says that for this prefix the pins reach the floor by k = 23, as TR-4's text has since
+  CX-37B-A. The unmodified generator first reproduced the committed PNG byte for byte. TR-4 v1.51.
+- **documentation/CANONICAL_HASHES.md (CX-37G-C, Q-1058).** The 2026-05-17 single-cell probe was re-run, timed: every
+  rung BUDGETED, 10¹¹ nodes in 715 s on 8 threads. A new paragraph turns the published node bounds into time: at least
+  about 2.5 days for that one cell (a lower bound), and about 1,100 years on 8 threads to spend in full the smallest
+  uniform budget that covers it (the time to spend that budget, not a lower bound on the run). The logs are not
+  published.

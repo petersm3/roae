@@ -64009,7 +64009,9 @@ class TestBatchQ1037c(unittest.TestCase):
         free = set(range(1, 32)) - set(pins)
         self.assertEqual((len(set(pins)), len(free)), (15, 16))
         self.assertEqual(8 + len(free) - 1, 23, "one more slot per non-implied boundary; the last free slot is forced")
-        sites = {"reports/TR4_SIZE_OF_THE_SPACE.md": (7, 7, 8, ["with no far end set by the data (§Sections item 4, §Update).",
+        # TR-4's "(CX-37B-A)" count is 8 since Q-1111 (CX-37G-C): the §Figure marker for the regenerated
+        # image cites "v1.49 (CX-37B-A)" as the withdrawal it completes.
+        sites = {"reports/TR4_SIZE_OF_THE_SPACE.md": (7, 8, 8, ["with no far end set by the data (§Sections item 4, §Update).",
                      "re-derived; the data set no far end.", "and the data set no far end*"]),
                  "documentation/SEARCH_SPACE_SIZE.md": (2, 2, 2, ['and the data set no far end (see §"An information-rate']),
                  "documentation/SPECIFICATION.md": (0, 1, 1, ["with no far end set by the data"]),

@@ -33,6 +33,8 @@ King Wen on its first k boundaries, taken in the greedy identifying order {4, 27
 - **Green vertical line at k = 14:** the earliest k at which the floor is reached if no later
   boundary gains more than the eighth measured one's 6.14 bits. A scale marker under that assumption,
   not a bound. That gain is computed from N(7), for which no committed artifact exists (TR-4 §Update).
+  Its label ends with the far end the pin structure sets: for this prefix the pins reach the floor by
+  k = 23 (CX-37B-A; *label added 2026-11-15*).
 
 ## What it establishes, and what it does not
 
@@ -100,6 +102,11 @@ two earlier removals are recorded in the generator's comment block (its notes da
 - **2026-10-17, Fable front-page review.** The k = 14 marker's description used the eighth gain's
   6.14 bits without TR-4's label; it now says that gain is computed from N(7), for which no committed
   artifact exists. No figure changed. CX-389.
+- **2026-11-15 (Q-1111; CX-37B-A, Codex F11-002#2).** The k = 14 label ended "no far end set by the
+  data", which CX-37B-A withdrew in the text on 2026-11-10 and recorded as not cured in the image. The
+  label now ends "For this prefix the pins reach the floor by k = 23." The unmodified generator first
+  reproduced the committed PNG byte for byte. No S(k) value, gain, floor, oriented level or marker
+  position changed. CX-37G-C.
 - **2026-09-29.** This page added, as part of the capstone's visual showcase (CX-233).
 
 ---

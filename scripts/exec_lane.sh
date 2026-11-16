@@ -229,7 +229,7 @@ def strip_opt(c):
     `solve --verify [f]` runs; a bracket INSIDE quotes is program text and stays
     (`int(sys.argv[1])`, `lambda k:[...]`). Whitespace collapses outside quotes only, so a quoted
     multi-line program keeps its newlines and indentation. (Quote-aware since 2026-09-02;
-    measured pre-fix: CANONICAL_HASHES.md:507 ran as `int(sys.argv)`, CIRCULAR_KING_WEN.md:57 as
+    measured pre-fix: CANONICAL_HASHES.md:509 ran as `int(sys.argv)`, CIRCULAR_KING_WEN.md:57 as
     `r=lambda k:;` -- two FAIL(rc=1) verdicts the lane itself manufactured.)"""
     out, stack, q, i, n = [], [], None, 0, len(c)
     while i < n:

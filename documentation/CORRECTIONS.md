@@ -41093,3 +41093,44 @@ its new half is WITNESSED; nothing here is proved in Lean.
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, small public fixes lane, landed Fable's
 (claude-fable-5-2) run, witnesses and wording. Fable's pre-publication read (2026-11-16) found that the row-13 cell
 misdated the Lean sources at this tree; the wording above about the one docstring line is from that read.
+
+## CX-37G-C — the TR-4 figure's k = 14 label regenerated without "no far end", and the single-cell probe's bounds stated in time (viz/report_figures.py; reports/figures/fig_tr4_boundary_information.png; reports/figures/fig_tr4_boundary_information.svg; reports/TR4_SIZE_OF_THE_SPACE.md; viz/viz_tr4_boundary_information.md; documentation/CANONICAL_HASHES.md; scripts/exec_lane.sh)
+
+**2026-11-15.** **Source.** Backlog rows Q-1111 (from Q-1037; the image half of CX-37B-A, Codex F11-002#2) and
+Q-1058 (registry K-03; operator approval 2026-11-15).
+
+**Q-1111, before.** CX-37B-A (2026-11-10) withdrew "no far end" in TR-4's text: the pin structure reaches the
+pair-ordering floor by k = 23 for the measured prefix. It recorded the figure as not cured, because the label of
+the k = 14 marker in `viz/report_figures.py` still ended "A scale marker, not a bound; no far end set by the data."
+
+**Q-1111, after.** The label's last lines read "A scale marker, not a bound. For this prefix the pins reach the
+floor by k = 23." The generator's label table carries the same text, and a dated comment beside the k = 14 line
+gives the reason. The unmodified generator was first re-rendered on this host and reproduced the committed PNG
+byte for byte, so the change below is the edit and not renderer drift. Only the TR-4 figure changed; every other
+figure re-rendered byte-identically. TR-4 gains a regeneration marker in §Figure and revision row v1.51, and the
+figure's page gains a review-history entry and one sentence on the label. CX-37B-A's "Not cured" item is cured
+by this entry; CX-37B-A itself is not edited.
+
+| file | sha256 before | sha256 after |
+|---|---|---|
+| `reports/figures/fig_tr4_boundary_information.png` | `e9f4204991ab33d646b75576ba19a1b635e3647031c1d53e6d7630bc0e49dec8` | `695a168786cf495429e7735f6683a459e27c7e55d60ccf6ac82dd93d30d75d8c` |
+
+The SVG is compared line-wise, not byte-wise (see the generator's `save()`): its text comments change from
+"A scale marker, not a bound; / no far end set by the data." to the three new lines.
+
+**Q-1058.** `documentation/CANONICAL_HASHES.md` described the 2026-05-17 single-cell probe and its ≥ 3.1 × 10¹³
+node bound, but gave no time or hardware figures, because there was no public artifact behind them. The probe was
+re-run on 2026-11-15, timed, with its logs kept, on the build it names (`1b32270`) and on the engine at `c6e36d5e`,
+at 10⁹, 10¹⁰ and 10¹¹ nodes on 8 threads. Every rung ended BUDGETED with 0 of 2,488 tasks complete; the `c6e36d5e`
+engine ran 10¹¹ nodes in 715 s. A paragraph after the probe's provenance gives the measured rate, the lower bound
+of about 2.5 days for that one cell, and the time it would take to spend in full the smallest uniform budget that
+covers that cell: about 1,100 years on 8 threads, or about 69 years on 128 threads with perfect scaling. The second
+figure is the time to spend that budget, not a lower bound on the run: a cell that finishes early stops using its
+budget, and no other cell's size is measured. The run's logs are not published. The paragraph adds two lines, so
+`scripts/exec_lane.sh` line 232's citation of CANONICAL_HASHES.md moves from line 507 to 509.
+
+**Not changed.** No count, measurement, S(k) value, gain, floor, verdict or canonical sha.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, small public fixes lane; the probe re-run was
+an Opus backlog lane's, and the paragraph's draft is that lane's. Fable's (claude-fable-5-2) pre-publication read
+(2026-11-16) rewrote the time figures: the draft called the 1,100 years a lower bound on the run, which it is not.
