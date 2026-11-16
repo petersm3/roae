@@ -305,7 +305,7 @@ PY
 # count (LEG 1's CANONICAL_HASHES.md table). Number words one..twelve are folded to digits.
 # POPULATION printed: LEG 1 headings (floor 1), LEG 2 restatements (printed, no floor).
 # MEASURED BEFORE LANDING (2026-09-02): pre-fix (`89e7a9a1`: CANONICAL_HASHES.md heading 8 over 7
-# rows; PARTITION_INVARIANCE.md:296 "(7 independent witnesses total)") -> 2 HITs, rc 1; live -> 8 over
+# rows; PARTITION_INVARIANCE.md:294@89e7a9a1 "(7 independent witnesses total)") -> 2 HITs, rc 1; live -> 8 over
 # 8 rows, "eight independent paths" restatement = 8, rc 0; mutation (live heading 8 -> 9) -> HIT rc 1.
 gate_witness_count() {
   echo "== GATE 58: 'N independent paths/witnesses' equals the rows of its table; 11.2T restatements agree =="
@@ -1318,7 +1318,7 @@ PY
 # The judged population is every blank-line paragraph of every other tracked *.md that links >= 3
 # distinct ledger keys as `CITATIONS.md#anchor` — i.e. that is already enumerating the chain. Such
 # a paragraph must name EVERY ledger key, as a link OR as the bibliography surname in plain prose
-# (accent-folded). The plain-prose arm is not a softening: SYMMETRY_SEARCH.md:485 names Goldenberg
+# (accent-folded). The plain-prose arm is not a softening: SYMMETRY_SEARCH.md:484 names Goldenberg
 # in running text and links the other six, and a link-only predicate would have failed correct
 # published content — MEASURED, 1 false positive of 2 paragraphs.
 # 🔴 VERIFIER-CLOSURE / NEEDLE-REACHABILITY GUARD: the >= 3 trigger is read off the checked
@@ -1327,7 +1327,7 @@ PY
 # ledger at 5 arrivals — a site dropping out of the census fails the gate rather than passing it.
 # MEASURED BEFORE LANDING (2026-09-03): pre-P33 tree (`git show c67737d2^` of CITATIONS.md +
 # SYMMETRY_SEARCH.md, staged in a scratch repo so `git ls-files` sees them) -> 2 HITs,
-# SYMMETRY_SEARCH.md:28 and :309, each "enumerates 5 of the ledger's 7 arrivals but never names
+# SYMMETRY_SEARCH.md:28@b7ac534a and :309, each "enumerates 5 of the ledger's 7 arrivals but never names
 # Cao (#caohongjun1995); Yuan (#yuanzuoxing1991)", rc 1. Live tree -> LEDGER 7
 # (caohongjun/goldenberg/ouyang/radisic/schoter/suenaga/yuanzuoxing), POP 2, rc 0.
 gate_arrivals_sync() {
@@ -1756,7 +1756,7 @@ PY
 # MEASURED. Live: 14 claim sites, 14 scoped, 0 fires, rc 0. REAL PRE-FIX TREE
 # `793210b7^` (the commit before "Prose sweep 2026-09-01: 23 batches, 37 files") with
 # PROJECT_OVERVIEW.md / PARTITION_STABILITY_BOUNDARIES.md / BOUNDARY_MINIMUM.md restored:
-# 12 sites, 11 scoped, **1 FIRE at documentation/PROJECT_OVERVIEW.md:96** — the exact A01 row 32
+# 12 sites, 11 scoped, **1 FIRE at documentation/PROJECT_OVERVIEW.md:96@fbd6f9e5** — the exact A01 row 32
 # site, "eliminate non-KW solutions that no combination of other boundaries can reach", rc 1.
 # NOTE `git log -S` DOES NOT FIND THAT COMMIT: the fix moved the phrase from :96 into the
 # revision narration at :208, so the occurrence COUNT never changed and the pickaxe reports only
@@ -1919,7 +1919,7 @@ PY
 #       already does external sort + dedup.**" and quotes the retracted denial two sentences
 #       later. Every occurrence is now checked.
 #
-# NARRATION IS EXCLUDED, not counted — the GATE 47 trap. LARGE_SCALE_CAMPAIGNS.md:841-847 is the
+# NARRATION IS EXCLUDED, not counted — the GATE 47 trap. LARGE_SCALE_CAMPAIGNS.md:873-879 is the
 # paragraph that DOCUMENTS this very correction and quotes the refuted wording inside `*"…"*`.
 # A gate that fires there punishes the fix. Whole-file exclusions: CORRECTIONS.md, HISTORY.md.
 # THE REFUTED WORDING IS NOT QUOTED IN THIS COMMENT — see RETRACTED_PHRASES.tsv for the

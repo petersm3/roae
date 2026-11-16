@@ -888,6 +888,12 @@ REVIEWED = {
         ('1', 'reviewed:paragraph-already-says-refuses-and-exits-1'),
     ('documentation/SYMMETRY_SEARCH.md', 'cd72ebe708fa'):
         ('1', 'reviewed:paragraph-already-separates-palindromes-and-partners'),
+    # Q-1141 follow-up (2026-11-16, Fable pre-publication read of CX-37G-A): class 3 until the bare line-309
+    # comment pointer in 95_derived_figures_scope.sh stopped being judged against HEAD; each read in its sentence.
+    ('documentation/SYMMETRY_SEARCH.md', '39c0f60d8363'):
+        ('1', 'reviewed:sentence-already-says-both-inputs-are-public'),
+    ('documentation/SYMMETRY_SEARCH.md', '428e5d03e66c'):
+        ('1', 'reviewed:sentence-already-names-the-relerr-comparison-basis-and-claims-no-tolerance'),
     ('documentation/TRIGRAM_STRUCTURE.md', '553c4e750078'):
         ('1', 'reviewed:sentence-already-says-kernel-evaluated-for-all-three'),
     ('documentation/VERIFY.md', '1469cd949612'):

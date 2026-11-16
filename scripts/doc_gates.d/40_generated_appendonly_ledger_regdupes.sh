@@ -8,7 +8,7 @@
 # WHY (2026-08-01, two independent instances in one day):
 #  (a) example/README.md was a hand-edited copy of example/report.md. They
 #      differed by exactly one line — "keeps COMPLEMENTS unusually near one
-#      another" where roae.py:774 emits "OPPOSITES". Someone edited the artifact
+#      another" where roae.py:774@bdbd710d emitted "OPPOSITES". Someone edited the artifact
 #      instead of the source, and it survived indefinitely.
 #  (b) I did the same thing while fixing the C8 defect: patched roae.py AND
 #      string-patched the four shipped artifacts, two independent routes to the

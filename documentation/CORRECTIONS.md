@@ -40971,3 +40971,62 @@ row to each of five reports.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 built the batches. This addendum's wording and
 counts are by Fable (claude-fable-5-2), from its pre-publication review of the stack.
+
+## CX-37G-A — doc-gate comment pointers get a stale check, 21 stale ones repaired, and the inventory check compares sha8 as a string (scripts/citation_line_gate.sh; scripts/doc_gates.sh; scripts/doc_gates.d/20_retract_links_status.sh; scripts/doc_gates.d/40_generated_appendonly_ledger_regdupes.sh; scripts/doc_gates.d/80_repro_reach_claim_shapes.sh; scripts/doc_gates.d/90_claim_artifacts.sh; scripts/doc_gates.d/95_derived_figures_scope.sh; scripts/corrections_inventory.sh; scripts/correction_marker_inventory.sh; tests.py)
+
+**2026-11-15.** **Source.** Backlog rows Q-1141 (operator decision, 2026-11-15, which replaced the Q-474 population
+sweep with this one narrow rule) and Q-1142 (found 2026-11-15 by the cloud sweep's integration lane).
+
+**Q-1141, before.** `citation_line_gate.sh --all-files --all-targets` judges a `<file>:N` pointer by an anchor it
+mines from the citing text: a backticked identifier, a flag, a quoted literal. A pointer in a comment of the doc
+gates usually names its subject in words, so the gate found no anchor, counted the pointer as uncheckable and
+moved on. Measured on this commit's parent: 45 such pointers in comments of `scripts/doc_gates.sh` and
+`scripts/doc_gates.d/`. Each was read against its cited lines. 21 were stale. Most of those recorded a past tree
+(a pre-fix line, a measurement, a dead reference that was later fixed) and named a line that now holds something
+else. Four described a live line that had moved. One (`PARTITION_INVARIANCE.md:296`, in a note about the pre-fix
+tree `89e7a9a1`) was off by two even at that tree.
+
+**Q-1141, after.** The 17 historical pointers now carry the revision they describe, in the gate's own form
+`<file>:N@<sha>`; each was checked against that revision. Fifteen carry it on the pointer; two (`:4121` and `:309`)
+are same-line continuations of a pinned head, which the gate reads at the head's revision. The four live ones were
+re-pointed by content (TR-4's `Coverage: 3 of 3` line, the TR-4 sentence that quantifies over all conditioning
+contexts, the SYMMETRY_SEARCH.md line that names Goldenberg, and the LARGE_SCALE_CAMPAIGNS.md paragraph that quotes
+the refuted external-sort wording). The gate gains a comment rule: an unanchored pointer in a comment of those
+files FAILs unless an ATTESTED pin (key `-`, content-hashed) vouches for it. 24 attested rows were added: 21 for
+the correct pointers that have no anchor (three more were already attested) and 3 for re-pointed ones that still
+have none. A pin stops matching, and the gate fails, when the cited lines move or change. A comment pointer that
+lands or is stale by anchor is judged as before, and code lines and other scripts are unchanged. Two comment edits
+change one word beside the pointer, to the past tense ("is dead" became "was dead", "emits" became "emitted"); no
+other comment text changed, and no gate's logic changed. One generated file moves with this. In
+`CORRECTION_MARKER_INVENTORY.tsv` the two SYMMETRY_SEARCH.md markers at lines 302 and 306 leave class 3: their only
+gate leg was the bare `:309` pointer, which named a pre-P33 tree and is no longer judged against HEAD, and they are
+now class 1, reviewed. Each was read in its sentence, and `scripts/correction_marker_inventory.sh` gains the two
+`REVIEWED` rows that record the verdicts.
+
+**Q-1142, before.** `corrections_inventory.sh --check` drops HEAD's own row from the rebuilt inventory with
+`awk -v h=<sha8> '... $6==h'`. awk compares two values that both look like numbers as numbers, so a
+digits-e-digits sha8 such as `9754e750` read as infinity and equalled every other row whose sha8 also
+overflows to infinity (`50e46319` among them; a small one such as `1234e123` is finite and was kept). The
+filter dropped those rows too, and `--check` said STALE on a correct inventory.
+
+**Q-1142, after.** The comparison is `$6""==h""`, a string comparison. No other awk comparison of a sha was found
+in the public scripts. The script's line count grows by four (a comment above the filter).
+
+| file | sha256 before | sha256 after |
+|---|---|---|
+| `scripts/corrections_inventory.sh` | `00aae181fe3b25ef6321dbaff2728b96f58c22f2c514f184acc9e361663a6649` | `2b2f61d72362aad667978984b8c1e3ed4d198cfdd58e8c222096336cda1406e3` |
+
+**Tests.** `TestQ1141DocGateCommentPointers` plants an unanchored comment pointer in a throwaway repository with
+every pin table empty: it FAILs in `scripts/doc_gates.d/` and in `scripts/doc_gates.sh`, PASSes once attested,
+and FAILs again when the cited line moves. The controls pass: an anchored comment pointer that lands, the same
+pointer in another script or on a code line, and a revision-pinned one. A fourth test runs the gate on the real
+tree. `TestQ1142InventoryShaStringCompare` runs the script's own filter line on a planted inventory: with
+`9754e750` as HEAD's sha8 only that row is dropped, and a hex sha8 is the control. The old form drops all three
+digits-e-digits rows on the same awk, which is the precondition. Both classes fail on the parent. Two older tests
+that quote the filter line (`TestQ994Q995Batch47`, `TestBatchG3`) now quote the new one.
+
+**Not changed.** No count, measurement, verdict, figure, token or canonical sha.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, small public fixes lane. The rule's scope is the
+operator's decision; the Q-474 evaluation that proposed it was written in an Opus lane. The pre-publication read,
+the two marker verdicts and the wording that came out of the read are claude-fable-5-2's (2026-11-16).

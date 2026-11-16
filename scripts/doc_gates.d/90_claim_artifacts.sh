@@ -13,7 +13,7 @@
 #
 # LEG 1 `cert-claims-shipped` (adjudication row 1 + row 8) — every `*.drat`/`*.drat.gz`
 #   named in tracked markdown must exist under reports/certificates/ AND appear in
-#   verify_all.sh's regeneration map. THE DEFECT: CLAIM_TO_ARTIFACT.md:35 and TR-2:313
+#   verify_all.sh's regeneration map. THE DEFECT: CLAIM_TO_ARTIFACT.md:35@eb0e6bbf and TR-2:313
 #   cited `core_gender_ccn4_unsat.drat` — a fourth two-rule core certificate that existed
 #   at no public ref — while verify_all.sh's completeness check ran ONE WAY (every archived
 #   proof is mapped) and so could not notice a CLAIMED 22nd proof that was absent. 21/21
@@ -689,7 +689,7 @@ PY
 # to appear in TR-4 reports it as a defect; measured, it is the gate's only false positive.
 #
 # 🔴 THE COVERAGE LINE MUST BE READ LIVE, NOT FROM THE REVISION HISTORY. TR-4 contains two
-# `Coverage: N of M` strings: the live one at :174 ("3 of 3") and "2 of 2" inside v1.25's
+# `Coverage: N of M` strings: the live one at TR4_SIZE_OF_THE_SPACE.md:222 ("3 of 3") and "2 of 2" inside v1.25's
 # revision row, which is the row RECORDING this very correction. Reading the wrong one
 # inverts the gate's verdict, so revision rows are excluded by shape before the match.
 gate_anchor_coverage() {
@@ -829,7 +829,7 @@ NULL = re.compile(r'(?:shows?|showed|showing|finds?|found|reveals?|with)\s+no\s+
 # A correction quoting the verdict it withdrew, or a hypothetical, is doing its job.
 NARR = re.compile(r'Corrected 20\d\d|CORRECTED 20\d\d|said\b|used to claim|BEFORE\.|RP-[0-9a-f]{8}'
                   r'|may not\b|might not\b|even real\b|would not\b', re.I)
-# Q-966 (A09#10): `said` NARRATES a source ("MCKENNA.md:88 said the ..."); "as said in our abstract"
+# Q-966 (A09#10): `said` NARRATES a source ("MCKENNA.md:88@1662bc38 said the ..."); "as said in our abstract"
 # REAFFIRMS the verdict, and exempted it. So NARR is read through the shared matcher (whole words),
 # and a `said` with "as" among the 3 words before it is not narration. Measured 2026-10-03: the one
 # real `said` exemption is CORRECTIONS.md:3578, which is exempt as the ledger anyway.
@@ -1124,7 +1124,7 @@ PY
 # THE GAP, MEASURED: GATE 3 scans `git ls-files '*.md'` plus reports/evidence/**. Every other
 # tracked text file — solve.c, verify.c, every *.py and *.sh, the Lean sources, the TSV/JSON/TXT
 # data — was in no needle scan at all. Two live emitters of registered-retracted claims were found
-# on 2026-09-02 precisely because no registry row could reach them: solve.c:19 (a comment carrying
+# on 2026-09-02 precisely because no registry row could reach them: solve.c:19@fa2f00e1 (a comment carrying
 # the Q-353 wording fifteen lines below the block that withdrew it; retired ff804bb0) and
 # solve.py:1649-1657 (the `--rules` banner printing the CX-02 "generative recipe" framing AT RUN TIME,
 # four lines below the docstring that withdraws it; retired the same day, uncommitted).
@@ -1176,7 +1176,7 @@ PY
 #   HEAD solve.py (the :1581 banner still printing)  -> NO HIT: the banner's literal strings are not
 #     registered needles (the registry's CX-02 row holds a different spelling of the recipe
 #     claim) — the row's premise "registered-retracted framing" is true of the FRAMING and false
-#     of the STRING, so this gate could not have caught solve.py:1581 with today's registry; the
+#     of the STRING, so this gate could not have caught solve.py:1581@fcd9feab with today's registry; the
 #     two banner strings need registering (prose lane) for the leg to reach that class
 #   live tree                                        -> rc 0, 14 allowances all used at their max
 #   mutation: a needle planted in a live .py         -> HIT rc 1
@@ -1574,7 +1574,7 @@ gate_file_drawer() {
 # MEASURED BEFORE LANDING (2026-09-02): pre-P36 TR-7 (`git show 59027647^`) -> HIT on §5's
 # registered two-draws claim citing evidence/r6/* (no SEED OVERRIDE line in any r6 file), rc 1; live tree
 # -> TR-2 passes via r11/, TR-7's negated forms are not claims; ONE live finding printed by the
-# run: METHODS.md:173 "Validated against 12 independent-seed replicates at 10⁷ probes" cites no
+# run: METHODS.md:173@fcd9feab "Validated against 12 independent-seed replicates at 10⁷ probes" cites no
 # evidence artifact at all. Owner: the prose lane (it is exactly the class the charge names).
 gate_seed_provenance() {
   echo "== GATE 51: a claim of independent draws / seeds cites evidence whose SEED OVERRIDE lines differ =="

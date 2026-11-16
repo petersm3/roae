@@ -615,8 +615,8 @@ documentation/SYMMETRY_SEARCH.md	3	marker	Corrected	1	-	reviewed:dated-label;res
 documentation/SYMMETRY_SEARCH.md	88	marker	Corrected	1	-	reviewed:paragraph-already-separates-palindromes-and-partners	cd72ebe708fa
 documentation/SYMMETRY_SEARCH.md	195	ledger-link	CORRECTION	n/a	-	not-a-marker	851b6cdd6b0f
 documentation/SYMMETRY_SEARCH.md	252	marker	Corrected	1	-	reviewed:paragraph-already-says-refuses-and-exits-1	ab1f1734ab7c
-documentation/SYMMETRY_SEARCH.md	302	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	39c0f60d8363
-documentation/SYMMETRY_SEARCH.md	306	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	428e5d03e66c
+documentation/SYMMETRY_SEARCH.md	302	marker	Corrected	1	-	reviewed:sentence-already-says-both-inputs-are-public	39c0f60d8363
+documentation/SYMMETRY_SEARCH.md	306	marker	CORRECTED	1	-	reviewed:sentence-already-names-the-relerr-comparison-basis-and-claims-no-tolerance	428e5d03e66c
 documentation/SYMMETRY_SEARCH.md	425	marker	Corrected	1	-	reviewed:sentence-now-names-the-two-inputs-public-since-2026-09-04	f56a68a560c1
 documentation/SYMMETRY_SEARCH.md	493	marker	Corrected	1	-	reviewed:sentence-already-says-read-in-full	1e1ef8d65e95
 documentation/SYMMETRY_SEARCH.md	507	marker	Corrected	1	-	reviewed:note-already-gives-the-full-chain	2abf18eb8c3c

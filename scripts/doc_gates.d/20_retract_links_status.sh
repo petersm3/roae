@@ -651,7 +651,7 @@ HEAD   = re.compile(r'^#+\s+(.*?)\s*$', re.M)
 BOLD   = re.compile(r'^[ \t]*(?:>[ \t]*)*(?:[-*+][ \t]+|\d+\.[ \t]+)?\*\*([^*][^*]*?)\*\*', re.M)
 # The trailing `` ` `` is ITEM B1's backtick leg: a path written as `` `documentation/X.md` §"…" ``
 # was invisible to this gate because \s* cannot match the closing backtick. Two references in the
-# corpus are written that way and one of them — PARTITION_STABILITY_BOUNDARIES.md:83 — is dead.
+# corpus are written that way and one of them — PARTITION_STABILITY_BOUNDARIES.md:83@2a0c6f15 — was dead.
 # ⚠ ':' added 2026-08-27 (Q-283 finding 5). Without it the class could not capture a
 # `repo:FILE.md` qualifier, so the `':' not in path` exclusion below was UNREACHABLE for the colon
 # form — and the colon form is exactly what the FINDING message tells the reader to write. The fix

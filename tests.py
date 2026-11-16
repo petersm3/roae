@@ -43367,7 +43367,7 @@ class TestQ994Q995Batch47(unittest.TestCase):
     def test_q994_c_mutant_without_the_self_row_drop_goes_stale(self):
         fx = self._fixture()
         src = self._src(self.SCRIPT)
-        anchor = """awk -F'\\t' -v h="$self" 'NR==1 || !($5=="git" && $6==h)'"""
+        anchor = """awk -F'\\t' -v h="$self" 'NR==1 || !($5=="git" && $6""==h"")'"""
         self.assertEqual(src.count(anchor), 1, "mutant anchor must occur exactly once")
         rc, v, _ = self._check(fx["repo"], src.replace(anchor, "awk 'NR>=1'"))
         self.assertEqual((rc, v), (1, "CORRECTIONS_INVENTORY_CHECK=STALE"),
@@ -48812,7 +48812,7 @@ class TestBatchG3(unittest.TestCase):
 
     def test_corrections_inventory_self_row_filter_status(self):  # F05-006#1
         src = self._r(os.path.join("scripts", "corrections_inventory.sh"))
-        line = self._line(src, "  awk -F'\\t' -v h=\"$self\" 'NR==1 || !($5==\"git\" && $6==h)'")
+        line = self._line(src, "  awk -F'\\t' -v h=\"$self\" 'NR==1 || !($5==\"git\" && $6\"\"==h\"\")'")
         d = self._d()
         self._wr(os.path.join(d, "rebuilt"), "h\nr1\n")
         sd = self._shim(d, "awk", r"NR==1 \|\| !")
@@ -68632,6 +68632,162 @@ class TestD7NoXaDollarAnchorInReports(unittest.TestCase):
             shutil.rmtree(d, ignore_errors=True)
 
 # end class TestD7NoXaDollarAnchorInReports
+
+
+class TestQ1141DocGateCommentPointers(unittest.TestCase):
+    """Q-1141 (operator 2026-11-15, replacing the Q-474 population sweep; CORRECTIONS.md CX-37G-A): a `<file>:N`
+    pointer in a COMMENT of scripts/doc_gates.sh or scripts/doc_gates.d/ usually names its subject in words, so
+    citation_line_gate.sh found no anchor and counted it as uncheckable. Measured on d64d5595: 45 such pointers,
+    21 stale. Under the comment rule an unanchored comment pointer in that scope FAILs unless an ATTESTED pin
+    (key `-`, content-hashed) vouches for it. Each test plants into a throwaway repository (CITGATE_ROOT) with
+    every pin table emptied: the planted stale comment pointer fails, the attested one passes, a pin whose cited
+    lines changed fails again, and the controls (an anchored pointer that lands, the same pointer outside the
+    doc gates or on a code line, a revision-pinned pointer) pass. On the parent's gate the plant passes, so the
+    first test fails there.
+    Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    SOLVE = "int good_anchor;\n" + "".join("int filler%d;\n" % i for i in range(2, 13))
+    CONTROL = "The anchor `good_anchor` is at solve.c\u00a71.\n"   # \u00a7 -> ":" in _repo, so this file cites nothing
+    NOTES = "line one\nline two\nthe rule is stated here in words\nline four\nline five\n"
+    PLANT = "# the rule is stated in words at notes.md:3, and nothing here is an identifier\n"
+
+    def _env(self, **extra):
+        e = {k: v for k, v in os.environ.items() if not (k.startswith("GIT_") or k.startswith("CITGATE_"))}
+        e.update(GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t", GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+        e.update(extra)
+        return e
+
+    def _repo(self, files):
+        d = tempfile.mkdtemp(prefix="q1141_")
+        self.addCleanup(shutil.rmtree, d, True)
+        base = {"solve.c": self.SOLVE, "doc.md": self.CONTROL, "notes.md": self.NOTES}
+        base.update(files)
+        for rel, text in base.items():
+            p = os.path.join(d, rel)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(text.replace("\u00a7", ":"))
+        for args in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "base"]):
+            r = subprocess.run(["git", "-C", d] + args, capture_output=True, text=True, env=self._env())
+            self.assertEqual(r.returncode, 0, r.stderr)
+        return d
+
+    def _gate(self, d, tpins=""):
+        r = subprocess.run(["bash", "scripts/citation_line_gate.sh", "--all-files", "--all-targets"], cwd=self.ROOT,
+                           capture_output=True, text=True, timeout=600,
+                           env=self._env(CITGATE_ROOT=d, CITGATE_ALL_PINS="", CITGATE_TARGET_PINS=tpins,
+                                         CITGATE_CONTENT_PINS=""))
+        v = [l for l in r.stdout.split("\n") if l.startswith("CITATION_LINE_GATE=")]
+        return (v[-1] if v else "NONE"), r.stdout + r.stderr
+
+    @staticmethod
+    def _chash(text, lo, hi):
+        lines = text.split("\n")
+        return hashlib.sha256("\n".join(x.rstrip() for x in lines[lo - 1:hi]).encode("utf-8")).hexdigest()[:12]
+
+    def _attest(self, citer, notes_text=None):
+        return "%s\tnotes.md\t-\t%s\tATTESTED: test row\n" % (citer, self._chash(notes_text or self.NOTES, 3, 3))
+
+    def test_planted_unanchored_comment_pointer_fails(self):
+        for citer in ("scripts/doc_gates.d/50_x.sh", "scripts/doc_gates.sh"):
+            with self.subTest(citer=citer):
+                d = self._repo({citer: "#!/bin/bash\n" + self.PLANT + "true\n"})
+                v, out = self._gate(d)
+                self.assertEqual(v, "CITATION_LINE_GATE=FAIL", out[-1500:])
+                self.assertIn("[UNVOUCHED] %s:2 notes.md:3 [notes.md]" % citer, out)
+                self.assertIn("unanchored=1 attested=0 unvouched=1", out)
+
+    def test_attested_pointer_passes_and_goes_red_when_the_cited_line_changes(self):
+        citer = "scripts/doc_gates.d/50_x.sh"
+        d = self._repo({citer: "#!/bin/bash\n" + self.PLANT + "true\n"})
+        v, out = self._gate(d, self._attest(citer))
+        self.assertEqual(v, "CITATION_LINE_GATE=PASS", out[-1500:])
+        self.assertIn("unanchored=1 attested=1 unvouched=0", out)
+        moved = self.NOTES.replace("line two\n", "line two\nan inserted line\n")
+        d = self._repo({citer: "#!/bin/bash\n" + self.PLANT + "true\n", "notes.md": moved})
+        v, out = self._gate(d, self._attest(citer))
+        self.assertEqual(v, "CITATION_LINE_GATE=FAIL", "a pin attested for other content vouched:\n" + out[-1500:])
+        self.assertIn("[UNVOUCHED]", out)
+
+    def test_controls_outside_the_rule_pass(self):
+        plants = {
+            "anchored comment that lands": ("scripts/doc_gates.d/50_x.sh",
+                                            "# `good_anchor` is declared at solve.c\u00a71\n"),
+            "same pointer in another script": ("scripts/other_gate.sh", self.PLANT),
+            "same pointer on a code line": ("scripts/doc_gates.d/50_x.sh",
+                                            'echo "the rule is stated in words at notes.md:3"\n'),
+            "revision-pinned comment pointer": ("scripts/doc_gates.d/50_x.sh",
+                                                "# the rule was stated in words at notes.md:3@1a2b3c4d\n"),
+        }
+        for name, (citer, line) in plants.items():
+            with self.subTest(control=name):
+                d = self._repo({citer: "#!/bin/bash\n" + line + "true\n"})
+                v, out = self._gate(d)
+                self.assertEqual(v, "CITATION_LINE_GATE=PASS", out[-1500:])
+                self.assertIn("unvouched=0", out)
+
+    def test_real_tree_has_no_unvouched_comment_pointer(self):
+        r = subprocess.run(["bash", "scripts/citation_line_gate.sh", "--all-files", "--all-targets"], cwd=self.ROOT,
+                           capture_output=True, text=True, timeout=900, env=self._env())
+        m = re.search(r"comment-rule \(Q-1141\) doc-gate comment citations unanchored=(\d+) attested=(\d+) "
+                      r"unvouched=(\d+)", r.stdout)
+        self.assertIsNotNone(m, "precondition: the rule ran and printed its census:\n" + r.stdout[-1500:])
+        self.assertGreater(int(m.group(1)), 0, "precondition: the real doc gates carry unanchored comment pointers")
+        self.assertEqual(int(m.group(3)), 0, r.stdout[-2500:])
+        self.assertIn("CITATION_LINE_GATE=PASS", r.stdout.split("\n"), r.stdout[-2500:])
+
+# end class TestQ1141DocGateCommentPointers
+
+
+class TestQ1142InventoryShaStringCompare(unittest.TestCase):
+    """Q-1142 (found 2026-11-15 by the sweep integration lane; CORRECTIONS.md CX-37G-A): corrections_inventory.sh
+    --check drops HEAD's own row with awk, and it compared the sha8 cell as `$6==h`. awk compares two values that
+    both look like numbers as NUMBERS, so a digits-e-digits sha8 (9754e750) read as infinity and equalled every
+    other row that also overflows (50e46319, 12e45678), the filter dropped those too, and --check said STALE on a correct file. The test runs
+    the script's own filter line on a planted rebuilt inventory: a numeric-looking self sha8 drops exactly its own
+    row; a hex self sha8 (the positive control) does too. The precondition shows the old `$6==h` form drops all
+    three digits-e-digits rows on this awk, so the plant reaches the defect.
+    Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    ROWS = ("9754e750", "50e46319", "12e45678", "abcd1234")
+
+    def _filter_line(self):
+        with open(os.path.join(self.ROOT, "scripts", "corrections_inventory.sh"), encoding="utf-8") as fh:
+            src = fh.read()
+        lines = [l for l in src.split("\n") if l.startswith("  awk -F'\\t' -v h=\"$self\" 'NR==1 || !(")]
+        self.assertEqual(len(lines), 1, "precondition: one self-row filter line")
+        self.assertEqual(src.count("$6==h"), 0, "a numeric sha comparison is back")
+        return lines[0]
+
+    def _run(self, line, self_sha):
+        d = tempfile.mkdtemp(prefix="q1142_")
+        self.addCleanup(shutil.rmtree, d, True)
+        with open(os.path.join(d, "rebuilt"), "w", encoding="utf-8") as fh:
+            fh.write("file\tline\tdate\tkind\tsource\tdocument\n")
+            for s in self.ROWS:
+                fh.write("x\t1\t2026-11-15\tk\tgit\t%s\n" % s)
+        script = ('check_verdict(){ echo "CHECK=$1"; exit 2; }\nCHECK_TMP=%s; self=%s\n%s\n'
+                  'cut -f6 "$CHECK_TMP/expected"\n' % (shlex.quote(d), self_sha, line))
+        r = subprocess.run(["bash", "-c", script], capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        return r.stdout.split()
+
+    def test_numeric_looking_sha8_drops_only_its_own_row(self):
+        line = self._filter_line()
+        old = line.replace('$6""==h""', "$6==h")
+        self.assertNotEqual(old, line, "precondition: the string compare is on the line")
+        self.assertEqual(self._run(old, "9754e750"), ["document", "abcd1234"],
+                         "precondition: the old numeric form also drops 50e46319 and 12e45678 on this awk")
+        self.assertEqual(self._run(line, "9754e750"), ["document", "50e46319", "12e45678", "abcd1234"])
+
+    def test_hex_sha8_control(self):
+        line = self._filter_line()
+        self.assertEqual(self._run(line, "abcd1234"), ["document", "9754e750", "50e46319", "12e45678"])
+        self.assertEqual(self._run(line, "50e46319"), ["document", "9754e750", "12e45678", "abcd1234"])
+
+# end class TestQ1142InventoryShaStringCompare
 
 
 if __name__ == "__main__":

@@ -367,6 +367,31 @@ solve.c	verify.py	-	e7a7c32b284b	ATTESTED: verify.py line 7127-7128 print KW_PRE
 solve.c	documentation/SOLVE_C_CLI.md	-	fc6e90f7a78a	ATTESTED: SOLVE_C_CLI.md line 791 is 'King Wen presence is reported, not enforced' (content-checked 2026-09-25, Opus AF; cited from line 44313) (re-pointed +1 by content for batch 16, 2026-09-26, Opus EU)
 solve.c	verify.py	-	e7a7c32b284b	ATTESTED: verify.py line 7127-7128 print KW_PRESENT then KW_REQUIRED, the pair mirrored (content-checked 2026-09-25, Opus AF; cited from line 44514) (re-pointed +1 by content for batch 16, 2026-09-26, Opus EU) (re-pointed 7559-7560 -> 7632-7633 by content for batch FV2-V, 2026-10-29, Fable; hash unchanged, the cited lines are verbatim)
 scripts/doc_gates.d/95_derived_figures_scope.sh	documentation/RETRACTED_PHRASES.tsv	), which is why	7ab898c67148	LANDS: RETRACTED_PHRASES.tsv line 201 is the registered TR-5 summary phrase the comment points at without quoting it (GATE 47 reads that file); the miner's anchors are the neighbouring comment lines' words, and `relabel` no longer matches inside `relabeling` (F05-011#4) (reviewed 2026-10-22, G5c)
+# ATTESTED (key -), Q-1141 (2026-11-15): unanchored citations in doc-gate COMMENTS, each read against its cited lines
+scripts/doc_gates.d/80_repro_reach_claim_shapes.sh	reports/TR4_SIZE_OF_THE_SPACE.md	-	9dfc73f293c6	ATTESTED: TR-4 lines 358-359 are the sentence that quantifies the maximum over all boundaries and all conditioning contexts, the case SUPREMUM exempts (re-pointed from line 292, Q-1141) (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 1692)
+scripts/doc_gates.d/95_derived_figures_scope.sh	documentation/SYMMETRY_SEARCH.md	-	ce08eef07bc1	ATTESTED: SYMMETRY_SEARCH.md line 484 names Goldenberg (1975) in running text (re-pointed from line 485, Q-1141) (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 1321)
+scripts/doc_gates.d/95_derived_figures_scope.sh	documentation/LARGE_SCALE_CAMPAIGNS.md	-	fcd064a5d17c	ATTESTED: LARGE_SCALE_CAMPAIGNS.md lines 873-879 are the paragraph that documents the external-sort correction and quotes the refuted wording (re-pointed from lines 841-847, Q-1141) (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 1922)
+scripts/doc_gates.d/20_retract_links_status.sh	reports/evidence/f1/F1_ORBIT_QUOTIENT_2026_07.md	-	75df37bd2ebb	ATTESTED: F1_ORBIT_QUOTIENT_2026_07.md line 9 prints the estimate 1.3287e38 the comment counts as one of its three occurrences (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 1096)
+scripts/doc_gates.d/20_retract_links_status.sh	reports/evidence/f1/FH1_RESIDUAL_DOMINANCE.md	-	0419dcb55b7a	ATTESTED: FH1_RESIDUAL_DOMINANCE.md line 181 carries the 1.3287e38 estimator value, the third occurrence the comment counts (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 1097)
+scripts/doc_gates.d/80_repro_reach_claim_shapes.sh	documentation/SOLVE.md	-	3586e7aaaed0	ATTESTED: SOLVE.md line 133 is the 32! x 2^32 sentence, 'the number of ways to order 32 pairs and choose an orientation for each' (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 1796)
+scripts/doc_gates.d/80_repro_reach_claim_shapes.sh	documentation/SOLVE.md	-	20a8c11c3532	ATTESTED: SOLVE.md line 682 is 'the pair-only-C4 fiber is 2,703,360 vectors', the published sum the comment quotes (its addends wrap onto line 683) (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 1825)
+scripts/doc_gates.d/80_repro_reach_claim_shapes.sh	documentation/PREREG_CLASSA_QUERY_SET.md	-	67021235000b	ATTESTED: PREREG_CLASSA_QUERY_SET.md line 127 is the twenty_four_dvd scope cell, one of the XA-24 sites the leg names (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 2603)
+scripts/doc_gates.d/80_repro_reach_claim_shapes.sh	reports/TR12_QUERY_PROGRAM.md	-	3fd49fde7beb	ATTESTED: TR-12 line 2162 is the XA row's 24-divisibility self-check cell, one of the XA-24 sites the leg names (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 2604)
+scripts/doc_gates.d/80_repro_reach_claim_shapes.sh	reports/TR5_SYMMETRY.md	-	2b2484dea3aa	ATTESTED: TR-5 line 159 names the four twenty_four_dvd theorems and the DIV-24 gate, one of the XA-24 sites the leg names (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 2604)
+scripts/doc_gates.d/80_repro_reach_claim_shapes.sh	scripts/tr12_repro.sh	-	5f8ac9f13919	ATTESTED: tr12_repro.sh line 3214 echoes the XA-24 gate header, the site in the script the leg names (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 2604)
+scripts/doc_gates.d/80_repro_reach_claim_shapes.sh	documentation/QUERY_INVENTORY.md	-	f70a73dc631f	ATTESTED: QUERY_INVENTORY.md line 278 is the XA-24 row whose wording the sentence unit does not catch (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 2605)
+scripts/doc_gates.d/90_claim_artifacts.sh	documentation/CAMPAIGN_METHODOLOGY.md	-	2ea4c7a9631a	ATTESTED: CAMPAIGN_METHODOLOGY.md line 430 carries '65,281 cells (41.2 %)', the exempt sentence the comment measured (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 503)
+scripts/doc_gates.d/90_claim_artifacts.sh	documentation/CORRECTIONS.md	-	ba2da037759d	ATTESTED: CORRECTIONS.md line 4001 is the **BEFORE.** quotation of the retired all-cells orbit-test wording (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 520)
+scripts/doc_gates.d/90_claim_artifacts.sh	reports/METHODS.md	-	9973558dc66b	ATTESTED: METHODS.md line 75 is the |C1-C7| exact-integer row the queued mechanisation names (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 677)
+scripts/doc_gates.d/90_claim_artifacts.sh	documentation/CORRECTIONS.md	-	c5478cb6408d	ATTESTED: CORRECTIONS.md line 3578 is the ledger sentence 'MCKENNA.md:88 said the --fft ...', the one real `said` exemption (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 835)
+scripts/doc_gates.d/95_derived_figures_scope.sh	reports/TR1_EIGHT_CENTURIES_MEASURED.md	-	35cc0904e106	ATTESTED: TR-1 lines 132-134 are the wrap-parity 1/16 = 6.25% reference paragraph, the sibling the allowance held (since corrected in place) (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 404)
+scripts/doc_gates.d/95_derived_figures_scope.sh	documentation/DEVELOPMENT.md	-	950cf7eac7d5	ATTESTED: DEVELOPMENT.md lines 47-55 are the python3 >= 3.10 prerequisites bullet with its stdlib-core and P2 scope (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 867)
+scripts/doc_gates.d/95_derived_figures_scope.sh	documentation/DEVELOPMENT.md	-	2752984f16fa	ATTESTED: DEVELOPMENT.md line 51 carries `P2` inside that bullet (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 868)
+scripts/doc_gates.d/95_derived_figures_scope.sh	documentation/DEVELOPMENT.md	-	231014fe60f6	ATTESTED: DEVELOPMENT.md line 55 carries `P2` again, the bullet's last line (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 868)
+scripts/doc_gates.d/95_derived_figures_scope.sh	documentation/PARTITION_STABILITY_BOUNDARIES.md	-	731f07de757c	ATTESTED: PARTITION_STABILITY_BOUNDARIES.md line 62 is the scale-bounded 4-set identification paragraph, the site of Codex A05 row 7 (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 1711)
+scripts/doc_gates.d/95_derived_figures_scope.sh	documentation/README.md	-	f0bf6fc01b2b	ATTESTED: documentation/README.md line 50 is the PARTITION_STABILITY_BOUNDARIES.md index entry carrying 'greedy' (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 1796)
+scripts/doc_gates.sh	reports/METHODS.md	-	01e8d5e76dbc	ATTESTED: METHODS.md line 71 is the C1-C5 space-size row labelled WITHDRAWN 2026-08-24, the GATE 5b candidate fixed that day (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 2857)
+scripts/doc_gates.sh	reports/METHODS.md	-	01e8d5e76dbc	ATTESTED: METHODS.md line 71 is the same labelled row (content-checked 2026-11-15, Opus, Q-1141 comment rule; cited from line 2949)
 PINS
 )
 TARGET_PINS="${CITGATE_TARGET_PINS-$TARGET_PINS_DEFAULT}"
@@ -812,6 +837,17 @@ def context(lines, li, ismd):
 #   CONTROL for the leg: with k != 0 almost every checkable citation must go stale, and the ones
 #   that do not are the leg's chance landings. Never set it in a gate run.
 LEGB = re.compile(r'\.(?:md|py|sh|tsv)$')
+# * COMMENT RULE (Q-1141, 2026-11-15). A `<file>:N` pointer in a COMMENT of the doc gates
+#   (scripts/doc_gates.sh and scripts/doc_gates.d/) usually names its subject in words, not in a
+#   backticked identifier, so the miner finds no anchor and leg B used to count it as uncheckable and
+#   move on. MEASURED on d64d5595 (--all-files --all-targets): 45 such comment pointers, 21 of them
+#   stale. Most recorded a past tree (a pre-fix line, a measurement) and now carry that revision as
+#   `<file>:N@<sha>`; the rest were re-pointed by content. An unanchored comment pointer in that scope
+#   is now a FAIL unless an ATTESTED pin (key `-`, content-hashed, below) vouches for it, so it gets the
+#   stale check a prose pointer gets: the pin stops matching when the cited lines move or change, and
+#   the gate fails until a person re-reads it. Pointers that LAND or are stale by anchor are judged by
+#   leg B as before; code lines and other scripts are unchanged.
+CMT_SCOPE = re.compile(r'^scripts/doc_gates(?:\.sh$|\.d/[^/]+\.sh$)')
 SH_TIGHT = os.environ.get("CITGATE_SH_TIGHT", "1")
 RARE = 3
 PROBE = int(os.environ.get("CITGATE_PROBE_SHIFT", "0") or 0)
@@ -1006,6 +1042,7 @@ pend, a2 = [], Counter()
 # so a second new line cannot re-use an old citation the first one already took.
 _a2_avail = {}
 bstate, sh_ck, sh_st, att_seen = {}, Counter(), Counter(), Counter()
+cunchk = []   # Q-1141: unanchored citations on doc-gate comment lines
 totA = totB = checked = 0
 for p in files:
     try:
@@ -1138,6 +1175,8 @@ for p in files:
             if st == "lands" and JUDGE_B_WEAK[0]:
                 weak.append((p, li, t, tg, cands, key, h))
             if st == "unchk":
+                if CMT_SCOPE.match(p) and line.lstrip().startswith("#"):
+                    cunchk.append((p, li, t, tg, h))    # the comment rule (Q-1141), judged below
                 continue
             checked += 1
             sh_ck[tg.endswith(".sh")] += 1
@@ -1227,6 +1266,13 @@ for p, li, t, tg, cs, k, h in weak:
 for k in wgone:
     print("WEAKGONE %s -> %s #%s" % k)
 print("CONTENTRULE %s" % ("FAIL" if wnew or wgone else "PASS"))
+cbad = [x for x in cunchk if pins[(x[0], x[3], "-", x[4])] == 0]
+print("COUNT comment-rule (Q-1141) doc-gate comment citations unanchored=%d attested=%d unvouched=%d"
+      % (len(cunchk), len(cunchk) - len(cbad), len(cbad)))
+for p, li, t, tg, h in cbad:
+    print("UNVOUCHED %s:%d %s [%s] names no anchor and no attested pin vouches for it" % (p, li, t, tg))
+    if os.environ.get("CITGATE_PINROWS") == "1":      # an ATTESTED row to fill in after reading the cited lines
+        sys.stderr.write("PINROW\t%s\t%s\t-\t%s\t%s:%d %s\n" % (p, tg, h, p, li, t))
 for s in shift:
     print("SHIFT " + s)
 for s in inhunk:
@@ -1277,6 +1323,10 @@ if gone_att:
     bad.append("leg A2: attested pin(s) match no unanchored citation at that content -- the citation "
                "moved or its target changed; RE-CHECK and re-hash, or drop: "
                + ", ".join("%s->%s#%s" % (k[0], k[1], k[3]) for k in gone_att))
+if cbad:
+    bad.append("comment rule (Q-1141): %d doc-gate comment citation(s) name no anchor and are not vouched for "
+               "by an attested pin (read the cited lines; re-point, revision-pin as <file>:N@<sha>, or attest): "
+               % len(cbad) + ", ".join("%s:%d %s" % (p, li, t) for p, li, t, _, _ in cbad[:6]))
 if wnew:
     bad.append("content rule (Q-572): %d citation(s) land only on a common anchor off the cited span, or "
                "on a print argument, and are not in the reviewed CONTENT_PINS: "
@@ -1317,7 +1367,7 @@ verdict_all() { # $1 root $2 base $3 base-explicit $4 pins [$5 all-targets $6 ta
   else echo FAIL; fi
 }
 print_all() { # the --all-files report; a run that printed no verdict at all (a crash) shows its tail
-  sed -n 's/^COUNT /  [cite] /p;s/^WEAK /  [weak-reviewed] /p;s/^NEWWEAK /  [NEW-weak] /p;s/^WEAKGONE /  [weak-pin-unmatched] /p;s/^SHIFT /  [SHIFT] /p;s/^INHUNK /  [inhunk] /p;s/^REPIN /  [REPIN] /p;s/^NEW /  [NEW] /p;s/^OPEN /  [open] /p;s/^VERDICT FAIL /  [FAIL] /p;s/^VERDICT PASS /  [ok] /p;s/^ERROR /  [ERROR] /p;/^PINROW\t/p;/^CPINROW\t/p' "$OUT"
+  sed -n 's/^COUNT /  [cite] /p;s/^WEAK /  [weak-reviewed] /p;s/^NEWWEAK /  [NEW-weak] /p;s/^WEAKGONE /  [weak-pin-unmatched] /p;s/^SHIFT /  [SHIFT] /p;s/^INHUNK /  [inhunk] /p;s/^REPIN /  [REPIN] /p;s/^NEW /  [NEW] /p;s/^UNVOUCHED /  [UNVOUCHED] /p;s/^OPEN /  [open] /p;s/^VERDICT FAIL /  [FAIL] /p;s/^VERDICT PASS /  [ok] /p;s/^ERROR /  [ERROR] /p;/^PINROW\t/p;/^CPINROW\t/p' "$OUT"
   grep -q '^VERDICT \|^ERROR ' "$OUT" || tail -5 "$OUT" | sed 's/^/  [crash] /'
 }
 

@@ -12682,3 +12682,17 @@ entry describes the review itself, which had none.)*
   XA `$`-anchor value: solve.py's money-mode echo line, its `$` columns or break-even, or `--xa-usd-per-hour` or
   `--xa-budget-usd` with a value. The option names stay. A planted money-mode certificate and a planted `.gz` fail.
   Today's tree passes: the one XA certificate prices in hours. Nothing else changed.
+
+## 2026-11-15 — doc-gate comment pointers checked; inventory sha8 compared as a string
+
+- **scripts/citation_line_gate.sh (CX-37G-A, Q-1141).** A `<file>:N` pointer in a comment of the doc gates that
+  names no anchor now FAILs unless an attested, content-hashed pin vouches for it. Of 45 such pointers, 21 were
+  stale: 17 now carry the revision they describe (`<file>:N@<sha>`), and 4 were re-pointed by content. The other
+  24 were read; 21 are newly attested (3 already were), as are 3 of the re-pointed ones. `TestQ1141DocGateCommentPointers` plants a stale comment pointer and its controls.
+- **scripts/corrections_inventory.sh (CX-37G-A, Q-1142).** `--check` compared the sha8 cell with awk `$6==h`, a
+  numeric comparison when both sides look like numbers, so a sha8 like `9754e750` also dropped other
+  digits-e-digits rows and the check said STALE. It is now a string comparison (`$6""==h""`).
+  `TestQ1142InventoryShaStringCompare` plants such a sha8. No count, verdict or canonical sha changed.
+- **scripts/correction_marker_inventory.sh (CX-37G-A).** Two `REVIEWED` rows, for the SYMMETRY_SEARCH.md markers
+  at lines 302 and 306. Both left class 3 when the comment pointer that held them there was repaired; each was
+  read in its sentence and is class 1.

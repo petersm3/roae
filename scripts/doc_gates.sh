@@ -2133,7 +2133,7 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'Prose that mentions **Frobnicate t
   # LEG 3, the backtick path. Before this commit `\s*` could not cross the closing backtick,
   # so a reference written `` `documentation/X.md` §\"...\" `` was not extracted AT ALL — not
   # passed, not failed, invisible. One of the corpus's two was dead
-  # (PARTITION_STABILITY_BOUNDARIES.md:83, pointing at a section de3422b had relocated).
+  # (PARTITION_STABILITY_BOUNDARIES.md:83@2a0c6f15, pointing at a section de3422b had relocated).
   assert_fires_why "GATE 4b LEG 3: a backticked path no longer hides a dead reference" secrefs \
     'nothing in documentation/CRITIQUE\.md is named "no such section zzz"' \
 "p='documentation/GUIDE.md'
@@ -2144,7 +2144,7 @@ open(p,'w',encoding='utf-8').write(s+chr(10)+'See \`documentation/CRITIQUE.md\` 
   # line-at-a-time, so a hard wrap between the file name and its §\"…\" hid the reference
   # completely. GATE 3's hardening note (a) records the identical evasion for a different
   # gate; MEASURED here, it was hiding 15 of 85 references, one of them dead
-  # (SYMMETRY_SEARCH.md:275).
+  # (SYMMETRY_SEARCH.md:275@2a0c6f15).
   assert_fires_why "GATE 4b LEG 4: a hard wrap no longer hides a dead reference" secrefs \
     'nothing in documentation/CRITIQUE\.md is named "no such wrapped section qqq"' \
 "p='documentation/GUIDE.md'
@@ -5865,7 +5865,7 @@ open(r,'w',encoding='utf-8').write(t+chr(10)+chr(9).join(['open','documentation/
   #
   # THE SECOND ANCHOR IS DERIVED, NOT WRITTEN: the injection reads the live registry's own
   # first `open` row, opens the file it names, finds the line its anchor sits on, and takes a
-  # DIFFERENT substring of that same line. Hardcoding a substring of CRITIQUE.md:137 would be
+  # DIFFERENT substring of that same line. Hardcoding a substring of CRITIQUE.md:137@3515441c would be
   # an anchor into adjudicated prose that the #146 fix is expected to rewrite; deriving it
   # means this case survives the row set changing and fails loudly if it cannot build.
   assert_fires_why "GATE 18 ratchet: an extra open row on an already-open line (row budget, isolated)" \

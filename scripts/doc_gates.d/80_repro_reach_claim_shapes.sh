@@ -985,7 +985,7 @@ import sys, io, re
 REG="documentation/WITHDRAWN_FIGURES.tsv"
 EXEMPT={"documentation/CORRECTIONS.md"}
 # CX-356 (cleanup M1 follow-up): the FRONT-DOOR pages state a registered withdrawn figure NOWHERE,
-# marked or not. The marker rule below cannot judge aptness, and PROJECT_OVERVIEW.md:121 showed the
+# marked or not. The marker rule below cannot judge aptness, and PROJECT_OVERVIEW.md:121@fee25e0b showed the
 # cost: it led with the withdrawn 3x10^37 as live prose for six weeks, and one WITHDRAWN word that
 # named only that figure also exempted the withdrawn coverage denominator beside it. These pages
 # carry the current value and a CX pointer; the figure itself lives in the ledger. NOT in the set:
@@ -1453,7 +1453,7 @@ PY
 #   reports/TR4_SIZE_OF_THE_SPACE.md:446. A retracted
 #   phrase QUOTED by the correction that retired it is narration, not assertion, and
 #   exempting it is what stops these gates firing on their own fixes. Measured: without
-#   it, GATE 30 fails on documentation/CORRECTIONS.md:4496-4497 and GATE 31 on :4121,
+#   it, GATE 30 fails on documentation/CORRECTIONS.md:4496-4497@b69f13f1 and GATE 31 on :4121,
 #   all three of which are the ledger describing the wording it removed.
 _g1_prelude() {
 _md_norm_prelude   # Q-965: the shared normaliser; flatten() below folds each line through it
@@ -1689,7 +1689,7 @@ MAXC = re.compile(r'maximum[^.]{0,80}?(?:single-boundary|per-boundary)[^.]{0,60}
 FIRST = re.compile(r'\bfirst\b|\bgreedy\b|k *= *1|step 1|10\.38')
 # The maximum a floor argument actually needs: quantified over CONTEXTS, not over the
 # greedy path. A sentence that already says so needs no 'unconditional' and must not be
-# failed for its absence (reports/TR4_SIZE_OF_THE_SPACE.md:292). Deliberately NOT a bare
+# failed for its absence (reports/TR4_SIZE_OF_THE_SPACE.md:358-359). Deliberately NOT a bare
 # 'over all' - that would exempt any sentence containing the phrase, including one that
 # says 'across all five measured steps', which is the defect's own wording.
 SUPREMUM = re.compile(r'all\b[^.]{0,40}(?:conditioning|contexts)'
