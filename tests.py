@@ -66991,7 +66991,10 @@ class TestQ735TwoAdicEvidence(unittest.TestCase):
     ATLAS = "runs/20260906_kc_ladders_n31/atlas_n31.json"
     FILES = ("README.md", "q735_common.py", "fourier_table.py", "identity_check.py", "n31_bound.py",
              "atlas_check.py", "mu_table.tsv", "ek_table.tsv", "pin_table.tsv", "fibres_n31.tsv",
-             "EXPECTED_TOKENS.txt")
+             "EXPECTED_TOKENS.txt",
+             # Q-1127 (2026-11-17, CX-37G-F): Theorem G+'s reproducer, its touching fibres and its own tokens file
+             # (EXPECTED_TOKENS.txt and LEGS are unchanged; TestQ1127FreeMoves runs the new script's fast parts)
+             "free_moves.py", "fibres_n31_touching.tsv", "EXPECTED_TOKENS_FREE_MOVES.txt")
     # leg name -> argv after the interpreter; the commands EXPECTED_TOKENS.txt was written from
     LEGS = (("fourier_table", ["fourier_table.py", "--check", D]),
             ("identity_check", ["identity_check.py", "20261113", "4"]),
@@ -67080,11 +67083,32 @@ class TestQ735TwoAdicEvidence(unittest.TestCase):
                      "That generalisation follows from the same steps but has not been tested on any other n = 31 budget.",
                      "That it is exactly 2^21·3 is read from\n  the atlas",
                      "Hammons, Kumar, Calderbank, Sloane and Solé, IEEE Trans.\nInform. Theory 40(2) (1994) 301–319",
-                     "The theorem was found and proved by a Fable lane\n(Claude Fable 5.2) and re-checked by a second Fable lane of this project"):
+                     "The theorem was found and proved by a Fable lane\n(Claude Fable 5.2) and re-checked by a second Fable lane of this project",
+                     # Q-1127 (2026-11-17, CX-37G-F): README Version A, Theorem G+
+                     "One case needs an extra fact: at a class-2 or class-4 boundary between one of the two class-6 slots and a third slot of the same support",
+                     "The group of moves depends on the fibre; we do not have one group acting on all walks.",
+                     "For the other seven we know no free move, and we do not claim that none exists.",
+                     "These are checks by AI model lanes of this project, not independent examination.",
+                     "the family count for V1 cells was not worked out",
+                     "is not a further independent implementation",
+                     "the 2^21 statement is not about them",
+                     "kinds (2) and (3) together give 26 − t in every fibre",
+                     "Kinds (2) and (3) together match one of these eight factors by free moves",
+                     "These conditions are sufficient; at an internal boundary of a support of weight 2 they are not always necessary",
+                     "and 2^κ is the number of identity choices"):
             self.assertIn(" ".join(frag.split()), t)
         for bad in ("Lean-verified", "independently reproduced", "new method", "novel", "first proof", "explains the gcd",
-                    "surprising"):
+                    "surprising",
+                    # Q-1127: wording the Fable pre-publication read, its fixes read and the blind check withdrew
+                    "explained by symmetry", "not a symmetry", "best possible family", "read by two lanes",
+                    "decisive fibres", "its complement pair", "lanes that read the proof",
+                    "the proof that it does so in every fibre", "Kind (3) matches one of these eight factors"):
             self.assertNotIn(bad, t)
+        # Q-1127 (blind check, fix 1; Fable L1 GO read, finding 4): no sentence may say that kind (3) alone gives a
+        # factor in every fibre. A sentence naming kind (3) and "every/each/all/any fibre(s)" must say "together".
+        for sent in re.split(r"(?<=[.;]) ", t):
+            if re.search(r"[Kk]ind \(3\)", sent) and re.search(r"(every|each|all|any) fibres?", sent):
+                self.assertIn("together", sent, "kind (3) alone is not claimed for every fibre: " + sent[:160])
         # the related-results sentence is the hedged one, and nothing here or in the TR-12 note claims novelty
         self.assertIn("For orderings of the hexagrams under these constraints, we are not aware of an earlier "
                       "statement of this divisibility.", t)
@@ -67134,6 +67158,249 @@ class TestQ735TwoAdicEvidence(unittest.TestCase):
             self.assertEqual(cit.count(who), 1, who)
 
 # end class TestQ735TwoAdicEvidence
+
+
+class TestQ1127FreeMoves(unittest.TestCase):
+    """Backlog Q-1127 (2026-11-17; CORRECTIONS CX-37G-F): Theorem G+, 2^14*3 divides N, every N(c) and every V2 cell
+    of the n=31 atlas by free actions of moves on walks, published in reports/evidence/q735_two_adic/ with its
+    reproducer free_moves.py, the touching fibres fibres_n31_touching.tsv and EXPECTED_TOKENS_FREE_MOVES.txt.  Only
+    the fast parts run here (each a few seconds at most): the fast legs L and A against the tokens file, the data-file
+    pins, the mutant leg's error and control paths, the --mutant command-line verdicts, an argument error, the touching
+    file's rows through the reproducer's own in_fibre, its hexagram table against solve.py, the README's labels and the
+    ledger entries.  The --quick profile, the leg-T mutant commands and the default run are documented commands
+    (minutes), as fourier_table.py --pins is; nothing here exercises legs E, S, T or M's full set.  Every test fails on
+    the parent tree, where the files do not exist; each asserts its precondition first.  Developed with AI assistance
+    (Claude, Anthropic): claude-opus-5-5; the proof is by a Fable lane (claude-fable-5-2) and was read by a second Fable
+    lane of this project with its own code; checks by AI model lanes of this project, not independent examination."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    D = "reports/evidence/q735_two_adic"
+    ATLAS = "runs/20260906_kc_ladders_n31/atlas_n31.json"
+    FM = D + "/free_moves.py"
+    TOK = D + "/EXPECTED_TOKENS_FREE_MOVES.txt"
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _need(self):
+        for rel in (self.FM, self.D + "/fibres_n31_touching.tsv", self.TOK):
+            self.assertTrue(os.path.exists(os.path.join(self.ROOT, rel)), "precondition: %s exists" % rel)
+
+    def _copy(self, mutate=None):
+        import shutil, tempfile
+        d = tempfile.mkdtemp(prefix="q1127fm_")
+        self.addCleanup(shutil.rmtree, d, True)
+        for f in ("free_moves.py", "fibres_n31.tsv", "fibres_n31_touching.tsv"):
+            shutil.copy(os.path.join(self.ROOT, self.D, f), os.path.join(d, f))
+        if mutate:
+            mutate(d)
+        return d
+
+    def _run(self, args, d=None, timeout=300):
+        import subprocess
+        script = os.path.join(d, "free_moves.py") if d else os.path.join(self.ROOT, self.FM)
+        p = subprocess.run([sys.executable, "-I", script] + args, cwd=self.ROOT, capture_output=True, text=True,
+                           timeout=timeout)
+        return [l for l in p.stdout.splitlines() if l.strip()], p.returncode, p.stdout[-3000:] + p.stderr[-3000:]
+
+    def _atlas(self):
+        a = os.path.join(self.ROOT, self.ATLAS)
+        self.assertTrue(os.path.exists(a), "precondition: the n=31 atlas is in the tree")
+        return a
+
+    @staticmethod
+    def _add_space(d):
+        with open(os.path.join(d, "fibres_n31.tsv"), "a") as fh:
+            fh.write(" ")
+
+    @staticmethod
+    def _drop_touching(d):
+        os.remove(os.path.join(d, "fibres_n31_touching.tsv"))
+
+    @staticmethod
+    def _flip_witness(d):
+        p = os.path.join(d, "fibres_n31_touching.tsv")
+        with open(p) as fh:
+            rows = fh.read().split("\n")
+        c = rows[1].split("\t"); w = c[4].split(","); w[0] = str(int(w[0]) ^ 1); c[4] = ",".join(w)
+        rows[1] = "\t".join(c)
+        with open(p, "w") as fh:
+            fh.write("\n".join(rows))
+
+    def _module(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("q1127_free_moves_t", os.path.join(self.ROOT, self.FM))
+        m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+        return m
+
+    def test_fast_legs_tokens(self):
+        self._need()
+        want = []
+        for line in self._r(self.TOK).splitlines():
+            if line and not line.startswith("#"):
+                run, tokline = line.split("\t", 1)
+                if run == "free_moves_fast":
+                    want.append(tokline)
+        self.assertEqual(len(want), 5, "precondition: the tokens file has the five free_moves_fast rows")
+        self.assertEqual(want[-1], "FREE_MOVES=PARTIAL legs=L,A")
+        lines, rc, tail = self._run(["--legs", "L,A", "--atlas", self._atlas()])
+        self.assertEqual(rc, 0, tail)
+        for t in want:
+            self.assertIn(t, lines, "%s missing as a whole line" % t)
+        self.assertEqual(lines[-1], "FREE_MOVES=PARTIAL legs=L,A")
+        self.assertFalse([l for l in lines if l.startswith("FREE_MOVES") and "=FAIL" in l], tail)
+
+    def test_data_file_change_fails_the_verdict(self):
+        self._need()
+        a = self._atlas()
+        lines, rc, tail = self._run(["--legs", "A", "--atlas", a], d=self._copy())
+        self.assertEqual((rc, lines[-1]), (0, "FREE_MOVES=PARTIAL legs=A"), "precondition: the unmodified copy " + tail)
+        for mutate, token in ((self._add_space, "FREE_MOVES_RECORDED_FILE=FAIL"),
+                              (self._drop_touching, "FREE_MOVES_TOUCHING_FILE=MISSING"),
+                              (self._flip_witness, "FREE_MOVES_TOUCHING_FILE=FAIL")):
+            with self.subTest(token=token):
+                lines, rc, tail = self._run(["--legs", "A", "--atlas", a], d=self._copy(mutate))
+                self.assertEqual(rc, 1, tail)
+                self.assertTrue(any(l.startswith(token + " ") for l in lines), tail)
+                self.assertEqual(lines[-1], "FREE_MOVES=FAIL legs=A", tail)
+
+    def test_mutant_leg_errors_and_controls(self):
+        self._need()
+        three = "atlas_v2_cell,atlas_v1_cell,atlas_v1_pair5"
+        lines, rc, tail = self._run(["--legs", "M", "--only-mutants", three, "--atlas", self._atlas()])
+        self.assertEqual(rc, 0, "precondition: with the atlas " + tail)
+        self.assertEqual(sum(1 for l in lines if l.startswith("FREE_MOVES_MUTANT_ATLAS_") and "=CAUGHT " in l), 3, tail)
+        self.assertTrue(any(l.startswith("FREE_MOVES_MUTANTS=PASS caught=3/3 ") for l in lines), tail)
+        lines, rc, tail = self._run(["--legs", "M", "--only-mutants", three, "--atlas", "/nonexistent/atlas_n31.json"])
+        self.assertEqual(rc, 1, tail)
+        self.assertEqual(sum(1 for l in lines if l.startswith("FREE_MOVES_MUTANT_ATLAS_") and "=ERROR " in l), 3, tail)
+        self.assertFalse([l for l in lines if "=CAUGHT" in l], "a missing input is never CAUGHT")
+        self.assertTrue(any(l.startswith("FREE_MOVES_MUTANTS=FAIL ") for l in lines), tail)
+        lines, rc, tail = self._run(["--legs", "M", "--only-mutants", "noop", "--atlas", self._atlas()])
+        self.assertEqual(rc, 1, tail)
+        self.assertTrue(any(l.startswith("FREE_MOVES_MUTANT_NOOP=MISSED ") for l in lines), "the leg can say MISSED")
+
+    def test_mutant_cli(self):
+        self._need()
+        a = self._atlas()
+        lines, rc, tail = self._run(["--legs", "L"])
+        self.assertTrue(rc == 0 and any(l.startswith("FREE_MOVES_LOCAL=PASS ") for l in lines), "precondition " + tail)
+        lines, rc, tail = self._run(["--mutant", "local_touch_swap", "--legs", "L"])
+        self.assertEqual(rc, 1, tail)
+        self.assertTrue(any(l.startswith("FREE_MOVES_LOCAL=FAIL ") for l in lines), tail)
+        self.assertTrue(lines[-1].startswith("FREE_MOVES=FAIL "), tail)
+        # a mutant that does not reach the selected leg: never PARTIAL (case A, the precondition of case B)
+        lines, rc, tail = self._run(["--mutant", "touch_free", "--legs", "L"], d=self._copy())
+        self.assertEqual(rc, 3, tail)
+        self.assertTrue(any(l.startswith("FREE_MOVES_MUTANT_LEG=NOT_SELECTED ") for l in lines), tail)
+        self.assertTrue(lines[-1].startswith("FREE_MOVES=MUTANT_NOT_CAUGHT "), tail)
+        self.assertFalse([l for l in lines if l.startswith("FREE_MOVES=PARTIAL")], tail)
+        # case B: the same command with a data file not as pinned is ERROR, never the red test's FAIL
+        lines, rc, tail = self._run(["--mutant", "touch_free", "--legs", "L"], d=self._copy(self._add_space))
+        self.assertEqual(rc, 2, tail)
+        self.assertTrue(lines[-1].startswith("FREE_MOVES=ERROR "), tail)
+        # case C: a leg the mutation does not reach fails -> ERROR (precondition: the true atlas -> exit 3)
+        lines, rc, tail = self._run(["--mutant", "touch_free", "--legs", "A", "--atlas", a])
+        self.assertEqual(rc, 3, "precondition " + tail)
+        lines, rc, tail = self._run(["--mutant", "touch_free", "--legs", "A", "--atlas", "/nonexistent/atlas_n31.json"])
+        self.assertEqual(rc, 2, tail)
+        self.assertTrue(lines[-1].startswith("FREE_MOVES=ERROR "), tail)
+        # --quick on a subset: PARTIAL, and leg G is reported as skipped
+        lines, rc, tail = self._run(["--quick", "--legs", "A", "--atlas", a])
+        self.assertEqual(rc, 0, tail)
+        self.assertIn("FREE_MOVES_QUICK=PARTIAL legs=A", lines)
+        self.assertTrue(any(l.startswith("FREE_MOVES_GROUP=SKIP_QUICK") for l in lines), tail)
+        self.assertFalse([l for l in lines if l.startswith("FREE_MOVES_QUICK=PASS")], tail)
+
+    def test_argument_errors(self):
+        self._need()
+        lines, rc, tail = self._run(["--legs", "A", "--atlas", self._atlas()])
+        self.assertEqual(rc, 0, "precondition: --atlas with a value runs " + tail)
+        for args in (["--atlas"], ["--legs", "A", "--atlas"], ["--seed", "x"], ["--legs", "Q"]):
+            with self.subTest(args=args):
+                lines, rc, tail = self._run(args)
+                self.assertEqual((rc, lines[-1] if lines else ""), (2, "FREE_MOVES=ERROR"), tail)
+
+    def test_touching_file_rows(self):
+        self._need()
+        m = self._module()
+        rows = [l.split("\t") for l in self._r(self.D + "/fibres_n31_touching.tsv").splitlines() if l.strip()]
+        self.assertEqual(rows[0], ["id", "source", "skeleton", "classes", "witness", "F_recorded"])
+        rows = rows[1:]
+        self.assertEqual(len(rows), 76)
+        kw = sorted([1] * 2 + [2] * 8 + [3] * 13 + [4] * 7 + [6])
+        for r in rows:
+            with self.subTest(row=r[0]):
+                self.assertEqual(len(r), 6)
+                skel, cls, wit = ([int(x) for x in r[c].split(",")] for c in (2, 3, 4))
+                self.assertEqual((len(skel), len(cls), len(wit)), (31, 31, 31))
+                self.assertEqual(sorted(cls), kw, "King Wen's class multiset")
+                self.assertTrue(m.in_fibre(wit, skel, cls), "the witness walk is in its fibre")
+        empty = [r for r in rows if r[5] == ""]
+        self.assertEqual(len(empty), 8)
+        self.assertEqual(sorted(r[0] for r in empty), sorted(r[0] for r in rows if r[1].startswith("third read")))
+        # mutant: one witness entry changed -> in_fibre false
+        r = rows[0]; skel, cls, wit = ([int(x) for x in r[c].split(",")] for c in (2, 3, 4))
+        wit[0] ^= 1
+        self.assertFalse(m.in_fibre(wit, skel, cls))
+
+    def test_hexagram_table_matches_solve_py(self):
+        import re
+        self._need()
+        m = self._module()
+        src = self._r("solve.py")
+        blk = src[src.index("binary_hexagrams = ["):]; blk = blk[:blk.index("]")]
+        self.assertEqual(m.KW_HEXAGRAMS, [int(x, 2) for x in re.findall(r"0b([01]{6})", blk)])
+        self.assertTrue(m.model_selfcheck())
+        self.assertEqual((m.RECORDED_SHA256, m.TOUCHING_SHA256),
+                         tuple(l.split("  ")[0] for n in ("fibres_n31.tsv", "fibres_n31_touching.tsv")
+                               for l in self._r(self.D + "/SHA256SUMS").splitlines() if l.endswith("  " + n)),
+                         "the pins in free_moves.py are the digests in SHA256SUMS")
+
+    def test_readme_version_a_labels(self):
+        t = " ".join(self._r(self.D + "/README.md").split())
+        self.assertEqual(t.count("**Why this number? Partly families of walks, partly a Fourier argument.**"), 1,
+                         "precondition: the paragraph exists once")
+        para = t[t.index("**Why this number?"):]
+        para = para[:para.index("*Corrections relative to the private write-up.*")]
+        pos = [para.find(l) for l in ("*Proved (a hand proof", "*Proved, by the Fourier argument.*",
+                                      "*Computed, not proved.*", "*Open.*")]
+        self.assertTrue(all(p >= 0 for p in pos), pos)
+        self.assertEqual(pos, sorted(pos), "the four labels in order")
+        self.assertEqual(t.count("**Free moves.** Notation of §2."), 1)
+
+    def _ledger_problems(self, c, h):
+        import re
+        probs = []
+        heads = re.findall(r"\n## (CX-[0-9A-Z-]+) — Theorem G\+: 2\^14·3 of the n=31 divisor by free actions", c)
+        if len(heads) != 1:
+            return ["CX heading found %d times" % len(heads)]
+        cx = heads[0]
+        body = c[c.index("\n## %s — Theorem G+" % cx) + 1:]
+        nxt = body.find("\n## ", 1)
+        body = " ".join((body if nxt < 0 else body[:nxt]).split())
+        for frag in ("free_moves.py", "No published figure changes", "complement pairs",
+                     "checks by AI model lanes of this project, not independent examination"):
+            if frag not in body:
+                probs.append("CX entry lacks %r" % frag)
+        sec = [s for s in h.split("\n## ") if s.startswith("2026-11-17 — batch Q1127-L1:")]
+        if len(sec) != 1:
+            probs.append("HISTORY section found %d times" % len(sec))
+        elif "(%s)" % cx not in sec[0] and "(%s," % cx not in sec[0]:
+            probs.append("HISTORY section does not name %s" % cx)
+        return probs
+
+    def test_ledger_and_history_entries(self):
+        c = self._r("documentation/CORRECTIONS.md")
+        h = self._r("documentation/HISTORY.md")
+        self.assertEqual(self._ledger_problems(c, h), [])
+        # mutant: the CX heading removed -> fails
+        cut = c.replace("— Theorem G+: 2^14·3 of the n=31 divisor by free actions", "— (removed)")
+        self.assertNotEqual(cut, c, "precondition: the mutant changes the text")
+        self.assertTrue(self._ledger_problems(cut, h))
+
+# end class TestQ1127FreeMoves
 
 
 class TestBatchQ1134(unittest.TestCase):
@@ -68189,7 +68456,7 @@ class TestBatchQ1140R(unittest.TestCase):
         self.assertEqual(self._unquoted_old(t), [])
         self.assertTrue(os.path.isfile(os.path.join(self.ROOT, "reports/METHODS.md")))
         with open(os.path.join(self.ROOT, self.README), encoding="utf-8") as fh:
-            self.assertEqual(len(fh.read().split("\n")) - 1, 226, "the README keeps its line count")
+            self.assertEqual(len(fh.read().split("\n")) - 1, 334, "the README line count: 226 at the CX-37C-R reword; 334 after Q-1127 L1 (CX-37G-F) added its free-move sections")
 
     def test_tr12_v142_row_carries_the_note(self):
         with open(os.path.join(self.ROOT, self.T12), encoding="utf-8") as fh:

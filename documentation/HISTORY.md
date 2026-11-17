@@ -12720,3 +12720,24 @@ entry describes the review itself, which had none.)*
   about 2.5 days for that one cell (a lower bound), and about 1,100 years on 8 threads to spend in full the smallest
   uniform budget that covers it (the time to spend that budget, not a lower bound on the run). The logs are not
   published.
+
+## 2026-11-17 — batch Q1127-L1: Theorem G+ (2^14·3 by free actions) and its reproducer
+
+- **reports/evidence/q735_two_adic/ (CX-37G-F).** Of the Q-735 divisor 2^21·3, the part 2^14·3 is now explained by
+  families of walks: in every fibre at least 2^{26 − t} ≥ 2^13 moves (flips, shifts, and the complement move at
+  the class-6 boundary) map the fibre onto itself, none but the identity fixing a walk, and with the free S3 action this gives
+  2^14·3 | N, every N(c) and every V2 cell. It is a hand proof by a Fable lane, read by a second Fable lane with its
+  own code; not formalised in Lean. The remaining 2^7 rests on the Fourier argument alone; on five recorded fibres
+  no group of slot-by-slot bijections accounts for any of it, and no claim is made either way. A dated note says
+  which pairs §1 item 3's "complement pairs" means. No published figure changes.
+- **free_moves.py, fibres_n31_touching.tsv, EXPECTED_TOKENS_FREE_MOVES.txt.** The reproducer and 76 hard touching
+  fibres. Runs on this tree (Python 3.12.3): `--quick` gives `FREE_MOVES_QUICK=PASS legs=L,E,S,T,A,M`, mutants
+  21/21 caught, last line `FREE_MOVES=PARTIAL legs=L,E,S,T,A,M` (150 s, 1.0 GB), every token line identical to
+  the run recorded before landing; `--quick --legs T` gives `FREE_MOVES_BOUND=PASS … set=quick` and
+  `--quick --mutant touch_free --legs T` gives `FREE_MOVES_BOUND=FAIL fibres=4 mutant=touch_free set=quick`, exit
+  1. The default run, `FREE_MOVES=PASS legs=L,E,S,T,G,A,M` with 21/21 mutants, was recorded from the same bytes
+  before landing (about 10 minutes, 2.3 GB) and was not repeated here.
+- **CLAUDE.md.** The evidence-instrument count is 28 (was 27). `TestQ1127FreeMoves` holds the fast legs, the
+  error paths and the ledger entry and fails on the parent tree. Fable's pre-publication read, its read of the
+  fixes and a blind re-check by a further Fable lane shaped the script and the text; these are checks by AI model
+  lanes of this project, not independent examination.

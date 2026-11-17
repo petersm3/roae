@@ -41134,3 +41134,53 @@ budget, and no other cell's size is measured. The run's logs are not published. 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, small public fixes lane; the probe re-run was
 an Opus backlog lane's, and the paragraph's draft is that lane's. Fable's (claude-fable-5-2) pre-publication read
 (2026-11-16) rewrote the time figures: the draft called the 1,100 years a lower bound on the run, which it is not.
+
+## CX-37G-F — Theorem G+: 2^14·3 of the n=31 divisor by free actions, with a reproducer (reports/evidence/q735_two_adic/; CLAUDE.md; tests.py)
+
+**2026-11-17.** **Source.** Backlog Q-1127, strengthening items (3) and (6): explain part of the Q-735 divisor
+(CX-37C-M) by families of walks, and publish that argument with a reproducer.
+
+**What is added.** In `reports/evidence/q735_two_adic/README.md`: a "Free moves" paragraph in §3 (the proof
+that in every fibre at least 2^{26 − t} ≥ 2^13 moves of flips, shifts and the class-6 complement move map the
+fibre onto itself, none but the identity fixing a walk, so that with Step 6 2^14·3 divides N, every N(c) and every V2 cell); a
+"Why this number?" paragraph after the six-pair argument, with its statements labelled *Proved*, *Proved, by the
+Fourier argument*, *Computed, not proved* and *Open* (the remaining 2^7 between 2^14·3 and 2^21·3 is not
+explained by any family found, and no claim is made either way); two §4 bullets; four §6 rows and two commands;
+and dated notes on the header, after §1 item 3 and on the §6 intro. New files: `free_moves.py` (one file,
+standard library; legs L, E, S, T, G, A and M, each printing whole-line verdict tokens, with 21 mutants that must
+fail after the unmutated check passes on the same input), `fibres_n31_touching.tsv` (76 generated n = 31 fibres
+built to be hard for the proof, each with a witness walk) and `EXPECTED_TOKENS_FREE_MOVES.txt` (the tokens of the
+documented `--quick` run). `SHA256SUMS` gains three rows; `EXPECTED_TOKENS.txt` is unchanged.
+
+**The complement pairs of §1 item 3.** A dated note after item 3 says which pairs "complement pairs" means there:
+the pairs that C1 forms by complement, both hexagrams their own reversal (King Wen's 27 and 28, 29 and 30, 61 and
+62), and not the four reversible pairs whose two hexagrams are also each other's complement (pair 5 among them).
+This clarifies published wording; the pinned sentence is not touched and no figure changes.
+
+**CLAUDE.md.** The `reports/evidence/**/*.py` bullet's count is 28 (was 27): `free_moves.py` is the new file,
+under the sanctioned glob. Measured with `git ls-files 'reports/evidence/**/*.py' | wc -l` on this tree.
+
+**Not changed.** Theorem items 1–3 of the README's §1 and every figure stand. No published figure changes: no
+family figure was public before. No count, digest of an existing data file, verdict or canonical sha changed. The
+proof is a hand proof and is not formalised in Lean.
+
+**Who.** The proof is by a Fable lane (claude-fable-5-2) and was read by a second Fable lane of this project with
+its own code; `free_moves.py` was assembled by an Opus lane (claude-opus-5-5) from those two lanes' checking
+scripts and is not a further independent implementation. Fable's pre-publication read of the script, the text and
+this landing asked for six required and eight smaller fixes to the script (among them: a changed data file did
+not fail the verdict, and a mutant whose input was missing counted as caught) and ten wording fixes; its read of
+the fixes asked for three more; a further Fable lane re-checked the claim blind, from the README text only, with its own code, and
+found one sentence of the draft too strong (in some fibres no move of the complement kind keeps the fibre), so the
+text says that kinds (2) and (3) together give the count. All of these are applied. These are checks by AI model
+lanes of this project, not independent examination.
+
+**Tests.** `TestQ735TwoAdicEvidence` lists the three new files and pins the new README sentences and the withdrawn
+draft wording. `TestQ1127FreeMoves` runs the fast legs L and A against `EXPECTED_TOKENS_FREE_MOVES.txt`, the
+data-file pins, the mutant leg's error and control paths, the `--mutant` verdicts, argument errors, every row of
+the touching file through the script's own fibre definition, its hexagram table against `solve.py`, the README's
+labels and this entry; each test fails on the parent tree. The `--quick` profile, the leg-T mutant command and the
+default run are documented commands (minutes) and not `tests.py` legs.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 assembled the reproducer, the touching file and
+the edits; the proof and its read are Fable's (claude-fable-5-2), as are the pre-publication read, the read of the
+fixes and the blind re-check.

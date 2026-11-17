@@ -1421,7 +1421,7 @@ INL-209615b0	2026-11-06	C3	corrections	inline	documentation/HISTORY_INDEX.md	261
 INL-1421ae93	2026-11-06	C1	withdrawals	inline	documentation/HISTORY_INDEX.md	262	| 234 | 2026-11-06 | iso | 12182 | [open](HISTORY.md#2026-11-06--batch-q1037b-three-withdrawals-three-scopings-and-two-tr-12tr-8-fixes-from-q-1037s-held-rows) 2026-11-06 — batch Q1037b: three withdrawals, three scopings and two TR-12/TR-8 fixes from Q-1037's held rows |
 INL-37c9e781	2026-11-10	C3	corrections	inline	documentation/HISTORY_INDEX.md	266	| 238 | 2026-11-10 | iso | 12239 | [open](HISTORY.md#2026-11-10--batch-q1037c-the-last-held-rows-of-the-published-figure-corrections) 2026-11-10 — batch Q1037c: the last held rows of the published-figure corrections |
 INL-26a6f788	2026-11-14	C3	corrected	inline	documentation/HISTORY_INDEX.md	285	| 257 | 2026-11-14 | iso | 12640 | [open](HISTORY.md#2026-11-14--batch-q1133-the-claim-to-artifact-audit-four-rows-corrected) 2026-11-14 — batch Q1133: the claim-to-artifact audit, four rows corrected |
-INL-324bcf8e	-	C3	corrections	inline	documentation/HISTORY_INDEX.md	298	| 148 | [open](HISTORY.md#missteps-and-corrections-summary) Missteps and corrections (summary) |
+INL-324bcf8e	-	C3	corrections	inline	documentation/HISTORY_INDEX.md	299	| 148 | [open](HISTORY.md#missteps-and-corrections-summary) Missteps and corrections (summary) |
 INL-50dd000	2026-09-01	C3	corrected	inline	documentation/KING_WEN_PROVENANCE.md	32	arrangement (Shaughnessy 2022, ch. 11). *(Corrected 2026-09-01: this previously described Xiping as
 INL-154b7ffc	-	C4	hedges	inline	documentation/KING_WEN_PROVENANCE.md	43	why this repository hedges whenever it refers to the sequence's age.
 INL-1b430e04	-	C3	typo	inline	documentation/KING_WEN_PROVENANCE.md	52	| **西仁村 pottery paddles** (長安, Shaanxi) | late Western Zhou at the latest — the excavator's typological date for surface finds; the numerals were incised before firing (曹瑋 2002) | Six numeral hexagrams on two paddles, surface-collected in 2001 from a kiln site since destroyed, which — read odd = yang / even = yin, with one numeral restored — give #7·8·9·10 and #63·64: two runs consecutive in the r [...truncated]
@@ -3565,8 +3565,8 @@ INL-ead252f	-	C4	caveat	inline	reports/evidence/q374_se_replicates/README.md	83	
 INL-2dbd1bd2	-	C4	caveat	inline	reports/evidence/q374_se_replicates/README.md	85	hundreds to thousands of hits at 2×10⁹ probes; `rotinv`'s CI is published with that caveat).
 INL-11d44261	-	C3	supersedes	inline	reports/evidence/q374_se_replicates/README.md	90	## What this supersedes
 INL-342af0c5	-	C1	withdrawn	inline	reports/evidence/q374_se_replicates/README.md	93	its author, and is withdrawn as unreproducible; the numbers above replace it. The two runs agree in
-INL-6c4c9e9	2026-11-14	C3	corrections	inline	reports/evidence/q735_two_adic/README.md	158	*Corrections relative to the private write-up.* The second lane's check ⚠ *(reworded 2026-11-14, CX-37C-R: this read "The independent check")* found three wording defects in
-INL-2fb89258	-	C3	corrected	inline	reports/evidence/q735_two_adic/README.md	159	the author's text, none used by the argument; this README carries the corrected forms. (i) Step 4: a
+INL-6c4c9e9	2026-11-14	C3	corrections	inline	reports/evidence/q735_two_adic/README.md	248	*Corrections relative to the private write-up.* The second lane's check ⚠ *(reworded 2026-11-14, CX-37C-R: this read "The independent check")* found three wording defects in
+INL-2fb89258	-	C3	corrected	inline	reports/evidence/q735_two_adic/README.md	249	the author's text, none used by the argument; this README carries the corrected forms. (i) Step 4: a
 INL-597b88e	-	C3	consistency	inline	reports/evidence/qoy1_q992/PREREGISTRATION.md	17	> are PREMISES being tested for consistency, not results, and §3.1 explains why Han's six is a
 INL-40cf030	-	C3	correction	inline	reports/evidence/qoy1_q992/PREREGISTRATION.md	49	correction, the independence check against C1–C7, what each outcome will be allowed to mean, and the
 INL-253c129e	-	C3	consistency	inline	reports/evidence/qoy1_q992/PREREGISTRATION.md	66	| `scripts/ouyang1993_ch4_check.py` checks H1/H2 | (private; at `e441a039`) | the coset-consistency theorem; coset labelling `key=min` (coset 0 = H16) |
@@ -3779,6 +3779,7 @@ INL-1dbfba98	-	C3	corrections	inline	viz/viz_tr5_orbit_collapse.md	88	theory is 
 INL-34469d7c	-	C3	corrections	inline	viz/viz_tr6_parity_alternations.md	76	is claimed novel. Developed with AI assistance (Claude, Anthropic); corrections invited.*
 INL-59b1cb3	-	C3	corrected	inline	viz/viz_tr7_circular_cycle.md	63	picture, and no renderer existed; the documents were corrected to say so. CX-191.
 INL-13a1de3a	-	C3	corrections	inline	viz/viz_tr7_circular_cycle.md	75	Developed with AI assistance (Claude, Anthropic); corrections invited.*
+GIT-34bebfb9	2026-11-17	C3	corrections	git	6c416274	-	tests.py: TestBatchQ1056 scans only its own ledger and HISTORY entries; TR-12 stamp re-recorded
 GIT-27489401	2026-11-16	C3	correction	git	b7dce274	-	Q-1140 cloud sweep D3 follow-up: SOLVE_C_CLI.md's four DEPLOYMENT.md pointers are attested by content
 GIT-dcecdb0	2026-05-17	C3	corrections	git	37cb645f	-	Q-1111 + Q-1058: the TR-4 figure's k = 14 label regenerated without "no far end"; the single-cell probe's bounds stated in time (CX-37G-C)
 GIT-b95d15e	2026-11-15	C3	superseded	git	f13505fb	-	Q-1133 rows 13 and 8 + Q-1097: CLAIM_TO_ARTIFACT row 13 re-cited to the 2026-11-15 Lean run, row 8's two missing pair witnesses archived, the IsClause bridge in tests.py (CX-37G-B)

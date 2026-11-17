@@ -1,0 +1,70 @@
+# Q-1127 (2026-11-17). The verdict and count tokens of free_moves.py, as whole lines, one per row: <run><TAB><token line>.
+# Runs, from the repository root:
+#   free_moves_quick  python3 reports/evidence/q735_two_adic/free_moves.py --quick --atlas runs/20260906_kc_ladders_n31/atlas_n31.json
+#   free_moves_fast   python3 reports/evidence/q735_two_adic/free_moves.py --legs L,A --atlas runs/20260906_kc_ladders_n31/atlas_n31.json
+# The free_moves_quick rows are every line of the --quick run that starts with FREE_MOVES (the "[mutant ...]" lines are
+# not token lines). They are a record of a run, not a test: --quick is a documented command and tests.py does not run it.
+# tests.py runs the free_moves_fast command (legs L and A) and the error paths, and checks the free_moves_fast rows.
+# Written on Python 3.12.3 from the bytes pinned in SHA256SUMS. Some tokens depend on Python's random module with the
+# fixed seed 20261116 (brute_forced_fibres, attained, the mutant detail fields); seeded random.Random streams have been
+# stable across recent CPython versions, but the Python documentation does not promise it. On another Python version,
+# compare the verdict words and the zero and hit counts first. These rows have not yet been compared on Python 3.10,
+# the oldest version the project's Python tools state.
+# The full default run (python3 reports/evidence/q735_two_adic/free_moves.py --atlas runs/20260906_kc_ladders_n31/atlas_n31.json,
+# about 10 to 50 minutes, 2.3 GB) printed these verdict lines from the same bytes on 2026-11-17 (Python 3.12.3); they are
+# listed here as documentation, not as rows:
+#   FREE_MOVES_MODEL=PASS
+#   FREE_MOVES_RECORDED_FILE=PASS sha256=9e56d2ae94683f72fee634933890cb8bed92adbfddb83601b72f5d6e90716c42
+#   FREE_MOVES_TOUCHING_FILE=PASS sha256=384ee2d188b5521b1f08512720242a574f6f0e7d299f434b55e207d21d9d0536
+#   FREE_MOVES_LOCAL=PASS cases=296052 violations=0 converse_cases=12288 converse_kept=0 control1_hits=192 control2_hits=12288
+#   FREE_MOVES_SMALL=PASS universes=3 walks=1274956 fibres=22388 touching=12584 touching_twice=1056 window_first=3055 window_last=3107 set=default
+#   FREE_MOVES_SELFTEST=PASS brute_forced_fibres=420
+#   FREE_MOVES_BOUND=PASS fibres=90 recorded=14 touching_file=76 min_dim_TY=13 attained=21 kernel=7 (full n=31 skeleton) set=default
+#   FREE_MOVES_RECORDED_F=PASS recorded_file=14/14 generator=68/68 no_count=8
+#   FREE_MOVES_TOUCHING=PASS fibres=76 t13_touching=45 joint_fibres=45 witnesses=76/76
+#   FREE_MOVES_TOUCHING_COVERAGE=PASS s*1=40 s*2=36 left=21 right=22 both=26 window_slots_1_2=4 window_slots_30_31=2 dim_TY_13=9 t_values=0,2,5,8,10,12,13
+#   FREE_MOVES_GROUP=PASS fibres=5 order=65536 translations=8192 orbit=8192 orbit_over=sampled_walks sample=1000_per_fibre
+#   FREE_MOVES_ATLAS=PASS sha256_pinned=True N_and_V2_div_2^14*3=True V1_2^19=True V1_selfreverse_2^21=True V1_pair5_2^19*3=True V1_min_v2_per_pair=19x28,21x3
+#   FREE_MOVES_MUTANTS=PASS caught=21/21 missed=0 error=0 set=default
+#   FREE_MOVES=PASS legs=L,E,S,T,G,A,M
+free_moves_quick	FREE_MOVES_MODEL=PASS
+free_moves_quick	FREE_MOVES_RECORDED_FILE=PASS sha256=9e56d2ae94683f72fee634933890cb8bed92adbfddb83601b72f5d6e90716c42
+free_moves_quick	FREE_MOVES_TOUCHING_FILE=PASS sha256=384ee2d188b5521b1f08512720242a574f6f0e7d299f434b55e207d21d9d0536
+free_moves_quick	FREE_MOVES_LOCAL=PASS cases=296052 violations=0 converse_cases=12288 converse_kept=0 control1_hits=192 control2_hits=12288
+free_moves_quick	FREE_MOVES_SMALL=PASS universes=3 walks=1274956 fibres=22388 touching=12584 touching_twice=1056 window_first=3055 window_last=3107 set=default
+free_moves_quick	FREE_MOVES_SELFTEST=PASS brute_forced_fibres=420
+free_moves_quick	FREE_MOVES_BOUND=PASS fibres=4 recorded=1 touching_file=3 min_dim_TY=13 attained=3 kernel=7 (full n=31 skeleton) set=quick
+free_moves_quick	FREE_MOVES_RECORDED_F=PASS recorded_file=1/1 generator=3/3 no_count=0
+free_moves_quick	FREE_MOVES_TOUCHING=PASS fibres=3 t13_touching=3 joint_fibres=3 witnesses=3/3
+free_moves_quick	FREE_MOVES_TOUCHING_COVERAGE=SKIP_QUICK s*1=2 s*2=1 left=2 right=0 both=1 window_slots_1_2=0 window_slots_30_31=0 dim_TY_13=2 t_values=13
+free_moves_quick	FREE_MOVES_GROUP=SKIP_QUICK (leg G is not in the quick profile)
+free_moves_quick	FREE_MOVES_ATLAS=PASS sha256_pinned=True N_and_V2_div_2^14*3=True V1_2^19=True V1_selfreverse_2^21=True V1_pair5_2^19*3=True V1_min_v2_per_pair=19x28,21x3
+free_moves_quick	FREE_MOVES_MUTANT_TOUCH_FREE=CAUGHT leg=T applicable=3 failed=3 precondition=PASS (touching row charged no condition)
+free_moves_quick	FREE_MOVES_MUTANT_CLASS3_FREE=CAUGHT leg=T applicable=3 failed=3 precondition=PASS (class-3 one-coordinate row charged 0)
+free_moves_quick	FREE_MOVES_MUTANT_TOUCH_SWAP_RULES=CAUGHT leg=T applicable=3 failed=3 precondition=PASS (the |s*| = 1 and |s*| = 2 touching rules exchanged)
+free_moves_quick	FREE_MOVES_MUTANT_TOUCH_AS_ORDINARY=CAUGHT leg=T applicable=3 failed=3 precondition=PASS (touching boundary charged as an ordinary internal one)
+free_moves_quick	FREE_MOVES_MUTANT_SIX_FREE=CAUGHT leg=T applicable=3 failed=3 precondition=PASS (class-6 boundary uncharged)
+free_moves_quick	FREE_MOVES_MUTANT_CLASS1_ONE=CAUGHT leg=T applicable=3 failed=3 precondition=PASS (class-1 boundary charged once)
+free_moves_quick	FREE_MOVES_MUTANT_INTERNAL_FREE=CAUGHT leg=T applicable=3 failed=3 precondition=PASS (internal class-2/4 boundaries uncharged)
+free_moves_quick	FREE_MOVES_MUTANT_CROSS24_FREE=CAUGHT leg=T applicable=3 failed=3 precondition=PASS (cross class-2/4 boundaries uncharged)
+free_moves_quick	FREE_MOVES_MUTANT_ZERO_GENERATOR=CAUGHT leg=T applicable=3 failed=3 precondition=PASS (a non-free element (the identity) offered as a generator)
+free_moves_quick	FREE_MOVES_MUTANT_OUTSIDE_GENERATOR=CAUGHT leg=T applicable=3 failed=3 precondition=PASS (a broken generator: a unit translation outside T_Y)
+free_moves_quick	FREE_MOVES_MUTANT_ALTER_F=CAUGHT leg=T applicable=2 failed=2 precondition=PASS (one recorded F altered)
+free_moves_quick	FREE_MOVES_MUTANT_BAD_WITNESS=CAUGHT leg=T applicable=3 failed=3 precondition=PASS (a witness walk altered)
+free_moves_quick	FREE_MOVES_MUTANT_DROP_SAME_SUPPORT=CAUGHT leg=T applicable=2 failed=2 precondition=PASS (same-support projections dropped from the T_Y criterion)
+free_moves_quick	FREE_MOVES_MUTANT_ANCHOR_FREE=CAUGHT leg=T applicable=1 failed=1 precondition=PASS (anchor boundary uncharged (o_1 = 0 dropped); applies when slot 1 has support 0)
+free_moves_quick	FREE_MOVES_MUTANT_GROUP_DROP_SAME_SUPPORT=CAUGHT leg=G more than 131072 elements precondition=PASS (same-support projections dropped from the bijection criterion)
+free_moves_quick	FREE_MOVES_MUTANT_LOCAL_TOUCH_SWAP=CAUGHT leg=L precondition=PASS (local lemma with the two touching rules exchanged)
+free_moves_quick	FREE_MOVES_MUTANT_LOCAL_NO_HYP=CAUGHT leg=L precondition=PASS (local lemma without the three-slot hypothesis)
+free_moves_quick	FREE_MOVES_MUTANT_SMALL_TOUCH_FREE=CAUGHT leg=E universes 01:caught 03:caught precondition=PASS (small-universe test with the touching row uncharged)
+free_moves_quick	FREE_MOVES_MUTANT_ATLAS_V2_CELL=CAUGHT leg=A precondition=PASS (one atlas V2 cell + 2^13)
+free_moves_quick	FREE_MOVES_MUTANT_ATLAS_V1_CELL=CAUGHT leg=A precondition=PASS (one atlas V1 cell + 2^18)
+free_moves_quick	FREE_MOVES_MUTANT_ATLAS_V1_PAIR5=CAUGHT leg=A precondition=PASS (one V1 cell of pair {7, 56} + 2^19)
+free_moves_quick	FREE_MOVES_MUTANTS=PASS caught=21/21 missed=0 error=0 set=quick
+free_moves_quick	FREE_MOVES_QUICK=PASS legs=L,E,S,T,A,M
+free_moves_quick	FREE_MOVES=PARTIAL legs=L,E,S,T,A,M
+free_moves_fast	FREE_MOVES_RECORDED_FILE=PASS sha256=9e56d2ae94683f72fee634933890cb8bed92adbfddb83601b72f5d6e90716c42
+free_moves_fast	FREE_MOVES_TOUCHING_FILE=PASS sha256=384ee2d188b5521b1f08512720242a574f6f0e7d299f434b55e207d21d9d0536
+free_moves_fast	FREE_MOVES_LOCAL=PASS cases=296052 violations=0 converse_cases=12288 converse_kept=0 control1_hits=192 control2_hits=12288
+free_moves_fast	FREE_MOVES_ATLAS=PASS sha256_pinned=True N_and_V2_div_2^14*3=True V1_2^19=True V1_selfreverse_2^21=True V1_pair5_2^19*3=True V1_min_v2_per_pair=19x28,21x3
+free_moves_fast	FREE_MOVES=PARTIAL legs=L,A
