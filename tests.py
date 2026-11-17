@@ -62524,8 +62524,13 @@ class TestBatchQ1056(unittest.TestCase):
         t = self._r(self.TR12)
         v137 = [l for l in t.split("\n") if re.match(r"\| v1\.37(?: \*\(current\)\*)? \| 2026-11-05 \|", l)]
         self.assertEqual(len(v137), 1)
-        cx = self._r("documentation/CORRECTIONS.md"); cx = cx[cx.find("\n## CX-36U — "):]
-        hist = self._r("documentation/HISTORY.md"); hist = hist[hist.find("\n## 2026-11-05 — push group Q1056"):]
+        # Scan only this group's own entries: each slice ends at the next "## " heading. The earlier
+        # slices ran to end of file, so a later entry quoting awk's `$6` tripped the dollar check.
+        def own(doc, head):
+            i = doc.find(head); self.assertGreaterEqual(i, 0, head)
+            j = doc.find("\n## ", i + len(head)); return doc[i:] if j < 0 else doc[i:j]
+        cx = own(self._r("documentation/CORRECTIONS.md"), "\n## CX-36U — ")
+        hist = own(self._r("documentation/HISTORY.md"), "\n## 2026-11-05 — push group Q1056")
         for name, text in (("row 13", self._row(13)), ("row 14", self._row(14)), ("v1.37", v137[0]),
                            ("CX-36U", cx), ("HISTORY", hist)):
             self.assertNotRegex(text, r"\$\s?\d", name + ": a dollar figure")
