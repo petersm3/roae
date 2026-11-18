@@ -1629,10 +1629,10 @@ class TestVerifyRecordsPath(unittest.TestCase):
             V.fiber_count(list(range(32)), 17)            # opening not in the pair
 
     def test_every_real_record_has_a_nonempty_fiber(self):
+        # SKIP-ALLOWLIST Q-1065: skips on the record host by design; scripts/test_skip_allowlist.tsv names it.
         # A record exists because some orientation vector satisfied C1-C5, so
         # its own stored orientation is a member of its fiber and no record may
-        # count 0. This checks fiber_count's SEMANTICS on real orderings, which
-        # the King Wen gate alone cannot: KW's ordering is a single point.
+        # count 0. This checks fiber_count's SEMANTICS on real orderings, which the King Wen gate alone cannot: KW's ordering is a single point.
         import os
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "solutions.bin")
         if not os.path.exists(path):
@@ -21398,7 +21398,7 @@ class TestQ798PrepushTreeKeyedReuse(unittest.TestCase):
         self.assertIn("PREPUSH_RECORD_ALL_PASS=YES", w.stdout.splitlines())
         with open(rec, encoding="utf-8") as fh:
             lines = fh.read().splitlines()
-        self.assertEqual(lines[0], "ROAE_PREPUSH_RECORD=2")   # Q-956: format v2
+        self.assertEqual(lines[0], "ROAE_PREPUSH_RECORD=3")   # Q-956: format v2; Q-1065: v3 (named skips)
         self.assertIn("TREE=" + self._git(repo, "rev-parse", "HEAD^{tree}"), lines)
         self.assertIn("CITGATE_BASE=" + a, lines)
         for leg in self.LEGS + ("HOOK", "TESTS", "CITATION", "TR12_STAMP_CURRENT"):
@@ -21560,7 +21560,7 @@ class TestQ798PrepushTreeKeyedReuse(unittest.TestCase):
             "truncated": raw[:-20],                                         # cut inside the last line
             "empty": b"",
             "bad-line": b"\x89PNG not a record\n",
-            "bad-header": raw.replace(b"ROAE_PREPUSH_RECORD=2", b"ROAE_PREPUSH_RECORD=v2"),   # Q-956: =1 is old-version
+            "bad-header": raw.replace(b"ROAE_PREPUSH_RECORD=3", b"ROAE_PREPUSH_RECORD=v3"),   # Q-956: =1 is old-version (Q-1065: =2 too)
         }
         # checksum: flip one hex digit of a LOG digest. Nothing but RECORD_SHA256 covers it.
         lines = raw.decode().splitlines()
@@ -29688,6 +29688,7 @@ class TestQ908PinnedWindowJoin(unittest.TestCase):
             self.assertIn(line, src)
 
     def test_acceptance_on_n9_n10_ladders(self):
+        # SKIP-ALLOWLIST Q-908: skips on the record host by design; scripts/test_skip_allowlist.tsv names it.
         sb, vb = self._binaries()
         if not (os.path.isfile(sb) and os.access(sb, os.X_OK) and
                 os.path.isfile(vb) and os.access(vb, os.X_OK)):
@@ -32351,6 +32352,7 @@ class TestQ919Gate21PrivateLegAsTheHookRunsIt(unittest.TestCase):
     @unittest.skipUnless(os.path.isdir(os.environ.get("ROAE_PRIVATE_DIR", "")),
                          "ROAE_PRIVATE_DIR not set to a directory: the operator-box leg cannot run here")
     def test_q919_real_private_checkout_as_hook_runs_it(self):
+        # SKIP-ALLOWLIST Q-919: skips on the record host by design; scripts/test_skip_allowlist.tsv names it.
         rc, out, tok, stale = self._run(os.environ["ROAE_PRIVATE_DIR"])
         self.assertEqual(tok, ["DOC_GATE_SCRIPT_PATHS_PRIVATE=RAN"], out)
         self.assertEqual(rc, 0, out)
@@ -37483,11 +37485,13 @@ class TestQ956PrepushRecordBindsItsLogs(unittest.TestCase):
         with open(hl, encoding="utf-8") as fh:
             hout = fh.read().splitlines()
         self.assertIn("PREPUSH_TOOLCHAIN=" + self.tc, hout, "the hook names the toolchain its legs ran under")
-        rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tail="Ran 3 tests in 0.1s\n\nOK (skipped=1)\n"))
+        # Q-1065: a skip now needs the tree's named allowlist (TestQ1065SkipAllowlist); this control runs clean.
+        rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tail="Ran 3 tests in 0.1s\n\nOK\n"))
         self.assertEqual(w.returncode, 0, w.stdout + w.stderr)
         L = self._lines(rec)
-        self.assertEqual(L[0], "ROAE_PREPUSH_RECORD=2")
-        for want in ("TOOLCHAIN=" + self.tc, "TESTS_RAN=3", "TESTS_FLOOR=3", "TESTS_SKIPPED=1", "LEG_TESTS=PASS"):
+        self.assertEqual(L[0], "ROAE_PREPUSH_RECORD=3")
+        for want in ("TOOLCHAIN=" + self.tc, "TESTS_RAN=3", "TESTS_FLOOR=3", "TESTS_SKIPPED=0", "TESTS_XFAILED=0",
+                     "TESTS_SKIP_LIST_SHA256=NONE", "LEG_TESTS=PASS"):
             self.assertIn(want, L)
         r, marks = self.Q._hook(self, repo, self.Q._push_line(self, b, a), record=rec)
         self.Q._assert_reused(self, r, marks)
@@ -37566,11 +37570,15 @@ class TestQ956PrepushRecordBindsItsLogs(unittest.TestCase):
                 self.assertEqual(w.returncode, 1, w.stdout)
                 self.assertIn("PREPUSH_RECORD_ALL_PASS=NO", w.stdout.splitlines())
                 self.assertIn("LEG_TESTS=FAIL", self._lines(rec))
-        rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tail="Ran 11 tests in 0.1s\n\nOK (skipped=9)\n"))
-        self.assertEqual(w.returncode, 0, "at the skip limit is still a PASS\n" + w.stdout)
+        # Q-1065: the old "at the limit (skipped=8) is still a PASS" is gone with the bare count: an
+        # unnamed skip in a tree without an allowlist FAILs (TestQ1065SkipAllowlist has the listed PASS).
+        rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tail="Ran 11 tests in 0.1s\n\nOK (skipped=1)\n"))
+        self.assertEqual(w.returncode, 1, "an unnamed skip is not a PASS\n" + w.stdout)
+        rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tail="Ran 11 tests in 0.1s\n\nOK\n"))
+        self.assertEqual(w.returncode, 0, "a clean full run is a PASS\n" + w.stdout)
         # MUTANT: the floor removed, "Ran 0 tests" + OK is a PASS again (the unfixed behaviour).
-        mut = self._mutant_helper(d, '''     && [ "$tran" -ge "$tfloor" ] && [ "$tskip" -le "$MAX_TEST_SKIPS" ]; then V[TESTS]=PASS''',
-                                  '''     && [ "$tskip" -le "$MAX_TEST_SKIPS" ]; then V[TESTS]=PASS''')
+        mut = self._mutant_helper(d, '''     && [ "$tran" -ge "$tfloor" ] && [ "$skipfail" = 0 ]; then V[TESTS]=PASS''',   # anchor moved by Q-1065
+                                  '''     && [ "$skipfail" = 0 ]; then V[TESTS]=PASS''')
         rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tail=cases["ran0"]), helper=mut)
         self.assertEqual(w.returncode, 0, "mutant killed: the floor was what refused Ran 0\n" + w.stdout)
         # MUTANT: the floor counted from nothing (1): a one-test run of a three-test tree passes.
@@ -37579,7 +37587,7 @@ class TestQ956PrepushRecordBindsItsLogs(unittest.TestCase):
         rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tail=cases["short"]), helper=mut2)
         self.assertEqual(w.returncode, 0, "mutant killed: the tree-derived floor was what refused Ran 2 of 3\n" + w.stdout)
         # MUTANT: the skip limit removed.
-        mut3 = self._mutant_helper(d, '''     && [ "$tran" -ge "$tfloor" ] && [ "$tskip" -le "$MAX_TEST_SKIPS" ]; then V[TESTS]=PASS''',
+        mut3 = self._mutant_helper(d, '''     && [ "$tran" -ge "$tfloor" ] && [ "$skipfail" = 0 ]; then V[TESTS]=PASS''',   # anchor moved by Q-1065
                                    '''     && [ "$tran" -ge "$tfloor" ]; then V[TESTS]=PASS''')
         rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tail=cases["skipped"]), helper=mut3)
         self.assertEqual(w.returncode, 0, "mutant killed: the skip limit was what refused skipped=10\n" + w.stdout)
@@ -38569,6 +38577,7 @@ class TestQ965MarkdownNormaliser(unittest.TestCase):
                 self.assertEqual(rc, 1, out[-3000:])
 
     def test_d_every_plant_passes_on_the_uncured_scripts(self):
+        # SKIP-ALLOWLIST Q-965: skips on the record host by design; scripts/test_skip_allowlist.tsv names it.
         if self.uncured is None:
             self.skipTest("public main %s is not in this clone; the uncured half cannot run" % self.PIN)
         self._use(self.uncured)
@@ -42641,6 +42650,7 @@ class TestQ979Q986Batch44(unittest.TestCase):
             self._use(self.fixed)
 
     def test_d_every_plant_passes_on_the_uncured_scripts(self):
+        # SKIP-ALLOWLIST Q-980: skips on the record host by design; scripts/test_skip_allowlist.tsv names it.
         if self.uncured is None:
             self.skipTest("public main %s is not in this clone; the uncured half cannot run" % self.PIN)
         self._use(self.uncured)
@@ -66072,6 +66082,7 @@ class TestQ1065AtlasFollowups(unittest.TestCase):
             self.assertIn(tok, dev[k:], tok)
 
     def test_n9_end_to_end_rehearsal(self):
+        # SKIP-ALLOWLIST Q-1065: skips on the record host by design; scripts/test_skip_allowlist.tsv names it.
         if os.environ.get("ROAE_Q1065_N9") != "1":
             self.skipTest("builds a binary and n=9 ladders; set ROAE_Q1065_N9=1 to run it")
         r = subprocess.run(["bash", os.path.join("scripts", "atlas_followups_n9.sh")], cwd=self.ROOT,
@@ -68332,7 +68343,7 @@ class TestBatchFT3fDocs(unittest.TestCase):
     assistance (Claude, Anthropic): claude-opus-5-5, from Codex (gpt-6-astra) final-review findings."""
 
     ROOT = os.path.dirname(os.path.abspath(__file__))
-    LINES = {"documentation/SOLVE_C_CLI.md": 4237, "documentation/DEVELOPMENT.md": 2835,
+    LINES = {"documentation/SOLVE_C_CLI.md": 4237, "documentation/DEVELOPMENT.md": 2844,  # 2835 until Q-1065 (skip allowlist, +9)
              "documentation/CAMPAIGN_METHODOLOGY.md": 1530, "documentation/DEPLOYMENT.md": 1207,  # 1380 until the cloud sweep D3 (Q-1140) moved two sections out
              "documentation/F1C5_LAYER_FORMAT.md": 622, "documentation/SOLUTIONS_FORMAT.md": 456,
              "documentation/PERFORMANCE_HISTORY.md": 1701}
@@ -71805,6 +71816,534 @@ class TestQ1079VersionFloorAndAllowances(unittest.TestCase):
 # end class TestQ1079VersionFloorAndAllowances (Q-1079: D990, D994, D1002, D1009)
 
 
+class TestQ1065SkipAllowlist(unittest.TestCase):
+    """Q-1065 (Fable SKIPCAP_RULING=ALLOWLIST). The verdict record's TESTS leg capped skips with a bare
+    count (MAX_TEST_SKIPS=8), which cannot tell an intended skip from a check that went quiet: Q-1065
+    (9 skips) and Q-1094 (12) were refused although their skips were intended, while any 8 unnamed
+    skips passed. Fix (record format v3): tests.py names every skip and expected failure in one block
+    before its summary; scripts/prepush_verdict_record.sh write requires that set to EQUAL HEAD's
+    scripts/test_skip_allowlist.tsv (unlisted, reason drift, duplicate and listed-but-ran all FAIL),
+    each entry's Q-row is bound by a `# SKIP-ALLOWLIST <row>` comment in the test's own body, and the
+    list's length is pinned as SKIP_ALLOWLIST_SKIPS / SKIP_ALLOWLIST_XFAILS in the script, which is
+    also the ceiling `check` re-applies to a resealed record.
+
+    Drives the REAL producer (_Q1065SkipLedgerRunner on an in-process suite) and the REAL helper and
+    hook on TestQ798's throwaway fixture. POSITIVE CONTROL: the listed skips PASS and the hook reuses
+    the record. RED: each violation FAILs with its own message. MUTANTS: each refusal removed from a
+    copy of the helper lets its red case through (anchors asserted exactly once); where two guards
+    cover one case (the ceiling backs up unlisted / duplicate / literal), the mutant removes both and a
+    second assertion shows that either one alone still refuses."""
+    Q = TestQ798PrepushTreeKeyedReuse
+    Q956 = TestQ956PrepushRecordBindsItsLogs
+    HOOK, HELPER, STUBS, Z40 = Q.HOOK, Q.HELPER, Q.STUBS, Q.Z40
+    COVERED, LOCAL, LEGS = Q.COVERED, Q.LOCAL, Q.LEGS
+    LIST = "scripts/test_skip_allowlist.tsv"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="q1065s_")
+        with open(cls.Q.HOOK, encoding="utf-8") as fh:
+            cls.hook_src = fh.read()
+        with open(cls.Q.HELPER, encoding="utf-8") as fh:
+            cls.helper_src = fh.read()
+        cls.n = 0
+        cls.tc = subprocess.run(["bash", cls.Q.HELPER, "toolchain"], capture_output=True, text=True,
+                                timeout=60).stdout.strip()
+        m = re.findall(r"^SKIP_ALLOWLIST_SKIPS=([0-9]+)$", cls.helper_src, re.M)
+        if len(m) != 1: raise AssertionError("the helper pins SKIP_ALLOWLIST_SKIPS exactly once")  # Q-373: no bare assert
+        cls.K = int(m[0])
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    _git, _write = Q956._git, Q956._write
+    _logs, _hook_log, _write_record, _lines = Q956._logs, Q956._hook_log, Q956._write_record, Q956._lines
+
+    # ---- fixture ------------------------------------------------------------------------------
+    def _beh(self):
+        """The default suite: K listed skips (each marked with its row) and one test that runs."""
+        return ([["test_s%d" % i, "skip", "needs gizmo %d (the fixture's tool)" % i, "Q-%d" % (9000 + i)]
+                 for i in range(self.K)] + [["test_run", "pass", None, None]])
+
+    def _entries(self):
+        return [["TestS.test_s%d" % i, "skip", "needs gizmo %d" % i, "Q-%d" % (9000 + i), "a host with gizmo %d" % i]
+                for i in range(self.K)]
+
+    def _src(self, beh, extra=""):
+        L = ["import unittest", "class TestS(unittest.TestCase):"]
+        for meth, act, arg, mark in beh:
+            if act == "xfail":
+                L.append("    @unittest.expectedFailure")
+            L.append("    def %s(self):" % meth)
+            if mark:
+                L.append("        # SKIP-ALLOWLIST %s" % mark)
+            if act == "skip":
+                L.append("        self.skipTest(%r)" % arg)
+            elif act == "subskip":
+                L += ["        for i in range(2):", "            with self.subTest(i=i):",
+                      "                self.skipTest(%r)" % arg]
+            elif act == "xfail":
+                L.append("        self.assertTrue(False%s)" % ((", %r" % arg) if arg else ""))
+            else:
+                L.append("        pass")
+        return "\n".join(L) + "\n" + extra
+
+    def _list_text(self, entries):
+        return ("# fixture allowlist\n" + "".join("\t".join(e) + "\n" for e in entries))
+
+    def _fixture(self, beh=None, entries=None, list_text=None):
+        d, repo, a, _ = self.Q._fixture(self)
+        self._write(os.path.join(repo, "tests.py"), self._src(beh or self._beh()))
+        self._write(os.path.join(repo, self.LIST), list_text if list_text is not None
+                    else self._list_text(entries or self._entries()))
+        self._git(repo, "add", "tests.py", self.LIST)
+        self._git(repo, "commit", "-qm", "B2: tests.py and its skip allowlist")
+        return d, repo, a, self._git(repo, "rev-parse", "HEAD")
+
+    def _produce(self, src):
+        """The REAL producer: tests.py's runner on an in-process suite built from `src`."""
+        import io
+        ns = {"__name__": "__main__"}
+        exec(compile(src, "<q1065 fixture>", "exec"), ns)
+        suite = unittest.TestSuite()
+        for name in sorted(k for k, v in ns.items() if isinstance(v, type) and issubclass(v, unittest.TestCase)):
+            suite.addTests(unittest.TestLoader().loadTestsFromTestCase(ns[name]))
+        buf = io.StringIO()
+        _Q1065SkipLedgerRunner(stream=buf, verbosity=2).run(suite)
+        return buf.getvalue()
+
+    def _judge(self, d, repo, hl, tail, helper=None):
+        rec, w = self._write_record(d, repo, hl, self._logs(repo, d, tests_tail=tail), helper=helper)
+        return rec, w
+
+    def _mut(self, *pairs):
+        src = self.helper_src
+        for old, new in pairs:
+            self.assertEqual(src.count(old), 1, "mutant anchor not found exactly once: %r" % old)
+            src = src.replace(old, new)
+        p = os.path.join(self.tmp, "helper_mut_%d.sh" % random.randrange(1 << 30))
+        self._write(p, src, 0o755)
+        return p
+
+    def _assert_fail(self, w, rec, why):
+        self.assertEqual(w.returncode, 1, w.stdout + w.stderr)
+        self.assertIn("LEG_TESTS=FAIL", self._lines(rec))
+        self.assertIn(why, w.stdout)
+
+    # anchors of the refusals (each must exist exactly once in the helper)
+    A_UNLISTED = ('''      skp "unlisted $_kind: $_id ($_reason)"; continue''', '''      continue''')
+    A_DRIFT = ('''*) skp "reason drift:''', '''*) true "reason drift:''')
+    A_RAN = ('''[ -n "${AL_HIT[$_id]+x}" ] || skp "listed but did not''', '''true || skp "listed but did not''')
+    A_CEIL = ('''[ "$tskip" -le "$SKIP_ALLOWLIST_SKIPS" ] || skp''', '''true || skp''')
+    A_XCEIL = ('''[ "$txf" -le "$SKIP_ALLOWLIST_XFAILS" ] || skp''', '''true || skp''')
+    A_LITERAL = ('''[ "$al_skips" = "$SKIP_ALLOWLIST_SKIPS" ] \\''', '''true \\''')
+    A_MARKER = ('''      || skp "$SKIP_LIST line $_ln: $_id carries no''', '''      || true "$SKIP_LIST line $_ln: $_id carries no''')
+    A_NOBLOCK = ('''      || skp "the tests log reports''', '''      || true "the tests log reports''')
+    A_ORDER = ('''[ "$_en" -ge "$_rn" ]; then
+      skp "the skip block does not precede''', '''false; then
+      skp "the skip block does not precede''')
+    A_KIND = ('''if [ -z "${AL_KIND[$_id]+x}" ] || [ "${AL_KIND[$_id]}" != "$_kind" ]; then''', '''if [ -z "${AL_KIND[$_id]+x}" ]; then''')
+    A_DUP = ('''[ -z "${AL_HIT[$_id]+x}" ] || { skp "$_id reported''', '''true || { skp "$_id reported''')
+
+    # ---- the producer -------------------------------------------------------------------------
+    def test_producer_names_every_skip_and_xfail_before_the_summary(self):
+        src = ("import unittest\n"
+               "class TestP(unittest.TestCase):\n"
+               "    def test_plain(self):\n        self.skipTest('needs a\\ttab, a % sign and a\\nnewline')\n"
+               "    def test_sub(self):\n        with self.subTest(x=1):\n            self.skipTest('sub reason')\n"
+               "    @unittest.expectedFailure\n    def test_xf(self):\n        self.assertTrue(False)\n"
+               "    def test_ok(self):\n        pass\n"
+               "class TestC(unittest.TestCase):\n"
+               "    @classmethod\n    def setUpClass(cls):\n        raise unittest.SkipTest('class off')\n"
+               "    def test_never(self):\n        pass\n")
+        out = self._produce(src)
+        L = out.splitlines()
+        blk = [l for l in L if l.startswith("ROAE_TESTS_SKIP")]
+        self.assertEqual(blk[0], "ROAE_TESTS_SKIPS=4")
+        self.assertEqual(blk[-1], "ROAE_TESTS_SKIPS_END=4")
+        self.assertEqual(sorted(blk[1:-1]), sorted([
+            "ROAE_TESTS_SKIP=skip\tTestC.setUpClass\tclass off",
+            "ROAE_TESTS_SKIP=skip\tTestP.test_plain\tneeds a%09tab, a %25 sign and a%0Anewline",
+            "ROAE_TESTS_SKIP=skip\tTestP.test_sub\tsub reason",
+            "ROAE_TESTS_SKIP=xfail\tTestP.test_xf\tAssertionError: False is not true"]))
+        self.assertLess(L.index("ROAE_TESTS_SKIPS_END=4"), [i for i, l in enumerate(L) if l.startswith("Ran ")][0],
+                        "the block precedes the summary, so the log's last lines are still Ran/OK")
+        self.assertEqual(L[-1], "OK (skipped=3, expected failures=1)")
+        clean = self._produce("import unittest\nclass TestZ(unittest.TestCase):\n    def test_a(self):\n        pass\n")
+        self.assertIn("ROAE_TESTS_SKIPS=0", clean.splitlines())
+        # The real entry point uses this runner.
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "tests.py"), encoding="utf-8") as fh:
+            main = fh.read().split('\nif __name__ == "__main__":\n')[-1]
+        self.assertIn("unittest.main(verbosity=2, testRunner=_Q1065SkipLedgerRunner)", main)
+
+    # ---- positive control ---------------------------------------------------------------------
+    def test_positive_control_listed_skips_pass_and_the_hook_reuses_the_record(self):
+        d, repo, a, b = self._fixture()
+        hl = self._hook_log(d, repo, b)
+        rec, w = self._judge(d, repo, hl, self._produce(self._src(self._beh())))
+        self.assertEqual(w.returncode, 0, w.stdout + w.stderr)
+        L = self._lines(rec)
+        with open(os.path.join(repo, self.LIST), "rb") as fh:
+            lsha = hashlib.sha256(fh.read()).hexdigest()
+        ids = "".join(sorted("skip\tTestS.test_s%d\n" % i for i in range(self.K)))
+        for want in ("ROAE_PREPUSH_RECORD=3", "TESTS_SKIPPED=%d" % self.K, "TESTS_XFAILED=0",
+                     "TESTS_SKIP_LIST_SHA256=" + lsha,
+                     "TESTS_SKIP_IDS_SHA256=" + hashlib.sha256(ids.encode()).hexdigest(), "LEG_TESTS=PASS"):
+            self.assertIn(want, L)
+        r, marks = self.Q._hook(self, repo, self.Q._push_line(self, b, a), record=rec)
+        self.Q._assert_reused(self, r, marks)
+        self.assertIn("skip allowlist: sha256 " + lsha, r.stdout)
+
+    def test_a_listed_xfail_passes_only_with_its_pinned_count_and_its_reason(self):
+        K = self.K
+        beh = self._beh(); beh.insert(K, ["test_xf", "xfail", None, "Q-9100"])
+        ent = self._entries() + [["TestS.test_xf", "xfail", "AssertionError: False is not true", "Q-9100", "nowhere yet"]]
+        d, repo, a, b = self._fixture(beh=beh, entries=ent)
+        hl = self._hook_log(d, repo, b)
+        tail = self._produce(self._src(beh))
+        one = self._mut(("\nSKIP_ALLOWLIST_XFAILS=0\n", "\nSKIP_ALLOWLIST_XFAILS=1\n"))
+        rec, w = self._judge(d, repo, hl, tail, helper=one)
+        self.assertEqual(w.returncode, 0, "POSITIVE CONTROL: a listed expected failure, pinned, is a PASS\n" + w.stdout)
+        self.assertIn("TESTS_XFAILED=1", self._lines(rec))
+        self.assertIn("TESTS_SKIPPED=%d" % K, self._lines(rec))
+        rec, w = self._judge(d, repo, hl, tail)                     # the tree's literal (0): listed but not pinned
+        self._assert_fail(w, rec, "has 1 xfail entries but this script pins SKIP_ALLOWLIST_XFAILS=0")
+        rec, w = self._judge(d, repo, hl, tail.replace("AssertionError: False is not true", "ValueError: other"), helper=one)
+        self._assert_fail(w, rec, "reason drift: TestS.test_xf")
+
+    # ---- red: the run's skips must equal the list ------------------------------------------------
+    def _run_cases(self):
+        beh = self._beh
+        def edit(fn):
+            b = beh(); fn(b); return self._src(b)
+        e4 = "class TestE(unittest.TestCase):\n" + "".join(
+            "    def test_e%d(self):\n        self.skipTest('the whole class is off')\n" % i for i in range(12))
+        return {
+            "unlisted": (edit(lambda b: b.insert(0, ["test_extra", "skip", "needs a widget", None])),
+                         "unlisted skip: TestS.test_extra"),
+            "reason-drift": (edit(lambda b: b[0].__setitem__(2, "needs a gadget")), "reason drift: TestS.test_s0"),
+            "listed-but-ran": (edit(lambda b: b[0].__setitem__(1, "pass")), "listed but did not skip: TestS.test_s0"),
+            "whole-class-E4": (self._src(beh(), extra=e4), "unlisted skip: TestE.test_e0"),
+            "unlisted-xfail": (edit(lambda b: b.insert(0, ["test_xf", "xfail", None, None])), "unlisted xfail: TestS.test_xf"),
+            "duplicate": (edit(lambda b: b[0].__setitem__(1, "subskip")), "TestS.test_s0 reported skip more than once"),
+        }
+
+    def test_red_unlisted_drifted_duplicate_whole_class_and_listed_but_ran_fail(self):
+        d, repo, a, b = self._fixture()
+        hl = self._hook_log(d, repo, b)
+        for name, (src, why) in self._run_cases().items():
+            with self.subTest(case=name):
+                rec, w = self._judge(d, repo, hl, self._produce(src))
+                self._assert_fail(w, rec, why)
+        e4 = self._run_cases()["whole-class-E4"][0]
+        rec, w = self._judge(d, repo, hl, self._produce(e4))
+        self.assertIn("tests skipped (ceiling SKIP_ALLOWLIST_SKIPS=%d)" % self.K, w.stdout)
+
+    def test_red_a_kind_mismatch_and_a_tree_without_a_list(self):
+        # (Fable review, section 5 #3) an id listed as `skip` that reports `xfail`: unlisted as an xfail. Its failure
+        # text carries the listed substring, so only the kind comparison (and the xfail ceiling) can refuse it.
+        d, repo, a, b = self._fixture()
+        hl = self._hook_log(d, repo, b)
+        beh = self._beh(); beh[0][1] = "xfail"
+        tail = self._produce(self._src(beh))
+        self.assertIn("needs gizmo 0", tail)
+        rec, w = self._judge(d, repo, hl, tail)
+        self._assert_fail(w, rec, "unlisted xfail: TestS.test_s0")
+        rec, w = self._judge(d, repo, hl, tail, helper=self._mut(self.A_KIND, self.A_XCEIL))
+        self.assertEqual(w.returncode, 0, "mutant killed: the kind comparison was what refused skip-listed-as-xfail\n" + w.stdout)
+        rec, w = self._judge(d, repo, hl, tail, helper=self._mut(self.A_KIND))
+        self.assertEqual(w.returncode, 1, "the xfail ceiling alone still refuses it\n" + w.stdout)
+        # (section 5 #5) HEAD without a list, with a well-formed block naming one skip: unlisted, and the
+        # record says NONE for the list.
+        d4, repo4, a4, b4 = self.Q956._fixture(self)
+        tail4 = self._produce("import unittest\nclass T(unittest.TestCase):\n    def test_a(self):\n        pass\n"
+                              "    def test_b(self):\n        self.skipTest('no list for me')\n    def test_c(self):\n        pass\n")
+        rec, w = self._judge(d4, repo4, self._hook_log(d4, repo4, b4), tail4)
+        self._assert_fail(w, rec, "unlisted skip: T.test_b (no list for me)")
+        self.assertIn("TESTS_SKIP_LIST_SHA256=NONE", self._lines(rec))
+
+    def test_red_the_block_must_be_whole_consistent_and_before_the_summary(self):
+        d, repo, a, b = self._fixture()
+        hl = self._hook_log(d, repo, b)
+        good = self._produce(self._src(self._beh()))
+        G = good.splitlines(True)
+        skips = [l for l in G if l.startswith("ROAE_TESTS_SKIP=")]
+        blk = [l for l in G if l.startswith("ROAE_TESTS_SKIP")]
+        nob = "".join(l for l in G if not l.startswith("ROAE_TESTS_SKIP"))
+        cases = {
+            "no-block": (nob, "names none"),
+            "line-dropped": ("".join(l for l in G if l != skips[0]), "declares %d entries" % self.K),
+            "line-outside": (skips[0] + good, "outside the block"),
+            "after-summary": (nob + "".join(blk), "does not precede the Ran line"),
+            "ok-count-differs": (good.replace("OK (skipped=%d)" % self.K, "OK (skipped=%d)" % (self.K - 1)),
+                                 "but the OK line counts"),
+            "two-blocks": (good + "".join(blk), "want one each"),
+        }
+        for name, (tail, why) in cases.items():
+            with self.subTest(case=name):
+                rec, w = self._judge(d, repo, hl, tail)
+                self._assert_fail(w, rec, why)
+
+    # ---- red: the list itself -----------------------------------------------------------------
+    def test_red_a_list_edit_needs_the_pinned_count_and_the_row_at_the_skip_site(self):
+        K = self.K
+        extra = ["TestS.test_s%d" % K, "skip", "needs gizmo %d" % K, "Q-%d" % (9000 + K), "a host with gizmo"]
+        beh_plus = self._beh(); beh_plus.insert(K, ["test_s%d" % K, "skip", "needs gizmo %d" % K, "Q-%d" % (9000 + K)])
+        nomark = self._beh(); nomark[0][3] = None
+        othermark = self._beh(); othermark[0][3] = "Q-1"
+        badrow = self._entries(); badrow[0][3] = "row-0"
+        cases = {
+            "grown-without-literal": (dict(beh=beh_plus, entries=self._entries() + [extra]), beh_plus,
+                                      "has %d skip entries but this script pins SKIP_ALLOWLIST_SKIPS=%d" % (K + 1, K)),
+            "no-marker": (dict(beh=nomark), self._beh(), "TestS.test_s0 carries no '# SKIP-ALLOWLIST Q-9000'"),
+            "marker-other-row": (dict(beh=othermark), self._beh(), "TestS.test_s0 carries no '# SKIP-ALLOWLIST Q-9000'"),
+            "row-not-a-q-row": (dict(entries=badrow), self._beh(), "row 'row-0' is not Q-<n>"),
+            "four-fields": (dict(list_text=self._list_text(self._entries()).replace("\ta host with gizmo 0", "")),
+                            self._beh(), "not 5 TAB-separated fields"),
+            "listed-twice": (dict(list_text=self._list_text(self._entries() + [self._entries()[0]])), self._beh(),
+                             "TestS.test_s0 is listed twice"),
+        }
+        for name, (fx, run_beh, why) in cases.items():
+            with self.subTest(case=name):
+                d, repo, a, b = self._fixture(**fx)
+                hl = self._hook_log(d, repo, b)
+                rec, w = self._judge(d, repo, hl, self._produce(self._src(run_beh)))
+                self._assert_fail(w, rec, why)
+
+    # ---- mutants: each refusal is load-bearing --------------------------------------------------
+    def test_mutants_each_refusal_is_what_fails_its_case(self):
+        d, repo, a, b = self._fixture()
+        hl = self._hook_log(d, repo, b)
+        rc = self._run_cases()
+        prod = {k: self._produce(v[0]) for k, v in rc.items()}
+        for name, pairs, case in (("unlisted+ceiling", (self.A_UNLISTED, self.A_CEIL), "unlisted"),
+                                  ("unlisted+ceiling", (self.A_UNLISTED, self.A_CEIL), "whole-class-E4"),
+                                  ("drift", (self.A_DRIFT,), "reason-drift"),
+                                  ("listed-but-ran", (self.A_RAN,), "listed-but-ran"),
+                                  ("unlisted+xceiling", (self.A_UNLISTED, self.A_XCEIL), "unlisted-xfail"),
+                                  ("dup+ceiling", (self.A_DUP, self.A_CEIL), "duplicate")):
+            with self.subTest(mutant=name, case=case):
+                rec, w = self._judge(d, repo, hl, prod[case], helper=self._mut(*pairs))
+                self.assertEqual(w.returncode, 0, "mutant killed: %s was what refused %s\n%s" % (name, case, w.stdout))
+                self.assertIn("LEG_TESTS=PASS", self._lines(rec))
+        # Two guards on one case: removing either ALONE still refuses it (no single point of failure).
+        for name, pairs, case in (("unlisted only", (self.A_UNLISTED,), "unlisted"),
+                                  ("ceiling only", (self.A_CEIL,), "unlisted"),
+                                  ("dup only", (self.A_DUP,), "duplicate")):
+            with self.subTest(single=name, case=case):
+                rec, w = self._judge(d, repo, hl, prod[case], helper=self._mut(*pairs))
+                self.assertEqual(w.returncode, 1, "%s removed alone should still FAIL %s\n%s" % (name, case, w.stdout))
+        # The order check.
+        good = self._produce(self._src(self._beh())).splitlines(True)
+        after = "".join(l for l in good if not l.startswith("ROAE_TESTS_SKIP")) + "".join(
+            l for l in good if l.startswith("ROAE_TESTS_SKIP"))
+        rec, w = self._judge(d, repo, hl, after, helper=self._mut(self.A_ORDER))
+        self.assertEqual(w.returncode, 0, "mutant killed: the order check was what refused a block after Ran\n" + w.stdout)
+        # The marker (row bound at the skip site).
+        nomark = self._beh(); nomark[0][3] = None
+        d2, repo2, a2, b2 = self._fixture(beh=nomark)
+        rec, w = self._judge(d2, repo2, self._hook_log(d2, repo2, b2), self._produce(self._src(self._beh())),
+                             helper=self._mut(self.A_MARKER))
+        self.assertEqual(w.returncode, 0, "mutant killed: the marker check was what refused an unmarked entry\n" + w.stdout)
+        # The pinned literal (with its ceiling twin removed, since K+1 listed skips also exceed it).
+        K = self.K
+        beh_plus = self._beh(); beh_plus.insert(K, ["test_s%d" % K, "skip", "needs gizmo %d" % K, "Q-%d" % (9000 + K)])
+        extra = ["TestS.test_s%d" % K, "skip", "needs gizmo %d" % K, "Q-%d" % (9000 + K), "a host with gizmo"]
+        d3, repo3, a3, b3 = self._fixture(beh=beh_plus, entries=self._entries() + [extra])
+        hl3 = self._hook_log(d3, repo3, b3)
+        tail3 = self._produce(self._src(beh_plus))
+        rec, w = self._judge(d3, repo3, hl3, tail3, helper=self._mut(self.A_LITERAL, self.A_CEIL))
+        self.assertEqual(w.returncode, 0, "mutant killed: the pinned literal was what refused a grown list\n" + w.stdout)
+        rec, w = self._judge(d3, repo3, hl3, tail3, helper=self._mut(self.A_LITERAL))
+        self.assertEqual(w.returncode, 1, "the ceiling alone still refuses a grown list\n" + w.stdout)
+        # No block at all, in a tree without a list (the Q-956 fixture shape: nothing else refuses it).
+        d4, repo4, a4, b4 = self.Q956._fixture(self)
+        hl4 = self._hook_log(d4, repo4, b4)
+        tail4 = "Ran 3 tests in 0.1s\n\nOK (skipped=1)\n"
+        rec, w = self._judge(d4, repo4, hl4, tail4)
+        self._assert_fail(w, rec, "names none")
+        rec, w = self._judge(d4, repo4, hl4, tail4, helper=self._mut(self.A_NOBLOCK))
+        self.assertEqual(w.returncode, 0, "mutant killed: the missing block was what refused skipped=1\n" + w.stdout)
+
+    # ---- the consumer re-applies the pinned ceiling ------------------------------------------------
+    def test_red_consumer_refuses_a_resealed_record_over_the_pinned_counts(self):
+        d, repo, a, b = self._fixture()
+        rec, w = self._judge(d, repo, self._hook_log(d, repo, b), self._produce(self._src(self._beh())))
+        self.assertEqual(w.returncode, 0, w.stdout)
+        for key, val in (("TESTS_SKIPPED", self.K + 1), ("TESTS_XFAILED", 1)):
+            with self.subTest(key=key):
+                bad = self.Q._reseal(self, rec, lambda L: [("%s=%d" % (key, val) if l.startswith(key + "=") else l) for l in L])
+                r, marks = self.Q._hook(self, repo, self.Q._push_line(self, b, a), record=bad)
+                self.Q._assert_full(self, r, marks, why="tests-count")
+        v2 = self.Q._reseal(self, rec, lambda L: ["ROAE_PREPUSH_RECORD=2"] + [
+            l for l in L[1:] if not l.startswith(("TESTS_XFAILED=", "TESTS_SKIP_LIST_SHA256=", "TESTS_SKIP_IDS_SHA256="))])
+        r, marks = self.Q._hook(self, repo, self.Q._push_line(self, b, a), record=v2)
+        self.Q._assert_full(self, r, marks, why="old-version")
+        # (Fable review, section 5 #4) malformed digest keys are refused by shape.
+        for key, val in (("TESTS_SKIP_LIST_SHA256", "deadbeef"), ("TESTS_SKIP_IDS_SHA256", "NONE")):
+            with self.subTest(key=key):
+                bad = self.Q._reseal(self, rec, lambda L: [("%s=%s" % (key, val) if l.startswith(key + "=") else l) for l in L])
+                r, marks = self.Q._hook(self, repo, self.Q._push_line(self, b, a), record=bad)
+                self.Q._assert_full(self, r, marks, why="bad-value")
+        for name, anchor, key in (("skip ceiling", ('''[ "$rskip" -le "$SKIP_ALLOWLIST_SKIPS" ] \\''', '''true \\'''), "TESTS_SKIPPED"),
+                                  ("xfail ceiling", ('''&& [ "$rxf" -le "$SKIP_ALLOWLIST_XFAILS" ]; }''', '''&& true; }'''), "TESTS_XFAILED")):
+            with self.subTest(mutant=name):
+                self._check_ceiling_mutant(anchor, key)
+
+    def _check_ceiling_mutant(self, anchor, key):
+        # MUTANT: one of check's ceilings removed, the over-count record is reused.
+        mut = self._mut(anchor)
+        with open(mut, encoding="utf-8") as fh:
+            mut_src = fh.read()
+        d2, repo2, a2, b2 = self.Q._fixture(self, mut_src)
+        self._write(os.path.join(repo2, "tests.py"), self._src(self._beh()))
+        self._write(os.path.join(repo2, self.LIST), self._list_text(self._entries()))
+        self._git(repo2, "add", "tests.py", self.LIST)
+        self._git(repo2, "commit", "-qm", "B2")
+        b2 = self._git(repo2, "rev-parse", "HEAD")
+        rec2, w2 = self._judge(d2, repo2, self._hook_log(d2, repo2, b2), self._produce(self._src(self._beh())))
+        self.assertEqual(w2.returncode, 0, w2.stdout)
+        val = self.K + 1 if key == "TESTS_SKIPPED" else 1
+        bad2 = self.Q._reseal(self, rec2, lambda L: [("%s=%d" % (key, val) if l.startswith(key + "=") else l) for l in L])
+        r2, m2 = self.Q._hook(self, repo2, self.Q._push_line(self, b2, a2), record=bad2)
+        self.assertNotIn("compile", m2, "mutant killed: check's pinned %s ceiling was what refused the resealed count" % key)
+
+    # ---- the tree's own list ---------------------------------------------------------------------
+    NEVER_LISTED = ("TestBatchN12Pub2.test_lratcheck_builds_and_judges",
+                    "TestBatchQ1094.test_toolchain_toy_table_on_both_binaries",
+                    "TestBatchQ1094.test_toolchain_axiom_census_is_the_standard_list",
+                    "TestBatchQ1094.test_toolchain_dimacs_round_trip_and_malformed_inputs")
+
+    @classmethod
+    def _lean_ban(cls, row, src):
+        """Why a list row may not stand: it names a Lean-toolchain test. Three independent readings, since the
+        reason SUBSTRING is the list author's choice ("absent (needs" evades a ban on the word lake): the id,
+        the row's own text, and the test's source (its decorators and body)."""
+        bad = []
+        if row[0] in cls.NEVER_LISTED:
+            bad.append("id")
+        if re.search(r"(?i)\blake\b|\blean\b", " ".join(row[2:])):
+            bad.append("row text")
+        c, m = row[0].split(".")
+        ci = [i for i, l in enumerate(src) if l.startswith("class %s(" % c)]
+        for i in ci:
+            j = i + 1
+            while j < len(src) and not src[j].startswith("class "):
+                if src[j].startswith("    def %s(" % m):
+                    lo = j
+                    while lo > i and (src[lo - 1].startswith("    @") or re.match(r"^ {5,}\S", src[lo - 1])):
+                        lo -= 1
+                    hi = j + 1
+                    while hi < len(src) and not re.match(r"^    (def |@)|^[^ \t#\n]", src[hi]):
+                        hi += 1
+                    if re.search(r"(?i)\blake\b", "\n".join(src[lo:hi])):
+                        bad.append("source")
+                    break
+                j += 1
+        return bad
+
+    def test_red_a_lean_toolchain_test_cannot_be_listed_whatever_its_reason_says(self):
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "tests.py"), encoding="utf-8") as fh:
+            src = fh.read().split("\n")
+        tid = "TestBatchQ1094.test_toolchain_axiom_census_is_the_standard_list"
+        self.assertEqual(self._lean_ban([tid, "skip", "lake absent", "Q-1094", "a host with the toolchain"], src),
+                         ["id", "row text", "source"])
+        # the evasion: a substring of the real reason that avoids the word
+        self.assertEqual(self._lean_ban([tid, "skip", "absent (needs the", "Q-1094", "elsewhere"], src), ["id", "source"])
+        # a Lean test this tuple does not know yet is still caught by its own decorator
+        fx = ["class TestNew(unittest.TestCase):", '    @unittest.skipUnless(shutil.which("lake"),',
+              '                         "toolchain absent")', "    def test_x(self):", "        pass"]
+        self.assertEqual(self._lean_ban(["TestNew.test_x", "skip", "toolchain absent", "Q-1", "elsewhere"], fx), ["source"])
+        # negative control: an ordinary listed test is not banned
+        self.assertEqual(self._lean_ban(["TestQ1065AtlasFollowups.test_n9_end_to_end_rehearsal", "skip",
+                                         "set ROAE_Q1065_N9=1 to run it", "Q-1065", "a build host"], src), [])
+
+    def test_the_trees_list_is_well_formed_pinned_and_bound_at_each_skip_site(self):
+        root = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(root, self.LIST), encoding="utf-8") as fh:
+            rows = [l.rstrip("\n").split("\t") for l in fh if l.strip() and not l.startswith("#")]
+        with open(os.path.join(root, "tests.py"), encoding="utf-8") as fh:
+            src = fh.read().split("\n")
+        self.assertEqual(sum(1 for r in rows if r[1] == "skip"), self.K, "SKIP_ALLOWLIST_SKIPS equals the list's skip entries")
+        self.assertEqual(sum(1 for r in rows if r[1] == "xfail"),
+                         int(re.findall(r"^SKIP_ALLOWLIST_XFAILS=([0-9]+)$", self.helper_src, re.M)[0]))
+        ids = [r[0] for r in rows]
+        self.assertEqual(len(ids), len(set(ids)))
+        for r in rows:
+            with self.subTest(entry=r[0]):
+                self.assertEqual(len(r), 5, r)
+                self.assertRegex(r[3], r"^Q-[0-9]+$")
+                self.assertEqual(self._lean_ban(r, src), [], "Lean-toolchain tests RUN where the record is produced (Fable, SKIPCAP)")
+                cls, meth = r[0].split(".")
+                ci = [i for i, l in enumerate(src) if l.startswith("class %s(" % cls)]
+                self.assertEqual(len(ci), 1, cls)
+                j, body = ci[0] + 1, None
+                while j < len(src) and not src[j].startswith("class "):
+                    if src[j].startswith("    def %s(" % meth):
+                        body = []
+                        k = j + 1
+                        while k < len(src) and not re.match(r"^    (def |@)|^[^ \t#\n]", src[k]):
+                            body.append(src[k]); k += 1
+                        break
+                    j += 1
+                self.assertIsNotNone(body, r[0])
+                self.assertTrue(any(re.match(r"^\s*# SKIP-ALLOWLIST %s([^0-9]|$)" % re.escape(r[3]), l) for l in body),
+                                "%s carries # SKIP-ALLOWLIST %s" % (r[0], r[3]))
+
+# end class TestQ1065SkipAllowlist
+
+
+def _q1065_skip_id(test):
+    """Q-1065: the allowlist id of a skipped/xfailed test: `Class.method` (a subTest reports its
+    parent method; a setUpClass skip is `Class.setUpClass`), without the `__main__.` prefix."""
+    base = getattr(test, "test_case", None)          # unittest.case._SubTest
+    tid = (base if base is not None else test).id()
+    m = re.match(r"^(setUpClass|tearDownClass|setUpModule|tearDownModule) \((.+)\)$", tid)
+    if m:
+        tid = m.group(2) + "." + m.group(1)
+    return tid[len("__main__."):] if tid.startswith("__main__.") else tid
+
+
+def _q1065_enc(s):
+    """One TAB-free, newline-free line: %XX for '%', TAB and anything outside printable ASCII."""
+    return "".join(c if (" " <= c <= "~" and c != "%") else "".join("%%%02X" % b for b in c.encode("utf-8"))
+                   for c in str(s))
+
+
+class _Q1065SkipLedgerResult(unittest.TextTestResult):
+    """Q-1065: records every skip and expected failure, and at stopTestRun (BEFORE the runner prints
+    `Ran N tests` / `OK (...)`, so a log's last lines are still the summary) writes one block:
+    ROAE_TESTS_SKIPS=<n>, n x ROAE_TESTS_SKIP=<kind>TAB<id>TAB<reason>, ROAE_TESTS_SKIPS_END=<n>.
+    scripts/prepush_verdict_record.sh compares that set with scripts/test_skip_allowlist.tsv."""
+
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        self.q1065_events = []
+
+    def addSkip(self, test, reason):
+        super().addSkip(test, reason)
+        self.q1065_events.append(("skip", _q1065_skip_id(test), reason))
+
+    def addExpectedFailure(self, test, err):
+        super().addExpectedFailure(test, err)
+        # the reason is the failure itself, so a listed xfail has a substring to be held to (as a skip has)
+        self.q1065_events.append(("xfail", _q1065_skip_id(test), "%s: %s" % (err[0].__name__, err[1])))
+
+    def stopTestRun(self):
+        super().stopTestRun()
+        ev = self.q1065_events
+        self.stream.write("ROAE_TESTS_SKIPS=%d\n" % len(ev))
+        for kind, tid, reason in ev:
+            self.stream.write("ROAE_TESTS_SKIP=%s\t%s\t%s\n" % (kind, _q1065_enc(tid), _q1065_enc(reason)))
+        self.stream.write("ROAE_TESTS_SKIPS_END=%d\n" % len(ev))
+        self.stream.flush()
+
+
+class _Q1065SkipLedgerRunner(unittest.TextTestRunner):
+    resultclass = _Q1065SkipLedgerResult
+
+
 # Q-1136 M3: a SOLVE_* variable exported in the caller's shell reached every solver run built from
 # dict(os.environ, ...). tests.py reads no SOLVE_* knob of its own, so each inherited one is removed
 # here and named on stderr. This runs at import, after every class is defined and before any test
@@ -71850,5 +72389,6 @@ if __name__ == "__main__":
     if not shutil.which("gcc"):  # Q-1136 LOW-6: gcc is a prerequisite; the tests that compile will ERROR without it
         sys.stderr.write("tests.py: NOTICE gcc is not on PATH; every test that compiles solve.c or verify.c will ERROR\n")
     sys.stderr.flush()
-    unittest.main(verbosity=2)
+    # Q-1065: the runner names every skip and expected failure (see _Q1065SkipLedgerResult).
+    unittest.main(verbosity=2, testRunner=_Q1065SkipLedgerRunner)
 

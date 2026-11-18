@@ -47,7 +47,8 @@
 #       present and agree with each other AND with this host's toolchain id; any disagreement is
 #       refused. TESTS is PASS only with exactly one "Ran N tests" line, N >= TESTS_FLOOR (the
 #       number of `    def test_` methods in the record tree's tests.py, at least 1, so "Ran 0" is a
-#       FAIL), at most MAX_TEST_SKIPS skipped/expected-failure tests, one OK line and no FAILED line.
+#       FAIL), one OK line and no FAILED line, and (Q-1065, format v3) skips and expected failures
+#       that are EXACTLY the tree's named allowlist (scripts/test_skip_allowlist.tsv; see SKIP_LIST).
 #       Every log is read from a private snapshot, so what is judged is what is hashed.
 #       Tokens: PREPUSH_RECORD=WRITTEN|ERROR, and PREPUSH_RECORD_ALL_PASS=YES|NO when written.
 #       Exit 0 written and all PASS / 1 written with a non-PASS result / 2 nothing written.
@@ -64,13 +65,16 @@
 #   toolchain
 #       Prints the toolchain id this host would record (gcc and python3 versions).
 #
-# RECORD FORMAT, version 2 (Q-956; version 1 lacked the per-log bindings and TESTS_*): plain text, one KEY=value per line, LF-terminated, no spaces, in this
+# RECORD FORMAT, version 3 (Q-1065; v2 had a bare skip count; v1 lacked the per-log bindings and TESTS_*): plain text, one KEY=value per line, LF-terminated, no spaces, in this
 # order (the order is fixed so the checksum is well defined; the reader checks key SET and values):
-#   ROAE_PREPUSH_RECORD=2
+#   ROAE_PREPUSH_RECORD=3
 #   TREE=<git tree id of the checked tree, 40 or 64 hex>
 #   CITGATE_BASE=<commit the citation gate's shift leg diffed against, or NONE>
 #   TOOLCHAIN=gcc-<ver>,python-<ver>          (from the hook and tests logs; see write above)
 #   TESTS_RAN=<N>  TESTS_FLOOR=<F>  TESTS_SKIPPED=<S>   (one per line; the tests log's counts)
+#   TESTS_XFAILED=<X>                                   (Q-1065: expected failures, counted apart)
+#   TESTS_SKIP_LIST_SHA256=<64 hex>|NONE                (Q-1065: HEAD's SKIP_LIST blob, NONE if absent)
+#   TESTS_SKIP_IDS_SHA256=<64 hex>                      (Q-1065: sorted "<kind>TAB<id>" lines of the run's skips)
 #   LEG_<NAME>=PASS|FAIL|NOT-RUN|MISSING|REUSED|UNREADABLE   (one per name in REQ_LEGS below)
 #   ADV_<NAME>=PASS|FAIL|NOT-RUN|MISSING|REUSED|UNREADABLE   (OPTIONAL; one per name in ADV_LEGS below)
 #   LOG_<NAME>_SHA256=<64 hex>                                (one per name in REQ_LOGS below)
@@ -82,11 +86,18 @@
 set -u
 export LC_ALL=C
 
-REC_VERSION=2
+REC_VERSION=3
 MAX_BYTES=65536
-# Q-956: a full run skips 1-3 tests on the worker (tools a lane box lacks); a fail-open that skips a
-# whole class (E4: `OK (skipped=12)`) must not count as PASS. 8 -> 9 (2026-11-14, interim until a skip allowlist): Q-1065's opt-in test_n9_end_to_end_rehearsal skips unless ROAE_Q1065_N9=1.
-MAX_TEST_SKIPS=9   # Q-1065 test_n9_end_to_end_rehearsal (TestQ1065AtlasFollowups); 9 still refuses E4
+# Q-1065 skip allowlist (format v3; replaces the bare MAX_TEST_SKIPS cap, 8 under Q-956 and 9 interim). A count cannot tell an
+# intended skip from a check that went quiet, so every skipped or expected-failure test of the run
+# must be NAMED in the tree's SKIP_LIST, with a reason substring, the Q-row that justifies it and
+# where the test does run; a listed entry that did NOT skip is a FAIL too (set equality both ways),
+# so stale entries cannot pile up. The two counts below are the list's length, pinned HERE: growing
+# the list takes an edit of the list AND of this script. They are also the ceiling `check` re-applies
+# to a resealed record. A whole class skipped (E4: `OK (skipped=12)`) is unlisted and FAILs.
+SKIP_LIST=scripts/test_skip_allowlist.tsv
+SKIP_ALLOWLIST_SKIPS=6
+SKIP_ALLOWLIST_XFAILS=0
 TOOLCHAIN_RE='^gcc-([0-9.]+|none),python-([0-9.]+|none)$'
 # Hook legs the record carries (the hook prints PREPUSH_LEG_<NAME>= for each, per pushed sha).
 # NOT CORRECTIONS_INVENTORY (Q-994, batch 47), deliberately: that leg reads the pushed commit's
@@ -229,16 +240,18 @@ if [ "$MODE" = write ]; then
   else V[HOOK]=MISSING; fi
   # tests.py is unittest: PASS = exactly one "Ran N tests in" line, exactly one bare OK line (with
   # or without a parenthesised skip/xfail count), and no FAILED line anywhere. Q-956 (3): and N is
-  # at least the tree's own test count (so "Ran 0 tests" + OK, or a one-class run, is a FAIL), and
-  # at most MAX_TEST_SKIPS of them were skipped or expected failures.
+  # at least the tree's own test count (so "Ran 0 tests" + OK, or a one-class run, is a FAIL).
+  # Q-1065: and the skips and expected failures are exactly the tree's SKIP_LIST (judged below).
   nran=$(grep -acE '^Ran [0-9]+ tests? in ' "$TL") || true
   nok=$(grep -acE '^OK( \([a-z_=0-9, ]+\))?$' "$TL") || true
   nfail=$(grep -acE '^FAILED' "$TL") || true
-  tran=0; tskip=0
+  tran=0; tskip=0; txf=0
   if [ "${nran:-0}" = 1 ]; then tran=$(grep -aE '^Ran [0-9]+ tests? in ' "$TL" | sed -E 's/^Ran ([0-9]+) .*/\1/'); fi
   if [ "${nok:-0}" = 1 ]; then
     _okl=$(grep -aE '^OK( \([a-z_=0-9, ]+\))?$' "$TL")
-    for _sk in $(printf '%s\n' "$_okl" | grep -oE '(skipped|expected failures)=[0-9]+' | sed 's/.*=//'); do tskip=$((tskip + 10#$_sk)); done
+    # Q-1065: skips and expected failures are counted SEPARATELY (each has its own pinned ceiling).
+    for _sk in $(printf '%s\n' "$_okl" | grep -oE 'skipped=[0-9]+' | sed 's/.*=//'); do tskip=$((tskip + 10#$_sk)); done
+    for _sk in $(printf '%s\n' "$_okl" | grep -oE 'expected failures=[0-9]+' | sed 's/.*=//'); do txf=$((txf + 10#$_sk)); done
   fi
   # Q-982 (c) (batch 42; Codex gpt-6-astra, Q964-D07#3): the floor's POPULATION must be read, not
   # assumed. This was `git show … 2>/dev/null | grep -c … || true` and then `[ -ge 1 ] || tfloor=1`, so
@@ -264,10 +277,116 @@ if [ "$MODE" = write ]; then
   fi
   case "$tran" in ''|*[!0-9]*) tran=0 ;; esac
   tran=$((10#$tran))
+  # ---- Q-1065: the skip allowlist ------------------------------------------------------------
+  # (a) The list is HEAD's $SKIP_LIST (tree-bound like tests.py; its sha256 goes in the record). A
+  #     HEAD without one has an empty list: every skip FAILs (stricter, never weaker). Each data line
+  #     is 5 TAB-separated fields:  <Class.method>  skip|xfail  <reason substring>  <Q-row>  <where it runs>.
+  # (b) The list's skip and xfail entry counts must equal the literals pinned above.
+  # (c) Each entry's Q-row is bound at the skip site: HEAD:tests.py's method body must carry a
+  #     `# SKIP-ALLOWLIST <Q-row>` comment, so a list line cannot be added without touching the test.
+  # (d) tests.py (Q-1065 producer) names every skip/xfail in one block before its summary:
+  #       ROAE_TESTS_SKIPS=<n> / n x ROAE_TESTS_SKIP=<kind>TAB<id>TAB<reason> / ROAE_TESTS_SKIPS_END=<n>
+  #     The block must agree with the OK line's counts, and the observed set must EQUAL the list:
+  #     unlisted -> FAIL, reason without the substring -> FAIL, same id twice -> FAIL, listed but ran -> FAIL.
+  skipfail=0
+  skp() { echo "  [skips] $1"; skipfail=1; }
+  _als=$(git -C "$top" ls-tree HEAD -- "$SKIP_LIST" 2>/dev/null) \
+    || err "write: cannot list HEAD (git ls-tree failed), so the skip allowlist is unknown"
+  : > "$SNAP/skiplist"
+  alsha=NONE
+  if [ -n "$_als" ]; then
+    git -C "$top" show "HEAD:$SKIP_LIST" > "$SNAP/skiplist" 2>/dev/null \
+      || err "write: HEAD lists $SKIP_LIST but it cannot be read"
+    alsha=$(sha256sum < "$SNAP/skiplist" | cut -c1-64)
+  fi
+  printf '%s\n' "${_tpy-}" > "$SNAP/testspy"   # ${..-}: Q-982's floor mutant splices out the read; markers then fail closed
+  declare -A AL_KIND=() AL_RS=() AL_HIT=()
+  al_skips=0; al_xf=0; _ln=0
+  while IFS= read -r _l || [ -n "$_l" ]; do
+    _ln=$((_ln + 1))
+    case "$_l" in '#'*|'') continue ;; esac
+    _nt=$(printf '%s' "$_l" | tr -cd '\t' | wc -c | tr -d ' ')
+    [ "$_nt" = 4 ] || { skp "$SKIP_LIST line $_ln: not 5 TAB-separated fields"; continue; }
+    _id=${_l%%$'\t'*}; _r=${_l#*$'\t'}; _kind=${_r%%$'\t'*}; _r=${_r#*$'\t'}
+    _rs=${_r%%$'\t'*}; _r=${_r#*$'\t'}; _row=${_r%%$'\t'*}; _where=${_r#*$'\t'}
+    [[ "$_id" =~ ^Test[A-Za-z0-9_]*\.(test_[A-Za-z0-9_]+|setUpClass)$ ]] || { skp "$SKIP_LIST line $_ln: id '$_id' is not Class.test_method"; continue; }
+    case "$_kind" in skip|xfail) ;; *) skp "$SKIP_LIST line $_ln: kind '$_kind' is not skip or xfail"; continue ;; esac
+    [ -n "$_rs" ] && [ -n "$_where" ] || { skp "$SKIP_LIST line $_ln: empty reason substring or where-it-runs"; continue; }
+    [[ "$_row" =~ ^Q-[0-9]+$ ]] || { skp "$SKIP_LIST line $_ln: row '$_row' is not Q-<n>"; continue; }
+    [ -z "${AL_KIND[$_id]+x}" ] || { skp "$SKIP_LIST line $_ln: $_id is listed twice"; continue; }
+    _cls=${_id%%.*}; _meth=${_id#*.}
+    awk -v cls="$_cls" -v meth="$_meth" -v row="$_row" '
+      /^class / { incls = (index($0, "class " cls "(") == 1 || index($0, "class " cls ":") == 1); inm = 0; next }
+      incls && /^    (def |@)/ { inm = (index($0, "    def " meth "(") == 1); next }
+      incls && /^[^ \t#]/ { incls = 0; inm = 0 }
+      inm && $0 ~ ("^[ \t]*# SKIP-ALLOWLIST " row "([^0-9]|$)") { found = 1 }
+      END { exit(found ? 0 : 1) }' "$SNAP/testspy" \
+      || skp "$SKIP_LIST line $_ln: $_id carries no '# SKIP-ALLOWLIST $_row' comment in HEAD:tests.py (the row is not bound at the skip site)"
+    AL_KIND[$_id]=$_kind; AL_RS[$_id]=$_rs
+    if [ "$_kind" = skip ]; then al_skips=$((al_skips + 1)); else al_xf=$((al_xf + 1)); fi
+  done < "$SNAP/skiplist"
+  if [ -n "$_als" ]; then
+    [ "$al_skips" = "$SKIP_ALLOWLIST_SKIPS" ] \
+      || skp "$SKIP_LIST has $al_skips skip entries but this script pins SKIP_ALLOWLIST_SKIPS=$SKIP_ALLOWLIST_SKIPS (a list edit needs the literal edited with it)"
+    [ "$al_xf" = "$SKIP_ALLOWLIST_XFAILS" ] \
+      || skp "$SKIP_LIST has $al_xf xfail entries but this script pins SKIP_ALLOWLIST_XFAILS=$SKIP_ALLOWLIST_XFAILS"
+  fi
+  # The producer's block.
+  nsb=$(grep -acE '^ROAE_TESTS_SKIPS=' "$TL") || true
+  nse=$(grep -acE '^ROAE_TESTS_SKIPS_END=' "$TL") || true
+  nsl=$(grep -acE '^ROAE_TESTS_SKIP=' "$TL") || true
+  : > "$SNAP/events"
+  if [ "${nsb:-0}" = 0 ] && [ "${nse:-0}" = 0 ] && [ "${nsl:-0}" = 0 ]; then
+    [ $((tskip + txf)) = 0 ] \
+      || skp "the tests log reports $tskip skipped and $txf expected-failure tests but names none (no ROAE_TESTS_SKIPS block: its tests.py predates Q-1065)"
+  elif [ "${nsb:-0}" != 1 ] || [ "${nse:-0}" != 1 ]; then
+    skp "the tests log has $nsb ROAE_TESTS_SKIPS= and $nse ROAE_TESTS_SKIPS_END= lines (want one each)"
+  else
+    _bn=$(grep -anE '^ROAE_TESTS_SKIPS=' "$TL" | cut -d: -f1)
+    _en=$(grep -anE '^ROAE_TESTS_SKIPS_END=' "$TL" | cut -d: -f1)
+    _bv=$(grep -aE '^ROAE_TESTS_SKIPS=' "$TL"); _bv=${_bv#*=}
+    _ev=$(grep -aE '^ROAE_TESTS_SKIPS_END=' "$TL"); _ev=${_ev#*=}
+    _rn=$(grep -anE '^Ran [0-9]+ tests? in ' "$TL" | head -1 | cut -d: -f1)
+    _out=$(grep -anE '^ROAE_TESTS_SKIP=' "$TL" | awk -F: -v b="$_bn" -v e="$_en" '$1 <= b || $1 >= e' | wc -l | tr -d ' ')
+    if ! [[ "$_bv" =~ ^(0|[1-9][0-9]{0,5})$ ]] || [ "$_bv" != "$_ev" ]; then
+      skp "the skip block's counts disagree or are not numbers (ROAE_TESTS_SKIPS=$_bv, ROAE_TESTS_SKIPS_END=$_ev)"
+    elif [ "$_bv" != "$nsl" ] || [ "$_out" != 0 ]; then
+      skp "the skip block declares $_bv entries but the log has $nsl ROAE_TESTS_SKIP= lines ($_out outside the block)"
+    elif [ "$_bv" != $((tskip + txf)) ]; then
+      skp "the skip block names $_bv tests but the OK line counts $tskip skipped + $txf expected failures"
+    elif [ -z "$_rn" ] || [ "$_en" -ge "$_rn" ]; then
+      skp "the skip block does not precede the Ran line (it is written by tests.py at stopTestRun)"
+    else
+      grep -aE '^ROAE_TESTS_SKIP=' "$TL" | sed 's/^ROAE_TESTS_SKIP=//' > "$SNAP/events"
+    fi
+  fi
+  obs_skip=0; obs_xf=0
+  while IFS= read -r _l || [ -n "$_l" ]; do
+    [ -n "$_l" ] || continue
+    _kind=${_l%%$'\t'*}; _r=${_l#*$'\t'}; _id=${_r%%$'\t'*}; _reason=${_r#*$'\t'}
+    [ "$_r" != "$_l" ] && [ "$_id" != "$_r" ] || { skp "malformed ROAE_TESTS_SKIP line: $_l"; continue; }
+    case "$_kind" in skip) obs_skip=$((obs_skip + 1)) ;; xfail) obs_xf=$((obs_xf + 1)) ;; *) skp "ROAE_TESTS_SKIP kind '$_kind' for $_id"; continue ;; esac
+    if [ -z "${AL_KIND[$_id]+x}" ] || [ "${AL_KIND[$_id]}" != "$_kind" ]; then
+      skp "unlisted $_kind: $_id ($_reason)"; continue
+    fi
+    [ -z "${AL_HIT[$_id]+x}" ] || { skp "$_id reported $_kind more than once (one entry covers one skip)"; continue; }
+    AL_HIT[$_id]=1
+    case "$_reason" in *"${AL_RS[$_id]}"*) ;; *) skp "reason drift: $_id skipped with '$_reason', which does not contain the listed '${AL_RS[$_id]}'" ;; esac
+  done < "$SNAP/events"
+  if [ -s "$SNAP/events" ]; then
+    [ "$obs_skip" = "$tskip" ] && [ "$obs_xf" = "$txf" ] \
+      || skp "the block names $obs_skip skips and $obs_xf expected failures; the OK line says $tskip and $txf"
+  fi
+  for _id in "${!AL_KIND[@]}"; do
+    [ -n "${AL_HIT[$_id]+x}" ] || skp "listed but did not ${AL_KIND[$_id]}: $_id (it ran here; remove its entry and lower the pinned count in the same commit)"
+  done
+  # The hard ceiling, also re-applied by `check`: never more than the pinned list length.
+  [ "$tskip" -le "$SKIP_ALLOWLIST_SKIPS" ] || skp "$tskip tests skipped (ceiling SKIP_ALLOWLIST_SKIPS=$SKIP_ALLOWLIST_SKIPS)"
+  [ "$txf" -le "$SKIP_ALLOWLIST_XFAILS" ] || skp "$txf expected failures (ceiling SKIP_ALLOWLIST_XFAILS=$SKIP_ALLOWLIST_XFAILS)"
+  idsha=$(cut -f1,2 "$SNAP/events" | LC_ALL=C sort | sha256sum | cut -c1-64)
   if [ "${nran:-0}" = 1 ] && [ "${nok:-0}" = 1 ] && [ "${nfail:-0}" = 0 ] \
-     && [ "$tran" -ge "$tfloor" ] && [ "$tskip" -le "$MAX_TEST_SKIPS" ]; then V[TESTS]=PASS; else V[TESTS]=FAIL; fi
+     && [ "$tran" -ge "$tfloor" ] && [ "$skipfail" = 0 ]; then V[TESTS]=PASS; else V[TESTS]=FAIL; fi
   [ "$tran" -ge "$tfloor" ] || echo "  [tests] Ran $tran test(s), fewer than the tree's $tfloor test methods"
-  [ "$tskip" -le "$MAX_TEST_SKIPS" ] || echo "  [tests] $tskip tests skipped or expected-failure (limit $MAX_TEST_SKIPS)"
   if one_val CITATION_LINE_GATE "$CL"; then
     [ "$TOKV" = PASS ] && V[CITATION]=PASS || V[CITATION]=FAIL
   else V[CITATION]=MISSING; fi
@@ -284,6 +403,9 @@ if [ "$MODE" = write ]; then
     printf '%s=%s\n' TESTS_RAN "$tran"
     printf '%s=%s\n' TESTS_FLOOR "$tfloor"
     printf '%s=%s\n' TESTS_SKIPPED "$tskip"
+    printf '%s=%s\n' TESTS_XFAILED "$txf"
+    printf '%s=%s\n' TESTS_SKIP_LIST_SHA256 "$alsha"
+    printf '%s=%s\n' TESTS_SKIP_IDS_SHA256 "$idsha"
     for leg in $REQ_LEGS; do printf '%s=%s\n' "LEG_$leg" "${V[$leg]}"; done
     for leg in $ADV_LEGS; do printf '%s=%s\n' "ADV_$leg" "${A[$leg]}"; done
     printf '%s=%s\n' LOG_HOOK_SHA256     "$(sha256sum < "$HL" | cut -c1-64)"
@@ -350,7 +472,7 @@ if [ "$MODE" = check ]; then
   _h1=$(head -n1 "$REC")
   if [ "$_h1" != "ROAE_PREPUSH_RECORD=$REC_VERSION" ]; then
     [[ "$_h1" =~ ^ROAE_PREPUSH_RECORD=[0-9]+$ ]] \
-      && nomatch old-version "record format v${_h1#*=} is not v$REC_VERSION, the only format this tree reuses (Q-956: v1 records carry no per-log tree binding); re-run scripts/prepush_verdict_record.sh write with this tree's scripts"
+      && nomatch old-version "record format v${_h1#*=} is not v$REC_VERSION, the only format this tree reuses (Q-956: v1 records carry no per-log tree binding; Q-1065: v2 records carry a bare skip count, not the named skips); re-run scripts/prepush_verdict_record.sh write with this tree's scripts"
     nomatch bad-header "first line is not ROAE_PREPUSH_RECORD=$REC_VERSION"
   fi
   last=$(tail -n1 "$REC")
@@ -359,7 +481,7 @@ if [ "$MODE" = check ]; then
     || nomatch checksum "RECORD_SHA256 does not match the lines above it"
   dup=$(cut -d= -f1 "$REC" | sort | uniq -d | head -1)
   [ -z "$dup" ] || nomatch duplicate-key "key $dup appears more than once"
-  allowed=" ROAE_PREPUSH_RECORD TREE CITGATE_BASE TOOLCHAIN TESTS_RAN TESTS_FLOOR TESTS_SKIPPED RECORD_SHA256 "
+  allowed=" ROAE_PREPUSH_RECORD TREE CITGATE_BASE TOOLCHAIN TESTS_RAN TESTS_FLOOR TESTS_SKIPPED TESTS_XFAILED TESTS_SKIP_LIST_SHA256 TESTS_SKIP_IDS_SHA256 RECORD_SHA256 "
   for leg in $REQ_LEGS; do allowed="$allowed LEG_$leg "; done
   for lg in $REQ_LOGS;  do allowed="$allowed LOG_${lg}_SHA256 "; done
   optional=" "
@@ -380,16 +502,23 @@ if [ "$MODE" = check ]; then
   done
   one_val TOOLCHAIN "$REC"
   [[ "$TOKV" =~ $TOOLCHAIN_RE ]] || nomatch bad-value "TOOLCHAIN=$TOKV is not a toolchain id"
-  for k in TESTS_RAN TESTS_FLOOR TESTS_SKIPPED; do
+  one_val TESTS_SKIP_LIST_SHA256 "$REC"
+  [[ "$TOKV" =~ ^([0-9a-f]{64}|NONE)$ ]] || nomatch bad-value "TESTS_SKIP_LIST_SHA256 is neither a sha256 nor NONE"
+  one_val TESTS_SKIP_IDS_SHA256 "$REC"
+  [[ "$TOKV" =~ ^[0-9a-f]{64}$ ]] || nomatch bad-value "TESTS_SKIP_IDS_SHA256 is not a sha256"
+  for k in TESTS_RAN TESTS_FLOOR TESTS_SKIPPED TESTS_XFAILED; do
     one_val "$k" "$REC"
     [[ "$TOKV" =~ ^(0|[1-9][0-9]{0,8})$ ]] || nomatch bad-value "$k=$TOKV is not a count"
   done
   one_val TESTS_RAN "$REC"; rran=$TOKV
   one_val TESTS_FLOOR "$REC"; rfloor=$TOKV
   one_val TESTS_SKIPPED "$REC"; rskip=$TOKV
-  # Q-956 (3), re-checked here so a resealed record cannot carry a PASS over a short run.
-  { [ "$rfloor" -ge 1 ] && [ "$rran" -ge "$rfloor" ] && [ "$rskip" -le "$MAX_TEST_SKIPS" ]; } \
-    || nomatch tests-count "TESTS_RAN=$rran TESTS_FLOOR=$rfloor TESTS_SKIPPED=$rskip: not a full test run"
+  one_val TESTS_XFAILED "$REC"; rxf=$TOKV
+  # Q-956 (3), re-checked here so a resealed record cannot carry a PASS over a short run; Q-1065: the
+  # skip and xfail counts are held to the pushed tree's pinned list lengths (the writer's ceiling).
+  { [ "$rfloor" -ge 1 ] && [ "$rran" -ge "$rfloor" ] && [ "$rskip" -le "$SKIP_ALLOWLIST_SKIPS" ] \
+      && [ "$rxf" -le "$SKIP_ALLOWLIST_XFAILS" ]; } \
+    || nomatch tests-count "TESTS_RAN=$rran TESTS_FLOOR=$rfloor TESTS_SKIPPED=$rskip TESTS_XFAILED=$rxf: not a full test run within the pinned skip allowlist"
   for leg in $ADV_LEGS; do
     one_val "ADV_$leg" "$REC" || continue
     case "$TOKV" in PASS|FAIL|NOT-RUN|MISSING|REUSED|UNREADABLE) ;; *) nomatch bad-value "ADV_$leg=$TOKV" ;; esac
@@ -406,6 +535,7 @@ if [ "$MODE" = check ]; then
   [ "$TOKV" = "$(toolchain_id)" ] || nomatch toolchain-mismatch "record was measured with $TOKV, this host has $(toolchain_id)"
   echo "  record $(sha256sum < "$REC" | cut -c1-16) ($REC_SHOWN) covers tree $rtree (citation base $rcb, $TOKV)"
   for lg in $REQ_LOGS; do one_val "LOG_${lg}_SHA256" "$REC"; echo "    log ${lg}: sha256 $TOKV"; done
+  one_val TESTS_SKIP_LIST_SHA256 "$REC"; echo "    skip allowlist: sha256 $TOKV ($rskip skipped, $rxf expected failures)"
   # Advisory verdicts the hook may reuse: only PASS and FAIL are measurements; the rest are omitted.
   for leg in $ADV_LEGS; do
     one_val "ADV_$leg" "$REC" || continue

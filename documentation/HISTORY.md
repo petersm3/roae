@@ -12863,3 +12863,22 @@ line number in either file moves. Both sets of reproductions were run again on t
   committed line. Older versions are not read; the floor note lists their breaks.
 - No ledger line, registry row, canonical sha, count or verdict changed. `TestQ1079VersionFloorAndAllowances` (20 tests)
   holds the change. Found by Codex (gpt-6-astra), fix-verification round; triaged by Fable; built in an Opus lane.
+
+## 2026-11-16 — batch Q1065S: the push record names its skipped tests instead of counting them
+
+- **What changed (backlog Q-1065; record format v3).** The pre-push verdict record accepted a full
+  `tests.py` run with up to 8 skipped tests (9 since 2026-11-14), whichever tests they were. A count
+  cannot tell a skip that is meant from a check that has gone quiet. `tests.py` now prints the name and
+  reason of every skipped test and every expected failure in one block before its summary, and
+  `scripts/prepush_verdict_record.sh write` requires that set to equal
+  `scripts/test_skip_allowlist.tsv` in the checked tree. An unlisted skip, a reason that no longer
+  matches, the same test twice, or a listed test that ran each make `LEG_TESTS=FAIL`.
+- **The list.** Six tests, each with the backlog row that justifies it and where the test does run.
+  Each test's body carries `# SKIP-ALLOWLIST <row>`, and the list's length is pinned in the script, so
+  the list cannot grow by an edit of the list alone. No expected failure is listed. Tests that need
+  the Lean 4 toolchain are not on the list: they run where the record is produced.
+- **Records.** A version 2 record is refused as `old-version` and has to be written again. `check`
+  holds a record's skip and expected-failure counts to the pinned list lengths.
+- No result, count, canonical sha or published figure changed. `TestQ1065SkipAllowlist` holds each
+  rule with a mutant and fails on the parent tree. Designed in a Fable review (claude-fable-5-2);
+  built in an Opus lane (claude-opus-5-5).
