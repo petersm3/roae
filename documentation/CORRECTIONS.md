@@ -41388,3 +41388,166 @@ and fails on the parent tree.
 
 Developed with AI assistance (Claude, Anthropic): the audit and the build were done in Opus lanes
 (claude-opus-5-5).
+
+## CX-37C-O — engine batch 2: `--analyze` printed results after a failed allocation or checkpoint read and still exited 0, used record 0 as King Wen, and the estimator's `se=0` had no written meaning (solve.c; reports/METHODS.md; documentation/SOLVE_C_CLI.md; tests.py)
+
+**2026-11-14.** Three rows of Codex's (gpt-6-astra) reviews, triaged by Fable as FV2 rows D1427, D1431 and D1465
+(backlog Q-1080, Q-1081 and Q-1075). Each row has its own part below. They were built in one commit with the FT3f
+code rows (CX-37C-P), and their reproductions were run again on that commit's binary.
+
+### D1427 (Q-1080, Codex F04-003#15) — `--analyze` printed results after a failed allocation or checkpoint read and still exited 0 (solve.c `--analyze` sections 8, 10, 25, 27 and the completion line)
+
+**2026-11-14.** **Source.** Codex (gpt-6-astra), final review, F04-003#15; triaged by Fable as FV2 row D1427
+(PARTIAL: G6 had cured the `--c3-dist` worker, the `kw_indices` growth and section 22); backlog Q-1080, engine batch 2.
+
+**What was wrong.** Several `--analyze` failure branches printed ordinary results and ended `==== analyze done ====`,
+exit 0. Measured on the parent tree with one allocation failed at a time:
+- Section 8: a worker's row buffer failed, so the printed rows were unset memory (`{159618176, 23258, …}`).
+- Section 10: a worker without its joint-count table skipped the `omp for`, so its records were missing. On King Wen
+  plus its pair-slot-4/5 swap, MI(5,6) printed as 2 bits; the true value is 1. With two threads the run hung, because
+  the worksharing construct was left unmatched.
+- Section 25: the depth-3 table's first `calloc` failed and a later one succeeded, so the first record was never
+  binned and the section printed `1 of 2 records`.
+- Sections 25 and 27: a `checkpoint_t<N>.txt` that failed part-way through reading was combined without a word.
+- Twenty existing `SKIPPED` lines, and the section 11, 14, 15, 16 and 17 fail-soft branches, said a result was
+  withheld, but the run still ended `analyze done`, exit 0.
+
+**What changed.** Section 8 withholds its row list when a row buffer fails; its counts are complete and still print.
+Every section 10 thread now enters the `omp for`, and a failed worker table withholds the MI table. The depth-3 table
+is never retried after a failure, and section 25 is withheld. A checkpoint read or combine failure makes sections 25
+and 27 print `SKIPPED` instead of a table. Every such branch, and every existing `SKIPPED` line, adds to a counter.
+If the counter is nonzero, the run ends `==== analyze INCOMPLETE … ====` and `ANALYZE=INCOMPLETE`, exit 1.
+
+**What did not change.** A run with no failure, on a file that holds King Wen at record 0, prints the same bytes as before, apart from elapsed times. That was
+checked on three small fixtures that hold King Wen at record 0 and on a local `solutions.bin` sample that is not tracked here. Each `solve.c` edit is appended to an
+existing line, so no line number moves. No canonical sha, count, mass, token or verdict changed.
+
+**Tests.** `TestBatchEngine2` fails one allocation at a time with an `LD_PRELOAD` shim and checks that the shim
+fired. The section 8, 10 and 25 tests and the checkpoint test fail on the parent tree. A clean-run positive control
+and a structural check that every `SKIPPED` line counts complete the class.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5; the defect was found by Codex (gpt-6-astra),
+final review; triaged by Fable (claude-fable-5-1), FV2 slice 2.
+
+### D1431 (Q-1081, Codex F04-003#12) — `--analyze` used record 0 as King Wen in section 20, and section 8's header said its sets identify an absent King Wen (solve.c `--analyze`)
+
+**2026-11-14.** **Source.** Codex (gpt-6-astra), final review, F04-003#12; triaged by Fable as FV2 row D1431
+(PARTIAL: G6 added the `KW_PRESENT=NO` banner and relabelled sections 7 and 15); backlog Q-1081, engine batch 2.
+
+**What was wrong.** Section 20 complemented record 0 and printed it as `KW complement`. When King Wen was absent,
+G6's note said so, but the `KW complement` lines still printed record 0's complement. When King Wen was present
+but not at record 0, which can happen in an unsorted file, the line was simply wrong: it showed `0 13 17 …` where
+King Wen's complement is `0 24 17 …`. Section 8's header still said its 4-sets `uniquely identify KW` when King Wen
+was absent and the threshold was 0 survivors.
+
+**What changed.** Section 20 uses the King Wen record the stream pass found (`kw_indices[0]`). In a sorted file
+that is record 0, so published outputs do not change. When King Wen is absent, the section prints
+`KW complement: not computed (KW is absent from this file, …)` and no complement lines. Section 8's header says
+`KW is absent: these identify nothing about KW` in that case.
+
+**What did not change.** Section 15 was already right: G6 relabelled it, and with King Wen present a set leaving
+at most 1 pair-ordering leaves exactly King Wen. Section 7 was relabelled by G6. Output for any file that contains
+King Wen, sorted as `--merge` writes it, is byte-identical. The archived `enumeration/analyze_sec25fix_742M.txt`
+shows `0 24 17 …`, King Wen's own complement. No canonical sha, count, mass, token or verdict changed.
+
+**Tests.** `TestBatchEngine2.test_d1431_*` fail on the parent tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5; the defect was found by Codex (gpt-6-astra),
+final review; triaged by Fable (claude-fable-5-1), FV2 slice 2.
+
+### D1465 (Q-1075, Codex F08-009#11) — the `se=0` output contract on the estimator's `[score]` lines is now written down (reports/METHODS.md; solve.c comment)
+
+**2026-11-14.** **Source.** Codex (gpt-6-astra), fix-verification round, F08-009#11; triaged by Fable as FV2 row
+D1465; held in FV2-E2 because `se=NA` would break a consumer; backlog Q-1075, engine batch 2.
+
+**What was unclear.** A `[score]` mass with no hits prints `0.000000 … se=0.000e+00`, which reads as an exact zero
+with no uncertainty. FV2-E2 found that printing `se=NA` instead would break
+`reports/evidence/circular_census/pool.sh`, which reads the `wrap-bin` lines with a numeric `se=` pattern (line 91).
+
+**What changed.** The output stays as it is, and its meaning is written down. In a dated note in METHODS.md
+§"Knuth estimator CIs", and in the comment on `KNUTH_MASS_SE`: `se=0` at fraction 0 means no hits. It is
+starvation, not a zero-width interval and not a bound. The same `se=0` appears at fraction 1, when every canonical
+probe hits. The note also corrects one clause above it: the `hits=` line has printed `CI=UNAVAILABLE` at zero hits
+since G6 (CX-35X-D). The old wording stays in place.
+
+**What did not change.** No printed byte, number or verdict.
+
+**Tests.** `TestBatchEngine2.test_q1075_zero_hit_se_contract_holds_and_is_documented` checks two things. A zero-hit
+`wrap-bin` line prints `se=0.000e+00` and still matches pool.sh's pattern, read from pool.sh itself. The note and
+the comment are present. The check fails on the parent tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5; the finding is Codex's (gpt-6-astra); triaged by
+Fable (claude-fable-5-1), FV2 slice 2.
+
+## CX-37C-P — FT3f code rows: thirteen solve.c and verify.c paths that accepted malformed input, exited 71 where 2 is documented, or dropped a record (solve.c; verify.c; documentation/SOLVE_C_CLI.md; documentation/DEVELOPMENT.md; tests.py)
+
+**2026-11-14.** **Source.** Codex (gpt-6-astra), final review, findings F12-002#6, F12-002#9, F12-002#10,
+F12-003#2, F12-003#9, F12-009#2, F12-013#7, F12-014#4, F12-014#7, F12-024#4, F12-024#6 and F12-024#19, the rows
+the Q-1019 FT3f triage classed as needing a code change; and the residual of F12-001#7 (CX-36N-B fixed the
+document, not the binary). Each defect was reproduced by running a scratch build of `5b2a8529` on n = 9 ladders or
+a small enumeration, and each fix was run the same way. No canonical output changed: every change is on a refusal,
+a sidecar, a progress field or a message, and no published count, digest or token meaning moved.
+
+**What the code did, and what it does now.**
+- **`SOLVE_KC_SCAN_TAIL_STRICT` (F12-002#9, F12-002#10, F12-024#6).** The scan's number parser checked for `-`
+  only at the first byte, and `strtoull` skips leading space and takes a sign, so `" +1"` and
+  `" -18446744073709551615"` were read as 1. The variable was also not read when the scan started: a chunk scan
+  with the value `garbage` exited 0, and a whole scan exited 71 in its tail. A value must now start with a digit,
+  and the variable is checked with the other scan knobs at the start. All four cases exit 2 with `KC_SCAN=FAIL`.
+  The same stricter parse applies to the other `SOLVE_KC_SCAN_*` knobs and to `--kc-scan-threads` and
+  `--kc-gcache-mb-per-thread`, so a sign or a leading space is refused there too.
+- **Witness atlas without `max` or `min` (F12-003#2, F12-024#4).** The extrema parser required the five class
+  names but not both members of each class. A table that held only `max: null` or only `min: null` gave zero
+  rows and `KC_WITNESS_WALKS=OK` at exit 0, and a real atlas with one `min` deleted was checked one row short,
+  also at exit 0. Each class now needs `max` and `min` exactly once (`null` is still allowed); otherwise the atlas
+  is malformed (exit 2, `KC_WITNESS_WALKS=FAIL`).
+- **`--merge-layers` and provenance (F12-003#9).** Only `sub_*.bin` was linked into `_merged_`, so the merge found
+  no shard sidecars and wrote no `solutions.provenance.json`. The winning shard's `.provenance.json` is now linked
+  with it, and a losing layer's sidecar is never left beside the winner. On a 1,097-shard enumeration the
+  aggregate equals the direct `--merge`'s in every field except `merge_invocation`.
+- **Shard history between 1 and 2 MiB (F12-009#2).** The finding said a history above 1 MiB was replaced by the
+  new write alone. At `5b2a8529` that was no longer so: since G6 (F04-003#20) the file is kept and
+  `SHARD_PROVENANCE=HISTORY-UNREADABLE` is printed. What remained is that the new write was not recorded: a 1.05 MB
+  history extended from budget 2,000 to 4,000 kept 1,904 writes and `final_per_sub_branch_limit` 2000. The
+  appender's read cap is now 2 MiB, the merge aggregator's, so the write is appended (1,905 writes, limit 4000).
+  Above 2 MiB both the appender and the aggregator still refuse it by name.
+- **Telemetry sidecar after a failed merge (F12-024#19).** `<OUT>.merge_telemetry.json` is written only on OK, but
+  an earlier OK run's sidecar survived a later failed merge to the same OUT, where the atlas itself was removed. It is
+  now removed with OUT when the merge starts. The other half of the finding, that a sidecar write failure after
+  OK is a warning and leaves exit 0, is unchanged: SOLVE_C_CLI.md describes the sidecar as best effort.
+- **Progress `v2_gz` after a resume or adopt (F12-013#7).** `f1c5_progress.json` recorded the requested format. A
+  v2 ladder resumed with `SOLVE_F1_OOC_FORMAT=v1` adopts v2 and writes v2 layers, but the file said `v2_gz` 0. It
+  now records the level in force after a resume adopts the on-disk format and after a finalized layer is adopted
+  (6 in the test, where it was 0).
+- **v1 layer with a trailing byte (F12-014#7).** The in-memory reader read the declared arrays and closed the file.
+  With one byte added to f layer 1, `--kc-g-check` passed at exit 0 while `--kc-ooc` refused it by size (exit 71).
+  The in-memory reader now also requires pad 0 and the end of the file after `vals[]`, and exits 71 like the
+  out-of-core reader. `--f1c5-verify-layer` never read either header's `version` or the v1 `pad`: v1 version 999,
+  v2 version 888 and v1 pad 7 each printed IDENTICAL. Each is now refused (exit 2).
+- **Manifest tag read as a prefix (F12-014#4).** The two query loaders, the sidecar retrofit and the
+  `--kc-midjoin` ladder reader accepted any first line that began with the tag, so `g_manifest_v10` loaded and
+  `--kc-g-check` passed with both readers. The whole line must now equal the tag (a trailing CR is allowed). `verify.c`
+  set `start_exit` to 0 and never required the field, so a zero-root manifest with `start_exit=` deleted passed
+  `--check-layers`. It now fails, naming the missing line. The resume loader's tag was fixed earlier (CX-36I-B).
+- **Corrupt v2 block in the sidecar pass (F12-002#6).** The sidecar pass, shared by the builders and
+  `--f1c5-sidecar-retrofit`, computed its digests with the reader that exits 71. So a layer whose last value block had
+  one flipped checksum byte ended the process inside a pass the builders treat as non-fatal (the retrofit exited
+  71). Both digests now read in the soft mode the layer tools have used since FV2-E1 (D1327). A corrupt block is a
+  failed digest: a WARN and no sidecar, `F1C5_LAYER_SIDECAR=MISSING` in a build, and exit 2 with
+  `F1C5_SIDECAR_RETROFIT_LAYER=FAILED` from the retrofit. The stats pass reads only bytes the digest has just
+  decompressed.
+- **`--preflight` text (F12-001#7, residual).** The binary's report still named a private campaign
+  script, which this repository does not ship, in two printed lines and a comment. It now tells the operator to run `smartctl` and `fsck`.
+
+**What is not claimed.** That a build was made to hit a corrupt block in its sidecar pass only: that needs the
+file to change between the build's read and the sidecar's, so the builder path is tested structurally and the
+shared function through the retrofit. That every manifest field is now required by every reader: only the tag
+and verify.c's `start_exit` are. `solve.c` and `verify.c` change, so the source digests the stamp pins change, and
+this draft does not re-stamp.
+
+**Tests.** `TestBatchFT3fCode`: one test per row, each run on the binaries built from the tree with a positive
+control. Every behavioural test fails on `5b2a8529`, where it reproduces the defect described above.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, the FT3f code lane; the defects were found by
+Codex (gpt-6-astra), final review, F12-001#7, F12-002#6, F12-002#9, F12-002#10, F12-003#2, F12-003#9, F12-009#2,
+F12-013#7, F12-014#4, F12-014#7, F12-024#4, F12-024#6, F12-024#19.

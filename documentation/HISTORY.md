@@ -12790,3 +12790,42 @@ entry describes the review itself, which had none.)*
   `SOLVE_*` variable it inherits and names it. The Q-1055 locale check skips by name, and a run without gcc says so.
 - No count, digest or canonical sha changed. `TestBatchQ1136` holds the fixes and fails on the parent tree. Found
   by an Opus audit lane; built in an Opus lane.
+
+## 2026-11-14 — engine build: engine batch 2 and the FT3f code rows (CX-37C-O, CX-37C-P)
+
+Two sets of engine fixes, drafted apart, were built and tested together as one commit. Both came from Codex's
+(gpt-6-astra) reviews, triaged by Fable. Every `solve.c` and `verify.c` edit was folded into an existing line, so no
+line number in either file moves. Both sets of reproductions were run again on the combined binary.
+
+### Engine batch 2: `--analyze` says INCOMPLETE when a section lost data, stops calling record 0 King Wen, and the estimator's `se=0` is defined
+
+- **Failures stop passing as results (CX-37C-O, Q-1080, Codex F04-003#15).** Some `--analyze` sections lost records
+  when a memory allocation or a checkpoint read failed. They still printed tables, and the run ended `analyze done`
+  with exit 0. In one case, section 8, the rows were unset memory. Those sections now print `SKIPPED`, and the run
+  ends `ANALYZE=INCOMPLETE` with exit 1. Section 10 could also hang with two threads; it no longer does.
+- **King Wen is found, not assumed (CX-37C-O, Q-1081, Codex F04-003#12).** Section 20 now uses the record the
+  stream pass identified as King Wen, and prints no "KW complement" line when King Wen is absent. Section 8's
+  header no longer says its sets identify King Wen when King Wen is absent.
+- **`se=0` has a written meaning (CX-37C-O, Q-1075, Codex F08-009#11).** On a `[score]` line with fraction 0, it means
+  no hits. The format stays numeric because the circular-census pooling script parses it.
+- No canonical sha, count, mass, token or verdict changed. A clean `--analyze` run on a file with King Wen at record 0 (as `--merge` writes it) prints the same bytes as before,
+  apart from elapsed times. `TestBatchEngine2` fails on the parent tree.
+
+### FT3f code rows: malformed input that was accepted, and records that were dropped
+
+- **What changed (CX-37C-P).** Codex's final review left twelve FT3f rows that needed a code change rather than a
+  document edit. Each one was reproduced by running a scratch build of `5b2a8529` on n = 9 ladders or a small
+  enumeration, and each now fails with a named token:
+  `SOLVE_KC_SCAN_TAIL_STRICT` with a sign, a leading space or `garbage` (`KC_SCAN=FAIL`, exit 2, where a chunk
+  exited 0 and a whole scan 71); a witness atlas missing `max` or `min` in a class (`KC_WITNESS_WALKS=FAIL`, where
+  it printed OK over zero rows); a manifest whose first line only begins with its tag; a v1 layer with a trailing
+  byte or a nonzero pad; a manifest without `start_exit=` in `verify.c`; and a corrupt v2 block met by the sidecar
+  pass (`F1C5_LAYER_SIDECAR=MISSING` or exit 2, where it exited 71).
+- **Records that are now kept.** `--merge-layers` carries the shard provenance sidecars, so it writes
+  `solutions.provenance.json` (equal to the direct merge's apart from `merge_invocation`). A shard history between 1
+  and 2 MiB takes its next write. A failed `--kc-scan-merge` no longer leaves the previous run's telemetry sidecar.
+  `f1c5_progress.json` records the compression level of the format a resume adopted.
+- **One finding was partly out of date.** F12-009#2 said a history above 1 MiB was replaced by one record; since
+  G6 it was kept, and only the new write was lost. That remainder is what changed.
+- The `--preflight` report no longer names a private script (the residual of F12-001#7).
+- No canonical sha, count, digest or token meaning changed. `TestBatchFT3fCode` fails on the parent tree.

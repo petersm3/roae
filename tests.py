@@ -66080,6 +66080,407 @@ class TestQ1065AtlasFollowups(unittest.TestCase):
 # end class TestQ1065AtlasFollowups (Q-1065, CX-37C-L)
 
 
+class TestBatchFT3fCode(unittest.TestCase):
+    """FT3f code rows (Q-1019 triage, class FIX-CODE; CX-37C-P): Codex final-review findings F12-002#6, #9, #10,
+    F12-003#2, #9, F12-009#2, F12-013#7, F12-014#4, #7, F12-024#4, #6, #19, and the residual F12-001#7. Every
+    behavioural test drives binaries built from ROAE_TESTS_SOLVE_SRC / ROAE_TESTS_VERIFY_SRC (default: this tree's
+    solve.c and verify.c) on n=9 ladders or a small enumeration, and names the defect it reproduces on 5b2a8529
+    (built from that commit's sources the class fails test by test; the transcript is in the lane report). Nothing
+    here changes a canonical output, a count or a token's meaning. Developed with AI assistance (Claude, Anthropic):
+    claude-opus-5-5, from Codex (gpt-6-astra) findings triaged by an Opus lane."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    ENUM = {"SOLVE_HASH_LOG2": "16", "SOLVE_DEPTH": "2", "SOLVE_THREADS": "2"}
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = os.path.realpath(tempfile.mkdtemp(prefix="ft3fcode_"))
+        cls.sbin = os.path.join(cls.tmp, "solve_ft3f")
+        cls.vbin = os.path.join(cls.tmp, "verify_ft3f")
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin,
+                            os.environ.get("ROAE_TESTS_SOLVE_SRC", os.path.join(cls.ROOT, "solve.c")), "-lm", "-lz"],
+                           capture_output=True, text=True, timeout=1800)
+        cls.build_err = "solve gcc rc %d: %s" % (r.returncode, r.stderr[-1500:])
+        cls.build_ok = r.returncode == 0 and os.path.exists(cls.sbin)
+        r = subprocess.run(["gcc", "-O1", "-o", cls.vbin,
+                            os.environ.get("ROAE_TESTS_VERIFY_SRC", os.path.join(cls.ROOT, "verify.c")),
+                            "-lz", "-lpthread", "-lm"], capture_output=True, text=True, timeout=1800)
+        cls.build_err += " / verify gcc rc %d: %s" % (r.returncode, r.stderr[-1500:])
+        cls.build_ok = cls.build_ok and r.returncode == 0 and os.path.exists(cls.vbin)
+        cls._kc = cls._ladders = None
+
+    @classmethod
+    def tearDownClass(cls):
+        t = getattr(cls, "tmp", None)
+        if t and os.path.basename(t).startswith("ft3fcode_"):
+            shutil.rmtree(t, ignore_errors=True)
+
+    def setUp(self):
+        self.assertTrue(self.build_ok, "solve.c or verify.c did not build, so nothing was verified: " + self.build_err)
+
+    @staticmethod
+    def _unlimited_stack():
+        import resource
+        try:
+            resource.setrlimit(resource.RLIMIT_STACK, (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
+        except (ValueError, OSError):
+            pass
+
+    def _run(self, args, cwd=None, env=None, exe=None, timeout=900):
+        e = {k: v for k, v in os.environ.items() if not k.startswith("SOLVE_")}
+        e.update(env or {})
+        r = subprocess.run([exe or self.sbin] + list(args), cwd=cwd, env=e, timeout=timeout,
+                           capture_output=True, text=True, preexec_fn=self._unlimited_stack)
+        return r.returncode, r.stdout, r.stderr
+
+    def _d(self, name):
+        return tempfile.mkdtemp(dir=self.tmp, prefix=name + "_")
+
+    def _kc_fixture(self):
+        """n=9 f, g and t ladders (v1, the in-memory builders), as TestBatchFV2E1 builds them."""
+        cls = type(self)
+        if cls._kc is None:
+            d = os.path.join(self.tmp, "kc")
+            os.makedirs(d)
+            rcs = [self._run(a, cwd=d)[0] for a in (["--kc-build", "f", "--f1-pairs", "9"],
+                                                     ["--kc-g-build", "g", "--f1-pairs", "9"],
+                                                     ["--kc-t-build", "f", "t"])]
+            cls._kc = {"d": d, "rcs": rcs}
+        self.assertEqual(cls._kc["rcs"], [0, 0, 0], "precondition: the n=9 ladders did not build")
+        return cls._kc["d"]
+
+    def _layer_fixture(self):
+        """n=9 f ladders with every layer kept: v1 (--layers-dir L) and v2 (--f1-out-of-core O)."""
+        cls = type(self)
+        if cls._ladders is None:
+            d = os.path.join(self.tmp, "lad")
+            os.makedirs(d)
+            r1 = self._run(["--f1-exact-c1c2c4c5", "--f1-pairs", "9", "--layers-dir", "L"], cwd=d,
+                           env={"SOLVE_F1_KEEP_LAYERS": "1"})
+            with open(os.path.join(d, "L.err"), "w") as fh:
+                fh.write(r1[2])
+            r2 = self._run(["--f1-exact-c1c2c4c5", "--f1-pairs", "9", "--f1-out-of-core", "O"], cwd=d,
+                           env={"SOLVE_F1_KEEP_LAYERS": "1"})
+            cls._ladders = {"d": d, "rcs": [r1[0], r2[0]]}
+        self.assertEqual(cls._ladders["rcs"], [0, 0], "precondition: the n=9 layer fixtures did not build")
+        return cls._ladders["d"]
+
+    # ---- F12-002#9, F12-002#10, F12-024#6: SOLVE_KC_SCAN_TAIL_STRICT -----------------------------------
+    def test_f12_002_9_tail_strict_takes_no_sign_or_leading_space(self):
+        """F12-002#9. kc_h_env_u64 checked for '-' only at byte 0 and strtoull skips leading space, so
+        ' +1' and ' -18446744073709551615' were read as 1 (5b2a8529: a chunk scan exits 0). Control: '0'."""
+        d = self._kc_fixture()
+        rc, out, err = self._run(["--kc-scan", "f", "g", "c0.json", "--kc-tdir", "t", "--kc-layers", "0", "1"],
+                                 cwd=d, env={"SOLVE_KC_SCAN_TAIL_STRICT": "0"})
+        self.assertEqual(rc, 0, "control: " + (out + err)[-600:])
+        for i, v in enumerate((" +1", " -18446744073709551615", "+1")):
+            with self.subTest(value=v):
+                o = "cs%d.json" % i
+                rc, out, err = self._run(["--kc-scan", "f", "g", o, "--kc-tdir", "t", "--kc-layers", "0", "1"],
+                                         cwd=d, env={"SOLVE_KC_SCAN_TAIL_STRICT": v})
+                self.assertEqual(rc, 2, (out + err)[-600:])
+                self.assertIn("KC_SCAN=FAIL", out.splitlines())
+                self.assertIn("SOLVE_KC_SCAN_TAIL_STRICT", err)
+                self.assertFalse(os.path.exists(os.path.join(d, o)))
+
+    def test_f12_002_10_tail_strict_malformed_is_refused_by_chunk_and_whole_scan(self):
+        """F12-002#10, F12-024#6. The variable was not read at scan start: a healthy chunk never read it (5b2a8529:
+        rc 0 with 'garbage') and a whole scan read it in the tail through F1_CHECK (rc 71). Both now exit 2."""
+        d = self._kc_fixture()
+        for tag, extra in (("chunk", ["--kc-layers", "0", "1"]), ("whole", [])):
+            with self.subTest(scan=tag):
+                o = "g_%s.json" % tag
+                rc, out, err = self._run(["--kc-scan", "f", "g", o, "--kc-tdir", "t"] + extra, cwd=d,
+                                         env={"SOLVE_KC_SCAN_TAIL_STRICT": "garbage"})
+                self.assertEqual(rc, 2, (out + err)[-600:])
+                self.assertIn("KC_SCAN=FAIL", out.splitlines())
+                self.assertIn('SOLVE_KC_SCAN_TAIL_STRICT="garbage"', err)
+                self.assertFalse(os.path.exists(os.path.join(d, o)))
+
+    # ---- F12-003#2, F12-024#4: witness atlas without max or min ------------------------------------------
+    def test_f12_003_2_witness_atlas_needs_max_and_min_in_every_class(self):
+        """F12-003#2, F12-024#4. A table whose classes held only max:null (or only min:null) parsed as zero
+        witnesses and printed KC_WITNESS_WALKS=OK rc 0 on 5b2a8529; so did a real atlas with one min deleted
+        (one fewer row checked). Each is now a malformed atlas, exit 2. Control: the real atlas passes."""
+        d = self._kc_fixture()
+        a = os.path.join(d, "wa_ft3f.json")
+        if not os.path.exists(a):
+            rc, out, err = self._run(["--kc-scan", "f", "g", "wa_ft3f.json", "--kc-tdir", "t"], cwd=d)
+            self.assertEqual(rc, 0, "precondition: " + (out + err)[-600:])
+        rc, out, err = self._run(["--kc-witness-walks", "f", "g", "wa_ft3f.json"], cwd=d)
+        self.assertEqual(rc, 0, "control: " + (out + err)[-600:])
+        self.assertIn("KC_WITNESS_WALKS=OK", out.splitlines())
+        with open(a) as fh:
+            j = json.load(fh)
+        self.assertIn("min", j["layers"][3]["extrema"]["ext1"], "precondition: the atlas carries ext1.min at k=3")
+        del j["layers"][3]["extrema"]["ext1"]["min"]
+        plants = {"maxonly": {"n": 9, "layers": [{"k": k, "flow": "0", "extrema": {"ext%d" % c: {"max": None}
+                  for c in (1, 2, 3, 4, 6)}} for k in range(9)]},
+                  "minonly": {"n": 9, "layers": [{"k": k, "flow": "26112", "extrema": {"ext%d" % c: {"min": None}
+                  for c in (1, 2, 3, 4, 6)}} for k in range(9)]},
+                  "delmin": j}
+        for name, obj in sorted(plants.items()):
+            with self.subTest(atlas=name):
+                p = os.path.join(d, "bad_%s.json" % name)
+                with open(p, "w") as fh:
+                    json.dump(obj, fh)   # compact, as the atlas writer lays rows out: an indented file fails the row locator on any tree
+                rc, out, err = self._run(["--kc-witness-walks", "f", "g", p], cwd=d)
+                self.assertEqual(rc, 2, (out + err)[-600:])
+                self.assertNotIn("KC_WITNESS_WALKS=OK", out.splitlines())
+                self.assertIn("malformed extrema table", err)
+
+    # ---- F12-024#19: telemetry sidecar after a failed merge ---------------------------------------------
+    def test_f12_024_19_a_failed_merge_leaves_no_prior_telemetry_sidecar(self):
+        """F12-024#19. <OUT>.merge_telemetry.json is written only on OK, but a prior OK run's sidecar survived a
+        later failed merge to the same OUT on 5b2a8529 (the atlas was removed, the sidecar stayed). It is now
+        removed with OUT at entry. Control: the OK merge writes it."""
+        d = self._kc_fixture()
+        for lo, hi, c in (("0", "4", "t0.json"), ("4", "9", "t1.json")):
+            rc, out, err = self._run(["--kc-scan", "f", "g", c, "--kc-tdir", "t", "--kc-layers", lo, hi], cwd=d)
+            self.assertEqual(rc, 0, "precondition: " + (out + err)[-400:])
+        tel = os.path.join(d, "tm.json.merge_telemetry.json")
+        rc, out, err = self._run(["--kc-scan-merge", "f", "g", "tm.json", "t0.json", "t1.json", "--kc-tdir", "t"], cwd=d)
+        self.assertEqual(rc, 0, "control: " + (out + err)[-600:])
+        self.assertTrue(os.path.exists(tel), "control: the OK merge wrote no telemetry sidecar")
+        rc, out, err = self._run(["--kc-scan-merge", "f", "g", "tm.json", "t0.json", "--kc-tdir", "t"], cwd=d)
+        self.assertNotEqual(rc, 0, "precondition: a merge missing layers 4..8 must fail: " + (out + err)[-600:])
+        self.assertFalse(os.path.exists(os.path.join(d, "tm.json")))
+        self.assertFalse(os.path.exists(tel), "the failed merge left the previous run's telemetry sidecar")
+
+    # ---- F12-014#7: v1 trailing byte, header version and pad ---------------------------------------------
+    def test_f12_014_7_in_memory_v1_loader_refuses_a_trailing_byte(self):
+        """F12-014#7. The in-memory loader read the declared arrays and closed the file: f layer 1 plus one byte
+        gave --kc-g-check PASS rc 0 on 5b2a8529 while --kc-ooc refused it by size (rc 71). Both now refuse."""
+        d = self._kc_fixture()
+        for extra in ([], ["--kc-ooc", "--kc-cache-mb", "64"]):
+            rc, out, err = self._run(["--kc-g-check", "f", "g"] + extra, cwd=d)
+            self.assertEqual(rc, 0, "control: " + (out + err)[-400:])
+        ft = os.path.join(d, "f_trail")
+        if not os.path.isdir(ft):
+            shutil.copytree(os.path.join(d, "f"), ft)
+            with open(os.path.join(ft, "f1c5_layer_01.bin"), "ab") as fh:
+                fh.write(b"x")
+        for tag, extra in (("in-memory", []), ("ooc", ["--kc-ooc", "--kc-cache-mb", "64"])):
+            with self.subTest(reader=tag):
+                rc, out, err = self._run(["--kc-g-check", "f_trail", "g"] + extra, cwd=d)
+                self.assertNotEqual(rc, 0, (out + err)[-600:])
+                self.assertNotIn("KC-G CHECK n=9 PASS", out)
+                self.assertIn("f1c5_layer_01.bin", err)
+        rc, out, err = self._run(["--kc-g-check", "f_trail", "g"], cwd=d)
+        self.assertIn("bytes after vals[]", err)
+
+    def test_f12_014_7_verify_layer_checks_version_and_v1_pad(self):
+        """F12-014#7. --f1c5-verify-layer never read h1.version, h2.version or h1.pad: v1 version 999, v2 version
+        888 and v1 pad 7 still printed IDENTICAL rc 0 on 5b2a8529. Each is now refused (exit 2). Control: the
+        unmodified pair is IDENTICAL."""
+        d = self._layer_fixture()
+        v1, v2 = os.path.join(d, "L", "f1c5_layer_04.bin"), os.path.join(d, "O", "f1c5_layer_04.bin")
+        rc, out, err = self._run(["--f1c5-verify-layer", v1, v2])
+        self.assertEqual(rc, 0, "control: " + (out + err)[-400:])
+        self.assertIn("IDENTICAL", out)
+        for tag, which, off, val in (("v1-version", 1, 8, 999), ("v2-version", 2, 8, 888), ("v1-pad", 1, 68, 7)):
+            with self.subTest(field=tag):
+                p1, p2 = os.path.join(d, "vh1_%s.bin" % tag), os.path.join(d, "vh2_%s.bin" % tag)
+                shutil.copyfile(v1, p1)
+                shutil.copyfile(v2, p2)
+                p = p1 if which == 1 else p2
+                with open(p, "rb") as fh:
+                    b = bytearray(fh.read())
+                struct.pack_into("<I", b, off, val)
+                with open(p, "wb") as fh:
+                    fh.write(bytes(b))
+                rc, out, err = self._run(["--f1c5-verify-layer", p1, p2])
+                self.assertEqual(rc, 2, (out + err)[-400:])
+                self.assertNotIn("IDENTICAL", out)
+
+    # ---- F12-014#4: manifest tag as a prefix; verify.c start_exit ----------------------------------------
+    def test_f12_014_4_query_loaders_take_the_manifest_tag_whole(self):
+        """F12-014#4. Both solve query loaders took the tag as a prefix, so g_manifest_v10 loaded and
+        --kc-g-check passed (rc 0, both readers) on 5b2a8529. Both now refuse it. Control: the real tag."""
+        d = self._kc_fixture()
+        gv = os.path.join(d, "g_v10")
+        if not os.path.isdir(gv):
+            shutil.copytree(os.path.join(d, "g"), gv)
+            mp = os.path.join(gv, "g_manifest.txt")
+            with open(mp) as fh:
+                lines = fh.read().split("\n")
+            self.assertEqual(lines[0], "g_manifest_v1", "precondition")
+            lines[0] = "g_manifest_v10"
+            with open(mp, "w") as fh:
+                fh.write("\n".join(lines))
+        for tag, extra in (("in-memory", []), ("ooc", ["--kc-ooc", "--kc-cache-mb", "64"])):
+            with self.subTest(reader=tag):
+                rc, out, err = self._run(["--kc-g-check", "f", "g"] + extra, cwd=d)
+                self.assertEqual(rc, 0, "control: " + (out + err)[-400:])
+                rc, out, err = self._run(["--kc-g-check", "f", "g_v10"] + extra, cwd=d)
+                self.assertNotEqual(rc, 0, (out + err)[-600:])
+                self.assertIn("first line != g_manifest_v1", err)
+
+    def test_f12_014_4_verify_requires_start_exit(self):
+        """F12-014#4. verify.c --check-layers initialised start_exit to 0 and never required the field, so a
+        zero-root manifest with start_exit= deleted verified (rc 0) on 5b2a8529. It now fails, naming the field.
+        Control: the unmodified ladder verifies."""
+        d = self._layer_fixture()
+        log = os.path.join(d, "L.err")
+        rc, out, err = self._run(["--check-layers", os.path.join(d, "L"), "31", log], exe=self.vbin)
+        self.assertEqual(rc, 0, "control: " + (out + err)[-600:])
+        ns = os.path.join(d, "L_nose")
+        if not os.path.isdir(ns):
+            shutil.copytree(os.path.join(d, "L"), ns)
+            mp = os.path.join(ns, "f1c5_manifest.txt")
+            with open(mp) as fh:
+                txt = fh.read()
+            self.assertIn("\nstart_exit=0\n", txt, "precondition: a zero-root manifest")
+            with open(mp, "w") as fh:
+                fh.write(txt.replace("\nstart_exit=0\n", "\n"))
+        rc, out, err = self._run(["--check-layers", ns, "31", log], exe=self.vbin)
+        self.assertNotEqual(rc, 0, (out + err)[-600:])
+        self.assertIn("has no start_exit= line", out)
+
+    # ---- F12-002#6: a corrupt v2 block inside the sidecar pass --------------------------------------------
+    def test_f12_002_6_sidecar_pass_reports_a_corrupt_block_instead_of_exiting_71(self):
+        """F12-002#6. The sidecar pass (the builders' automatic one and --f1c5-sidecar-retrofit share
+        f1c5_sidecar_emit_impl) digested layers with the hard reader, so a v2 layer whose last value block's
+        Adler byte was flipped exited 71 inside a pass that is non-fatal by contract (5b2a8529: retrofit rc 71).
+        The digest now fails softly: the retrofit exits 2 and writes no sidecar. Control: --f1c5-layer-sha
+        already exits 2 on the same file (FV2-E1 D1327)."""
+        d = self._layer_fixture()
+        sc = os.path.join(d, "sc_corrupt")
+        if not os.path.isdir(sc):
+            shutil.copytree(os.path.join(d, "O"), sc)
+            os.remove(os.path.join(sc, "f1c5_layer_stats_05.json"))
+            p = os.path.join(sc, "f1c5_layer_05.bin")
+            with open(p, "rb") as fh:
+                b = bytearray(fh.read())
+            self.assertEqual(bytes(b[:8]), b"F1C5LAY2", "precondition: a v2 layer")
+            b[-1] ^= 0xFF
+            with open(p, "wb") as fh:
+                fh.write(bytes(b))
+        rc, out, err = self._run(["--f1c5-layer-sha", os.path.join(sc, "f1c5_layer_05.bin")])
+        self.assertEqual(rc, 2, "control: " + (out + err)[-400:])
+        rc, out, err = self._run(["--f1c5-sidecar-retrofit", sc, "5"])
+        self.assertEqual(rc, 2, (out + err)[-800:])
+        self.assertIn("digest failed for", err)
+        self.assertFalse(os.path.exists(os.path.join(sc, "f1c5_layer_stats_05.json")))
+
+    def test_f12_002_6_the_sidecar_digests_read_softly(self):
+        """Structural (a build cannot be made to read a corrupt layer only in its sidecar pass without a race):
+        both digests in f1c5_sidecar_emit_impl go through the soft helper, which restores the caller's mode."""
+        with open(os.environ.get("ROAE_TESTS_SOLVE_SRC", os.path.join(self.ROOT, "solve.c")), encoding="utf-8",
+                  errors="replace") as fh:
+            src = fh.read()
+        i = src.index("static int f1c5_sidecar_emit_impl(")
+        body = src[i:src.index("\nstatic ", i + 10)]
+        self.assertEqual(body.count("f1c5_layer_sha_hex_soft("), 2)
+        self.assertNotIn("f1c5_layer_sha_hex(", body)
+        h = src[src.index("static int f1c5_layer_sha_hex_soft("):i]
+        self.assertIn("f1c5_lstream_soft = s0;", h)
+
+    # ---- F12-013#7: progress v2_gz after a resume adopts the on-disk format ------------------------------
+    def test_f12_013_7_progress_v2_gz_follows_the_adopted_format(self):
+        """F12-013#7. A v2 out-of-core ladder resumed under SOLVE_F1_OOC_FORMAT=v1 adopts v2 and writes v2 layers,
+        but f1c5_progress.json kept run_params.v2_gz = 0 (the requested v1) on 5b2a8529. It now carries the
+        level in force. Control: the first run's value."""
+        d = self._d("prog")
+        P = os.path.join(d, "P")
+        rc, out, err = self._run(["--f1-exact-c1c2c4c5", "--f1-pairs", "9", "--f1-out-of-core", P],
+                                 env={"SOLVE_F1_MAX_LAYER": "3"})
+        self.assertEqual(rc, 0, "precondition: " + err[-400:])
+        with open(os.path.join(P, "f1c5_progress.json")) as fh:
+            gz = json.load(fh)["run_params"]["v2_gz"]
+        self.assertGreater(gz, 0, "control: a v2 run records its level")
+        rc, out, err = self._run(["--f1-exact-c1c2c4c5", "--f1-pairs", "9", "--f1-out-of-core", P],
+                                 env={"SOLVE_F1_OOC_FORMAT": "v1"})
+        self.assertEqual(rc, 0, err[-400:])
+        self.assertIn("resume ADOPTS on-disk layer format v2", err)
+        with open(os.path.join(P, "f1c5_layer_09.bin"), "rb") as fh:
+            self.assertEqual(fh.read(8), b"F1C5LAY2", "precondition: the resumed layers are v2")
+        with open(os.path.join(P, "f1c5_progress.json")) as fh:
+            self.assertEqual(json.load(fh)["run_params"]["v2_gz"], gz)
+
+    # ---- F12-003#9: --merge-layers and provenance ----------------------------------------------------------
+    def test_f12_003_9_merge_layers_carries_the_provenance_sidecars(self):
+        """F12-003#9. --merge-layers linked only sub_*.bin into _merged_, so the merge found no sidecars and
+        skipped solutions.provenance.json (5b2a8529: absent, rc 0). The winning shard's sidecar now goes with
+        it, and the aggregate equals the direct merge's in every field but merge_invocation. Control: the direct
+        merge writes one."""
+        d = self._d("ml")
+        lay = os.path.join(d, "root", "01_layer")
+        os.makedirs(lay)
+        rc, out, err = self._run(["0", "4"], cwd=lay, env=dict(self.ENUM, SOLVE_PER_SUB_BRANCH_LIMIT="20000",
+                                                               SOLVE_SKIP_AUTOMERGE="1"))
+        self.assertEqual(rc, 0, "precondition: " + err[-600:])
+        self.assertTrue(any(f.endswith(".bin.provenance.json") for f in os.listdir(lay)), "precondition: sidecars")
+        direct = os.path.join(d, "direct")
+        shutil.copytree(lay, direct)
+        rc, out, err = self._run(["--merge"], cwd=direct, env=self.ENUM)
+        self.assertEqual(rc, 0, "control: " + err[-600:])
+        rc, out, err = self._run(["--merge-layers", os.path.join(d, "root")], cwd=d, env=self.ENUM)
+        self.assertEqual(rc, 0, err[-600:])
+        mp = os.path.join(d, "root", "_merged_", "solutions.provenance.json")
+        self.assertTrue(os.path.exists(mp), "--merge-layers wrote no solutions.provenance.json")
+        with open(os.path.join(direct, "solutions.provenance.json")) as fh:
+            a = json.load(fh)
+        with open(mp) as fh:
+            b = json.load(fh)
+        self.assertGreater(a["shard_count"], 0, "precondition")
+        for k in sorted(set(a) | set(b)):
+            if k != "merge_invocation":   # the merge's own time and argv
+                self.assertEqual(a.get(k), b.get(k), k)
+
+    # ---- F12-009#2: a shard history between 1 and 2 MiB -----------------------------------------------------
+    def test_f12_009_2_a_history_above_1_mib_still_takes_the_next_write(self):
+        """F12-009#2. read_provenance_writes_array returned NULL above 1 MiB. Since G6 F04-003#20 the caller keeps
+        the file (the history is not reset, as the finding said) but then records nothing: on 5b2a8529 a 1.05 MB
+        sidecar extended from budget 2,000 to 4,000 printed SHARD_PROVENANCE=HISTORY-UNREADABLE and kept 1,904
+        writes and final_per_sub_branch_limit 2000. The reader's cap is now the merge aggregator's (2 MiB): the
+        write is appended and every earlier write stays."""
+        d = self._d("hist")
+        env = dict(self.ENUM, SOLVE_DFS_CHECKPOINT="1", SOLVE_ALLOW_SUB_CANONICAL="1", SOLVE_SKIP_CANONICAL_LOCK="1",
+                   SOLVE_SKIP_AUTO_SELFTEST="1", SOLVE_SKIP_AUTO_MANIFEST="1")
+        rc, out, err = self._run(["--branch", "1", "0", "0", "2"], cwd=d, env=dict(env, SOLVE_PER_SUB_BRANCH_LIMIT="2000"))
+        self.assertEqual(rc, 0, "precondition: " + err[-600:])
+        side = sorted(f for f in os.listdir(d) if f.endswith(".bin.provenance.json"))
+        self.assertTrue(side, "precondition: the run wrote no shard sidecar")
+        p = os.path.join(d, side[0])
+        with open(p) as fh:
+            j = json.load(fh)
+        w0 = j["writes"][0]
+        ws = []
+        while len(json.dumps(dict(j, writes=ws), indent=2)) <= (1 << 20) + 4096:
+            ws.append(dict(w0))
+        j["writes"] = ws
+        with open(p, "w") as fh:
+            fh.write(json.dumps(j, indent=2) + "\n")
+        size0 = os.path.getsize(p)
+        self.assertTrue((1 << 20) < size0 < (2 << 20), "precondition: between 1 and 2 MiB (%d)" % size0)
+        rc, out, err = self._run(["--branch", "1", "0", "0", "2"], cwd=d, env=dict(env, SOLVE_PER_SUB_BRANCH_LIMIT="4000"))
+        self.assertEqual(rc, 0, err[-600:])
+        self.assertNotIn("SHARD_PROVENANCE=HISTORY-UNREADABLE", err.splitlines())
+        with open(p) as fh:
+            j2 = json.load(fh)
+        self.assertEqual(len(j2["writes"]), len(ws) + 1)
+        self.assertEqual(j2["writes"][:len(ws)], ws)
+        self.assertEqual(j2["final_per_sub_branch_limit"], 4000)
+        self.assertEqual(j2["writes"][-1]["extends_prior_budget"], 2000)
+
+    # ---- F12-001#7: the --preflight text ---------------------------------------------------------------------
+    def test_f12_001_7_preflight_names_no_private_script(self):
+        """F12-001#7 (residual after CX-36N-B). The --preflight text named disk_health_precheck.sh, a private
+        script that is not in this repository (5b2a8529: printed). It now names smartctl and fsck."""
+        rc, out, err = self._run(["--preflight", "1000"])
+        self.assertIn("PREFLIGHT_GATES_RAN=", out, "precondition: the preflight report ran")
+        self.assertNotIn("disk_health_precheck", out + err)
+        self.assertIn("smartctl", out)
+        with open(os.environ.get("ROAE_TESTS_SOLVE_SRC", os.path.join(self.ROOT, "solve.c")), encoding="utf-8",
+                  errors="replace") as fh:
+            src = fh.read()
+        i = src.index('strcmp(argv[1], "--preflight") == 0')
+        self.assertNotIn("disk_health_precheck", src[i:src.index('strcmp(argv[1], "--disk-precheck") == 0', i)])
+
+# end class TestBatchFT3fCode (FT3f FIX-CODE rows, CX-37C-P)
+
+
 def _uncured_with_full_evidence_paths(uncured):
     """Q-1065 (CX-37C-L). CLAUDE.md's evidence bullet names `reports/evidence/tr12/` in full, because
     tr12_output_paths_gate.sh (CX-233) fails a live `tr12/` span; GATE 88 accepts either form. A pinned
@@ -69766,6 +70167,232 @@ class TestBatchQ1136(unittest.TestCase):
             "\n## 2026-11-14 — batch Q1136: tests.py stops depending on the host and the caller's shell\n"), 1)
 
 # end class TestBatchQ1136
+
+
+class TestBatchEngine2(unittest.TestCase):
+    """Engine batch 2 (backlog Q-1080 / FV2 row D1427, Codex F04-003#15; Q-1081 / D1431, Codex F04-003#12;
+    Q-1075 / D1465, Codex F08-009#11). Each behavioural test drives a binary built from THIS tree's solve.c
+    and names the defect it reproduces on the parent tree 5b2a8529. Allocation failures are injected with a
+    small LD_PRELOAD shim that fails one malloc/calloc of a stated byte size (AF_FN, AF_BYTES, AF_NTH),
+    and each such test first asserts that the shim fired (the precondition). Developed with AI assistance
+    (Claude, Anthropic): claude-opus-5-5, from Codex (gpt-6-astra) final-review findings triaged by Fable."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    SHIM = r'''
+#define _GNU_SOURCE
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+extern void *__libc_malloc(size_t);
+extern void *__libc_calloc(size_t, size_t);
+static long seen;
+static int want(const char *fn, size_t bytes) {
+    const char *f = getenv("AF_FN"), *s = getenv("AF_BYTES");
+    if (!f || !s || strcmp(f, fn) != 0 || (size_t)strtoull(s, NULL, 10) != bytes) return 0;
+    long n = __atomic_add_fetch(&seen, 1, __ATOMIC_SEQ_CST);
+    const char *t = getenv("AF_NTH");
+    long first = t ? atol(t) : 1;
+    return n == first;
+}
+void *malloc(size_t n) { if (want("malloc", n)) { errno = ENOMEM; return NULL; } return __libc_malloc(n); }
+void *calloc(size_t a, size_t b) { if (want("calloc", a * b)) { errno = ENOMEM; return NULL; } return __libc_calloc(a, b); }
+'''
+    # Byte sizes of the allocations the tests fail (from solve.c): section 8's per-thread row buffer
+    # malloc(200 * sizeof(QuadEntry)) = 4800; section 10's joint-count tables calloc(496 * 1024, 8) =
+    # 4063232 (the 1st is jc_global, the 2nd a worker's my_jc); section 25's depth-3 table
+    # calloc(Q623_SEC25_KEYS, 8) = 270336 * 8 = 2162688.
+    S8, S10, S25 = "4800", "4063232", "2162688"
+    D3LINE = ("Sub-branch EXHAUSTED (thread 0, pair1 1 orient1 0 pair2 2 orient2 0 pair3 3 orient3 0): "
+              "10 nodes, 2 C3-valid, 2 solutions, 1s elapsed\n")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="eng2_")
+        cls.sbin = os.path.join(cls.tmp, "solve_eng2")
+        src = os.environ.get("ROAE_TESTS_SOLVE_SRC", os.path.join(cls.ROOT, "solve.c"))
+        r = subprocess.run(["gcc", "-O1", "-pthread", "-fopenmp", "-o", cls.sbin, src, "-lm", "-lz"],
+                           capture_output=True, text=True, timeout=1800)
+        cls.build_ok, cls.build_err = r.returncode == 0, r.stderr[-2000:]
+        with open(os.path.join(cls.tmp, "shim.c"), "w") as fh:
+            fh.write(cls.SHIM)
+        cls.shim = os.path.join(cls.tmp, "shim.so")
+        r = subprocess.run(["gcc", "-O2", "-shared", "-fPIC", "-o", cls.shim, os.path.join(cls.tmp, "shim.c")],
+                           capture_output=True, text=True, timeout=300)
+        cls.shim_ok, cls.shim_err = r.returncode == 0, r.stderr[-1000:]
+
+    @classmethod
+    def tearDownClass(cls):
+        t = getattr(cls, "tmp", None)
+        if t and os.path.basename(t).startswith("eng2_"):
+            shutil.rmtree(t, ignore_errors=True)
+
+    # ---- helpers ------------------------------------------------------------------------------------
+    KW = bytes(i << 2 for i in range(32))
+
+    @classmethod
+    def _rec(cls, swap):
+        a = list(range(32))
+        a[swap[0]], a[swap[1]] = a[swap[1]], a[swap[0]]
+        return bytes(x << 2 for x in a)
+
+    def _file(self, recs, ckpt=None, ckpt_dir=False):
+        import struct as _st
+        d = tempfile.mkdtemp(dir=self.tmp)
+        with open(os.path.join(d, "s.bin"), "wb") as fh:
+            fh.write(b"ROAE" + _st.pack("<IQ", 1, len(recs)) + bytes(16) + b"".join(recs))
+        if ckpt is not None:
+            with open(os.path.join(d, "checkpoint.txt"), "w") as fh:
+                fh.write(ckpt)
+        if ckpt_dir:
+            os.mkdir(os.path.join(d, "checkpoint_t1.txt"))   # fopen succeeds, fgets fails (EISDIR)
+        return os.path.join(d, "s.bin")
+
+    @staticmethod
+    def _unlimited_stack():
+        import resource
+        try:
+            resource.setrlimit(resource.RLIMIT_STACK, (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
+        except (ValueError, OSError):
+            pass
+
+    def _analyze(self, path, fail=None, threads="1", timeout=300):
+        self.assertTrue(self.build_ok, "solve.c did not build: " + self.build_err)
+        e = dict(os.environ, OMP_NUM_THREADS=threads)
+        if fail:
+            self.assertTrue(self.shim_ok, "shim did not build: " + self.shim_err)
+            e.update(LD_PRELOAD=self.shim, AF_FN=fail[0], AF_BYTES=fail[1], AF_NTH=fail[2] if len(fail) > 2 else "1")
+        r = subprocess.run([self.sbin, "--analyze", path], env=e, timeout=timeout, capture_output=True, text=True,
+                           preexec_fn=self._unlimited_stack)
+        return r.returncode, r.stdout, r.stderr
+
+    def _incomplete(self, rc, out):
+        self.assertEqual(rc, 1, out[-800:])
+        self.assertIn("ANALYZE=INCOMPLETE", out.splitlines())
+        self.assertNotIn("==== analyze done", out)
+
+    KW2 = property(lambda self: [self.KW, self._rec((4, 5))])   # KW + its pair-slot-4/5 swap (Codex's input)
+
+    # ==== D1427 (Codex F04-003#15): a failed allocation printed partial results and exited 0 =========
+    def test_d1427_clean_run_is_unchanged(self):
+        """Positive control: with no injected failure the run completes, exit 0, ends 'analyze done',
+        prints 200 section-8 rows, the MI table and section 25's full count."""
+        rc, out, err = self._analyze(self._file(self.KW2, ckpt=self.D3LINE))
+        self.assertEqual(rc, 0, err[-500:])
+        self.assertIn("==== analyze done in", out)
+        self.assertNotIn("ANALYZE=INCOMPLETE", out)
+        self.assertEqual(sum(1 for l in out.splitlines() if "}  survivors=" in l), 200)
+        self.assertIn("      pos  5 <-> pos  6:  I = 1.0000 bits", out.splitlines())
+        self.assertIn("2 of 2 records", out)
+
+    def test_d1427_section8_row_buffer_failure_withholds_rows(self):
+        """Parent: the failed per-thread row buffer left report[] unset, so section 8 printed heap
+        garbage such as '{159618176, 23258, ...}', and the run exited 0."""
+        rc, out, err = self._analyze(self._file(self.KW2), fail=("malloc", self.S8))
+        self.assertIn("malloc failed for local_report in thread", err, "precondition: the shim fired")
+        self._incomplete(rc, out)
+        self.assertIn("SKIPPED: section 8 row list", out)
+        self.assertFalse(any("}  survivors=" in l for l in out.splitlines()), "no section-8 row may print")
+        self.assertIn("    total working 4-subsets: 10990", out.splitlines(), "the counts are complete and still print")
+
+    def test_d1427_section10_worker_failure_withholds_mi(self):
+        """Parent: a worker without its joint-count table skipped the omp for, so its records were
+        missing and MI(5,6) printed as 2 bits (true value 1), exit 0; with two threads it hung."""
+        rc, out, err = self._analyze(self._file(self.KW2), fail=("calloc", self.S10, "2"))
+        self.assertIn("failed to alloc my_jc", err, "precondition: the shim failed the worker table")
+        self._incomplete(rc, out)
+        self.assertIn("SKIPPED: section 10", out)
+        self.assertNotIn("<-> pos", out)
+        rc, out, err = self._analyze(self._file(self.KW2), fail=("calloc", self.S10, "3"), threads="2", timeout=120)
+        self.assertIn("failed to alloc my_jc", err, "precondition: one of two workers failed")
+        self._incomplete(rc, out)
+
+    def test_d1427_section25_depth3_table_lost_records(self):
+        """Parent: the first depth-3 calloc failed (record 0 not binned), the second succeeded, and
+        section 25 printed '1 of 2 records' as its result, exit 0."""
+        rc, out, err = self._analyze(self._file(self.KW2, ckpt=self.D3LINE), fail=("calloc", self.S25))
+        self.assertIn("[25] Per-sub-branch yield", out, "precondition: section 25 ran")
+        self._incomplete(rc, out)
+        self.assertIn("SKIPPED: section 25 (the depth-3 cell table", out)
+        self.assertNotIn("Total solutions (solutions.bin records binned", out)
+
+    def test_d1427_checkpoint_read_failure_is_not_a_table(self):
+        """Parent: a checkpoint_t<N>.txt that failed part-way was combined silently; sections 25 and 27
+        printed tables from the rest, exit 0."""
+        rc, out, err = self._analyze(self._file(self.KW2, ckpt=self.D3LINE, ckpt_dir=True))
+        self.assertIn("[25] Per-sub-branch yield", out, "precondition: section 25 ran")
+        self._incomplete(rc, out)
+        self.assertIn("checkpoint_t1.txt failed part-way", err)
+        self.assertEqual(out.count("SKIPPED: a checkpoint file could not be read or combined in full"), 2)
+        self.assertNotIn("Total solutions (solutions.bin records binned", out)
+
+    def test_d1427_every_skip_counts(self):
+        """Structural: every SKIPPED line of the --analyze block, and the other fail-soft branches named
+        in CX-37C-O, increment the INCOMPLETE counter."""
+        src = open(os.environ.get("ROAE_TESTS_SOLVE_SRC", os.path.join(self.ROOT, "solve.c")), encoding="utf-8").read()
+        a = src.index('printf("\\n==== ./solve --analyze %s ====\\n\\n", analyze_file);')
+        b = src.index("==== analyze done in %lds ====", a)
+        block = src[a:b].splitlines()
+        skipped = [l for l in block if 'printf("    SKIPPED:' in l or 'printf("     SKIPPED:' in l]
+        self.assertGreaterEqual(len(skipped), 20, "precondition: the SKIPPED sites are found (20 on the parent tree)")
+        for l in skipped:
+            self.assertIn("an_skip++, printf(", l, l.strip()[:120])
+        for tag in ("(skipping section 11", "WARN: rep alloc failed", 'printf("    ERROR: alloc failed\\n")'):
+            line = next(l for l in block if tag in l)
+            self.assertIn("an_skip++", line, tag)
+        self.assertEqual(sum(1 for l in block if "goto done_surv_collect;" in l and "an_skip++" in l), 2)
+
+    # ==== D1431 (Codex F04-003#12): record 0 and survivor counts stood in for KW's identity ==========
+    def test_d1431_kw_complement_uses_kw_record(self):
+        """Parent: with KW present but not at record 0 (an unsorted file), section 20 labelled record
+        0's complement as KW's ('0 13 17 ...'); KW's complement pair-seq starts '0 24 17'."""
+        rc, out, err = self._analyze(self._file([self._rec((1, 13)), self.KW]))
+        self.assertEqual(rc, 0, err[-400:])
+        self.assertIn("    KW records found: 1", out.splitlines(), "precondition: KW is in the file")
+        self.assertIn("    KW complement pair-seq:  0 24 17  6", out)
+        self.assertNotIn("KW complement pair-seq:  0 13 17", out)
+
+    def test_d1431_absent_kw_is_not_identified(self):
+        """Parent: with KW absent, section 8's header said its sets 'uniquely identify KW' and section 20
+        printed record 0's complement under 'KW complement'."""
+        rc, out, err = self._analyze(self._file([self._rec((1, 13))]))
+        self.assertEqual(rc, 0, err[-400:])
+        self.assertIn("    KW records found: 0", out.splitlines(), "precondition: KW is absent")
+        self.assertNotIn("(uniquely identify KW)", out)
+        self.assertIn("(KW is absent: these identify nothing about KW)", out)
+        self.assertNotIn("KW complement pair-seq", out)
+        self.assertNotIn("KW complement in set", out)
+        self.assertIn("KW complement: not computed (KW is absent from this file", out)
+
+    # ==== Q-1075 (D1465, Codex F08-009#11): the se=0 output contract =================================
+    def test_q1075_zero_hit_se_contract_holds_and_is_documented(self):
+        """A zero-hit [score] fraction prints 'se=0.000e+00' and the line still matches pool.sh's numeric
+        se= pattern (the reason it is not 'se=NA'); METHODS.md and solve.c state the contract. The
+        documentation legs fail on the parent tree, which states no contract."""
+        self.assertTrue(self.build_ok, self.build_err)
+        e = dict(os.environ, SOLVE_THREADS="2", SOLVE_KNUTH_SCORE="1", SOLVE_KNUTH_SEED="12345")
+        r = subprocess.run([self.sbin, "--estimate-knuth", "20000"], env=e, timeout=600, capture_output=True,
+                           text=True, preexec_fn=self._unlimited_stack)
+        self.assertEqual(r.returncode, 0, r.stderr[-400:])
+        bins = [l for l in r.stdout.splitlines() if l.startswith("  [score] wrap-bin d")]
+        self.assertEqual(len(bins), 7, "precondition: the seven wrap-bin lines print")
+        zero = [l for l in bins if " frac=0.000000 " in l]
+        self.assertTrue(zero, "precondition: at least one zero-hit bin (the even bins are 0 by theorem)")
+        pool = open(os.path.join(self.ROOT, "reports/evidence/circular_census/pool.sh"), encoding="utf-8").read()
+        m = re.search(r'num = "([^"]*)"\n\s*binre = "([^"]*)" num " \\\\\| abs est=" num " se=" num', pool)
+        self.assertIsNotNone(m, "precondition: pool.sh's binre is in its known shape")
+        num = m.group(1)
+        binre = m.group(2).replace("\\\\", "\\") + num + r" \| abs est=" + num + " se=" + num
+        for l in zero:
+            self.assertIn(" se=0.000e+00 |", l)
+            self.assertIsNotNone(re.search(binre, l), "pool.sh would reject: " + l)
+        meth = open(os.path.join(self.ROOT, "reports/METHODS.md"), encoding="utf-8").read()
+        self.assertIn("**[Note 2026-11-14 (Q-1075; Codex F08-009#11, FV2 row D1465): the `se=` output contract on `[score]` lines.**", meth)
+        self.assertIn("means **no hits**", meth)
+        self.assertIn("printing `se=NA` would break that reader", meth)
+        src = open(os.path.join(self.ROOT, "solve.c"), encoding="utf-8").read()
+        self.assertIn("Q-1075 (D1465) output contract: se = 0 means NO HITS", src)
+
+# end class TestBatchEngine2 (Q-1080, Q-1081, Q-1075; CX-37C-O)
 
 
 # Q-1136 M3: a SOLVE_* variable exported in the caller's shell reached every solver run built from

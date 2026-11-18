@@ -2506,7 +2506,7 @@ static char *read_provenance_writes_array(const char *prov_path) {
     /* Read whole file into memory (these files are small — ~1-5 KB each). */
     fseek(f, 0, SEEK_END);
     long sz = ftell(f);
-    if (sz <= 0 || sz > 1048576L) { fclose(f); return NULL; }
+    if (sz <= 0 || sz > 2097152L) { fclose(f); return NULL; }   /* FT3f F12-009#2 (Codex): was 1 MiB, so a history between 1 and 2 MiB, which the merge aggregator still reads, took no further write; the cap is now the aggregator's */
     fseek(f, 0, SEEK_SET);
     char *buf = malloc((size_t)sz + 1);
     if (!buf) { fclose(f); return NULL; }
@@ -2645,7 +2645,7 @@ static void append_shard_provenance(const char *bin_fname,
         dfs_iterative_enabled, dfs_checkpoint_enabled, rh_esc, ext_field);
 
     /* Read existing writes array if present (extension/resume case). */
-    char *prior = read_provenance_writes_array(prov_path); if (!prior && access(prov_path, F_OK) == 0) { fprintf(stderr, "WARN: %s exists but its writes history could not be read (over 1 MiB, unreadable or unparseable); it is KEPT, and this write is NOT recorded, rather than replacing the whole history with one entry\nSHARD_PROVENANCE=HISTORY-UNREADABLE\n", prov_path); return; }   /* G6 F04-003#20 */
+    char *prior = read_provenance_writes_array(prov_path); if (!prior && access(prov_path, F_OK) == 0) { fprintf(stderr, "WARN: %s exists but its writes history could not be read (over 2 MiB, unreadable or unparseable); it is KEPT, and this write is NOT recorded, rather than replacing the whole history with one entry\nSHARD_PROVENANCE=HISTORY-UNREADABLE\n", prov_path); return; }   /* G6 F04-003#20 */
 
     FILE *fw = fopen(tmp_path, "w");
     if (!fw) {
@@ -8947,7 +8947,7 @@ static void estimate_tree_knuth(uint64_t n_total, int nthreads,
     /* Q-374: delta-method SE for a mass ratio m = A/B over iid probes, where per
      * probe a = W*indicator and b = W (canonical-leaf weight, else 0). Because the
      * indicator is 0/1, sum(a^2) = sum(a*b) = SqI, and Var(m) ~=
-     * [ SqI*(1-2m) + m^2*Qb ] / B^2 with Qb = sum(b^2) (the existing sumsq_c3). */
+     * [ SqI*(1-2m) + m^2*Qb ] / B^2 with Qb = sum(b^2) (the existing sumsq_c3). Q-1075 (D1465) output contract: se = 0 means NO HITS at m = 0 (or all hits at m = 1), not a measured zero; it stays numeric because circular_census/pool.sh parses it (reports/METHODS.md, note of 2026-11-14). */
 #define KNUTH_MASS_SE(SqI, m, B, Qb) \
     (((B) > 0) ? sqrt(fmax(0.0, (SqI)*(1.0-2.0*(m)) + (m)*(m)*(Qb)))/(B) : 0.0)
     /* 🔴 Codex v2 `solve.c:8137/:8093/:8149`, 2026-09-04. The reported probe count was the
@@ -16428,7 +16428,7 @@ static int f1c5_verify_layer(const char *v1path, const char *v2path) {
     if (!f1) { fprintf(stderr, "cannot open v1 %s\n", v1path); return 2; }
     F1C5LayerHdr h1;
     if (fread(&h1, sizeof(h1), 1, f1) != 1) { fprintf(stderr, "v1 hdr read\n"); return 2; }
-    if (memcmp(h1.magic, "F1C5LAY1", 8) != 0) { fprintf(stderr, "v1 file not F1C5LAY1\n"); return 2; }
+    if (memcmp(h1.magic, "F1C5LAY1", 8) != 0) { fprintf(stderr, "v1 file not F1C5LAY1\n"); return 2; } if (h1.version != 1 || h1.pad != 0) { fprintf(stderr, "v1 file header version %u pad %u (a v1 layer has version 1, pad 0)\n", h1.version, h1.pad); return 2; }   /* FT3f F12-014#7 (Codex): neither version nor the v1 pad was read */
     uint64_t nm = h1.n_masks, ne = h1.n_entries;
     uint32_t *m1 = (uint32_t *)malloc(4 * (nm ? nm : 1));
     uint64_t *o1 = (uint64_t *)malloc(8 * (nm + 1));
@@ -16443,7 +16443,7 @@ static int f1c5_verify_layer(const char *v1path, const char *v2path) {
     if (!f2) { fprintf(stderr, "cannot open v2 %s\n", v2path); return 2; }
     F1C5LayerHdr h2;
     if (fread(&h2, sizeof(h2), 1, f2) != 1) { fprintf(stderr, "v2 hdr read\n"); return 2; }
-    if (memcmp(h2.magic, "F1C5LAY2", 8) != 0) { fprintf(stderr, "v2 file not F1C5LAY2\n"); return 2; }
+    if (memcmp(h2.magic, "F1C5LAY2", 8) != 0) { fprintf(stderr, "v2 file not F1C5LAY2\n"); return 2; } if (h2.version != 2) { fprintf(stderr, "v2 file header version %u != 2\n", h2.version); return 2; }   /* FT3f F12-014#7 */
     if (h2.pad != F1C5_OOC_BLK) { fprintf(stderr, "v2 file BLK=%u != build BLK=%u\n", h2.pad, (unsigned)F1C5_OOC_BLK); return 2; } if (h2.n != h1.n || h2.k != h1.k || h2.start_exit != h1.start_exit || h2.pl_hash != h1.pl_hash || memcmp(h2.b0, h1.b0, sizeof h1.b0) != 0) { fprintf(stderr, "MISMATCH: layer identity: n %u/%u k %u/%u start_exit %u/%u pl_hash %016llx/%016llx b0 %s -- not the same layer of the same run\n", h2.n, h1.n, h2.k, h1.k, h2.start_exit, h1.start_exit, (unsigned long long)h2.pl_hash, (unsigned long long)h1.pl_hash, memcmp(h2.b0, h1.b0, sizeof h1.b0) ? "differ" : "equal"); return 1; }   /* R12b #14 (Codex, 2026-10-01): the header fields that say WHICH layer of WHICH run were read and never compared */
     if (h2.n_masks != nm || h2.n_entries != ne) {
         fprintf(stderr, "MISMATCH: nm %llu/%llu ne %llu/%llu\n",
@@ -17103,7 +17103,7 @@ static int f1c5_sidecar_env_ok(const char *s) {
     fprintf(stderr, "WARN: [sidecar] " __VA_ARGS__); \
     fprintf(stderr, "\n"); \
 } while (0)
-
+static int f1c5_layer_sha_hex_soft(const char *path, char hex[65]) { const int s0 = f1c5_lstream_soft; f1c5_lstream_soft = 1; const int r = f1c5_layer_sha_hex(path, hex, NULL, NULL, NULL); f1c5_lstream_soft = s0; return r; }   /* FT3f F12-002#6 (Codex): the sidecar pass's digests read softly, so a corrupt block is a failed digest (a WARN; F1C5_LAYER_SIDECAR=MISSING in a build) and not an exit 71 in a pass that is non-fatal by contract. The stats pass reads only bytes this digest has inflated. */
 /* Emit the layer-stats sidecar for <dir>/<pfx>_layer_<k>.bin. force=1 skips
   * the env gate (the explicit retrofit subcommand). NON-FATAL by contract. Returns 0 = written/skipped by design, 1 = gave up or chain input unusable (Q-875; the builders ignore it, the retrofit exits 2). */
 static int f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
@@ -17165,7 +17165,7 @@ static int f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
     }
     /* (4) own decompressed-stream sha — the registry digest, same code path */
     char own_sha[65];
-    if (f1c5_layer_sha_hex(lpath, own_sha, NULL, NULL, NULL) != 0) {
+    if (f1c5_layer_sha_hex_soft(lpath, own_sha) != 0) {   /* FT3f F12-002#6 */
         F1C5_SIDECAR_WARN("digest failed for %s — sidecar skipped", lpath);
         return 1;
     }
@@ -17183,7 +17183,7 @@ static int f1c5_sidecar_emit_impl(const char *dir, const char *pfx,
         if (f1c5_sidecar_read_own_sha(ijson, ih) == 0) {
             snprintf(input_sha, sizeof(input_sha), "%s", ih);
         } else if (access(ilayer, R_OK) == 0 &&
-                   f1c5_layer_sha_hex(ilayer, ih, NULL, NULL, NULL) == 0) {
+                   f1c5_layer_sha_hex_soft(ilayer, ih) == 0) {   /* FT3f F12-002#6 */
             snprintf(input_sha, sizeof(input_sha), "%s", ih);
         } else {
             snprintf(input_sha, sizeof(input_sha), "unavailable"); if (access(ilayer, F_OK) == 0 || access(ijson, F_OK) == 0) { F1C5_SIDECAR_WARN("chain input k=%d for %s exists but neither its sidecar nor its layer could be digested -- input_sha256_decompressed recorded as \"unavailable\"", input_k, lpath); emit_rc = 1; }  /* Q-875: an ABSENT input (pruned layer, no sidecar) is "unavailable" by design; one that exists and cannot be used is a failed link */
@@ -17589,7 +17589,7 @@ static int f1c5_sidecar_retrofit_dir(const char *dir, int only_k) {
         int n = -1, start_exit = -1, b0v[5] = {-1, -1, -1, -1, -1};
         int pl[32], npl = 0, first = 1, hdr_ok = 0;
         while (fgets(line, sizeof(line), f)) {
-            if (first) { hdr_ok = strncmp(line, expect1, strlen(expect1)) == 0; first = 0; }
+            if (first) { hdr_ok = strncmp(line, expect1, strlen(expect1)) == 0 && strchr("\r\n", line[strlen(expect1)]) != NULL;   /* FT3f F12-014#4 (Codex): the whole line, not a prefix (g_manifest_v10) */ first = 0; }
             if (sscanf(line, "n=%d", &n) == 1) continue;
             if (sscanf(line, "start_exit=%d", &start_exit) == 1) continue;
             if (sscanf(line, "b0=%d,%d,%d,%d,%d",
@@ -19133,7 +19133,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
             if (resumed_is_v2 >= 0 && resumed_is_v2 != use_v2) {
                 fprintf(stderr, "[f1c5] resume ADOPTS on-disk layer format %s (env requested %s)\n",
                         resumed_is_v2 ? "v2" : "v1", use_v2 ? "v2" : "v1");
-                use_v2 = resumed_is_v2;
+                use_v2 = resumed_is_v2; g_f1c5_prog.v2_gz = (use_v2 && ooc) ? gzip_level : 0;   /* FT3f F12-013#7 (Codex): progress kept the requested format */
             }
             fprintf(stderr, "[f1c5] RESUME from last complete layer k=%d "
                     "(%llu canonical masks, %llu entries%s)\n",
@@ -19210,7 +19210,7 @@ static int f1c5_exact_main(const char *layers_dir, int npairs, const char *ooc_d
             /* finalize-durability adopt check (shared with the g/t builder): a
              * marker-attested finished layer k+1 skips the whole sweep. */
             adopted = f1c5_finalized_try_adopt(dir, "f1c5", 0, c, &B, k + 1,
-                                               &nxt, &use_v2, "f1c5");
+                                               &nxt, &use_v2, "f1c5"); g_f1c5_prog.v2_gz = (use_v2 && ooc) ? gzip_level : 0;   /* FT3f F12-013#7: an adopt can switch to v2 */
             /* #221: single streaming pass over layer k's file; counts, emission,
              * stats AND the (atomic) layer-file write happen chunk-by-chunk
              * inside the builder — entries never reside in RAM (2026-07-05 fix) */
@@ -20440,7 +20440,7 @@ static int kc_load_as(KC *kc, const char *dir, const char *pfx, int is_g) {
     int pl[32], npl = 0, first = 1, hdr_ok = 0, have_mph = 0;
     unsigned long long mph = 0;
     while (fgets(line, sizeof(line), f)) {
-        if (first) { hdr_ok = strncmp(line, expect1, strlen(expect1)) == 0; first = 0; }
+        if (first) { hdr_ok = strncmp(line, expect1, strlen(expect1)) == 0 && strchr("\r\n", line[strlen(expect1)]) != NULL;   /* FT3f F12-014#4 (Codex): the whole line, not a prefix (g_manifest_v10) */ first = 0; }
         if (sscanf(line, "n=%d", &n) == 1) continue;
         if (sscanf(line, "start_exit=%d", &start_exit) == 1) continue;
         if (sscanf(line, "b0=%d,%d,%d,%d,%d", &b0v[0], &b0v[1], &b0v[2], &b0v[3], &b0v[4]) == 5) continue;
@@ -20509,7 +20509,7 @@ static int kc_load_as(KC *kc, const char *dir, const char *pfx, int is_g) {
             (L->ne && fread(L->keys, sizeof(uint32_t), L->ne, lf) != L->ne) ||
             (L->ne && fread(L->vals, sizeof(F1U192), L->ne, lf) != L->ne))
             f1_ckpt_io_abort("fread body", path);
-        fclose(lf); { const char *ixw = a11r_layer_index_why(L->masks, L->off, L->keys, L->nm, L->ne); F1_CHECK(!ixw, "[kc] %s: layer index corrupt: %s", path, ixw); }  /* A11R #3: nothing was checked here */
+        F1_CHECK(h.pad == 0 && fgetc(lf) == EOF, "[kc] %s: v1 pad %u != 0 or bytes after vals[] (corrupt; the out-of-core reader refuses it by size)", path, h.pad);   /* FT3f F12-014#7 (Codex) */ fclose(lf); { const char *ixw = a11r_layer_index_why(L->masks, L->off, L->keys, L->nm, L->ne); F1_CHECK(!ixw, "[kc] %s: layer index corrupt: %s", path, ixw); }  /* A11R #3: nothing was checked here */
     }
     if (is_g) {
         /* g integrity: layer n = the seed (full mask, all rid_full, value 1);
@@ -20783,7 +20783,7 @@ static int kc_ooc_open_ext(KC *kc, const char *dir, const char *pfx, int is_g,
     int pl[32], npl = 0, first = 1, hdr_ok = 0, have_mph = 0;
     unsigned long long mph = 0;
     while (fgets(line, sizeof(line), f)) {
-        if (first) { hdr_ok = strncmp(line, expect1, strlen(expect1)) == 0; first = 0; }
+        if (first) { hdr_ok = strncmp(line, expect1, strlen(expect1)) == 0 && strchr("\r\n", line[strlen(expect1)]) != NULL;   /* FT3f F12-014#4 (Codex): the whole line, not a prefix (g_manifest_v10) */ first = 0; }
         if (sscanf(line, "n=%d", &n) == 1) continue;
         if (sscanf(line, "start_exit=%d", &start_exit) == 1) continue;
         if (sscanf(line, "b0=%d,%d,%d,%d,%d", &b0v[0], &b0v[1], &b0v[2], &b0v[3], &b0v[4]) == 5) continue;
@@ -28499,7 +28499,7 @@ static int kc_h_env_u64(const char *name, const char *val, uint64_t lo, uint64_t
     char *end = NULL;
     errno = 0;
     const unsigned long long v = strtoull(val, &end, 10);
-    if (errno != 0 || end == val || *end != '\0' || val[0] == '-' || v < lo || v > hi) {
+    if (errno != 0 || end == val || *end != '\0' || val[0] < '0' || val[0] > '9' || v < lo || v > hi) {   /* FT3f F12-002#9 (Codex): strtoull skips leading space and takes a sign, so " -18446744073709551615" and " +1" read as 1 */
         fprintf(stderr, "ERROR: [kc-scan] %s=\"%s\" is not an integer in [%llu, %llu]\n",
                 name, val, (unsigned long long)lo, (unsigned long long)hi);
         return -1;
@@ -28579,7 +28579,7 @@ static int kc_scan_par_init(KcScanPar *P) {
             P->selfkill_k = kk;
         }
     }
-    return 0;
+    v = 0; if (kc_h_env_u64("SOLVE_KC_SCAN_TAIL_STRICT", getenv("SOLVE_KC_SCAN_TAIL_STRICT"), 0, 1, &v, NULL) != 0) return -1; return 0;   /* FT3f F12-002#10, F12-024#6 (Codex): checked at the start; a chunk read it only on a failing invariance check, a whole scan in its tail through F1_CHECK (exit 71) */
 }
 
 /* SOLVE_KC_SCAN_TAIL_STRICT: 1 = the tail checks REFUSE (gate_fails) instead of reporting.
@@ -31298,7 +31298,7 @@ static int kc_scan_merge_main(int argc, char *argv[]) {
                 outp, strerror(errno));
         KC_SCAN_MERGE_EARLY_FAIL();
         return 2;
-    }
+    } { char tel_sp[4400]; snprintf(tel_sp, sizeof(tel_sp), "%s.merge_telemetry.json", outp); if (kc_h_unlink_regular(tel_sp) != 0) { fprintf(stderr, "ERROR: [kc-scan-merge] cannot remove pre-existing %s: %s\n", tel_sp, strerror(errno)); KC_SCAN_MERGE_EARLY_FAIL(); return 2; } }   /* FT3f F12-024#19 (Codex): a prior OK run's telemetry sidecar survived a failed rerun */
     if (!sha256_tool()) { require_sha256_tool(); KC_SCAN_MERGE_EARLY_FAIL(); return 2; }
     /* H-4 drill hook, merge variant (2026-09-11): SIGKILL after K chunks have been consumed
      * by the chunk loop below, before anything is written at OUT. Test-only; env-only. */
@@ -36963,11 +36963,11 @@ static int kc_wit_parse_atlas(const char *path, int n, KcWit **out) {
             }
             if (d < 0 || (seen & (1 << d)) || kcj_expect(&c, '{') != 0) { rc = -1; break; }
             seen |= 1 << d;
-            int s2 = 0;
+            int s2 = 0, mm = 0;   /* FT3f F12-003#2, F12-024#4 (Codex): each class needs max AND min (null allowed), once each; min:null alone parsed as 0 witnesses and printed OK */
             do {
                 if (kcj_key(&c, key, sizeof(key)) != 0) { rc = -1; break; }
                 const int m = !strcmp(key, "max") ? 0 : !strcmp(key, "min") ? 1 : -1;
-                if (m < 0) { rc = -1; break; }
+                if (m < 0 || (mm & (1 << m))) { rc = -1; break; } mm |= 1 << m;
                 if (kcj_peek(&c) == 'n') {
                     if (strncmp(c.p, "null", 4) != 0) { rc = -1; break; }
                     c.p += 4;
@@ -37004,7 +37004,7 @@ static int kc_wit_parse_atlas(const char *path, int n, KcWit **out) {
                 }
                 s2 = kcj_sep(&c);
             } while (s2 == 1);
-            if (rc != 0 || s2 != 0) { rc = -1; break; }
+            if (rc != 0 || s2 != 0 || mm != 3) { rc = -1; break; }
             s = kcj_sep(&c);
         } while (s == 1);
         if (rc == 0 && (s != 0 || seen != 31)) rc = -1;
@@ -40560,12 +40560,12 @@ int main(int argc, char *argv[]) {
                 snprintf(src, sizeof(src), "%s/%s", layer_path, de->d_name);
                 snprintf(dst, sizeof(dst), "%s/%s", merged_dir, de->d_name);
                 /* If exists from earlier layer, this layer's shard wins */
-                int was_overriding = (access(dst, F_OK) == 0);
+                int was_overriding = (access(dst, F_OK) == 0); char psrc[PATH_MAX + 340], pdst[PATH_MAX + 340]; snprintf(psrc, sizeof(psrc), "%s.provenance.json", src); snprintf(pdst, sizeof(pdst), "%s.provenance.json", dst); unlink(pdst);   /* FT3f F12-003#9 (Codex): the winner's provenance sidecar goes with it (below), so the merge can write solutions.provenance.json; a losing layer's never stays beside the winner */
                 if (was_overriding) {
                     unlink(dst);
                     layer_overrides++;
                 }
-                if (symlink(src, dst) != 0) {
+                if (symlink(src, dst) != 0 || (access(psrc, F_OK) == 0 && symlink(psrc, pdst) != 0)) {
                     fprintf(stderr, "ERROR: symlink %s -> %s: %s\n",
                             src, dst, strerror(errno));
                     closedir(ld);
@@ -41798,7 +41798,7 @@ int main(int argc, char *argv[]) {
          * campaign VM is ready before committing days of compute. Reuses the
          * existing canonical-startup gates. Does NOT cover what lives outside
          * the process: VM health/eviction (external monitor #55), full disk
-         * SMART/fsck (disk_health_precheck.sh), or disk identity
+         * SMART/fsck (smartctl and fsck, outside the binary), or disk identity
          * (use --disk-precheck). Sha-neutral (argv-dispatched; never on the
          * enum path).
          *
@@ -41844,7 +41844,7 @@ int main(int argc, char *argv[]) {
         printf("[--preflight] in-process gate check for NODE_LIMIT=%lld\n", nl);
         printf("[--preflight] checks the CURRENT directory — run from the campaign run-dir\n");
         printf("[--preflight] does NOT cover: VM health/eviction (#55 monitor), disk SMART/fsck\n");
-        printf("              (disk_health_precheck.sh), or disk identity (--disk-precheck)\n\n");
+        printf("              (run smartctl and fsck yourself), or disk identity (--disk-precheck)\n\n");   /* FT3f F12-001#7 (Codex): this named a private script */
         int first_fail = 0, rc, skipped = 0, ran = 0;
         const char *gate_name[3] = { "auto-selftest (canonical sha 403f7202...)",
                                      "disk-space projection",
@@ -41880,7 +41880,7 @@ int main(int argc, char *argv[]) {
         }
         printf("[--preflight] RESULT: all in-process gates PASS.\n");
         printf("[--preflight] Still confirm externally: --disk-precheck identity, "
-               "disk_health_precheck.sh SMART/fsck, #55 monitor running, Spot quota.\n");
+               "SMART/fsck (smartctl, fsck), #55 monitor running, Spot quota.\n");
         return 0;
     } else if (argc > 1 && strcmp(argv[1], "--disk-precheck") == 0) { if (argv_refuse_extra(argc, argv, 5, "at most THREE arguments (mountpoint, required_gb, expected_uuid)")) return 2; /* Q-852: refuse, as the CX-179/CX-183/CX-187 siblings do, rather than ignore */
         /* Native local disk pre-check (task #63 follow-up, 2026-05-28).
@@ -45006,7 +45006,7 @@ int main(int argc, char *argv[]) {
     if (analyze_mode) {
         setbuf(stdout, NULL);
         printf("\n==== ./solve --analyze %s ====\n\n", analyze_file);
-        time_t t_start = time(NULL);
+        time_t t_start = time(NULL); int an_skip = 0;   /* D1427 (Codex F04-003#15): results withheld or cut short by a failed allocation or checkpoint read; any one makes the run INCOMPLETE (exit 1) */
 
         /* #169: gz-aware mmap. gz_mmap_open decompresses a gz analyze_file to a
          * temp and mmaps that (raw files map directly), so the packed-bitmap and
@@ -45302,7 +45302,7 @@ int main(int argc, char *argv[]) {
         uint64_t *alive_mask = malloc((size_t)n_words * sizeof(uint64_t));
         if (!alive_mask) {
             fprintf(stderr, "ERROR: malloc failed for alive_mask (%lld words)\n", n_words);
-            printf("    SKIPPED: section 6 (alloc failed)\n\n");
+            an_skip++, printf("    SKIPPED: section 6 (alloc failed)\n\n");
             goto skip_section6;
         }
         for (long long w = 0; w < n_words; w++) {
@@ -45378,15 +45378,15 @@ int main(int argc, char *argv[]) {
             printf(kw_count == 0 ? "    => %d 3-subsets reach the <=0-survivor level (KW is absent: this is NOT KW-only); minimum is <= 3 for this dataset.\n\n" : "    => %d 3-subsets reach KW-only level; minimum is <= 3 for this dataset.\n\n", n_t_below);
 
         /* === Section 8: All 4-subsets uniquely identifying KW (parallelized) === */
-        printf("[8] All 4-subsets that reduce survivors to <=%d (uniquely identify KW)\n", kw_count);
+        printf(kw_count == 0 ? "[8] All 4-subsets that reduce survivors to <=%d (KW is absent: these identify nothing about KW) (D1431)\n" : "[8] All 4-subsets that reduce survivors to <=%d (uniquely identify KW)\n", kw_count);
         int boundary_freq[31] = {0};
-        int n_working = 0;
+        int n_working = 0; int s8_fail = 0;   /* D1427 */
         typedef struct { int b1, b2, b3, b4; long long s; } QuadEntry;
         int report_cap = 1000;
         QuadEntry *report = malloc(report_cap * sizeof(QuadEntry));
         if (!report) {
             fprintf(stderr, "ERROR: malloc failed for report (section 8)\n");
-            printf("    SKIPPED: section 8 (alloc failed)\n\n");
+            an_skip++, printf("    SKIPPED: section 8 (alloc failed)\n\n");
             goto skip_section8;
         }
         time_t t8_start = time(NULL);
@@ -45398,7 +45398,7 @@ int main(int argc, char *argv[]) {
             QuadEntry *local_report = malloc(local_cap * sizeof(QuadEntry));
             if (!local_report) {
                 fprintf(stderr, "ERROR: malloc failed for local_report in thread\n");
-                local_cap = 0; /* prevent writes to NULL */
+                local_cap = 0; /* prevent writes to NULL */ _Pragma("omp atomic write") s8_fail = 1;
             }
             int local_report_n = 0;
             #pragma omp for schedule(dynamic, 8) collapse(2) nowait
@@ -45451,7 +45451,7 @@ int main(int argc, char *argv[]) {
         }
         printf("    [8] elapsed: %lds\n", (long)(time(NULL) - t8_start));
         fprintf(stderr, "[8] DONE\n"); fflush(stderr);
-        int reported = n_working < 200 ? n_working : 200;
+        int reported = n_working < 200 ? n_working : 200; if (s8_fail) { an_skip++, printf("    SKIPPED: section 8 row list (a worker's row buffer allocation failed, so the rows would be unset memory; the counts below are complete) (D1427)\n"); reported = 0; }
         for (int i = 0; i < reported; i++)
             printf("    {%2d, %2d, %2d, %2d}  survivors=%lld\n",
                    report[i].b1, report[i].b2, report[i].b3, report[i].b4, report[i].s);
@@ -45496,7 +45496,7 @@ int main(int argc, char *argv[]) {
         RedunEntry *re = malloc(n_pairs * sizeof(RedunEntry));
         if (!re) {
             fprintf(stderr, "ERROR: malloc failed for re (section 9, %d entries)\n", n_pairs);
-            printf("    SKIPPED: section 9 (alloc failed)\n\n");
+            an_skip++, printf("    SKIPPED: section 9 (alloc failed)\n\n");
             goto skip_section9;
         }
         int re_n = 0;
@@ -45558,11 +45558,11 @@ int main(int argc, char *argv[]) {
 
         /* Allocate the shared (reduce-target) joint-count table.
          * 496 pairs × 1024 cells × 8 bytes = 4 MB; heap to avoid VLA pitfalls. */
-        const int s10_npairs = 32 * 31 / 2;
+        const int s10_npairs = 32 * 31 / 2; int s10_fail = 0;   /* D1427 */
         long long *jc_global = calloc((size_t)s10_npairs * 1024, sizeof(long long));
         if (!jc_global) {
             fprintf(stderr, "ERROR: malloc failed for jc_global (section 10)\n");
-            printf("    SKIPPED: section 10 (alloc failed)\n\n");
+            an_skip++, printf("    SKIPPED: section 10 (alloc failed)\n\n");
             goto skip_section10;
         }
 
@@ -45575,12 +45575,12 @@ int main(int argc, char *argv[]) {
         {
             long long *my_jc = calloc((size_t)s10_npairs * 1024, sizeof(long long));
             if (!my_jc) {
-                fprintf(stderr, "ERROR: thread %d failed to alloc my_jc; thread skipping\n",
-                        omp_get_thread_num());
-            } else {
+                fprintf(stderr, "ERROR: thread %d failed to alloc my_jc; section 10 is withheld\n",
+                        omp_get_thread_num()); _Pragma("omp atomic write") s10_fail = 1;
+            } {   /* D1427: every thread enters the omp for (a thread that skipped it left the worksharing construct unmatched); one without my_jc counts nothing */
                 #pragma omp for schedule(static)
                 for (long long i = 0; i < n_sols; i++) {
-                    const unsigned char *rec = &all[i * SOL_RECORD_SIZE];
+                    { if (!my_jc) continue; } const unsigned char *rec = &all[i * SOL_RECORD_SIZE];
                     /* Read all 32 position values once into a local cache. */
                     unsigned char vals[32];
                     for (int k = 0; k < 32; k++) vals[k] = rec[k] >> 2;
@@ -45619,7 +45619,7 @@ int main(int argc, char *argv[]) {
                  * thread — trivial. */
                 #pragma omp critical
                 {
-                    for (long long k = 0; k < (long long)s10_npairs * 1024; k++) {
+                    for (long long k = 0; my_jc && k < (long long)s10_npairs * 1024; k++) {
                         jc_global[k] += my_jc[k];
                     }
                 }
@@ -45627,7 +45627,7 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        time_t t10_pass_done = time(NULL);
+        if (s10_fail) { an_skip++, printf("    SKIPPED: section 10 (a worker's joint-count table allocation failed, so its records are missing from the joint counts; no MI is printed) (D1427)\n\n"); free(jc_global); goto skip_section10; } time_t t10_pass_done = time(NULL);
         fprintf(stderr, "    [10] record pass done in %lds; computing MI per pair...\n",
                 (long)(t10_pass_done - t10_start));
         fflush(stderr);
@@ -45660,7 +45660,7 @@ int main(int argc, char *argv[]) {
         MIEntry *mi_arr = malloc(n_mi_pairs * sizeof(MIEntry));
         if (!mi_arr) {
             fprintf(stderr, "ERROR: malloc failed for mi_arr (section 10)\n");
-            printf("    SKIPPED: section 10 sort/display (alloc failed)\n\n");
+            an_skip++, printf("    SKIPPED: section 10 sort/display (alloc failed)\n\n");
             goto skip_section10;
         }
         int mi_n = 0;
@@ -45715,7 +45715,7 @@ int main(int argc, char *argv[]) {
         long long *p1_total = calloc(32, sizeof(long long));
         if (!s11_sets || !p1_total) {
             free(s11_sets); free(p1_total);
-            printf("    (skipping section 11 — alloc failed)\n\n");
+            an_skip++, printf("    (skipping section 11 — alloc failed)\n\n");
             goto skip_section11;
         }
         long long s11_progress_step = (n_sols + 99) / 100; int g6_s11_full = 0;   /* G6 F04-001#21 */
@@ -45787,7 +45787,7 @@ int main(int argc, char *argv[]) {
             uint64_t **rmask = malloc(31 * sizeof(uint64_t *));
             if (!rmask) {
                 fprintf(stderr, "ERROR: malloc failed for rmask (section 12)\n");
-                printf("    SKIPPED: section 12 (alloc failed)\n\n");
+                an_skip++, printf("    SKIPPED: section 12 (alloc failed)\n\n");
                 goto skip_section12;
             }
             int rmask_alloc_ok = 1;
@@ -45802,7 +45802,7 @@ int main(int argc, char *argv[]) {
                 }
             }
             if (!rmask_alloc_ok) {
-                printf("    SKIPPED: section 12 (alloc failed)\n\n");
+                an_skip++, printf("    SKIPPED: section 12 (alloc failed)\n\n");
                 goto skip_section12;
             }
             time_t t_s12_start = time(NULL);
@@ -45822,7 +45822,7 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "ERROR: malloc failed for r_alive (section 12)\n");
                 for (int b = 0; b < 31; b++) free(rmask[b]);
                 free(rmask);
-                printf("    SKIPPED: section 12 greedy search (alloc failed)\n\n");
+                an_skip++, printf("    SKIPPED: section 12 greedy search (alloc failed)\n\n");
                 goto skip_section12;
             }
             for (long long w = 0; w < n_words; w++) {
@@ -45967,7 +45967,7 @@ int main(int argc, char *argv[]) {
         typedef struct { unsigned char pi[32]; long long idx; } PairKey;
         PairKey *pkeys = malloc((size_t)n_sols * sizeof(PairKey));
         if (!pkeys) {
-            printf("    SKIPPED: malloc(%lld bytes) failed; need more RAM for section 14\n",
+            an_skip++, printf("    SKIPPED: malloc(%lld bytes) failed; need more RAM for section 14\n",
                    (long long)((size_t)n_sols * sizeof(PairKey)));
         } else {
             long long s14_progress_step = ANALYZE_PROGRESS_STEP(n_sols);
@@ -45999,7 +45999,7 @@ int main(int argc, char *argv[]) {
             PatternEntry *patterns4 = calloc(MAX_PATTERNS, sizeof(PatternEntry));
             if (!patterns4) {
                 fprintf(stderr, "ERROR: calloc failed for patterns4 (section 14)\n");
-                /* patterns4 analytics will be silently skipped */
+                an_skip++;   /* patterns4 analytics are skipped, and the KW-pattern group count would read 0: the run is INCOMPLETE (D1427) */
             }
             int n_patterns4 = 0;
             long long kw_pattern_mask = 0;  /* KW's varying-position bitmask */
@@ -46014,7 +46014,7 @@ int main(int argc, char *argv[]) {
 
             /* Representatives buffer for section [15]. Allocate worst-case n_sols*32. */
             unsigned char *reps = malloc((size_t)n_sols * 32);
-            if (!reps) { printf("    WARN: rep alloc failed; section 15 will skip.\n"); }
+            if (!reps) { an_skip++, printf("    WARN: rep alloc failed; section 15 will skip.\n"); }
             long long n_reps = 0;
 
             long long s = 0; long long g6_rec63 = 0, g6_pat_dropped = 0;   /* G6 F04-001#22/#23 */
@@ -46238,7 +46238,7 @@ int main(int argc, char *argv[]) {
                 uint64_t **rbm = malloc(31 * sizeof(uint64_t *));
                 if (!rbm) {
                     fprintf(stderr, "ERROR: malloc failed for rbm (section 15)\n");
-                    printf("     SKIPPED: section 15 bitmaps (alloc failed)\n");
+                    an_skip++, printf("     SKIPPED: section 15 bitmaps (alloc failed)\n");
                     goto skip_section15;
                 }
                 int rbm_alloc_ok = 1;
@@ -46258,7 +46258,7 @@ int main(int argc, char *argv[]) {
                     }
                 }
                 if (!rbm_alloc_ok) {
-                    printf("     SKIPPED: section 15 bitmaps (alloc failed)\n");
+                    an_skip++, printf("     SKIPPED: section 15 bitmaps (alloc failed)\n");
                     goto skip_section15;
                 }
                 /* Per-boundary single-match counts over rbm bitmaps.
@@ -46270,7 +46270,7 @@ int main(int argc, char *argv[]) {
                 uint64_t *r_alive = malloc((size_t)n_words_r * sizeof(uint64_t));
                 if (!r_alive) {
                     fprintf(stderr, "ERROR: malloc failed for r_alive (section 15)\n");
-                    printf("     SKIPPED: section 15 greedy search (alloc failed)\n");
+                    an_skip++, printf("     SKIPPED: section 15 greedy search (alloc failed)\n");
                     for (int b = 0; b < 31; b++) free(rbm[b]);
                     free(rbm);
                     goto skip_section15;
@@ -46405,7 +46405,7 @@ int main(int argc, char *argv[]) {
         {
             /* counts[p2][o2][p1][o1] — 32*2*32*2 = 4096 long longs */
             long long (*cnt)[2][32][2] = calloc(32, sizeof(*cnt));
-            if (!cnt) { printf("    ERROR: alloc failed\n"); }
+            if (!cnt) { an_skip++, printf("    ERROR: alloc failed\n"); }
             else {
                 long long s16_progress_step = ANALYZE_PROGRESS_STEP(n_sols);
                 for (long long i = 0; i < n_sols; i++) {
@@ -46466,7 +46466,7 @@ int main(int argc, char *argv[]) {
             long long *surv = malloc(surv_cap * sizeof(long long));
             if (!surv) {
                 fprintf(stderr, "ERROR: malloc failed for surv (section 17)\n");
-                printf("    SKIPPED: section 17 (alloc failed)\n");
+                an_skip++, printf("    SKIPPED: section 17 (alloc failed)\n");
                 goto skip_section17;
             }
             long long n_surv = 0;
@@ -46479,13 +46479,13 @@ int main(int argc, char *argv[]) {
                         if (n_surv >= surv_cap) {
                             if (surv_cap > LLONG_MAX / 2) {
                                 fprintf(stderr, "ERROR: surv_cap overflow at %lld\n", surv_cap);
-                                goto done_surv_collect;
+                                an_skip++, printf("    (section 17: the survivor list was cut short by a failed allocation, so the counts below are PARTIAL) (D1427)\n"); goto done_surv_collect;
                             }
                             surv_cap *= 2;
                             long long *tmp = realloc(surv, (size_t)surv_cap * sizeof(long long));
                             if (!tmp) {
                                 fprintf(stderr, "ERROR: realloc failed for surv (section 17, cap=%lld)\n", surv_cap);
-                                goto done_surv_collect;
+                                an_skip++, printf("    (section 17: the survivor list was cut short by a failed allocation, so the counts below are PARTIAL) (D1427)\n"); goto done_surv_collect;
                             }
                             surv = tmp;
                         }
@@ -46559,7 +46559,7 @@ int main(int argc, char *argv[]) {
             long long (*cc)[32] = malloc(32 * sizeof(*cc));
             if (!cc) {
                 fprintf(stderr, "ERROR: malloc failed for cc (section 18)\n");
-                printf("    SKIPPED: section 18 (alloc failed)\n");
+                an_skip++, printf("    SKIPPED: section 18 (alloc failed)\n");
                 goto skip_section18;
             }
             for (int b = 0; b < 31; b++) {
@@ -46803,9 +46803,9 @@ int main(int argc, char *argv[]) {
                                n_sols - matches);
                 }
 
-                /* Check KW specifically (rec#0) */ if (kw_count == 0) printf("    (record 0 is not KW: KW is absent from this file, so the lines below are about record 0's complement, not KW's) (G6 F04-001#24)\n");
+                /* Check KW specifically: KW's own record, located in the stream pass (D1431; was record 0) */ if (kw_count == 0) printf("    KW complement: not computed (KW is absent from this file, so no record is KW's) (G6 F04-001#24, D1431)\n"); else {
                 unsigned char kw_comp[SOL_RECORD_SIZE] = {0};
-                const unsigned char *kw_rec = all;
+                const unsigned char *kw_rec = all + kw_indices[0] * SOL_RECORD_SIZE;
                 for (int p = 0; p < 32; p++) {
                     int old_pi = kw_rec[p] >> 2;
                     int old_o  = (kw_rec[p] >> 1) & 1;
@@ -46832,7 +46832,7 @@ int main(int argc, char *argv[]) {
                 printf("\n    KW complement orient:   ");
                 for (int p = 0; p < 32; p++) printf("%d", (kw_comp[p] >> 1) & 1);
                 printf("\n");
-            }
+            } }
         }
         printf("    [20] elapsed: %lds\n\n", (long)(time(NULL) - t20));
         fprintf(stderr, "[20] DONE\n"); fflush(stderr);
@@ -46895,7 +46895,7 @@ int main(int argc, char *argv[]) {
             long long *cd_hist = calloc(CD_X64_MAX, sizeof(long long)); int g6_s22_fail = 0;
             if (!cd_hist) {
                 fprintf(stderr, "ERROR: calloc failed for cd_hist (section 22)\n");
-                printf("    SKIPPED: section 22 (alloc failed)\n");
+                an_skip++, printf("    SKIPPED: section 22 (alloc failed)\n");
                 goto skip_section22;
             }
 
@@ -46928,7 +46928,7 @@ int main(int argc, char *argv[]) {
                 free(local_hist);
             }
 
-            if (g6_s22_fail) { printf("    SKIPPED: section 22 (a worker histogram allocation failed, so its records would be missing; no partial distribution is printed)\n"); free(cd_hist); goto skip_section22; } int cd_min = -1, cd_max_val = -1;
+            if (g6_s22_fail) { an_skip++, printf("    SKIPPED: section 22 (a worker histogram allocation failed, so its records would be missing; no partial distribution is printed)\n"); free(cd_hist); goto skip_section22; } int cd_min = -1, cd_max_val = -1;
             long long cumul = 0;
             for (int c = 0; c < CD_X64_MAX; c++) {
                 if (cd_hist[c] > 0) {
@@ -47048,7 +47048,7 @@ int main(int argc, char *argv[]) {
             NNEntry *nn = calloc(NN_CAP, sizeof(NNEntry));
             if (!nn) {
                 fprintf(stderr, "ERROR: calloc failed for nn (section 24)\n");
-                printf("    SKIPPED: section 24 (alloc failed)\n");
+                an_skip++, printf("    SKIPPED: section 24 (alloc failed)\n");
                 goto skip_section24;
             }
             int nn_count = 0;
@@ -47127,7 +47127,7 @@ int main(int argc, char *argv[]) {
             printf("    Reading: %s\n", ckpt_path);
             FILE *ckpt; { FILE *q623_ckpt_open(const char *); ckpt = q623_ckpt_open(ckpt_path); }  /* + checkpoint_t<N>.txt (V3A-134#9 sibling) */
             if (!ckpt) {
-                printf("    (no checkpoint.txt or checkpoint_t<N>.txt found — skipping)\n");
+                { int q623_ckpt_failed(void); printf(q623_ckpt_failed() ? "    SKIPPED: a checkpoint file could not be read or combined in full; no partial table is printed (D1427)\n" : "    (no checkpoint.txt or checkpoint_t<N>.txt found — skipping)\n"); }
             } else {
                 /* One row per checkpoint cell: 3030 at depth 2, 158,364 at depth 3; grown on demand (V3A-134#9) */
                 #define MAX_SUB 4096
@@ -47141,7 +47141,7 @@ int main(int argc, char *argv[]) {
                 int sb_cap = MAX_SUB, n_dup_lines = 0, n_bad_lines = 0; void q623_sec25_reset(void); int q623_sec25_slot(int, int, int, int, int, int, int); long long q623_sec25_d3_count(int, int, int, int, int, int); q623_sec25_reset(); SBEntry *entries = calloc(sb_cap, sizeof(SBEntry));
                 if (!entries) {
                     fprintf(stderr, "ERROR: calloc failed for entries (section 25)\n");
-                    printf("    SKIPPED: section 25 (alloc failed)\n");
+                    an_skip++, printf("    SKIPPED: section 25 (alloc failed)\n");
                     fclose(ckpt);
                     goto skip_section25;
                 }
@@ -47169,7 +47169,7 @@ int main(int argc, char *argv[]) {
                                    status, &thr, &p1v, &o1v, &p2v, &o2v, &nv, &cv, &sv, &ev) != 10)
                             continue;
                     }
-                    int slot = q623_sec25_slot(p1v, o1v, p2v, o2v, p3v_tmp, o3v_tmp, n_entries); if (slot < 0) { n_bad_lines++; continue; } if (slot == n_entries && n_entries >= sb_cap) { SBEntry *g = realloc(entries, (size_t)(sb_cap * 2) * sizeof(SBEntry)); if (!g) { fprintf(stderr, "ERROR: realloc failed for entries (section 25)\n"); printf("    SKIPPED: section 25 (alloc failed)\n"); free(entries); fclose(ckpt); goto skip_section25; } entries = g; sb_cap *= 2; }
+                    int slot = q623_sec25_slot(p1v, o1v, p2v, o2v, p3v_tmp, o3v_tmp, n_entries); if (slot < 0) { n_bad_lines++; continue; } if (slot == n_entries && n_entries >= sb_cap) { SBEntry *g = realloc(entries, (size_t)(sb_cap * 2) * sizeof(SBEntry)); if (!g) { fprintf(stderr, "ERROR: realloc failed for entries (section 25)\n"); an_skip++, printf("    SKIPPED: section 25 (alloc failed)\n"); free(entries); fclose(ckpt); goto skip_section25; } entries = g; sb_cap *= 2; }
                     SBEntry *e = &entries[slot]; if (slot == n_entries) n_entries++; else { n_dup_lines++; tot_nodes -= e->nodes; tot_sols -= e->sols; if (e->status_code == 2) n_exhausted--; else if (e->status_code == 1) n_budgeted--; else n_interrupted--; }
                     e->p1 = p1v; e->o1 = o1v; e->p2 = p2v; e->o2 = o2v; e->p3 = p3v_tmp; e->o3 = o3v_tmp;
                     e->nodes = nv; e->c3 = cv;
@@ -47188,7 +47188,7 @@ int main(int argc, char *argv[]) {
                     }
                     tot_nodes += nv; tot_sols += e->sols;
                 }
-                fclose(ckpt);
+                fclose(ckpt); { int q623_sec25_d3_failed(void); if (q623_sec25_d3_failed()) { an_skip++, printf("    SKIPPED: section 25 (the depth-3 cell table could not be allocated, so its per-cell counts would be 0 or short; no table is printed) (D1427)\n"); free(entries); goto skip_section25; } }
 
                 printf("    Total entries: %d (EXHAUSTED/COMPLETE: %d, BUDGETED: %d, INTERRUPTED: %d)\n",
                        n_entries, n_exhausted, n_budgeted, n_interrupted); printf("    (one row per cell: %d later line(s) replaced an earlier line for the same cell; %d line(s) with an out-of-range index skipped)\n", n_dup_lines, n_bad_lines);
@@ -47229,7 +47229,7 @@ int main(int argc, char *argv[]) {
                 int *top_idx = malloc(topN * sizeof(int));
                 if (!top_idx) {
                     fprintf(stderr, "ERROR: malloc failed for top_idx (section 25)\n");
-                    printf("    SKIPPED: top-%d listing (alloc failed)\n", topN);
+                    an_skip++, printf("    SKIPPED: top-%d listing (alloc failed)\n", topN);
                     free(entries);
                     goto skip_section25_top;
                 }
@@ -47332,7 +47332,7 @@ int main(int argc, char *argv[]) {
             }
             FILE *ckpt; { FILE *q623_ckpt_open(const char *); ckpt = q623_ckpt_open(ckpt_path); }  /* + checkpoint_t<N>.txt (V3A-134#9 sibling) */
             if (!ckpt) {
-                printf("    (no checkpoint.txt or checkpoint_t<N>.txt found — skipping)\n");
+                { int q623_ckpt_failed(void); printf(q623_ckpt_failed() ? "    SKIPPED: a checkpoint file could not be read or combined in full; no partial table is printed (D1427)\n" : "    (no checkpoint.txt or checkpoint_t<N>.txt found — skipping)\n"); }
             } else {
                 /* Counts for 3-way taxonomy plus legacy COMPLETE */
                 int n_exhausted = 0, n_budgeted = 0, n_interrupted = 0, n_other = 0;
@@ -47431,7 +47431,7 @@ int main(int argc, char *argv[]) {
         gz_mmap_close(mmap_base, full_size, gz_tmp);
 
         time_t t_end = time(NULL);
-        printf("==== analyze done in %lds ====\n", (long)(t_end - t_start));
+        { int q623_ckpt_failed(void); an_skip += q623_ckpt_failed(); } if (an_skip) { printf("==== analyze INCOMPLETE in %lds: %d result(s) withheld or cut short by a failed allocation or checkpoint read (see the SKIPPED lines) ====\nANALYZE=INCOMPLETE\n", (long)(t_end - t_start), an_skip); return 1; }   /* D1427 (Codex F04-003#15): was "analyze done", exit 0 */ printf("==== analyze done in %lds ====\n", (long)(t_end - t_start));
         return 0;
     }
 
@@ -51111,7 +51111,7 @@ int q623_main_partition(int start_pair) {
  * takes its own depth-3 bin, and an index outside the pair table is skipped and counted, never
  * used as an array index. Section [25] only; --analyze's other sections are unchanged. */
 static int *q623_sec25_idx = NULL;                 /* cell key -> row, or -1 */
-static long long *q623_sec25_d3 = NULL;            /* records per depth-3 cell */
+static long long *q623_sec25_d3 = NULL; static int q623_sec25_d3_lost = 0, q623_ckpt_bad = 0;   /* D1427 */            /* records per depth-3 cell */
 #define Q623_SEC25_KEYS (32 * 2 * 32 * 2 * 33 * 2)
 static int q623_sec25_key(int p1, int o1, int p2, int o2, int p3, int o3) {
     if (p1 < 0 || p1 >= 32 || p2 < 0 || p2 >= 32 || (o1 & ~1) || (o2 & ~1)) return -1;
@@ -51132,14 +51132,14 @@ int q623_sec25_slot(int p1, int o1, int p2, int o2, int p3, int o3, int next_row
     return q623_sec25_idx[k];
 }
 void q623_sec25_bin_d3(const unsigned char *rec) {
-    if (!q623_sec25_d3) {
+    if (!q623_sec25_d3) { if (q623_sec25_d3_lost) return;   /* D1427: never retried, so a later success cannot hide the records already lost */
         q623_sec25_d3 = calloc(Q623_SEC25_KEYS, sizeof(long long));
-        if (!q623_sec25_d3) return;   /* the counts then read as 0; q623_sec25_d3_count says so */
+        if (!q623_sec25_d3) { q623_sec25_d3_lost = 1; return; }   /* the counts then read as 0; section 25 is withheld (D1427) */
     }
     int k = q623_sec25_key(rec[1] >> 2, (rec[1] >> 1) & 1, rec[2] >> 2, (rec[2] >> 1) & 1,
                            rec[3] >> 2, (rec[3] >> 1) & 1);
     if (k >= 0) q623_sec25_d3[k]++;
-}
+} int q623_sec25_d3_failed(void) { return q623_sec25_d3_lost; } int q623_ckpt_failed(void) { return q623_ckpt_bad; }
 long long q623_sec25_d3_count(int p1, int o1, int p2, int o2, int p3, int o3) {
     int k = q623_sec25_key(p1, o1, p2, o2, p3, o3);
     if (!q623_sec25_d3) { fprintf(stderr, "ERROR: section 25 depth-3 bins not allocated; row counts are 0\n"); return 0; }
@@ -51173,9 +51173,9 @@ static int q623_ckpt_append(FILE *out, const char *path) {
             memmove(m + tl, m + fl, strlen(m + fl) + 1);
             memcpy(m, to, tl);
         }
-        fputs(line, out);
+        if (fputs(line, out) == EOF) q623_ckpt_bad = 1;
     }
-    fclose(f);
+    if (ferror(f)) { fprintf(stderr, "ERROR: reading %s failed part-way (D1427)\n", path); q623_ckpt_bad = 1; } fclose(f);
     return 1;
 }
 FILE *q623_ckpt_open(const char *ckpt_path) {
@@ -51184,7 +51184,7 @@ FILE *q623_ckpt_open(const char *ckpt_path) {
     if (slash) snprintf(dir, sizeof(dir), "%.*s", (int)(slash - ckpt_path), ckpt_path);
     else snprintf(dir, sizeof(dir), ".");
     FILE *out = tmpfile();
-    if (!out) { fprintf(stderr, "WARNING: tmpfile() failed; reading %s only\n", ckpt_path); return fopen(ckpt_path, "r"); }
+    if (!out) { fprintf(stderr, "WARNING: tmpfile() failed; reading %s only\n", ckpt_path); q623_ckpt_bad = 1; return fopen(ckpt_path, "r"); }   /* D1427: checkpoint_t<N>.txt are then not read, so the run is INCOMPLETE */
     int n_files = q623_ckpt_append(out, ckpt_path);
     int *ids = NULL, n_ids = 0, cap = 0;
     DIR *d = opendir(dir);
@@ -51213,7 +51213,7 @@ FILE *q623_ckpt_open(const char *ckpt_path) {
     }
     free(ids);
     if (n_files + n_thread == 0) { fclose(out); return NULL; }
-    printf("    Read: %s%s and %d per-thread checkpoint_t<N>.txt file(s)\n",
+    if (q623_ckpt_bad || fflush(out) != 0 || ferror(out)) { q623_ckpt_bad = 1; fprintf(stderr, "ERROR: the checkpoint files could not be combined in full (D1427)\n"); fclose(out); return NULL; } printf("    Read: %s%s and %d per-thread checkpoint_t<N>.txt file(s)\n",
            ckpt_path, n_files ? "" : " (absent)", n_thread);
     rewind(out);
     return out;
@@ -54626,7 +54626,7 @@ static int mj_ctx_open(KC *kc, const char *dir, int kind, char *why, size_t wz) 
     int n = -1, start_exit = -1, last_k = -2, b0v[5] = {-1, -1, -1, -1, -1}, pl[33], npl = 0, first = 1, hdr_ok = 0, have_mph = 0;
     unsigned long long mph = 0;
     while (fgets(line, sizeof(line), f)) {
-        if (first) { hdr_ok = strncmp(line, expect1, strlen(expect1)) == 0; first = 0; }
+        if (first) { hdr_ok = strncmp(line, expect1, strlen(expect1)) == 0 && strchr("\r\n", line[strlen(expect1)]) != NULL;   /* FT3f F12-014#4 (Codex): the whole line, not a prefix (g_manifest_v10) */ first = 0; }
         if (sscanf(line, "n=%d", &n) == 1) continue;
         if (sscanf(line, "start_exit=%d", &start_exit) == 1) continue;
         if (sscanf(line, "b0=%d,%d,%d,%d,%d", &b0v[0], &b0v[1], &b0v[2], &b0v[3], &b0v[4]) == 5) continue;

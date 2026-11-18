@@ -401,7 +401,7 @@ default `560000000000000` (`--preflight`, solve.c:41809-41824).
 Does NOT cover what lives outside the process: VM/eviction (the
 external monitor, task #55), full disk SMART/fsck (the project's
 `disk_health_precheck.sh`, a private campaign script that is not in this
-repository: run `smartctl` and `fsck` yourself), or disk identity (use `--disk-precheck`). *(2026-11-04, CX-36N-B, Codex final review F12-001#7: this named the script as if it shipped. The binary's own `--preflight` text still names it.)*
+repository: run `smartctl` and `fsck` yourself), or disk identity (use `--disk-precheck`). *(2026-11-04, CX-36N-B, Codex final review F12-001#7: this named the script as if it shipped. The binary's own `--preflight` text still names it.)* *(2026-11-14, CX-37C-P: it no longer does; it says to run `smartctl` and `fsck`.)*
 
 Exit codes are two, but the outcomes are three — read them with that in
 mind:
@@ -3546,7 +3546,7 @@ External cleanup is not required but is a disk-hygiene best practice.
   solver produced them.
 - `--analyze` is non-deterministic in output formatting (some
   histogram reports use double precision); its raw counts are
-  deterministic. *(2026-09-26, follow-up to CX-161: the §[7] and §[15] best triples and the §[8] and §[15] 4-subset lists no longer depend on the thread count or on thread timing. Ties go to the lexicographically smallest triple, and each list holds the lexicographically smallest rows in sorted order, which is what one thread always printed. Before this, two runs of one binary could print different lists and best triples; the counts were the same.)*
+  deterministic. *(2026-09-26, follow-up to CX-161: the §[7] and §[15] best triples and the §[8] and §[15] 4-subset lists no longer depend on the thread count or on thread timing. Ties go to the lexicographically smallest triple, and each list holds the lexicographically smallest rows in sorted order, which is what one thread always printed. Before this, two runs of one binary could print different lists and best triples; the counts were the same.)* *(2026-11-14, engine batch 2, CX-37C-O, from Codex F04-003#15 and F04-003#12: if a section's result is withheld or cut short because a memory allocation or a checkpoint read failed, it prints `SKIPPED`. The run then ends `==== analyze INCOMPLETE … ====` and `ANALYZE=INCOMPLETE`, exit 1, not `analyze done`, exit 0. Section 20's `KW complement` lines come from the record the stream pass identified as King Wen, not from record 0, and are not printed when King Wen is absent. A run with no failure on a file that holds King Wen at record 0 prints the same output as before.)*
 - `--prove-*` results are deterministic but do not produce
   sha-anchored artifacts.
 

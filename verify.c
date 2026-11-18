@@ -1452,7 +1452,7 @@ static int lc_manifest_pfx(const char *dir, const char *pfx,
     char path[1024]; snprintf(path, sizeof path, "%s/%s_manifest.txt", dir, pfx);
     char tag[64];   snprintf(tag,  sizeof tag,  "%s_manifest_v1", pfx);
     FILE *f = fopen(path, "r"); if (!f) return 1;
-    char line[8192]; int have_tag=0, lineno=0; *n=0; *se=0; *last_k=-1; *plhash_hex=0; *npl=0;
+    char line[8192]; int have_tag=0, have_se=0, lineno=0; *n=0; *se=0; *last_k=-1; *plhash_hex=0; *npl=0;
     for (int c=0;c<5;c++) b0[c]=0;
     while (fgets(line, sizeof line, f)) {
         if (++lineno == 1) {
@@ -1465,7 +1465,7 @@ static int lc_manifest_pfx(const char *dir, const char *pfx,
             have_tag = 1;
         }
         else if (!strncmp(line,"n=",2)) *n=(uint32_t)atoi(line+2);
-        else if (!strncmp(line,"start_exit=",11)) *se=(uint32_t)atoi(line+11);
+        else if (!strncmp(line,"start_exit=",11)) { *se=(uint32_t)atoi(line+11); have_se=1; }
         else if (!strncmp(line,"pl=",3)) { int i=0; char *t=strtok(line+3,",\n");
             while(t&&i<64){ pl[i++]=(uint32_t)atoi(t); t=strtok(NULL,",\n"); } *npl=i; }
         else if (!strncmp(line,"pl_hash=",8)) *plhash_hex=strtoull(line+8,NULL,16);
@@ -1473,7 +1473,7 @@ static int lc_manifest_pfx(const char *dir, const char *pfx,
             while(t&&i<5){ b0[i++]=atoi(t); t=strtok(NULL,",\n"); } }
         else if (!strncmp(line,"last_complete_k=",16)) *last_k=atoi(line+16);
     }
-    fclose(f);
+    fclose(f); if (have_tag && !have_se) { printf("*** FAIL: %s has no start_exit= line\n", path); return 1; }   /* FT3f F12-014#4 (Codex): a required field; its absence read as 0 */
     if (have_tag && *n == 31 && *se != 0) {
         printf("*** FAIL: %s: a full-31 ladder must be rooted at exit 0 (King Wen's root);"
                " manifest start_exit=%u\n", path, *se);
