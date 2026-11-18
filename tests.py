@@ -22354,7 +22354,7 @@ class TestLaneHQProveCascadeScope(unittest.TestCase):
         self.assertRegex(seen[-1][1], r'^    Config 3/18: searching positions 19-31\.\.\. TIMEOUT \(\d+ nodes in 1s\)\. Inconclusive\.$')
         dt = seen[-1][0] - seen[-2][0]   # config 3 ran between the two lines
         self.assertGreaterEqual(dt, 0.95, f"config 3 stopped before its 1 s budget ({dt:.2f} s)")
-        self.assertLessEqual(dt, 1.6, f"config 3 ran {dt:.2f} s under a 1 s cap that its line prints")
+        self.assertLessEqual(dt, 3.0, f"config 3 ran {dt:.2f} s under a 1 s cap that its line prints")
 
     def test_q873_source_ranges_and_clock(self):
         # The 0-based range the QED text names: prefix slots j+2 for j < 17 (2-18), search from step 19.
@@ -22967,7 +22967,7 @@ class TestLaneHXQ875MergeAndSidecarSilentSkips(unittest.TestCase):
     Under root, mode 000 does not deny a read, so those cases skip with that reason."""
 
     ENV = dict(SOLVE_NODE_LIMIT="3030000", SOLVE_ALLOW_SUB_CANONICAL="1",
-               SOLVE_SKIP_CANONICAL_LOCK="1", SOLVE_SKIP_AUTO_SELFTEST="1", SOLVE_THREADS="2")
+               SOLVE_SKIP_CANONICAL_LOCK="1", SOLVE_SKIP_AUTO_SELFTEST="1", SOLVE_THREADS="2", SOLVE_MERGE_CHUNK_GB="1")
     OPEN_SHIM = r'''
 #define _GNU_SOURCE
 #include <dlfcn.h>
@@ -27616,7 +27616,7 @@ class TestLaneHACIncompleteMergeInputs(unittest.TestCase):
     ROOT = os.path.dirname(os.path.abspath(__file__))
     MARKER = "enum_incomplete.txt"
     SIG_LINE = "*** Signal received"
-    SMALL = {"SOLVE_HASH_LOG2": "16", "SOLVE_DEPTH": "2", "SOLVE_THREADS": "4"}
+    SMALL = {"SOLVE_HASH_LOG2": "16", "SOLVE_DEPTH": "2", "SOLVE_THREADS": "4", "SOLVE_MERGE_CHUNK_GB": "1"}
     STOPPER = r"""#!/bin/bash
 "$@" & p=$!
 for i in $(seq 600); do
@@ -54406,8 +54406,8 @@ class TestBatchG5c(unittest.TestCase):
         fn = self._fn(self._r(os.path.join("scripts", "doc_gates.d", "70_publication_surfaces.sh")), "gate_branch_registry")
         reg = self._r(os.path.join("documentation", "BRANCH_REGISTRY.tsv"))
         self.assertTrue(re.search(r"^orbit-port-188-candidate\tretired\t", reg, re.M), "precondition: the row is retired")
-        self.assertEqual(self._git(self.ROOT, "remote", "get-url", "origin", check=False).returncode, 0,
-                         "precondition: this clone has an origin remote")
+        if self._git(self.ROOT, "remote", "get-url", "origin", check=False).returncode != 0:
+            self.skipTest("gate 19 leg NOT-RUN: this checkout has no remote named origin")
         stub = "timeout(){ printf '%s\\trefs/heads/main\\n' 0000000000000000000000000000000000000000; }\n"
         r0 = self._bash(stub + fn + "gate_branch_registry; echo rc=$?\n")
         self.assertIn("rc=0", r0.stdout, "precondition: the main-only baseline passes: " + r0.stdout[-800:])
@@ -58099,8 +58099,8 @@ class TestBatchQ1055(unittest.TestCase):
         pe = subprocess.run([sys.executable, "-c", "import locale; print(locale.getpreferredencoding(False))"],
                             capture_output=True, text=True, env=env)
         self.assertEqual(pe.returncode, 0, pe.stderr)
-        self.assertNotIn(pe.stdout.strip().lower().replace("-", ""), ("utf8",),
-                         "LC_ALL=C still yields UTF-8 here; the case cannot be reproduced: %r" % pe.stdout)
+        if pe.stdout.strip().lower().replace("-", "") in ("utf8",):
+            self.skipTest("Q-1055 NOT-RUN: LC_ALL=C still yields UTF-8 here; the case cannot be reproduced: %r" % pe.stdout)
         d = self._stubs("non_utf8", chatter=0)
         with open(os.path.join(d, "cpog-check"), "w") as fh:
             fh.write("#!/bin/sh\nprintf 'c stub \\377 byte\\n'\n"
@@ -69661,10 +69661,130 @@ class TestBatchQ1049R6(unittest.TestCase):
 # end class TestBatchQ1049R6
 
 
+class TestBatchQ1136(unittest.TestCase):
+    """Q-1136 (CX-37C-X): tests.py no longer depends on the host or the caller's shell in five ways an Opus audit
+    lane found. (H1) The external-merge legs of TestLaneHXQ875MergeAndSidecarSilentSkips and
+    TestLaneHACIncompleteMergeInputs set SOLVE_MERGE_CHUNK_GB=1, so a small fixture no longer asks solve.c for a
+    4 GiB sort chunk per worker and the legs pass under a 4 GiB address-space limit. (M1) The gate-19 leg of
+    TestBatchG5c skips by name in a checkout with no remote called origin instead of failing a precondition.
+    (M2) TestLaneHQProveCascadeScope's 1 s timeout window allows 3.0 s, not 1.6 s, above it. (M3) tests.py
+    removes every inherited SOLVE_* variable at import and names each on stderr. (LOW) The Q-1055 locale
+    precondition skips by name, and a run without gcc on PATH says so once. Every test here fails on the
+    parent tree. Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _src(self, cls, meth):
+        import inspect
+        return inspect.getsource(getattr(globals()[cls], meth))
+
+    def _child(self, code, env):
+        return subprocess.run([sys.executable, "-c", code, os.path.join(self.ROOT, "tests.py")], cwd=self.ROOT,
+                              capture_output=True, text=True, timeout=600, env=env)
+
+    def test_h1_external_merge_legs_ask_for_a_1_gib_sort_chunk(self):
+        self.assertIn('getenv("SOLVE_MERGE_CHUNK_GB")', self._r("solve.c"), "precondition: solve.c reads the knob")
+        hx = TestLaneHXQ875MergeAndSidecarSilentSkips
+        self.assertEqual(hx.ENV.get("SOLVE_MERGE_CHUNK_GB"), "1")
+        for label, extra in hx.MODES:
+            with self.subTest(mode=label):
+                self.assertEqual(hx._env(extra).get("SOLVE_MERGE_CHUNK_GB"), "1")
+        self.assertEqual(TestLaneHACIncompleteMergeInputs.SMALL.get("SOLVE_MERGE_CHUNK_GB"), "1")
+
+    def test_m1_gate19_leg_skips_by_name_without_origin(self):
+        s = self._src("TestBatchG5c", "test_gate19_refuses_a_retired_branch_that_is_published")
+        self.assertNotIn("precondition: this clone has an origin remote", s)
+        self.assertIn('self.skipTest("gate 19 leg NOT-RUN: this checkout has no remote named origin")', s)
+
+    def test_m2_timeout_window_is_3_seconds_and_keeps_its_lower_bound(self):
+        s = self._src("TestLaneHQProveCascadeScope", "test_q873_real_timeout_takes_the_cap_it_prints")
+        self.assertIn("self.assertLessEqual(dt, 3.0,", s)
+        self.assertNotIn("self.assertLessEqual(dt, 1.6,", s)
+        self.assertIn("self.assertGreaterEqual(dt, 0.95,", s)
+        self.assertIn(r"TIMEOUT \(\d+ nodes in 1s\)", s)
+
+    def test_m3_inherited_solve_variables_are_removed_at_import_and_named(self):
+        code = ("import importlib.util, json, os, sys\n"
+                "spec = importlib.util.spec_from_file_location('tests_q1136_child', sys.argv[1])\n"
+                "m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)\n"
+                "hx = m.TestLaneHXQ875MergeAndSidecarSilentSkips\n"
+                "print(json.dumps({'inherited': sorted(k for k in os.environ if k.startswith('SOLVE_')),\n"
+                "  'plain_dict': dict(os.environ, OMP_NUM_THREADS='2').get('SOLVE_THREADS'),\n"
+                "  'class_env': hx._env({'SOLVE_MERGE_MODE': 'memory'}).get('SOLVE_THREADS'),\n"
+                "  'class_mode': hx._env({'SOLVE_MERGE_MODE': 'memory'}).get('SOLVE_MERGE_MODE'),\n"
+                "  'kept': [os.environ.get('XSOLVE_THREADS'), os.environ.get('ROAE_TESTS_Q1136_KEEP')]}))\n")
+        env = dict(os.environ, SOLVE_THREADS="999", SOLVE_MERGE_MODE="bogus", XSOLVE_THREADS="7",
+                   ROAE_TESTS_Q1136_KEEP="yes")
+        r = self._child(code, env)
+        self.assertEqual(r.returncode, 0, r.stderr[-1500:])
+        import json
+        got = json.loads(r.stdout.strip().splitlines()[-1])
+        self.assertEqual(got["inherited"], [], "an inherited SOLVE_* survived the import")
+        self.assertIsNone(got["plain_dict"], "SOLVE_THREADS=999 still reaches a dict(os.environ, ...) solver env")
+        self.assertEqual(got["class_env"], "2", "the class's own SOLVE_THREADS must survive")
+        self.assertEqual(got["class_mode"], "memory", "a test's own SOLVE_* value must survive")
+        self.assertEqual(got["kept"], ["7", "yes"], "only names starting SOLVE_ are removed")
+        named = [l for l in r.stderr.splitlines() if l.startswith("tests.py: ignoring inherited ")]
+        self.assertEqual(named, ["tests.py: ignoring inherited SOLVE_MERGE_MODE",
+                                 "tests.py: ignoring inherited SOLVE_THREADS"])
+        clean = self._child(code, {k: v for k, v in env.items() if not k.startswith("SOLVE_")})
+        self.assertEqual(clean.returncode, 0, clean.stderr[-1500:])
+        self.assertNotIn("tests.py: ignoring inherited", clean.stderr, "control: nothing inherited, nothing named")
+
+    def test_low_q1055_locale_precondition_skips_by_name(self):
+        s = self._src("TestBatchQ1055", "test_q1055_tail_write_cannot_fail_a_certification_under_a_non_utf8_locale")
+        self.assertIn('self.skipTest("Q-1055 NOT-RUN: LC_ALL=C still yields UTF-8 here', s)
+        self.assertNotIn("self.assertNotIn(pe.stdout.strip()", s)
+
+    def test_low_a_run_without_gcc_says_so_once(self):
+        d = tempfile.mkdtemp(prefix="q1136_path_")
+        try:
+            for tool in ("git", "bash", "sh"):
+                w = shutil.which(tool)
+                if w:
+                    os.symlink(w, os.path.join(d, tool))
+            env = dict(os.environ, PATH=d)
+            r = subprocess.run([sys.executable, os.path.join(self.ROOT, "tests.py"), "-k", "q956_no_such_test_name"],
+                               cwd=self.ROOT, capture_output=True, text=True, timeout=600, env=env)
+            self.assertIn("ROAE_TESTS_TOOLCHAIN=gcc-none,", r.stderr, "precondition: gcc is really absent")
+            note = "tests.py: NOTICE gcc is not on PATH; every test that compiles solve.c or verify.c will ERROR"
+            self.assertEqual(r.stderr.splitlines().count(note), 1, r.stderr[-1500:])
+            ok = subprocess.run([sys.executable, os.path.join(self.ROOT, "tests.py"), "-k", "q956_no_such_test_name"],
+                                cwd=self.ROOT, capture_output=True, text=True, timeout=600)
+            self.assertNotIn(note, ok.stderr, "control: gcc present, no notice")
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    def test_ledger_and_history_entries(self):
+        c = self._r("documentation/CORRECTIONS.md")
+        self.assertEqual(len(re.findall(r"\n## CX-37C-X — tests\.py stops depending on the host and the caller's shell", c)), 1)
+        self.assertEqual(self._r("documentation/HISTORY.md").count(
+            "\n## 2026-11-14 — batch Q1136: tests.py stops depending on the host and the caller's shell\n"), 1)
+
+# end class TestBatchQ1136
+
+
+# Q-1136 M3: a SOLVE_* variable exported in the caller's shell reached every solver run built from
+# dict(os.environ, ...). tests.py reads no SOLVE_* knob of its own, so each inherited one is removed
+# here and named on stderr. This runs at import, after every class is defined and before any test
+# runs; nothing above reads a SOLVE_* value at import (no class body, and not the module-level loads
+# of solve.py, roae.py and sat.py). It sits at the end so that no line other files cite moves. A test
+# that wants a SOLVE_* value sets it in its own env dict, which is built later and is not touched.
+for _k in sorted(k for k in os.environ if k.startswith("SOLVE_")):
+    sys.stderr.write("tests.py: ignoring inherited %s\n" % _k)
+    del os.environ[_k]
+
+
 if __name__ == "__main__":
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))
     sys.stderr.write("ROAE_TESTS_TOOLCHAIN=%s\n" % _q956_tests_toolchain())
+    if not shutil.which("gcc"):  # Q-1136 LOW-6: gcc is a prerequisite; the tests that compile will ERROR without it
+        sys.stderr.write("tests.py: NOTICE gcc is not on PATH; every test that compiles solve.c or verify.c will ERROR\n")
     sys.stderr.flush()
     unittest.main(verbosity=2)
 

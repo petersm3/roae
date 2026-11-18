@@ -12781,3 +12781,12 @@ entry describes the review itself, which had none.)*
   "neither answers anything about the real object".
 - No count, estimate, gain, anchor, verdict or canonical sha changed. `TestBatchQ1049R6` holds each sentence and
   fails on the parent tree. Found by Codex (gpt-6-astra), final review; adjudicated by Fable.
+
+## 2026-11-14 — batch Q1136: tests.py stops depending on the host and the caller's shell
+
+- **tests.py (CX-37C-X).** The external-merge legs of two test classes asked solve.c for a 4 GiB sort chunk for a
+  tiny fixture and failed under a 4 GiB memory limit; they now ask for 1 GiB. The gate-19 test skips by name when
+  there is no remote called origin. A 1 s timeout window allows 3.0 s, not 1.6 s. tests.py removes any
+  `SOLVE_*` variable it inherits and names it. The Q-1055 locale check skips by name, and a run without gcc says so.
+- No count, digest or canonical sha changed. `TestBatchQ1136` holds the fixes and fails on the parent tree. Found
+  by an Opus audit lane; built in an Opus lane.

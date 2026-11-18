@@ -41344,3 +41344,47 @@ with or without "*(current)*".
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group Q1049R6; the defects were found by Codex
 (gpt-6-astra), final review; adjudicated by Fable (claude-fable-5-1), FV2 slice 1.
+
+## CX-37C-X — tests.py stops depending on the host and the caller's shell in five places (tests.py)
+
+**2026-11-14.** **Source.** Backlog Q-1136, from an Opus audit lane's environment-dependence audit of tests.py,
+prompted by a test that passed locally and failed on a fresh clone because it compared git's abbreviated
+commit name (8 characters here, 7 there). The tip no longer uses that form. The audit found one HIGH, three MEDIUM
+and seven LOW items; this entry fixes the HIGH, the three MEDIUMs and two LOWs. Only tests.py changes.
+
+**What was wrong, and what it does now.**
+- **H1. A 4 GiB allocation for a small merge.** The external-merge legs of
+  `TestLaneHXQ875MergeAndSidecarSilentSkips` and `TestLaneHACIncompleteMergeInputs` used solve.c's default sort
+  chunk of 4 GiB. solve.c allocates the whole chunk (one per worker in the parallel mode) even for a fixture of
+  about 286 KB, and each class removes the caller's `SOLVE_*` variables, so nothing outside could shrink it. On a
+  host with a 4 GiB address-space limit, strict overcommit or little memory, the merge printed `ERROR: cannot
+  allocate 4294967296 bytes for sort chunk` and the tests failed. Both classes now set `SOLVE_MERGE_CHUNK_GB=1`,
+  the smallest value solve.c accepts and the one another test already uses for the same reason. Run under a
+  4 GiB `ulimit -v`, both classes fail on the parent tree and pass with the change. solve.c is not changed;
+  capping the chunk at the input's size in the engine would be a separate change with its own entry.
+- **M1. A remote named `origin`.** The gate-19 test of `TestBatchG5c` failed in a checkout whose remote has
+  another name. The leg needs no remote (a stub supplies the answer), so the precondition is now a named skip.
+- **M2. A tight clock window.** `TestLaneHQProveCascadeScope` measured a 1 s solver timeout over a pipe and
+  allowed at most 1.6 s; a loaded two-core host could go over with no code change. The bound is now 3.0 s. The
+  0.95 s lower bound and the check that the line prints `in 1s` are kept.
+- **M3. The caller's `SOLVE_*` variables.** tests.py builds a child's environment from the caller's with
+  `dict(os.environ, ...)` in 142 calls, many of them solver runs, so an exported `SOLVE_THREADS`,
+  `SOLVE_MERGE_MODE` or `SOLVE_TEMP_DIR` changed what they ran. tests.py reads no
+  `SOLVE_*` setting of its own. At import it now removes every inherited `SOLVE_*` variable and names each one on
+  stderr (`tests.py: ignoring inherited SOLVE_THREADS`). A test that sets a `SOLVE_*` value in its own
+  environment is not affected.
+- **Two LOWs.** The Q-1055 test skips by name when `LC_ALL=C` still gives UTF-8, instead of failing. A run with
+  no gcc on PATH prints one notice that the compiling tests will error. gcc stays a stated prerequisite, and a
+  failed build still fails.
+
+**Not changed.** No count, digest, canonical sha or figure changed. The other five LOW items (a UTF-8 re-exec
+guard, a midnight race in one fixture, one unguarded `git show`, full-length pins for 7-character commit names,
+and stray ignored files in one local checkout) are left as notes in the backlog.
+
+**Tests.** `TestBatchQ1136` checks the chunk setting in both classes and in every merge mode's environment, runs a
+child that imports tests.py with `SOLVE_THREADS=999` and `SOLVE_MERGE_MODE` exported and finds neither left
+while a class's own `SOLVE_*` values survive, pins the skip and the window, runs tests.py with no gcc on PATH,
+and fails on the parent tree.
+
+Developed with AI assistance (Claude, Anthropic): the audit and the build were done in Opus lanes
+(claude-opus-5-5).
