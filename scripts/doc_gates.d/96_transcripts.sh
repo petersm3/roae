@@ -144,6 +144,10 @@ for k, (line, para) in sorted(blocks.items(), key=lambda kv: (kv[0][0], kv[1][0]
         if not DATE.match(ev):
             fail.append("%s:%d class historical needs an ISO date as evidence, got %r" % (reg, n, ev))
     elif cls == "pinned-tree":
+        # Q-1048 (FV2-G2 D1075; Codex F05-006#10): an HTML comment is invisible to the reader, so a commit
+        # named only inside `<!-- ... -->` is no provenance. Comments (and an unclosed one, to the end of the
+        # paragraph) are removed before the commit/tag search.
+        para = re.sub(r"<!--.*?(?:-->|\Z)", " ", para, flags=re.S)
         words = set(re.findall(r"[A-Za-z0-9._/-]+", para))
         if not SHA.search(para) and not (words & tags):
             fail.append("%s:%d class pinned-tree, but the paragraph before %s:%d names no commit or tag"

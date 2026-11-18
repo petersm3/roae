@@ -170,6 +170,11 @@ for f in files:
                     # 100T ... boundary 15 has Y": X is d3 10T's, Y is 100T's); any dataset of the sentence
                     # let two swapped counts pass. With none before it, the sentence's datasets as before.
                     _own = [d for q, d in named_pos(sent) if q < bm.start()]
+                    # Q-1048 (FV2-G2 D1066; Codex F05-005#1): with no dataset BEFORE the claim, its own dataset is
+                    # the first one named AFTER it ("boundary 15 has X in d3 10T, Y at 100T"), not any dataset of
+                    # the sentence -- two swapped counts passed on the pooled test.
+                    if not _own:
+                        _own = [d for q, d in named_pos(sent) if q > bm.end()][:1]
                     if _own:
                         if _own[-1] not in L: continue          # an un-logged dataset: unattributable here
                         if L[_own[-1]]['surv'].get(b) == n: continue
@@ -360,7 +365,18 @@ for f in files:
                     cb=[d for p,d in ds if p<mm.start() and not re.search(r"[,;:—–]", s[p:mm.start()])]
                     ca=[d for p,d in ds if p>mm.start() and not re.search(r"[,;:—–]", s[mm.end():p])]
                     own=cb[-1] if cb else (ca[0] if ca else (before[-1] if before else (after[0] if after else None)))
-                    if own is None or not re.fullmatch(r"11\.2\s?T",own): continue
+                    # Q-1048 (FV2-G2 D1070; Codex F05-005#2): a COORDINATED subject shares the count -- "nine
+                    # independent paths validate 100T and 11.2T" states nine for 11.2T too. The datasets joined to
+                    # the chosen one by `and`, `,`, `&` or `/` alone are its coordinates.
+                    owns=[own] if own is not None else []
+                    if own is not None and not cb:
+                        aft=[(p,d) for p,d in ds if p>mm.start()]
+                        k=next((i for i,(p,d) in enumerate(aft) if d==own),None)
+                        while k is not None and k+1<len(aft):
+                            gap=s[aft[k][0]+len(aft[k][1]):aft[k+1][0]]
+                            if not re.fullmatch(r"\s*(?:,\s*(?:and\s+)?|and\s+|&\s*|/\s*)(?:the\s+)?",gap): break
+                            k+=1; owns.append(aft[k][1])
+                    if not any(re.fullmatch(r"11\.2\s?T",o) for o in owns): continue
                     rest+=1
                     v=mm.group(1).lower(); v=int(v) if v.isdigit() else W[v]
                     if v!=reg: print("HIT\t%s\tstates '%s independent %s' for 11.2T; the registry table has %d"%(f,mm.group(1),mm.group(0).split()[-1],reg))
@@ -628,8 +644,24 @@ ALLOW={("disk","solver-data")}
 # quote, so a quoted reference was never judged. The command tail is now split by the quote-aware
 # splitter (src_parse.sh), and `--name=VALUE` counts too. A value carrying `$`, `<` or `{` is still a
 # variable or a placeholder and is skipped, and the command stops at a backtick (the end of the span).
+def _cmd_end(tail):
+    # Q-1048 (FV2-G2 D1071, D1072; Codex F05-005#4, F05-005#3): ONE COMMAND, ending at the first backtick
+    # or shell operator (&& || ; |) OUTSIDE quotes. Cutting at the first backtick anywhere hid a `--name`
+    # after a quoted backtick (`--tags "x=`y`" --name ghost`), and reading to the end of the line gave a
+    # later command's names to the first (`az disk create -n A && az vm show -n B` "created" B).
+    q = None; i = 0
+    while i < len(tail):
+        c = tail[i]
+        if q:
+            if c == q: q = None
+            elif c == "\\" and q == '"': i += 1
+        elif c in "\"'": q = c
+        elif c == "`" or c == ";" or (c in "&|" and tail[i:i+2] in ("&&", "||")) or c == "|":
+            return tail[:i]
+        i += 1
+    return tail
 def names_after(tail, opts):
-    w = sp_sh_split(tail.split("`", 1)[0])
+    w = sp_sh_split(_cmd_end(tail))
     out = []
     for k, (v, q) in enumerate(w):
         if v in opts and k + 1 < len(w):
@@ -655,10 +687,10 @@ for si,sec in enumerate(secs):
         g=" ".join(group.split())
         return g[3:] if g.startswith("vm ") else g
     created=set()
-    for m in re.finditer(r"\baz\s+((?:[a-z-]+\s+)+?)create\b([^\n]*)",sec): created.update((rtype(m.group(1)),nm) for _o,nm in names_after(m.group(2), ("-n", "--name")))
+    for m in re.finditer(r"\baz\s+((?:[a-z-]+\s+)+?)create\b(?=([^\n]*))",sec): created.update((rtype(m.group(1)),nm) for _o,nm in names_after(m.group(2), ("-n", "--name")))
     for m in re.finditer(r"az rest --method PUT[^\n]*?/(virtualMachines|disks|networkInterfaces|publicIPAddresses|virtualNetworks|networkSecurityGroups)/([A-Za-z0-9_.-]+)\??",sec): created.add((REST[m.group(1)],m.group(2)))
     for ln,line in enumerate(sec.split("\n"),1):
-        for m in re.finditer(r"\baz\s+((?:[a-z-]+\s+)+?)(?:show|delete|update|get-instance-view|start|stop|deallocate|wait|attach|detach)\b(.*)$",line):
+        for m in re.finditer(r"\baz\s+((?:[a-z-]+\s+)+?)(?:show|delete|update|get-instance-view|start|stop|deallocate|wait|attach|detach)\b(?=(.*)$)",line):
             tail=m.group(2)
             for opt,nm in names_after(tail, ("-n", "--name", "--vm-name")):
                 if nm.startswith("$") or nm.startswith("<") or nm.startswith("{") or "$" in nm: continue
@@ -784,9 +816,11 @@ for line in reg.split("\n"):
     size=int(m.group(2)); S.add(size)
     last=m.group(3).split("|")[-1]
     if "✓" in last: S7.add(size-2)
-    dm=re.match(r"d([23]) (\d+(?:\.\d+)?T)\b",m.group(1))
+    # Q-1048 (FV2-G2 D1073; Codex F05-005#5): ONE normaliser for registry keys and claims: the budget is
+    # `<number>T` with any space removed, so a spaced "d3 100 T" row is a key, not a dropped row.
+    dm=re.match(r"d([23])[ _-]?(\d+(?:\.\d+)?)\s?T\b",m.group(1))
     if dm:
-        e=BY.setdefault((dm.group(1),dm.group(2)),[set(),set()]); e[0].add(size)
+        e=BY.setdefault((dm.group(1),dm.group(2)+"T"),[set(),set()]); e[0].add(size)
         if "✓" in last: e[1].add(size-2)
 # Q-980 (batch 44; Codex gpt-6-astra Q964-D06#16): "100 T" is the 100T dataset -- unmatched, the claim fell
 # back to every dataset's pooled allowance. The budget is normalised to "<number>T".
@@ -894,11 +928,12 @@ def third(path):
                 k+=any(a.name.split(".")[0] in THIRD for a in nd.names)
             elif isinstance(nd,ast.ImportFrom) and nd.level==0 and nd.module:
                 k+=nd.module.split(".")[0] in THIRD
-            elif isinstance(nd,ast.Call) and nd.args and isinstance(nd.args[0],ast.Constant) \
-                    and isinstance(nd.args[0].value,str) and nd.args[0].value.split(".")[0] in THIRD \
-                    and ((isinstance(nd.func,ast.Name) and nd.func.id=="__import__")
-                         or (isinstance(nd.func,ast.Attribute) and nd.func.attr=="import_module")):
-                k+=1
+            elif isinstance(nd,ast.Call) and ((isinstance(nd.func,ast.Name) and nd.func.id=="__import__")
+                                              or (isinstance(nd.func,ast.Attribute) and nd.func.attr=="import_module")):
+                # Q-1048 (FV2-G2 D1074; Codex F05-005#6): the module may be the `name=` keyword too.
+                a0=nd.args[0] if nd.args else next((kw.value for kw in nd.keywords if kw.arg=="name"),None)
+                if isinstance(a0,ast.Constant) and isinstance(a0.value,str) and a0.value.split(".")[0] in THIRD:
+                    k+=1
         imp[path]=k
     return imp[path]
 CLAIM=re.compile(r"stdlib[ -]only|standard library[^.]{0,40}no third-party|no third-party (?:modules|dependencies)",re.I)
@@ -1342,8 +1377,17 @@ C=sys.argv[1]
 # `(CITATIONS.md#ouyang1990 "Ouyang")` -- the same link -- did not count, and a paragraph linking three
 # arrivals that way left the census instead of being judged. Link targets now come from the markdown
 # link reader of src_parse.sh (titles, <angle> targets, reference definitions).
-def cit_anchors(p):
-    return [m.group(1) for _o, t in sp_md_links(p) for m in [re.search(r"CITATIONS\.md#([a-z0-9]+)$", t)] if m]
+def cit_anchors(p, refs=None):
+    out = [m.group(1) for _o, t in sp_md_links(p) for m in [re.search(r"CITATIONS\.md#([a-z0-9]+)$", t)] if m]
+    # Q-1048 (FV2-G2 D1063; Codex F05-005#7): a REFERENCE-STYLE link (`[Yuan][y]`, `[Yuan][]`) whose
+    # definition (`[y]: CITATIONS.md#yuan`) sits elsewhere in the document is a citation of this paragraph
+    # too; the definitions are resolved document-wide (refs) before the paragraph is censused.
+    for m in re.finditer(r"\[([^\]\n]+)\]\[([^\]\n]*)\]", p):
+        t = (refs or {}).get((m.group(2) or m.group(1)).strip().lower())
+        mm = re.search(r"CITATIONS\.md#([a-z0-9]+)$", t or "")
+        if mm: out.append(mm.group(1))
+    return out
+_REFDEF = re.compile(r"^ {0,3}\[([^\]\n]+)\]:\s*<?([^\s>]+)>?", re.M)
 def deacc(s): return "".join(c for c in unicodedata.normalize("NFKD",s) if not unicodedata.combining(c))
 try: t=io.open(C,encoding="utf-8").read()
 except Exception as e: print("ERROR\tcannot read %s: %s"%(C,e)); sys.exit(0)
@@ -1355,6 +1399,9 @@ paras=re.split(r"\n\s*\n","\n".join(L[s:e]))
 chain=[p for p in paras if "independent arrival" in p and "→ ROAE" in p]
 if len(chain)!=1: print("ERROR\tthe priority-ceded section holds %d chain paragraph(s) ('independent arrival' + an arrow to ROAE), expected 1"%len(chain)); sys.exit(0)
 anchors=sorted(set(re.findall(r"\]\(#([a-z0-9]+)\)",chain[0])))
+# Q-1048 (FV2-G2 D1064; Codex F05-005#8): the chain's links through the shared link reader (sp_md_links), so a
+# TITLED link `[x](#yuan "Yuan 1990")` is an arrival too; the bare regex dropped it and the floor still held.
+anchors=sorted(set(m.group(1) for _o, tg in sp_md_links(chain[0]) for m in [re.fullmatch(r"#([a-z0-9]+)", tg)] if m))
 keys={}
 for a in anchors: keys.setdefault(re.sub(r"\d{4}$","",a),set()).add(a)
 if len(keys)<5: print("ERROR\tthe chain paragraph names only %d distinct cited arrival(s) (floor 5)"%len(keys)); sys.exit(0)
@@ -1378,9 +1425,10 @@ for f in files:
     except Exception as e: print("ERROR\t%s could not be read (%s), so it was NOT scanned (Q-963)"%(f,e)); raise SystemExit(0)
     if "CITATIONS.md#" not in d: continue
     off=0
+    refs={m.group(1).strip().lower(): m.group(2) for m in _REFDEF.finditer(d)}
     for p in re.split(r"(\n\s*\n)",d):
         if re.fullmatch(r"\n\s*\n",p): off+=p.count("\n"); continue
-        linked={re.sub(r"\d{4}$","",a) for a in cit_anchors(p)} & set(sur)
+        linked={re.sub(r"\d{4}$","",a) for a in cit_anchors(p, refs)} & set(sur)
         if len(linked)>=3:
             npara+=1; ln=off+1
             flat=deacc(" ".join(p.split()))
@@ -1554,6 +1602,9 @@ rows=[l for l in t.split("\n")
 if not rows: print("ERROR\tno scorecard table rows found in %s"%F); sys.exit(0)
 na=npg=0; cache={}
 CIT=re.compile(r"([^\s()\[\]<>`|]*CITATIONS\.md)#([a-z0-9-]+)")
+# Q-1048 (FV2-G2 D1065; Codex F05-005#9): the WHOLE fragment, underscores included: `#yuan_1990` was read as
+# `#yuan` and so matched a report citing the shorter anchor.
+CIT=re.compile(r"([^\s()\[\]<>`|]*CITATIONS\.md)#([a-z0-9_-]+)")
 def cites(text, base):
     return {(os.path.normpath(os.path.join(base, m.group(1))), m.group(2)) for m in CIT.finditer(text)}
 for r in rows:
@@ -1575,7 +1626,7 @@ for r in rows:
         # appendix/CITATIONS.md's own `(#a)` backed a credit to documentation/CITATIONS.md#a. Each link is
         # resolved against the file it sits in; a local `(#a)` counts only inside the credited file itself.
         seen|=cites(cache[p], os.path.dirname(p))
-        seen|={(p, a) for a in re.findall(r"\]\(#([a-z0-9-]+)\)",cache[p])}
+        seen|={(p, a) for a in re.findall(r"\]\(#([a-z0-9_-]+)\)",cache[p])}
     if not tgt: continue
     for cp, a in sorted(cites(src, D)):
         na+=1
@@ -1833,7 +1884,20 @@ for m in mds:
         per = [x for x in range(a, b + 1) if kind_of(md_inline(md_body(lines[x])).lower())]
         n = max(1, len(per))
         pop += n
-        if any(t in utext for t in SCOPE):
+        # Q-1048 (FV2-G2 D1067; Codex F05-005#10): a NEGATED scope word restricts nothing -- "mandatory in every
+        # working set, not only the greedy one" names `greedy` to widen the claim. A scope word counts only
+        # when none of the three words before it is a negator.
+        def _scoped(ut):
+            import re
+            for t in SCOPE:
+                k = ut.find(t)
+                while k >= 0:
+                    if not (set(re.findall(r"[a-z']+", ut[max(0, k - 40):k])[-3:])
+                            & {'not', 'never', 'no', 'without', 'nor', 'beyond', "isn't", "aren't"}):
+                        return True
+                    k = ut.find(t, k + 1)
+            return False
+        if _scoped(utext):
             nsc += n
         else:
             x = per[0] if per else next((x for x in range(a, b + 1) if 'mandator' in lines[x].lower() or 'no combination' in lines[x].lower()), a)
@@ -2011,7 +2075,10 @@ for m in mds:
             if not NEGRX.search(clause): continue
             # Q-978: a word marker counts only un-negated (wm_any: "this is not superseded" narrates
             # nothing); a markup marker ("[corrected", "*(corrected") is read on the raw unit
-            if wm_any(flat, [x for x in NARR if x[:1].isalnum()]) or any(x in raw for x in NARR if not x[:1].isalnum()):
+            # Q-1048 (FV2-G2 D1068; Codex F05-005#11): a narration WORD exempts only the clause it sits in;
+            # "The old text read X. External sort is not implemented." narrated one sentence and denied in the
+            # next, and the paragraph-wide test exempted the denial. (Markup markers are read on the unit.)
+            if wm_any(clause, [x for x in NARR if x[:1].isalnum()]) or any(x in raw for x in NARR if not x[:1].isalnum()):
                 nnarr += 1
             else:
                 nden += 1
@@ -2326,7 +2393,9 @@ import sys
 sys.stdout.write(sp_strip_comments(open(sys.argv[1], encoding="utf-8").read(), "sh"))' "$vs") || {
     echo "  [FAIL] could not lex $vs to find its comments; CERT_FLOOR writes were not counted."
     echo "CERT_INVENTORY=FAIL"; return 1; }
-  writes=$(printf '%s\n' "$vs_code" | grep -noE '(^|[;&|({[:space:]])((export|readonly|local|declare|typeset)([[:space:]]+-[A-Za-z]+)*[[:space:]]+)?CERT_FLOOR\+?=|\$\{CERT_FLOOR:?[=]|(^|[;&|[:space:]])read([[:space:]]+-[A-Za-z]+)*[[:space:]][^;&|]*\bCERT_FLOOR\b'); frc=$?
+  # Q-1048 (FV2-G2 D1069; Codex F05-005#12): ARITHMETIC writes too -- `(( CERT_FLOOR = 1 ))`, `$(( CERT_FLOOR += 1 ))`,
+  # `CERT_FLOOR++`, `--CERT_FLOOR` -- each set the running value the captured CERT_FLOOR=<int> no longer is.
+  writes=$(printf '%s\n' "$vs_code" | grep -noE '(^|[;&|({[:space:]])((export|readonly|local|declare|typeset)([[:space:]]+-[A-Za-z]+)*[[:space:]]+)?CERT_FLOOR\+?=|\$\{CERT_FLOOR:?[=]|(^|[;&|[:space:]])read([[:space:]]+-[A-Za-z]+)*[[:space:]][^;&|]*\bCERT_FLOOR\b|\(\([^)]*\bCERT_FLOOR[[:space:]]*([-+*/%]?=([^=]|$)|\+\+|--)|\bCERT_FLOOR(\+\+|--)|(\+\+|--)CERT_FLOOR\b'); frc=$?
   if [ "$frc" -gt 1 ]; then
     echo "  [FAIL] grep failed (rc=$frc) reading $vs for writes to CERT_FLOOR; nothing judged."
     echo "CERT_INVENTORY=FAIL"; return 1

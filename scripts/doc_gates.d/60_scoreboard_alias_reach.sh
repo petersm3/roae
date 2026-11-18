@@ -135,6 +135,11 @@ ID_AT_START = re.compile(r"^\**([A-Za-z][A-Za-z0-9]*)\b")
 # skipped now, and EVERY non-empty chunk must yield an id: a chunk the parser cannot read is a FAIL,
 # never a silently smaller board.
 ID_AT_START = re.compile(r"^[*_`~]*([A-Za-z][A-Za-z0-9]*)\b")
+# Q-1048 (FV2-G2 D1022; Codex F05-009#14): AN ID ENDS WHERE ITS WORD ENDS, and a hyphen does not end it.
+# `\b` stopped at the hyphen, so a board entry `rs1-ghost 0.5` was read as the registered `rs1` and the
+# orphan `rs1-ghost` was never reported. No registry id carries a hyphen (measured), so the whole
+# hyphenated word is the id and an unregistered one is an orphan.
+ID_AT_START = re.compile(r"^[*_`~]*([A-Za-z][A-Za-z0-9-]*)(?![A-Za-z0-9-])")
 unparsed = []
 # AND AN ENTRY ENDS AT ITS SENTENCE, which is not a refinement but a fix for a defect this
 # gate's own NEGATIVE CONTROL caught. The LAST entry on the board has no "·" after it, so it
@@ -471,6 +476,24 @@ for m in mds:
                 continue
             ah = [(a, allows[(af, aa, a)]) for (af, aa, a) in allows
                   if af == m and aa == r['alias'] and a in line]
+            # Q-1048 (FV2-G2 D1023; Codex F06-012#2): AN ANCHOR THAT QUOTES THE ALIAS EXEMPTS THE
+            # OCCURRENCES IT QUOTES, NOT THE LINE. `Simultaneous C1+C2+C3 satisfaction` (allow literal)
+            # exempted every C1+C2+C3 on its line, so a second, legacy use beside it was hidden. When every
+            # matched anchor contains the alias, the occurrences inside those anchors are subtracted and
+            # any remainder is a [FAIL]. An anchor that does not contain the alias still names the line's
+            # sense as a whole (the line-granular model above), and those lines are exempt as before.
+            if ah:
+                def _n(t):
+                    t = canon(t, '')
+                    return t.lower() if r['mode'] == 'nocase' else t
+                inside = [occ(_n(a), needle, r['stop']) for a, _ in ah]
+                if all(inside):
+                    covered = sum(k * line.count(a) for (a, _), k in zip(ah, inside))
+                    if c > covered:
+                        for a, _ in ah:
+                            used_allow.add((m, r['alias'], a))
+                        bad.append((m, i, r['alias'], r, line.strip()))
+                        continue
             if ah:
                 for a, _ in ah:
                     used_allow.add((m, r['alias'], a))

@@ -93,17 +93,31 @@ def printed(call):
             and isinstance(a.left.value, str):
         head = a.left.value
     elif isinstance(a, ast.JoinedStr) and a.values and isinstance(a.values[0], ast.Constant):
-        head = a.values[0].value
+        # Q-1048 (FV2-G2 D1078): the WHOLE literal text, a FormattedValue standing as "{", so a token that
+        # starts a later line of the f-string is read too.
+        head = "".join(v.value if isinstance(v, ast.Constant) else "{" for v in a.values)
     else:
         return None
-    m = TOKHEAD.match(head)
-    return [m.group(1)] if m else (None if head.startswith("%") or head.startswith("{") else [])
+    # Q-1048 (FV2-G2 D1078; Codex F05-003#7): a printed string is as many output lines as it holds "\n"s,
+    # and each line may begin a token: print("A=1\nB=2") prints A AND B. Only the head was read, so B went
+    # uncensused. Every line is read now; a line that starts with a placeholder is unresolved, as the head
+    # always was.
+    out = []
+    for line in head.split("\n"):
+        m = TOKHEAD.match(line)
+        if m:
+            out.append(m.group(1))
+        elif line.startswith("%") or line.startswith("{"):
+            return None
+    return out
 
 def to_stdout(call):
     for kw in call.keywords:
         if kw.arg == "file":
             v = kw.value
-            return isinstance(v, ast.Attribute) and v.attr == "stdout"
+            # Q-1048 (FV2-G2 D1076; Codex F05-003#6): file=None IS stdout (print's own default).
+            return (isinstance(v, ast.Constant) and v.value is None) or \
+                (isinstance(v, ast.Attribute) and v.attr == "stdout")
     return True
 
 def lit(node):
@@ -126,6 +140,10 @@ def visit(node, env):
         return
     if isinstance(node, ast.Assign) and isinstance(node.value, ast.Name) and node.value.id in emit:
         emit.update(t.id for t in node.targets if isinstance(t, ast.Name))
+    # Q-1048 (FV2-G2 D1077; Codex F05-003#8): an ANNOTATED alias (`emit2: Callable = tok`) aliases too.
+    if isinstance(node, ast.AnnAssign) and isinstance(node.value, ast.Name) and node.value.id in emit \
+            and isinstance(node.target, ast.Name):
+        emit.add(node.target.id)
     if isinstance(node, ast.Call) and (
             (isinstance(node.func, ast.Name) and node.func.id == "print" and to_stdout(node))
             or (isinstance(node.func, ast.Attribute) and node.func.attr == "write"

@@ -41,7 +41,7 @@
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 2
 STAMP=scripts/tr12_expected/_GATE_STAMP.txt
-MODE=${1:-run}
+MODE=${1:-run}; if [ "$MODE" = "--stamp" ]; then if [ -z "${ROAE_HEAVY_LOCK_HELD:-}" ] && command -v flock >/dev/null 2>&1; then _rhl=${ROAE_HEAVY_LOCK:-${HOME:-/tmp}/.roae_heavy_gate.lock}; if { exec 9>>"$_rhl"; } 2>/dev/null; then flock -n 9 || { echo "tr12_repro_gate.sh --stamp: waiting for the heavy-gate lock $_rhl -- another gate chain or full test run holds it (Q-1032)" >&2; flock 9; }; export ROAE_HEAVY_LOCK_HELD=$$; else echo "tr12_repro_gate.sh --stamp: [warn] cannot open the heavy-gate lock $_rhl; running unserialised (Q-1032)" >&2; fi; fi; fi   # Q-1032: the heavy-gate lock (explained on the `set` line of the doc-gate entry script)
 
 # ---- THE STAMP WRITER LOCK (Q-544) --------------------------------------------------------------
 # 🔴 UNTIL 2026-09-24 THIS GATE TOOK NO LOCK. Measured 2026-09-12: flock occurred zero times in this

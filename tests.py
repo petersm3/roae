@@ -36222,7 +36222,9 @@ class TestQ949Q950PrepushEnvAndRegistry(unittest.TestCase):
                "N_EXTRACTED FRAC_LE N_PAIRS TDIR WORK G27 G5BLINEF Q7MS Q7S Q7T FAILOPEN_SELFTEST_SENTINEL "
                # CX-321 (Q-431): Q7M (tr12_repro.sh q7wit_props) and Q7X (d5_04 leg 12) are set on the python3
                # command line; RUN_SOLVE / RUN_ROOT are assigned empty at the top of d5_04 and set per call.
-               "Q7M Q7X RUN_ROOT RUN_SOLVE").split()
+               "Q7M Q7X RUN_ROOT RUN_SOLVE "
+               # Q-1032 (Q-1048 group 6): ADV_SID is assigned empty in pre_push_gate.sh before _adv_kill reads it.
+               "ADV_SID").split()
     BUILTIN = ("BASH_VERSINFO",)
     SCOPE_EXCLUDE = ("tests.py", "perf_bench.sh")
     SCOPE_EXCLUDE_PREFIX = ("pre_commit_",)
@@ -70395,6 +70397,1145 @@ void *calloc(size_t a, size_t b) { if (want("calloc", a * b)) { errno = ENOMEM; 
 # end class TestBatchEngine2 (Q-1080, Q-1081, Q-1075; CX-37C-O)
 
 
+class TestQ1048G1SmallModules(unittest.TestCase):
+    """Q-1048 group 1 (FV2-G2): doc_gates.d/60, 96, 97 and the two 99 modules -- rows D1022, D1023, D1075,
+    D1076, D1077, D1078, D1079, D1080 of Fable's slice-2 triage of Codex's fix-verification round. Each
+    plant is a scratch repo the parent tree passes over and this tree fails; each has an unplanted control
+    that stays green. No canonical sha, count, certificate value or verdict changes. Developed with AI
+    assistance (Claude, Anthropic): claude-opus-5-5, from Codex (gpt-6-astra) findings triaged by Fable."""
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    # ------------------------------------------------------------------ helpers (one copy per Q-1048 group)
+    def _env(self, **kw):
+        e = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@invalid", GIT_COMMITTER_NAME="t",
+                 GIT_COMMITTER_EMAIL="t@invalid", GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
+        e.update(kw)
+        return e
+
+    def _mini(self, files):
+        """A scratch git repo holding this tree's doc-gate scripts and `files` ({path: text}), committed."""
+        d = tempfile.mkdtemp(prefix="q1048_")
+        self.addCleanup(shutil.rmtree, d, True)
+        os.makedirs(os.path.join(d, "scripts"))
+        shutil.copy(os.path.join(self.ROOT, "scripts", "doc_gates.sh"), os.path.join(d, "scripts", "doc_gates.sh"))
+        shutil.copytree(os.path.join(self.ROOT, "scripts", "doc_gates.d"), os.path.join(d, "scripts", "doc_gates.d"))
+        for rel, text in files.items():
+            p = os.path.join(d, rel)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(text)
+        env = self._env()
+        for a in (["init", "-q", "."], ["symbolic-ref", "HEAD", "refs/heads/main"], ["add", "-A"],
+                  ["commit", "-qm", "c0"]):
+            subprocess.run(["git"] + a, cwd=d, env=env, check=True, capture_output=True)
+        return d
+
+    def _leg(self, files, leg, **env):
+        """Run one doc-gate leg through the entry point in a scratch repo; (rc, output)."""
+        d = self._mini(files)
+        r = subprocess.run(["timeout", "600", "bash", "scripts/doc_gates.sh", leg], cwd=d, env=self._env(**env),
+                           capture_output=True, text=True, timeout=660)
+        return r.returncode, r.stdout + r.stderr
+
+    def _fn(self, files, module, func, **env):
+        """Source one module (with the shared readers) and call one gate function; (rc, output)."""
+        d = self._mini(files)
+        cmd = ("set +e; for m in md_normalise src_parse word_match; do . scripts/doc_gates.d/$m.sh; done; "
+               ". scripts/doc_gates.d/%s; %s" % (module, func))
+        r = subprocess.run(["timeout", "600", "bash", "-c", cmd], cwd=d, env=self._env(**env),
+                           capture_output=True, text=True, timeout=660)
+        return r.returncode, r.stdout + r.stderr
+
+    def _fails(self, out):
+        return [l.strip() for l in out.splitlines() if "[FAIL]" in l]
+
+    # ------------------------------------------------------------------ GATE 17 / GATE 18 (module 60)
+    SOLVE17 = "REGISTRY_KW_EXPECTED = [('rs1', 0.5), ('rs2', 0.3)]\n"
+
+    def _boards(self, extra):
+        b = ("Full table (fraction of canonical mass, estimates): rs1 0.5 (data-like) · rs2 0.3 "
+             "(principled)%s. Wrap-distance finals d1.\n" % extra)
+        return {"solve.py": self.SOLVE17, "reports/TR1_EIGHT_CENTURIES_MEASURED.md": b,
+                "documentation/LITERATURE_RULES_POPULATION_TESTS.md": b}
+
+    def test_d1022_hyphenated_orphan_id(self):
+        rc, out = self._leg(self._boards(""), "scoreboard")
+        self.assertEqual(rc, 0, "precondition: the unplanted board is green\n" + out)
+        rc, out = self._leg(self._boards(" · rs1-ghost 0.2"), "scoreboard")
+        self.assertNotEqual(rc, 0, out)
+        self.assertTrue(any("no registry rule behind them: rs1-ghost" in l for l in self._fails(out)), out)
+
+    REG18 = ("rule\tC1+C2+C3\texact\t+\tLegacy shorthand\tMETHODS.md\tlegacy alias for C1-C5\n"
+             "allow\tdoc/A.md\tC1+C2+C3\tSimultaneous C1+C2+C3 satisfaction\tliteral\tthe literal conjunction\n")
+
+    def test_d1023_allowed_literal_exempts_only_its_own_occurrence(self):
+        def files(line):
+            return {"doc/A.md": "# A\n\n" + line + "\n", "documentation/DOC_GATE_ALIAS_REACH.tsv": self.REG18}
+        rc, out = self._leg(files("Simultaneous C1+C2+C3 satisfaction is rare."), "alias-reach")
+        self.assertEqual(rc, 0, "precondition: the allowed literal alone is exempt\n" + out)
+        rc, out = self._leg(files("Simultaneous C1+C2+C3 satisfaction is rare; the C1+C2+C3 canonical holds."),
+                            "alias-reach")
+        self.assertNotEqual(rc, 0, out)
+        self.assertTrue(any('doc/A.md:3' in l and 'C1+C2+C3' in l for l in self._fails(out)), out)
+
+    # ------------------------------------------------------------------ GATE 95 (module 96)
+    def test_d1075_commit_inside_html_comment_is_no_provenance(self):
+        k = hashlib.sha256(b"$ ./solve --x").hexdigest()[:12]
+        def files(para):
+            return {"doc/A.md": "# T\n\n%s\n\n```\n$ ./solve --x\nout\n```\n" % para,
+                    "reg.tsv": "doc/A.md\t%s\tpinned-tree\tx\n" % k}
+        rc, out = self._leg(files("Run at abc1234f <!-- note -->:"), "transcripts", DOC_GATE_TR_REG="reg.tsv")
+        self.assertEqual(rc, 0, "precondition: a visible commit is provenance\n" + out)
+        rc, out = self._leg(files("Run at <!-- abc1234f -->:"), "transcripts", DOC_GATE_TR_REG="reg.tsv")
+        self.assertNotEqual(rc, 0, out)
+        self.assertTrue(any("names no commit or tag" in l for l in self._fails(out)), out)
+
+    # ------------------------------------------------------------------ GATE 90 (module 97)
+    DOC90 = "x\n--atlas-probe ATLAS_JSON\n\nTokens, in print order: A_X, B_X, C_X, ATLAS_PROBE. end\n"
+
+    def _g90(self, plant):
+        src = ("def atlas_probe():\n    def tok(n, v): print(n, v)\n    tok('A_X', 1)\n    tok('B_X', 1)\n"
+               "    tok('C_X', 1)\n" + plant + "    tok('ATLAS_PROBE', 1)\n")
+        return self._fn({"solve.py": src, "documentation/SOLVE_PY_CLI.md": self.DOC90},
+                        "97_atlas_probe_tokens.sh", "gate_atlas_probe_tokens")
+
+    def test_d1076_d1077_d1078_emitters_are_censused(self):
+        rc, out = self._g90("")
+        self.assertEqual(rc, 0, "precondition: the unplanted probe matches its list\n" + out)
+        for row, plant in (("D1076", "    print('D_X=1', file=None)\n"),
+                           ("D1077", "    e2: object = tok\n    e2('D_X', 1)\n"),
+                           ("D1078", "    print('A_X=0\\nD_X=1')\n"),
+                           ("D1078-f", "    print(f'A_X={1}\\nD_X=1')\n")):
+            with self.subTest(row=row):
+                rc, out = self._g90(plant)
+                self.assertNotEqual(rc, 0, out)
+                self.assertIn("printed by atlas_probe() and missing from the list: D_X", out)
+
+    # ------------------------------------------------------------------ GATE 93 / GATE 94 (modules 99)
+    def _stub_git(self):
+        sd = tempfile.mkdtemp(prefix="q1048_bin_")
+        self.addCleanup(shutil.rmtree, sd, True)
+        real = shutil.which("git")
+        with open(os.path.join(sd, "git"), "w") as fh:
+            fh.write('#!/bin/bash\nif [ "$1" = ls-files ]; then n=$(( $(cat "$STUBCNT" 2>/dev/null || echo 0) + 1 )); '
+                     'echo $n > "$STUBCNT"; [ "$n" = "$STUBFAIL" ] && exit 128; fi\nexec %s "$@"\n' % real)
+        os.chmod(os.path.join(sd, "git"), 0o755)
+        return sd
+
+    def test_d1079_r17_fails_when_one_listing_fails(self):
+        sd = self._stub_git()
+        files = {"A.md": "x\n", "reports/certificates/c.txt": "kissat x.cnf && drat-trim x\n"}
+        rc, out = self._fn(files, "99_lsd_text.sh", "gate_lsd_text")
+        self.assertIn("[FAIL] R17: kissat ... && recipe(s)", out, "precondition: R17 sees the planted recipe")
+        cnt = os.path.join(sd, "cnt")
+        # ls-files call 1 = the R2 markdown listing, 2 = R17's markdown, 3 = R17's certificate listing
+        rc, out = self._fn(files, "99_lsd_text.sh", "gate_lsd_text",
+                           PATH=sd + os.pathsep + os.environ["PATH"], STUBCNT=cnt, STUBFAIL="3")
+        self.assertIn("[FAIL] R17: the listing of reports/certificates", out)
+        self.assertNotIn("[ok] R17", out)
+
+    def test_d1080_failed_listing_prints_the_receipt(self):
+        files = {"documentation/CORRECTIONS.md": "x\n", "documentation/RETRACTED_PHRASES.tsv": "abc\n"}
+        rc, out = self._fn(files, "99_retract_derived.sh", "gate_retract_derived")
+        self.assertIn("RETRACT_DERIVED=", out, "precondition: a readable repo yields a receipt")
+        rc, out = self._fn(files, "99_retract_derived.sh", "gate_retract_derived", GIT_DIR="/nonexistent")
+        self.assertNotIn("Traceback", out)
+        self.assertIn("RETRACT_DERIVED=UNMEASURED", out)
+# end class TestQ1048G1SmallModules (Q-1048 group 1)
+
+
+class TestQ1048G2ClaimArtifacts(unittest.TestCase):
+    """Q-1048 group 2 (FV2-G2): doc_gates.d/90_claim_artifacts.sh -- rows D1056, D1057, D1058, D1059, D1060,
+    D1061, D1062 of Fable's slice-2 triage of Codex's fix-verification round, and Q-1115 (GATE 39 leg 3
+    resolves evidence files in subdirectories of reports/evidence/). Each plant is a small scratch corpus
+    that clears the legs' population floors; the parent tree passes over the plant and this tree fails it,
+    and the unplanted corpus stays green. Developed with AI assistance (Claude, Anthropic):
+    claude-opus-5-5, from Codex (gpt-6-astra) findings triaged by Fable."""
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    # ------------------------------------------------------------------ helpers (one copy per Q-1048 group)
+    def _env(self, **kw):
+        e = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@invalid", GIT_COMMITTER_NAME="t",
+                 GIT_COMMITTER_EMAIL="t@invalid", GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
+        e.update(kw)
+        return e
+
+    def _mini(self, files):
+        """A scratch git repo holding this tree's doc-gate scripts and `files` ({path: text}), committed."""
+        d = tempfile.mkdtemp(prefix="q1048_")
+        self.addCleanup(shutil.rmtree, d, True)
+        os.makedirs(os.path.join(d, "scripts"))
+        shutil.copy(os.path.join(self.ROOT, "scripts", "doc_gates.sh"), os.path.join(d, "scripts", "doc_gates.sh"))
+        shutil.copytree(os.path.join(self.ROOT, "scripts", "doc_gates.d"), os.path.join(d, "scripts", "doc_gates.d"))
+        for rel, text in files.items():
+            p = os.path.join(d, rel)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(text)
+        env = self._env()
+        for a in (["init", "-q", "."], ["symbolic-ref", "HEAD", "refs/heads/main"], ["add", "-A"],
+                  ["commit", "-qm", "c0"]):
+            subprocess.run(["git"] + a, cwd=d, env=env, check=True, capture_output=True)
+        return d
+
+    def _leg(self, files, leg, **env):
+        """Run one doc-gate leg through the entry point in a scratch repo; (rc, output)."""
+        d = self._mini(files)
+        r = subprocess.run(["timeout", "600", "bash", "scripts/doc_gates.sh", leg], cwd=d, env=self._env(**env),
+                           capture_output=True, text=True, timeout=660)
+        return r.returncode, r.stdout + r.stderr
+
+    def _fn(self, files, module, func, **env):
+        """Source one module (with the shared readers) and call one gate function; (rc, output)."""
+        d = self._mini(files)
+        cmd = ("set +e; for m in md_normalise src_parse word_match; do . scripts/doc_gates.d/$m.sh; done; "
+               ". scripts/doc_gates.d/%s; %s" % (module, func))
+        r = subprocess.run(["timeout", "600", "bash", "-c", cmd], cwd=d, env=self._env(**env),
+                           capture_output=True, text=True, timeout=660)
+        return r.returncode, r.stdout + r.stderr
+
+    def _fails(self, out):
+        return [l.strip() for l in out.splitlines() if "[FAIL]" in l]
+
+    # ------------------------------------------------------------------ GATE 39 (four legs, floors 15/15/2/15)
+    def _g39(self, extra_md="", vextra="", ev=None):
+        names = ["c%02d" % i for i in range(16)]
+        f = {"reports/certificates/%s.drat.gz" % n: "x" for n in names}
+        f["reports/certificates/verify_all.sh"] = "#!/bin/bash\ndeclare -A CERTS=( %s )\n%s" % (
+            " ".join('[%s]="%s"' % (n, n) for n in names), vextra)
+        md = ["# F", ""]
+        md += ["Certified by `%s.drat.gz`." % n for n in names]
+        md += ["grand-ccn4 is the four-rule theorem (line %d)." % i for i in range(16)]
+        md += ["The masses carry SEs in `ok.out` (row %d)." % i for i in range(3)]
+        md += ["The 26,112 count is orientation-explicit (row %d)." % i for i in range(16)]
+        f["reports/evidence/ok.out"] = "se=0.1\n"
+        f.update(ev or {})
+        f["doc/F.md"] = "\n".join(md) + "\n" + extra_md
+        return f
+
+    def test_a_g39_control_is_green(self):
+        rc, out = self._leg(self._g39(), "p14-claims")
+        self.assertEqual(rc, 0, out)
+
+    def test_g39_plants(self):
+        plants = (
+            ("D1057", self._g39(vextra="unset 'CERTS[c03]'\n"), "writes CERTS outside its literal"),
+            ("D1059", self._g39("grand-ccn4 is the five-rule theorem while grander-strict is the four-rule theorem.\n"),
+             "labelled 'five'"),
+            ("D1060", self._g39("| 11.2 T | 2026-04-30 | the masses carry SEs in `missing.out` |\n"),
+             "names `missing.out` and claims standard errors"),
+            ("D1061", self._g39("| count | other |\n|---|---|\n| 26,112 canonical | orientation-explicit 27 |\n"),
+             "calls an n-ladder integer 'canonical'"),
+            ("Q1115-neg", self._g39("The masses carry SEs in `reports/evidence/sub/n2.out`.\n",
+                                    ev={"reports/evidence/sub/n2.out": "mean=0.2\n"}),
+             "names `reports/evidence/sub/n2.out` and claims standard errors, but the named file contains no"),
+        )
+        for row, files, needle in plants:
+            with self.subTest(row=row):
+                rc, out = self._leg(files, "p14-claims")
+                self.assertNotEqual(rc, 0, out)
+                self.assertTrue(any(needle in l for l in self._fails(out)), out)
+
+    def test_q1115_nested_evidence_file_is_found(self):
+        rc, out = self._leg(self._g39("The masses carry SEs in `reports/evidence/sub/n1.out`.\n",
+                                      ev={"reports/evidence/sub/n1.out": "se=0.2\n"}), "p14-claims")
+        self.assertEqual(rc, 0, out)
+        # a path relative to the citing document (reports/R.md -> `evidence/ok.out`) still resolves (real-tree form)
+        rc, out = self._leg(self._g39(ev={"reports/R.md": "The masses carry SEs in `evidence/ok.out`.\n"}), "p14-claims")
+        self.assertEqual(rc, 0, out)
+
+    # ------------------------------------------------------------------ GATE 40 / 47 / 48
+    CTRL40 = ("The --mutual-info figure is forced by the complete square for the static 8-state MI.\n\n"
+              "The mutual information of trigram identity is forced by the complete square (static).\n\n")
+
+    def test_d1062_lowercase_sentence_is_its_own_sentence(self):
+        rc, out = self._leg({"doc/M.md": self.CTRL40}, "mi-disambig")
+        self.assertEqual(rc, 0, "precondition: the static-naming sentences pass\n" + out)
+        rc, out = self._leg({"doc/M.md": self.CTRL40 + "The --mutual-info value is forced by the complete square."
+                             " example/report.txt gives the static 8-state MI.\n"}, "mi-disambig")
+        self.assertEqual(rc, 0, "a sentence starting with a path is not split off (the CORRECTIONS.md ledger-narration form)\n" + out)
+        rc, out = self._leg({"doc/M.md": self.CTRL40 + "The --mutual-info value is forced by the complete square."
+                             " the static MI is 0.\n"}, "mi-disambig")
+        self.assertNotEqual(rc, 0, out)
+        self.assertTrue(any("doc/M.md:5 explains a mutual-information figure" in l for l in self._fails(out)), out)
+
+    def test_d1056_failed_fold_is_an_error_not_a_skip(self):
+        f = {"src/f%02d.c" % i: "int x%d = %d;\n" % (i, i) for i in range(32)}
+        f.update({"README.md": "x\n", "src/live.c": "/* the hard floor is twelve */\n",
+                  "documentation/RETRACTED_PHRASES.tsv": "the hard floor is twelve\t-\twithdrawn 2026\n",
+                  "documentation/DOC_GATE_CODE_NEEDLE_ALLOW.tsv": "# none\n"})
+        rc, out = self._leg(f, "code-needles")
+        self.assertTrue(any("src/live.c: retracted phrasing present" in l for l in self._fails(out)),
+                        "precondition: the planted live phrase is found when fold works\n" + out)
+        sd = tempfile.mkdtemp(prefix="q1048_bin_")
+        self.addCleanup(shutil.rmtree, sd, True)
+        with open(os.path.join(sd, "sed"), "w") as fh:   # fails only the fold_variants extraction
+            fh.write('#!/bin/bash\ncase "$*" in *"fold_variants() {"*) exit 4;; esac\nexec %s "$@"\n'
+                     % shutil.which("sed"))
+        os.chmod(os.path.join(sd, "sed"), 0o755)
+        rc, out = self._leg(f, "code-needles", PATH=sd + os.pathsep + os.environ["PATH"])
+        self.assertNotEqual(rc, 0, out)
+        self.assertIn("fold_variants failed", out)
+
+    def test_d1058_signed_exponent_is_no_sha_evidence(self):
+        ctrl = ("Dropping the prune would change the canonical shas (before `ab12cd34ef`).\n\n"
+                "The prune can change the canonical sha lineage.\n\n")
+        rc, out = self._leg({"documentation/P.md": ctrl}, "sha-prediction")
+        self.assertEqual(rc, 0, "precondition: a real sha is evidence\n" + out)
+        rc, out = self._leg({"documentation/P.md": ctrl + "The prune would change the canonical shas at a budget of"
+                             " `1000000e+3` nodes.\n"}, "sha-prediction")
+        self.assertNotEqual(rc, 0, out)
+        self.assertIn("1000000e+3", out)
+# end class TestQ1048G2ClaimArtifacts (Q-1048 group 2)
+
+
+class TestQ1048G3ClaimShapes(unittest.TestCase):
+    """Q-1048 group 3 (FV2-G2): doc_gates.d/80_repro_reach_claim_shapes.sh -- rows D1045, D1046, D1047, D1048,
+    D1050, D1051, D1052, D1053, D1054, D1055 of Fable's slice-2 triage of Codex's fix-verification round
+    (D1049 was already cured by Q-978, ea17b2bb). Each plant is a small scratch corpus that clears the
+    gate's population floor; the parent tree passes over it and this tree fails it, and the unplanted
+    control stays green. Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, from Codex
+    (gpt-6-astra) findings triaged by Fable."""
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    # ------------------------------------------------------------------ helpers (one copy per Q-1048 group)
+    def _env(self, **kw):
+        e = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@invalid", GIT_COMMITTER_NAME="t",
+                 GIT_COMMITTER_EMAIL="t@invalid", GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
+        e.update(kw)
+        return e
+
+    def _mini(self, files):
+        """A scratch git repo holding this tree's doc-gate scripts and `files` ({path: text}), committed."""
+        d = tempfile.mkdtemp(prefix="q1048_")
+        self.addCleanup(shutil.rmtree, d, True)
+        os.makedirs(os.path.join(d, "scripts"))
+        shutil.copy(os.path.join(self.ROOT, "scripts", "doc_gates.sh"), os.path.join(d, "scripts", "doc_gates.sh"))
+        shutil.copytree(os.path.join(self.ROOT, "scripts", "doc_gates.d"), os.path.join(d, "scripts", "doc_gates.d"))
+        for rel, text in files.items():
+            p = os.path.join(d, rel)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(text)
+        env = self._env()
+        for a in (["init", "-q", "."], ["symbolic-ref", "HEAD", "refs/heads/main"], ["add", "-A"],
+                  ["commit", "-qm", "c0"]):
+            subprocess.run(["git"] + a, cwd=d, env=env, check=True, capture_output=True)
+        return d
+
+    def _leg(self, files, leg, **env):
+        """Run one doc-gate leg through the entry point in a scratch repo; (rc, output)."""
+        d = self._mini(files)
+        r = subprocess.run(["timeout", "600", "bash", "scripts/doc_gates.sh", leg], cwd=d, env=self._env(**env),
+                           capture_output=True, text=True, timeout=660)
+        return r.returncode, r.stdout + r.stderr
+
+    def _fn(self, files, module, func, **env):
+        """Source one module (with the shared readers) and call one gate function; (rc, output)."""
+        d = self._mini(files)
+        cmd = ("set +e; for m in md_normalise src_parse word_match; do . scripts/doc_gates.d/$m.sh; done; "
+               ". scripts/doc_gates.d/%s; %s" % (module, func))
+        r = subprocess.run(["timeout", "600", "bash", "-c", cmd], cwd=d, env=self._env(**env),
+                           capture_output=True, text=True, timeout=660)
+        return r.returncode, r.stdout + r.stderr
+
+    def _fails(self, out):
+        return [l.strip() for l in out.splitlines() if "[FAIL]" in l]
+
+    def _both(self, leg, ctrl, plant, needle):
+        rc, out = self._leg(ctrl, leg)
+        self.assertEqual(rc, 0, "precondition: the unplanted corpus is green\n" + out)
+        rc, out = self._leg(plant, leg)
+        self.assertNotEqual(rc, 0, out)
+        self.assertTrue(any(needle in l for l in self._fails(out)), out)
+
+    def _tools(self, checkout):
+        return {"solve.c": 'int main(){ if(!strcmp(a,"--selftest")) return 0; }\n',
+                "verify.c": 'if(!strcmp(a,"--v1"))\n', "solve.py": 'p.add_argument("--p1")\n',
+                "verify.py": 'p.add_argument("--p2")\n', "sat.py": 'p.add_argument("--p3")\n',
+                "roae.py": 'p.add_argument("--p4")\n',
+                "documentation/BRANCHES_EXPLAINED.md": "# B\n\n```\n%s\n./solve --selftest\n"
+                "SOLVE_REPR_FC=0 ./solve --orbit-selftest\n```\n" % checkout}
+
+    def test_d1045_orbit_selftest_needs_the_tag_checked_out_last(self):
+        ctrl = self._tools("git checkout v4-repr-fc-legc-20260813")
+        for row, co in (("HEAD", "git checkout HEAD"),
+                        ("back-to-main", "git checkout v4-repr-fc-legc-20260813\ngit checkout main")):
+            with self.subTest(row=row):
+                self._both("repro-reach", ctrl, self._tools(co), "solve --orbit-selftest")
+
+    def test_d1046_marker_in_the_neighbouring_list_item_exempts_nothing(self):
+        w = {"documentation/WITHDRAWN_FIGURES.tsv": "3.3e37\tthe old estimate\n"}
+        ctrl = dict(w, **{"doc/A.md": "Intro.\n- the old 3.3e37 estimate, corrected 2026-08-28\n- next\n\n"
+                                      "The old 3.3e37 estimate was\ncorrected 2026-08-28 in the ledger.\n"})
+        plant = dict(w, **{"doc/A.md": "Intro.\n- the old 3.3e37 estimate\n- corrected 2026-08-28\n"})
+        self._both("withdrawn-markers", ctrl, plant, "doc/A.md:2 restates withdrawn figure '3.3e37'")
+
+    def test_d1047_continued_recipe_is_a_recipe(self):
+        base = {"doc/A%d.md" % k: "".join("Run `sha256sum -c S%d` on RAW bytes.\n\n%s" % (i, "x\n" * 30)
+                                          for i in range(3)) for k in range(2)}
+        plant = dict(base, **{"doc/B.md": "```\nsha256sum \\\n  --check SHA256SUMS\n```\n"})
+        self._both("framing-era", base, plant, "doc/B.md:2 publishes a sha256sum -c recipe")
+
+    def test_d1048_quoted_bullet_is_a_unit(self):
+        ctrl = {"doc/A.md": "".join("The 32 rotations are symmetries only without C3 (%d).\n\n" % i for i in range(5))}
+        plant = {"doc/A.md": ctrl["doc/A.md"] + "> - the 32 rotations are symmetries of the system\n"
+                                                "> - another bullet that uses C3\n"}
+        self._both("rotation-c3", ctrl, plant, "doc/A.md:11 claims pair-slot rotations are symmetries")
+
+    def test_d1050_capitalised_maximum_is_a_claim(self):
+        ctrl = {"doc/A.md": "Gains 10.38, 9.00, 8.00, 7.00, 6.00 were measured.\n\n" * 3
+                + "Here 10.38 is the divisor of the bound.\n\n" * 2
+                + "The first gain is the maximum unconditional single-boundary value.\n\n" * 3}
+        plant = {"doc/A.md": ctrl["doc/A.md"] + "Maximum single-boundary gain is the first gain 10.38.\n"}
+        self._both("sk-gains", ctrl, plant, "doc/A.md:17 calls a first/greedy single-boundary gain")
+
+    FIB = ("".join("The fiber has 1,720,320 = 3·5·7·2^14 vectors (%d).\n\n" % i for i in range(5))
+           + "".join("The fiber is 2,703,360 = 1,720,320 + 983,040 vectors (%d).\n\n" % i for i in range(3))
+           + "".join("All 2^31 per-key orientations are recoverable (%d).\n\n" % i for i in range(7)))
+
+    def test_d1051_bracketed_product_is_one_product(self):
+        ctrl = {"doc/A.md": self.FIB + "The fiber has 1,720,320 = ((3·5·7)·2^14) vectors.\n"}
+        plant = {"doc/A.md": self.FIB + "The fiber has 1,720,320 = ((3·5·7)·2^15) vectors, whereas"
+                                        " 3,440,640 is the raw comparison.\n"}
+        self._both("fiber-anchor", ctrl, plant, "(equated to 1,720,320)' = 3440640")
+
+    def test_d1052_a_quote_elsewhere_is_not_narration(self):
+        ctrl = {"doc/A.md": "".join("d%d is the strongest measured discriminator among the rows.\n\n" % i for i in range(5))
+                + 'It was called "the strongest measured discriminator", unqualified.\n'}
+        plant = {"doc/A.md": ctrl["doc/A.md"] + '\nThe "d3" result is the strongest measured discriminator, unqualified.\n'}
+        self._both("superlative", ctrl, plant, "doc/A.md:13 publishes an UNQUALIFIED")
+
+    def test_d1053_signed_ratio_is_read(self):
+        q = ("The ratio is 6.52 / 3.26 = ×2.00 here.\n\nThe ratio is 9.00 / 3.00 = ×3.00 here.\n\n"
+             "The ratio is 8.00 / 2.00 = ×4.00 here.\n\n")
+        self._both("printed-quotient", {"doc/A.md": q}, {"doc/A.md": q + "The ratio is 6.52 / 0 = ×+2.02 here.\n"},
+                   "doc/A.md:7 published ratio disagrees")
+
+    def test_d1054_emphasised_band_is_a_band(self):
+        se = "".join("The relative error is 3%% and the band is ±0.04 bits, corrected 2026-08-01 (%d).\n\n" % i
+                     for i in range(5))
+        self._both("se-vs-ci", {"doc/A.md": se},
+                   {"doc/A.md": se + "The relative error is 2% so the band is ±**0.03** bits.\n"},
+                   "doc/A.md:11 publishes a relative STANDARD ERROR")
+
+    def test_d1055_bracketed_figure_in_a_span_is_the_figure(self):
+        self._both("canonical-ceiling", {"doc/A.md": "The run printed `est=3.3e37 canonical (raw)` once.\n"},
+                   {"doc/A.md": "There are `(3.3e37)` canonical orderings.\n"}, "'3.3e37' is labelled CANONICAL")
+# end class TestQ1048G3ClaimShapes (Q-1048 group 3)
+
+
+class TestQ1048G4DerivedFigures(unittest.TestCase):
+    """Q-1048 group 4 (FV2-G2): doc_gates.d/95_derived_figures_scope.sh, GATEs 56/58/62/64/65 -- rows D1066,
+    D1070, D1071, D1072, D1073, D1074 of Fable's slice-2 triage of Codex's fix-verification round. Each plant
+    is a small scratch corpus (GATE 56 with four synthetic analyze logs); the parent tree passes over it and
+    this tree fails it, and the unplanted control stays green. Developed with AI assistance (Claude,
+    Anthropic): claude-opus-5-5, from Codex (gpt-6-astra) findings triaged by Fable."""
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    # ------------------------------------------------------------------ helpers (one copy per Q-1048 group)
+    def _env(self, **kw):
+        e = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@invalid", GIT_COMMITTER_NAME="t",
+                 GIT_COMMITTER_EMAIL="t@invalid", GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
+        e.update(kw)
+        return e
+
+    def _mini(self, files):
+        """A scratch git repo holding this tree's doc-gate scripts and `files` ({path: text}), committed."""
+        d = tempfile.mkdtemp(prefix="q1048_")
+        self.addCleanup(shutil.rmtree, d, True)
+        os.makedirs(os.path.join(d, "scripts"))
+        shutil.copy(os.path.join(self.ROOT, "scripts", "doc_gates.sh"), os.path.join(d, "scripts", "doc_gates.sh"))
+        shutil.copytree(os.path.join(self.ROOT, "scripts", "doc_gates.d"), os.path.join(d, "scripts", "doc_gates.d"))
+        for rel, text in files.items():
+            p = os.path.join(d, rel)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(text)
+        env = self._env()
+        for a in (["init", "-q", "."], ["symbolic-ref", "HEAD", "refs/heads/main"], ["add", "-A"],
+                  ["commit", "-qm", "c0"]):
+            subprocess.run(["git"] + a, cwd=d, env=env, check=True, capture_output=True)
+        return d
+
+    def _leg(self, files, leg, **env):
+        """Run one doc-gate leg through the entry point in a scratch repo; (rc, output)."""
+        d = self._mini(files)
+        r = subprocess.run(["timeout", "600", "bash", "scripts/doc_gates.sh", leg], cwd=d, env=self._env(**env),
+                           capture_output=True, text=True, timeout=660)
+        return r.returncode, r.stdout + r.stderr
+
+    def _fn(self, files, module, func, **env):
+        """Source one module (with the shared readers) and call one gate function; (rc, output)."""
+        d = self._mini(files)
+        cmd = ("set +e; for m in md_normalise src_parse word_match; do . scripts/doc_gates.d/$m.sh; done; "
+               ". scripts/doc_gates.d/%s; %s" % (module, func))
+        r = subprocess.run(["timeout", "600", "bash", "-c", cmd], cwd=d, env=self._env(**env),
+                           capture_output=True, text=True, timeout=660)
+        return r.returncode, r.stdout + r.stderr
+
+    def _fails(self, out):
+        return [l.strip() for l in out.splitlines() if "[FAIL]" in l]
+
+    def _both(self, leg, ctrl, plant, needle):
+        rc, out = self._leg(ctrl, leg)
+        self.assertEqual(rc, 0, "precondition: the unplanted corpus is green\n" + out)
+        rc, out = self._leg(plant, leg)
+        self.assertNotEqual(rc, 0, out)
+        self.assertTrue(any(needle in l for l in self._fails(out)), out)
+
+    LOGS = {"runs/20260418_10T_d3_fresh/analyze_output.log.gz": 1000000,
+            "runs/20260418_10T_d2_fresh/analyze_output.log.gz": 3000000,
+            "runs/20260419_100T_d3_d128westus3/analyze_output.log.gz": 2000000,
+            "enumeration/analyze_c_742M.txt": 4000000}
+
+    def _g56(self, md):
+        d = tempfile.mkdtemp(prefix="q1048_")
+        self.addCleanup(shutil.rmtree, d, True)
+        os.makedirs(os.path.join(d, "scripts"))
+        shutil.copy(os.path.join(self.ROOT, "scripts", "doc_gates.sh"), os.path.join(d, "scripts", "doc_gates.sh"))
+        shutil.copytree(os.path.join(self.ROOT, "scripts", "doc_gates.d"), os.path.join(d, "scripts", "doc_gates.d"))
+        for p, b in self.LOGS.items():
+            text = "\n".join(["[3] survivors"] + ["  Boundary %d (pos %d-%d): %d" % (k, k, k + 1, b + k) for k in range(1, 32)]
+                             + ["[6] greedy", "  Boundaries chosen: {4 27 25 1}", "[9] pairs",
+                                "  b=1, b'=2  joint=%d  min_single=%d  ratio=0.5" % (b + 900, b + 901)]) + "\n"
+            os.makedirs(os.path.dirname(os.path.join(d, p)), exist_ok=True)
+            with (gzip.open(os.path.join(d, p), "wt") if p.endswith(".gz") else open(os.path.join(d, p), "w")) as fh:
+                fh.write(text)
+        os.makedirs(os.path.join(d, "doc"))
+        with open(os.path.join(d, "doc", "A.md"), "w", encoding="utf-8") as fh:
+            fh.write("| Dataset | §[6] Greedy set |\n|---|---|\n| d3 10T | {1,4,25,27} |\n\n" + md)
+        env = self._env()
+        for a in (["init", "-q", "."], ["add", "-A"], ["commit", "-qm", "c0"]):
+            subprocess.run(["git"] + a, cwd=d, env=env, check=True, capture_output=True)
+        r = subprocess.run(["timeout", "600", "bash", "scripts/doc_gates.sh", "log-derived-figures"], cwd=d, env=env,
+                           capture_output=True, text=True, timeout=660)
+        return r.returncode, r.stdout + r.stderr
+
+    def test_d1066_claim_binds_to_the_dataset_after_it(self):
+        rc, out = self._g56("Per §[3], in d3 10T boundary 15 has 1,000,015 survivors.\n")
+        self.assertEqual(rc, 0, "precondition: a correctly attributed survivor count passes\n" + out)
+        rc, out = self._g56("Per §[3], boundary 15 has 2,000,015 survivors in d3 10T, and boundary 15 has"
+                            " 1,000,015 at 100T.\n")
+        self.assertNotEqual(rc, 0, out)
+        self.assertTrue(any("2,000,015 is a §[3] figure" in l and "not boundary 15's" in l
+                            for l in self._fails(out)), out)
+
+    CH = ("## d3 11.2T\n\n**d3 11.2T** (3 independent paths):\n\n| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n"
+          "| 5 | 6 |\n")
+
+    def test_d1070_coordinated_subject_shares_the_count(self):
+        self._both("witness-count",
+                   {"documentation/CANONICAL_HASHES.md": self.CH, "doc/A.md": "Three independent paths validate 100T and 11.2T.\n"},
+                   {"documentation/CANONICAL_HASHES.md": self.CH, "doc/A.md": "Nine independent paths validate 100T and 11.2T.\n"},
+                   "states 'Nine independent paths' for 11.2T")
+
+    DEP = "# D\n\n## S1\n\n```\naz vm create -n vmA --image x\naz vm show -n vmA\naz vm deallocate -n vmA\naz vm delete -n vmA\n```\n"
+
+    def test_d1071_d1072_one_command_at_a_time(self):
+        ctrl = {"documentation/DEPLOYMENT.md": self.DEP}
+        for row, extra, ghost in (
+                ("D1072", "\n## S2\n\n```\naz vm create -n vA && az vm show -n ghostB\naz vm show -n vA\naz vm delete -n vA\n```\n",
+                 "ghostB (vm)"),
+                ("D1071", '\n## S3\n\nRun `az vm show --tags "x=`y`" --name ghostC`.\n', "ghostC (vm)")):
+            with self.subTest(row=row):
+                self._both("az-name-closure", ctrl, {"documentation/DEPLOYMENT.md": self.DEP + extra}, ghost)
+
+    BM = ("| Dataset | Size | Set | Alt | n | C1-C7 |\n|---|---|---|---|---|---|\n"
+          "| d3 10T (706M) | **4** | `{4}` | x | 0 | ✓ |\n| d3 100 T (3.43B) | **5** | `{4}` | none | 0 | ✓ |\n")
+
+    def test_d1073_spaced_registry_key_is_a_key(self):
+        self._both("identifying-set-arity",
+                   {"documentation/BOUNDARY_MINIMUM.md": self.BM, "doc/A.md": "At 100 T the set is C1–C5 plus five boundaries.\n"},
+                   {"documentation/BOUNDARY_MINIMUM.md": self.BM, "doc/A.md": "At 100 T the set is C1–C5 plus four boundaries.\n"},
+                   "allowed counts for d3 100T are [5]")
+
+    def test_d1074_import_module_name_keyword(self):
+        sl = "".join("The tool `x%d.py` is stdlib only.\n\n" % i for i in range(3))
+        ctrl = dict({"x%d.py" % i: "import os\n" for i in range(3)}, **{"doc/A.md": sl})
+        plant = dict(ctrl, **{"x0.py": "import importlib\nnp = importlib.import_module(name='numpy')\n"})
+        self._both("stdlib-claims", ctrl, plant, "x0.py has 1 third-party import line(s)")
+# end class TestQ1048G4DerivedFigures (Q-1048 group 4)
+
+
+class TestQ1048G5ScopeAndCitations(unittest.TestCase):
+    """Q-1048 group 5 (FV2-G2): doc_gates.d/95_derived_figures_scope.sh, GATEs 71/73/75/76/77 -- rows D1063,
+    D1064, D1065, D1067, D1068, D1069 of Fable's slice-2 triage of Codex's fix-verification round. Each plant
+    is a small scratch corpus; the parent tree passes over it and this tree fails it, and the unplanted
+    control stays green. Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, from Codex
+    (gpt-6-astra) findings triaged by Fable."""
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    # ------------------------------------------------------------------ helpers (one copy per Q-1048 group)
+    def _env(self, **kw):
+        e = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@invalid", GIT_COMMITTER_NAME="t",
+                 GIT_COMMITTER_EMAIL="t@invalid", GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
+        e.update(kw)
+        return e
+
+    def _mini(self, files):
+        """A scratch git repo holding this tree's doc-gate scripts and `files` ({path: text}), committed."""
+        d = tempfile.mkdtemp(prefix="q1048_")
+        self.addCleanup(shutil.rmtree, d, True)
+        os.makedirs(os.path.join(d, "scripts"))
+        shutil.copy(os.path.join(self.ROOT, "scripts", "doc_gates.sh"), os.path.join(d, "scripts", "doc_gates.sh"))
+        shutil.copytree(os.path.join(self.ROOT, "scripts", "doc_gates.d"), os.path.join(d, "scripts", "doc_gates.d"))
+        for rel, text in files.items():
+            p = os.path.join(d, rel)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(text)
+        env = self._env()
+        for a in (["init", "-q", "."], ["symbolic-ref", "HEAD", "refs/heads/main"], ["add", "-A"],
+                  ["commit", "-qm", "c0"]):
+            subprocess.run(["git"] + a, cwd=d, env=env, check=True, capture_output=True)
+        return d
+
+    def _leg(self, files, leg, **env):
+        """Run one doc-gate leg through the entry point in a scratch repo; (rc, output)."""
+        d = self._mini(files)
+        r = subprocess.run(["timeout", "600", "bash", "scripts/doc_gates.sh", leg], cwd=d, env=self._env(**env),
+                           capture_output=True, text=True, timeout=660)
+        return r.returncode, r.stdout + r.stderr
+
+    def _fn(self, files, module, func, **env):
+        """Source one module (with the shared readers) and call one gate function; (rc, output)."""
+        d = self._mini(files)
+        cmd = ("set +e; for m in md_normalise src_parse word_match; do . scripts/doc_gates.d/$m.sh; done; "
+               ". scripts/doc_gates.d/%s; %s" % (module, func))
+        r = subprocess.run(["timeout", "600", "bash", "-c", cmd], cwd=d, env=self._env(**env),
+                           capture_output=True, text=True, timeout=660)
+        return r.returncode, r.stdout + r.stderr
+
+    def _fails(self, out):
+        return [l.strip() for l in out.splitlines() if "[FAIL]" in l]
+
+    def _both(self, leg, ctrl, plant, needle):
+        rc, out = self._leg(ctrl, leg)
+        self.assertEqual(rc, 0, "precondition: the unplanted corpus is green\n" + out)
+        rc, out = self._leg(plant, leg)
+        self.assertNotEqual(rc, 0, out)
+        self.assertTrue(any(needle in l for l in self._fails(out)), out)
+
+    NAMES = ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"]
+
+    def _cit(self, titled=False):
+        links = ", ".join('[%s](#%s "%s 1990")' % (n, n.lower(), n) if (titled and n == "Foxtrot")
+                          else "[%s](#%s)" % (n, n.lower()) for n in self.NAMES)
+        ent = "".join('<a id="%s"></a>\n- %s 1990, a book.\n\n' % (n.lower(), n) for n in self.NAMES)
+        return ("# C\n\n## The (Z/2)6 hexagram algebra — priority ceded\n\nEach independent arrival: %s → ROAE.\n\n"
+                "## Entries\n\n%s" % (links, ent))
+
+    def _para(self, names):
+        return "Arrivals: " + ", ".join("[%s](CITATIONS.md#%s)" % (n, n.lower()) for n in names) + ".\n\n"
+
+    def test_d1064_titled_chain_link_is_an_arrival(self):
+        full = self._para(self.NAMES) * 2
+        self._both("arrivals-sync",
+                   {"documentation/CITATIONS.md": self._cit(True), "documentation/A.md": full},
+                   {"documentation/CITATIONS.md": self._cit(True), "documentation/A.md": full + self._para(self.NAMES[:5])},
+                   "never names Foxtrot")
+
+    def test_d1063_reference_style_links_are_citations(self):
+        full = self._para(self.NAMES) * 2
+        defs = "\n\n[a]: CITATIONS.md#alpha\n\n[b]: CITATIONS.md#bravo\n\n[c]: CITATIONS.md#charlie\n"
+        self._both("arrivals-sync",
+                   {"documentation/CITATIONS.md": self._cit(), "documentation/A.md":
+                    full + "Arrivals: [Alpha][a], [Bravo][b], [Charlie][c], Delta, Echo and Foxtrot." + defs},
+                   {"documentation/CITATIONS.md": self._cit(), "documentation/A.md":
+                    full + "Arrivals: [Alpha][a], [Bravo][b] and [Charlie][c]." + defs},
+                   "A.md:5: enumerates 3 of the ledger's 6 arrivals")
+
+    def _cd(self, extra):
+        rows = "".join("| C%d | [x](CITATIONS.md#a%d) p. %d | ok | [r](R.md) |\n" % (i, i, 10 + i) for i in range(6))
+        return {"documentation/CLAIMS_DECIDED.md": "| Claim | Source | Verdict | Proof |\n|---|---|---|---|\n" + rows + extra,
+                "documentation/R.md": "".join("See [a](CITATIONS.md#a%d), p. %d.\n" % (i, 10 + i) for i in range(6))
+                + "See [y](CITATIONS.md#yuan), p. 99.\n", "documentation/CITATIONS.md": "x\n"}
+
+    def test_d1065_whole_fragment_is_compared(self):
+        self._both("scorecard-attribution", self._cd("| CY | [y](CITATIONS.md#yuan) p. 99 | ok | [r](R.md) |\n"),
+                   self._cd("| CY | [y](CITATIONS.md#yuan_1990) p. 99 | ok | [r](R.md) |\n"),
+                   "credits CITATIONS.md#yuan_1990")
+
+    def test_d1067_negated_scope_word_scopes_nothing(self):
+        bs = "".join("Boundary %d is mandatory in every working set of the greedy search (%d).\n\n" % (i, i) for i in range(11))
+        self._both("boundary-scope", {"doc/A.md": bs},
+                   {"doc/A.md": bs + "Boundary 15 is mandatory in every working set, not only the greedy one.\n"},
+                   "doc/A.md:23")
+
+    def test_d1068_narration_exempts_only_its_own_clause(self):
+        ms = {"solve.c": 'getenv("SOLVE_MERGE_MODE"); getenv("SOLVE_MERGE_CHUNK_GB");\n',
+              "documentation/SOLVE_C_CLI.md": "SOLVE_MERGE_MODE SOLVE_MERGE_CHUNK_GB\n"}
+        mf = "".join("External merge %d is provided by SOLVE_MERGE_MODE.\n\n" % i for i in range(21))
+        self._both("merge-semantics",
+                   dict(ms, **{"doc/A.md": mf + "The old text read that external sort is not implemented.\n"}),
+                   dict(ms, **{"doc/A.md": mf + "The old text read otherwise. External sort is not implemented in solve.c.\n"}),
+                   "doc/A.md:43")
+
+    def _ci(self, extra):
+        d = self._mini({"reports/certificates/README.md": "Full inventory: 21 certificates.\n\n**21 distinct proofs** in all.\n",
+                        "reports/certificates/verify_all.sh": "#!/bin/bash\nCERT_FLOOR=21\n" + extra})
+        for i in range(21):
+            with gzip.open(os.path.join(d, "reports/certificates/c%02d.drat.gz" % i), "wt") as fh:
+                fh.write("proof %d\n" % i)
+        env = self._env()
+        for a in (["add", "-A"], ["commit", "-qm", "c1"]):
+            subprocess.run(["git"] + a, cwd=d, env=env, check=True, capture_output=True)
+        r = subprocess.run(["timeout", "600", "bash", "scripts/doc_gates.sh", "cert-inventory"], cwd=d, env=env,
+                           capture_output=True, text=True, timeout=660)
+        return r.returncode, r.stdout + r.stderr
+
+    def test_d1069_arithmetic_writes_are_writes(self):
+        rc, out = self._ci("if (( CERT_FLOOR == 21 )); then :; fi\n")
+        self.assertEqual(rc, 0, "precondition: a comparison is not a write\n" + out)
+        for row, w in (("assign", ": $(( CERT_FLOOR = 1 ))\n"), ("incr", "(( CERT_FLOOR++ ))\n")):
+            with self.subTest(row=row):
+                rc, out = self._ci(w)
+                self.assertNotEqual(rc, 0, out)
+                self.assertIn("writes CERT_FLOOR 2 time(s)", out)
+# end class TestQ1048G5ScopeAndCitations (Q-1048 group 5)
+
+
+class TestQ1048G6PushPath(unittest.TestCase):
+    """Q-1048 group 6: the Q-1031 and Q-1032 code fixes Q-1048 carries. Q-1031: pre_push_gate.sh runs the
+    advisory doc_gates.sh --selftest in its own session and its cleanup kills that session, so a killed hook
+    leaves nothing running (shown on the hook's own extracted functions, with a `timeout` inside the session,
+    which moves itself to a new process group). Q-1032: doc_gates.sh, tr12_repro_gate.sh --stamp,
+    correction_marker_inventory.sh and a full tests.py run wait on one cross-worktree heavy-gate lock, and a
+    nested run (ROAE_HEAVY_LOCK_HELD) does not. Developed with AI assistance (Claude, Anthropic):
+    claude-opus-5-5."""
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    # ------------------------------------------------------------------ helpers (one copy per Q-1048 group)
+    def _env(self, **kw):
+        e = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@invalid", GIT_COMMITTER_NAME="t",
+                 GIT_COMMITTER_EMAIL="t@invalid", GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
+        e.update(kw)
+        return e
+
+    def _mini(self, files):
+        """A scratch git repo holding this tree's doc-gate scripts and `files` ({path: text}), committed."""
+        d = tempfile.mkdtemp(prefix="q1048_")
+        self.addCleanup(shutil.rmtree, d, True)
+        os.makedirs(os.path.join(d, "scripts"))
+        shutil.copy(os.path.join(self.ROOT, "scripts", "doc_gates.sh"), os.path.join(d, "scripts", "doc_gates.sh"))
+        shutil.copytree(os.path.join(self.ROOT, "scripts", "doc_gates.d"), os.path.join(d, "scripts", "doc_gates.d"))
+        for rel, text in files.items():
+            p = os.path.join(d, rel)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(text)
+        env = self._env()
+        for a in (["init", "-q", "."], ["symbolic-ref", "HEAD", "refs/heads/main"], ["add", "-A"],
+                  ["commit", "-qm", "c0"]):
+            subprocess.run(["git"] + a, cwd=d, env=env, check=True, capture_output=True)
+        return d
+
+    def _leg(self, files, leg, **env):
+        """Run one doc-gate leg through the entry point in a scratch repo; (rc, output)."""
+        d = self._mini(files)
+        r = subprocess.run(["timeout", "600", "bash", "scripts/doc_gates.sh", leg], cwd=d, env=self._env(**env),
+                           capture_output=True, text=True, timeout=660)
+        return r.returncode, r.stdout + r.stderr
+
+    def _fn(self, files, module, func, **env):
+        """Source one module (with the shared readers) and call one gate function; (rc, output)."""
+        d = self._mini(files)
+        cmd = ("set +e; for m in md_normalise src_parse word_match; do . scripts/doc_gates.d/$m.sh; done; "
+               ". scripts/doc_gates.d/%s; %s" % (module, func))
+        r = subprocess.run(["timeout", "600", "bash", "-c", cmd], cwd=d, env=self._env(**env),
+                           capture_output=True, text=True, timeout=660)
+        return r.returncode, r.stdout + r.stderr
+
+    def _fails(self, out):
+        return [l.strip() for l in out.splitlines() if "[FAIL]" in l]
+
+    # ------------------------------------------------------------------ Q-1031
+    def test_q1031_killed_hook_leaves_no_advisory_process(self):
+        src = open(os.path.join(self.ROOT, "scripts", "pre_push_gate.sh"), encoding="utf-8").read()
+        a = src.find("# >>> Q-1031 bounded advisory run")
+        b = src.find("# <<< Q-1031 bounded advisory run")
+        self.assertTrue(0 <= a < b, "precondition: pre_push_gate.sh carries the Q-1031 bounded-run functions")
+        self.assertIn('_adv_run "$STBASE/selftest.out"', src, "the advisory selftest leg runs through _adv_run")
+        self.assertRegex(src, r"cleanup\(\) \{\n  _adv_kill\n", "cleanup kills the advisory session first")
+        d = tempfile.mkdtemp(prefix="q1031_")
+        self.addCleanup(shutil.rmtree, d, True)
+        tag = "%d" % (3000 + os.getpid() % 900)        # a sleep length no other process uses
+        with open(os.path.join(d, "hook.sh"), "w") as fh:
+            fh.write(src[a:b] + "\ntrap '_adv_kill; exit 143' TERM\n"
+                     "_adv_run %s/out.txt %s bash -c 'sleep %s.1 & timeout 600 sleep %s.2 & echo started; wait'\n"
+                     % (d, d, tag, tag))
+        p = subprocess.Popen(["bash", os.path.join(d, "hook.sh")], start_new_session=True)
+        self.addCleanup(lambda: subprocess.run(["pkill", "-KILL", "-f", "sleep %s\\." % tag], capture_output=True))
+        for _ in range(100):
+            if os.path.exists(os.path.join(d, "out.txt")) and "started" in open(os.path.join(d, "out.txt")).read():
+                break
+            time.sleep(0.1)
+        live = subprocess.run(["pgrep", "-f", "^sleep %s\\." % tag], capture_output=True, text=True).stdout.split()
+        self.assertEqual(len(live), 2, "positive control: both advisory children run before the kill")
+        p.send_signal(signal.SIGTERM)
+        p.wait(timeout=30)
+        time.sleep(0.5)
+        left = subprocess.run(["pgrep", "-f", "^sleep %s\\." % tag], capture_output=True, text=True).stdout.split()
+        self.assertEqual(left, [], "a killed hook left advisory processes running")
+
+    # ------------------------------------------------------------------ Q-1032
+    def _held(self):
+        import fcntl
+        lk = os.path.join(tempfile.mkdtemp(prefix="q1032_"), "heavy.lock")
+        self.addCleanup(shutil.rmtree, os.path.dirname(lk), True)
+        fh = open(lk, "a")
+        self.addCleanup(fh.close)
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        return lk
+
+    def _run(self, d, argv, lk, held=False, timeout=6):
+        env = self._env(ROAE_HEAVY_LOCK=lk)
+        env.pop("ROAE_HEAVY_LOCK_HELD", None)
+        if held:
+            env["ROAE_HEAVY_LOCK_HELD"] = "1"
+        r = subprocess.run(["timeout", str(timeout)] + argv, cwd=d, env=env, capture_output=True, text=True,
+                           timeout=timeout + 60)
+        return r.returncode, r.stdout + r.stderr
+
+    def test_q1032_scripts_wait_on_the_heavy_lock(self):
+        lk = self._held()
+        d = self._mini({"README.md": "# R\n"})
+        for s in ("tr12_repro_gate.sh", "correction_marker_inventory.sh"):
+            shutil.copy(os.path.join(self.ROOT, "scripts", s), os.path.join(d, "scripts", s))
+        for name, argv in (("doc_gates.sh", ["bash", "scripts/doc_gates.sh", "links-internal"]),
+                           ("tr12_repro_gate.sh --stamp", ["bash", "scripts/tr12_repro_gate.sh", "--stamp"]),
+                           ("correction_marker_inventory.sh", ["bash", "scripts/correction_marker_inventory.sh", "--check"])):
+            with self.subTest(script=name):
+                rc, out = self._run(d, argv, lk)
+                self.assertEqual(rc, 124, "it must still be waiting when the timeout fires\n" + out)
+                self.assertIn("%s: waiting for the heavy-gate lock" % name, out)
+                rc, out = self._run(d, argv, lk, held=True)
+                self.assertNotIn("waiting for the heavy-gate lock", out, "a nested run must not wait on its parent")
+                self.assertNotEqual(rc, 124, out)
+
+    def test_q1032_full_tests_run_waits_on_the_heavy_lock(self):
+        lk = self._held()
+        rc, out = self._run(self.ROOT, ["python3", "tests.py", "-q"], lk, timeout=20)
+        self.assertEqual(rc, 124, out[-2000:])
+        self.assertIn("tests.py: waiting for the heavy-gate lock", out)
+        self.assertNotIn("ROAE_TESTS_TREE=", out, "the full run must not start before it holds the lock")
+    def test_q1032_named_run_lets_its_gates_skip_the_lock(self):
+        """A run that names its classes marks the lock held for the gates it starts, so classes run side by
+        side do not queue every gate on the one lock (measured 2026-11-14: TestQ998SnapshotTrackedIgnored timed
+        out waiting). The child prints what its own environment says; the mutant (no `elif` arm) prints None."""
+        me = "TestQ1048G6PushPath.test_q1032_named_run_lets_its_gates_skip_the_lock"
+        if os.environ.get("_Q1032_NAMED_PROBE"):
+            print("Q1032_HELD=%s" % os.environ.get("ROAE_HEAVY_LOCK_HELD"))
+            return
+        env = {k: v for k, v in os.environ.items() if k != "ROAE_HEAVY_LOCK_HELD"}
+        env["_Q1032_NAMED_PROBE"] = "1"
+        r = subprocess.run([sys.executable, "tests.py", me], cwd=self.ROOT, env=env, capture_output=True,
+                           text=True, timeout=600)
+        self.assertEqual(r.returncode, 0, (r.stdout + r.stderr)[-2000:])
+        self.assertIn("Q1032_HELD=named-classes", r.stdout, (r.stdout + r.stderr)[-2000:])
+# end class TestQ1048G6PushPath (Q-1048 group 6)
+
+
+class TestQ1048G7SurfaceProbes(unittest.TestCase):
+    """Q-1048 group 7 (FV2-G2): doc_gates.d/70_publication_surfaces.sh, GATEs 21/22/79/82 -- rows D1035, D1036,
+    D1037, D1038, D1039, D1043, D1044 of Fable's slice-2 triage of Codex's fix-verification round. Each plant
+    is a small scratch repo (GATE 79 on this tree's own dispatcher with one `all` call rewritten); the parent
+    tree passes over it, or misreports it, and this tree fails it by name; the unplanted control stays
+    green. Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, from Codex (gpt-6-astra)
+    findings triaged by Fable."""
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    # ------------------------------------------------------------------ helpers (one copy per Q-1048 group)
+    def _env(self, **kw):
+        e = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@invalid", GIT_COMMITTER_NAME="t",
+                 GIT_COMMITTER_EMAIL="t@invalid", GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
+        e.update(kw)
+        return e
+
+    def _mini(self, files):
+        """A scratch git repo holding this tree's doc-gate scripts and `files` ({path: text}), committed."""
+        d = tempfile.mkdtemp(prefix="q1048_")
+        self.addCleanup(shutil.rmtree, d, True)
+        os.makedirs(os.path.join(d, "scripts"))
+        shutil.copy(os.path.join(self.ROOT, "scripts", "doc_gates.sh"), os.path.join(d, "scripts", "doc_gates.sh"))
+        shutil.copytree(os.path.join(self.ROOT, "scripts", "doc_gates.d"), os.path.join(d, "scripts", "doc_gates.d"))
+        for rel, text in files.items():
+            p = os.path.join(d, rel)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(text)
+        env = self._env()
+        for a in (["init", "-q", "."], ["symbolic-ref", "HEAD", "refs/heads/main"], ["add", "-A"],
+                  ["commit", "-qm", "c0"]):
+            subprocess.run(["git"] + a, cwd=d, env=env, check=True, capture_output=True)
+        return d
+
+    def _leg(self, files, leg, **env):
+        """Run one doc-gate leg through the entry point in a scratch repo; (rc, output)."""
+        d = self._mini(files)
+        r = subprocess.run(["timeout", "600", "bash", "scripts/doc_gates.sh", leg], cwd=d, env=self._env(**env),
+                           capture_output=True, text=True, timeout=660)
+        return r.returncode, r.stdout + r.stderr
+
+    def _fn(self, files, module, func, **env):
+        """Source one module (with the shared readers) and call one gate function; (rc, output)."""
+        d = self._mini(files)
+        cmd = ("set +e; for m in md_normalise src_parse word_match; do . scripts/doc_gates.d/$m.sh; done; "
+               ". scripts/doc_gates.d/%s; %s" % (module, func))
+        r = subprocess.run(["timeout", "600", "bash", "-c", cmd], cwd=d, env=self._env(**env),
+                           capture_output=True, text=True, timeout=660)
+        return r.returncode, r.stdout + r.stderr
+
+    def _fails(self, out):
+        return [l.strip() for l in out.splitlines() if "[FAIL]" in l]
+
+    def _stub(self, name, body):
+        sd = tempfile.mkdtemp(prefix="q1048_bin_")
+        self.addCleanup(shutil.rmtree, sd, True)
+        with open(os.path.join(sd, name), "w") as fh:
+            fh.write("#!/bin/bash\n" + body + 'exec %s "$@"\n' % shutil.which(name))
+        os.chmod(os.path.join(sd, name), 0o755)
+        return sd + os.pathsep + os.environ["PATH"]
+
+    # ------------------------------------------------------------------ GATE 82
+    def _q(self, extra):
+        return {"scripts/tr12_repro.sh": "row_begin c_v1\nwhile read x; do :; done < <(cat marginal_raw)\n"
+                                         "v=$(grep -o '\"pair[0-9]*\": [0-9]*' cert)\n" + extra,
+                "solve.py": "# marginal_quotient must NOT be plotted\n",
+                "viz/viz_kc_grammar.md": "Do not plot the quotient marginals\n",
+                "viz/viz_kc_field.md": "must not be plotted as this field\n"}
+
+    def test_g82_quotient_extractors_are_probed(self):
+        rc, out = self._leg(self._q(""), "quotient-frame-isolation")
+        self.assertEqual(rc, 0, "precondition: a generic extractor is out of scope\n" + out)
+        for row, extra, env in (
+                ("D1037", "w=$(grep -o '\"q4\": [0-9]*' cert)\n", {}),
+                ("D1038", "w=$(grep -o -e'\"q[0-9]*\"' cert)\n", {}),
+                ("D1039", "w=$(grep -o '\"qz[0-9]*\"' cert)\n",
+                 {"PATH": self._stub("grep", 'case "$*" in *qz*) kill -9 $$;; esac\n')})):
+            with self.subTest(row=row):
+                rc, out = self._leg(self._q(extra), "quotient-frame-isolation", **env)
+                self.assertNotEqual(rc, 0, out)
+                self.assertTrue(any("a figure extractor reads quotient cell keys" in l for l in self._fails(out)), out)
+
+    # ------------------------------------------------------------------ GATE 79 LEG 4
+    def test_d1035_d1036_hard_calls_are_unconditional(self):
+        src = open(os.path.join(self.ROOT, "scripts", "doc_gates.sh"), encoding="utf-8").read()
+        self.assertEqual(src.count("echo; gate_cli || RC=1\n"), 1, "precondition: the `all` arm calls gate_cli")
+        rc, out = self._leg({"README.md": "x\n"}, "dispatch-alignment")
+        self.assertEqual(rc, 0, "precondition: the real dispatcher is aligned\n" + out)
+        for row, call, why in (("D1035", "( gate_cli || RC=1 )", "inside a subshell"),
+                               ("D1036", "false && gate_cli || RC=1", "under a condition"),
+                               ("D1036-if", "if true; then gate_cli || RC=1; fi", "under a condition")):
+            with self.subTest(row=row):
+                rc, out = self._leg({"README.md": "x\n", "scripts/doc_gates.sh":
+                                     src.replace("echo; gate_cli || RC=1\n", "echo; %s\n" % call)}, "dispatch-alignment")
+                self.assertNotEqual(rc, 0, out)
+                self.assertTrue(any("`all` calls gate_cli %s" % why in l for l in self._fails(out)), out)
+
+    # ------------------------------------------------------------------ GATE 21 / GATE 22
+    def test_d1043_a_failed_pipeline_stage_is_not_no_match(self):
+        files = {"doc/A.md": "See `scripts/ghost.sh`.\n", "scripts/x.sh": "x\n"}
+        rc, out = self._leg(files, "script-paths")
+        self.assertTrue(any("ghost.sh" in l for l in self._fails(out)), "precondition: the dangling path is found\n" + out)
+        rc, out = self._leg(files, "script-paths",
+                            PATH=self._stub("sort", '[ -n "$Q1048_SORT_FAIL" ] && { cat >/dev/null; exit 1; }\n'),
+                            Q1048_SORT_FAIL="1")
+        self.assertNotEqual(rc, 0, out)
+        self.assertIn("GATE 21: the token pipeline failed", out)
+
+    def test_d1044_unreadable_edited_file_is_named(self):
+        digs = [hashlib.sha256(b"%d" % i).hexdigest() for i in range(110)]
+        files = {"data/hashes.txt": "\n".join(digs) + "\n", "data/new.txt": "old\n",
+                 "doc/A.md": "".join("Digest `%s…` is recorded.\n" % x[:12] for x in digs)}
+        rc, out = self._leg(files, "hex-prefix")
+        self.assertEqual(rc, 0, "precondition: every prefix resolves\n" + out)
+        d = self._mini(files)
+        nd = hashlib.sha256(b"new").hexdigest()
+        with open(os.path.join(d, "data/new.txt"), "w") as fh:
+            fh.write(nd + "\n")
+        with open(os.path.join(d, "doc/A.md"), "a", encoding="utf-8") as fh:
+            fh.write("The new digest `%s…` is recorded.\n" % nd[:12])
+        env = self._env()
+        subprocess.run(["git", "commit", "-qm", "c1", "--", "doc/A.md"], cwd=d, env=env, check=True, capture_output=True)
+        os.chmod(os.path.join(d, "data/new.txt"), 0)
+        self.addCleanup(os.chmod, os.path.join(d, "data/new.txt"), 0o644)
+        if os.access(os.path.join(d, "data/new.txt"), os.R_OK):
+            self.skipTest("running as a user that can read a mode-000 file")
+        r = subprocess.run(["timeout", "600", "bash", "scripts/doc_gates.sh", "hex-prefix"], cwd=d, env=env,
+                           capture_output=True, text=True, timeout=660)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("could not read the edited file data/new.txt", r.stdout + r.stderr)
+# end class TestQ1048G7SurfaceProbes (Q-1048 group 7)
+
+
+class TestQ1048G8SurfaceChecks(unittest.TestCase):
+    """Q-1048 group 8 (FV2-G2): doc_gates.d/70_publication_surfaces.sh, GATEs 20/24/84/88 -- rows D1024, D1034,
+    D1040, D1041, D1042 of Fable's slice-2 triage of Codex's fix-verification round. Each plant is a small
+    scratch repo the parent tree passes over and this tree fails by name; each has a green control.
+    Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, from Codex (gpt-6-astra) findings
+    triaged by Fable."""
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    # ------------------------------------------------------------------ helpers (one copy per Q-1048 group)
+    def _env(self, **kw):
+        e = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@invalid", GIT_COMMITTER_NAME="t",
+                 GIT_COMMITTER_EMAIL="t@invalid", GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
+        e.update(kw)
+        return e
+
+    def _mini(self, files):
+        """A scratch git repo holding this tree's doc-gate scripts and `files` ({path: text}), committed."""
+        d = tempfile.mkdtemp(prefix="q1048_")
+        self.addCleanup(shutil.rmtree, d, True)
+        os.makedirs(os.path.join(d, "scripts"))
+        shutil.copy(os.path.join(self.ROOT, "scripts", "doc_gates.sh"), os.path.join(d, "scripts", "doc_gates.sh"))
+        shutil.copytree(os.path.join(self.ROOT, "scripts", "doc_gates.d"), os.path.join(d, "scripts", "doc_gates.d"))
+        for rel, text in files.items():
+            p = os.path.join(d, rel)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(text)
+        env = self._env()
+        for a in (["init", "-q", "."], ["symbolic-ref", "HEAD", "refs/heads/main"], ["add", "-A"],
+                  ["commit", "-qm", "c0"]):
+            subprocess.run(["git"] + a, cwd=d, env=env, check=True, capture_output=True)
+        return d
+
+    def _leg(self, files, leg, **env):
+        """Run one doc-gate leg through the entry point in a scratch repo; (rc, output)."""
+        d = self._mini(files)
+        r = subprocess.run(["timeout", "600", "bash", "scripts/doc_gates.sh", leg], cwd=d, env=self._env(**env),
+                           capture_output=True, text=True, timeout=660)
+        return r.returncode, r.stdout + r.stderr
+
+    def _fn(self, files, module, func, **env):
+        """Source one module (with the shared readers) and call one gate function; (rc, output)."""
+        d = self._mini(files)
+        cmd = ("set +e; for m in md_normalise src_parse word_match; do . scripts/doc_gates.d/$m.sh; done; "
+               ". scripts/doc_gates.d/%s; %s" % (module, func))
+        r = subprocess.run(["timeout", "600", "bash", "-c", cmd], cwd=d, env=self._env(**env),
+                           capture_output=True, text=True, timeout=660)
+        return r.returncode, r.stdout + r.stderr
+
+    def _fails(self, out):
+        return [l.strip() for l in out.splitlines() if "[FAIL]" in l]
+
+    def _both(self, leg, ctrl, plant, needle):
+        rc, out = self._leg(ctrl, leg)
+        self.assertEqual(rc, 0, "precondition: the unplanted corpus is green\n" + out)
+        rc, out = self._leg(plant, leg)
+        self.assertNotEqual(rc, 0, out)
+        self.assertTrue(any(needle in l for l in self._fails(out)), out)
+
+    def _sep(self, extra="", files=None):
+        names = ["a%d.py" % i for i in range(10)]
+        f = {n: "x = 1\n" for n in names}
+        f["CLAUDE.md"] = ("# C\n\n**The approved separates** are:\n\n- " + ", ".join("**`%s`**" % n for n in names)
+                          + " — approved.\n- **`reports/evidence/**/*.py`** (**0** files) — evidence.\n" + extra
+                          + "\nAfter.\n")
+        f.update(files or {})
+        return f
+
+    def test_d1024_a_negated_lead_approves_nothing(self):
+        self._both("separates-census", self._sep(),
+                   self._sep("- Do not approve **`foo.py`** — it stays out.\n", {"foo.py": "x\n"}),
+                   "negates its own lead")
+
+    def _vd(self, cond):
+        c = ('static const struct { int n; const char *s; } f1c5_unions[] = {\n  { 3, "a" },\n  { 5, "b" },\n'
+             '  { 9, "c" },\n};\n#define KC_MEM_MAX_PAIRS 5\nint full31 = (npairs == 31);\n'
+             'static void f1c5_fprint_npairs_domain(FILE *f, int cap, int with_full31) {\n'
+             '  for (int i = 0; i < 3; i++) { if (%s) continue; fprintf(f, "%%d", f1c5_unions[i].n); }\n'
+             '  if (with_full31) fprintf(f, "%%s31", ",");\n}\n' % cond)
+        d = "N ∈ {3,5,9,31}\n"
+        return {"solve.c": c, "documentation/SOLVE_C_CLI.md": d,
+                "reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md": d}
+
+    def test_d1040_d1041_cap_condition_is_judged_as_c_on_every_row(self):
+        ctrl = self._vd("cap > 0 && f1c5_unions[i].n > cap")
+        for row, cond in (("D1040", "0 < cap < f1c5_unions[i].n"),
+                          ("D1041", "cap > 0 && f1c5_unions[i].n > cap && f1c5_unions[i].n < 7")):
+            with self.subTest(row=row):
+                self._both("value-domains", ctrl, self._vd(cond), "ignores its `cap` argument")
+
+    def test_d1042_quoted_checklist_ends_with_its_quote(self):
+        self._both("publication-state", {"doc/A.md": "# A\n\n> ## Checklist\n> - [ ] review\n"},
+                   {"doc/A.md": "# A\n\n> ## Checklist\n> - [ ] review\n\nProse.\n\n- [ ] an unchecked box in prose\n"},
+                   "doc/A.md:8 unchecked box outside a reader checklist")
+
+    def test_d1034_spliced_env_name_is_read(self):
+        cli = {"documentation/SOLVE_C_CLI.md": "SOLVE_A is documented.\n"}
+        self._both("env-surface", dict(cli, **{"solve.c": 'int f(){ return getenv("SOLVE_A") != 0; }\n'}),
+                   dict(cli, **{"solve.c": 'int f(){ return getenv("SOLVE_A") != 0 || getenv("SOLVE_GH\\\nOST") != 0; }\n'}),
+                   "SOLVE_GHOST is read at solve.c")
+# end class TestQ1048G8SurfaceChecks (Q-1048 group 8)
+
+
+class TestQ1048G9EmittedSurfaceCensus(unittest.TestCase):
+    """Q-1048 group 9 (FV2-G2): GATE 89 emitted-surface (doc_gates.d/70_publication_surfaces.sh) -- rows D1026,
+    D1027, D1029, D1030, D1031, D1033 of Fable's slice-2 triage of Codex's fix-verification round. The census
+    code is run as written: LEG 2's echo/printf block and LEG 3's py_extract() are cut out of this tree's
+    module by their own text and executed on small inputs, so a plant the parent tree's code misses is shown
+    found here, beside a control that both read alike. Developed with AI assistance (Claude, Anthropic):
+    claude-opus-5-5, from Codex (gpt-6-astra) findings triaged by Fable."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    M = "scripts/doc_gates.d/70_publication_surfaces.sh"
+
+    def _load(self):
+        src = open(os.path.join(self.ROOT, self.M), encoding="utf-8").read()
+        pre = subprocess.run(["bash", "-c", ". scripts/doc_gates.d/src_parse.sh; _sp_prelude"], cwd=self.ROOT,
+                             capture_output=True, text=True, check=True).stdout
+        a = src.find("    _marked = {k for k, l in enumerate(lines, 1)")
+        b = src.find("for pat in (r'\\b(?:printf|puts)")
+        c = src.find('PYSRC = "solve.py"')
+        d = src.find("try:\n    pytext = io.open(PYSRC")
+        self.assertTrue(0 <= a < b and 0 <= c < d, "precondition: the LEG 2 block and py_extract are where they were")
+        return pre, __import__("textwrap").dedent(src[a:b]), src[c:d]
+
+    def _leg2(self, sh):
+        pre, leg2, _ = self._load()
+        ns = {}
+        exec(pre, ns)
+        ns.update(dict(lines=sh.split("\n"), f="scripts/x.sh", lexonly={}, sys=sys, re=re, rec=lambda *a: None))
+        exec(leg2, ns)
+        return sorted(ns["lexonly"])
+
+    def _py(self, text):
+        _, _, px = self._load()
+        ns = {"ast": __import__("ast"), "io": __import__("io"), "re": re}
+        exec(px, ns)
+        keys, unres, _n = ns["py_extract"](text, "x.py")
+        self._unres = len(unres)
+        return sorted(keys)
+
+    def test_d1026_d1027_echo_e_and_printf_reuse(self):
+        self.assertEqual(self._leg2('echo "AAA=1"'), ["AAA"], "precondition: a plain echo is censused")
+        self.assertEqual(self._leg2('echo -e "AAA=1\\nBBB=2"'), ["AAA", "BBB"])
+        self.assertEqual(self._leg2('echo -E "AAA=1\\nBBB=2"'), ["AAA"], "-E keeps the escape literal")
+        self.assertEqual(self._leg2("printf '%s=PASS\\n' AAA BBB"), ["AAA", "BBB"])
+
+    def test_d1029_d1030_d1031_json_payloads(self):
+        self.assertEqual(self._py("import json\nprint(json.dumps({'shown': 1}))\n"), ["shown"], "precondition")
+        for row, text in (("D1029", "import json\nrows = [{'hidden': 1}]\nprint(json.dumps(max(rows, key=len)))\n"),
+                          ("D1030", "import json\nprint(json.dumps([{'hidden': 1}] * 2))\n"),
+                          ("D1031", "import json\nemit = json.dumps\nemit({'hidden': 1})\n")):
+            with self.subTest(row=row):
+                self.assertEqual(self._py(text), ["hidden"])
+        # max/min over two scalars stay scalar: reading them as passthrough added an unresolvable parameter
+        # site on the real solve.py (`min(total_records, max_records)`) and broke the pinned ceiling.
+        self.assertEqual(self._py("import json\ndef f(x):\n    return json.dumps({'k': min(x, 3)})\n"), ["k"])
+        self.assertEqual(self._unres, 0)
+
+    def test_d1033_open_rows_are_not_all_called_defects(self):
+        src = open(os.path.join(self.ROOT, self.M), encoding="utf-8").read()
+        self.assertFalse('"       real defects that do NOT set this exit code' in src, "old summary wording still present")
+        self.assertTrue("adjudicated open (a defect, or the stated fixture exemption" in src, "new summary wording absent")
+# end class TestQ1048G9EmittedSurfaceCensus (Q-1048 group 9)
+
+
 # Q-1136 M3: a SOLVE_* variable exported in the caller's shell reached every solver run built from
 # dict(os.environ, ...). tests.py reads no SOLVE_* knob of its own, so each inherited one is removed
 # here and named on stderr. This runs at import, after every class is defined and before any test
@@ -70407,6 +71548,33 @@ for _k in sorted(k for k in os.environ if k.startswith("SOLVE_")):
 
 
 if __name__ == "__main__":
+    # Q-1032 (Q-1048 group 6): a FULL run (no test named on the command line) takes the cross-worktree
+    # heavy-gate lock that doc_gates.sh, tr12_repro_gate.sh --stamp and correction_marker_inventory.sh take
+    # ($ROAE_HEAVY_LOCK, default ~/.roae_heavy_gate.lock), waiting with a message rather than sharing the
+    # cores, and exports ROAE_HEAVY_LOCK_HELD so the gates it runs do not wait on it.
+    _q1032_args = [a for a in sys.argv[1:] if not a.startswith("-")]
+    if not _q1032_args and not os.environ.get("ROAE_HEAVY_LOCK_HELD"):
+        import fcntl
+        _q1032_path = os.environ.get("ROAE_HEAVY_LOCK", "") or os.path.join(os.path.expanduser("~"), ".roae_heavy_gate.lock")   # a lock path, not a source (TestBatchG5a)
+        try:
+            _q1032_fh = open(_q1032_path, "a")
+            try:
+                fcntl.flock(_q1032_fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                sys.stderr.write("tests.py: waiting for the heavy-gate lock %s -- another gate chain or full test run"
+                                 " holds it (Q-1032)\n" % _q1032_path)
+                sys.stderr.flush()
+                fcntl.flock(_q1032_fh, fcntl.LOCK_EX)
+            os.environ["ROAE_HEAVY_LOCK_HELD"] = str(os.getpid())
+        except OSError as _q1032_e:
+            sys.stderr.write("tests.py: [warn] cannot open the heavy-gate lock %s (%s); running unserialised"
+                             " (Q-1032)\n" % (_q1032_path, _q1032_e))
+    elif _q1032_args and not os.environ.get("ROAE_HEAVY_LOCK_HELD"):
+        # A NAMED-class run takes no lock, and its gates do not wait for one either (measured 2026-11-14 on the
+        # build box: with eight classes run side by side, every gate they started queued on the one lock, and
+        # TestQ998SnapshotTrackedIgnored timed out waiting for it).
+        # The lock serialises full suites and gate chains; a named run is the caller's own scheduling.
+        os.environ["ROAE_HEAVY_LOCK_HELD"] = "named-classes"
     # Q-956: bind this run's log to the tree and toolchain it measured (prepush_verdict_record.sh).
     sys.stderr.write("ROAE_TESTS_TREE=%s\n" % _q956_tests_tree(os.path.dirname(os.path.abspath(__file__))))
     sys.stderr.write("ROAE_TESTS_TOOLCHAIN=%s\n" % _q956_tests_toolchain())

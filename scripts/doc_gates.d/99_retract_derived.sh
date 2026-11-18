@@ -70,7 +70,14 @@ for c, i in cands.items():
 if corpus_dir:
     files = [os.path.join(dp, f) for dp, _, fs in os.walk(corpus_dir) for f in fs if f.endswith(".md")]
 else:
-    r = subprocess.run(["git", "ls-files", "-z", "*.md"], capture_output=True, check=True)
+    # Q-1048 (FV2-G2 D1080; Codex F05-004#19): a failed listing printed a traceback and no receipt. It is
+    # an input this advisory gate could not read, so it ends like the unreadable-input branch above.
+    try:
+        r = subprocess.run(["git", "ls-files", "-z", "*.md"], capture_output=True, check=True)
+    except (OSError, subprocess.CalledProcessError) as e:
+        print("  [WARN] could not list the markdown corpus (%s) -- nothing was derived" % e)
+        print("RETRACT_DERIVED=UNMEASURED")
+        sys.exit(0)
     files = [f for f in r.stdout.decode("utf-8", "replace").split("\0") if f and f not in LEDGERS]
 blob = {}
 for f in files:

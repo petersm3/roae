@@ -12829,3 +12829,15 @@ line number in either file moves. Both sets of reproductions were run again on t
   G6 it was kept, and only the new write was lost. That remainder is what changed.
 - The `--preflight` report no longer names a private script (the residual of F12-001#7).
 - No canonical sha, count, digest or token meaning changed. `TestBatchFT3fCode` fails on the parent tree.
+
+## 2026-11-14 — batch Q1048: doc-gate rows from Codex's fix-verification round, and two push-path fixes
+
+- **The doc gates (CX-37C-Q).** Codex (gpt-6-astra) found 55 more places where a doc gate could pass over a defect
+  or misreport it. Examples: a gate call hidden inside `( )`, a printf that reuses its format, a reference-style
+  link, a retracted figure in brackets, and a failed `grep` read as "no match". All 55 are addressed (D1073 in part, D1033 by wording only), with a nested
+  evidence path in GATE 39 (Q-1115). Each gate passes on the real tree with the same output, except that GATE 89
+  now pins five more names by name (17 to 22), and fails on a planted copy of its defect.
+- **The push path (Q-1031, Q-1032).** A killed push no longer leaves its advisory self-test running. The heavy gates
+  and full test runs share one lock, so they wait for each other instead of sharing two cores.
+- No canonical sha, count, certificate or verdict changed. Nine `TestQ1048G*` classes hold the fixes and fail on
+  the parent tree. Found by Codex (gpt-6-astra), fix-verification round; triaged by Fable; built in an Opus lane.

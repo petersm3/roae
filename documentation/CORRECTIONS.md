@@ -41551,3 +41551,89 @@ control. Every behavioural test fails on `5b2a8529`, where it reproduces the def
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, the FT3f code lane; the defects were found by
 Codex (gpt-6-astra), final review, F12-001#7, F12-002#6, F12-002#9, F12-002#10, F12-003#2, F12-003#9, F12-009#2,
 F12-013#7, F12-014#4, F12-014#7, F12-024#4, F12-024#6, F12-024#19.
+
+## CX-37C-Q — fifty-five doc-gate rows from Codex's fix-verification round, a nested evidence path, and two push-path fixes (scripts/doc_gates.d/60, 70, 80, 90, 95, 96, 97, 99_lsd_text, 99_retract_derived; scripts/doc_gates.sh; scripts/pre_push_gate.sh; scripts/tr12_repro_gate.sh; scripts/correction_marker_inventory.sh; documentation/DEVELOPMENT.md; tests.py)
+
+**2026-11-14.** **Source.** Codex (gpt-6-astra), fix-verification round (FV2-G2 and the rest of FV2-G1); triaged by
+Fable in FV2 slice 2. Finding ids are given per item as (row, Codex id). Backlog Q-1048, with Q-1115 (found by the
+Q-1049 lane) and Q-1031 / Q-1032 (found by the operator's push chain on 2026-10-29). Each fix was run on the real
+tree, where the gate still passes with the same output, and on a planted defect, where it now fails by name; the
+parent tree passes over each plant or misreports it.
+
+- **Small modules (60, 96, 97, 99).** GATE 17 reads a whole hyphenated board id (D1022, F05-009#14). GATE 18: an
+  allow anchor that quotes the alias exempts only the occurrences inside it (D1023, F06-012#2). GATE 95 strips HTML
+  comments before looking for the pinned commit (D1075, F05-006#10). GATE 90 reads `file=None` as stdout (D1076,
+  F05-003#6), follows an annotated alias (D1077, F05-003#8) and reads every line of a printed literal (D1078,
+  F05-003#7). GATE 93 R17 checks each listing and fails a failed one (D1079, F05-004#18). GATE 94 prints
+  `RETRACT_DERIVED=UNMEASURED` when git cannot list files, not a traceback (D1080, F05-004#19).
+- **Claim artifacts (90).** GATE 39: a write to CERTS outside its literal is an ERROR (D1057, F05-007#7); a bare
+  `while` breaks a clause (D1059, F05-007#8); the whole first revision cell must be the version, in all three copies
+  (D1060, F05-007#9); a sibling holding a standalone number is not a label (D1061, F05-007#10); leg 3 reads the whole
+  evidence path, from the repo root, then from the citing document, then under reports/evidence/ (Q-1115). GATE 40
+  also splits before a lowercase word or digit, never before a path (D1062, F05-007#11). GATE 47 checks its fold
+  step (D1056, F05-007#12). GATE 48 reads a signed exponent (D1058, F05-007#13).
+- **Claim shapes (80).** GATE 25's `--orbit-selftest` waiver needs the last checkout above it to name a public tag
+  (D1045, F05-004#1). GATE 26 treats a bracketed span of the figure as the figure (D1055, F05-004#3). GATE 27's prose
+  window is one list item or paragraph (D1046, F06-003#1). GATE 28 joins backslash continuations (D1047, F05-004#4).
+  GATE 30 strips `>` quote prefixes (D1048, F05-004#5). GATE 31 reads a capital `Maximum` (D1050, F05-004#6). GATE 32
+  evaluates bracketed factors with their own exponents (D1051, F05-004#7). GATE 33 lets only a reporting verb before
+  "unqualified" narrate (D1052, F05-004#8). GATE 34 reads a signed ratio (D1053, F05-004#9). GATE 37 reads the unit
+  text with inline markup removed (D1054, F05-004#10).
+- **Derived figures and scope (95).** GATE 56 takes the next dataset after a boundary claim that names none before
+  it (D1066, F05-005#1). GATE 58 shares a count across coordinated datasets (D1070, F05-005#2). GATE 62 ends a command
+  at the first unquoted backtick or operator (D1071, F05-005#4) and reads each command's names apart (D1072,
+  F05-005#3). GATE 64 reads a spaced registry key such as `d3 100 T` (D1073, F05-005#5). GATE 65 reads
+  `import_module(name=...)` (D1074, F05-005#6). GATE 71 resolves reference-style links (D1063, F05-005#7) and titled
+  chain links (D1064, F05-005#8). GATE 73 allows `_` in fragments (D1065, F05-005#9). GATE 75 ignores a negated scope
+  word (D1067, F05-005#10). GATE 76 tests narration words in the denial's own clause (D1068, F05-005#11). GATE 77
+  sees `(( ))` and `++`/`--` writes to CERT_FLOOR (D1069, F05-005#12).
+- **Publication surfaces (70).** GATE 79 reports a gate call inside `( )`, after `&&`/`||`, or inside an
+  if/while/until block (D1035, F05-003#2; D1036, F05-003#3). GATE 82 probes every `"q0".."q31"` key (D1037,
+  F05-003#16), an attached `-ePATTERN` (D1038, F05-003#15), and counts a probe that failed as a HIT (D1039,
+  F05-003#17). GATE 21 reads each pipeline stage's status (D1043, F05-003#5). GATE 22 checks `git diff` and each
+  grep it runs, and names an unreadable file (D1044, F09-A03#22). GATE 88 errors on a bullet lead with a negating word
+  (D1024, F05-003#20). GATE 84 splices backslash-newlines before stripping comments (D1034, F05-003#21). GATE 24 does
+  not judge chained comparisons or a bare `!` (D1040, F05-003#18) and checks a condition on every real row size
+  (D1041, F05-003#19). GATE 20 ends a checklist heading inside a block quote with the quote (D1042, F05-003#4).
+- **GATE 89's emitted-surface census (70).** `echo -e` is decoded and the last of `-e`/`-E` decides (D1026,
+  F05-003#10); printf re-applies its format while arguments remain (D1027, F05-003#9); max/min over one iterable and
+  sum with a container start pass their arguments through (D1029, F05-003#13); a multiplied container literal is
+  resolved (D1030, F05-003#12); assignment aliases of json.dump/dumps are followed (D1031, F05-003#14); the summary
+  calls the [OPEN] rows adjudicated open, not all defects (D1033, F06-012#11). With D1027 the census sees five more
+  lexer-only names, all at scripts/tr12_mint_state_gate.sh:198-199 (not spelled here: naming one in documentation/ would document it). Both lines
+  write a generated source file, which the census does not follow, so they are pinned by name in PIN_SH_LEXONLY:
+  17 -> 22. documentation/DEVELOPMENT.md's GATE 89 note gives the new count beside the old one.
+- **The push path (Q-1031, Q-1032).** pre_push_gate.sh runs its advisory self-test in its own session, and its exit
+  trap kills that session, so a killed push leaves no self-test running (a `timeout` child had escaped a
+  process-group kill). doc_gates.sh, `tr12_repro_gate.sh --stamp`, correction_marker_inventory.sh and a full
+  `python3 tests.py` run now share one heavy-gate lock (`$ROAE_HEAVY_LOCK`, default `~/.roae_heavy_gate.lock`). They
+  wait for it with a message, and nested runs skip it through `ROAE_HEAVY_LOCK_HELD`. A run that names its test
+  classes takes no lock and lets the gates it starts skip it too: when the draft's tests ran eight classes side by
+  side, every gate they started queued on the one lock, and one class timed out waiting. The lock is a separate
+  file from any lock a caller takes around a gate run, so the two cannot block each other. The push hook's
+  environment guard (Q-949) allows the two new variables, because they only order runs and cannot change a verdict.
+
+**Found while building.** GATE 21 still says "git grep failed over the corpus" when git grep is the stage that
+failed, and names the token pipeline otherwise, so the older test of that message (Q-963) keeps holding. Three new
+comments and test messages cited a line by `file:line`; they now name the file only, so the citation gate has
+nothing new to check. The lock line's trailing comment in tr12_repro_gate.sh named the doc-gate entry script by
+path; the TR-12 fingerprint reads paths, so that comment alone made the entry script and its modules members
+reached only through comment text, and `tr12_repro_gate.sh --check` refused (Q-613). The comment no longer names
+a path.
+
+**Not done.** D1049 was already fixed (ea17b2bb). D1073's second clause (no pooled fallback for a named dataset)
+needs a ruling on what a sentence naming an unregistered dataset may claim. D1033's proposed [FIXTURE] class would
+move pinned `_OPEN` counts that other lanes read, so only the wording changed.
+
+**Not changed.** No canonical sha, count, certificate, verdict or published figure. Every touched leg was run on the
+real tree before and after: same exit status, same output, apart from GATE 89's five new pinned names, its count
+line and its summary wording.
+
+**Tests.** `TestQ1048G1SmallModules`, `TestQ1048G2ClaimArtifacts`, `TestQ1048G3ClaimShapes`,
+`TestQ1048G4DerivedFigures`, `TestQ1048G5ScopeAndCitations`, `TestQ1048G6PushPath`, `TestQ1048G7SurfaceProbes`,
+`TestQ1048G8SurfaceChecks` and `TestQ1048G9EmittedSurfaceCensus`: each row's planted input, an unplanted control,
+and the row's mutant. They fail on the parent tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 drafted and built the fixes; the defects were found
+by Codex (gpt-6-astra) in its fix-verification round and triaged by Fable (claude-fable-5-1); Q-1115 was found by the
+Q-1049 lane and Q-1031 / Q-1032 by the operator's push chain.

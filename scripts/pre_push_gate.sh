@@ -203,7 +203,7 @@ Z40=0000000000000000000000000000000000000000
 # entry that matches nothing the scan finds also fails it, so the lists cannot go stale either way.
 # NOT COVERED, and said so here: a variable read bare (`$NAME` with no default) and never assigned
 # before the read. Under `set -u` that aborts; without it the scan cannot tell it from a local.
-PREPUSH_ENV_ALLOW="ROAE_PREPUSH_RECORD ROAE_PRIVATE_DIR ROAE_REVIEW_QUEUE TMPDIR PATH HOME _PPG_WORKER_OF _PPG_SUP_FLAG"   # Q-997: the two are set by this hook's own supervisor (see the end of this file); an inherited value is overwritten or fails closed
+PREPUSH_ENV_ALLOW="ROAE_PREPUSH_RECORD ROAE_PRIVATE_DIR ROAE_REVIEW_QUEUE TMPDIR PATH HOME _PPG_WORKER_OF _PPG_SUP_FLAG ROAE_HEAVY_LOCK ROAE_HEAVY_LOCK_HELD"   # Q-997: the two are set by this hook's own supervisor (see the end of this file); an inherited value is overwritten or fails closed. Q-1032: the heavy-gate lock's path and its held marker only order runs; neither can change a verdict
 PREPUSH_ENV_DROP="CITGATE_BASE SHAFAIL_SEEN TOK _DG_WORKER_OF _DG_SUP_FLAG"   # Q-997: doc_gates.sh's supervisor sets both for its own worker
 # Named entries: inherited reads whose names belong to no family below.
 PREPUSH_ENV_REFUSE_NAMES="ATLAS BATTERY BIN SOLVE MUT ROWRC C2C3_FORCE_STDLIB CMI_KEEP_LOGS REDACT_FILE
@@ -667,7 +667,38 @@ reg_declares() {
 # then runs a REPOSITORY-WIDE `git worktree prune`, which drops the record of any unlocked worktree whose directory is gone.
 WTBASE=""
 STBASE=""   # the Q-720 selftest leg's own clone (see its header below)
+# >>> Q-1031 bounded advisory run (extracted by TestQ1048G6PushPath; keep the markers)
+# Q-1031 (2026-10-29, G8L attempt 1): the advisory `doc_gates.sh --selftest` ran inside a command
+# substitution. A TERM to the hook was deferred until that substitution returned (bash runs a trap only
+# after the foreground command ends), so a push wrapper's timeout killed the hook and left the selftest
+# and its children running; and `timeout` moves itself to a NEW process group, so a kill by PGID missed
+# them too. The advisory now runs in its OWN SESSION (setsid) in the background, the hook `wait`s for it
+# (a wait IS interrupted by a trapped signal), and cleanup kills the whole session by SID (pkill -s), which
+# a process-group change inside it cannot escape. A killed push leaves nothing running.
+ADV_SID=""
+_adv_run() {   # _adv_run <outfile> <dir> <command...>: run the command in <dir> in a new session; rc in $?
+  local _of=$1 _dir=$2; shift 2
+  if command -v setsid >/dev/null 2>&1; then
+    ( cd "$_dir" && exec setsid "$@" ) >"$_of" 2>&1 &
+  else
+    ( cd "$_dir" && exec "$@" ) >"$_of" 2>&1 &
+  fi
+  ADV_SID=$!
+  wait "$ADV_SID"; local _rc=$?
+  ADV_SID=""
+  return "$_rc"
+}
+_adv_kill() {
+  if [ -n "${ADV_SID:-}" ]; then
+    pkill -TERM -s "$ADV_SID" 2>/dev/null; kill -TERM "$ADV_SID" 2>/dev/null
+    local _i; for _i in 1 2 3 4 5 6 7 8 9 10; do pgrep -s "$ADV_SID" >/dev/null 2>&1 || break; sleep 0.2; done
+    pkill -KILL -s "$ADV_SID" 2>/dev/null
+    ADV_SID=""
+  fi
+}
+# <<< Q-1031 bounded advisory run
 cleanup() {
+  _adv_kill
   if [ -n "$WTBASE" ]; then
     git -C "$ROOT" worktree remove --force "$WTBASE/tree" >/dev/null 2>&1
     rm -rf "$WTBASE"
@@ -1723,8 +1754,10 @@ if [ -n "$DGST_SHA" ]; then
       # DOC_GATES_SELFTEST_INPLACE=1 (Q-911): $STBASE/tree is already a throwaway clone, so the
       # suite runs here rather than cloning itself a second time. A pushed tree older than
       # Q-911 ignores the variable and runs in place, which is this same clone either way.
-      _dso=$( cd "$STBASE/tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u CITGATE_BASE \
-                DOC_GATES_SELFTEST_INPLACE=1 $_to bash scripts/doc_gates.sh --selftest 2>&1 ); _dsrc=$?
+      # Q-1031: in its own session, so a killed hook kills it too (_adv_run / _adv_kill above).
+      _adv_run "$STBASE/selftest.out" "$STBASE/tree" env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u CITGATE_BASE \
+                DOC_GATES_SELFTEST_INPLACE=1 $_to bash scripts/doc_gates.sh --selftest; _dsrc=$?
+      _dso=$(cat "$STBASE/selftest.out" 2>/dev/null)
       _dsn=$(printf '%s\n' "$_dso" | grep -cE '^DOC_GATES_SELFTEST=') || true
       if [ "${_dsn:-0}" = 0 ] && grep -q '^REFUSING:' <<<"$_dso"; then
         echo "  ⚠ DOC_GATES_SELFTEST NOT-RUN on $_ds — the selftest REFUSED (rc=$_dsrc); nothing was tested:"

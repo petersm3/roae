@@ -106,7 +106,14 @@ absent("R11", "solve.c", r"not bridge-carrie[d]", "the equality is a bridge fact
 # R16 -- the minimal-repair ledger row cites its SAT witness.
 line_has("R16", "reports/TR12_QUERY_PROGRAM.md", r"Minimal repair from KW", [r"q7_witnesses/moore-strict\.txt"], "the k = 3 half is SAT-witnessed")
 # R17 -- a recipe must not chain a checker behind kissat with && (kissat exits 10/20).
-files = (ls(r".*\.md") or []) + (ls(r"reports/certificates/.*\.txt") or []) + (ls(r"reports/evidence/.*\.txt") or [])
+# Q-1048 (FV2-G2 D1079; Codex F05-004#18): each listing is checked on its own. `ls(...) or []` turned a
+# FAILED listing of the certificate or evidence population into an empty one, so R17 printed ok over a
+# corpus that was never scanned whenever the markdown listing alone succeeded.
+_r17 = [(p, ls(p)) for p in (r".*\.md", r"reports/certificates/.*\.txt", r"reports/evidence/.*\.txt")]
+for _p, _l in _r17:
+    if _l is None:
+        fail("R17", "the listing of %s failed -- those files were NOT checked" % _p)
+files = [f for _p, _l in _r17 for f in (_l or [])]
 if not files:
     fail("R17", "no recipe-bearing file could be listed -- nothing was checked")
 else:
@@ -121,7 +128,7 @@ else:
                  if re.search(r"kissat[^|;]*&&", l) and "|| true" not in l]
     if hits:
         fail("R17", "kissat ... && recipe(s) that never reach the next command: %s" % ", ".join(hits[:6]))
-    else:
+    elif all(_l is not None for _p, _l in _r17):
         ok("R17", "no kissat ... && recipe in %d files" % len(files))
 # R19c / R19e / R19f -- scoping clauses on the lines that need them.
 line_has("R19c", "reports/TR8_REORDERING_REVISITED.md", r"Gray adjacency requires distance 1", [r"one-line corollary"], "Lean proves the canonical-partner case")

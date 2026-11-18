@@ -156,11 +156,11 @@ documentation/CRITIQUE.md	35	marker	Corrected	1	-	reviewed:sentence-now-reads-th
 documentation/CRITIQUE.md	60	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	ff409f27a01f
 documentation/CRITIQUE.md	93	marker	Corrected	1	-	reviewed:sentence-now-withdraws-actively-minimizes	30b4887c9aeb
 documentation/CRITIQUE.md	94	marker	Corrected	1	-	reviewed:sentence-now-reads-no-mean-gap-signal	be1089519ddb
-documentation/CRITIQUE.md	103	marker	CORRECTED	3	GATE 26	reanchored:GATE-26=ledger-anchor	61dcd6d2654d
-documentation/CRITIQUE.md	103	marker	WITHDRAWN	3	GATE 26	reanchored:GATE-26=ledger-anchor	61dcd6d2654d
-documentation/CRITIQUE.md	108	marker	Corrected	3	GATE 26	reanchored:GATE-26=ledger-anchor	87c0257fcac0
+documentation/CRITIQUE.md	103	marker	CORRECTED	3	GATE 26,GATE 27	reanchored:GATE-26=ledger-anchor+GATE-27=ledger-anchor	61dcd6d2654d
+documentation/CRITIQUE.md	103	marker	WITHDRAWN	3	GATE 26,GATE 27	reanchored:GATE-26=ledger-anchor+GATE-27=ledger-anchor	61dcd6d2654d
+documentation/CRITIQUE.md	108	marker	Corrected	3	GATE 26,GATE 27	reanchored:GATE-26=ledger-anchor+GATE-27=ledger-anchor	87c0257fcac0
 documentation/CRITIQUE.md	110	ledger-link	CORRECTION	n/a	-	not-a-marker	1e7dfc4068c5
-documentation/CRITIQUE.md	110	marker	Corrected	3	GATE 26	reanchored:GATE-26=ledger-anchor	1e7dfc4068c5
+documentation/CRITIQUE.md	110	marker	Corrected	3	GATE 26,GATE 27	reanchored:GATE-26=ledger-anchor+GATE-27=ledger-anchor	1e7dfc4068c5
 documentation/CRITIQUE.md	135	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	ee9eb1d91620
 documentation/CRITIQUE.md	137	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	61897633d3c3
 documentation/CRITIQUE.md	139	marker	CORRECTED	1	-	reviewed:paragraph-already-closes-order-64-Costas-by-construction-and-C1	14f8e15eb91d

@@ -203,7 +203,13 @@
 #@ Q-971 (c) (2026-10-03, batch 40): GIT_NO_REPLACE_OBJECTS=1 is exported on the `set` line so a
 #@ refs/replace/* entry cannot change what any gate reads from git (see scripts/pre_push_gate.sh,
 #@ "Q-971 (c)"); same line, so the logical source keeps its line numbers.
-set -uo pipefail; export GIT_NO_REPLACE_OBJECTS=1
+#@ Q-1032 (Q-1048 group 6): ONE CROSS-WORKTREE HEAVY-GATE LOCK. Up to three gate chains and the agents shared two
+#@ cores on 2026-10-29 and a selftest generator timed out. doc_gates.sh, tr12_repro_gate.sh --stamp,
+#@ correction_marker_inventory.sh and a full tests.py run take an exclusive flock on $ROAE_HEAVY_LOCK (default
+#@ $HOME/.roae_heavy_gate.lock), WAITING (with a message) rather than refusing, and export ROAE_HEAVY_LOCK_HELD so a
+#@ nested run (a test that runs a gate, --selftest's own clones) does not wait on its parent. The code is
+#@ appended to the `set` line below so the logical source keeps its line numbers.
+set -uo pipefail; export GIT_NO_REPLACE_OBJECTS=1; if [ -z "${ROAE_HEAVY_LOCK_HELD:-}" ] && command -v flock >/dev/null 2>&1; then _rhl=${ROAE_HEAVY_LOCK:-${HOME:-/tmp}/.roae_heavy_gate.lock}; if { exec 9>>"$_rhl"; } 2>/dev/null; then flock -n 9 || { echo "doc_gates.sh: waiting for the heavy-gate lock $_rhl -- another gate chain or full test run holds it (Q-1032)" >&2; flock 9; }; export ROAE_HEAVY_LOCK_HELD=$$; else echo "doc_gates.sh: [warn] cannot open the heavy-gate lock $_rhl; running unserialised (Q-1032)" >&2; fi; fi
 #@ 🔴 Q-997 (batch 47, CX-344). AN INTERRUPT COULD END IN "DOC GATES: PASS", rc 0. A SIGINT sent to the
 #@ run's process group (a ^C, a lane stopping a chain) reaches this shell AND whatever child it is
 #@ waiting for. Bash's documented wait-and-cooperative-exit (WCE) rule then decides: if the child did

@@ -89,7 +89,7 @@
 #   line_sha is the first 12 hex of sha256 of the line's text: it keys the REVIEWED table and
 #   tells a reader whether the line still says what was classified. No line text is copied here:
 #   quoting a withdrawn phrase into a data file would restate it.
-set -uo pipefail
+set -uo pipefail; if [ -z "${ROAE_HEAVY_LOCK_HELD:-}" ] && command -v flock >/dev/null 2>&1; then _rhl=${ROAE_HEAVY_LOCK:-${HOME:-/tmp}/.roae_heavy_gate.lock}; if { exec 9>>"$_rhl"; } 2>/dev/null; then flock -n 9 || { echo "correction_marker_inventory.sh: waiting for the heavy-gate lock $_rhl -- another gate chain or full test run holds it (Q-1032)" >&2; flock 9; }; export ROAE_HEAVY_LOCK_HELD=$$; else echo "correction_marker_inventory.sh: [warn] cannot open the heavy-gate lock $_rhl; running unserialised (Q-1032)" >&2; fi; fi   # Q-1032: the heavy-gate lock (explained on the `set` line of the doc-gate entry script)
 cd "$(dirname "$0")/.." || { echo "CORRECTION_MARKER_INVENTORY=ERROR cd" >&2; exit 2; }
 OUT="documentation/CORRECTION_MARKER_INVENTORY.tsv"
 MODE="${1:-write}"

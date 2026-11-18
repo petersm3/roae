@@ -334,10 +334,14 @@ for f in (l.strip() for l in sys.stdin):
     except Exception:
         print("##AWKFAIL\t%s" % f); continue
     hd = {b["start"]: ("checklist" in b["text"].lower()) for b in blocks if b["kind"] == "heading"}
-    inck = False
+    inck = False; inq = False
     for i, line in enumerate(L, 1):
+        # Q-1048 (FV2-G2 D1042; Codex F05-003#4): a checklist heading inside a BLOCK QUOTE covers that quote
+        # only; the first non-blank line outside it ends the checklist.
+        if inq and line.strip() and not line.lstrip().startswith(">"):
+            inck = inq = False
         if i in hd:
-            inck = hd[i]
+            inck = hd[i]; inq = inck and line.lstrip().startswith(">")
         if BOX.match(md_body(line)) and not inck:
             print("  [FAIL] %s:%d unchecked box outside a reader checklist: %s" % (f, i, line[:72]))
     print("##SCANNED\t%s" % f)
@@ -521,8 +525,13 @@ gate_script_paths() {
   # read as "no backticked path in the corpus": nothing to resolve, [ok].
   local topdirs _g21_rc; topdirs=$(git ls-tree -d --name-only HEAD | paste -sd'|') && [ -n "$topdirs" ] || {
     echo "  [FAIL] GATE 21: cannot list the top-level directories (git ls-tree HEAD failed), so NOTHING was checked."; return 1; }
-  local pairs f; pairs=$(git grep -oE "\`(roae-private|roae|$topdirs)/[A-Za-z0-9_./-]+\`" -- '*.md' 2>/dev/null | tr -d '`' | sort -u); _g21_rc=$?
-  [ "$_g21_rc" -le 1 ] || { echo "  [FAIL] GATE 21: git grep failed over the corpus (rc $_g21_rc), so NOTHING was checked."; return 1; }
+  # Q-1048 (FV2-G2 D1043; Codex F05-003#5): EVERY stage's status. Under pipefail the pipeline's status was its
+  # last failure, so a `tr` or `sort` failing with 1 read as git grep's "no match": rc 1 is allowed from git
+  # grep alone, and every other stage must be 0.
+  local pairs f _g21_ps _g21_gg _g21_tr _g21_so; pairs=$(git grep -oE "\`(roae-private|roae|$topdirs)/[A-Za-z0-9_./-]+\`" -- '*.md' 2>/dev/null | tr -d '`' | sort -u; printf '\n#PS %s' "${PIPESTATUS[*]}"); _g21_rc=$?
+  _g21_ps=${pairs##*#PS }; pairs=${pairs%#PS *}; pairs=${pairs%$'\n'}
+  read -r _g21_gg _g21_tr _g21_so <<<"$_g21_ps"
+  { [ "${_g21_gg:-2}" -le 1 ] && [ "${_g21_tr:-1}" -eq 0 ] && [ "${_g21_so:-1}" -eq 0 ] && [ "$_g21_rc" -eq 0 ]; } || { if [ "${_g21_gg:-2}" -gt 1 ]; then echo "  [FAIL] GATE 21: git grep failed over the corpus (git grep/tr/sort rc $_g21_ps), so NOTHING was checked."; else echo "  [FAIL] GATE 21: the token pipeline failed over the corpus (git grep/tr/sort rc $_g21_ps), so NOTHING was checked."; fi; return 1; }
   seen=$(printf '%s\n' "$pairs" | sed -n 's/^[^:]*://p' | sort -u | grep -c .)
   while read -r t; do
     [ -n "$t" ] || continue
@@ -681,10 +690,19 @@ gate_hex_prefix() {
   # a token at all, and only its short "0…" tail was seen (and dropped as < 7 nibbles).
   local g22urc=0; git grep -ohIE '[0-9a-fA-F]+' HEAD -- ':!scripts/doc_gates.sh' ':!scripts/doc_gates.d' 2>"$d/univ.err" > "$d/univ.head" || g22urc=$?
   if [ "$g22urc" -ge 2 ]; then echo "  [FAIL] GATE 22: the universe producer (git grep over HEAD) failed rc $g22urc, so the 64-nibble universe is UNMEASURED and nothing was checked: $(head -c 300 "$d/univ.err" | tr '\n' ' ')"; rm -rf "$d"; return 1; fi
-  { cat "$d/univ.head"
-    git diff -z --name-only HEAD 2>/dev/null | grep -zvE '^scripts/doc_gates(\.sh$|\.d/)' \
-      | xargs -0 -r grep -ohIE '[0-9a-fA-F]+' 2>/dev/null
-  } | awk 'length($0)==64' | tr 'A-F' 'a-f' | sort -u > "$d/univ"
+  # Q-1048 (FV2-G2 D1044; Codex F09-A03#22): the edited-file supplement's statuses are read. A failed `git
+  # diff`, or a grep that could not read an edited file that EXISTS, left the universe at HEAD's digests and
+  # a valid working-tree citation read as dangling. A path deleted in the working tree is skipped.
+  local _g22d=0 _g22p _g22r; git diff -z --name-only HEAD > "$d/edited" 2>"$d/edited.err" || _g22d=$?
+  if [ "$_g22d" -ne 0 ]; then echo "  [FAIL] GATE 22: git diff (the edited-file supplement) failed rc $_g22d, so the working-tree universe is UNMEASURED: $(head -c 300 "$d/edited.err" | tr '\n' ' ')"; rm -rf "$d"; return 1; fi
+  : > "$d/univ.wt"
+  while IFS= read -r -d '' _g22p; do
+    case "$_g22p" in scripts/doc_gates.sh|scripts/doc_gates.d/*) continue ;; esac
+    [ -e "$_g22p" ] || continue
+    _g22r=0; grep -ohIE '[0-9a-fA-F]+' -- "$_g22p" >> "$d/univ.wt" 2>/dev/null || _g22r=$?
+    if [ "$_g22r" -ge 2 ]; then echo "  [FAIL] GATE 22: could not read the edited file $_g22p (grep rc $_g22r), so the working-tree universe is UNMEASURED."; rm -rf "$d"; return 1; fi
+  done < "$d/edited"
+  cat "$d/univ.head" "$d/univ.wt" | awk 'length($0)==64' | tr 'A-F' 'a-f' | sort -u > "$d/univ"
   if [ ! -s "$d/univ" ]; then
     echo "  [FAIL] zero 64-nibble strings found in the tree. That is a broken scan, not a"
     echo "         clean corpus — every token would 'fail to resolve' and the report would be"
@@ -1044,6 +1062,14 @@ names = set()
 for k, it in enumerate(items, 1):
     if " — " not in it:
         print("ERROR\tapproved-separates bullet %d has no ' — ' after its approved names" % k); sys.exit(0)
+    # Q-1048 (FV2-G2 D1024; Codex F05-003#20): the lead APPROVES only if it says nothing against the names it
+    # bolds. "Do not approve **`x`** — ..." approved x. With the code spans, parentheticals and emphasis
+    # removed, a lead holding a negating word is an ERROR (the real list's leads hold only separators and
+    # "with the Lake project"-style riders, measured on eb285740).
+    _lr = re.sub(r"`[^`]*`", " ", it.split(" — ", 1)[0][2:])
+    while re.search(r"\([^()]*\)", _lr): _lr = re.sub(r"\([^()]*\)", " ", _lr)
+    if re.search(r"(?i)\b(?:not|no|never|don'?t|do\s+not|unapproved|disapproved?|except|without|rejected?|removed|withdrawn|retired|revoked)\b", _lr.replace("*", " ")):
+        print("ERROR\tapproved-separates bullet %d negates its own lead (%r); it cannot approve what it names" % (k, " ".join(_lr.replace("*", " ").split())[:60])); sys.exit(0)
     for b in re.findall(r"\*\*(.+?)\*\*", it.split(" — ", 1)[0], re.S):
         names.update(re.findall(r"`([^`\s]+)`", b))
 if not names:
@@ -1319,7 +1345,12 @@ FLOOR_PY_KEYS, FLOOR_PY_SITES, CEIL_PY_UNRESOLVED = 70, 8, 91
 # report had already said "a name-pinned list would be stronger than the count ratchet".
 # MEASURED 2026-10-09 on the batch-42 tree: these 17. This list lives HERE and must never be copied
 # into documentation/ -- that would "document" every one of them in a single stroke.
+# Q-1048 (FV2-G2 D1027, 2026-11-14): 17 -> 22. Read with printf's format REUSE, tr12_mint_state_gate.sh:198-199
+# prints DIFFDIR GOTDIR RAWDIR NPASS NROWS too; both lines write a generated SOURCE file inside a redirected
+# `{ ... }` group (its own comment says "generated SOURCE, not tokens"), which this census does not follow, so
+# they are pinned here as the 17 were rather than documented.
 PIN_SH_LEXONLY = frozenset("""
+DIFFDIR GOTDIR NPASS NROWS RAWDIR
 CHUNKED_ATLAS_EQ_WHOLE FAILOPEN_CLOSURE_ALLOWED FAILOPEN_CLOSURE_OPEN FAILOPEN_CLOSURE_RC0
 FAILOPEN_CLOSURE_SELFTEST FAILOPEN_CLOSURE_TIMEOUT FAILOPEN_CLOSURE_UNRUN L2A L2B LADDER_IDENTITY
 MINT_MISSING NFAIL SCAN_OK SELFTEST_EXPECTED_EQ_ACTUAL TR12_SKIP_PIN_SELFTEST
@@ -1380,9 +1411,17 @@ for f in sorted(glob.glob("scripts/*.sh")):
             continue        # written into a FILE (a fixture, a generated script), not emitted
         _a = [x.value for x in _w[1:]]
         if _w[0].value == "echo":
+            # Q-1048 (FV2-G2 D1026; Codex F05-003#10): `echo -e` INTERPRETS escapes, so `echo -e "A=1\nB=2"` prints
+            # two lines; the last of -e/-E decides, as in bash. \n, \t and \\ are decoded before the split.
+            _esc = False
             while _a and re.fullmatch(r"-[neE]+", _a[0]):
+                for _c in _a[0][1:]:
+                    _esc = True if _c == "e" else (False if _c == "E" else _esc)
                 _a = _a[1:]
-            _outs = " ".join(_a).split("\n")
+            _txt = " ".join(_a)
+            if _esc:
+                _txt = re.sub(r"\\(\\|n|t)", lambda m: {"\\": "\\", "n": "\n", "t": "\t"}[m.group(1)], _txt)
+            _outs = _txt.split("\n")
         else:
             if not _a or _a[0] == "-v":
                 continue
@@ -1390,9 +1429,13 @@ for f in sorted(glob.glob("scripts/*.sh")):
                 _a = _a[1:]
             _fmt, _rest = (_a[0], _a[1:]) if _a else ("", [])
             _fmt = _fmt.replace("\\n", "\n").replace("%%", "\x00")
-            _fmt = re.sub(r"%[-#0 +]*[0-9]*(?:\.[0-9]+)?[sdiuxXfgeqb]",
-                          lambda m: _rest.pop(0) if _rest else "", _fmt)
-            _outs = _fmt.replace("\x00", "%").split("\n")
+            # Q-1048 (FV2-G2 D1027; Codex F05-003#9): printf REUSES its format while arguments remain
+            # (`printf '%s=PASS\n' A B` prints two lines), so the format is applied again to the rest.
+            _SPEC = r"%[-#0 +]*[0-9]*(?:\.[0-9]+)?[sdiuxXfgeqb]"
+            _parts = [re.sub(_SPEC, lambda m: _rest.pop(0) if _rest else "", _fmt)]
+            while _rest and re.search(_SPEC, _fmt) and len(_parts) < 64:
+                _parts.append(re.sub(_SPEC, lambda m: _rest.pop(0) if _rest else "", _fmt))
+            _outs = "".join(_parts).replace("\x00", "%").split("\n")
         for _o in _outs:
             _m = re.match(r"([A-Z][A-Z0-9_]{2,})=(.*)$", _o)
             if not _m or ";" in _m.group(2) or _m.group(2)[:1] in ('"', "'"):
@@ -1427,6 +1470,11 @@ PY_SCALAR_METHODS = frozenset(
     "rfind count index splitlines zfill rjust ljust title strftime bit_length to_bytes digest "
     "getvalue".split())
 PY_PASSTHRU_CALLS = frozenset("list tuple sorted set frozenset reversed copy deepcopy".split())
+# Q-1048 (FV2-G2 D1029; Codex F05-003#13): max/min over ONE iterable return an ELEMENT of it (`max(rows,
+# key=len)` is a dict), and sum with a container start returns a concatenation, so those calls pass their
+# arguments through; max/min over two or more scalars (`min(total, cap)`) stay scalar. Measured on eb285740:
+# reading every max/min as passthrough added one unresolvable parameter site and broke the pinned ceiling.
+PY_ITER_PICK = frozenset("max min".split())
 PY_ARITH = (ast.Sub, ast.Mult, ast.Div, ast.FloorDiv, ast.Mod, ast.Pow, ast.LShift, ast.RShift,
             ast.BitAnd, ast.BitXor, ast.MatMult)
 PY_SCALARISH = (ast.Constant, ast.Compare, ast.UnaryOp, ast.JoinedStr, ast.Lambda)
@@ -1599,7 +1647,12 @@ def py_extract(text, fname):
         if isinstance(node, ast.Starred):
             obj(node.value, d); return
         if isinstance(node, ast.BinOp):
-            if isinstance(node.op, (ast.BitOr, ast.Add)):
+            # Q-1048 (FV2-G2 D1030; Codex F05-003#12): `[{"k": 1}] * 3` repeats a CONTAINER; its elements are the
+            # payload. A Mult with a container-literal operand resolves that operand.
+            _CT = (ast.List, ast.Tuple, ast.ListComp, ast.Set, ast.SetComp, ast.Dict, ast.DictComp)
+            if isinstance(node.op, ast.Mult) and (isinstance(node.left, _CT) or isinstance(node.right, _CT)):
+                obj(node.left if isinstance(node.left, _CT) else node.right, d)
+            elif isinstance(node.op, (ast.BitOr, ast.Add)):
                 obj(node.left, d); obj(node.right, d)
             elif not isinstance(node.op, PY_ARITH):
                 blind(node, "unhandled", "binary operator %s" % type(node.op).__name__)
@@ -1660,7 +1713,8 @@ def py_extract(text, fname):
                 for a in node.args:
                     obj(a, d)
                 return
-            if fn in PY_PASSTHRU_CALLS:
+            if fn in PY_PASSTHRU_CALLS or (fn in PY_ITER_PICK and len(node.args) == 1) or (
+                    fn == "sum" and len(node.args) == 2 and isinstance(node.args[1], (ast.List, ast.Tuple))):
                 for a in node.args:
                     obj(a, d)
                 return
@@ -1698,6 +1752,11 @@ def py_extract(text, fname):
             jmods |= {a.asname or a.name for a in n.names if a.name == "json"}
         elif isinstance(n, ast.ImportFrom) and n.module == "json":
             jfuncs.update({a.asname or a.name: a.name for a in n.names if a.name in ("dump", "dumps")})
+    # Q-1048 (FV2-G2 D1031; Codex F05-003#14): an ASSIGNMENT alias (`emit = json.dumps`) is the same function.
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Assign) and isinstance(n.value, ast.Attribute) and n.value.attr in ("dump", "dumps") \
+                and isinstance(n.value.value, ast.Name) and n.value.value.id in jmods:
+            jfuncs.update({t.id: n.value.attr for t in n.targets if isinstance(t, ast.Name)})
     dumps = sorted((n for n in ast.walk(tree)
                     if isinstance(n, ast.Call) and (
                         (isinstance(n.func, ast.Attribute) and n.func.attr in ("dump", "dumps")
@@ -2044,8 +2103,11 @@ ESPY
     echo "DOC_GATE_EMITTED_SURFACE=FAIL"
     return 1
   fi
+  # Q-1048 (FV2-G2 D1033; Codex F06-012#11): not every [OPEN] row is a defect -- the TR12_A rows are a deliberate
+  # fixture exemption (tr12_repro_gate.sh) -- so the summary says ADJUDICATED, and each row prints its reason.
   echo "  [ok] GATE 89: no NEWLY undocumented emitted name. The $po + $pyo [OPEN] row(s) above are"
-  echo "       real defects that do NOT set this exit code — green means no NEW one, not none."
+  echo "       adjudicated open (a defect, or the stated fixture exemption: see each row's reason); they do NOT"
+  echo "       set this exit code — green means no NEW one, not none."
   echo "DOC_GATE_EMITTED_SURFACE=OK"
   return 0
 }
@@ -2189,6 +2251,9 @@ except OSError as e:
 # macro or a wrapper, none of which a call pattern can follow. The literal set is the UPPER BOUND, and
 # it is the set that must be documented. Measured 2026-10-03: the two sets are equal today (133).
 # NOT SEEN, stated: a name assembled at run time ("SOLVE_" "KC" or snprintf) is invisible to both.
+# Q-1048 (FV2-G2 D1034; Codex F05-003#21): backslash-newline is spliced first, as the C preprocessor does, so a
+# name literal (or a getenv call) split across a splice is read whole.
+src = re.sub(r'\\\n', '', src)
 code = sp_strip_comments(src, 'c')
 calls = set(re.findall(r'\b(?:secure_)?getenv\s*\(\s*"(SOLVE_[A-Z0-9_]+)"\s*\)', code))
 names = sorted(calls | set(re.findall(r'"(SOLVE_[A-Z0-9_]+)"', code)))
@@ -2383,7 +2448,30 @@ def check(src):
         _tk = sp_sh_lex(arm)
     except SpError as e:
         raise SystemExit("  [FAIL] LEG 4: could not lex the `all` arm (%s)" % e)
+    # Q-1048 (FV2-G2 D1035, D1036; Codex F05-003#2, F05-003#3): a HARD call is an UNCONDITIONAL command of the
+    # arm's own shell. `( gate_x || RC=1 )` sets RC in a subshell the aggregate never sees, and a guard
+    # (`false && gate_x || RC=1`, an if/while condition) can skip the gate at run time while the call still
+    # lexes as present. A gate_* call inside ( ), after && or ||, or anywhere in an if/while/until block is
+    # reported.
+    _depth, _cond = 0, 0
     for _i, (_k, _v, _ln) in enumerate(_tk):
+        if _k == 'op' and _v == '(':
+            _depth += 1
+        elif _k == 'op' and _v == ')':
+            _depth = max(0, _depth - 1)
+        if _k == 'word' and not _v.quoted and _v.value in ('if', 'while', 'until') and (
+                not _i or _tk[_i - 1][0] in ('op', 'nl')):
+            _cond += 1                    # an if/while/until block, condition AND body, runs conditionally
+        elif _k == 'word' and not _v.quoted and _v.value in ('fi', 'done') and _cond and (
+                not _i or _tk[_i - 1][0] in ('op', 'nl')):
+            _cond -= 1
+        _kw = _i and _tk[_i - 1][0] == 'word' and not _tk[_i - 1][1].quoted and _tk[_i - 1][1].value in (
+            'then', 'do', 'else', 'elif', 'if', 'while', 'until', '!', '{')   # a reserved word starts a command too
+        if _k == 'word' and not _v.quoted and _v.value.startswith('gate_') and _i and (_tk[_i - 1][0] in ('op', 'nl') or _kw) \
+                and (_depth or _cond or _kw or _tk[_i - 1][1] in ('&&', '||')):
+            bad.append("`all` calls %s %s, so it can be skipped or its failure cannot reach the aggregate verdict"
+                       % (_v.value, "inside a subshell" if _depth else "under a condition"))
+            continue
         if _k == 'word' and not _v.quoted and _v.value.startswith('gate_') and _i and _tk[_i - 1][0] in ('op', 'nl') \
                 and _tk[_i - 1][1] not in ('||', '&&', '|'):
             _nx = _tk[_i + 1:_i + 3]
@@ -2546,11 +2634,18 @@ try:
 except (OSError, SpError) as e:
     print("ERROR\t%s" % e); sys.exit(0)
 SAMPLES = '"q0"\n"q12": 3\n{"q31": 7, "q2": 1}\n'
+# Q-1048 (FV2-G2 D1037; Codex F05-003#16): EVERY schema-valid cell key q0..q31, not four samples: an
+# extractor aimed at `"q4"` matched none of the four and passed.
+SAMPLES += "".join('"q%d": %d\n' % (k, k) for k in range(32))
 # A pattern that ALSO extracts a raw cell or an ordinary key is a generic key reader, not a quotient
 # reader (`grep -o '^[[:space:]]*"[A-Za-z0-9_]*":' "$cert"` lists a certificate's keys); only a
 # pattern that extracts quotient cells and nothing of these is a HIT. Generic readers are out of scope.
 GENERIC = '"pair12": 3\n"flow": 1\n{"pair3": 7, "by_class": 1}\n'
 VALUED = set("mABCfd")
+class _AttachedPat:
+    # the literal tail of `-ePATTERN`, shaped like a lexer word for the probe below
+    def __init__(self, t): self.value = self.raw = t; self.parts = [(t, "lit")]
+    def lit(self): return True
 n = nexp = 0
 for ln, w in cmds:
     tool = w[0].value.rsplit("/", 1)[-1]
@@ -2575,7 +2670,9 @@ for ln, w in cmds:
                 if c == "e" or c in VALUED:
                     tail = v[k + 2:]
                     if c == "e":
-                        pats.append(a[i + 1] if not tail and i + 1 < len(a) else None)
+                        # Q-1048 (FV2-G2 D1038; Codex F05-003#15): an ATTACHED pattern (`-e'"q[0-9]*"'`) is the
+                        # rest of this literal word; it was recorded as None and never probed.
+                        pats.append(a[i + 1] if not tail and i + 1 < len(a) else (_AttachedPat(tail) if tail else None))
                     i += 0 if tail else 1
                     break
         else:
@@ -2594,8 +2691,11 @@ for ln, w in cmds:
         pat = "".join(t if k == "lit" else "\x01\x02" for t, k in pw.parts)
         r = subprocess.run(["grep", mode, "-o", "--", pat], input=SAMPLES, capture_output=True, text=True)
         g = subprocess.run(["grep", mode, "-o", "--", pat], input=GENERIC, capture_output=True, text=True)
-        if r.returncode == 2:
-            print("HIT\t%d\tgrep cannot read this pattern, so what it extracts is unknown: %s" % (ln, pat))
+        # Q-1048 (FV2-G2 D1039; Codex F05-003#17): a probe that did not END (killed, failed to launch: any
+        # status but 0 hit / 1 no hit) measured nothing; it read as "no hit" and the extractor passed.
+        if r.returncode not in (0, 1) or g.returncode not in (0, 1):
+            print("HIT\t%d\tthe probe grep did not complete (rc %d / %d), so what this pattern extracts is unknown: %s"
+                  % (ln, r.returncode, g.returncode, pat))
         elif r.returncode == 0 and re.search(r'"q[0-9]+"', r.stdout) and g.returncode != 0:
             print("HIT\t%d\t%s" % (ln, " ".join(x.raw for x in w)[:160]))
 print("POP\t%d\t%d" % (n, nexp))
@@ -2915,12 +3015,21 @@ def _cap_ok(cond):
     e = re.sub(r"\b\w+\s*\[\s*\w+\s*\]\s*\.\s*n\b", " n ", cond)
     if not re.fullmatch(r"(?:\s+|\bcap\b|\bn\b|\d+|&&|\|\||!=|==|<=|>=|<|>|!|\(|\))*", e):
         return False
+    # Q-1048 (FV2-G2 D1040; Codex F05-003#18): Python and C disagree on a CHAINED comparison (`0 < cap < n` is
+    # `0<cap and cap<n` in Python, `(0<cap) < n` in C) and on `!`'s precedence over a comparison; a condition
+    # in either shape is not judged (not cap-aware) rather than judged with the wrong semantics.
+    _CMP = r"(?:<=|>=|==|!=|<|>)"
+    if re.search(r"%s\s*(?:\bcap\b|\bn\b|\d+)\s*%s" % (_CMP, _CMP), e) or re.search(r"!(?![=(])", e):
+        return False
     e = e.replace("&&", " and ").replace("||", " or ")
     e = re.sub(r"!(?!=)", " not ", e)
     try:
         f = lambda c, x: bool(eval(e, {"__builtins__": {}}, {"cap": c, "n": x}))
+        # Q-1048 (FV2-G2 D1041; Codex F05-003#19): judged on EVERY real row size too, not four probes:
+        # `n == cap + 1` passed the probes and kept every larger table row.
         return (f(mem_cap, mem_cap + 1) and not f(mem_cap, mem_cap) and not f(mem_cap, 1)
-                and not f(0, mem_cap + 1))
+                and not f(0, mem_cap + 1)
+                and all(f(mem_cap, x) == (x > mem_cap) and not f(0, x) for x in code_domain))
     except Exception:
         return False
 _caps = [mc.group(1) for mc in re.finditer(r"\bif\s*\(((?:[^();{}]|\([^();{}]*\))*\bcap\b(?:[^();{}]|\([^();{}]*\))*)\)\s*(?:\{\s*)?(?:continue|break|return)\b", body)]

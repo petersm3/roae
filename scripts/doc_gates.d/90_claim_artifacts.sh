@@ -142,6 +142,21 @@ if vsrc is not None:
         if not vmap:
             print("ERROR\tverify_all.sh's CERTS map parsed to 0 keys - LEG 1's map check checked NOTHING")
             vmap = None
+        # Q-1048 (FV2-G2 D1057; Codex F05-007#7): THE LITERAL IS THE MAP ONLY IF NOTHING LATER WRITES IT. An
+        # `unset 'CERTS[x]'`, `CERTS[x]=...`, `CERTS+=(...)` or a second `CERTS=(...)` after the literal
+        # changes the keys verify_all.sh iterates while this leg still attested the literal's. Any such write
+        # outside the literal (comment lines skipped) is an ERROR: the map this leg read is not the map that runs.
+        _cw = re.compile(r'(?<![\w$\{!#])CERTS(?:\[[^\]\n]*\])?\+?=|\bunset\b[^\n;|&]*\bCERTS\b'
+                         r'|\b(?:declare|typeset|local|readonly|mapfile|readarray|read)\b[^\n;|&]*\bCERTS\b')
+        _rest = vsrc[:blocks[0].start()] + "\n" * vsrc[blocks[0].start():_end].count("\n") + vsrc[_end:] \
+            if len(blocks) == 1 and vmap is not None else ""
+        for _ln, _l in enumerate(_rest.split("\n"), 1):
+            if _l.lstrip().startswith("#"):
+                continue
+            if _cw.search(_l):
+                print("ERROR\tverify_all.sh:%d writes CERTS outside its literal (%s) - LEG 1's map is not the map that"
+                      " runs" % (_ln, _l.strip()[:80]))
+                vmap = None
 if arch is not None and vmap is not None:
     ex_meta = 0
     for n in sorted(named):
@@ -182,7 +197,9 @@ _CL4 = re.compile(r'[;.!?](?:\s|$)|\s\|\s|\s[\u2014\u2013]\s|\s--?\s'   # Q-966:
                   # Q-980 (batch 44; Codex gpt-6-astra Q964-D06#2): and a comma that opens a contrasting or
                   # coordinate clause -- "grand-ccn4 is the five-rule theorem, whereas grander-strict is the
                   # four-rule theorem." was one clause naming both, so neither swapped label was judged.
-                  r'|,\s+(?=(?:whereas|while|but|and|or|so|yet|although|though)\b)|\bwhereas\b', re.I)
+                  r'|,\s+(?=(?:whereas|while|but|and|or|so|yet|although|though)\b)|\bwhereas\b'
+                  # Q-1048 (FV2-G2 D1059; Codex F05-007#8): a bare ` while ` contrasts as ` whereas ` does.
+                  r'|\bwhile\b', re.I)
 W4 = re.compile(r'\bfour\b', re.I)
 W5 = re.compile(r'\bfive\b', re.I)
 popb = exb = exl = 0
@@ -236,6 +253,17 @@ if popb < fb:
 # are excluded by SHAPE, declared and counted, rather than by shrinking the scope until
 # the real defect disappears with the false ones.
 EV  = re.compile(r'([A-Za-z0-9_]+\.out)\b')
+# Q-1115 (found 2026-11-10 by the Q-1049 lane): an evidence file in a SUBDIRECTORY of reports/evidence/ is
+# named by its path, and the leg read only the basename after the last `/` (and `[A-Za-z0-9_]` stopped at a
+# hyphen), then looked for reports/evidence/<basename>, which does not exist. The whole path token is read
+# now: `reports/...` is taken from the repo root, `<dir>/<file>.out` from reports/evidence/, a bare name as before.
+EV  = re.compile(r'(?<![\w./-])((?:[\w.-]+/)*[\w-][\w.-]*\.out)\b(?![\w/-])')
+def ev_path(n, f):
+    # repo-root `reports/...`; else relative to the citing document (`evidence/x.out` from reports/); else
+    # under reports/evidence/ (a bare name, or `<dir>/<file>.out`). The first that exists is the file.
+    cands = ([n] if n.startswith('reports/') else []) + [os.path.normpath(os.path.join(os.path.dirname(f), n)),
+                                                          'reports/evidence/' + n]
+    return next((c for c in cands if os.path.isfile(c)), cands[-1])
 SE  = re.compile(r'\bse=|standard error|\bSEs\b', re.I)
 # A sentence that says the file has NO SEs is disclosing the gap, not claiming it closed.
 # 🔴 TIGHTENED AFTER A MEASURED NO-OP. This first read `\bno\b|carry|carries|predates?|...`,
@@ -244,13 +272,13 @@ SE  = re.compile(r'\bse=|standard error|\bSEs\b', re.I)
 # would have gone green on its own red test. The negation must attach to the SE claim.
 NEG = re.compile(r'no `?se=|carr(?:y|ies|ied) no|contains? no|zero `?se=|does not carry'
                  r'|predates?\b|no standard error|without `?se=|no PUBLISHED artifact', re.I)
-REV = re.compile(r'^\s*\|\s*\*{0,2}(?:v\d+(?:\.\d+)*|\d+(?:\.\d+)+)(?![\w.])[^|]*\|\s*20\d\d-\d\d-\d\d\s*\|')   # Q-980 (D03#4 sibling): a VERSION cell, not `11.2T`
+REV = re.compile(r'^\s*\|\s*\*{0,2}(?:v\d+(?:\.\d+)*|\d+(?:\.\d+)+)\*{0,2}(?:-draft)?\s*(?:\*\(current\)\*)?\s*\|\s*20\d\d-\d\d-\d\d\s*\|')   # Q-980 (D03#4 sibling): a VERSION cell, not `11.2T`; Q-1048 (FV2-G2 D1060): the WHOLE cell
 RELSE = wm_re(r'relative\s+standard\s+errors?|relerr')   # Q-966: the claim a `relerr=` field backs
 popc = exc = exr = 0
 _seen = {}
-def has_se(n):
+def has_se(p):
+    n = p
     if n not in _seen:
-        p = 'reports/evidence/' + n
         try:
             # Q-966 (A09#4): `se=` as an exact token (shared matcher): `base=123` carries no SE. That
             # bound also ends a false CLEAR the substring gave on the real tree: knuth_whole_tree_5e10.out
@@ -280,7 +308,7 @@ for f in corpus():
             exc += 1
             continue
         for n in sorted(names):
-            r = has_se(n)
+            r = has_se(ev_path(n, f))
             if r is None:
                 print("HIT3\t%s:%d\t%s\tclaims standard errors for an evidence file that does not exist" % (f, i, n))
             # Q-978 (batch 43; Codex gpt-6-astra Q964-D06#3): the relative-error wording must be
@@ -314,7 +342,11 @@ def row_unit(lines, i, col_text):
     # Q-980 (batch 44; Codex gpt-6-astra Q964-D06#4): a sibling is a LABEL only if it states no quantity of
     # its own -- `| canonical 26,112 | orientation-explicit 27,000 |` borrowed the other count's convention.
     short = [c for j, c in enumerate(row) if j != k and len(re.sub(r'[*_`]', '', c).split()) <= 3
-             and not re.search(r'\d{1,3}(?:,\d{3})+|\d{3,}', c)]
+             and not re.search(r'\d{1,3}(?:,\d{3})+|\d{3,}', c)
+             # Q-1048 (FV2-G2 D1061; Codex F05-007#10): any standalone number is a quantity, however short:
+             # `| canonical 26 | orientation-explicit 27 |` lent the other count's convention. A digit inside a
+             # word (C1, d3, 10T) is a name, not a quantity, and keeps the cell a label.
+             and not re.search(r'(?<![\w.,])\d+(?:[.,]\d+)*(?![\w.,])', re.sub(r'[*_`]', '', c))]
     return ' | '.join([row[k], hdr] + short)
 popd = 0
 for f in corpus():
@@ -427,7 +459,15 @@ for f in corpus():
         # the MI by the complete square, when one sentence does; a neighbouring sentence of the same
         # paragraph ("The static statistic is also reported.") qualified nothing. A paragraph whose MI
         # and square sit in different sentences keeps the paragraph test.
-        _ss = [s for s in re.split(r'(?<=[.!?])\s+(?=[A-Z(\[`*"])', l) if MI.search(s) and LSQ.search(s)]
+        # Q-1048 (FV2-G2 D1062; Codex F05-007#11): a sentence starting with a lowercase WORD or a digit is a
+        # sentence too ("... complete square. the static ..." was one sentence and lent "static"). A lowercase
+        # start that is a path or identifier (`example/report.txt`, `solve.py`, whose backticks md_inline has
+        # dropped) is not taken as a boundary, and abbreviations (e.g., i.e., cf., vs., Fig.) never are.
+        # Measured on eb285740: the bare-lowercase split put a CORRECTIONS.md ledger narration in a
+        # sentence of its own; with paths excluded the real tree is unchanged.
+        _ss = [s for s in re.split(r'(?<!\be\.g\.)(?<!\bi\.e\.)(?<!\bcf\.)(?<!\bvs\.)(?<!\bFig\.)(?<=[.!?])\s+'
+                                   r'(?=[A-Z0-9(\[`*"]|[a-z]+[\s,;:](?![\w.]*[/.]\w))', l)
+               if MI.search(s) and LSQ.search(s)]
         if (all(STATIC.search(s) for s in _ss) if _ss else STATIC.search(l)):
             continue
         print("HIT\t%s\t%d\t%s" % (f, md_lno(u, mi.start()), l[:150]))
@@ -601,7 +641,7 @@ WM_MARK = wm_re(r'illustrative|not\s+reproducible|NOT\s+measured|no\s+measuremen
 # to catch, silently. The narration marker has to be about THIS band's status, not about
 # the paragraph having a correction somewhere in it.
 NARR = re.compile(r'published as measured|was published as|BEFORE\.|Registered as RP-', re.I)
-REV  = re.compile(r'^\s*\|\s*\*{0,2}(?:v\d+(?:\.\d+)*|\d+(?:\.\d+)+)(?![\w.])[^|]*\|\s*20\d\d-\d\d-\d\d\s*\|')   # Q-980 (D03#4 sibling): a VERSION cell, not `11.2T`
+REV  = re.compile(r'^\s*\|\s*\*{0,2}(?:v\d+(?:\.\d+)*|\d+(?:\.\d+)+)\*{0,2}(?:-draft)?\s*(?:\*\(current\)\*)?\s*\|\s*20\d\d-\d\d-\d\d\s*\|')   # Q-980 (D03#4 sibling): a VERSION cell, not `11.2T`; Q-1048 (FV2-G2 D1060): the WHOLE cell
 # 🔴 CONTIGUOUS-BLOCK SCOPE, AND A LINE-SCOPE DRAFT WAS MEASURED FAILING BOTH ITS OWN
 # SITES. The marker sits on the NEXT physical line at both places it matters:
 # TR-4:174 ends "…reported roughly ×15–17 per boundary — but ⚠ **that" and :175 opens
@@ -710,7 +750,7 @@ def ints(line):
             yield n
 # A row whose value is computed FROM another row is not an independent calibration anchor.
 DERIV = re.compile(r'=\s*N\s*/\s*24|/24 of the|derived from|of the two-instrument count above', re.I)
-REV   = re.compile(r'^\s*\|\s*\*{0,2}(?:v\d+(?:\.\d+)*|\d+(?:\.\d+)+)(?![\w.])[^|]*\|\s*20\d\d-\d\d-\d\d\s*\|')   # Q-980 (D03#4 sibling): a VERSION cell, not `11.2T`
+REV   = re.compile(r'^\s*\|\s*\*{0,2}(?:v\d+(?:\.\d+)*|\d+(?:\.\d+)+)\*{0,2}(?:-draft)?\s*(?:\*\(current\)\*)?\s*\|\s*20\d\d-\d\d-\d\d\s*\|')   # Q-980 (D03#4 sibling): a VERSION cell, not `11.2T`; Q-1048 (FV2-G2 D1060): the WHOLE cell
 m_txt = read('reports/METHODS.md')
 t_txt = read('reports/TR4_SIZE_OF_THE_SPACE.md')
 if m_txt is None or t_txt is None:
@@ -1233,7 +1273,13 @@ WIN=170   # chars of preceding flattened text an allow-row anchor must fall in (
 def fold(s):
     p = subprocess.run(["bash","-c",'source /dev/stdin <<<"$(sed -n "/^fold_variants() {/,/^}/p" scripts/doc_gates.sh)"; fold_variants'],
                        input=s, capture_output=True, text=True)
-    return " ".join(p.stdout.split())
+    # Q-1048 (FV2-G2 D1056; Codex F05-007#12): a failed normalisation is an ERROR, never a needle. Its empty
+    # stdout was returned as the folded text, and an empty needle is skipped (phrase unchecked) by the
+    # registry loop and matches everywhere as an anchor.
+    out = " ".join(p.stdout.split())
+    if p.returncode != 0 or (s.strip() and not out):
+        print("ERROR\tfold_variants failed (rc %d) on %r - GATE 47 checked NOTHING" % (p.returncode, s[:60])); sys.exit(0)
+    return out
 rows=[]
 for l in io.open(reg, encoding="utf-8"):
     # Q-761: reg_row_kind's rule — a needle starting '#7' is a row, not a comment.
@@ -1378,8 +1424,14 @@ SHAEV=wm_hex_re(8, 64)
 # Q-981 (batch 44; Codex gpt-6-astra Q964-D06#9): a token in SCIENTIFIC shape (digits, `e`, digits) is a
 # number, not a sha: "a budget of `1000000e3` nodes" was sha evidence because its `e` is a hex letter.
 _SCI = re.compile(r'\d+(?:\.\d+)?[eE]\d+')
+# Q-1048 (FV2-G2 D1058; Codex F05-007#13): with an exponent SIGN too (`1000000e+3`), and by SPAN: the hex
+# token `1000000e` stopped at the `+`, was no full scientific match, and so read as a sha prefix. A hex token
+# that lies inside a scientific-notation span is part of a number.
+_SCIS = re.compile(r'\d+(?:\.\d+)?[eE][-+]?\d+')
 def shaev(s):
-    return any(not _SCI.fullmatch(m.group(0)) for m in SHAEV.finditer(s))
+    sci = [m.span() for m in _SCIS.finditer(s)]
+    return any(not _SCI.fullmatch(m.group(0)) and not any(a <= m.start() and m.end() <= b for a, b in sci)
+               for m in SHAEV.finditer(s))
 n=0
 for f in files:
     try: t=io.open(f,encoding="utf-8").read()

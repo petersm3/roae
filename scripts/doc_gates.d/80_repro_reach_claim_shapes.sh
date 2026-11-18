@@ -101,8 +101,14 @@ NARRATION_AT = {
 # to its whole document. --orbit-selftest is waived "inside a block that first checks out the tag"; keyed
 # on the document alone, "Run `solve --orbit-selftest` on main ..." anywhere in BRANCHES_EXPLAINED.md was
 # waived too. NARRATION_BLOCK[row] must match a line of the citation's OWN fenced block, above it.
+# Q-1048 (FV2-G2 D1045; Codex F05-004#1): the checkout must name a revision that CARRIES the flag -- one of
+# the three public tags the NARRATION row names -- and it must be the LAST checkout/switch above the
+# citation. `(?!main)\S+` accepted `git checkout HEAD` (or any tag without the flag), and a later
+# `git checkout main` above the citation did not undo the waiver.
+_ORBIT_TAGS = r'(?:v4-repr-fc-legc-20260813|archive/orbit-port-188-candidate-20260824|archive/v4-canonical-20260824)'
+_CHECKOUT = re.compile(r'^\s*git\s+(?:checkout|switch)\b')
 NARRATION_BLOCK = {
-    ("solve", "--orbit-selftest"): re.compile(r'^\s*git\s+(?:checkout|switch)\s+(?:--detach\s+)?(?!main\b|-)\S+'),
+    ("solve", "--orbit-selftest"): re.compile(r'^\s*git\s+(?:checkout|switch)\s+(?:--detach\s+)?' + _ORBIT_TAGS + r'(?:\s|$)'),
 }
 def _fence_open(lines, i):
     """The index of the fence line that opens the block holding lines[i], or None: the shared
@@ -114,7 +120,10 @@ def _block_waives(key, lines, i):
     if rx is None:
         return True
     o = _fence_open(lines, i)
-    return o is not None and any(rx.match(lines[x]) for x in range(o + 1, i))
+    if o is None:
+        return False
+    co = [x for x in range(o + 1, i) if _CHECKOUT.match(lines[x])]
+    return bool(co) and bool(rx.match(lines[co[-1]]))
 if set(NARRATION) - set(NARRATION_AT):
     for _k in sorted(set(NARRATION) - set(NARRATION_AT)):
         print("  [FAIL] NARRATION row %s %s has no NARRATION_AT entry; bind it to the documents that"
@@ -885,7 +894,9 @@ for f in files:
             # figure ("There are `3.3e37` canonical orderings.") is a claim set in code font, not a
             # transcript, and it passed; it is now judged like the bare figure.
             # Q-981 (Q964-D05#7): a SIGN is part of the figure -- `+3.3e37` alone in a span is the figure.
-            if any(a<=m.start() and m.end()<=b and not re.fullmatch(r"[~≈]?\s*[-+−]?\s*"+re.escape(m.group(0)), line[a:b].strip("`").strip()) for a,b in spans):
+            # Q-1048 (FV2-G2 D1055; Codex F05-004#3): the figure in brackets or parentheses (`(3.3e37)`,
+            # `[~3.3e37]`) is still the figure alone, not quoted output.
+            if any(a<=m.start() and m.end()<=b and not re.fullmatch(r"[(\[]?\s*[~≈]?\s*[-+−]?\s*"+re.escape(m.group(0))+r"\s*[)\]]?", line[a:b].strip("`").strip()) for a,b in spans):
                 sci_span+=1; continue
             if any(m.group(0) in e for e in anc): continue
             n+=1
@@ -1070,6 +1081,14 @@ for f in files:
     # rc=0 while the same row in a marker-free block failed rc=1. So: table rows (lines that
     # begin with "|") are judged PER ROW; everything else keeps the paragraph window. The [ok]
     # sentence below states exactly that split, so the guarantee and the scan agree.
+    # Q-1048 (FV2-G2 D1046; Codex F06-003#1): THE PROSE WINDOW IS A UNIT OF THE SHARED NORMALISER (md_units: a
+    # wrapped paragraph, ONE list item, one heading), not the blank-line block. "- 3.3e37 ..." followed by
+    # "- corrected 2026-08-28" in the same list was one window, so a marker in the neighbouring item exempted
+    # the unmarked figure. Wrapped prose stays one unit, which is what the window was for.
+    _uid = {}
+    for _n, _u in enumerate(md_units("\n".join(lines))):
+        if _u["kind"] in ("para", "heading"):
+            for _x in range(_u["start"], _u["end"] + 1): _uid[_x] = _n
     for blk,bs in zip(para,start):
         blines=blk.split("\n")
         isrow=lambda j: KIND[bs-1+j] in ("thead","tdelim","trow")
@@ -1098,10 +1117,13 @@ for f in files:
                     print("HIT\t%s\t%d\t%s\t%s"%(f,bs+j,fig,l.strip()[:120])); n+=1; hit=True; break
             if hit: break
         if hit: continue
-        ptext=" ".join(l for j,l in prose)
-        if not prose or wm_has(ptext,MARK): continue
-        anc=anchored(f,"\n".join(blines[j] for j,l in prose))
-        for fig,why in figs:
+        _groups={}
+        for j,l in prose: _groups.setdefault(_uid.get(bs+j,-1),[]).append((j,l))
+        for prose in _groups.values():
+          ptext=" ".join(l for j,l in prose)
+          if not prose or wm_has(ptext,MARK): continue
+          anc=anchored(f,"\n".join(blines[j] for j,l in prose))
+          for fig,why in figs:
             if bare(fig,ptext,anc):
                 off=next((j for j,l in prose if fig in l),None)
                 if off is None:   # the figure spans a wrap: name the line it starts on
@@ -1262,6 +1284,12 @@ for f in files:
     except OSError as e:
         print("ERROR\t%s could not be read (%s), so it was NOT scanned (Q-963)" % (f, e)); raise SystemExit(0)
     for i, l in enumerate(lines):
+        # Q-1048 (FV2-G2 D1047; Codex F05-004#4): a backslash-continued command is ONE command line:
+        # `sha256sum \` + `--check SHA256SUMS` is a recipe. The continuation is joined before the test.
+        k = i
+        while l.rstrip().endswith("\\") and k + 1 < len(lines):
+            k += 1
+            l = l.rstrip()[:-1] + " " + lines[k]
         if not (RECIPE.search(l) or _is_recipe(l)):
             continue
         pop += 1
@@ -1488,6 +1516,8 @@ def read(f):
         print("ERROR\t%s is unreadable (%s) - it was NOT checked" % (f, e.strerror))
         return None
 _UNIT = re.compile(r'^\s*(?:[-*+]\s|\d+[.)]\s|#{1,6}\s|\|)')
+# Q-1048 (FV2-G2 D1048; Codex F05-004#5): inside a block quote too -- `> - bullet` starts a unit.
+_UNIT = re.compile(r'^\s*(?:>\s*)*(?:[-*+]\s|\d+[.)]\s|#{1,6}\s|\|)')
 def flatten(t):
     # Q-967 (Q-835 A08#14): a line break that ends a SCOPE UNIT is kept as "\n" (one character, so
     # every offset is unchanged): a blank line, a list item, a heading or a table row starts a new
@@ -1684,7 +1714,8 @@ LIST = re.compile(r'((?:\d+\.\d\d,\s*){4,}\d+\.\d\d)')
 DIV  = re.compile(r'(\d+\.\d+)\s+is the divisor')
 # The claim shape leg 2 hunts, and its three discriminators.
 # Q-980 (batch 44, the D05#12 sibling): a sentence-initial "The first ... is the maximum" is the same claim.
-MAXC = re.compile(r'maximum[^.]{0,80}?(?:single-boundary|per-boundary)[^.]{0,60}?gain'
+# Q-1048 (FV2-G2 D1050; Codex F05-004#6): `[Mm]aximum` -- a sentence may begin with the word.
+MAXC = re.compile(r'[Mm]aximum[^.]{0,80}?(?:single-boundary|per-boundary)[^.]{0,60}?gain'
                   r'|[Tt]he (?:first|k = 1|step 1)[^.]{0,60}?(?:being |is )?the maximum')
 FIRST = re.compile(r'\bfirst\b|\bgreedy\b|k *= *1|step 1|10\.38')
 # The maximum a floor argument actually needs: quantified over CONTEXTS, not over the
@@ -1820,6 +1851,24 @@ ANCHORS = {1720320, 983040, 2703360}
 INT  = re.compile(r'\b\d{1,3}(?:,\d{3})+\b')
 # A product written as a factorization: 3·5·7·2^14, 48·48·64, 1024*1024.
 FACT = re.compile(r'(?<![\d.])(\d+(?:[·*]\d+)+(?:\^\d+)?)(?![\d.])')
+# Q-1048 (FV2-G2 D1051; Codex F05-004#7): A BRACKETED PRODUCT IS ONE PRODUCT. `((3·5·7)·2^15)` was read as
+# the factorization `3·5·7` alone (105), so the equation was never compared. A factor may now be a
+# bracketed group and carry its own exponent; the whole expression is evaluated, its unmatched outer
+# brackets trimmed, and either side of `=` may hold any number of brackets.
+FACT = re.compile(r'(?<![\d.^])((?:[(\[]\s*)*\d+(?:\^\d+)?(?:\s*[)\]](?:\^\d+)?)*'
+                  r'(?:\s*[·*]\s*(?:[(\[]\s*)*\d+(?:\^\d+)?(?:\s*[)\]](?:\^\d+)?)*)+)(?![\d.])')
+def _fact_eval(expr):
+    e = expr.replace('[', '(').replace(']', ')')
+    lead = 0
+    while e.count('(') > e.count(')') and e.startswith('('):
+        e = e[1:].lstrip(); lead += 1
+    while e.count(')') > e.count('(') and e.endswith(')'):
+        e = e[:-1].rstrip()
+    if e.count('(') != e.count(')') or not re.fullmatch(r'[\d\s()·*^]+', e) \
+            or any(int(x) > 512 for x in re.findall(r'\^(\d+)', e)) or '^(' in e:
+        raise ValueError(expr)
+    v = eval(e.replace('·', '*').replace('^', '**'), {'__builtins__': {}}, {})   # digits/brackets/*/** only
+    return int(v), e
 # A published sum. 🔴 NOT one regex spanning the '+': a single pattern with a slack gap
 # is GREEDY ON THE WRONG SIDE, measured on this gate's first run - at
 # documentation/SOLVE.md:682, "the pair-only-C4 fiber is 2,703,360 vectors (= 1,720,320
@@ -1851,14 +1900,9 @@ for f in corpus():
         stated = {int(x.replace(',', '')) for x in INT.findall(s)}
         if not (stated & ANCHORS):
             continue                      # not a fiber sentence; out of this gate's scope
-        v, expr = 1, m.group(1)
         try:
-            for part in expr.replace('*', '·').split('·'):
-                if '^' in part:
-                    b, e = part.split('^'); v *= int(b) ** int(e)
-                else:
-                    v *= int(part)
-        except ValueError:
+            v, expr = _fact_eval(m.group(1))
+        except (ValueError, SyntaxError, TypeError, OverflowError):
             continue
         nfact += 1
         # Q-967 (Q-835 A08#18): a factorization the sentence EQUATES to an integer is compared with
@@ -1871,8 +1915,8 @@ for f in corpus():
         lo, hi = m.start(), m.end()
         # Q-980 (batch 44; Codex gpt-6-astra Q964-D05#13): brackets around the factorization bind too --
         # "1,720,320 = (3·5·7·2^15), whereas 3,440,640 ..." fell back to the sentence-wide test.
-        eq = (re.search(r'(\d{1,3}(?:,\d{3})+)[*`\s]*=[*`\s]*[(\[]?[*`\s]*$', flat[max(0, lo - 40):lo])
-              or re.match(r'^[*`\s]*[)\]]?[*`\s]*=[*`\s]*[(\[]?[*`\s]*(\d{1,3}(?:,\d{3})+)', flat[hi:hi + 40]))
+        eq = (re.search(r'(\d{1,3}(?:,\d{3})+)[*`\s]*=[*`\s(\[]*$', flat[max(0, lo - 40):lo])
+              or re.match(r'^[*`\s)\]]*=[*`\s(\[]*(\d{1,3}(?:,\d{3})+)', flat[hi:hi + 40]))
         if eq and v != int(eq.group(1).replace(',', '')):
             print("FACT\t%s\t%d\t%s\t%d" % (f, lno(starts, m.start()), "%s (equated to %s)" % (expr, eq.group(1)), v))
         elif not eq and v not in stated:
@@ -2009,7 +2053,10 @@ WM_REPV = wm_re(r'called|labell?ed|described|written|worded|phrased|said|read|qu
 def narr_unq(s):
     for mu in WM_UNQ.finditer(s):
         head = s[:mu.start()]
-        if re.search(r'["\u201c\u201d]', head) or wm_has(head, WM_REPV):
+        # Q-1048 (FV2-G2 D1052; Codex F05-004#8): a quotation mark ANYWHERE before "unqualified" is not
+        # narration (`The "d3" result is the strongest discriminator, unqualified.`); a reporting verb is.
+        # A superlative inside the quotation is quoted() above.
+        if wm_has(head, WM_REPV):
             return True
     return False
 pop = wrapped = 0
@@ -2093,8 +2140,10 @@ floor = int(sys.argv[1])
 N = MD_NUM
 R = r'(?![\d,.]?\d)(?!\^|[⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺])'
 # Shape A: "6.52 / 3.2258 = **×2.02**"     Shape B: "**×2.02 …** (6.52 / 3.2258)"
-A = re.compile(r'(%s)\s*/\s*(%s)\s*=\s*\**[×x](%s)%s' % (N, N, MD_MAG, R))
-B = re.compile(r'[×x](%s)%s\**[^()]{0,120}?\((%s)\s*/\s*(%s)\)' % (MD_MAG, R, N, N))
+# Q-1048 (FV2-G2 D1053; Codex F05-004#9): the printed RATIO is signed too: `6.52 / 0 = ×+2.02` matched neither
+# shape, so its zero denominator escaped.
+A = re.compile(r'(%s)\s*/\s*(%s)\s*=\s*\**[×x]((?:[-+−])?%s)%s' % (N, N, MD_MAG, R))
+B = re.compile(r'[×x]((?:[-+−])?%s)%s\**[^()]{0,120}?\((%s)\s*/\s*(%s)\)' % (MD_MAG, R, N, N))
 found = []
 for f in corpus():
     t = read(f)
@@ -2453,7 +2502,9 @@ for f in corpus():
     if buf:
         units.append((start, buf))
     for start, buf in units:
-        text = " ".join(buf)
+        # Q-1048 (FV2-G2 D1054; Codex F05-004#10): the unit is read as a reader sees it (md_inline): an
+        # emphasised `±**0.03** bits` is a band.
+        text = " ".join(md_inline(x) for x in buf)
         # the confidence LEVEL is not a relative error; mask 90/95/99% before reading percentages
         pcts = sorted(set(m.group(1) for m in PCT.finditer(CONF.sub(" CONF ", text))))
         # Q-981 (Q964-D05#17): compared at the band's ABSOLUTE precision, 10^(exp-dp): `±1e-2` is stated to
