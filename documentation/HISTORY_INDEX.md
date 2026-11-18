@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 11 place(s) over all 264 dated sections, 10 of them among the 188 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 12 place(s) over all 265 dated sections, 11 of them among the 189 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -21,6 +21,7 @@
 - line 12100: 2026-11-03 ([section](HISTORY.md#2026-11-03--batch-fv2-p-the-solvepy-roaepy-and-viz-rows-from-codexs-fix-verification-round)), below line 12082: 2026-11-04
 - line 12390: 2026-11-08 ([section](HISTORY.md#2026-11-08--push-group-n12pub-the-certified-n12-and-n3-4-6-7-counts-published-with-their-code-and-scope)), below line 12373: 2026-11-12
 - line 12456: 2026-10-15 ([section](HISTORY.md#2026-10-1517--codexs-final-review-as-a-whole-255-of-255-runs-at-fee25e0b-four-triage-rounds-no-show-stopper)), below line 12422: 2026-11-10
+- line 12745: 2026-11-14 ([section](HISTORY.md#2026-11-14--fv2-held-residue-tests-that-could-not-fail-and-the-extraction-null-draw-checked-as-orderings)), below line 12724: 2026-11-17
 
 ## Dated sections, in date order
 
@@ -284,12 +285,13 @@
 | 256 | 2026-11-14 | iso | 12613 | [open](HISTORY.md#2026-11-14--batch-q1140-banned-verification-phrases-a-lean-attribution-two-scope-claims-and-one-intent-reading) 2026-11-14 — batch Q1140: banned verification phrases, a Lean attribution, two scope claims and one intent reading |
 | 257 | 2026-11-14 | iso | 12640 | [open](HISTORY.md#2026-11-14--batch-q1133-the-claim-to-artifact-audit-four-rows-corrected) 2026-11-14 — batch Q1133: the claim-to-artifact audit, four rows corrected |
 | 258 | 2026-11-14 | iso | 12653 | [open](HISTORY.md#2026-11-14--batch-q1140r-the-q-735-proofs-second-and-third-reads-are-not-called-independent) 2026-11-14 — batch Q1140R: the Q-735 proof's second and third reads are not called independent |
-| 259 | 2026-11-15 | iso | 12666 | [open](HISTORY.md#2026-11-15--cloud-sweep-d5-the-ops-scripts-cloud-defaults-become-required-arguments) 2026-11-15 — cloud sweep D5: the ops scripts' cloud defaults become required arguments |
-| 260 | 2026-11-15 | iso | 12678 | [open](HISTORY.md#2026-11-15--cloud-sweep-d7-a-guard-against--anchors-in-published-certificates) 2026-11-15 — cloud sweep D7: a guard against `$`-anchors in published certificates |
-| 261 | 2026-11-15 | iso | 12686 | [open](HISTORY.md#2026-11-15--doc-gate-comment-pointers-checked-inventory-sha8-compared-as-a-string) 2026-11-15 — doc-gate comment pointers checked; inventory sha8 compared as a string |
-| 262 | 2026-11-15 | iso | 12700 | [open](HISTORY.md#2026-11-15--claim_to_artifact-rows-13-and-8-the-isclause-bridge-in-testspy) 2026-11-15 — CLAIM_TO_ARTIFACT rows 13 and 8; the IsClause bridge in tests.py |
-| 263 | 2026-11-15 | iso | 12713 | [open](HISTORY.md#2026-11-15--tr-4-figure-label-regenerated-the-single-cell-probe-timed) 2026-11-15 — TR-4 figure label regenerated; the single-cell probe timed |
-| 264 | 2026-11-17 | iso | 12724 | [open](HISTORY.md#2026-11-17--batch-q1127-l1-theorem-g-2143-by-free-actions-and-its-reproducer) 2026-11-17 — batch Q1127-L1: Theorem G+ (2^14·3 by free actions) and its reproducer |
+| 259 | 2026-11-14 | iso | 12745 | [open](HISTORY.md#2026-11-14--fv2-held-residue-tests-that-could-not-fail-and-the-extraction-null-draw-checked-as-orderings) 2026-11-14 — FV2 held residue: tests that could not fail, and the extraction-null draw checked as orderings |
+| 260 | 2026-11-15 | iso | 12666 | [open](HISTORY.md#2026-11-15--cloud-sweep-d5-the-ops-scripts-cloud-defaults-become-required-arguments) 2026-11-15 — cloud sweep D5: the ops scripts' cloud defaults become required arguments |
+| 261 | 2026-11-15 | iso | 12678 | [open](HISTORY.md#2026-11-15--cloud-sweep-d7-a-guard-against--anchors-in-published-certificates) 2026-11-15 — cloud sweep D7: a guard against `$`-anchors in published certificates |
+| 262 | 2026-11-15 | iso | 12686 | [open](HISTORY.md#2026-11-15--doc-gate-comment-pointers-checked-inventory-sha8-compared-as-a-string) 2026-11-15 — doc-gate comment pointers checked; inventory sha8 compared as a string |
+| 263 | 2026-11-15 | iso | 12700 | [open](HISTORY.md#2026-11-15--claim_to_artifact-rows-13-and-8-the-isclause-bridge-in-testspy) 2026-11-15 — CLAIM_TO_ARTIFACT rows 13 and 8; the IsClause bridge in tests.py |
+| 264 | 2026-11-15 | iso | 12713 | [open](HISTORY.md#2026-11-15--tr-4-figure-label-regenerated-the-single-cell-probe-timed) 2026-11-15 — TR-4 figure label regenerated; the single-cell probe timed |
+| 265 | 2026-11-17 | iso | 12724 | [open](HISTORY.md#2026-11-17--batch-q1127-l1-theorem-g-2143-by-free-actions-and-its-reproducer) 2026-11-17 — batch Q1127-L1: Theorem G+ (2^14·3 by free actions) and its reproducer |
 
 ## Sections with no date in the heading, in file order
 

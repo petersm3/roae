@@ -17457,7 +17457,7 @@ def extraction_null(n_draw, seed, probes=None):
         c = _collections.Counter(hd(seq[i], seq[i + 1]) for i in range(63))
         if c.get(5, 0) or c.get(0, 0):
             continue                                            # C2 (and the impossible d=0)
-        print(",".join("%d:%d" % (d, c[d]) for d in sorted(c)))
+        print(",".join("%d:%d" % (d, c[d]) for d in sorted(c))); probes is not None and probes.append(tuple(seq))   # Q-1121 D1539 (Codex F04-015#5): an in-process caller may collect the accepted orderings
         drawn += 1
     if drawn < n_draw:
         print("EXTRACTION_NULL=ERROR drew only %d of %d in %d tries (cap %d) — the acceptance rate "

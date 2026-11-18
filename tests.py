@@ -4444,12 +4444,12 @@ class TestSatLane12(unittest.TestCase):
             mp = os.path.join(tmp, "model.txt")
             with open(mp, "w") as fh:
                 fh.write("s SATISFIABLE\nv " + " ".join(map(str, full)) + " 0\n")
-            r = self._sat(["--witness", "plain"], env=self._stub(tmp, "cat %s; exit 10" % mp))
+            r = self._sat(["--witness", "plain"], env=self._stub(tmp, "cat %s; exit 10" % __import__("shlex").quote(mp)))   # Q-1121 D1532: quoted
         lines = r.stdout.splitlines()
         self.assertNotEqual(r.returncode, 0, r.stdout[-500:])
         self.assertIn("WITNESS_RESULT=SOLVER_ERROR", lines)
         self.assertFalse(any(ln.startswith("WITNESS:") for ln in lines))
-        self.assertLess(sum(1 for ln in lines if ln.startswith("attempt")), 3)
+        self.assertEqual([ln.split(":")[0] for ln in lines if ln.startswith(("attempt", "SOLVER_ERROR at"))], ["attempt 0", "SOLVER_ERROR at attempt 1"], r.stdout[-800:]); self.assertTrue(any(ln.startswith("attempt 0: verify=True ") for ln in lines) and any(ln.startswith("SOLVER_ERROR at attempt 1:") and "witness blocking clauses" in ln for ln in lines), r.stdout[-800:])   # Q-1121 D1532 (Codex F04-015#6): model 1 was read and checked, model 2 refuted; a stub that broke before any model passed `< 3`
 
     def test_kw_control_on_certified_unsat_targets(self):
         # Q-58, the over-constraint leg the Lean module does not cover (build() has no Lean
@@ -7630,7 +7630,7 @@ class TestFigureLabelsAreVisibleToTextGates(unittest.TestCase):
     needs matplotlib, and an absent dependency must not turn a gate into an error."""
 
     TEXTARG = {"text": 2, "annotate": 0, "set_title": 0,
-               "set_xlabel": 0, "set_ylabel": 0, "suptitle": 0}
+               "set_xlabel": 0, "set_ylabel": 0, "suptitle": 0}; TEXTKW = {"text": "s", "annotate": "text", "set_title": "label", "set_xlabel": "xlabel", "set_ylabel": "ylabel", "suptitle": "t"}   # Q-1121 D1541: matplotlib's keyword names
 
     @classmethod
     def setUpClass(cls):
@@ -7663,9 +7663,9 @@ class TestFigureLabelsAreVisibleToTextGates(unittest.TestCase):
                     stem = c.args[1].value
                 if isinstance(c, ast.Call) and isinstance(c.func, ast.Attribute):
                     i = cls.TEXTARG.get(c.func.attr)
-                    if i is None or len(c.args) <= i:
-                        continue
-                    a = c.args[i]
+                    if i is None: continue
+                    a = c.args[i] if len(c.args) > i else next((k.value for k in c.keywords if k.arg == cls.TEXTKW[c.func.attr]), None)   # Q-1121 D1541 (Codex F04-015#4): set_title(label="...") is a label too
+                    if a is None: continue
                     if isinstance(a, ast.Constant) and isinstance(a.value, str):
                         got.append(a.value)
                     else:
@@ -20652,11 +20652,11 @@ class TestLaneHMDocGateRegressions(unittest.TestCase):
 
     @classmethod
     def _pipe_fed_grep_q(cls, text):
-        hits = []
-        for no, line in enumerate(text.split("\n"), 1):
-            s = line.strip()
-            if not s or s.startswith("#"):
-                continue
+        hits, phys, i = [], text.split("\n"), 0   # Q-1121 D1522 (Codex F04-016#3): a `\` continuation, or a `|` ending the line, joins the next
+        while i < len(phys):
+            no, s, i = i + 1, phys[i].strip(), i + 1
+            while s and not s.startswith("#") and (s.endswith("\\") or (s.endswith("|") and not s.endswith("||"))) and i < len(phys): s, i = (s[:-1] if s.endswith("\\") else s).rstrip() + " " + phys[i].strip(), i + 1
+            if not s or s.startswith("#"): continue
             m = cls.PIPE_GREP_Q.search(s)
             if m and not re.match(r"printf ''\s*$", s[:m.start()].split(";")[-1].split("&&")[-1].strip()):
                 hits.append((no, s))
@@ -20949,7 +20949,7 @@ class TestLaneHOSubBranchDocsPipefailStraceRegex(unittest.TestCase):
                 self.assertEqual(real.count(here), 1, "lane HO: converted line moved: %r" % here)
                 hits = scan(real.replace(here, pipe, 1))
                 self.assertEqual(len(hits), 1, hits)
-                self.assertEqual(hits[0][1], pipe.strip())
+                self.assertIn(pipe.strip().rstrip("\\").rstrip(), hits[0][1])  # Q-1121 D1522: a hit is the joined logical line
         r = subprocess.run(["bash", "-n", os.path.join(self.ROOT, self.TR12)], capture_output=True,
                            text=True, timeout=60)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -37945,7 +37945,7 @@ class TestQ959Q961PushPathB39C(unittest.TestCase):
         with open(os.path.join(d, self.VA), "w", encoding="utf-8") as fh:
             fh.write(va_src if va_src is not None else real)
         with open(os.path.join(d, "NOTE.md"), "w", encoding="utf-8") as fh:
-            fh.write("".join("- `%s`\n" % f for f in names))
+            fh.write("".join("- `%s`\n" % f for f in names) + TestQ1121FV2HeldResidue.d1530_population(d))   # Q-1121 D1530 (Codex F05-015#7): legs 2-4 above their floors, so the aggregate verdict means something
         self._git(d, "init", "-q")
         self._git(d, "add", "-A")
         self._git(d, "commit", "-qm", "a")
@@ -37954,35 +37954,35 @@ class TestQ959Q961PushPathB39C(unittest.TestCase):
         self.assertTrue("LEG 1 cert-claims-shipped: %d certificate filename(s)" % len(names) in r.stdout
                         or "'declare -A CERTS=(' literal(s), expected 1" in r.stdout,
                         "precondition: LEG 1 measured the archive or refused the map\n" + r.stdout[-2000:])
-        return r.stdout, real
+        self.p14 = ([l for l in r.stdout.splitlines() if l.startswith("DOC GATES: ")], r.returncode); return r.stdout, real   # Q-1121 D1530: the terminal token and rc
 
     RIG = '[rigidity_sc4_unsat]="rigidity" '
 
     def test_q961_a_positive_control_the_real_map_is_complete(self):
         out, _ = self._g39()
         self.assertNotIn("regeneration map", out)
-        self.assertNotIn("checked NOTHING", out)
+        self.assertNotIn("checked NOTHING", out); self.assertEqual(self.p14, (["DOC GATES: PASS  (p14-claims)"], 0), out[-2000:])   # Q-1121 D1530
 
     def test_q961_b_an_entry_removed_while_a_comment_names_it_is_a_hit(self):
         _, real = self._g39()
         src = self._mut(real, self.RIG, "") + "\n# rigidity_sc4_unsat.drat.gz regenerates via its own flag\n"
         out, _ = self._g39(src)
         self.assertIn("rigidity_sc4_unsat.drat", out)
-        self.assertIn("absent from verify_all.sh's regeneration map", out)
+        self.assertIn("absent from verify_all.sh's regeneration map", out); self.assertEqual(self.p14, (["DOC GATES: FINDINGS (see above)"], 1), out[-2000:])   # Q-1121 D1530
 
     def test_q961_c_a_commented_out_entry_is_a_hit(self):
         _, real = self._g39()
         src = self._mut(real, self.RIG, '\\\n  # [rigidity_sc4_unsat]="rigidity" \\\n  ')
         out, _ = self._g39(src)
-        self.assertIn("absent from verify_all.sh's regeneration map", out)
+        self.assertIn("absent from verify_all.sh's regeneration map", out); self.assertEqual(self.p14, (["DOC GATES: FINDINGS (see above)"], 1), out[-2000:])   # Q-1121 D1530
 
     def test_q961_d_no_or_two_cert_literals_is_an_error(self):
         _, real = self._g39()
         out, _ = self._g39(self._mut(real, "declare -A CERTS=(", "declare -A CERTZ=("))
         self.assertIn("0 'declare -A CERTS=(' literal(s), expected 1", out)
-        self.assertNotIn("LEG 1 cert-claims-shipped:", out, "a refused map must not print a census")
+        self.assertNotIn("LEG 1 cert-claims-shipped:", out, "a refused map must not print a census"); self.assertEqual(self.p14, (["DOC GATES: FINDINGS (see above)"], 1), out[-2000:])   # Q-1121 D1530
         out, _ = self._g39(real + "\ndeclare -A CERTS=( [x]=y )\n")
-        self.assertIn("2 'declare -A CERTS=(' literal(s), expected 1", out)
+        self.assertIn("2 'declare -A CERTS=(' literal(s), expected 1", out); self.assertEqual(self.p14, (["DOC GATES: FINDINGS (see above)"], 1), out[-2000:])   # Q-1121 D1530
 
     def test_q961_e_mutant_without_comment_stripping_misses_the_commented_entry(self):
         _, real = self._g39()
@@ -37996,7 +37996,7 @@ class TestQ959Q961PushPathB39C(unittest.TestCase):
                        "vmap = set(re.findall(r'\\[([^\\]\\s]+)\\]=', vsrc[blocks[0].end():_end - 1]))")
         out, _ = self._g39(src, mg)
         self.assertNotIn("absent from verify_all.sh's regeneration map", out,
-                         "mutant must miss it -- else test c is not load-bearing")
+                         "mutant must miss it -- else test c is not load-bearing"); self.assertEqual(self.p14, (["DOC GATES: PASS  (p14-claims)"], 0), out[-2000:])   # Q-1121 D1530: and the whole gate goes green
 
 # end class TestQ959Q961PushPathB39C (batch 39, Q-959/Q-960/Q-961)
 
@@ -69203,6 +69203,300 @@ class TestQ1133CorePairWitnesses(unittest.TestCase):
         self.assertNotIn("the 15/15 figure above is the current attestation", r13)
 
 # end class TestQ1133CorePairWitnesses
+
+
+class TestQ1121FV2HeldResidue(unittest.TestCase):
+    """Q-1121 (CX-37C-S): the FV2 held residue, re-verified at eb285740 (Codex (gpt-6-astra) findings, FV2 triage).
+
+    D1522 the Q-799 pipe-fed `grep -q` scan read physical lines, so `cmd \\` + `| grep -q` and `cmd |` + `grep -q`
+    escaped it. D1525 the table-full helper was checked as text; it is now compiled and run. D1532 the witness
+    stub's path was unquoted and its assertions also held when the stub broke before any model was read. D1535
+    neither KDE wrapper's streaming loop had run under short writes. D1539 the extraction-null histograms were
+    checked as numbers, never as the histogram of a C1/C2 ordering. D1541 a keyword-form label
+    (`set_title(label="...")`) was neither manifested nor counted. D1530 GATE 39's p14-claims tests never read the
+    aggregate verdict, because the bare fixture fails three population floors whatever the map says; _g39 now
+    populates legs 2-4 and its tests assert the terminal token and rc. Each test fails on the parent tree, or carries
+    a mutant the old test passed. Not changed here: D833/D863 (c8screen half), D835, D1107, D1508."""
+
+    # ---- D1522 -------------------------------------------------------------------------------------
+    def test_d1522_the_q799_scan_joins_continued_lines(self):
+        scan = TestLaneHMDocGateRegressions._pipe_fed_grep_q
+        for text in ('cmd \\\n  | grep -q x', 'producer |\n  grep -q x', 'a \\\n  b \\\n  | grep -Eq "y|z"',
+                     'ok\nprintf "%s" "$v" |\n  grep --quiet x'):
+            with self.subTest(planted=text):
+                self.assertEqual(len(scan(text)), 1, scan(text))
+        self.assertEqual([n for n, _ in scan('ok\nprintf "%s" "$v" |\n  grep --quiet x')], [2], "a hit is reported at its first line")
+        for text in ('a ||\n  grep -q x f', '# c \\\ngrep -q x f', 'cmd \\\n  | grep -c x', 'x |\n  grep x',
+                     "printf '' \\\n  | grep -qE -- \"$pat\" || rc=$?"):
+            with self.subTest(clean=text):
+                self.assertEqual(scan(text), [])
+
+    # ---- D1525 -------------------------------------------------------------------------------------
+    DEFN = "void q941_table_full_fatal(const char *where, int tid, int log2, long long count, const char *fname, long long nrec) {"
+
+    def _run_helper(self, body):
+        d = tempfile.mkdtemp(prefix="q1121_d1525_")
+        try:
+            exe = os.path.join(d, "h")
+            prog = ("#include <stdio.h>\n#include <stdlib.h>\n" + body +
+                    '\nint main(void) { q941_table_full_fatal("unit_loader", 3, 30, 1073741824LL, "x.bin", 7LL); return 0; }\n')
+            r = subprocess.run(["gcc", "-x", "c", "-o", exe, "-"], input=prog, capture_output=True, text=True, timeout=120)
+            self.assertEqual(r.returncode, 0, "the extracted helper does not compile on its own: " + r.stderr[-1500:])
+            return subprocess.run([exe], capture_output=True, text=True, timeout=60)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    def test_d1525_the_table_full_helper_prints_its_fatal_line_and_exits_1_when_run(self):
+        if shutil.which("gcc") is None:
+            self.skipTest("needs gcc")
+        src = TestQ941TableFullLoud._src()
+        self.assertEqual(src.count(self.DEFN), 1, "precondition: the helper is defined once")
+        body = TestQ941TableFullLoud._fn(self, src, self.DEFN)
+        r = self._run_helper(body)
+        self.assertEqual(r.returncode, 1, r.stderr[-800:])
+        self.assertTrue(r.stderr.startswith("FATAL: unit_loader: thread 3 hash table 100% full at 2^30 (1073741824 entries) "
+                                            "after 7 records of x.bin (Q-941)"), r.stderr[:400])
+        # discrimination: a helper whose exit sits in a dead branch keeps the literal "exit(1);" (so the text
+        # check in TestQ941TableFullLoud still passes it) and returns normally; the harness sees rc 0.
+        self.assertEqual(body.count("    exit(1);\n}"), 1, "precondition: the mutant anchor is unique")
+        mut = body.replace("    exit(1);\n}", "    if (tid < 0) exit(1);\n}")
+        self.assertIn("exit(1);", mut)
+        self.assertEqual(self._run_helper(mut).returncode, 0, "the mutant must return, else this test is not load-bearing")
+
+    # ---- D1532 -------------------------------------------------------------------------------------
+    @staticmethod
+    def _d1532_old(r):          # TestSatLane12's assertions before Q-1121
+        lines = r.stdout.splitlines()
+        return (r.returncode != 0 and "WITNESS_RESULT=SOLVER_ERROR" in lines and not any(ln.startswith("WITNESS:") for ln in lines)
+                and sum(1 for ln in lines if ln.startswith("attempt")) < 3)
+
+    @classmethod
+    def _d1532_new(cls, r):     # the same, plus the Q-1121 line
+        lines = r.stdout.splitlines()
+        return (cls._d1532_old(r)
+                and [ln.split(":")[0] for ln in lines if ln.startswith(("attempt", "SOLVER_ERROR at"))] == ["attempt 0", "SOLVER_ERROR at attempt 1"]
+                and any(ln.startswith("attempt 0: verify=True ") for ln in lines)
+                and any(ln.startswith("SOLVER_ERROR at attempt 1:") and "witness blocking clauses" in ln for ln in lines))
+
+    def test_d1532_the_witness_test_tells_a_checked_model_from_a_broken_stub(self):
+        import shlex
+        L = TestSatLane12
+        cnf, _ = sat.build("plain")
+        full = L._full_model(cnf, L._seq_lits(L._witness_seq(L, 97)))
+        with tempfile.TemporaryDirectory(prefix="q1121 d1532 ") as tmp:    # a space: the unquoted form breaks here
+            mp = os.path.join(tmp, "model.txt")
+            with open(mp, "w") as fh:
+                fh.write("s SATISFIABLE\nv " + " ".join(map(str, full)) + " 0\n")
+            good = L._sat(["--witness", "plain"], env=L._stub(tmp, "cat %s; exit 10" % shlex.quote(mp)))
+            unquoted = L._sat(["--witness", "plain"], env=L._stub(tmp, "cat %s; exit 10" % mp))
+        self.assertTrue(self._d1532_new(good), good.stdout[-800:])
+        # the stub that never delivered a model: the old assertions passed it, the new ones do not
+        self.assertTrue(self._d1532_old(unquoted), "precondition: the pre-Q-1121 assertions accept a broken stub\n" + unquoted.stdout[-800:])
+        self.assertFalse(self._d1532_new(unquoted), unquoted.stdout[-800:])
+
+    # ---- D1535 -------------------------------------------------------------------------------------
+    @unittest.skipUnless(all(importlib.util.find_spec(m) for m in ("numpy", "pyarrow")),
+                         "needs numpy + pyarrow (both native KDE wrappers import pyarrow.parquet)")
+    def test_d1535_both_kde_wrappers_stream_every_byte_through_short_writes(self):
+        np = _g6_import("numpy")
+        import pyarrow as pa, pyarrow.parquet as pq
+        S = _load("solve")
+        tmp = tempfile.mkdtemp(prefix="q1121_d1535_")
+        self.addCleanup(shutil.rmtree, tmp, True)
+        chunks = os.path.join(tmp, "chunks"); os.makedirs(chunks)
+        rng = np.random.default_rng(1121)
+        parts = []
+        for k in range(3):
+            n = 7 + k
+            t = {"s": (np.arange(n) % 2).astype(np.int64), "a": rng.normal(size=n), "b": rng.normal(size=n)}
+            pq.write_table(pa.table(t), os.path.join(chunks, "chunk_%04d.parquet" % k))
+            parts.append(t)
+        mu, sigma = np.array([0.5, -1.0]), np.array([2.0, 4.0])
+        fit = rng.normal(size=(5, 2))
+        want_v2 = b"".join(np.ascontiguousarray((np.column_stack([t["a"], t["b"]]) - mu) / sigma, dtype=np.float64).tobytes() for t in parts)
+        want_st = b"".join(np.ascontiguousarray((np.column_stack([t["a"], t["b"]])[t["s"] == 1] - mu) / sigma).tobytes() for t in parts)
+        seen = []
+
+        class In:
+            def __init__(self): self.got = bytearray()
+            def write(self, mv):
+                k = min(5, len(mv)); self.got += bytes(mv[:k]); return k
+            def close(self): pass
+
+        class Out:
+            def __init__(self, f): self.f = f
+            def read(self): return self.f()
+
+        class Proc:
+            def __init__(self, cmd, **kw):
+                self.cmd, self.stdin, self.returncode = cmd, In(), None
+                with open(cmd[cmd.index("--fit-file") + 1], "rb") as fh:
+                    self.fit = fh.read()
+                self.stdout = Out(lambda: b"1 %d\n" % (len(self.stdin.got) // 16))
+                self.stderr = Out(lambda: b"")
+                seen.append(self)
+            def wait(self, timeout=None):
+                self.returncode = 0; return 0
+
+        def drive():
+            del seen[:]
+            old_tmp, tempfile.tempdir = tempfile.tempdir, tmp
+            real, subprocess.Popen = subprocess.Popen, Proc
+            try:
+                a = S._p2_v2_native_kde_count("/nonexistent/solve", fit, 0.5, -1.0, chunks, ["a", "b"], mu, sigma)
+                b = S._p2_strat_native_count("/nonexistent/solve", fit, 0.5, -1.0, chunks, ["s", "a", "b"], mu, sigma, 1)
+            finally:
+                subprocess.Popen, tempfile.tempdir = real, old_tmp
+            return a, b
+
+        a, b = drive()
+        self.assertEqual(len(seen), 2)
+        self.assertEqual(bytes(seen[0].stdin.got), want_v2, "the v2 wrapper dropped bytes on a short write")
+        self.assertEqual(bytes(seen[1].stdin.got), want_st, "the stratified wrapper dropped bytes on a short write")
+        self.assertEqual((a, b), ((1, len(want_v2) // 16), (1, len(want_st) // 16)))
+        self.assertTrue(all(p.fit == fit.astype(np.float64).tobytes() for p in seen), "the scorer was handed the wrong fit file")
+        self.assertEqual([x for x in os.listdir(tmp) if x.endswith(".bin")], [], "a fit file leaked")
+        # discrimination: the pre-G5b single raw write keeps 5 bytes of each chunk
+        real_wa = S._g5b_write_all
+        S._g5b_write_all = lambda stream, data: stream.write(memoryview(data))
+        try:
+            drive()
+        finally:
+            S._g5b_write_all = real_wa
+        self.assertNotEqual(bytes(seen[0].stdin.got), want_v2, "the single-write mutant must lose bytes")
+        self.assertNotEqual(bytes(seen[1].stdin.got), want_st, "the single-write mutant must lose bytes")
+
+    # ---- D1539 -------------------------------------------------------------------------------------
+    @staticmethod
+    def _d1539_hist(seq):
+        c = {}
+        for i in range(63):
+            d = bin(seq[i] ^ seq[i + 1]).count("1"); c[d] = c.get(d, 0) + 1
+        return ",".join("%d:%d" % (d, c[d]) for d in sorted(c))
+
+    @staticmethod
+    def _d1539_why_not_c1c2(seq):
+        import collections, verify as V
+        if sorted(seq) != list(range(64)):
+            return "not a permutation of the 64 hexagrams"
+        if collections.Counter(frozenset(seq[2 * i:2 * i + 2]) for i in range(32)) != collections.Counter(frozenset(p) for p in V.PAIRS):
+            return "C1: a slot pair is not a King Wen pair"
+        if any(V.hamming(seq[i], seq[i + 1]) == 5 for i in range(63)):
+            return "C2: a distance-5 transition"
+        return ""
+
+    def test_d1539_every_emitted_histogram_is_that_of_a_verified_c1c2_ordering(self):
+        import io, contextlib, verify as V
+        got, buf = [], io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = solve.extraction_null(60, 20260904, probes=got)
+        self.assertEqual(rc, 0, buf.getvalue()[-500:])
+        vecs = [l for l in buf.getvalue().splitlines() if l and not l.startswith("EXTRACTION_NULL=")]
+        self.assertEqual(len(vecs), 60)
+        self.assertEqual(len(got), 60, "the sampler did not hand back the orderings it accepted")
+        for seq, v in zip(got, vecs):
+            self.assertEqual(self._d1539_why_not_c1c2(list(seq)), "", seq)
+            self.assertEqual(self._d1539_hist(seq), v, "an emitted histogram is not its ordering's")
+        # the subprocess draw is the same draw (the default seed is 20260904)
+        r = subprocess.run([sys.executable, _py_src("solve"), "--extraction-null", "60"], capture_output=True, text=True)
+        self.assertEqual([l for l in r.stdout.splitlines() if l and not l.startswith("EXTRACTION_NULL=")], vecs)
+        # negative controls for the checker itself
+        kw = list(V.KW)
+        self.assertEqual(self._d1539_why_not_c1c2(kw), "")
+        cross = kw[:]; cross[1], cross[2] = cross[2], cross[1]
+        self.assertTrue(self._d1539_why_not_c1c2(cross).startswith("C1"))
+        rr = random.Random(5)
+        while True:
+            order = list(V.PAIRS); rr.shuffle(order)
+            s = [h for a, b in order for h in ((a, b) if rr.random() < 0.5 else (b, a))]
+            if any(V.hamming(s[i], s[i + 1]) == 5 for i in range(63)):
+                break
+        self.assertTrue(self._d1539_why_not_c1c2(s).startswith("C2"))
+        # an all-even histogram meets every check TestExtractionNull applies (63 transitions, no d=0/5, the
+        # within-pair floor) and no ordering has it: 32 hexagrams have odd weight, so a C1 ordering changes
+        # weight parity somewhere. It cannot equal the histogram of any ordering the sampler hands back.
+        wp = TestExtractionNull._within_pair()
+        self.assertTrue(all(d % 2 == 0 for d in wp), wp)
+        even = dict(wp); even[2] = even.get(2, 0) + 63 - sum(wp.values())
+        bad = ",".join("%d:%d" % (d, even[d]) for d in sorted(even))
+        self.assertEqual(sum(1 for h in range(64) if bin(h).count("1") % 2), 32)
+        self.assertNotIn(bad, [self._d1539_hist(s) for s in got])
+        self.assertTrue(all(any(bin(s[i] ^ s[i + 1]).count("1") % 2 for i in range(63)) for s in got))
+
+    # ---- D1541 -------------------------------------------------------------------------------------
+    def test_d1541_a_keyword_form_label_is_manifested_like_a_positional_one(self):
+        import ast
+        T = TestFigureLabelsAreVisibleToTextGates
+        with open("viz/report_figures.py", encoding="utf-8") as fh:
+            src = fh.read()
+        real = type("Real", (T,), {"tree": ast.parse(src)})._measure()
+        lines = src.split("\n")
+        cand = None
+        for fn in [n for n in ast.parse(src).body if isinstance(n, ast.FunctionDef) and n.name.startswith("fig_")]:
+            for c in ast.walk(fn):
+                if (isinstance(c, ast.Call) and isinstance(c.func, ast.Attribute) and c.func.attr == "set_title"
+                        and len(c.args) == 1 and isinstance(c.args[0], ast.Constant) and isinstance(c.args[0].value, str)
+                        and ast.get_source_segment(src, fn).count(repr(c.args[0].value)[1:-1]) == 1):
+                    cand = c.args[0]; break
+            if cand is not None:
+                break
+        self.assertIsNotNone(cand, "precondition: a fig_ function sets a literal title that occurs once in it")
+        ln = lines[cand.lineno - 1]
+        lines[cand.lineno - 1] = ln[:cand.col_offset] + "label=" + ln[cand.col_offset:]
+        mutated = "\n".join(lines)
+        mut = type("Mut", (T,), {"tree": ast.parse(mutated)})._measure()
+        self.assertEqual(mut, real, "set_title(label=...) dropped out of the manifest (and out of the uncovered count)")
+
+    # ---- D1530 -------------------------------------------------------------------------------------
+    D1530_POP = True
+
+    @classmethod
+    def d1530_population(cls, d):
+        """NOTE.md lines for TestQ959Q961PushPathB39C._g39 that lift GATE 39 legs 2-4 to their floors, each one
+        clean, plus the two evidence files LEG 3 reads. The floors are read from the gate, so a raised floor
+        raises the population with it."""
+        if not cls.D1530_POP:
+            return ""
+        with open(os.path.join("scripts", "doc_gates.d", "90_claim_artifacts.sh"), encoding="utf-8") as fh:
+            m = re.search(r"local FA=(\d+) FB=(\d+) FC=(\d+) FD=(\d+)\n", fh.read())
+        if m is None:
+            raise AssertionError("precondition: GATE 39 declares its four floors on one line")
+        fb, fc, fd = (int(x) for x in m.groups()[1:])
+        ev = os.path.join(d, "reports", "evidence")
+        os.makedirs(ev, exist_ok=True)
+        for k in range(fc):
+            with open(os.path.join(ev, "q1121_pop%d.out" % k), "w", encoding="utf-8") as fh:
+                fh.write("mean=1.0 se=0.1\n")
+        return ("".join("- fixture %d: `grand-ccn4` is the four-rule theorem.\n" % k for k in range(fb))
+                + "".join("- fixture %d: 26,112 orientation-explicit sequences.\n" % k for k in range(fd))
+                + "".join("- fixture %d: `q1121_pop%d.out` carries standard errors.\n" % (k, k) for k in range(fc)))
+
+    def test_d1530_the_gate39_fixture_reads_the_aggregate_verdict(self):
+        B = TestQ959Q961PushPathB39C
+        B.setUpClass()
+        try:
+            t = B("test_q961_a_positive_control_the_real_map_is_complete")
+            out, real = t._g39()
+            self.assertEqual(t.p14, (["DOC GATES: PASS  (p14-claims)"], 0), out[-2000:])
+            for leg in ("LEG 2 four-five-labels: ", "LEG 3 se-claims-have-se: ", "LEG 4 orientation-explicit: "):
+                self.assertIn(leg, out)
+            self.assertNotIn("measuring nothing", out)
+            # the pre-Q-1121 bare fixture: three floors fail whatever the map says, so its rc could not tell a
+            # complete map from a broken one -- which is why the old tests read only substrings
+            type(self).D1530_POP = False
+            try:
+                out0, _ = t._g39()
+            finally:
+                type(self).D1530_POP = True
+            self.assertEqual(t.p14, (["DOC GATES: FINDINGS (see above)"], 1), out0[-2000:])
+            self.assertEqual(out0.count("measuring nothing"), 3, out0[-2000:])
+            # discrimination on the populated fixture: one map entry removed turns the verdict red
+            out1, _ = t._g39(t._mut(real, B.RIG, ""))
+            self.assertEqual(t.p14, (["DOC GATES: FINDINGS (see above)"], 1), out1[-2000:])
+        finally:
+            B.tearDownClass()
+
+# end class TestQ1121FV2HeldResidue (Q-1121, CX-37C-S)
 
 
 if __name__ == "__main__":

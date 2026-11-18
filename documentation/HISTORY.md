@@ -12741,3 +12741,26 @@ entry describes the review itself, which had none.)*
   error paths and the ledger entry and fails on the parent tree. Fable's pre-publication read, its read of the
   fixes and a blind re-check by a further Fable lane shaped the script and the text; these are checks by AI model
   lanes of this project, not independent examination.
+
+## 2026-11-14 — FV2 held residue: tests that could not fail, and the extraction-null draw checked as orderings
+
+- **What changed (CX-37C-S).** Seven FV2-T rows from Codex's fix-verification round had been held or not
+  started. Each one was re-run. Five tests passed in cases they should have failed:
+  - the Q-799 pipe-fed `grep -q` scan missed a pipe that ends a line;
+  - the table-full helper was checked as text, so a helper that returns passed;
+  - the witness test passed a stub that never delivered a model;
+  - the KDE wrappers' streaming loops were never run under short writes;
+  - GATE 39's p14-claims tests never read the gate's verdict, which its bare fixture made FINDINGS every time.
+  Each test now runs the behaviour, and a mutant shows that it can fail.
+- **The extraction-null draw.** Each emitted histogram is now checked as the histogram of an ordering that passes
+  the C1 and C2 checks. `extraction_null()` hands back the orderings it accepted, on the same line, so its output
+  is unchanged.
+- **Keyword-form figure labels** (`set_title(label="…")`) are now read by the figure-label manifest scan. No
+  current label uses that form, so the manifest is unchanged.
+- **Not changed here.** The c8screen analyzer is a frozen, digest-pinned file. Its shipped inputs carry every
+  member in every run and the five preregistered seeds, so no verdict moves. Whether to replace or re-sign it is the
+  operator's decision. The defcheck scripts' checkout path is already documented (Fable to confirm). The
+  exec_lane placeholder rule and where the 200M single-shot reference digest is recorded are also left to the
+  operator.
+- No canonical sha, count, golden file, published figure or token meaning changed. `TestQ1121FV2HeldResidue` fails
+  on the parent tree.

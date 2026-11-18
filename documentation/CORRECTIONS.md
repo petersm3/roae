@@ -41184,3 +41184,94 @@ default run are documented commands (minutes) and not `tests.py` legs.
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 assembled the reproducer, the touching file and
 the edits; the proof and its read are Fable's (claude-fable-5-2), as are the pre-publication read, the read of the
 fixes and the blind re-check.
+
+## CX-37C-S — FV2 held residue: five tests that could not fail, one label form the figure gate missed, and the extraction-null draw checked as orderings (tests.py; solve.py)
+
+**2026-11-14.** **Source.** Codex (gpt-6-astra), fix-verification round, findings F04-015#4, F04-015#5, F04-015#6,
+F04-016#3, F04-010#12, F05-015#7, and F04-002#25 / F04-008#21 / F04-017#2. These are the rows the FV2-T batch
+held or left unstarted (D1522, D1525, D1530, D1532, D1535, D1539, D1541). Each was checked by running it, first
+against `eb285740` (a working commit that was not published; the published `b9f4f476` has the same solve.c, solve.py and doc-gate scripts) and again on the tree this entry was built on. No canonical sha, count, golden file,
+published figure or token meaning changed. The one production change is a collecting hook in `solve.py`'s
+`extraction_null()`, which prints the same lines as before.
+
+**What the tests said, and what they check now.**
+- **Pipe-fed `grep -q` scan (D1522, F04-016#3).** The Q-799 scan in `TestLaneHMDocGateRegressions` read one physical
+  line at a time. A pipeline whose `|` ends a line (`producer |` and then `grep -q x` on the next line) was never
+  seen. The finding also named `cmd \` followed by `| grep -q x`; at `eb285740` that form was already caught, on its
+  second line, because that line begins with the pipe. The scan now joins a line ending in `\` or in a single `|`
+  with the next line, and reports the hit at the first line. Measured over every tracked `.sh` file and
+  `scripts/doc_gates.d/`: no file's hit count changes, so no pinned count moves.
+- **Table-full helper (D1525, F04-002#25, F04-008#21, F04-017#2).** `test_q941b_d` checked that the source text of
+  `q941_table_full_fatal()` contains the FATAL format and `exit(1);`. A helper with `exit(1)` in a branch that never
+  runs, and that then returns, kept both strings and passed. The helper is now cut out of `solve.c`, compiled on its
+  own with a short `main`, and run: exit status 1, and stderr starting with the named FATAL line. The dead-branch
+  mutant compiles, keeps `exit(1);`, and returns 0, so it fails the new test.
+- **Witness model check (D1532, F04-015#6).** The stub `kissat` ran `cat <path>` with the path unquoted. The test
+  asserted a nonzero exit, `WITNESS_RESULT=SOLVER_ERROR`, no `WITNESS:` line, and fewer than 3 attempts. A stub
+  that broke before any model was read also passes all four: measured with a path containing a space, it printed no
+  `attempt` line at all. The path is now quoted. The test now requires exactly `attempt 0: verify=True …` (the first
+  model was read and checked) followed by `SOLVER_ERROR at attempt 1:` naming the witness blocking clauses (the
+  second model was refuted by the formula).
+- **KDE wrappers under short writes (D1535, F04-010#12).** The test sent short writes only to the standalone
+  helper `_g5b_write_all`, and it made `Popen` raise, so neither wrapper's streaming loop ran. A new test runs
+  `_p2_v2_native_kde_count` and `_p2_strat_native_count` over three small parquet chunks against a fake scorer
+  that accepts at most 5 bytes per write. Every standardized byte arrives in order, the count line is read back,
+  the scorer gets the right fit file, and the fit file is removed afterwards. With the pre-G5b single raw write put
+  back, bytes are lost and the test fails.
+- **Extraction-null draws (D1539, F04-015#5).** `TestExtractionNull` checked each emitted histogram as numbers: 63
+  transitions, no distance 0 or 5, and the within-pair floor. An all-even histogram passes all of those, and no
+  ordering has one: 32 of the 64 hexagrams have odd weight, so every C1 ordering has a transition of odd distance.
+  The FV2-T lane held this item for a debug flag in "the solve.c sampler". The sampler is in `solve.py`.
+  `extraction_null()` now takes a list (the `probes` parameter, which was there and unused) and adds each accepted
+  ordering to it, on the same line as the print, so no line number moves. The new test checks that each of 60 draws
+  is a permutation of the 64 hexagrams, that its slot pairs are the 32 King Wen pairs, and that it has no distance-5
+  transition (the same checks `verify.py` makes). It also checks that each printed histogram is that ordering's
+  histogram, and that the command line prints the same 60 lines. Negative controls: King Wen passes; a swap across
+  two pairs fails C1; a seeded draw with a distance-5 step fails C2; the all-even histogram matches no draw.
+- **Keyword-form figure labels (D1541, F04-015#4).** `TestFigureLabelsAreVisibleToTextGates._measure` read only
+  positional arguments. `set_title(label="…")`, `text(x, y, s="…")` and the other four calls in keyword form were
+  neither added to the manifest nor counted as uncovered, so a retracted phrase written that way would have
+  bypassed the retraction cross-check and the ratchet. The scan now reads the keyword (`s`, `text`, `label`,
+  `xlabel`, `ylabel`, `t`) when the positional slot is absent. `viz/report_figures.py` has no keyword-form call
+  today (measured: 0 sites), so `FIGURE_LABEL_MANIFEST` and `FIGURE_LABEL_UNCOVERED` are unchanged. The red test
+  rewrites one title in a copy of the generator as `set_title(label=…)`, and the measurement must not change.
+- **GATE 39's aggregate verdict (D1530, F05-015#7).** `TestQ959Q961PushPathB39C` drives
+  `doc_gates.sh p14-claims` in a throwaway tree. Its tests checked substrings for each leg, and the positive
+  control only checked that two phrases were absent. The verdict line and the exit status were never read, and
+  they could not have been: measured on the bare fixture, legs 2, 3 and 4 fail their population floors (5 of 15,
+  0 of 2 and 0 of 15), so the gate printed `DOC GATES: FINDINGS` with exit status 1 for a complete map and a broken
+  one alike. The fixture now adds clean lines that lift legs 2-4 to their floors (read from the gate), and two
+  evidence files that carry `se=`. On a complete map the gate now prints `DOC GATES: PASS  (p14-claims)` and exits
+  0. Each red case (an entry removed while a comment names it, a commented-out entry, no `CERTS` literal or two)
+  prints `DOC GATES: FINDINGS (see above)` and exits 1, and the tests assert both. Under the existing
+  comment-stripping mutant, the whole gate now goes green.
+
+**Not changed here.** These rows from the same round are left for a decision, each with what was measured.
+- **D833 and the c8screen half of D863 (F02-001#5, F02-009#2, F02-001#4): operator decision.**
+  `reports/evidence/c8screen/analyze.py` would classify a member with no histogram as `FORCED`/`EMPTY_SUPPORT`,
+  and it does not check that the two N1 halves were run on different seeds. The file is frozen: its sha256 is
+  pinned by the amendment (§9-A0), by the README, by `SHA256SUMS` and by `RECORDED_SHA256SUMS`. Measured on the
+  shipped outputs: `analyze.py` reproduces `TOKENS.txt` byte for byte. Every one of the 1,349 members has a nonzero
+  histogram in each of the five runs. The seeds of N1_A, N1_B, N1′_A, N1′_B and N0 are the five preregistered §6
+  seeds, and the two halves differ in both pairs. So no published c8screen verdict rests on either defect. Whether
+  to ship a second analyzer beside the frozen one, or to re-sign the frozen one, is the operator's decision.
+- **D835 (F10-001#2): for Fable to confirm.** The three frozen defcheck scripts insert the author's checkout path.
+  They are covered by the preregistration lock-ledger digests, and both READMEs already tell the reader to change
+  that line. Measured: with only that line changed, all three reproduce their shipped `.out` files exactly.
+- **D1107 (F04-021#9): operator decision, with Fable on the rule.** How `scripts/exec_lane.sh` should judge a
+  `<…>` placeholder, and how it reads `\|` in a table cell. Nothing here changes `scripts/exec_lane.sh`.
+- **D1508 (F12-009#7): operator decision.** The FV2-P note above said `e43f2905…` (DEVELOPMENT.md) and
+  `b3862357…` (`--selftest-resume`) compete as the 200M single-shot digest. Measured on a scratch `gcc -O2` build
+  of `eb285740`, run as subtest 2 runs it (depth 2, 200M nodes, iterative + v2 checkpoint, 4 threads): they are the
+  same output. `solutions.sha256` records `e43f2905ba8f2cb64a4f0691baae78cadd709058bf8f7c0ada6bcbc6058f34e9`,
+  which is the sha256 of the decompressed stream (`gzip -dc solutions.bin | sha256sum`).
+  `b3862357fbde42e7743e219508ede16099b8934ebdf6cbcfc7dd051f8eca4072` is the sha256 of the gzip container itself.
+  Subtest 2 reads `solutions.sha256`, so its reference is `e43f2905…`. Where that reference is recorded (no
+  CANONICAL_HASHES.md row holds it) is left to the operator, and `--extended-selftest` is unchanged.
+
+**Tests.** `TestQ1121FV2HeldResidue`. Its D1522, D1530, D1539 and D1541 tests fail on the parent tree. Its D1525,
+D1532 and D1535 tests each include a mutant that the old test passed and the new one fails.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, backlog Q-1121; the defects were found by Codex
+(gpt-6-astra), fix-verification round, F04-002#25, F04-008#21, F04-010#12, F04-015#4, F04-015#5, F04-015#6,
+F04-016#3, F04-017#2, F05-015#7, and triaged by Fable.
