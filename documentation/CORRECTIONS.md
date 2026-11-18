@@ -41275,3 +41275,72 @@ D1532 and D1535 tests each include a mutant that the old test passed and the new
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, backlog Q-1121; the defects were found by Codex
 (gpt-6-astra), fix-verification round, F04-002#25, F04-008#21, F04-010#12, F04-015#4, F04-015#5, F04-015#6,
 F04-016#3, F04-017#2, F05-015#7, and triaged by Fable.
+
+## CX-37C-T — TR-4 and the capstone guide: seven sentences said more, or other, than their sources (reports/TR4_SIZE_OF_THE_SPACE.md; reports/CAPSTONE_GUIDE.md; tests.py)
+
+**2026-11-14.** **Source.** Codex (gpt-6-astra), final review, in the numbering of its 2026-10-26 re-pinned run
+(F02-H01#4, F02-H04#28, F02-004#1/#2, F02-007#4, F07-002#1/#3/#4, F08-002#9, F11-002#1/#3/#4, F11-010#1/#2);
+adjudicated by Fable (FV2 slice 1). Backlog Q-1049, batch 6, push group Q1049R6. CX-362 and CX-364 cite F11-002#1,
+F11-002#3 and F07-002#2 from an earlier run; those numbers name different findings.
+
+**What was published, and what it says now.** Each sentence was checked against the code, the archived run output
+or the report's own figures before it was changed. Where an adjudicated wording was wrong in detail, the source was
+followed.
+- **"An unremarkable deviation for one early draw"** (TR-4 §Sections item 3). The V3B-07#6 note in the same sentence
+  puts the early 5×10⁸ draw between 1.6σ and 5.8σ below the definitive 1.328729×10³⁸ (re-computed: (1.328729 −
+  1.325)/(0.0018 × 1.325) = 1.56 and (1.328729 − 1.315)/(0.0018 × 1.315) = 5.80). It now says the deviation's size
+  cannot be fixed without the unarchived unrounded value, and keeps the direction (low) and the supersession.
+- **"Conditional masses starve below ~10⁻¹³ hit rates"** (TR-4 §Sections item 5). S(4) ≈ 6.34×10⁻¹³ is a fraction
+  of the C1–C5 population, not the estimator's probe success rate: under `SOLVE_KNUTH_PIN_SLOTS` the walk skips every
+  non-King-Wen pair at a pinned slot (solve.c, the `/* S(k) pins */` lines), so every probe stays in the pinned
+  subtree, and the estimator prints its success rate separately (`hitrate=`). What runs short is the share of probes
+  that complete to a valid leaf; the archived round-8 sweep records `est=0.000000e+00` for several candidates. (The
+  adjudicated wording said too few probes "land in the pinned subtree"; the pins put them all there.)
+- **"Accurate to <10⁻⁴ at two independent layers"** (TR-4 §Estimator calibration). The archived C1∩C2∩C4 re-draw,
+  7.571405×10⁴¹ (`knuth_relax_c5_1e7.out` line 9), is 1.08×10⁻⁴ from the exact value, and the four-figure 7.571×10⁴¹
+  allows anything from −1.1×10⁻⁵ to +1.21×10⁻⁴ once its rounding is counted; only the C1∩C2∩C4∩C5 anchor (3.35×10⁻⁵)
+  is established under 10⁻⁴. The sentence now gives each anchor its own figure. (The adjudicated wording rounded
+  3.35×10⁻⁵ and 5.47×10⁻⁵ to two figures; the table's figures are used.)
+- **The 2026-09-03 evidence-gap inventory** (TR-4 §Update 2026-07-05). It lists N(6)–N(8) and names the k = 7 and
+  k = 8 gains as the only ones without logged operands. The Verification Guide's PIN NOT ADDED note says the four
+  S(k) points behind N(1)–N(4) are not in `reports/evidence/` either; a search of that directory for S(4) or
+  N(4) ≈ 8.42×10²⁵ finds nothing. So only the sixth gain, log₂(7.519490×10²² / 1.879066×10²⁰) = 8.64 bits, has both
+  operands in shipped logs. The marker is left as written; a dated note after it says this. No gain value moves.
+- **"The logarithm of an unbiased mass estimate overstates it in expectation (Jensen)"** (TR-4 §Update, honesty
+  caveats; the cure text of CX-35Y-F). log is concave, so E[log X̂] ≤ log E[X̂]: each logarithm of an unbiased mass
+  estimate is biased low. A gain is log N̂(k−1) − log N̂(k), and both masses are estimates, so the later term's low
+  bias overstates the gain and the earlier term's understates it; the net bias has no general sign. The clause now
+  says so; "the bit-gains are not bounds in either direction" stands.
+- **"So it says nothing about how much of this space a list could cover"** (CAPSTONE_GUIDE §4, "How you count
+  about 10³⁹ things"). Every C1–C5 ordering satisfies C1, C2, C4 and C5, so each of the 560T list's 10,525,271,997 orders of
+  pairs is an order of pairs of this space. The space has at most 31! orders of pairs (the opening pair is fixed)
+  and at least 5.1×10²⁹ (the guide's own bound), so the list covers between 1.28×10⁻²⁴ and 2.06×10⁻²⁰ of them. The
+  sentence now says the list bounds its coverage without measuring it.
+- **"That catches any error that leaves the total indivisible by 48"** (CAPSTONE_GUIDE §4, Idea 3, the free
+  check). "That" followed "a test by 24", which catches only indivisibility by 24. solve.c's full-31 gates
+  test `N % 48`; the published run's `count_result.json` records `free_action_mod24`. The sentence now names which
+  test catches what.
+- **"Below ~8×10²⁴ hours"** (CAPSTONE_GUIDE §9, Open). The figure is xa_verdict.md's break-even ceiling, the least
+  fast-end cost of any branch (8715510093521557687293118823183991737/1080000000000 h, about 8.07×10²⁴), computed at
+  the fast end of the operator-supplied rate band, 3×10⁹ nodes per second. A sentence after it now says so, and that
+  the ceiling scales inversely with the assumed rate.
+
+TR-4's and the guide's edits keep their line counts, so no line cite into either moves; TR-4's revision row v1.52
+is appended. The guide has no revision table. Old wordings are quoted in dated notes at their sites, except the
+added rate sentence. No count, estimate, gain, S(k) value, anchor, verdict or canonical sha changes.
+
+**Not changed here.** Three rows of this batch are left for review: TR-4 §Sections item 6's "not special by being
+rare or hard to find", whose twin in SEARCH_SPACE_SIZE.md is introduced as "The headline holds" (Codex F11-002#5);
+the guide's "seventh independent arrival" and its twin in CITATIONS.md (Codex F11-010#3); and FULL31_EXACT_AGGREGATES'
+"neither answers anything about the real object" (Codex F11-019#2), whose proposed replacement cites prefix counts
+that are not in the public tree.
+
+**Tests.** `TestBatchQ1049R6` holds each new fragment and the absence of each old one; its red half puts the old
+fragments back and the check fails. Data checks bind the corrections to their sources: the σ range of the early
+draw, the archived re-draw's deviation and the four-figure draw's rounding interval, the archived N(0), N(5) and N(6)
+and the sixth gain, the Jensen sign on a two-point estimator, the guide's coverage bounds, the mod-48 gate and the
+mod-24 record, and the break-even ceiling from xa_verdict.md. `TestBatchQ1037c`'s TR-4 revision pin accepts v1.49
+with or without "*(current)*".
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5, push group Q1049R6; the defects were found by Codex
+(gpt-6-astra), final review; adjudicated by Fable (claude-fable-5-1), FV2 slice 1.

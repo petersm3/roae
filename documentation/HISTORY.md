@@ -12764,3 +12764,20 @@ entry describes the review itself, which had none.)*
   operator.
 - No canonical sha, count, golden file, published figure or token meaning changed. `TestQ1121FV2HeldResidue` fails
   on the parent tree.
+
+## 2026-11-14 — batch Q1049R6: seven TR-4 and capstone-guide sentences from the FV2 slice-1 adjudication
+
+- **TR-4 and CAPSTONE_GUIDE (CX-37C-T).** The sixth report-by-report batch of backlog Q-1049: TR-4's six rows, then the
+  guide's four and FULL31_EXACT_AGGREGATES' one. Each was checked against the code, the archived run output or the
+  report's own figures before it was changed. Corrected in TR-4 (revision row v1.52): the early 5×10⁸ draw is no
+  longer "an unremarkable deviation" (its own note puts it 1.6σ to 5.8σ low); the starvation parenthesis no longer
+  takes S(4) ≈ 6.34×10⁻¹³ for a probe hit rate; the calibration summary gives each anchor its figure (3.35×10⁻⁵,
+  about 10⁻⁴, 3.1×10⁻³) instead of "<10⁻⁴ at two"; N(1)–N(4) are recorded as unarchived, so only the sixth gain has
+  both operands in shipped logs; a gain's Jensen bias has no general sign. Corrected in the guide: the 560T list
+  bounds its coverage of the C1/C2/C4/C5 space (about 10⁻²⁴ to 2×10⁻²⁰ of its orders of pairs); the free check says
+  which test, by 48 or by 24, catches what; the ~8×10²⁴-hour ceiling names its rate. Every edit keeps its line count.
+- **Left for review.** TR-4's "not special by being rare or hard to find" (its SEARCH_SPACE_SIZE twin calls it the
+  headline), the guide's "seventh independent arrival" (and its CITATIONS twin), and FULL31_EXACT_AGGREGATES'
+  "neither answers anything about the real object".
+- No count, estimate, gain, anchor, verdict or canonical sha changed. `TestBatchQ1049R6` holds each sentence and
+  fails on the parent tree. Found by Codex (gpt-6-astra), final review; adjudicated by Fable.

@@ -662,6 +662,8 @@ lean/README.md	343	marker	CORRECTED	1	-	reviewed:sentence-already-reads-fifteen	
 lean/README.md	395	marker	CORRECTED	1	-	reviewed:table-already-carries-the-re-measured-figures	826d33dcd3dd
 lean/README.md	733	marker	CORRECTED	1	-	reviewed:sentence-above-already-says-definitional	5b5a41a13f81
 reports/CAPSTONE_GUIDE.md	5	ledger-link	CORRECTION	n/a	-	not-a-marker	e9a5687d5cf6
+reports/CAPSTONE_GUIDE.md	300	marker	Corrected	1	-	reviewed:dated-note-CX-37C-T;the-sentence-already-gives-the-covered-fraction-bounds	4a0a9b4a4056
+reports/CAPSTONE_GUIDE.md	377	marker	Corrected	1	-	reviewed:dated-note-CX-37C-T;the-sentence-already-names-the-tested-number	e987385a80da
 reports/CAPSTONE_GUIDE.md	584	ledger-link	CORRECTION	n/a	-	not-a-marker	5222ba03bd32
 reports/FULL31_EXACT_AGGREGATES.md	9	marker	CORRECTED	1	-	reviewed:sentence-before-already-states-exact-counts-and-what-the-gates-check	95394accbcda
 reports/FULL31_EXACT_AGGREGATES.md	12	marker	CORRECTED	1	-	reviewed:sentence-already-names-the-layer_curve-exception	a3745ad9aa27
@@ -858,7 +860,7 @@ reports/TR4_SIZE_OF_THE_SPACE.md	302	ledger-link	CORRECTION	n/a	-	not-a-marker	e
 reports/TR4_SIZE_OF_THE_SPACE.md	310	ledger-link	CORRECTION	n/a	-	not-a-marker	564913e6f203
 reports/TR4_SIZE_OF_THE_SPACE.md	315	marker	Corrected	1	-	reviewed:paragraph-already-says-refuses-and-exits-1	44d9ab0566a4
 reports/TR4_SIZE_OF_THE_SPACE.md	341	marker	CORRECTED	1	-	reviewed:bullet-already-prints-the-probe-count	d266588052e1
-reports/TR4_SIZE_OF_THE_SPACE.md	382	ledger-link	CORRECTION	n/a	-	not-a-marker	3316857e4f87
+reports/TR4_SIZE_OF_THE_SPACE.md	382	ledger-link	CORRECTION	n/a	-	not-a-marker	6176ee761236
 reports/TR4_SIZE_OF_THE_SPACE.md	399	ledger-link	CORRECTION	n/a	-	not-a-marker	b39e2086190f
 reports/TR4_SIZE_OF_THE_SPACE.md	413	ledger-link	CORRECTION	n/a	-	not-a-marker	8a9f78dcb2e4
 reports/TR4_SIZE_OF_THE_SPACE.md	433	changelog	now reads	keep	-	revision-row	3e9acebb83cf

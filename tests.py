@@ -64032,6 +64032,8 @@ class TestBatchQ1037c(unittest.TestCase):
         tr4 = self._r("reports/TR4_SIZE_OF_THE_SPACE.md")
         self.assertIn("the floor is reached by k = 23 at the latest, however slowly the gains decline", tr4)
         self.assertIn("| v1.49 | 2026-11-10 |", tr4)  # marker moved to v1.50 by the cloud sweep B7 (Q-1140)
+        # Q1049R6: v1.50 took the "*(current)*" marker, so the v1.49 row is accepted with or without it.
+        self.assertRegex(tr4, r"\| v1\.49(?: \*\(current\)\*)? \| 2026-11-10 \|")
 
     # ---- CX-37B-B (D1563) ----
     def test_cx37b_b_shangbo_four_testable(self):
@@ -69497,6 +69499,166 @@ class TestQ1121FV2HeldResidue(unittest.TestCase):
             B.tearDownClass()
 
 # end class TestQ1121FV2HeldResidue (Q-1121, CX-37C-S)
+
+
+class TestBatchQ1049R6(unittest.TestCase):
+    """Push group Q1049R6 (CX-37C-T): TR-4's six rows and the capstone guide's three FIX rows of Fable's FV2 slice-1
+    adjudication of Codex's final review (backlog Q-1049, batch 6), each checked against the code, the archived run
+    output or the report's own figures before it was changed. PAIRS holds (file, row, fragment as published, fragment
+    now); the cured test requires each new fragment once and each old one nowhere, and the red test puts every old
+    fragment back and requires every pair to be reported. The data checks bind the corrections to their sources: the
+    early draw's sigma range (D751), the probe-confining pins and the round-8 zero-mass candidates (D726), the
+    archived C1∩C2∩C4 re-draw and the four-figure rounding interval (D733), the archived N(0), N(5), N(6) and the
+    sixth gain (D741), the sign of a gain's Jensen bias (D746), the guide's coverage bounds (D531), the mod-48 gate and
+    the mod-24 record (D532), and xa_verdict.md's break-even ceiling and rate band (D539). Every test except the data
+    checks fails on the parent tree. Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    CX = "CX-37C-T"   # the ledger id this batch is given at push time; change it here and nowhere else in this class
+    T4 = "reports/TR4_SIZE_OF_THE_SPACE.md"
+    G = "reports/CAPSTONE_GUIDE.md"
+    PAIRS = (
+        (T4, 'D751', "— an unremarkable deviation for one early draw from a\n   right-skewed weight distribution",
+         "— a deviation whose size cannot be fixed without the unarchived unrounded value; its direction (low) is the one a\n   right-skewed weight distribution predicts"),
+        (T4, 'D726', "(conditional masses starve below ~10⁻¹³ hit rates); **done",
+         "S(4) ≈ 6.34×10⁻¹³ is a fraction of the C1–C5 population, not a probe hit rate — the pins confine every probe to the pinned subtree"),
+        (T4, 'D733', "accurate to <10⁻⁴ at two independent layers and to 3.1×10⁻³",
+         "accurate to 3.35×10⁻⁵ at one layer (C1∩C2∩C4∩C5), to about 10⁻⁴ at a second (C1∩C2∩C4: +5.47×10⁻⁵ against the four-figure draw"),
+        (T4, 'D741', "CX-362.]**. The\n",
+         "so of the eight gains only the sixth, log₂(N(5)/N(6)) = 8.64 bits, has both operands in shipped logs"),
+        (T4, 'D746', "while the logarithm of an unbiased mass estimate overstates it in expectation (Jensen) *(scoped",
+         "while each logarithm of an unbiased mass estimate is biased low in expectation (Jensen, concavity) and a gain — the difference of two such logarithms — can be biased either way"),
+        (G, 'D531', "so it says nothing about how much of this space a\nlist could cover.",
+         "so the list bounds how much of the space it covers without measuring it: between about 1.3×10⁻²⁴ and 2.1×10⁻²⁰ of its orders of pairs"),
+        (G, 'D532', "That catches any error that leaves the total\n   indivisible by 48",
+         "The current engine's test by 48 catches any error that leaves the total indivisible by 48; the published run's test by 24 catches only an error that leaves it indivisible by 24."),
+        (G, 'D539', "below ~8×10²⁴ hours; no exact conversion exists.\n",
+         "That ceiling is the least fast-end cost of any branch in the verdict, at 3×10⁹ nodes per second"),
+    )
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _texts(self):
+        return {self.T4: self._r(self.T4), self.G: self._r(self.G)}
+
+    def _problems(self, texts):
+        probs = []
+        for rel, row, old, new in self.PAIRS:
+            t = texts[rel]
+            if t.count(new) != 1:
+                probs.append("%s: new fragment present %d times" % (row, t.count(new)))
+            elif old in t:
+                probs.append("%s: old fragment still present" % row)
+        return probs
+
+    def test_q1049r6_sentences_cured(self):
+        self.assertEqual(self._problems(self._texts()), [])
+
+    def test_q1049r6_red_on_old(self):
+        texts = self._texts()
+        for rel, row, old, new in self.PAIRS:
+            self.assertEqual(texts[rel].count(new), 1, "precondition: %s new fragment present" % row)
+        for rel, row, old, new in self.PAIRS:
+            texts[rel] = texts[rel].replace(new, old)
+        self.assertEqual(len(self._problems(texts)), len(self.PAIRS))
+
+    def test_q1049r6_old_wordings_kept_in_dated_notes(self):
+        t4, g = self._r(self.T4), self._r(self.G)
+        for frag in ('this read "an unremarkable deviation for one early draw',
+                     'this read "conditional masses starve below ~10⁻¹³ hit rates"',
+                     'this read "accurate to <10⁻⁴ at two independent layers"',
+                     'this read "the logarithm of an unbiased mass estimate overstates it in expectation (Jensen)"'):
+            self.assertEqual(t4.count(frag), 1, frag)
+        for frag in ('this read "so it says nothing about how much of this space a list could cover"',
+                     'this read "That catches any error that leaves the total indivisible by 48'):
+            self.assertEqual(g.count(frag), 1, frag)
+        self.assertEqual(t4.count("2026-11-14, " + self.CX), 5)
+        self.assertEqual(g.count("2026-11-14, " + self.CX), 3)
+
+    def test_q1049r6_revision_row_and_ledger_entry(self):
+        rows = [l for l in self._r(self.T4).split("\n") if l.startswith("| v1.")]
+        self.assertTrue(rows[-1].startswith("| v1.52 *(current)* | 2026-11-17 |"), rows[-1][:60])
+        self.assertEqual(sum(l.split("|")[1].strip().endswith("*(current)*") for l in rows), 1, "one current revision row")
+        self.assertIn(self.CX, rows[-1])
+        self.assertEqual(self._r("documentation/CORRECTIONS.md").count("\n## %s — " % self.CX), 1, "the ledger entry exists once")
+
+    # ---- data checks ----
+    def test_d751_early_draw_sigma_range(self):
+        d = 1.328729
+        self.assertEqual(("%.1f" % ((d - 1.325) / (0.0018 * 1.325)), "%.1f" % ((d - 1.315) / (0.0018 * 1.315))), ("1.6", "5.8"))
+        self.assertIn("sits between 1.6σ and 5.8σ below 1.328729×10³⁸", self._r(self.T4))
+
+    def test_d726_pins_confine_probes_and_round8_starves(self):
+        src = self._r("solve.c")
+        self.assertIn("if (((knuth_pin_mask >> step) & 1u) && p != step) continue;             /* S(k) pins */", src)
+        sk8 = self._r("reports/evidence/sk/sk8_round.out")
+        zeros = re.findall(r"^  cand \d+: est=0\.000000e\+00$", sk8, re.M)
+        self.assertGreaterEqual(len(zeros), 2, "several round-8 candidates record zero mass")
+        self.assertIn("hitrate=0.0018", self._r("reports/evidence/knuth_whole_tree_5e10.out"),
+                      "the estimator prints its probe success rate separately from the mass")
+
+    def test_d733_anchor_deviations(self):
+        from fractions import Fraction as F
+        ex = F(757058601340255440651419713405330315358208)
+        self.assertIn("757,058,601,340,255,440,651,419,713,405,330,315,358,208", self._r(self.T4))
+        m = re.search(r"leaves_C1C2C4C5\s*: est=(7\.571405)e\+41", self._r("reports/evidence/knuth_relax_c5_1e7.out"))
+        self.assertTrue(m, "precondition: the archived re-draw")
+        redraw = (F(m.group(1)) * 10 ** 41 - ex) / ex
+        self.assertEqual("%.2e" % float(redraw), "1.08e-04")
+        self.assertGreater(redraw, F(1, 10 ** 4))
+        hi = (F("7.5715") * 10 ** 41 - ex) / ex
+        self.assertEqual("%.2e" % float(hi), "1.21e-04", "the four-figure draw's rounding interval reaches past 1e-4")
+        ex5 = F(1097051278789181790036112071176579186688)
+        self.assertEqual("%.2e" % float((F("1.097088") * 10 ** 39 - ex5) / ex5), "3.35e-05")
+
+    def test_d741_only_the_sixth_gain_has_both_operands(self):
+        sk = self._r("reports/evidence/sk/sk5_7_rounds.out")
+        n5 = float(re.search(r"round 5 S\(5 \) VALUE est=([0-9.e+]+)", sk).group(1))
+        n6 = float(re.search(r"S\(6\)=([0-9.e+]+) PICK=30", sk).group(1))
+        self.assertEqual("%.2f" % math.log2(n5 / n6), "8.64")
+        self.assertIn("leaves_canonical_C1C5 : est=1.328729e+38", self._r("reports/evidence/knuth_whole_tree_5e10.out"))
+        d = os.path.join(self.ROOT, "reports/evidence/sk")
+        blob = "".join(self._r(os.path.join("reports/evidence/sk", f)) for f in sorted(os.listdir(d)))
+        self.assertIn("7.519490e+22", blob, "positive control: N(5) is found")
+        for absent in ("8.42", "6.34e-13", "S(4)", "S(1)", "S(2)", "S(3)"):
+            self.assertNotIn(absent, blob, absent)
+
+    def test_d746_gain_bias_has_no_general_sign(self):
+        e = [0.5, 1.5]   # a two-point unbiased estimate of mass 1
+        self.assertLess(sum(math.log2(x) for x in e) / 2, 0.0, "each logarithm is biased low")
+        # gain = log2(A/B): only the later mass B estimated -> biased high; only the earlier mass A -> biased low
+        self.assertGreater(sum(math.log2(1 / b) for b in e) / 2, 0.0)
+        self.assertLess(sum(math.log2(a / 1) for a in e) / 2, 0.0)
+
+    def test_d531_coverage_bounds(self):
+        L, N = 10525271997, 1097051278789181790036112071176579186688
+        g = self._r(self.G)
+        self.assertIn("holds 10,525,271,997 orders of pairs", g)
+        self.assertIn("at least 5.1×10²⁹ different orders", g)
+        self.assertEqual("%.1e" % (N / 2 ** 31), "5.1e+29")
+        self.assertEqual(("%.1e" % (L / math.factorial(31)), "%.1e" % (L * 2 ** 31 / N)), ("1.3e-24", "2.1e-20"))
+        self.assertGreater(math.factorial(31), N // 2 ** 31)
+
+    def test_d532_engine_tests_48_and_published_run_records_24(self):
+        self.assertIn('F1_CHECK(rem48 == 0, "N %% 48 = %u != 0', self._r("solve.c"))
+        self.assertIn('"free_action_mod24": {"value": 0, "pass": true',
+                      self._r("runs/20260716_f1c5_c1c2c4c5_d128westus3/count_result.json"))
+        self.assertEqual(1097051278789181790036112071176579186688 % 48, 0)
+
+    def test_d539_break_even_ceiling_and_rate(self):
+        from fractions import Fraction as F
+        xa = self._r("reports/tr12/xa_verdict.md")
+        self.assertIn("Effective rate band = 7.5e+08 .. 3e+09 nodes/sec", xa)
+        self.assertIn("the least fast-end cost of any row is `8715510093521557687293118823183991737/1080000000000` hours", xa)
+        cheapest = 87155100935215576872931188231839917370
+        self.assertIn("cheapest branch: index 4 (pair 3, entry 16, exit 2) -- %d t-units" % cheapest, xa)
+        h = F(cheapest, 3 * 10 ** 9 * 3600)
+        self.assertEqual(h, F(8715510093521557687293118823183991737, 1080000000000))
+        self.assertEqual("%.2e" % float(h), "8.07e+24")
+
+# end class TestBatchQ1049R6
 
 
 if __name__ == "__main__":

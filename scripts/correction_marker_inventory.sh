@@ -110,6 +110,12 @@ EXCLUDE = re.compile(r'(^|/)(CORRECTIONS|HISTORY)\.md$')
 # reported on stderr (the line changed, so its verdict must be re-read), never silently applied.
 # Values are (class, review) and the review is one token (no spaces, no tab): what was decided.
 REVIEWED = {
+    # Q1049R6 (2026-11-14, CX-37C-T): two dated notes in the capstone guide that quote the old wording; the
+    # sentence each is appended to already reads correctly without it.
+    ('reports/CAPSTONE_GUIDE.md', '4a0a9b4a4056'):
+        ('1', 'reviewed:dated-note-CX-37C-T;the-sentence-already-gives-the-covered-fraction-bounds'),
+    ('reports/CAPSTONE_GUIDE.md', 'e987385a80da'):
+        ('1', 'reviewed:dated-note-CX-37C-T;the-sentence-already-names-the-tested-number'),
     # Q1037b (2026-11-06, CX-36X-A, CX-36X-C): withdrawals that keep the original text beside the note.
     ('documentation/CITATIONS.md', '2f0fa1017157'):
         ('1', 'reviewed:dated-note-CX-37B-B-gives-4-testable-pairs'),

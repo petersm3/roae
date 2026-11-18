@@ -297,8 +297,8 @@ estimates. It is a 40-digit integer, about 1.097×10³⁹ (Section 6 gives it in
 merge orderings that differ only in which way their pairs face, at least 5.1×10²⁹ different orders
 of pairs remain (**exact** arithmetic: each order of pairs accounts for at most 2³¹ orderings). The
 largest list the project has written out holds 10,525,271,997 orders of pairs (**exact**). That list
-was made under a different rule set, C1 to C5, so it says nothing about how much of this space a
-list could cover. Listing is out of the question. We can count without listing every ordering by
+was made under a different rule set, C1 to C5, and every ordering that satisfies C1 to C5 is in this space, so the list bounds how much of the space it covers without measuring it: between about 1.3×10⁻²⁴ and 2.1×10⁻²⁰ of its orders of pairs (**exact** arithmetic: 10,525,271,997 over at most 31! orders of pairs, and over at least 5.1×10²⁹) *(corrected 2026-11-14, CX-37C-T: this read "so it says nothing about how much of this space a list could cover")*.
+Listing is out of the question. We can count without listing every ordering by
 combining partial orderings that have the same ways to finish. Three ideas make that work.
 
 ### Idea 1: think in pairs, and check C2 only where pairs meet
@@ -373,8 +373,8 @@ Divisibility by 24 is the weaker form of the same fact.
 2. **A free check.** The final count must be divisible by 48, and so by 24. Nothing in the engine's
    arithmetic makes that happen on its own. Run on the full 31-pair problem, the engine tests
    divisibility by 48 at the end and stops if the test fails. The log of the run behind the
-   published total shows a test by 24, the weaker form. That catches any error that leaves the total
-   indivisible by 48; a wrong total that happens to be a multiple of 48 would pass. The smaller runs
+   published total shows a test by 24, the weaker form. The current engine's test by 48 catches any error that leaves the total indivisible by 48; the published run's test by 24 catches only an error that leaves it indivisible by 24.
+   A wrong total that happens to be a multiple of the tested number would pass either test *(corrected 2026-11-14, CX-37C-T: this read "That catches any error that leaves the total indivisible by 48; a wrong total that happens to be a multiple of 48 would pass", where "That" could be read as the test by 24)*. The smaller runs
    in this guide do not make that test, so at step 6 you do the division yourself.
 
 ### Running it
@@ -895,7 +895,7 @@ settle each open question.
   declined, so both stay **estimated**.
 - Whether the search space could ever be fully listed. We cannot yet use the catalog to predict
   how long that would take: the catalog and the search program count different kinds of nodes. The only checked bridge is one-sided: a lower-bound mapping from catalog units to production nodes
-  (TR-12 §3, `reports/tr12/xa_verdict.md`), under which every branch reads INFEASIBLE at any ceiling below ~8×10²⁴ hours; no exact conversion exists.
+  (TR-12 §3, `reports/tr12/xa_verdict.md`), under which every branch reads INFEASIBLE at any ceiling below ~8×10²⁴ hours; no exact conversion exists. That ceiling is the least fast-end cost of any branch in the verdict, at 3×10⁹ nodes per second (the operator-supplied 1.5×10⁹ with a ×2 hedge), so it scales inversely with the assumed rate *(added 2026-11-14, CX-37C-T)*.
 - One proposed comparison, of King Wen's position under smaller symmetry groups, still needs a
   precise definition: which groups to use, and what to measure about King Wen.
 - A direct test of whether C3 explains the two disagreements in Section 6.
