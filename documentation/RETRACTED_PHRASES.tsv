@@ -11,7 +11,7 @@
 # FORMAT (tab-separated, 3 columns):
 #   <retracted fixed string>	<file allowed to narrate the retraction>	<note>
 # The allow column is matched as a substring of the "file:line:" prefix, so it exempts
-# the document that legitimately quotes the old wording while explaining the retraction. A needle that carries a dollar figure is registered as sha256:<hex>/<n>, the digest and character length of the phrase (CX-230; see hashed_row_parse in scripts/doc_gates.sh).
+# the document that legitimately quotes the old wording while explaining the retraction. A needle that carries a dollar figure is registered as sha256:<hex>/<n>, the digest and character length of the phrase (CX-230; see hashed_row_parse in scripts/doc_gates.sh). An allowance is bound to a COUNT (Q-1079): `<file>@<n>` means that file must hold exactly n occurrences; without `@<n>`, exactly as many as it held at the version floor (see _g3_allowed in scripts/doc_gates.d/20_retract_links_status.sh). More is a new use; fewer is a stale row.
 #
 # ADD A ROW EVERY TIME YOU RETRACT OR RESCOPE A PUBLISHED CLAIM.
 #

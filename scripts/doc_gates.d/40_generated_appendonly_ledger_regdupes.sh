@@ -684,6 +684,52 @@ gate_generated() {
 # dotted domain with a letter TLD), with no address character just before it and none after it (a full stop ends a sentence, not
 # the address), so the marker can
 # hide nothing else and no part of a longer address. Tested in tests.py (TestCX1140PersonalDetailMarker).
+# Q-1079 — THE VERSION FLOOR (operator ruling 2026-11-10; Codex F06-007#16 = D1002).
+# GATE 10b holds every version AT OR AFTER the floor commit strictly: no line lost and every line in its
+# committed order. A version OLDER than the floor keeps the check it had before the floor: CORRECTIONS.md
+# may not have lost a line (order unchecked). The floor's own version counts as post-floor, so every line
+# that survived to the floor is held, in order, from then on; what the floor exempts is only what was
+# already broken before it. A version is pre-floor when the only commits carrying its blob are ancestors
+# of the floor. GATE 3 binds an allow column without @<n> to the count at this floor (_g3_allowed,
+# 20_retract_links_status.sh).
+# HISTORY.md (D1009, Codex F06-001#4) is NOT read by GATE 10 yet: whether HISTORY.md is append-only gated
+# is an operator decision that is still open (2026-11-14), because a dated withdrawal written INTO a
+# committed HISTORY.md line (dbbeae02, Q-1037b, CX-36X-C, 2026-11-09) would then fail. DG_LEDGERS below
+# names CORRECTIONS.md alone; the ledger loop and _dg_floor_rule already take a second ledger.
+# THE PRE-FLOOR BREAKS, measured 2026-11-14 with this gate run strictly (no floor) (the reason the floor
+# exists; do not go looking for them again, and do not "restore" them: the ledger is append-only, and the
+# record of each is this note plus the commits named):
+#   - CORRECTIONS.md: 12 versions keep every line but hold 1-2 lines out of order: b2b8d0da (2026-08-23)
+#     and the 11 commits f4a2d330 (2026-09-07) .. e70542bd (2026-09-11). The moved lines sit in the
+#     2026-08-23 entry withdrawing a distinct-orderings figure and in the ledger's own 2026-09-12
+#     entry "An append-only ledger was edited in place, and then the edit was reverted", which records
+#     that edit. FV2-G1 (2026-11-05) measured the same 12 versions and held D1002.
+#   - GATE 3 (D990): the KB1-KB3/KB5/KB6 row (RP-531c8cb8) was registered on 2026-10-01, after 828a6658
+#     (2026-09-29, the earliest floor that covers the CORRECTIONS.md breaks), for a quotation in
+#     CORRECTIONS.md, so 828a6658 would bind it to 0.
+#   The floor is therefore the parent of the commit that landed it (the Q-1048 gate build, CX-37C-Q):
+#   every CORRECTIONS.md version from 828a6658 on passes strictly, so a later floor exempts nothing else.
+#   `retract` and `appendonly` were re-run with the floor set here, before the push.
+# A clone without the floor (a test fixture, a shallow clone) checks EVERY version strictly and says so.
+# MOVING THE FLOOR exempts every version between the old floor and the new one: it takes its own dated
+# note here listing what it exempts, never a silent edit of the sha.
+# FLOOR RESTATED 2026-11-15: the Q-1048 build was rebased onto the cloud sweep stack before it was published,
+# so the floor is its new commit, a3921ea9. Run strictly (no floor) on this tree, GATE 10b fails exactly the 12
+# CORRECTIONS.md versions listed above and nothing else, so the restated floor exempts nothing new.
+# FLOOR RESTATED 2026-11-17: the stack was rebuilt on 7cf76a53 (after the small-fixes batch and Q-1127 L1) before it was
+# published, so the floor is the Q-1048 build's new commit, 2a502730. Run strictly (no floor) on this tree, GATE 10b fails exactly
+# the 12 CORRECTIONS.md versions listed above and nothing else, so the restated floor exempts nothing new.
+DG_VERSION_FLOOR=2a5027303bfb7a92f47dba684ede833a1c3e5428
+# _dg_floor: prints the floor's commit id; rc 1 = not in this clone; any other rc = git failed (a FAIL).
+_dg_floor() {
+  local _r _rc
+  _r=$(git rev-parse -q --verify "${DG_VERSION_FLOOR}^{commit}" 2>/dev/null); _rc=$?
+  [ "$_rc" -eq 0 ] && { git merge-base --is-ancestor "$_r" HEAD 2>/dev/null; _rc=$?; } && printf '%s\n' "$_r"   # a floor HEAD does not descend from (a rebased-away sha) is not this history's floor: rc 1, strict
+  return "$_rc"
+}
+_dg_floor_rule() {   # what a PRE-floor version of ledger $1 is still checked for
+  case "$1" in documentation/CORRECTIONS.md) echo "lines may not be lost, order not checked";; *) echo "not checked";; esac
+}
 _g10_money_align() {
   if ! grep -qF -e '[cost redacted]' -e '[storage detail redacted]' -e '[cloud detail redacted]' -e '[cost detail redacted]' -e '[personal detail redacted]' "$1" 2>/dev/null; then cat; return $?; fi   # CX-36S-D: a failed copy is not an empty baseline
   DG_WORK="$1" python3 -c '
@@ -941,9 +987,20 @@ _g10_nul_free() {   # rc 0: no NUL byte in $1; 1: one is there, or the file coul
     *)   echo "  [FAIL] could not read $1 to check it for NUL bytes — NOTHING was checked."; return 1 ;;
   esac
 }
+# Q-1079: the ledgers GATE 10a and 10b read, one at a time (the per-file bodies are _g10a_one and _g10b_one).
+# CORRECTIONS.md only: HISTORY.md (D1009) waits on the operator decision named in the floor note above.
+DG_LEDGERS="documentation/CORRECTIONS.md"
 gate_appendonly_head() {
-  echo "== GATE 10a: CORRECTIONS.md is append-only vs HEAD =="
-  local f="documentation/CORRECTIONS.md"
+  local _g10_rc=0 _g10_f _g10_k=0
+  for _g10_f in $DG_LEDGERS; do
+    [ "$_g10_k" -eq 0 ] || echo
+    _g10_k=1; _g10a_one "$_g10_f" || _g10_rc=1
+  done
+  return $_g10_rc
+}
+_g10a_one() {
+  local f="$1"
+  echo "== GATE 10a: ${f##*/} is append-only vs HEAD =="
   # ITEM A1. Deleting the ledger is the LIMITING CASE of the thing this gate forbids —
   # every committed line is gone at once — and it used to be the one way to make the gate
   # report nothing.
@@ -1030,7 +1087,7 @@ gate_appendonly_head() {
   local missf
   missf=$(mktemp) || { echo "  [FAIL] GATE 10a: mktemp failed, so the finding could not be classified."; rm -f "$tmp" "$_g10a_d"; return 1; }
   mv -f "$_g10a_d" "$missf" || { echo "  [FAIL] GATE 10a: could not keep the diff, so the finding could not be classified."; rm -f "$tmp" "$_g10a_d" "$missf"; return 1; }
-  DG_MISS="$missf" DG_N="$gone" python3 - <<'PY'
+  DG_MISS="$missf" DG_N="$gone" DG_F="${f##*/}" python3 - <<'PY'
 import os, re, sys, difflib
 def classify(dt):  # Q-718: a normal-format diff -> (re-wrapped, lost) removed lines, judged hunk by hunk
     rew, lost = [], []
@@ -1046,7 +1103,7 @@ rew, lost = classify(open(os.environ["DG_MISS"], encoding="utf-8", errors="repla
 if lost:
     print("  [FAIL] %d of %s missing committed line(s) are LOST — their text is not in the file"
           % (len(lost), n))
-    print("         at any line breaks. CORRECTIONS.md is append-only (first 5):")
+    print("         at any line breaks. %s is append-only (first 5):" % os.environ["DG_F"])
     for l in lost[:5]:
         print("           " + l[:140])
     print("         If an entry is wrong, APPEND an entry saying so. Both stay.")
@@ -1119,8 +1176,16 @@ PY
 # shas (Q-953, batch 48): the pre-push hook's per-sha worktree is detached, and the hook sets it
 # there from the remote shas git hands it, so the arm is armed at push time.
 gate_appendonly_history() {
-  echo "== GATE 10b: CORRECTIONS.md has lost no line from ANY committed or published version =="
-  local f="documentation/CORRECTIONS.md"
+  local _g10_rc=0 _g10_f _g10_k=0
+  for _g10_f in $DG_LEDGERS; do
+    [ "$_g10_k" -eq 0 ] || echo
+    _g10_k=1; _g10b_one "$_g10_f" || _g10_rc=1
+  done
+  return $_g10_rc
+}
+_g10b_one() {
+  local f="$1"
+  echo "== GATE 10b: ${f##*/} has lost no line from ANY committed or published version =="
   # ITEM A1, same limiting case as 10a and worse here: this half compares against every
   # PUBLISHED version, so a deleted working copy loses every line of all of them.
   require_tracked "$f" "Deleting the ledger loses every line of every published version at once."
@@ -1145,7 +1210,23 @@ gate_appendonly_history() {
   grep -v '^[[:space:]]*$' "$f" | sort > "$cur"
   case "${PIPESTATUS[0]}:${PIPESTATUS[1]}" in [01]:0) ;; *)
     echo "  [FAIL] GATE 10b: could not read the working copy of $f, so NOTHING was checked."
-    rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base"; return 1;; esac
+    rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_curo" "$g10b_ord"; return 1;; esac
+  # Q-1079 (D1002): the ORDERED blank-free working copy, for the order check, and the version floor.
+  local g10b_curo g10b_ord _g10b_floor _g10b_post="" _g10b_nord=0 _g10b_npre=0
+  g10b_curo=$(mktemp) || { rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_curo" "$g10b_ord"; return 1; }
+  g10b_ord=$(mktemp)  || { rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_curo"; return 1; }
+  grep -v '^[[:space:]]*$' "$f" > "$g10b_curo"
+  [ "$?" -le 1 ] || { echo "  [FAIL] GATE 10b: could not read the working copy of $f, so NOTHING was checked."
+    rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_curo" "$g10b_ord"; return 1; }
+  _g10b_floor=$(_dg_floor)
+  case $? in
+    0) echo "  version floor: $_g10b_floor (Q-1079; versions older than it: $(_dg_floor_rule "$f"))" ;;
+    1) _g10b_floor=""
+       echo "  [note] the version floor $DG_VERSION_FLOOR is not in this clone (a fixture or a shallow clone), so"
+       echo "         EVERY version is checked strictly: no line lost and every line in its committed order." ;;
+    *) echo "  [FAIL] GATE 10b: git could not say whether the version floor $DG_VERSION_FLOOR is here — NOTHING was checked."
+       rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_curo" "$g10b_ord"; return 1 ;;
+  esac
   # Baselines, deduplicated by BLOB id: a commit that did not change the file, and a
   # remote ref pointing at a commit already walked, contribute nothing.
   # 🔴 Q-283 / Codex N10 finding 8 — reproduced on the PUBLISHED suite 2026-08-28. This walked
@@ -1237,7 +1318,7 @@ gate_appendonly_history() {
         echo "  [FAIL] GATE 10b: the published sha $_g10b_pr (DOC_GATES_PUBLISHED_REF, from the pre-push"
         echo "         hook) is not a commit in this clone, so the published ledger cannot be checked."
         echo "         Fetch the remote first. NOTHING was checked."
-        rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base"; return 1; }
+        rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_curo" "$g10b_ord"; return 1; }
       _g10b_pushref="$_g10b_pushref $_g10b_ref"
     done
     _g10b_pushref="${_g10b_pushref# }"
@@ -1267,7 +1348,7 @@ gate_appendonly_history() {
   # unmerged; rev-list order kept within a class), and only then deduplicated by blob, so a blob
   # is always judged under the strictest verdict any commit holding it earns.
   local g10b_pairs _g10b_rank _g10b_seq=0
-  g10b_pairs=$(mktemp) || { echo "  [FAIL] GATE 10b: mktemp failed, so nothing was classified."; rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base"; return 1; }
+  g10b_pairs=$(mktemp) || { echo "  [FAIL] GATE 10b: mktemp failed, so nothing was classified."; rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_curo" "$g10b_ord"; return 1; }
   # Q-963 (batch 48; Codex Q835 A05#4): the walk's two producers are CHECKED. As command
   # substitutions inside the `for` list, a failed for-each-ref dropped every remote from the walk and
   # a failed rev-list walked NOTHING, and an empty walk prints "[ok] ... no committed or published
@@ -1275,11 +1356,11 @@ gate_appendonly_history() {
   local _g10b_refs _g10b_revs
   _g10b_refs=$(git for-each-ref --format='%(refname)' refs/remotes 2>/dev/null) || {
     echo "  [FAIL] GATE 10b: git for-each-ref failed, so the published versions are unknown — NOTHING was checked."
-    rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_pairs"; return 1; }
+    rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_curo" "$g10b_ord" "$g10b_pairs"; return 1; }
   # shellcheck disable=SC2086
   _g10b_revs=$(git rev-list HEAD $_g10b_refs $_g10b_pushref -- "$f" 2>/dev/null) || {
     echo "  [FAIL] GATE 10b: git rev-list failed, so no version of $f was walked — NOTHING was checked."
-    rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_pairs"; return 1; }
+    rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_curo" "$g10b_ord" "$g10b_pairs"; return 1; }
   # _g10b_anc A B: rc 0 = A is an ancestor of B, 1 = it is not; any other status of
   # `merge-base --is-ancestor` is git failing, recorded in _g10b_gitfail (Q-963: it read as "no",
   # which classified a commit of our own lineage as an unmerged branch's, a [note]).
@@ -1328,19 +1409,37 @@ gate_appendonly_history() {
     [ -n "$blob" ] || continue
     case "$_g10b_kind" in ancestor) _g10b_rank=0;; published) _g10b_rank=1;; behind) _g10b_rank=2;; *) _g10b_rank=3;; esac
     _g10b_seq=$((_g10b_seq+1))
+    # Q-1079: a commit that is NOT an ancestor of the floor carries a post-floor version. Pre-floor is
+    # decided per BLOB below (any post-floor commit holding it, or the floor's own version, makes it
+    # post-floor), so the blob dedup cannot judge one blob two ways.
+    [ -n "$_g10b_floor" ] && ! _g10b_anc "$src" "$_g10b_floor" && _g10b_post="$_g10b_post $blob"
     printf '%s %s %s %s %s\n' "$_g10b_rank" "$_g10b_seq" "$src" "$_g10b_kind" "$blob"
   done > "$g10b_pairs"
+  if [ -n "$_g10b_floor" ]; then
+    local _g10b_fb
+    _g10b_fb=$(git ls-tree "$_g10b_floor" -- "$f" 2>/dev/null) || _g10b_gitfail="${_g10b_gitfail:-ls-tree $_g10b_floor -- $f exited $?}"
+    _g10b_fb=${_g10b_fb#* blob }; _g10b_fb=${_g10b_fb%%$'\t'*}
+    _g10b_post="$_g10b_post $_g10b_fb"
+  fi
   if [ -n "$_g10b_gitfail" ]; then
     echo "  [FAIL] GATE 10b: git could not answer an ancestry question ($_g10b_gitfail), so a"
     echo "         baseline could not be classified — NOTHING is attested."
-    rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_pairs"; return 1
+    rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_curo" "$g10b_ord" "$g10b_pairs"; return 1
   fi
   # Q-971 (a): strictest class first, then rev-list order; THEN the blob dedup. A failed sort is
   # a FAIL, never an empty walk (an empty walk prints "[ok] ... no baseline").
-  sort -k1,1n -k2,2n -o "$g10b_pairs" "$g10b_pairs" || { echo "  [FAIL] GATE 10b: could not order the baselines, so nothing was classified."; rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_pairs"; return 1; }
+  sort -k1,1n -k2,2n -o "$g10b_pairs" "$g10b_pairs" || { echo "  [FAIL] GATE 10b: could not order the baselines, so nothing was classified."; rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_curo" "$g10b_ord" "$g10b_pairs"; return 1; }
   while read -r _g10b_rank _g10b_seq src _g10b_kind blob <&3; do
     case " $seen " in *" $blob "*) continue;; esac
     seen="$seen $blob"
+    # Q-1079: a PRE-FLOOR version keeps the check it had before the floor: CORRECTIONS.md lines may not be
+    # lost (order unchecked), HISTORY.md is not read. Its known breaks are listed in the floor note.
+    local _g10b_strict=1
+    if [ -n "$_g10b_floor" ]; then case " $_g10b_post " in *" $blob "*) ;; *) _g10b_strict=0;; esac; fi
+    if [ "$_g10b_strict" -eq 0 ]; then
+      _g10b_npre=$((_g10b_npre+1))
+      [ "$(_dg_floor_rule "$f")" = "not checked" ] && continue
+    fi
     n=$((n+1))
     # CX-230: the baseline is aligned to the working copy's `[cost redacted]` lines first (see
     # _g10_money_align above); a pure token->marker line is then not a loss, anything else still is.
@@ -1355,10 +1454,37 @@ gate_appendonly_history() {
       echo "  [FAIL] GATE 10b: could not prepare the version $blob of $f (grep:sort $_g10b_ps), so it was NOT checked."; bad=1; continue;; esac
     lost=$(comm -23 "$tmp" "$cur" | wc -l) && [[ "$lost" =~ ^[[:space:]]*[0-9]+$ ]] || {
       echo "  [FAIL] GATE 10b: comm could not compare the version $blob of $f, so it was NOT checked."; bad=1; continue; }
+    # Q-1079 (D1002, Codex F06-007#16): ORDER, for a version at or after the floor. The multiset check
+    # above passes a committed REORDER (every line still there). `diff` of the ordered blank-free texts
+    # removes len(base) - LCS lines, and the multiset check accounts for `lost` of them; any more were
+    # present but moved: the version is not a subsequence of the working copy.
+    if [ "$_g10b_strict" -eq 1 ]; then
+      local _g10b_rm _g10b_mv
+      grep -v '^[[:space:]]*$' "$g10b_base" > "$g10b_ord"
+      [ "$?" -le 1 ] || { echo "  [FAIL] GATE 10b: could not prepare the version $blob of $f for the order check, so it was NOT checked."; bad=1; continue; }
+      _g10b_rm=$(diff --text "$g10b_ord" "$g10b_curo" | grep -c '^< '; echo ":${PIPESTATUS[0]}:${PIPESTATUS[1]}")
+      _g10b_ps=${_g10b_rm#*:}; _g10b_rm=${_g10b_rm%%$'\n'*}
+      case "$_g10b_ps" in [01]:[01]) ;; *)
+        echo "  [FAIL] GATE 10b: the order check could not compare the version $blob of $f (diff:grep $_g10b_ps), so it was NOT checked."; bad=1; continue;; esac
+      _g10b_mv=$(( _g10b_rm - lost ))
+      _g10b_nord=$((_g10b_nord+1))
+      if [ "$_g10b_mv" -gt 0 ]; then
+        case "${_g10b_kind:-ancestor}" in
+          ancestor|published)
+            echo "  [FAIL] $_g10b_mv line(s) of $src ($blob) are still in the working copy but NOT in their"
+            echo "         committed ORDER: a committed version of an append-only ledger was re-ordered (first 3):"
+            bad=1 ;;
+          *)
+            echo "  [note] $_g10b_mv line(s) of $src ($blob) [$_g10b_kind] are here in a different order. Reported, not failed:"
+            ;;
+        esac
+        diff --text "$g10b_ord" "$g10b_curo" | sed -n 's/^< //p' | sort | comm -12 - "$cur" | head -3 | cut -c1-140 | sed 's/^/           /'
+      fi
+    fi
     if [ "${lost:-0}" -ne 0 ]; then
       # Q-251 / Q-718: split into RE-WRAPS (accumulated, reported once below) and LOST lines.
       local g10b_lostf
-      g10b_lostf=$(mktemp) || { echo "  [FAIL] GATE 10b: mktemp failed, so nothing was classified."; rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_pairs"; return 1; }
+      g10b_lostf=$(mktemp) || { echo "  [FAIL] GATE 10b: mktemp failed, so nothing was classified."; rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_curo" "$g10b_ord" "$g10b_pairs"; return 1; }
       diff --text "$g10b_base" "$f" > "$g10b_diff"; _g10b_ps=$?
       if [ "$_g10b_ps" -gt 1 ]; then
         echo "  [FAIL] GATE 10b: diff could not compare the version $blob of $f (rc $_g10b_ps), so its lines were NOT classified."
@@ -1443,12 +1569,17 @@ for l in (x.rstrip("\n") for x in sys.stdin):
     echo "           looking for deleted content, and do not rewrite any prose to satisfy this."
     bad=1
   fi
+  if [ "$_g10b_npre" -gt 0 ]; then
+    echo "  [note] $_g10b_npre version(s) older than the version floor: $(_dg_floor_rule "$f") (Q-1079; the breaks they"
+    echo "         hold are listed, dated, in the floor note of scripts/doc_gates.d/40_generated_appendonly_ledger_regdupes.sh)"
+  fi
   if [ "$n" -eq 0 ]; then
     echo "  [ok] $f has no committed or published version yet — no baseline to lose a line from"
   elif [ "$bad" -eq 0 ]; then
     echo "  [ok] every line of all $n distinct historical/published version(s) survives in the working copy"
+    echo "  [ok] $_g10b_nord of them (at or after the version floor) keep every line in its committed order"
   fi
-  rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base"
+  rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_curo" "$g10b_ord"
   return $bad
 }
 

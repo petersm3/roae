@@ -12841,3 +12841,16 @@ line number in either file moves. Both sets of reproductions were run again on t
   and full test runs share one lock, so they wait for each other instead of sharing two cores.
 - No canonical sha, count, certificate or verdict changed. Nine `TestQ1048G*` classes hold the fixes and fail on
   the parent tree. Found by Codex (gpt-6-astra), fix-verification round; triaged by Fable; built in an Opus lane.
+
+## 2026-11-14 — batch Q1079: the append-only ledger's order, from a version floor, and two allowlists bound to a count
+
+- **GATE 10b, GATE 3 and GATE 4b (CX-37G-D).** Three rows Codex (gpt-6-astra) found and FV2-G1 held. GATE 10b now
+  checks that CORRECTIONS.md keeps its lines in their committed order, for every version from a stated floor on;
+  12 older versions with a line out of order are listed in the floor note. A retracted-phrase allowance now allows
+  a set number of uses, not a whole file. A section-reference allowlist row covers one reference, not every
+  reference with the same target.
+- **Held for the operator.** Gating HISTORY.md the same way (D1009) waits on a decision: it would also forbid
+  writing a dated withdrawal into a committed HISTORY.md line.
+- No canonical sha, count, certificate or verdict changed, and no registry row. `TestQ1079VersionFloorAndAllowances`
+  holds the fixes, and its plants fail on the parent tree. Found by Codex (gpt-6-astra), fix-verification round;
+  triaged by Fable; built in an Opus lane.

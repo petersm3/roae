@@ -2,6 +2,40 @@
 #@ GATE 3 (retract), 3b (retract-figures), 4 + 4b (links, secrefs), 5 + 5b (status).
 #@ Lines 1211-2352 of the logical source (`bash scripts/doc_gates.d/logical_source.sh`); `#@` lines are
 #@ split commentary and are not part of it. Run gates through the entry: bash scripts/doc_gates.sh <gate>
+# Q-1079 (D990, Codex F06-003#2) — AN ALLOWANCE IS BOUND TO A COUNT, not to a whole file. The allow column
+# exempted EVERY occurrence in the named file, so a second, bare use of a retracted phrase in a file that
+# quotes it once passed, and so did a re-assertion after the quotation itself was deleted. Now the
+# occurrences in an allowed file (counted on the same folded, whitespace-joined text the match reads) must
+# EQUAL the allowance: `<file>@<n>` in the allow column states n; a column without `@<n>` allows exactly
+# as many as that file held at the version floor (DG_VERSION_FLOOR, GATE 10's floor note in
+# 40_generated_appendonly_ledger_regdupes.sh), which is every quotation the registry had approved by then.
+# MORE is a [FAIL] `file(allowance:<have>><n>)`: a new use needs its own allowance. FEWER is a [FAIL]
+# `file(stale-allowance:<have><<n>)`: the quotation that justified the row is gone. A row registered
+# after the floor for a file that only quotes it after the floor therefore states `@<n>`. A clone without
+# the floor (a fixture, a shallow clone) falls back to the file-wide rule for rows without `@<n>`, and
+# says so once. NOT COVERED: hashed rows (`sha256:`) keep the file-wide rule (the one there is allows no file).
+# _g3_allowed <file> <flattened-copy> <needle> <allow-column> prints a hit token and returns 1 when the
+# file's count differs from its allowance, returns 0 when it equals it, and 2 when it could not count.
+_g3_allowed() {
+  local f="$1" flat="$2" np="$3" al="$4" cap="" have fb
+  [[ "$al" =~ @([0-9]+)$ ]] && cap="${BASH_REMATCH[1]}"
+  have=$(grep -oF -- "$np" "$flat" | wc -l; echo ":${PIPESTATUS[0]}")
+  case "${have#*:}" in 0|1) have=${have%%$'\n'*};; *) return 2;; esac
+  if [ -z "$cap" ]; then
+    [ -n "$_g3_floor" ] || return 0
+    if [ ! -f "$_g3_fdir/$f" ]; then
+      fb=$(git ls-tree "$_g3_floor" -- "$f" 2>/dev/null) || return 2
+      mkdir -p "$_g3_fdir/$(dirname "$f")" || return 2
+      if [ -z "$fb" ]; then : > "$_g3_fdir/$f" || return 2
+      else git show "$_g3_floor:$f" 2>/dev/null | fold_variants | fold_join > "$_g3_fdir/$f" || return 2; fi
+    fi
+    cap=$(grep -oF -- "$np" "$_g3_fdir/$f" | wc -l; echo ":${PIPESTATUS[0]}")
+    case "${cap#*:}" in 0|1) cap=${cap%%$'\n'*};; *) return 2;; esac
+  fi
+  [ "$have" -eq "$cap" ] && return 0
+  if [ "$have" -gt "$cap" ]; then echo "$f(allowance:$have>$cap)"; else echo "$f(stale-allowance:$have<$cap)"; fi
+  return 1
+}
 gate_retract() {
   echo "== GATE 3: retracted phrasings still surviving =="
   # Registry-driven and deliberately so: auto-parsing retraction prose is unreliable,
@@ -84,6 +118,18 @@ gate_retract() {
       && { [ -s "$flatevdir/$f" ] || [ ! -s "$f" ]; }; } \
       || { echo "  [FAIL] could not fold evidence file $f into the scan cache, so it was NOT scanned"; bad=1; }
   done
+  # Q-1079 (D990): the version floor, and a cache of the allowed files' folded text AT the floor.
+  local _g3_floor _g3_fdir
+  _g3_floor=$(_dg_floor)
+  case $? in
+    0) ;;
+    1) _g3_floor=""
+       echo "  [note] the version floor $DG_VERSION_FLOOR is not in this clone, so an allow column without @<n> exempts"
+       echo "         its whole file here (the pre-Q-1079 rule); a column with @<n> is still bound to n." ;;
+    *) echo "  [FAIL] GATE 3: git could not say whether the version floor $DG_VERSION_FLOOR is here — NOTHING was checked."
+       rm -rf "$folddir" "$flatevdir" "$flatdocdir"; return 1 ;;
+  esac
+  _g3_fdir=$(mktemp -d "${TMPDIR:-/tmp}/docgates_floor.XXXXXX") || { echo "  [FAIL] mktemp failed"; rm -rf "$folddir" "$flatevdir" "$flatdocdir"; return 1; }
   while IFS=$'\t' read -r phrase allow note; do
     # Q-761: was `case "$phrase" in ''|'#'*) continue`, which skipped a needle starting with #.
     reg_row_kind loud "$phrase" "$allow" "$note"; case $? in 0) continue;; 2) bad=1; continue;; esac
@@ -110,10 +156,20 @@ gate_retract() {
       fi
       continue
     fi
-    local np hits=""
+    local np hits="" _g3_an="$allow" _g3_ah _g3_arc
+    [[ "$allow" =~ ^(.*)@[0-9]+$ ]] && _g3_an="${BASH_REMATCH[1]}"   # Q-1079: `<file>@<n>`
     np=$(printf '%s' "$phrase" | fold_variants | fold_join)
+    # Q-1079 (D990): every allowed file, of both halves, is held to its allowance (see _g3_allowed).
+    for f in $DOCS $evid; do
+      case "$f" in *"$_g3_an"*) ;; *) continue;; esac
+      [ -f "$flatdocdir/$f" ] && _g3_ah="$flatdocdir/$f" || _g3_ah="$flatevdir/$f"
+      [ -f "$_g3_ah" ] || continue
+      _g3_ah=$(_g3_allowed "$f" "$_g3_ah" "$np" "$allow"); _g3_arc=$?
+      case "$_g3_arc" in 0) ;; 1) hits="$hits $_g3_ah";; *)
+        echo "  [FAIL] could not count the allowed occurrences of \"$phrase\" in $f, so it was NOT checked."; bad=1;; esac
+    done
     for f in $DOCS; do
-      case "$f" in *"$allow"*) continue;; esac          # the doc allowed to narrate it
+      case "$f" in *"$_g3_an"*) continue;; esac          # the doc allowed to narrate it (bound above)
       [ -f "$folddir/$f" ] || continue
       # normalise the FOLDED file to one whitespace-collapsed line, then fixed-string match
       # Q-963 (batch 48): rc 2 (the cache file unreadable) is not "no hit".
@@ -160,7 +216,7 @@ gate_retract() {
     [ "$_g3_rc" -le 1 ] || { echo "  [FAIL] retracted phrasing \"$phrase\": the evidence scan could not read its cache (grep rc $_g3_rc), so it was NOT checked."; bad=1; continue; }
     for eh in $_g3_eh; do
       ef2=${eh#"$flatevdir/"}
-      case "$ef2" in *"$allow"*) continue;; esac        # same allow rule: FILENAME only
+      case "$ef2" in *"$_g3_an"*) continue;; esac       # same allow rule: FILENAME only (bound above)
       local ehitln
       ehitln=$(grep -nF -- "$np" "$folddir/$ef2" 2>/dev/null | head -1 | cut -d: -f1)
       if [ -n "$ehitln" ]; then
@@ -178,7 +234,7 @@ gate_retract() {
       echo "  [ok] retracted: \"$phrase\""
     fi
   done < "$reg"
-  rm -rf "$folddir" "$flatevdir" "$flatdocdir"
+  rm -rf "$folddir" "$flatevdir" "$flatdocdir" "$_g3_fdir"
   return $bad
 }
 
@@ -624,7 +680,7 @@ gate_secrefs() {
   #     false clear — a statement about today's corpus, not about the rule.
   echo "== GATE 4b: plain-text section references resolve to a real heading =="
   { _md_norm_prelude; cat <<'PY'
-import os, re, sys, subprocess, bisect
+import os, re, sys, subprocess, bisect, collections
 MDLINK = re.compile(r'\[([^\]]*)\]\(([^)\s]+)\)')
 HEAD   = re.compile(r'^#+\s+(.*?)\s*$', re.M)
 # ITEM B1 (2026-08-02, drain-2) — THE SECOND ANCHOR FORM. This repo names a block in two
@@ -682,14 +738,17 @@ for m in mds:
     bolds[os.path.realpath(m)] = [norm(b) for b in BOLD.findall(md_prose(txt))]   # CX-36S-C (D993): not from code
     bybase.setdefault(os.path.basename(m), []).append(os.path.realpath(m))
 
-allow, allow_why = set(), {}
+# Q-1079 (D994, Codex F06-012#1): a row exempts ONE occurrence of its (source, target, section) triple;
+# a triple quoted twice is listed twice. A set keyed by the triple let a NEW dangling reference to the
+# same triple inherit the exemption granted for the quoted one. `allow` counts rows, `used` occurrences.
+allow, allow_why, used = collections.Counter(), {}, collections.Counter()
 if os.path.exists(ALLOW):
     for ln in open(ALLOW, encoding='utf-8'):
         if not ln.strip() or ln.startswith('#'):
             continue
         f = ln.rstrip('\n').split('\t')
         if len(f) >= 4:
-            allow.add((f[0], f[1], norm(f[2])))
+            allow[(f[0], f[1], norm(f[2]))] += 1
             allow_why[(f[0], f[1], norm(f[2]))] = f[3]
 
 bad, opened, ambiguous, viabold = [], [], [], []
@@ -819,7 +878,8 @@ for m in mds:
                 continue
             rel = os.path.relpath(dest)
             key = (m, rel, want)
-            if key in allow:
+            used[key] += 1
+            if used[key] <= allow[key]:
                 hit_allow.add(key)
                 opened.append((m, lineno, rel, sec, key))
             else:
@@ -827,6 +887,10 @@ for m in mds:
 
 for m, ln, d, s, key in bad:
     print(f'  [FAIL] {m}:{ln} -> {d} §"{s}"')
+    if allow[key]:
+        print(f'         WHY (Q-1079): {ALLOW} lists this triple {allow[key]} time(s), one row per quoted'
+              f' occurrence, and this is occurrence {used[key]}: a further reference is not covered')
+        continue
     print(f'         WHY: nothing in {d} is named "{norm(s)}" — no heading contains that'
           f' normalised text, and no line-leading bold label BEGINS with it (ITEM B4: a bold'
           f' label matched mid-text is not an anchor)')
@@ -846,9 +910,11 @@ for m, ln, d, s, key in opened:
 # the [note] count below overstate the open-defect load. Widening the anchor model in this very
 # commit retired ten rows at a stroke, which is exactly the moment such rot gets created — so
 # the check ships with the change that would otherwise have caused it.
-stale = sorted(allow - hit_allow)
+# Q-1079: a row is consumed by one occurrence, so a triple listed more times than it occurs is stale too.
+stale = sorted(k for k in allow if used[k] < allow[k])
 for src, tgt, want in stale:
-    print(f'  [FAIL] stale allowlist row: {src} -> {tgt} §"{want}"')
+    print(f'  [FAIL] stale allowlist row: {src} -> {tgt} §"{want}"'
+          + (f' (listed {allow[(src, tgt, want)]} times, {used[(src, tgt, want)]} occurrence(s) left)' if used[(src, tgt, want)] else ''))
     print(f'         WHY: that reference no longer fails, so the row exempts nothing.'
           f' Delete it from {ALLOW} — an exemption with no finding under it is a silent'
           f' licence for the next reference that reuses the same triple')

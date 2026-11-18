@@ -311,8 +311,8 @@ REVIEWED = {
         ('2', 'reviewed:the-NOT-REPRODUCIBLE-text-it-withdraws-is-still-above-it'),
     ('documentation/CANONICAL_HASHES.md', '718078bbe242'):
         ('2', 'reviewed:only-thing-withdrawing-the-host-environment-cause-the-bracket-above-gives'),
-    ('documentation/CANONICAL_HASHES.md', 'cb26064afc3d'):  # re-keyed 2026-11-14, cloud sweep B6 (was 7ed5382810ab; VM size/region/cost words reworded; verdict re-read, stands)
-        ('1', 'reviewed:cell-already-separates-the-King-Wen-observation-from-the-verdict'),
+    # ('documentation/CANONICAL_HASHES.md', 'cb26064afc3d') retired 2026-11-15 (Q-1079, D990): GATE 3 now ties this
+    # marker by line (class 3, gate-anchored), so a class-1 review no longer applies to it.
     ('documentation/CANONICAL_HASHES.md', '8f5d0299b94d'):
         ('1', 'reviewed:paragraph-no-longer-carries-the-LTO-attribution'),
     ('documentation/CANONICAL_HASHES.md', '3f351eef3978'):  # re-keyed 2026-11-14, cloud sweep B6 (was a35557a8415a; VM size/region/cost words reworded; verdict re-read, stands)
@@ -1326,6 +1326,60 @@ REVIEWED = {
         ('n/a', 'reviewed:documented-flag-count-170-to-169-because-a-deleted-span-names-a-flag;verdict-stays-ok;SOLVE_PY_CLI.md-one-file-run'),
     ('documentation/VERIFY.md', 'pop:GATE 2'):
         ('n/a', 'reviewed:documented-flag-count-167-to-165-because-deleted-spans-name-flags;verdict-stays-ok;VERIFY.md-one-file-run'),
+    # Q-1079 (D990, 2026-11-15): an allow column is bound to a count, so blanking the spans makes GATE 3 print
+    # `<file>(stale-allowance:...)` for each allowed file whose quotation sits inside a deleted span. Read from the
+    # kept base/abl logs of one run: every changed GATE 3 line is one of those FAILs, its header, or the registry
+    # note it echoes (which names further files). No finding: the count rule is working on the quotation it binds.
+    ('-', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990;FAIL-headers-and-matched-as-lines-of-the-stale-allowance-FAILs;each-names-its-file-below-it'),
+    ('documentation/CAMPAIGN_METHODOLOGY.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding'),
+    ('documentation/CANONICAL_HASHES.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding'),
+    ('documentation/CRITIQUE.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding'),
+    ('documentation/DEVELOPMENT.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding'),
+    ('documentation/GT_LADDER_FORMAT.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding'),
+    ('documentation/LARGE_SCALE_CAMPAIGNS.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding'),
+    ('documentation/LITERATURE_RULES_POPULATION_TESTS.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding'),
+    ('documentation/SOLVE.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding'),
+    ('documentation/SOLVE_C_CLI.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding'),
+    ('documentation/SOLVE_SUMMARY.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding'),
+    ('reports/FULL31_EXACT_AGGREGATES.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding'),
+    ('reports/METHODS.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding'),
+    ('reports/TR12_QUERY_PROGRAM.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding'),
+    ('reports/TR6_PARITY_SKELETON.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding'),
+    ('reports/TR9_PRICING_THE_CONSTRAINTS.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding'),
+    ('documentation/CLAIMS_DECIDED.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990;named-only-in-the-registry-note-echoed-on-another-files-stale-allowance-FAIL;no-finding'),
+    ('documentation/PERFORMANCE_HISTORY.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990;named-only-in-the-registry-note-echoed-on-another-files-stale-allowance-FAIL;no-finding'),
+    ('documentation/QUERY_INVENTORY.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990;named-only-in-the-registry-note-echoed-on-another-files-stale-allowance-FAIL;no-finding'),
+    ('documentation/SAT_CLI.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990;named-only-in-the-registry-note-echoed-on-another-files-stale-allowance-FAIL;no-finding'),
+    ('documentation/SYMMETRY_SEARCH.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990;named-only-in-the-registry-note-echoed-on-another-files-stale-allowance-FAIL;no-finding'),
+    ('enumeration/LEADERBOARD.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990;named-only-in-the-registry-note-echoed-on-another-files-stale-allowance-FAIL;no-finding'),
+    ('reports/TR1_EIGHT_CENTURIES_MEASURED.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990;named-only-in-the-registry-note-echoed-on-another-files-stale-allowance-FAIL;no-finding'),
+    ('reports/evidence/w0d_lower_bound/README.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990;named-only-in-the-registry-note-echoed-on-another-files-stale-allowance-FAIL;no-finding'),
+    ('runs/20260716_f1c5_c1c2c4c5_d128westus3/layer_curve.md', 'pop:GATE 3'):
+        ('n/a', 'reviewed:Q-1079-D990;named-only-in-the-registry-note-echoed-on-another-files-stale-allowance-FAIL;no-finding'),
     ('-', 'pop:GATE 3b'):
         ('n/a', 'reviewed:continuation-of-allowlist-row-matched-nothing-notes-plus-the-ok-count;TR9-and-runs-f1c5-README-one-file-runs-print-them;both-files-markers-are-class-3-by-line'),
     ('-', 'pop:GATE 4b'):

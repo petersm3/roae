@@ -71536,6 +71536,227 @@ class TestQ1048G9EmittedSurfaceCensus(unittest.TestCase):
 # end class TestQ1048G9EmittedSurfaceCensus (Q-1048 group 9)
 
 
+class TestQ1079VersionFloorAndAllowances(unittest.TestCase):
+    """Q-1079: three of the four FV2-G1 rows held for a format decision, built per the operator's 2026-11-10
+    ruling (the GATE 10b version floor). D1002 (Codex F06-007#16): 10b checks ORDER for every version at or
+    after the floor. D990 (F06-003#2): a RETRACTED_PHRASES allow column is bound to a count (`@<n>`, else the
+    count at the floor). D994 (F06-012#1): a DOC_GATE_SECREF_ALLOWLIST row covers ONE occurrence of its
+    triple. The fourth row, D1009 (F06-001#4: GATE 10a/10b over HISTORY.md as well), waits on an operator
+    decision and is not in this class.
+    Each row: a planted scratch repo the parent tree passes over and this tree fails by name, an unplanted
+    control green on both, and the mutant the red test kills (each `test_mutant_*` re-plants against a
+    mutated copy of the module and shows the plant passing again). Developed with AI assistance (Claude,
+    Anthropic): claude-opus-5-5, from Codex (gpt-6-astra) findings triaged by Fable."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    D = "scripts/doc_gates.sh"
+    M20 = "scripts/doc_gates.d/20_retract_links_status.sh"
+    M40 = "scripts/doc_gates.d/40_generated_appendonly_ledger_regdupes.sh"
+    COR = "documentation/CORRECTIONS.md"
+    REG = "documentation/RETRACTED_PHRASES.tsv"
+    SEC = "documentation/DOC_GATE_SECREF_ALLOWLIST.txt"
+    PH = "fvq zebra claim"
+
+    # ------------------------------------------------------------------ helpers
+    def _env(self):
+        e = {k: v for k, v in os.environ.items() if not k.startswith(("GIT_", "DOC_GATES_"))}
+        e.update(GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@invalid", GIT_COMMITTER_NAME="t",
+                 GIT_COMMITTER_EMAIL="t@invalid", GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
+        return e
+
+    def _repo(self, files):
+        d = tempfile.mkdtemp(prefix="q1079_")
+        self.addCleanup(shutil.rmtree, d, True)
+        os.makedirs(os.path.join(d, "scripts"))
+        shutil.copy(os.path.join(self.ROOT, self.D), os.path.join(d, self.D))
+        shutil.copytree(os.path.join(self.ROOT, "scripts", "doc_gates.d"), os.path.join(d, "scripts", "doc_gates.d"))
+        self._git(d, "init", "-q", ".")
+        self._git(d, "symbolic-ref", "HEAD", "refs/heads/main")
+        self._git(d, "add", "-A")
+        self._git(d, "commit", "-qm", "scripts")
+        self._commit(d, files)
+        return d
+
+    def _git(self, d, *a):
+        r = subprocess.run(["git"] + list(a), cwd=d, env=self._env(), capture_output=True, text=True, timeout=120)
+        self.assertEqual(r.returncode, 0, (a, r.stderr))
+        return r.stdout.strip()
+
+    def _write(self, d, files):
+        for rel, text in files.items():
+            p = os.path.join(d, rel)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(text)
+
+    def _commit(self, d, files, msg="c"):
+        self._write(d, files)
+        self._git(d, "add", "-A")
+        self._git(d, "commit", "-qm", msg)
+        return self._git(d, "rev-parse", "HEAD")
+
+    def _floor(self, d, sha):
+        """Point the scratch copy's version floor at `sha` (the real floor is not in a scratch repo).
+        The parent tree has no floor, so there this is a no-op and the plant runs on the parent's rule."""
+        p = os.path.join(d, self.M40)
+        with open(p, encoding="utf-8") as fh:
+            src = fh.read()
+        if "\nDG_VERSION_FLOOR=" in src:
+            src = re.sub(r"(?m)^DG_VERSION_FLOOR=\S+$", "DG_VERSION_FLOOR=" + sha, src)
+            self.assertIn("DG_VERSION_FLOOR=" + sha, src)
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(src)
+
+    def _mutate(self, d, rel, old, new):
+        p = os.path.join(d, rel)
+        with open(p, encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertEqual(src.count(old), 1, "mutant anchor must occur exactly once: %r" % old)
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(src.replace(old, new))
+
+    def _gate(self, d, leg):
+        r = subprocess.run(["timeout", "600", "bash", "scripts/doc_gates.sh", leg], cwd=d, env=self._env(),
+                           capture_output=True, text=True, timeout=660)
+        return r.returncode, r.stdout + r.stderr
+
+    # ------------------------------------------------------------------ D1002: order, from the floor on
+    def _d1002(self, second):
+        d = self._repo({self.COR: "# C\n\nA entry.\nB entry.\nC entry.\n"})
+        c0 = self._git(d, "rev-parse", "HEAD")
+        self._commit(d, {self.COR: second})
+        return d, c0
+
+    def test_d1002_committed_reorder_fails(self):
+        d, c0 = self._d1002("# C\n\nB entry.\nA entry.\nC entry.\n")
+        rc, out = self._gate(d, "appendonly-history")
+        self.assertEqual(rc, 1, out[-3000:])
+        self.assertIn("line(s) of %s" % c0, out)
+        self.assertIn("NOT in their", out)
+
+    def test_d1002_control_insertion_passes(self):
+        d, _ = self._d1002("# C\n\nA entry.\nNEW entry.\nB entry.\nC entry.\nD entry.\n")
+        for leg in ("appendonly-head", "appendonly-history"):
+            rc, out = self._gate(d, leg)
+            self.assertEqual(rc, 0, out[-3000:])
+
+    def _floor_case(self):
+        """c0 A B C; c1 B A C (a PRE-floor reorder; floor = c1); c2 B A C D; working copy B C A D
+        (a POST-floor reorder, committed as c3)."""
+        d, c0 = self._d1002("# C\n\nB entry.\nA entry.\nC entry.\n")
+        c1 = self._git(d, "rev-parse", "HEAD")
+        self._floor(d, c1)
+        self._git(d, "add", "-A")
+        self._git(d, "commit", "-qm", "floor set in the scratch module")
+        self._commit(d, {self.COR: "# C\n\nB entry.\nA entry.\nC entry.\nD entry.\n"})
+        return d, c0, c1
+
+    def test_d1002_floor_exempts_only_pre_floor_breaks(self):
+        d, c0, c1 = self._floor_case()
+        rc, out = self._gate(d, "appendonly-history")
+        self.assertEqual(rc, 0, "a pre-floor reorder must not fail:\n" + out[-3000:])
+        self.assertIn("version floor: %s" % c1, out)
+        self.assertIn("older than the version floor", out)
+        c2 = self._git(d, "rev-parse", "HEAD")
+        self._commit(d, {self.COR: "# C\n\nB entry.\nC entry.\nA entry.\nD entry.\n"})
+        rc, out = self._gate(d, "appendonly-history")
+        self.assertEqual(rc, 1, "a post-floor reorder must fail:\n" + out[-3000:])
+        self.assertIn("NOT in their", out)
+        self.assertNotIn("line(s) of %s " % c0, out, "the pre-floor version is not order-checked")
+
+    def test_mutant_d1002_order_count_dropped(self):
+        d, _ = self._d1002("# C\n\nB entry.\nA entry.\nC entry.\n")
+        self._mutate(d, self.M40, "_g10b_mv=$(( _g10b_rm - lost ))", "_g10b_mv=0")
+        rc, out = self._gate(d, "appendonly-history")
+        self.assertEqual(rc, 0, "mutant (no order count) should pass the plant:\n" + out[-2000:])
+
+    def test_mutant_d1002_floor_at_the_tip(self):
+        d, _, _ = self._floor_case()
+        self._commit(d, {self.COR: "# C\n\nB entry.\nC entry.\nA entry.\nD entry.\n"})
+        self._mutate(d, self.M40, '_r=$(git rev-parse -q --verify "${DG_VERSION_FLOOR}^{commit}" 2>/dev/null); _rc=$?',
+                     "_r=$(git rev-parse -q --verify 'HEAD^{commit}' 2>/dev/null); _rc=$?")
+        rc, out = self._gate(d, "appendonly-history")
+        self.assertEqual(rc, 0, "mutant (floor = the tip) should pass the post-floor reorder:\n" + out[-2000:])
+
+    # ------------------------------------------------------------------ D990: allow column bound to a count
+    def _d990(self, allow, solve, plant=None):
+        reg = "# fixture registry\n%s\t%s\tfixture row\n" % (self.PH, allow)
+        d = self._repo({self.REG: reg, "documentation/SOLVE.md": solve, "README.md": "# R\n\nNothing here.\n"})
+        self._floor(d, self._git(d, "rev-parse", "HEAD"))
+        if plant is not None:
+            self._write(d, {"documentation/SOLVE.md": plant})
+        rc, out = self._gate(d, "retract")
+        return out
+
+    QUOTE = '# S\n\nThis page once read "fvq zebra claim" (retracted 2026-11-01).\n'
+
+    def test_d990_second_bare_use_in_allowed_file_fails(self):
+        out = self._d990("documentation/SOLVE.md", self.QUOTE, self.QUOTE + "\nThe fvq zebra claim holds.\n")
+        self.assertIn('[FAIL] retracted phrasing still present: "%s"' % self.PH, out, out[-3000:])
+        self.assertIn("documentation/SOLVE.md(allowance:2>1)", out)
+
+    def test_d990_quotation_gone_is_stale(self):
+        out = self._d990("documentation/SOLVE.md", self.QUOTE, "# S\n\nNo quotation now.\n")
+        self.assertIn("documentation/SOLVE.md(stale-allowance:0<1)", out, out[-3000:])
+
+    def test_d990_control_quotation_only_passes(self):
+        out = self._d990("documentation/SOLVE.md", self.QUOTE)
+        self.assertIn('[ok] retracted: "%s"' % self.PH, out, out[-3000:])
+
+    def test_d990_explicit_count_allows_two(self):
+        out = self._d990("documentation/SOLVE.md@2", self.QUOTE, self.QUOTE + "\nQuoted again: \"fvq zebra claim\".\n")
+        self.assertIn('[ok] retracted: "%s"' % self.PH, out, out[-3000:])
+
+    def test_mutant_d990_file_wide_allowance(self):
+        reg = "# fixture registry\n%s\tdocumentation/SOLVE.md\tfixture row\n" % self.PH
+        d = self._repo({self.REG: reg, "documentation/SOLVE.md": self.QUOTE, "README.md": "# R\n"})
+        self._floor(d, self._git(d, "rev-parse", "HEAD"))
+        self._write(d, {"documentation/SOLVE.md": self.QUOTE + "\nThe fvq zebra claim holds.\n"})
+        self._mutate(d, self.M20, '  [[ "$al" =~ @([0-9]+)$ ]] && cap="${BASH_REMATCH[1]}"\n',
+                     '  return 0\n')
+        rc, out = self._gate(d, "retract")
+        self.assertIn('[ok] retracted: "%s"' % self.PH, out, "mutant (file-wide allowance) should pass:\n" + out[-2000:])
+
+    # ------------------------------------------------------------------ D994: one secref allowlist row = one occurrence
+    TGT = "documentation/T.md"
+    ROW = "README.md\tdocumentation/T.md\tFvq Ghost\tOPEN fixture row\n"
+
+    def _d994(self, n_refs, n_rows):
+        readme = "# R\n\n" + "".join("Para %d cites documentation/T.md §\"Fvq Ghost\".\n\n" % i for i in range(n_refs))
+        d = self._repo({self.TGT: "# T\n\n## Real heading\n\nBody.\n", "README.md": readme,
+                        self.SEC: "# fixture allowlist\n" + self.ROW * n_rows})
+        return self._gate(d, "secrefs")
+
+    def test_d994_second_reference_to_allowed_triple_fails(self):
+        rc, out = self._d994(2, 1)
+        self.assertEqual(rc, 1, out[-3000:])
+        self.assertIn("WHY (Q-1079)", out)
+        self.assertIn("this is occurrence 2", out)
+
+    def test_d994_control_one_reference_one_row(self):
+        rc, out = self._d994(1, 1)
+        self.assertEqual(rc, 0, out[-3000:])
+        self.assertIn('[OPEN] README.md:3 -> documentation/T.md', out)
+
+    def test_d994_two_rows_cover_two_references(self):
+        rc, out = self._d994(2, 2)
+        self.assertEqual(rc, 0, out[-3000:])
+
+    def test_d994_excess_row_is_stale(self):
+        rc, out = self._d994(1, 2)
+        self.assertEqual(rc, 1, out[-3000:])
+        self.assertIn("(listed 2 times, 1 occurrence(s) left)", out)
+
+    def test_mutant_d994_triple_key_only(self):
+        readme = "# R\n\n" + "".join("Para %d cites documentation/T.md §\"Fvq Ghost\".\n\n" % i for i in range(2))
+        d = self._repo({self.TGT: "# T\n\n## Real heading\n\nBody.\n", "README.md": readme,
+                        self.SEC: "# fixture allowlist\n" + self.ROW})
+        self._mutate(d, self.M20, "            if used[key] <= allow[key]:\n", "            if allow[key]:\n")
+        rc, out = self._gate(d, "secrefs")
+        self.assertEqual(rc, 0, "mutant (triple-keyed exemption) should pass the plant:\n" + out[-2000:])
+# end class TestQ1079VersionFloorAndAllowances (Q-1079: D990, D994, D1002)
+
+
 # Q-1136 M3: a SOLVE_* variable exported in the caller's shell reached every solver run built from
 # dict(os.environ, ...). tests.py reads no SOLVE_* knob of its own, so each inherited one is removed
 # here and named on stderr. This runs at import, after every class is defined and before any test

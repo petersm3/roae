@@ -65,7 +65,7 @@ documentation/CANONICAL_HASHES.md	115	ledger-link	CORRECTION	n/a	-	not-a-marker	
 documentation/CANONICAL_HASHES.md	117	ledger-link	CORRECTION	n/a	-	not-a-marker	460465d50937
 documentation/CANONICAL_HASHES.md	117	marker	CORRECTED	3	CITATION LINE GATE,GATE 26,GATE 27,GATE 2c	gate-anchored	460465d50937
 documentation/CANONICAL_HASHES.md	117	marker	WITHDRAWN	3	CITATION LINE GATE,GATE 26,GATE 27,GATE 2c	gate-anchored	460465d50937
-documentation/CANONICAL_HASHES.md	123	marker	CORRECTED	1	-	reviewed:cell-already-separates-the-King-Wen-observation-from-the-verdict	cb26064afc3d
+documentation/CANONICAL_HASHES.md	123	marker	CORRECTED	3	GATE 3	gate-anchored	cb26064afc3d
 documentation/CANONICAL_HASHES.md	143	marker	Corrected	1	-	reviewed:row-already-gives-2026-04-20-and-edccb16	63d88d44cf05
 documentation/CANONICAL_HASHES.md	183	marker	CORRECTED	2	-	reviewed:row-still-asserts-the-1T-drift-it-withdraws	be7c553af1ad
 documentation/CANONICAL_HASHES.md	185	ledger-link	CORRECTION	n/a	-	not-a-marker	e3f026992e1f
@@ -1021,6 +1021,31 @@ documentation/SOLVE_PY_CLI.md	-	population	-	n/a	GATE 2c	reviewed:weak-pin-unmat
 -	-	population	-	n/a	GATE 33	reviewed:superlative-count-7-to-6-falls-with-a-superlative-inside-a-deleted-span;no-finding;LITERATURE_RULES_POPULATION_TESTS-one-file-run	-
 -	-	population	-	n/a	GATE 38	reviewed:claim-count-126-to-121-and-quoted-retired-copy-1-to-0-fall-with-text-inside-deleted-spans;no-finding;lean-README-and-TR12-runs	-
 -	-	population	-	n/a	GATE 39	reviewed:SE-row-count-9-to-8-and-its-gap-exemption-4-to-3-fall-together;no-finding;TR10-one-file-run	-
+-	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990;FAIL-headers-and-matched-as-lines-of-the-stale-allowance-FAILs;each-names-its-file-below-it	-
+documentation/CAMPAIGN_METHODOLOGY.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding	-
+documentation/CANONICAL_HASHES.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding	-
+documentation/CLAIMS_DECIDED.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990;named-only-in-the-registry-note-echoed-on-another-files-stale-allowance-FAIL;no-finding	-
+documentation/CRITIQUE.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding	-
+documentation/DEVELOPMENT.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding	-
+documentation/GT_LADDER_FORMAT.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding	-
+documentation/LARGE_SCALE_CAMPAIGNS.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding	-
+documentation/LITERATURE_RULES_POPULATION_TESTS.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding	-
+documentation/PERFORMANCE_HISTORY.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990;named-only-in-the-registry-note-echoed-on-another-files-stale-allowance-FAIL;no-finding	-
+documentation/QUERY_INVENTORY.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990;named-only-in-the-registry-note-echoed-on-another-files-stale-allowance-FAIL;no-finding	-
+documentation/SAT_CLI.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990;named-only-in-the-registry-note-echoed-on-another-files-stale-allowance-FAIL;no-finding	-
+documentation/SOLVE.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding	-
+documentation/SOLVE_C_CLI.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding	-
+documentation/SOLVE_SUMMARY.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding	-
+documentation/SYMMETRY_SEARCH.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990;named-only-in-the-registry-note-echoed-on-another-files-stale-allowance-FAIL;no-finding	-
+enumeration/LEADERBOARD.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990;named-only-in-the-registry-note-echoed-on-another-files-stale-allowance-FAIL;no-finding	-
+reports/FULL31_EXACT_AGGREGATES.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding	-
+reports/METHODS.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding	-
+reports/TR12_QUERY_PROGRAM.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding	-
+reports/TR1_EIGHT_CENTURIES_MEASURED.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990;named-only-in-the-registry-note-echoed-on-another-files-stale-allowance-FAIL;no-finding	-
+reports/TR6_PARITY_SKELETON.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding	-
+reports/TR9_PRICING_THE_CONSTRAINTS.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990-stale-allowance-FAIL;its-allowed-quotation-sits-inside-a-deleted-span;no-finding	-
+reports/evidence/w0d_lower_bound/README.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990;named-only-in-the-registry-note-echoed-on-another-files-stale-allowance-FAIL;no-finding	-
+runs/20260716_f1c5_c1c2c4c5_d128westus3/layer_curve.md	-	population	-	n/a	GATE 3	reviewed:Q-1079-D990;named-only-in-the-registry-note-echoed-on-another-files-stale-allowance-FAIL;no-finding	-
 -	-	population	-	n/a	GATE 3b	reviewed:continuation-of-allowlist-row-matched-nothing-notes-plus-the-ok-count;TR9-and-runs-f1c5-README-one-file-runs-print-them;both-files-markers-are-class-3-by-line	-
 -	-	population	-	n/a	GATE 41	reviewed:mention-count-of-65281-49-to-44-falls-with-mentions-inside-deleted-spans;no-finding;CAMPAIGN_METHODOLOGY-CANONICAL_HASHES-TR5-runs	-
 -	-	population	-	n/a	GATE 44	reviewed:verdict-count-2-to-1-is-the-MCKENNA.md:88-span;its-FAIL-is-tied-by-SOLO_ANCHORED-GATE-44	-

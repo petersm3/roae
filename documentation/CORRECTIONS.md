@@ -41637,3 +41637,45 @@ and the row's mutant. They fail on the parent tree.
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 drafted and built the fixes; the defects were found
 by Codex (gpt-6-astra) in its fix-verification round and triaged by Fable (claude-fable-5-1); Q-1115 was found by the
 Q-1049 lane and Q-1031 / Q-1032 by the operator's push chain.
+
+## CX-37G-D — the append-only ledger is checked for order from a stated version floor, and two allowlists are bound to a count (scripts/doc_gates.d/20_retract_links_status.sh; scripts/doc_gates.d/40_generated_appendonly_ledger_regdupes.sh; documentation/RETRACTED_PHRASES.tsv; documentation/DOC_GATE_SECREF_ALLOWLIST.txt; tests.py)
+
+**2026-11-14.** **Source.** Codex (gpt-6-astra), fix-verification round; triaged by Fable in FV2 slice 2. Three of the
+five rows FV2-G1 (CX-36S-H) held for the operator, built per the operator's 2026-11-10 ruling. Backlog Q-1079.
+
+- **Order in GATE 10b, from a version floor (D1002, F06-007#16).** GATE 10b checked that every line of every
+  committed or published CORRECTIONS.md version is still in the working copy, but not that it is in its committed
+  order, so a committed swap of two lines passed. Every version at or after the floor (`DG_VERSION_FLOOR`, the
+  commit this landed on) is now checked for order too, and a reorder in our own lineage or on the remote fails. An
+  older version keeps the old check (no line lost), because 12 versions from 2026-08-23 to 2026-09-11 hold one or
+  two lines out of order. Those 12 are listed, dated, in the floor note of the module. Moving the floor needs its
+  own dated note.
+- **A retracted-phrase allowance is bound to a count (D990, F06-003#2).** The allow column of RETRACTED_PHRASES.tsv
+  exempted every occurrence in the named file. So a second, bare use of a retracted phrase, in a file that quotes it
+  once, passed. Now `<file>@<n>` allows exactly n. A column without `@<n>` allows as many as the file held at the
+  floor. More is a FAIL (`allowance:`), and fewer is a stale row (`stale-allowance:`). No registry row changed.
+- **A section-reference allowlist row covers one occurrence (D994, F06-012#1).** A DOC_GATE_SECREF_ALLOWLIST row
+  exempted every reference with its (source, target, section) triple, so a new dangling reference with the same
+  triple passed. One row now covers one occurrence. A further reference fails, and a row listed more times than its
+  triple occurs is stale. The three live rows each cover one occurrence.
+
+**Held.** D1009 (F06-001#4): GATE 10a/10b over HISTORY.md as well. HISTORY.md says it is append-only, but no gate
+reads it. Gating it would also fail a dated withdrawal written into a committed HISTORY.md line, as in 2026-11-09's
+dbbeae02. That is an operator decision, so this entry does not gate HISTORY.md. D1008 stays not-an-error.
+
+**Not changed.** No canonical sha, count, certificate, verdict or published figure, and no registry or allowlist row.
+`retract`, `secrefs`, `links` and `appendonly` were run on the real tree with the floor set. They have the same exit
+status and the same output as before, apart from the floor line, the pre-floor note and the order `[ok]` line.
+
+**Left open.** With the count rule, deleting a quotation that GATE 3 counts makes the gate fail
+`stale-allowance`. The marker inventory's ablation shows this for 15 files. It records them as reviewed
+`population` rows and ties one marker to GATE 3 by line (CANONICAL_HASHES.md:123, now class 3). The
+other markers that hold a counted quotation keep their class 1 or 2 rows, although moving one now also
+needs that phrase's allowance changed in the same commit. Giving each of them a GATE 3 leg is not done
+here.
+
+**Tests.** `TestQ1079VersionFloorAndAllowances` (15 tests): each row's planted input, an unplanted control, and the
+row's mutant. The plants fail on the parent tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 drafted and built the fixes; the defects were found
+by Codex (gpt-6-astra) in its fix-verification round and triaged by Fable (claude-fable-5-1).

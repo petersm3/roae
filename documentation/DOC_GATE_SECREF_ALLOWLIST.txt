@@ -16,6 +16,8 @@
 # Format, TAB-separated, 4 fields, no line numbers (line numbers drift - cf. the GATE 5
 # allowlist note):
 #   source.md <TAB> target.md <TAB> section text as written <TAB> why it is here
+# A row covers ONE occurrence of its triple: a source that quotes the same triple twice needs two
+# identical rows, and a further reference to an allowed triple fails (Q-1079, Codex F06-012#1).
 #
 # ------------------------------------------------------------------------------------
 # HISTORY OF THIS FILE - 22 rows on 2026-08-01, 3 today. Recorded because "the allowlist
