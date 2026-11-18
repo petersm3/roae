@@ -24,7 +24,7 @@
 #   scripts/doc_gates.sh figures    # retracted phrasing in figure GENERATORS (rendered text is ungreppable)
 #   scripts/doc_gates.sh liveness   # frozen present-tense run status; runs named after unreached budgets
 #   scripts/doc_gates.sh banner     # the TR banner is byte-identical across every report + index-aligned
-#   scripts/doc_gates.sh appendonly # GATE 10a + 10b: CORRECTIONS.md has lost no committed line
+#   scripts/doc_gates.sh appendonly # GATE 10a + 10b: CORRECTIONS.md and HISTORY.md lost no committed line
 #   scripts/doc_gates.sh appendonly-head    # GATE 10a ALONE — vs HEAD (self-test target)
 #   scripts/doc_gates.sh appendonly-history # GATE 10b ALONE — vs every historical/published
 #                                   # version, not just HEAD (self-test target)

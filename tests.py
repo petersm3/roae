@@ -71541,8 +71541,7 @@ class TestQ1079VersionFloorAndAllowances(unittest.TestCase):
     ruling (the GATE 10b version floor). D1002 (Codex F06-007#16): 10b checks ORDER for every version at or
     after the floor. D990 (F06-003#2): a RETRACTED_PHRASES allow column is bound to a count (`@<n>`, else the
     count at the floor). D994 (F06-012#1): a DOC_GATE_SECREF_ALLOWLIST row covers ONE occurrence of its
-    triple. The fourth row, D1009 (F06-001#4: GATE 10a/10b over HISTORY.md as well), waits on an operator
-    decision and is not in this class.
+    triple. D1009 (F06-001#4): GATE 10a/10b read HISTORY.md as well as CORRECTIONS.md (operator decision).
     Each row: a planted scratch repo the parent tree passes over and this tree fails by name, an unplanted
     control green on both, and the mutant the red test kills (each `test_mutant_*` re-plants against a
     mutated copy of the module and shows the plant passing again). Developed with AI assistance (Claude,
@@ -71553,6 +71552,7 @@ class TestQ1079VersionFloorAndAllowances(unittest.TestCase):
     M20 = "scripts/doc_gates.d/20_retract_links_status.sh"
     M40 = "scripts/doc_gates.d/40_generated_appendonly_ledger_regdupes.sh"
     COR = "documentation/CORRECTIONS.md"
+    HIS = "documentation/HISTORY.md"
     REG = "documentation/RETRACTED_PHRASES.tsv"
     SEC = "documentation/DOC_GATE_SECREF_ALLOWLIST.txt"
     PH = "fvq zebra claim"
@@ -71620,6 +71620,42 @@ class TestQ1079VersionFloorAndAllowances(unittest.TestCase):
                            capture_output=True, text=True, timeout=660)
         return r.returncode, r.stdout + r.stderr
 
+    # ------------------------------------------------------------------ D1009: HISTORY.md under GATE 10a/10b
+    def _d1009(self, plant=True):
+        d = self._repo({self.COR: "# C\n\nCX-1 entry.\n", self.HIS: "# H\n\nH line one.\nH line two.\n"})
+        c0 = self._git(d, "rev-parse", "HEAD")
+        self._commit(d, {self.HIS: "# H\n\nH line one.\n" if plant else "# H\n\nH line one.\nH line two.\nH three.\n"})
+        return d, c0
+
+    def test_d1009_committed_history_deletion_fails(self):
+        d, c0 = self._d1009()
+        rc, out = self._gate(d, "appendonly-history")
+        self.assertIn("== GATE 10b: HISTORY.md has lost no line", out, out[-3000:])
+        self.assertEqual(rc, 1, out[-3000:])
+        self.assertIn("[FAIL] 1 line(s) present in %s" % c0, out)
+        self.assertIn("H line two.", out)
+
+    def test_d1009_uncommitted_history_deletion_fails_10a(self):
+        d = self._repo({self.COR: "# C\n\nCX-1 entry.\n", self.HIS: "# H\n\nH line one.\nH line two.\n"})
+        self._write(d, {self.HIS: "# H\n\nH line one.\n"})
+        rc, out = self._gate(d, "appendonly-head")
+        self.assertEqual(rc, 1, out[-3000:])
+        self.assertIn("== GATE 10a: HISTORY.md is append-only vs HEAD ==", out)
+        self.assertIn("HISTORY.md is append-only (first 5):", out)
+
+    def test_d1009_control_history_append_passes(self):
+        d, _ = self._d1009(plant=False)
+        for leg in ("appendonly-head", "appendonly-history"):
+            rc, out = self._gate(d, leg)
+            self.assertEqual(rc, 0, out[-3000:])
+
+    def test_mutant_d1009_corrections_only(self):
+        d, _ = self._d1009()
+        self._mutate(d, self.M40, 'DG_LEDGERS="documentation/CORRECTIONS.md documentation/HISTORY.md"',
+                     'DG_LEDGERS="documentation/CORRECTIONS.md"')
+        rc, out = self._gate(d, "appendonly-history")
+        self.assertEqual(rc, 0, "mutant (HISTORY.md dropped from the ledger list) should pass the plant:\n" + out[-2000:])
+
     # ------------------------------------------------------------------ D1002: order, from the floor on
     def _d1002(self, second):
         d = self._repo({self.COR: "# C\n\nA entry.\nB entry.\nC entry.\n"})
@@ -71663,6 +71699,18 @@ class TestQ1079VersionFloorAndAllowances(unittest.TestCase):
         self.assertEqual(rc, 1, "a post-floor reorder must fail:\n" + out[-3000:])
         self.assertIn("NOT in their", out)
         self.assertNotIn("line(s) of %s " % c0, out, "the pre-floor version is not order-checked")
+
+    def test_d1002_pre_floor_history_loss_is_exempt_and_strict_without_floor(self):
+        d = self._repo({self.COR: "# C\n\nX.\n", self.HIS: "# H\n\nold line.\nkept line.\n"})
+        self._commit(d, {self.HIS: "# H\n\nkept line.\n"})        # a pre-floor HISTORY.md loss
+        c1 = self._git(d, "rev-parse", "HEAD")
+        rc, out = self._gate(d, "appendonly-history")             # no floor in the clone: strict, red
+        self.assertEqual(rc, 1, out[-3000:])
+        self.assertIn("is not in this clone", out)
+        self._floor(d, c1)
+        rc, out = self._gate(d, "appendonly-history")
+        self.assertEqual(rc, 0, out[-3000:])
+        self.assertIn("not checked (Q-1079", out)
 
     def test_mutant_d1002_order_count_dropped(self):
         d, _ = self._d1002("# C\n\nB entry.\nA entry.\nC entry.\n")
@@ -71754,7 +71802,7 @@ class TestQ1079VersionFloorAndAllowances(unittest.TestCase):
         self._mutate(d, self.M20, "            if used[key] <= allow[key]:\n", "            if allow[key]:\n")
         rc, out = self._gate(d, "secrefs")
         self.assertEqual(rc, 0, "mutant (triple-keyed exemption) should pass the plant:\n" + out[-2000:])
-# end class TestQ1079VersionFloorAndAllowances (Q-1079: D990, D994, D1002)
+# end class TestQ1079VersionFloorAndAllowances (Q-1079: D990, D994, D1002, D1009)
 
 
 # Q-1136 M3: a SOLVE_* variable exported in the caller's shell reached every solver run built from

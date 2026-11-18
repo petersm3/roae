@@ -12854,3 +12854,12 @@ line number in either file moves. Both sets of reproductions were run again on t
 - No canonical sha, count, certificate or verdict changed, and no registry row. `TestQ1079VersionFloorAndAllowances`
   holds the fixes, and its plants fail on the parent tree. Found by Codex (gpt-6-astra), fix-verification round;
   triaged by Fable; built in an Opus lane.
+
+## 2026-11-15 — batch Q1079 addendum: HISTORY.md under the append-only gate
+
+- **GATE 10a and 10b read HISTORY.md too (CX-37G-E).** Codex (gpt-6-astra) found that HISTORY.md, which calls itself
+  append-only, was read by neither half (D1009); the operator decided that it is gated. From the version floor on, a
+  committed HISTORY.md line may not be lost or moved, and a dated withdrawal is appended instead of being written into a
+  committed line. Older versions are not read; the floor note lists their breaks.
+- No ledger line, registry row, canonical sha, count or verdict changed. `TestQ1079VersionFloorAndAllowances` (20 tests)
+  holds the change. Found by Codex (gpt-6-astra), fix-verification round; triaged by Fable; built in an Opus lane.

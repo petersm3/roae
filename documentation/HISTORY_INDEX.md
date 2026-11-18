@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 12 place(s) over all 270 dated sections, 11 of them among the 194 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 12 place(s) over all 271 dated sections, 11 of them among the 195 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -296,7 +296,8 @@
 | 267 | 2026-11-15 | iso | 12686 | [open](HISTORY.md#2026-11-15--doc-gate-comment-pointers-checked-inventory-sha8-compared-as-a-string) 2026-11-15 — doc-gate comment pointers checked; inventory sha8 compared as a string |
 | 268 | 2026-11-15 | iso | 12700 | [open](HISTORY.md#2026-11-15--claim_to_artifact-rows-13-and-8-the-isclause-bridge-in-testspy) 2026-11-15 — CLAIM_TO_ARTIFACT rows 13 and 8; the IsClause bridge in tests.py |
 | 269 | 2026-11-15 | iso | 12713 | [open](HISTORY.md#2026-11-15--tr-4-figure-label-regenerated-the-single-cell-probe-timed) 2026-11-15 — TR-4 figure label regenerated; the single-cell probe timed |
-| 270 | 2026-11-17 | iso | 12724 | [open](HISTORY.md#2026-11-17--batch-q1127-l1-theorem-g-2143-by-free-actions-and-its-reproducer) 2026-11-17 — batch Q1127-L1: Theorem G+ (2^14·3 by free actions) and its reproducer |
+| 270 | 2026-11-15 | iso | 12858 | [open](HISTORY.md#2026-11-15--batch-q1079-addendum-historymd-under-the-append-only-gate) 2026-11-15 — batch Q1079 addendum: HISTORY.md under the append-only gate |
+| 271 | 2026-11-17 | iso | 12724 | [open](HISTORY.md#2026-11-17--batch-q1127-l1-theorem-g-2143-by-free-actions-and-its-reproducer) 2026-11-17 — batch Q1127-L1: Theorem G+ (2^14·3 by free actions) and its reproducer |
 
 ## Sections with no date in the heading, in file order
 

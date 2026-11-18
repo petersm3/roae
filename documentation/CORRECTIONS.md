@@ -41679,3 +41679,26 @@ row's mutant. The plants fail on the parent tree.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 drafted and built the fixes; the defects were found
 by Codex (gpt-6-astra) in its fix-verification round and triaged by Fable (claude-fable-5-1).
+
+## CX-37G-E — addendum to CX-37G-D: GATE 10a and 10b read HISTORY.md too (scripts/doc_gates.d/40_generated_appendonly_ledger_regdupes.sh; scripts/doc_gates.sh; tests.py)
+
+**2026-11-15.** **Source.** Codex (gpt-6-astra), fix-verification round, F06-001#4 (FV2 row D1009); triaged by Fable in
+FV2 slice 2. CX-37G-D held this row for the operator, who decided that HISTORY.md is gated the same way. Backlog Q-1079.
+
+- **What was wrong.** HISTORY.md says of itself that it is append-only, but GATE 10a and 10b read only CORRECTIONS.md,
+  so a committed HISTORY.md line could be deleted or reworded and both halves still passed.
+- **What it does now.** Both halves read both ledgers (`DG_LEDGERS`), each under its own header. From the version floor
+  on, a HISTORY.md version is held as a CORRECTIONS.md version is: no line lost, and every line in its committed order.
+  An older HISTORY.md version is not read, because many of them already break the rule; the floor note in the module
+  lists the measured breaks, including the 2026-11-09 commit dbbeae02 (CX-36X-C), which wrote two dated withdrawals into
+  committed HISTORY.md lines and changed a third. From the floor on, a dated withdrawal is appended to HISTORY.md, never
+  written into a committed line.
+- **Not changed.** No ledger line, registry row, canonical sha, count or verdict. `appendonly` was run on the real tree
+  with the floor set: rc 0, and the HISTORY.md versions before the floor are named as not checked.
+
+**Tests.** `TestQ1079VersionFloorAndAllowances` gains five tests (20 in all): a committed and an uncommitted HISTORY.md
+deletion each fail, an append passes, the mutant that drops HISTORY.md from `DG_LEDGERS` lets the deletion pass, and a
+HISTORY.md loss before the floor is exempt with the floor and fails without it.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 drafted and built the change; the defect was found by
+Codex (gpt-6-astra) in its fix-verification round and triaged by Fable (claude-fable-5-1).

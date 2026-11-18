@@ -684,18 +684,16 @@ gate_generated() {
 # dotted domain with a letter TLD), with no address character just before it and none after it (a full stop ends a sentence, not
 # the address), so the marker can
 # hide nothing else and no part of a longer address. Tested in tests.py (TestCX1140PersonalDetailMarker).
-# Q-1079 — THE VERSION FLOOR (operator ruling 2026-11-10; Codex F06-007#16 = D1002).
-# GATE 10b holds every version AT OR AFTER the floor commit strictly: no line lost and every line in its
-# committed order. A version OLDER than the floor keeps the check it had before the floor: CORRECTIONS.md
-# may not have lost a line (order unchecked). The floor's own version counts as post-floor, so every line
+# Q-1079 — THE VERSION FLOOR (operator ruling 2026-11-10; Codex F06-007#16 = D1002, F06-001#4 = D1009).
+# GATE 10b holds every version AT OR AFTER the floor commit strictly, for BOTH ledgers: no line lost and
+# every line in its committed order. A version OLDER than the floor keeps the check it had before the
+# floor: CORRECTIONS.md may not have lost a line (order unchecked); HISTORY.md is not read. The floor's own version counts as post-floor, so every line
 # that survived to the floor is held, in order, from then on; what the floor exempts is only what was
 # already broken before it. A version is pre-floor when the only commits carrying its blob are ancestors
 # of the floor. GATE 3 binds an allow column without @<n> to the count at this floor (_g3_allowed,
 # 20_retract_links_status.sh).
-# HISTORY.md (D1009, Codex F06-001#4) is NOT read by GATE 10 yet: whether HISTORY.md is append-only gated
-# is an operator decision that is still open (2026-11-14), because a dated withdrawal written INTO a
-# committed HISTORY.md line (dbbeae02, Q-1037b, CX-36X-C, 2026-11-09) would then fail. DG_LEDGERS below
-# names CORRECTIONS.md alone; the ledger loop and _dg_floor_rule already take a second ledger.
+# HISTORY.md (D1009, Codex F06-001#4) is read by GATE 10a/10b from the floor on (operator decision
+# on Q-1079): a dated withdrawal is APPENDED to HISTORY.md, never written into a committed line.
 # THE PRE-FLOOR BREAKS, measured 2026-11-14 with this gate run strictly (no floor) (the reason the floor
 # exists; do not go looking for them again, and do not "restore" them: the ledger is append-only, and the
 # record of each is this note plus the commits named):
@@ -704,6 +702,17 @@ gate_generated() {
 #     2026-08-23 entry withdrawing a distinct-orderings figure and in the ledger's own 2026-09-12
 #     entry "An append-only ledger was edited in place, and then the edit was reverted", which records
 #     that edit. FV2-G1 (2026-11-05) measured the same 12 versions and held D1002.
+#   - HISTORY.md, never gated before: 172 versions, 2026-05-12 .. 2026-09-29, each lose 1-136 lines,
+#     156 hold lines out of order, and 48 distinct lines are re-wrapped (measured on eb285740, the
+#     Q-1079 draft's base). The newest broken version of that run is b0a710e1 (blob 712dc1ca,
+#     2026-09-29), missing 19 lines: the number FV2-G1 measured and held D1009.
+#   - HISTORY.md, 2026-11-09: dbbeae02 (Q-1037b, CX-36X-C) put two inline "[WITHDRAWN 2026-11-06 ...]"
+#     annotations into committed lines and changed a third in place, so 3 lines of every earlier version
+#     read as RE-WRAPS. All of these are before the floor; from the floor on the same edit is a GATE
+#     10a/10b failure for HISTORY.md as it already is for CORRECTIONS.md.
+#   - HISTORY.md, re-measured 2026-11-17 on the tree that lands D1009 (run with no floor): 234 versions fail,
+#     2026-05-12 .. 2026-11-09, every one an ancestor of the floor. The 61 dated after 2026-09-29 each lack one
+#     line only, the passA tree-size line that dbbeae02 annotated in place, which reads here as lost, not re-wrapped.
 #   - GATE 3 (D990): the KB1-KB3/KB5/KB6 row (RP-531c8cb8) was registered on 2026-10-01, after 828a6658
 #     (2026-09-29, the earliest floor that covers the CORRECTIONS.md breaks), for a quotation in
 #     CORRECTIONS.md, so 828a6658 would bind it to 0.
@@ -987,9 +996,10 @@ _g10_nul_free() {   # rc 0: no NUL byte in $1; 1: one is there, or the file coul
     *)   echo "  [FAIL] could not read $1 to check it for NUL bytes — NOTHING was checked."; return 1 ;;
   esac
 }
-# Q-1079: the ledgers GATE 10a and 10b read, one at a time (the per-file bodies are _g10a_one and _g10b_one).
-# CORRECTIONS.md only: HISTORY.md (D1009) waits on the operator decision named in the floor note above.
-DG_LEDGERS="documentation/CORRECTIONS.md"
+# Q-1079 (D1009, Codex F06-001#4): GATE 10a and 10b read BOTH ledgers. HISTORY.md says of itself, as
+# CORRECTIONS.md does, that it is append-only and gated, and until this only CORRECTIONS.md was read:
+# a deleted HISTORY.md line passed both halves. The per-file bodies are _g10a_one and _g10b_one.
+DG_LEDGERS="documentation/CORRECTIONS.md documentation/HISTORY.md"
 gate_appendonly_head() {
   local _g10_rc=0 _g10_f _g10_k=0
   for _g10_f in $DG_LEDGERS; do
@@ -1001,6 +1011,15 @@ gate_appendonly_head() {
 _g10a_one() {
   local f="$1"
   echo "== GATE 10a: ${f##*/} is append-only vs HEAD =="
+  # Q-1079 (D1009): with two ledgers, a fixture or a new repository can lack one of them on an unborn
+  # branch, where require_tracked's `git log` has no history to read. Nothing is committed there, so
+  # the unborn-branch answer below comes first; a HEAD naming a missing object still FAILs there.
+  local _g10a_u
+  if [ ! -e "$f" ] && ! git rev-parse -q --verify 'HEAD^{commit}' >/dev/null 2>&1 \
+     && _g10a_u=$(git symbolic-ref -q HEAD 2>/dev/null) && { git show-ref --verify -q "$_g10a_u" >/dev/null 2>&1; [ $? -eq 1 ]; } && { git ls-files --error-unmatch -- "$f" >/dev/null 2>&1; [ $? -eq 1 ]; }; then
+    echo "  [ok] $f is not yet in HEAD (no commit yet) — nothing committed to be append-only against"
+    return 0
+  fi
   # ITEM A1. Deleting the ledger is the LIMITING CASE of the thing this gate forbids —
   # every committed line is gone at once — and it used to be the one way to make the gate
   # report nothing.
