@@ -12909,3 +12909,22 @@ line number in either file moves. Both sets of reproductions were run again on t
   second pass of this project's own. Each now says who checked what, with the old wording in a dated note; TR-7
   v2.16. Line-neutral except TR-7, which gains its v2.16 revision row; the Lean edit is to a comment. No number,
   proof or theorem changed.
+
+## 2026-11-19 — batch Q1152: a processor generation label in the 2026-05-15 entry
+
+- **Note on the 2026-05-15 entry (CX-37G-K).** The paragraph "Phase 1 … canonical-correlation measurements
+  (2026-05-15 night)" gives the host as "AMD EPYC 9V45 96-core Zen 4". Its findings say "64 Zen 4 cores" and
+  blame part of the spread on "Genoa's AVX-512 frequency offset". The EPYC 9V45 is a Zen 5 family part. Every
+  kept `lscpu` record of a host with that model name reads `CPU family: 26`; a Zen 4 family host reads 25.
+  DEPLOYMENT.md's processor note (corrected 2026-09-25, Q-763) and this file's 2026-04-20 row already say Zen 5.
+  No record of that night's host was kept, so this note rests on the model name the entry gives. Read "Zen 4" in
+  that paragraph as "Zen 5 family". The remark about Genoa named the wrong generation, so it does not explain the
+  spread. The trial times, the sha results and the LTO and PGO readings are unchanged.
+- **documentation/CANONICAL_HASHES.md (CX-37G-K).** The build note took the same label from that entry. It now says
+  "Zen 5 family", with the old wording in a dated note.
+- **documentation/DEVELOPMENT.md (CX-37G-K).** The build-flags bullet under "Known gotchas" quotes the same run as
+  "on a 64-core AMD Zen 4 VM". It now says "Zen 5 family", with the old wording in a dated note. Found by a Codex
+  review of this batch. The same bullet gave the LTO speedup as "~2% faster" alone; it now also gives +0.06% with
+  each arm's slowest trial dropped, as CANONICAL_HASHES.md does, with a second dated note. Found by the Opus lane
+  that built this batch; ruled, with the text of the fix, by Fable's content read of it.
+- No canonical sha, count or certificate changed. Found by a Fable lane (backlog Q-1152).

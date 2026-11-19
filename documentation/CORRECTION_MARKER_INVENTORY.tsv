@@ -96,7 +96,7 @@ documentation/CANONICAL_HASHES.md	502	ledger-link	CORRECTION	n/a	-	not-a-marker	
 documentation/CANONICAL_HASHES.md	502	ledger-link	RETRACTED	n/a	-	not-a-marker	d46663749df0
 documentation/CANONICAL_HASHES.md	502	marker	CORRECTED	2	-	reviewed:the-bullet-above-defers-to-it-for-what-the-floor-is;span-unclosed	d46663749df0
 documentation/CANONICAL_HASHES.md	535	marker	CORRECTED	1	-	reviewed:table-already-carries-the-corrected-floors	eb39ffef9153
-documentation/CANONICAL_HASHES.md	557	marker	Corrected	1	-	reviewed:sentence-already-gives-both-arms-stddev	dc9d199b3da5
+documentation/CANONICAL_HASHES.md	557	marker	Corrected	1	-	reviewed:sentence-already-gives-both-arms-stddev	d466c569c3b5
 documentation/CANONICAL_HASHES.md	583	marker	CORRECTED	1	-	reviewed:bullet-already-lists-the-real-checks-and-the-shipped-expect-kw	5e0096ec8528
 documentation/CANONICAL_HASHES.md	583	marker	Corrected	1	-	reviewed:bullet-already-lists-the-real-checks-and-the-shipped-expect-kw	5e0096ec8528
 documentation/CANONICAL_HASHES.md	609	marker	CORRECTED	1	-	reviewed:convention-already-reads-logical-decompressed-size	466f5d4840e1
@@ -205,6 +205,7 @@ documentation/DEVELOPMENT.md	1195	marker	Corrected	1	-	reviewed:text-already-sep
 documentation/DEVELOPMENT.md	1272	ledger-link	CORRECTION	n/a	-	not-a-marker	9d2b26a1da33
 documentation/DEVELOPMENT.md	1503	marker	CORRECTED	2	-	reviewed:sentence-above-still-says-proc-self-exe;the-marker-carries-the-fix-and-pre-fix-WARN-path	79ba53ed0166
 documentation/DEVELOPMENT.md	1615	marker	CORRECTED	1	-	reviewed:row-already-reads-proc-pid-exe	50ebb2e9e5a5
+documentation/DEVELOPMENT.md	1629	marker	Corrected	1	-	reviewed:bullet-already-reads-Zen-5-family-and-gives-both-means	858136639b74
 documentation/DEVELOPMENT.md	1659	marker	CORRECTED	1	-	reviewed:row-already-reads-build-id-sha1	1ee2c8ff61f6
 documentation/DEVELOPMENT.md	1665	ledger-link	CORRECTION	n/a	-	not-a-marker	fdde236ba43a
 documentation/DEVELOPMENT.md	1665	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	fdde236ba43a

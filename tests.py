@@ -72659,6 +72659,122 @@ class TestBatchQ1140Siblings(unittest.TestCase):
 # end class TestBatchQ1140Siblings
 
 
+class TestBatchQ1152(unittest.TestCase):
+    """Backlog Q-1152 (CX-37G-K): the 2026-05-15 benchmark host, an EPYC 9V45, was labelled "Zen 4"; the 9V45 is a
+    Zen 5 family part (DEPLOYMENT.md as corrected by CX-125). CANONICAL_HASHES.md's recommended-build comment and the
+    sentence under it now say Zen 5 family, and "Zen 4" survives on those two lines only inside the dated note;
+    HISTORY.md is append-only, so the 2026-05-15 entry is unchanged and the appended batch Q1152 section scopes it.
+    Red on the parent tree.
+    Developed with AI assistance (Claude, Anthropic): claude-opus-5-5; text drafted by claude-fable-5-2."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    CH = "documentation/CANONICAL_HASHES.md"
+    PAIRS = (
+        ("553", "# Recommended (sha-preserving, with LTO — Phase 1c validated 2026-05-15 on a 64-core Zen 4 VM):\n",
+         "# Recommended (sha-preserving, with LTO — Phase 1c validated 2026-05-15 on a 64-core Zen 5 family VM; \"Zen 4\" until 2026-11-19, CX-37G-K):\n"),
+        ("557a", "scale on AMD Zen 4 — +2.06%", "scale on an AMD Zen 5 family host — +2.06%"),
+        ("557b", "V3A-008#6)*. Drop it",
+         "V3A-008#6)* ⚠ *(corrected 2026-11-19, CX-37G-K: this line and the comment above said \"Zen 4\"; the host's processor, the EPYC 9V45, is a Zen 5 family part.)*. Drop it"),
+    )
+    HIST_HEAD = "\n## 2026-11-19 — batch Q1152: a processor generation label in the 2026-05-15 entry\n"
+    HIST_OLD = ("Host: AMD EPYC 9V45 96-core Zen 4, full AVX-512 stack, 125 GiB RAM.",
+                "(64 Zen 4 cores, 100B nodes)", "Genoa's AVX-512 frequency offset is real and contributes some of the variance.")
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _problems(self, t):
+        out = []
+        for item, old, new in self.PAIRS:
+            if t.count(new) != 1:
+                out.append("%s: new wording not present once" % item)
+        for line in t.split("\n"):
+            if "Phase 1c validated 2026-05-15" in line or "100B-node canonical-correlation scale" in line:
+                rest = line.replace('"Zen 4" until 2026-11-19, CX-37G-K', "").replace(
+                    'the comment above said "Zen 4"; the host', "")
+                if "Zen 4" in rest:
+                    out.append("Zen 4 outside the dated note: " + line[:60])
+        return out
+
+    # Codex review of Q-1153, F6: DEVELOPMENT.md's build-flags bullet quotes the same 2026-05-15 run
+    DEV = "documentation/DEVELOPMENT.md"
+    DEV_OLD = "~2% faster at 100B-node canonical-correlation scale on a 64-core AMD Zen 4 VM, Phase 1c validated 2026-05-15)."
+    # Fable 1b (Q-1153) ruling 2: the line gave "~2% faster" alone; it now carries the trimmed-mean caveat too
+    DEV_NEW = ("~2% faster on 4-trial means at 100B-node canonical-correlation scale on a 64-core AMD Zen 5 family VM, "
+               "but +0.06% with each arm's slowest trial dropped, because one baseline trial ran ~8 s slow; Phase 1c "
+               "validated 2026-05-15) ⚠ *(corrected 2026-11-19, "
+               "CX-37G-K: this said \"Zen 4\"; the host's processor, the EPYC 9V45, is a Zen 5 family part.)* "
+               "⚠ *(corrected 2026-11-19, CX-37G-K: this gave \"~2% faster\" alone; CANONICAL_HASHES.md has given "
+               "both figures for the same run since 2026-09-25.)*.")
+    DEV_CAVEAT = "+0.06% with each arm's slowest trial dropped"
+
+    def _dev_problems(self, t):
+        out = []
+        if t.count(self.DEV_NEW) != 1:
+            out.append("dev: new wording not present once")
+        for line in t.split("\n"):
+            if "Phase 1c validated 2026-05-15" in line and "Zen 4" in line.replace('this said "Zen 4"; the host', ""):
+                out.append("dev: Zen 4 outside the dated note")
+            if "Phase 1c validated 2026-05-15" in line and "~2% faster" in line and self.DEV_CAVEAT not in line:
+                out.append("dev: ~2% without the trimmed-mean caveat")
+        return out
+
+    def test_q1152_canonical_hashes(self):
+        self.assertEqual(self._problems(self._r(self.CH)), [])
+
+    def test_q1152_development(self):
+        self.assertEqual(self._dev_problems(self._r(self.DEV)), [])
+
+    def test_q1152_development_red_on_old(self):
+        t = self._r(self.DEV)
+        self.assertEqual(t.count(self.DEV_NEW), 1, "precondition: new wording present once")
+        probs = self._dev_problems(t.replace(self.DEV_NEW, self.DEV_OLD))
+        self.assertIn("dev: new wording not present once", probs)
+        self.assertIn("dev: Zen 4 outside the dated note", probs)
+        self.assertIn("dev: ~2% without the trimmed-mean caveat", probs)
+
+    def test_q1152_development_red_on_caveat_dropped(self):
+        t = self._r(self.DEV)
+        self.assertEqual(t.count(self.DEV_CAVEAT), 1, "precondition: caveat present once")
+        probs = self._dev_problems(t.replace(", but " + self.DEV_CAVEAT + ", because one baseline trial ran ~8 s slow;", ","))
+        self.assertIn("dev: ~2% without the trimmed-mean caveat", probs)
+        self.assertNotIn("dev: Zen 4 outside the dated note", probs)
+
+    def test_q1152_red_on_old(self):
+        t = self._r(self.CH)
+        for item, old, new in self.PAIRS:
+            self.assertEqual(t.count(new), 1, "precondition: %s new wording present once" % item)
+            t = t.replace(new, old)
+        probs = self._problems(t)
+        for item, old, new in self.PAIRS:
+            self.assertTrue(any(p.startswith(item + ":") for p in probs), item)
+        self.assertTrue(any(p.startswith("Zen 4 outside") for p in probs))
+
+    def test_q1152_history_appended_not_reworded(self):
+        h = self._r("documentation/HISTORY.md")
+        self.assertEqual(h.count(self.HIST_HEAD), 1)
+        head, sec = h.split(self.HIST_HEAD, 1)
+        sec = sec.split("\n## ", 1)[0]
+        for old in self.HIST_OLD:
+            self.assertEqual(head.count(old), 1, old)
+        self.assertNotIn("CX-37G-K", head)
+        for frag in ("The EPYC 9V45 is a Zen 5 family part.", "reads `CPU family: 26`; a Zen 4 family host reads 25.",
+                     "The remark about Genoa named the wrong generation"):
+            self.assertIn(frag, sec)
+
+    def test_q1152_ledger(self):
+        c = self._r("documentation/CORRECTIONS.md")
+        self.assertEqual(c.count("\n## CX-37G-K — "), 1)
+        entry = c.split("\n## CX-37G-K — ", 1)[1].split("\n## ", 1)[0]
+        for frag in ("(backlog Q-1152)", "The entry is not edited.", "`TestBatchQ1152`",
+                     "**DEVELOPMENT.md, \"Known gotchas\", the build flags.**",
+                     "but +0.06% with each arm's slowest trial dropped, because one baseline", "It also gave \"~2% faster\" alone."):
+            self.assertIn(frag, entry)
+
+# end class TestBatchQ1152
+
+
 # Q-1136 M3: a SOLVE_* variable exported in the caller's shell reached every solver run built from
 # dict(os.environ, ...). tests.py reads no SOLVE_* knob of its own, so each inherited one is removed
 # here and named on stderr. This runs at import, after every class is defined and before any test

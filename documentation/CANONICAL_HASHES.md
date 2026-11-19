@@ -550,11 +550,11 @@ The 1T / 5.6T / 10T / 11.2T published PSBs are the empirically-correct values �
 # solutions.provenance.json record the commit instead of the literal "unknown"):
 gcc -O3 -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -DGIT_BRANCH="\"$(git rev-parse --abbrev-ref HEAD)\"" -o solve solve.c -lm -lz
 
-# Recommended (sha-preserving, with LTO — Phase 1c validated 2026-05-15 on a 64-core Zen 4 VM):
+# Recommended (sha-preserving, with LTO — Phase 1c validated 2026-05-15 on a 64-core Zen 5 family VM; "Zen 4" until 2026-11-19, CX-37G-K):
 gcc -O3 -flto -pthread -fopenmp -march=native -DGIT_HASH="\"$(git rev-parse --short HEAD)\"" -DGIT_BRANCH="\"$(git rev-parse --abbrev-ref HEAD)\"" -o solve solve.c -lm -lz
 ```
 
-Both commands produce the canonical selftest sha `403f7202…` and reproduce every canonical above byte-identically. `-flto` (link-time optimization) reduces binary size ~1-2% and produced a ~2% wall-time speedup at 100B-node canonical-correlation scale on AMD Zen 4 — +2.06% on 4-trial means, but +0.06% with each arm's slowest trial dropped, because one baseline trial ran ~8 s slow; the LTO arm's stddev was 0.11% and the baseline's 3.47% (the Phase 1 canonical-correlation measurements in [HISTORY.md](HISTORY.md)) ⚠ *(corrected 2026-09-25: this quoted the LTO arm's 0.11% alone. Codex v3 review, V3A-008#6)*. Drop it if your toolchain doesn't support LTO.
+Both commands produce the canonical selftest sha `403f7202…` and reproduce every canonical above byte-identically. `-flto` (link-time optimization) reduces binary size ~1-2% and produced a ~2% wall-time speedup at 100B-node canonical-correlation scale on an AMD Zen 5 family host — +2.06% on 4-trial means, but +0.06% with each arm's slowest trial dropped, because one baseline trial ran ~8 s slow; the LTO arm's stddev was 0.11% and the baseline's 3.47% (the Phase 1 canonical-correlation measurements in [HISTORY.md](HISTORY.md)) ⚠ *(corrected 2026-09-25: this quoted the LTO arm's 0.11% alone. Codex v3 review, V3A-008#6)* ⚠ *(corrected 2026-11-19, CX-37G-K: this line and the comment above said "Zen 4"; the host's processor, the EPYC 9V45, is a Zen 5 family part.)*. Drop it if your toolchain doesn't support LTO.
 
 **Historical lineages:** ⚠ **[NOTE 2026-10-22 — "every canonical above" in the paragraph before the build commands means every **Active** canonical; current `main` does not reproduce the frozen v2 rows (as the v2 bullet below says). Codex (gpt-6-astra) F07-009#18.]**
 - **v1** (original lineage, pre-2026-05-21) — anchor lineage; v3 reproduces v1's shas byte-identically.

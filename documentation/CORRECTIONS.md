@@ -41792,3 +41792,45 @@ the Lean header. `TestBatchQ1113`'s TR-7 revision-row check follows the moved `*
 
 Developed with AI assistance (Claude, Anthropic): claude-fable-5-2 ruled the sites and worded the fixes; built by an
 Opus lane (claude-opus-5-5).
+
+## CX-37G-K — a 2026-05-15 benchmark host was labelled "Zen 4"; its processor is a Zen 5 family part (documentation/HISTORY.md; documentation/CANONICAL_HASHES.md; documentation/DEVELOPMENT.md; tests.py)
+
+**2026-11-19.** **Source.** A Fable lane, checking a pointer fix, saw that HISTORY.md's 2026-05-15 entry called the
+EPYC 9V45 "Zen 4" while DEPLOYMENT.md (corrected 2026-09-25, Q-763, CX-125) and HISTORY.md's 2026-04-20 row call
+it Zen 5 (backlog Q-1152). A Codex review of this batch (OpenAI gpt-6-astra) found a third line that quotes the
+same benchmark, in DEVELOPMENT.md. The Opus lane that built this batch saw that the same DEVELOPMENT.md line gave
+the LTO speedup as "~2% faster" alone; Fable's content read of the batch ruled on it and gave the text of the fix.
+
+**What was published, and what it says now.**
+
+- **HISTORY.md, 2026-05-15 entry.** It gives the host as "AMD EPYC 9V45 96-core Zen 4", says "64 Zen 4 cores", and
+  blames part of the timing spread on "Genoa's AVX-512 frequency offset". The entry is not edited. The section
+  appended for this entry says the 9V45 is a Zen 5 family part and that the remark about Genoa named the wrong
+  generation.
+- **CANONICAL_HASHES.md, the recommended build note.** A comment and the sentence under it said the LTO result was
+  measured "on a 64-core Zen 4 VM" and "on AMD Zen 4". Both now say Zen 5 family, with the old wording in a dated
+  note.
+- **DEVELOPMENT.md, "Known gotchas", the build flags.** The recommended LTO build was "~2% faster at 100B-node
+  canonical-correlation scale on a 64-core AMD Zen 4 VM, Phase 1c validated 2026-05-15", the same run. It now says
+  Zen 5 family, with the old wording in a dated note. It also gave "~2% faster" alone. HISTORY.md's 2026-05-15
+  table gives LTO +2.06% on 4-trial means but +0.06% with each arm's slowest trial dropped, because one baseline
+  trial (109.38 s against 101.16, 101.24 and 100.94 s) ran about 8 s slow, and CANONICAL_HASHES.md has given both
+  figures since 2026-09-25. The line now says "~2% faster on 4-trial means", gives the +0.06% figure and the
+  reason, and has a second dated note.
+
+**Evidence.** Every kept `lscpu` record of a host whose model name is "AMD EPYC 9V45 96-Core Processor" reads
+`CPU family: 26`. A host of the Zen 4 family reads `CPU family: 25` under the same command. Those records are
+kept privately and are not published. No record of the 2026-05-15 host itself was kept, so the correction rests
+on the model name that entry gives.
+
+**Not changed.** The trial times, the speedup figures themselves (DEVELOPMENT.md now gives both, as above), the sha
+results and the advice on LTO and PGO. Whether the 9V45 is the "5c" variant, as other lines say, was not examined
+here.
+
+**Tests.** `TestBatchQ1152` holds the new CANONICAL_HASHES.md and DEVELOPMENT.md wording, checks that "Zen 4"
+occurs on those three lines only inside the dated notes, checks that the DEVELOPMENT.md line gives the +0.06%
+figure, checks that the HISTORY section is present and the
+2026-05-15 entry is not reworded, and fails on the parent tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-2 found and ruled it; built by an Opus lane
+(claude-opus-5-5).

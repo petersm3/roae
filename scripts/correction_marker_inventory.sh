@@ -291,7 +291,7 @@ REVIEWED = {
         ('2', 'reviewed:the-drift-gap-note-it-withdraws-is-still-above-it'),
     ('documentation/CANONICAL_HASHES.md', '2663ae1a7c79'):
         ('1', 'reviewed:paragraph-above-already-says-two-per-cell-budgets'),
-    ('documentation/CANONICAL_HASHES.md', 'dc9d199b3da5'):  # re-keyed 2026-11-14, cloud sweep B6 (was 2e4d45528618; VM size/region/cost words reworded; verdict re-read, stands)
+    ('documentation/CANONICAL_HASHES.md', 'd466c569c3b5'):  # re-keyed 2026-11-14, cloud sweep B6 (was 2e4d45528618; VM size/region/cost words reworded; verdict re-read, stands); re-keyed 2026-11-19, CX-37G-K (was dc9d199b3da5; "Zen 4" -> "Zen 5 family" and a second dated note; the sentence still gives both arms' stddev, verdict stands)
         ('1', 'reviewed:sentence-already-gives-both-arms-stddev'),
     ('documentation/CANONICAL_HASHES.md', '403d25d6040d'):
         ('1', 'reviewed:paragraph-above-already-states-the-corrected-rule'),
@@ -421,6 +421,10 @@ REVIEWED = {
         ('2', 'reviewed:sentence-above-still-says-proc-self-exe;the-marker-carries-the-fix-and-pre-fix-WARN-path'),
     ('documentation/DEVELOPMENT.md', '82e7fe10b5e5'):
         ('1', 'reviewed:item-above-already-reads-as-completed'),
+    # new key 2026-11-19, CX-37G-K (Q-1153 v6): the build-flags bullet gained two dated notes ("Zen 4" -> "Zen 5 family";
+    # "~2% faster" alone -> both figures). The line already reads correctly without either note.
+    ('documentation/DEVELOPMENT.md', '858136639b74'):
+        ('1', 'reviewed:bullet-already-reads-Zen-5-family-and-gives-both-means'),
     ('documentation/DEVELOPMENT.md', '8c79421519c1'):
         ('1', 'reviewed:text-already-says-size-equals-stored-size'),
     ('documentation/DEVELOPMENT.md', '9b282f2fc568'):
