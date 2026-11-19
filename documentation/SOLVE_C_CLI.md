@@ -3570,8 +3570,8 @@ with `SOLVE_DFS_CHECKPOINT=1`:
 Single-thread `--branch p o 0 1`: ~22M nodes/sec on the AMD EPYC 9V45.
 *(Architecture corrected 2026-09-01 in both lines above: the processor underlying
 the 128-core VM size is AMD EPYC 9V45 (96-core, 128-vCPU), per
-[DEPLOYMENT.md](DEPLOYMENT.md):296, which retracts the earlier Zen-5-family
-attribution these two lines carried.)*
+[DEPLOYMENT.md](DEPLOYMENT.md):296, which names the specific part. Both lines read "Zen 5 Turin" before, and that label was right at the family level.)*
+⚠ *(Corrected 2026-11-19, CX-37G-H: this note ended "which retracts the earlier Zen-5-family attribution these two lines carried." DEPLOYMENT.md said so on 2026-09-01 and took it back on 2026-09-25 (Q-763, CX-125): the 9V45 is the cloud part of the Zen 5 "Turin" generation. The 2026-09-01 edit named the part more exactly; it did not fix a wrong family.)*
 Multi-thread saturates at ~2.5B nodes/sec on 128 threads.
 
 ## SEE ALSO

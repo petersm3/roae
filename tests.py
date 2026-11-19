@@ -72406,6 +72406,66 @@ class TestQ1122InventoryDateRule(unittest.TestCase):
 # end class TestQ1122InventoryDateRule
 
 
+class TestBatchQ1147O1(unittest.TestCase):
+    """Backlog Q-1147 O1 (CX-37G-H): SOLVE_C_CLI.md's architecture note said DEPLOYMENT.md "retracts the earlier
+    Zen-5-family attribution" of the two lines above it; DEPLOYMENT.md took that back on 2026-09-25 (CX-125). The
+    note now says DEPLOYMENT.md names the specific part, a dated marker quotes the old ending, the pointer stays on
+    line 3573, and the ledger and history entries exist. The red half puts the old ending back and requires the
+    checker to name it. Red on the parent tree, which has none of the new wording.
+    Developed with AI assistance (Claude, Anthropic): claude-opus-5-5; text drafted by claude-fable-5-2."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    REL = "documentation/SOLVE_C_CLI.md"
+    OLD = ("[DEPLOYMENT.md](DEPLOYMENT.md):296, which retracts the earlier Zen-5-family\n"
+           "attribution these two lines carried.)*\n")
+    NEW = ("[DEPLOYMENT.md](DEPLOYMENT.md):296, which names the specific part. Both lines read \"Zen 5 Turin\" before, "
+           "and that label was right at the family level.)*\n")
+    MARK = ("⚠ *(Corrected 2026-11-19, CX-37G-H: this note ended \"which retracts the earlier Zen-5-family attribution "
+            "these two lines carried.\" DEPLOYMENT.md said so on 2026-09-01 and took it back on 2026-09-25 (Q-763, "
+            "CX-125): the 9V45 is the cloud part of the Zen 5 \"Turin\" generation. The 2026-09-01 edit named the part "
+            "more exactly; it did not fix a wrong family.)*\n")
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _problems(self, t):
+        out = []
+        if t.count(self.NEW + self.MARK) != 1:
+            out.append("new sentence and its dated marker not present once, adjacent")
+        for line in t.split("\n"):
+            if "retracts the earlier Zen-5-family" in line and not line.startswith("⚠ *(Corrected 2026-11-19, CX-37G-H:"):
+                out.append("old ending outside the dated marker")
+        return out
+
+    def test_q1147_o1_wording(self):
+        self.assertEqual(self._problems(self._r(self.REL)), [])
+
+    def test_q1147_o1_red_on_old(self):
+        t = self._r(self.REL)
+        self.assertEqual(t.count(self.NEW + self.MARK), 1, "precondition: new wording present once")
+        self.assertNotEqual(self._problems(t.replace(self.NEW + self.MARK, self.OLD)), [])
+        self.assertIn("old ending outside the dated marker", self._problems(t.replace(self.NEW, self.OLD)))
+
+    def test_q1147_o1_pointer_line_and_target(self):
+        lines = self._r(self.REL).split("\n")
+        self.assertTrue(lines[3572].startswith("[DEPLOYMENT.md](DEPLOYMENT.md):296, which names the specific part."))
+        dep = self._r("documentation/DEPLOYMENT.md").split("\n")
+        self.assertTrue(dep[295].startswith("The processor underlying the 128-core VM size is AMD EPYC 9V45"))
+        self.assertIn("it was right at the family level.", dep[295])
+
+    def test_q1147_o1_ledger_and_history(self):
+        c = self._r("documentation/CORRECTIONS.md")
+        self.assertEqual(c.count("\n## CX-37G-H — "), 1)
+        entry = c.split("\n## CX-37G-H — ", 1)[1].split("\n## ", 1)[0]
+        for frag in ("Backlog row Q-1147 (O1)", "DEPLOYMENT.md and CX-125 are not edited.", "`TestBatchQ1147O1`"):
+            self.assertIn(frag, entry)
+        self.assertEqual(self._r("documentation/HISTORY.md").count(
+            "\n## 2026-11-19 — batch Q1147-O1: a citing note that its source's correction left behind\n"), 1)
+
+# end class TestBatchQ1147O1
+
+
 # Q-1136 M3: a SOLVE_* variable exported in the caller's shell reached every solver run built from
 # dict(os.environ, ...). tests.py reads no SOLVE_* knob of its own, so each inherited one is removed
 # here and named on stderr. This runs at import, after every class is defined and before any test

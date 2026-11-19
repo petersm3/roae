@@ -549,6 +549,7 @@ documentation/SOLVE_C_CLI.md	3301	marker	CORRECTED	1	-	reviewed:cell-already-giv
 documentation/SOLVE_C_CLI.md	3347	marker	CORRECTED	1	-	reviewed:row-already-gives-the-checkpoint-line-deletion	6e7c42db49bc
 documentation/SOLVE_C_CLI.md	3527	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	b87f2ab29b55
 documentation/SOLVE_C_CLI.md	3533	ledger-link	CORRECTION	n/a	-	not-a-marker	60af68ec6e14
+documentation/SOLVE_C_CLI.md	3574	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	9aad30facd2c
 documentation/SOLVE_C_CLI.md	3602	marker	Corrected	1	-	reviewed:paragraph-already-reads-256-GB	cecef1272b2a
 documentation/SOLVE_C_CLI.md	3611	marker	Corrected	3	CITATION LINE GATE,GATE 2c	gate-anchored	f27afff66d20
 documentation/SOLVE_PY_CLI.md	105	ledger-link	CORRECTION	n/a	-	not-a-marker	76e7c2e90141

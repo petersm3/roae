@@ -12882,3 +12882,10 @@ line number in either file moves. Both sets of reproductions were run again on t
 - No result, count, canonical sha or published figure changed. `TestQ1065SkipAllowlist` holds each
   rule with a mutant and fails on the parent tree. Designed in a Fable review (claude-fable-5-2);
   built in an Opus lane (claude-opus-5-5).
+
+## 2026-11-19 — batch Q1147-O1: a citing note that its source's correction left behind
+
+- **documentation/SOLVE_C_CLI.md (CX-37G-H, Q-1147).** The 2026-09-01 note under the performance table said
+  DEPLOYMENT.md had taken back the Zen 5 family label of the two lines above it. DEPLOYMENT.md itself reversed that
+  on 2026-09-25 (CX-125): "Zen 5 Turin" was right at the family level. The note now says DEPLOYMENT.md names the
+  specific part, and a dated marker quotes the old ending. Line-neutral; no figure changes.

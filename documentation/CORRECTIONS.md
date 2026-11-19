@@ -41702,3 +41702,28 @@ HISTORY.md loss before the floor is exempt with the floor and fails without it.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 drafted and built the change; the defect was found by
 Codex (gpt-6-astra) in its fix-verification round and triaged by Fable (claude-fable-5-1).
+
+## CX-37G-H — SOLVE_C_CLI.md said DEPLOYMENT.md "retracts" the Zen 5 label for the 128-core VM's processor; DEPLOYMENT.md took that back on 2026-09-25 and the citing note was missed (documentation/SOLVE_C_CLI.md; tests.py)
+
+**2026-11-19.** **Source.** Backlog row Q-1147 (O1), from Fable's pre-publication read of 2026-11-16.
+
+**Before.** The performance table in SOLVE_C_CLI.md named the 128-core VM's processor "Zen 5 Turin" on two
+lines until the prose sweep of 2026-09-01, which changed both to "AMD EPYC 9V45" and added a note: the change
+follows DEPLOYMENT.md, "which retracts the earlier Zen-5-family attribution these two lines carried." That
+matched DEPLOYMENT.md on that day, which called the "Zen 5 Turin" label incorrect. CX-125 (2026-09-25, Q-763)
+corrected DEPLOYMENT.md: the label was right at the family level, and the 9V45 is that generation's cloud part.
+CX-125 did not touch the note in SOLVE_C_CLI.md, so since 2026-09-25 the note has cited a retraction that its
+source no longer makes.
+
+**After.** The note says DEPLOYMENT.md names the specific part, and that "Zen 5 Turin" was right at the family
+level. A dated marker beside it quotes the old ending. The 2026-09-01 edit is now described as what it was:
+a more exact name, not the repair of a wrong one. The edit keeps the file's line count, and the pointer to
+DEPLOYMENT.md:296 is unchanged.
+
+**Not changed.** No timing, rate, count or canonical sha. DEPLOYMENT.md and CX-125 are not edited.
+
+**Tests.** `TestBatchQ1147O1` holds the new sentence and the dated marker, checks that the old ending occurs in
+the file only inside that marker, and fails on the parent tree.
+
+Developed with AI assistance (Claude, Anthropic): found and worded by Fable (claude-fable-5-2); built by an Opus
+lane (claude-opus-5-5).
