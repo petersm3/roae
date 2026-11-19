@@ -631,7 +631,7 @@ The difference is a partition-dependent sampling effect at the same 10T total bu
 **Retraction.** This section formerly claimed (as "Theorem 6, empirical") that in every ordering
 satisfying C1–C5 the sequence must begin s₀ = 63, s₁ = 0, and that "the reversed orientation
 (s₀=0, s₁=63) yields zero valid orderings." **The claim is false.** Two counterexample families,
-machine-verified 2026-07-26:
+checked by machine 2026-07-26 — the first is now a Lean theorem, the second is a count by a Python program ⚠ *(reworded 2026-11-19, CX-37G-J: this read "machine-verified", a phrase this project now keeps for proofs checked by the Lean kernel)*:
 
 1. **Global:** complement every hexagram of King Wen (x ↦ x ⊕ 63). The result opens (0, 63) and
    satisfies C1 (the partner map commutes with complementation), C2 and C5 (complementation is a

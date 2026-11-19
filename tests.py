@@ -65493,6 +65493,8 @@ class TestBatchQ1113(unittest.TestCase):
                     cur = "| v1.18 | 2026-11-12 |"
                 if rel == self.T5 and "\n| v2.27 | 2026-11-12 |" in t:   # the cloud sweep B7 (Q-1140) appended v2.28 and moved the marker
                     cur = "| v2.27 | 2026-11-12 |"
+                if rel == self.T7 and "\n| v2.15 | 2026-11-12 |" in t:   # Q-1140 sibling S5 (CX-37G-J) appended v2.16 and moved the marker
+                    cur = "| v2.15 | 2026-11-12 |"
                 self.assertEqual(t.count("*(current)*"), 1, rel)
                 self.assertEqual(t.count("\n" + cur), 1, rel)
                 self.assertEqual(t.count("\n" + prev), 1, rel)
@@ -72535,6 +72537,126 @@ class TestBatchQ1140R1(unittest.TestCase):
             "\n## 2026-11-19 — batch Q1140-R1: the merge half of the CLAUDE.md reproducibility sentence\n"), 1)
 
 # end class TestBatchQ1140R1
+
+
+class TestBatchQ1140Siblings(unittest.TestCase):
+    """Backlog Q-1140 siblings S1, S2, S3, S5 (CX-37G-J): four sites where "independent" or "machine-verified" said
+    more than the record shows. Each new fragment is present once; each old phrase survives in its file only inside
+    a dated note that quotes it; the Lean header and its verbatim copy in TRIGRAM_STRUCTURE.md change together;
+    TR-7's v2.16 row is current; the ledger and history entries exist. The red half puts each old wording back and
+    requires the checker to name it. Red on the parent tree.
+    Developed with AI assistance (Claude, Anthropic): claude-opus-5-5; text drafted by claude-fable-5-2."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    MARK = "2026-11-19, CX-37G-J"
+    PAIRS = (
+        # S1 holds the dated note above the table as well as the header row (Codex review of Q-1153, F5: with the
+        # header row alone, deleting the note left every test green)
+        ("S1", "documentation/PARTITION_INVARIANCE.md",
+         "inherits — see the paragraph below the table.\n\n| Scale | First witness | Independent re-derivations | Evidence type |\n",
+         "inherits — see the paragraph below the table. ⚠ *(Header reworded 2026-11-19, CX-37G-J: the table's third column "
+         "was headed \"Independent re-derivations\"; every run in it is this project's own.)*\n\n"
+         "| Scale | First witness | Re-derivations | Evidence type |\n"),
+        ("S2", "documentation/SOLVE.md", "Two counterexample families,\nmachine-verified 2026-07-26:\n",
+         "Two counterexample families,\nchecked by machine 2026-07-26 — the first is now a Lean theorem, the second is a count by a Python program ⚠ *(reworded 2026-11-19, CX-37G-J: this read \"machine-verified\", a phrase this project now keeps for proofs checked by the Lean kernel)*:\n"),
+        ("S3a", "lean/TrigramTheorems.lean", "    object, machine-verified separately by this project. Any statement about\n",
+         "    object; this project recomputed its orbit count and orbit sizes with a Python program (reworded 2026-11-19, CX-37G-J: this read \"machine-verified separately by this project\"). Any statement about\n"),
+        ("S3b", "documentation/TRIGRAM_STRUCTURE.md", "  object, machine-verified separately by this project. Any statement about\n",
+         "  object; this project recomputed its orbit count and orbit sizes with a Python program (reworded 2026-11-19, CX-37G-J: this read \"machine-verified separately by this project\"). Any statement about\n"),
+        ("S5", "reports/TR7_CIRCULAR_READING.md", "theorem), independently re-derived and re-verified before\nfolding in.\n",
+         "theorem), re-derived and re-checked on King Wen a second time by this project before\nfolding in ⚠ *(reworded 2026-11-19, CX-37G-J: this read \"independently re-derived and re-verified\"; the second pass was this project's own, and no record names a separate method for it)*.\n"),
+    )
+    QUOTED = (
+        ("documentation/PARTITION_INVARIANCE.md", "Independent re-derivations"),
+        ("documentation/SOLVE.md", "machine-verified"),
+        ("lean/TrigramTheorems.lean", "machine-verified"),
+        ("documentation/TRIGRAM_STRUCTURE.md", "machine-verified separately"),
+        ("reports/TR7_CIRCULAR_READING.md", "independently re-derived"),
+    )
+    T7_ROW = "| v2.16 *(current)* | 2026-11-19 | **Wording only (backlog Q-1140 sibling S5, CX-37G-J).**"
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _texts(self):
+        return {rel: self._r(rel) for rel in {p[1] for p in self.PAIRS} | {q[0] for q in self.QUOTED}}
+
+    def _quoted(self, line, i):
+        # inside a note "(... reworded 2026-11-19, CX-37G-J: this read "<phrase>..." ...)" on the same line,
+        # or in TR-7's own v2.16 revision row
+        k = max(line.rfind("reworded " + self.MARK + ": ", 0, i), line.rfind("Header reworded " + self.MARK + ": ", 0, i))
+        if k >= 0 and line.find('"', k) < i:
+            return True
+        return line.startswith("| v2.16 ") and "CX-37G-J" in line
+
+    def _problems(self, texts):
+        out = []
+        for item, rel, old, new in self.PAIRS:
+            if texts[rel].count(new) != 1:
+                out.append("%s: new wording not present once in %s" % (item, rel))
+        for rel, phrase in self.QUOTED:
+            for line in texts[rel].split("\n"):
+                i = line.find(phrase)
+                while i >= 0:
+                    if not self._quoted(line, i):
+                        out.append("%s: %r outside a quoted dated note" % (rel, phrase))
+                    i = line.find(phrase, i + 1)
+        return out
+
+    def test_siblings_wording(self):
+        self.assertEqual(self._problems(self._texts()), [])
+
+    def test_siblings_red_on_old(self):
+        texts = self._texts()
+        for item, rel, old, new in self.PAIRS:
+            self.assertEqual(texts[rel].count(new), 1, "precondition: %s new fragment present once" % item)
+            texts[rel] = texts[rel].replace(new, old)
+        probs = self._problems(texts)
+        for item, rel, old, new in self.PAIRS:
+            self.assertTrue(any(p.startswith(item + ":") for p in probs), item)
+            self.assertTrue(any(p.startswith(rel + ":") for p in probs), rel)
+
+    def test_siblings_lean_header_and_copy_agree(self):
+        lean = self._r("lean/TrigramTheorems.lean").split("\n")
+        doc = self._r("documentation/TRIGRAM_STRUCTURE.md").split("\n")
+        l = [x for x in lean if "recomputed its orbit count and orbit sizes" in x]
+        d = [x for x in doc if "recomputed its orbit count and orbit sizes" in x]
+        self.assertEqual(len(l), 1)
+        self.assertEqual(len(d), 1)
+        self.assertEqual(l[0][4:], d[0][2:])
+        self.assertIn("THREE_GENERATOR_ORBITS=14", self._r("documentation/TRIGRAM_STRUCTURE.md"))
+
+    def test_siblings_tr7_revision_row(self):
+        t = self._r("reports/TR7_CIRCULAR_READING.md")
+        self.assertEqual(t.count("*(current)*"), 1)
+        self.assertEqual(t.count("\n" + self.T7_ROW), 1)
+        self.assertEqual(t.count("\n| v2.15 | 2026-11-12 |"), 1)
+
+    def test_siblings_ledger_and_history(self):
+        c = self._r("documentation/CORRECTIONS.md")
+        self.assertEqual(c.count("\n## CX-37G-J — "), 1)
+        entry = c.split("\n## CX-37G-J — ", 1)[1].split("\n## ", 1)[0]
+        for frag in ("`TestBatchQ1140Siblings`", "GATE 66 still finds", "(v2.16)"):
+            self.assertIn(frag, entry)
+        self.assertEqual(self._r("documentation/HISTORY.md").count(
+            "\n## 2026-11-19 — batch Q1140-SIB: four siblings of the banned verification phrases\n"), 1)
+        # Codex review of Q-1153, F3: TR-7 gains a line (its v2.16 row), so the section says so
+        sec = self._r("documentation/HISTORY.md").split(
+            "\n## 2026-11-19 — batch Q1140-SIB: four siblings of the banned verification phrases\n", 1)[1].split("\n## ", 1)[0]
+        self.assertIn("Line-neutral except TR-7, which gains its v2.16 revision row;", " ".join(sec.split()))
+
+    def test_siblings_s1_note_is_required(self):
+        # positive control for F5: the checker must name S1 when the dated note alone is removed
+        texts = self._texts()
+        rel = "documentation/PARTITION_INVARIANCE.md"
+        note = (" ⚠ *(Header reworded 2026-11-19, CX-37G-J: the table's third column was headed \"Independent "
+                "re-derivations\"; every run in it is this project's own.)*")
+        self.assertEqual(texts[rel].count(note), 1, "precondition: the S1 dated note is present once")
+        texts[rel] = texts[rel].replace(note, "")
+        self.assertTrue(any(p.startswith("S1:") for p in self._problems(texts)))
+
+# end class TestBatchQ1140Siblings
 
 
 # Q-1136 M3: a SOLVE_* variable exported in the caller's shell reached every solver run built from

@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 12 place(s) over all 274 dated sections, 11 of them among the 198 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 12 place(s) over all 275 dated sections, 11 of them among the 199 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -301,6 +301,7 @@
 | 272 | 2026-11-17 | iso | 12724 | [open](HISTORY.md#2026-11-17--batch-q1127-l1-theorem-g-2143-by-free-actions-and-its-reproducer) 2026-11-17 — batch Q1127-L1: Theorem G+ (2^14·3 by free actions) and its reproducer |
 | 273 | 2026-11-19 | iso | 12886 | [open](HISTORY.md#2026-11-19--batch-q1147-o1-a-citing-note-that-its-sources-correction-left-behind) 2026-11-19 — batch Q1147-O1: a citing note that its source's correction left behind |
 | 274 | 2026-11-19 | iso | 12893 | [open](HISTORY.md#2026-11-19--batch-q1140-r1-the-merge-half-of-the-claudemd-reproducibility-sentence) 2026-11-19 — batch Q1140-R1: the merge half of the CLAUDE.md reproducibility sentence |
+| 275 | 2026-11-19 | iso | 12902 | [open](HISTORY.md#2026-11-19--batch-q1140-sib-four-siblings-of-the-banned-verification-phrases) 2026-11-19 — batch Q1140-SIB: four siblings of the banned verification phrases |
 
 ## Sections with no date in the heading, in file order
 

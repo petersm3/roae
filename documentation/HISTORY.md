@@ -12898,3 +12898,14 @@ line number in either file moves. Both sets of reproductions were run again on t
   identity across hardware and region. The sentence now says so, with the old wording in a dated note. This
   section and CX-37G-I scope the same wording in CX-37C-Y and in the batch Q1140 section above, which are not
   edited. Line-neutral; no figure changes.
+
+## 2026-11-19 — batch Q1140-SIB: four siblings of the banned verification phrases
+
+- **PARTITION_INVARIANCE.md, SOLVE.md, TRIGRAM_STRUCTURE.md with lean/TrigramTheorems.lean, TR-7 (CX-37G-J).** A
+  table header said "Independent re-derivations" for this project's own re-runs; SOLVE.md said two counterexample
+  families were "machine-verified" when the second is a Python count; the trigram ledger (and the Lean header it
+  copies) said Hershock's 14-orbit decomposition was "machine-verified separately", when a Python program
+  recomputes its orbit count and sizes; TR-7 said a corollary was "independently re-derived and re-verified" by a
+  second pass of this project's own. Each now says who checked what, with the old wording in a dated note; TR-7
+  v2.16. Line-neutral except TR-7, which gains its v2.16 revision row; the Lean edit is to a comment. No number,
+  proof or theorem changed.

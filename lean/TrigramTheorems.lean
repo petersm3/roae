@@ -81,7 +81,7 @@
     reversal, and trigram swap: that group, and its 14-orbit ("families of
     derivation") decomposition of the 64 hexagrams, is Hershock 1991
     (J. Chinese Philosophy 18:3) — a DIFFERENT group acting on a DIFFERENT
-    object, machine-verified separately by this project. Any statement about
+    object; this project recomputed its orbit count and orbit sizes with a Python program (reworded 2026-11-19, CX-37G-J: this read "machine-verified separately by this project"). Any statement about
     the 14-family decomposition, or about his circular reordering built from
     complement, reversal, trigram swap and the nuclear ("linking") map, must
     cite Hershock. Trigram OPERATIONS on hexagrams as such are older and are

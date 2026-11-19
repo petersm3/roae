@@ -41754,3 +41754,41 @@ the parent tree.
 
 Developed with AI assistance (Claude, Anthropic): found and worded by Fable (claude-fable-5-2); built by an Opus
 lane (claude-opus-5-5).
+
+## CX-37G-J — four more places where "independent" or "machine-verified" said more than the record shows (documentation/PARTITION_INVARIANCE.md; documentation/SOLVE.md; documentation/TRIGRAM_STRUCTURE.md; lean/TrigramTheorems.lean; reports/TR7_CIRCULAR_READING.md; tests.py)
+
+**2026-11-19.** **Source.** Siblings of CX-37C-Y, seen during the check of that batch and ruled in a Fable lane
+(backlog Q-1140). Each site was re-read against the tree before it was changed. Every edit keeps its file's line
+count; TR-7's revision row is appended.
+
+**What was published, and what it says now.**
+
+- **PARTITION_INVARIANCE.md §5a.** The evidence table's third column was headed "Independent re-derivations". Every
+  run in that column is this project's own. The header now reads "Re-derivations". The rows are unchanged.
+- **SOLVE.md, the Theorem 6 retraction.** It said the two counterexample families were "machine-verified
+  2026-07-26". The first family is a theorem checked by the Lean kernel (`orientation_not_forced`,
+  lean/KingWen.lean). The second is a count of 983,040 made by a Python program
+  (reports/evidence/f5/f5_pair_only_fiber.py; since 2026-08-01 also `verify.py --recount-fiber`). The sentence now
+  says "checked by machine" and says which is which.
+- **TRIGRAM_STRUCTURE.md §4 and the header of lean/TrigramTheorems.lean.** Both said Hershock's 14-orbit
+  decomposition was "machine-verified separately by this project". The public check is a Python program,
+  `verify.py --check-classical-groups`, and it recomputes the number of orbits and their sizes. It does not compare
+  them with his printed table (TRIGRAM_STRUCTURE.md §2 already says so). Both copies now say that. The change in
+  the Lean file is to a comment; no theorem changed.
+- **TR-7, the 32-switches corollary.** It said the corollary was "independently re-derived and re-verified" before
+  it was added. The second pass was this project's own and no record names a separate method. The sentence now
+  says it was re-derived and re-checked on King Wen a second time by this project (v2.16).
+
+**Not changed.** PARTITION_INVARIANCE.md's "independent partition-strategy re-run" and "independent consistency
+check" mean a different method, not a different party, and stand. HISTORY.md's 2026-09-01/02 entry calls an
+UNSAT result "machine-verified". That check was a SAT solver run (cadical) whose proof was then checked by
+drat-trim (SOLVE_PY_CLI.md, the `--sat-c3 adder` paragraph). It is a checked SAT proof, not a Lean proof. The
+entry is append-only and stands as written; this sentence scopes it. The counts, the proofs, the theorems and
+every canonical sha are unchanged.
+
+**Tests.** `TestBatchQ1140Siblings` holds each new fragment, checks that each old phrase occurs in its file only
+inside a dated note, and fails on the parent tree. GATE 66 still finds the TRIGRAM_STRUCTURE.md block identical to
+the Lean header. `TestBatchQ1113`'s TR-7 revision-row check follows the moved `*(current)*` marker.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-2 ruled the sites and worded the fixes; built by an
+Opus lane (claude-opus-5-5).

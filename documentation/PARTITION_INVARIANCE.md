@@ -344,9 +344,9 @@ drawn from a fixed vocabulary: **partition-path**, **execution-mode**,
 **host/ISA + build**, **re-run determinism**, **inherited**. Partition
 invariance itself is directly witnessed at 5.6 T and 100 T. The 11.2 T
 witnesses vary build, host and ISA rather than the partition, and 560 T
-inherits — see the paragraph below the table.
+inherits — see the paragraph below the table. ⚠ *(Header reworded 2026-11-19, CX-37G-J: the table's third column was headed "Independent re-derivations"; every run in it is this project's own.)*
 
-| Scale | First witness | Independent re-derivations | Evidence type |
+| Scale | First witness | Re-derivations | Evidence type |
 |---|---|---|---|
 | 5.6 T | 2026-04-30 | `--double-regression-test` + `--merge-layers` of 56 `--branch p1 o1` reconstruction layers | **Partition-path** — direct sha-equality across 4 partition paths |
 | 11.2 T | 2026-04-30 / 2026-05-01 | Build A + Build B (different physical 64-core hosts) + ARM Cobalt + v3 lineage + Tier 1 *determinism-hardening* (not a Lean proof tier, and not a campaign budget) — the witness list of record is [CANONICAL_HASHES.md](CANONICAL_HASHES.md) §"d3 11.2T"; this document does not restate its count | **Host/ISA + build** — direct sha-equality across host class, source commit and ISA. Not a partition witness: none of these runs varies the partition |
