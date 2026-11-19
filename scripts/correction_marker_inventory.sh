@@ -480,7 +480,8 @@ REVIEWED = {
         ('1', 'reviewed:sentence-already-states-the-sampler-scoped-rate-bound'),
     ('documentation/GUIDE.md', '8359ad050331'):
         ('1', 'reviewed:entry-already-states-the-attainment-quantifier'),
-    ('documentation/GUIDE.md', 'a1ced4a05f11'):
+    # re-keyed 2026-11-19, CX-37G-L (was a1ced4a05f11; N2 sibling reworded ("monotone non-decreasing with scale" -> three budgets) with a dated note; verdict re-read, stands).
+    ('documentation/GUIDE.md', 'b7f97cf5a994'):
         ('1', 'reviewed:sentence-already-reads-monotone-4-then-5'),
     ('documentation/GUIDE.md', 'c4c826ace6cb'):
         ('1', 'reviewed:example-already-reads-2'),
@@ -548,7 +549,8 @@ REVIEWED = {
         ('1', 'reviewed:sentence-already-reads-1-in-1491'),
     ('documentation/MCKENNA.md', '6bfd0828d1b1'):
         ('1', 'reviewed:bullet-already-says-Gray-codes-can-beat-King-Wen'),
-    ('documentation/MCKENNA.md', '743d04e71cab'):
+    # re-keyed 2026-11-19, CX-37G-L (was 743d04e71cab; N2 sibling reworded ("monotone non-decreasing with scale" -> three budgets) with a dated note; verdict re-read, stands).
+    ('documentation/MCKENNA.md', '4ab2b69aabbd'):
         ('1', 'reviewed:sentence-already-reads-monotone-4-then-5'),
     ('documentation/MCKENNA.md', '82c5a6aa6ecd'):
         ('1', 'reviewed:paragraph-already-reads-two-of-four'),
@@ -568,7 +570,8 @@ REVIEWED = {
         ('1', 'reviewed:consequence-already-reads-identical-record-sets'),
     ('documentation/PARTITION_STABILITY_BOUNDARIES.md', '8994f6c50536'):
         ('1', 'reviewed:table-already-lists-the-8-working-sets'),
-    ('documentation/PARTITION_STABILITY_BOUNDARIES.md', '8af9abd8ef6a'):
+    # re-keyed 2026-11-19, CX-37G-L (was 8af9abd8ef6a; N2 sibling reworded ("monotone non-decreasing with scale" -> three budgets) with a dated note; verdict re-read, stands).
+    ('documentation/PARTITION_STABILITY_BOUNDARIES.md', 'c493913c2067'):
         ('1', 'reviewed:paragraph-already-reads-monotone-and-stable'),
     ('documentation/PASS1_TRAJECTORY_DETERMINISM.md', '36ee2235a004'):
         ('1', 'reviewed:list-already-itemises-both-missing-commits'),
@@ -928,7 +931,9 @@ REVIEWED = {
         ('1', 'reviewed:paragraph-already-reads-from-the-742M-archive'),
     # re-keyed batch 35 (was 829aed6413ee): only a line-number cite on the line moved; re-read, same verdict.
     # re-keyed batch 46 (was 945a371c2c4b; CX-340, Q-993): the solve.c cite became the span 46159-46160; re-read, same verdict. Re-keyed FV2-E2 (was 90a94005650f): only the solve.c line cite moved; re-read, same verdict.
-    ('enumeration/LEADERBOARD.md', '8628a4b667a1'):
+    # re-keyed 2026-11-19, CX-37G-L (was 8628a4b667a1; the banner's opening reworded and a dated note appended; the {25, 27}
+    # sentence and its CORRECTED marker are unchanged; verdict re-read, stands).
+    ('enumeration/LEADERBOARD.md', '773b0030412e'):
         ('1', 'reviewed:sentence-already-calls-it-an-overlap-ratio'),
     ('enumeration/LEADERBOARD.md', '8ff0ea958479'):
         ('1', 'reviewed:qualifier-already-uses-0-based-pair-numbers'),

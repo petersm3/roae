@@ -72775,6 +72775,251 @@ class TestBatchQ1152(unittest.TestCase):
 # end class TestBatchQ1152
 
 
+class TestBatchQ1140Operator(unittest.TestCase):
+    """Backlog Q-1140, the operator's 2026-11-18 answers (CX-37G-L): B6 reports/README.md's TR-3 row says "two
+    from-scratch runs", not "two independent runs"; N2 the leaderboard's second banner is no longer a "novel finding"
+    that is "monotone non-decreasing in scale"; N3 the front page's "What no prior author did" opens "To our
+    knowledge,"; and CORRECTIONS.md says why the cloud sweep left five frozen pre-registrations unedited. Each new
+    fragment is present once, each old phrase is left only inside its dated note, each edited file keeps the line
+    count it had on the parent tree, the five files still match digests their escrow page publishes, and the ledger
+    and history entries exist. Red on the parent tree, which carries every old phrase outside any note.
+    Developed with AI assistance (Claude, Anthropic): claude-opus-5-5; answers recommended by claude-fable-5-2."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    # file -> (lines on 8582a11c, [(new fragment, old fragment)], dated note, [old phrases the note alone may hold])
+    SITES = {
+        "reports/README.md": (113, [
+            ("twice byte-identical across two from-scratch runs on interruptible",
+             "twice byte-identical across two independent runs on interruptible")],
+            " ⚠ *(reworded 2026-11-19, CX-37G-L: this read \"two independent runs\"; both runs are this project's own)*",
+            ["two independent runs"]),
+        "enumeration/LEADERBOARD.md": (1377, [
+            ("> **Boundary minimum at three budgets (2026-04-20 100T baseline;",
+             "> **Second novel finding (2026-04-20 100T baseline;"),
+            ("at three budgets the **greedy boundary minimum was 4, 5 and 5 (10T, 100T, 560T)**. At d2 10T",
+             "the **boundary-minimum is monotone non-decreasing in scale: 4 → 5 → 5 across 10T → 100T → 560T**. "
+             "At d2 10T")],
+            " ⚠ *(Reworded 2026-11-19, CX-37G-L: this banner was headed \"Second novel finding\" and said the "
+            "\"boundary-minimum is monotone non-decreasing in scale: 4 → 5 → 5 across 10T → 100T → 560T\". Three "
+            "budgets are three measurements, not a rule about scale, and no prior-art survey stood behind \"novel\". "
+            "The numbers are unchanged; the old opening is quoted in "
+            "[CORRECTIONS.md](../documentation/CORRECTIONS.md) CX-37G-L.)*",
+            ["Second novel finding", "monotone non-decreasing in scale: 4 → 5 → 5"]),
+        "README.md": (494, [
+            ("survivors of 16,504 above). To our knowledge, what no prior author did is the measurement",
+             "survivors of 16,504 above). What no prior author did is the measurement")],
+            " ⚠ *(Reworded 2026-11-19, CX-37G-L: \"To our knowledge,\" added; the sentence opened \"What no prior "
+            "author did\", a claim about every earlier author that no one can check.)*",
+            ["What no prior author did"]),
+    }
+    # N2's siblings (Codex review of Q-1153, F9 and F10; PARTITION_STABILITY_BOUNDARIES.md:3 from the v4
+    # pre-check, I-1): file -> (lines, [(new, old)], [notes], [old phrases])
+    SIBLINGS = {
+        'documentation/CITATIONS.md': (2948, [
+            ('Revealed that at three budgets the greedy boundary minimum was 4, 5 and 5 (4 at 10T,',
+             'Revealed that the boundary-minimum is monotone non-decreasing with scale (greedy minimum: 4 at 10T,'),
+            ('and that KW sits at the C3 ceiling, not the floor, reaffirmed at 560T. ⚠ *(Reworded 2026-11-19, CX-37G-L: this said the boundary-minimum "is monotone non-decreasing with scale". Three budgets are three measurements, not a rule about scale; the numbers are unchanged.)*',
+             'and that KW sits at the C3 ceiling, not the floor, reaffirmed at 560T.'),
+            ], [' ⚠ *(Reworded 2026-11-19, CX-37G-L: this said the boundary-minimum "is monotone non-decreasing with scale". Three budgets are three measurements, not a rule about scale; the numbers are unchanged.)*'],
+            ['monotone non-decreasing with scale']),
+        'documentation/GUIDE.md': (282, [
+            ('— what was measured at three budgets, not a rule about scale — with the identical greedy set',
+             '— monotone non-decreasing with scale, with the identical greedy set'),
+            ('))* ⚠ *(Reworded 2026-11-19, CX-37G-L: this said "monotone non-decreasing with scale". Three budgets are three measurements, not a rule about scale; the numbers are unchanged.)*. The working-4-set count is scale-bounded (8 at d3 10T',
+             '))*. The working-4-set count is scale-bounded (8 at d3 10T'),
+            ], [' ⚠ *(Reworded 2026-11-19, CX-37G-L: this said "monotone non-decreasing with scale". Three budgets are three measurements, not a rule about scale; the numbers are unchanged.)*'],
+            ['monotone non-decreasing with scale']),
+        'documentation/MCKENNA.md': (153, [
+            ('— what was measured at three budgets, not a rule about scale — with the identical greedy set',
+             '— monotone non-decreasing with scale, with the identical greedy set'),
+            ('))* ⚠ *(Reworded 2026-11-19, CX-37G-L: this said "monotone non-decreasing with scale". Three budgets are three measurements, not a rule about scale; the numbers are unchanged.)*. The working-4-set count is scale-bounded (8 → 0',
+             '))*. The working-4-set count is scale-bounded (8 → 0'),
+            ], [' ⚠ *(Reworded 2026-11-19, CX-37G-L: this said "monotone non-decreasing with scale". Three budgets are three measurements, not a rule about scale; the numbers are unchanged.)*'],
+            ['monotone non-decreasing with scale']),
+        'documentation/PARTITION_STABILITY_BOUNDARIES.md': (98, [
+            ('At three budgets the greedy-minimum count was **4, 5 and 5** (10T → 100T → 560T; *corrected 2026-07-04',
+             'The greedy-minimum count is **monotone non-decreasing with node budget** (4 → 5 → 5 across 10T → 100T → 560T; *corrected 2026-07-04'),
+            ('Renamed 2026-09-02.)* ⚠ *(Reworded 2026-11-19, CX-37G-L: this said the greedy-minimum count "is monotone non-decreasing with node budget". Three budgets are three measurements, not a rule about scale; the numbers are unchanged.)*',
+             'Renamed 2026-09-02.)*'),
+            ('At three budgets the **greedy-ordered minimum was 4, 5 and 5** (d3 10T → 100T → 560T;',
+             'The **greedy-ordered minimum is monotone non-decreasing with scale** (4 → 5 → 5 across d3 10T → 100T → 560T;'),
+            ('Which 5-sets attain it is a separate, unrun question — see §Result\'s scope note. ⚠ *(Reworded 2026-11-19, CX-37G-L: this said the greedy-ordered minimum "is monotone non-decreasing with scale". Three budgets are three measurements, not a rule about scale; the numbers are unchanged.)*',
+             "Which 5-sets attain it is a separate, unrun question — see §Result's scope note."),
+            ('**At three budgets the boundary-minimum size was 4, 5 and 5, and it held at 5 at canonical depth.**',
+             '**The boundary-minimum size is monotone non-decreasing with scale, and stable at canonical depth.**'),
+            ('both rested on a survivor-counting error, see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md).)* ⚠ *(Reworded 2026-11-19, CX-37G-L: this paragraph opened "The boundary-minimum size is monotone non-decreasing with scale". Three budgets are three measurements, not a rule about scale; the numbers are unchanged.)*',
+             'both rested on a survivor-counting error, see [BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md).)*'),
+            ], [' ⚠ *(Reworded 2026-11-19, CX-37G-L: this said the greedy-ordered minimum "is monotone non-decreasing with scale". Three budgets are three measurements, not a rule about scale; the numbers are unchanged.)*', ' ⚠ *(Reworded 2026-11-19, CX-37G-L: this paragraph opened "The boundary-minimum size is monotone non-decreasing with scale". Three budgets are three measurements, not a rule about scale; the numbers are unchanged.)*', ' ⚠ *(Reworded 2026-11-19, CX-37G-L: this said the greedy-minimum count "is monotone non-decreasing with node budget". Three budgets are three measurements, not a rule about scale; the numbers are unchanged.)*'],
+            ['monotone non-decreasing with scale', 'monotone non-decreasing with node budget']),
+        # v6: the CX-06 pointer that TestCleanupM1 pins is kept byte-for-byte; the CX-37G-L pointer follows it
+        'documentation/PROJECT_OVERVIEW.md': (208, [
+            ('— what was measured at three budgets, not a rule about scale — with the identical greedy set',
+             '— monotone non-decreasing with scale, with the identical greedy set'),
+            ("[BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md)). [CORRECTIONS](CORRECTIONS.md) CX-37G-L quotes this sentence's old words. Boundaries",
+             '[BOUNDARY_MINIMUM.md](BOUNDARY_MINIMUM.md)). Boundaries'),
+            ], [],
+            ['monotone non-decreasing with scale']),
+        'documentation/README.md': (117, [
+            ('The number of boundary constraints required to uniquely identify King Wen, at three budgets: greedy minimum 4 → 5 → 5',
+             'The number of boundary constraints required to uniquely identify King Wen is monotone non-decreasing with scale: greedy minimum 4 → 5 → 5'),
+            ('headline was found to be a survivor-counting error.)* ⚠ *(Reworded 2026-11-19, CX-37G-L: this said the number of boundary constraints "is monotone non-decreasing with scale". Three budgets are three measurements, not a rule about scale; the numbers are unchanged.)*',
+             'headline was found to be a survivor-counting error.)*'),
+            ], [' ⚠ *(Reworded 2026-11-19, CX-37G-L: this said the number of boundary constraints "is monotone non-decreasing with scale". Three budgets are three measurements, not a rule about scale; the numbers are unchanged.)*'],
+            ['monotone non-decreasing with scale']),
+        'documentation/BOUNDARY_MINIMUM.md': (112, [
+            ('**At the three budgets tested, the greedy boundary minimum was 4 (10T), 5 (100T) and 5 (560T).**',
+             '**The boundary-minimum trajectory is monotone non-decreasing across tested depths: 4 (10T) → 5 (100T) → 5 (560T).**'),
+            ('(§[6] prints the chosen set as `{ 1 4 21 25 27 }`). ⚠ *(Reworded 2026-11-19, CX-37G-L: this said "The boundary-minimum trajectory is monotone non-decreasing across tested depths". Three budgets are three measurements, not a rule about scale; the numbers are unchanged.)*',
+             '(§[6] prints the chosen set as `{ 1 4 21 25 27 }`).'),
+            ], [' ⚠ *(Reworded 2026-11-19, CX-37G-L: this said "The boundary-minimum trajectory is monotone non-decreasing across tested depths". Three budgets are three measurements, not a rule about scale; the numbers are unchanged.)*'],
+            ['monotone non-decreasing across tested depths']),
+        'documentation/CRITIQUE.md': (856, [
+            ('at three budgets the **greedy boundary minimum was 4, 5 and 5**. Greedy-ordered minimum trajectory:',
+             'the boundary-minimum is **monotone non-decreasing in scale**. Greedy-ordered minimum trajectory:'),
+            ('Boundaries {25, 27} remain partition-stable across all canonicals tested (present in the greedy minimum at every scale). ⚠ *(Reworded 2026-11-19, CX-37G-L: this said the boundary-minimum "is monotone non-decreasing in scale". Three budgets are three measurements, not a rule about scale; the numbers are unchanged.)*',
+             'Boundaries {25, 27} remain partition-stable across all canonicals tested (present in the greedy minimum at every scale).'),
+            ], [' ⚠ *(Reworded 2026-11-19, CX-37G-L: this said the boundary-minimum "is monotone non-decreasing in scale". Three budgets are three measurements, not a rule about scale; the numbers are unchanged.)*'],
+            ['monotone non-decreasing in scale']),
+        'enumeration/LEADERBOARD.md': (1377, [
+            ('this same file.** ⚠ *Listed as open until 2026-09-07. It does NOT hold: at three budgets the\n  greedy boundary minimum was **4, 5 and 5** across 10T → 100T → 560T, and the working-4-subset\n',
+             'this same file.** ⚠ *Listed as open until 2026-09-07. It does NOT hold: the boundary-minimum is\n  monotone non-decreasing in scale, **4 → 5 → 5** across 10T → 100T → 560T, and the working-4-subset\n'),
+            ('  is stated in this document\'s own boundary-minimum note near the top of this page. ⚠ (Reworded 2026-11-19, CX-37G-L: this said the boundary-minimum "is monotone non-decreasing in scale", and called that banner "this document\'s own second-novel-finding note", its heading until that day. Three budgets are three measurements, not a rule about scale; the numbers are unchanged.) **Which specific boundaries** remains a\n',
+             "  is stated in this document's own second-novel-finding note. **Which specific boundaries** remains a\n"),
+            ('*(1) The boundary-minimum note near the top of this page (then headed "Second novel finding"; CX-37G-L renamed it) points to',
+             '*(1) The second novel-finding note near the top of this page points to'),
+            ], [' ⚠ (Reworded 2026-11-19, CX-37G-L: this said the boundary-minimum "is monotone non-decreasing in scale", and called that banner "this document\'s own second-novel-finding note", its heading until that day. Three budgets are three measurements, not a rule about scale; the numbers are unchanged.)', '(then headed "Second novel finding"; CX-37G-L renamed it)'],
+            ['monotone non-decreasing in scale', 'second-novel-finding note']),
+    }
+    PREREGS = ("documentation/PREREG_H1_H3_TEST_2026_07_26.md",
+               "documentation/PREREG_TR8_DOF_MATCHED_SAMPLER_20260811_ADDENDUM_A1_20261003.md",
+               "reports/evidence/f11halfb/PREREGISTRATION_EXTENDED.md",
+               "reports/evidence/f11halfb/PREREGISTRATION_VMATCHED.md",
+               "reports/evidence/c8screen/PREREGISTRATION.md")
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _problems(self, rel, t):
+        out = []
+        n, pairs, note, olds = self.SITES[rel]
+        for new, _old in pairs:
+            if t.count(new) != 1:
+                out.append("new wording not present once: %s" % new[:40])
+        if t.count(note) != 1:
+            out.append("dated note not present once")
+        rest = t.replace(note, "")
+        for nt in self.SIBLINGS.get(rel, (0, [], [], []))[2]:
+            rest = rest.replace(nt, "")
+        for phrase in olds:
+            if phrase in rest:
+                out.append("old phrase outside its dated note: %s" % phrase)
+        if t.count("\n") != n:
+            out.append("line count changed")
+        return out
+
+    def test_q1140_operator_wording(self):
+        for rel in self.SITES:
+            with self.subTest(rel=rel):
+                self.assertEqual(self._problems(rel, self._r(rel)), [])
+
+    def test_q1140_operator_red_on_old(self):
+        for rel, (_n, pairs, note, olds) in self.SITES.items():
+            with self.subTest(rel=rel):
+                t = self._r(rel)
+                self.assertEqual(t.count(note), 1, "precondition: dated note present once")
+                old = t.replace(note, "")
+                for new, o in pairs:
+                    self.assertEqual(old.count(new), 1, "precondition: new wording present once")
+                    old = old.replace(new, o)
+                probs = self._problems(rel, old)
+                self.assertTrue(any(p.startswith("new wording not present once") for p in probs), probs)
+                self.assertIn("dated note not present once", probs)
+                for phrase in olds:
+                    self.assertIn("old phrase outside its dated note: %s" % phrase, probs)
+
+    def _digest(self, rel):
+        import hashlib
+        with open(os.path.join(self.ROOT, rel), "rb") as fh:
+            return hashlib.sha256(fh.read()).hexdigest()
+
+    @staticmethod
+    def _bound(esc, rel, h):
+        # the digest must sit on an escrow-page row that names this file (Codex review of Q-1153, F11a: a digest
+        # found anywhere on the page let one file's bytes stand in for another's)
+        return any(("`%s`" % rel) in line and h in line for line in esc.split("\n"))
+
+    def test_q1140_operator_preregistrations_still_match_their_escrow(self):
+        esc = self._r("documentation/PREREGISTRATION_ESCROW.md")
+        for rel in self.PREREGS:
+            with self.subTest(rel=rel):
+                self.assertTrue(self._bound(esc, rel, self._digest(rel)),
+                                "no escrow row names this file with its current sha256")
+
+    def test_q1140_operator_escrow_binding_red_on_swap(self):
+        # positive control: each file's digest checked against the NEXT file's row must fail
+        esc = self._r("documentation/PREREGISTRATION_ESCROW.md")
+        hs = [self._digest(rel) for rel in self.PREREGS]
+        for i, rel in enumerate(self.PREREGS):
+            with self.subTest(rel=rel):
+                self.assertTrue(self._bound(esc, rel, hs[i]), "precondition: own row binds")
+                self.assertFalse(self._bound(esc, rel, hs[(i + 1) % len(hs)]))
+
+    def _sib_problems(self, rel, t):
+        out = []
+        n, pairs, notes, olds = self.SIBLINGS[rel]
+        for new, _old in pairs:
+            if t.count(new) != 1:
+                out.append("new wording not present once: %s" % new[:40])
+        rest = t
+        for nt in notes:
+            if t.count(nt) != 1:
+                out.append("dated note not present once: %s" % nt[:40])
+            rest = rest.replace(nt, "")
+        if rel in self.SITES:
+            rest = rest.replace(self.SITES[rel][2], "")
+        for phrase in olds:
+            if phrase in rest:
+                out.append("old phrase outside its dated note: %s" % phrase)
+        if t.count("\n") != n:
+            out.append("line count changed")
+        return out
+
+    def test_q1140_operator_n2_siblings(self):
+        for rel in self.SIBLINGS:
+            with self.subTest(rel=rel):
+                self.assertEqual(self._sib_problems(rel, self._r(rel)), [])
+
+    def test_q1140_operator_n2_siblings_red_on_old(self):
+        for rel, (_n, pairs, notes, olds) in self.SIBLINGS.items():
+            with self.subTest(rel=rel):
+                t = self._r(rel)
+                for new, o in reversed(pairs):
+                    self.assertEqual(t.count(new), 1, "precondition: new wording present once")
+                    t = t.replace(new, o)
+                probs = self._sib_problems(rel, t)
+                self.assertTrue(any(p.startswith("new wording not present once") for p in probs), probs)
+                for phrase in olds:
+                    self.assertIn("old phrase outside its dated note: %s" % phrase, probs)
+
+    def test_q1140_operator_ledger_and_history(self):
+        c = self._r("documentation/CORRECTIONS.md")
+        self.assertEqual(c.count("\n## CX-37G-L — "), 1)
+        entry = c.split("\n## CX-37G-L — ", 1)[1].split("\n## ", 1)[0]
+        for frag in ("items B6, N2 and N3", "the operator accepted every recommendation on 2026-11-18",
+                     "`TestBatchQ1140Operator`", "and another edit would break that match.", "Four of the five are not the frozen bytes themselves",
+                     "**The same words on other lines (N2's siblings).** Twelve more lines",
+                     "documentation/SPECIFICATION.md lines 165 and 211", "documentation/CRITIQUE.md line 367",
+                     "documentation/CANONICAL_HASHES.md line 365 says \"Deterministic across two independent runs\", B6's"):
+            self.assertIn(frag, entry)
+        for rel in self.PREREGS:
+            self.assertIn(rel, entry)
+        self.assertEqual(self._r("documentation/HISTORY.md").count(
+            "\n## 2026-11-19 — batch Q1140-OP: the wording audit's last operator questions\n"), 1)
+
+# end class TestBatchQ1140Operator
+
+
 # Q-1136 M3: a SOLVE_* variable exported in the caller's shell reached every solver run built from
 # dict(os.environ, ...). tests.py reads no SOLVE_* knob of its own, so each inherited one is removed
 # here and named on stderr. This runs at import, after every class is defined and before any test

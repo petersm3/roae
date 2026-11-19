@@ -12928,3 +12928,19 @@ line number in either file moves. Both sets of reproductions were run again on t
   each arm's slowest trial dropped, as CANONICAL_HASHES.md does, with a second dated note. Found by the Opus lane
   that built this batch; ruled, with the text of the fix, by Fable's content read of it.
 - No canonical sha, count or certificate changed. Found by a Fable lane (backlog Q-1152).
+
+## 2026-11-19 — batch Q1140-OP: the wording audit's last operator questions
+
+- **reports/README.md, enumeration/LEADERBOARD.md, README.md (CX-37G-L, Q-1140).** The reports index said TR-3's two
+  runs were "independent"; both are this project's own, and the row now says "two from-scratch runs". The
+  leaderboard's second banner called a three-budget pattern a "novel finding" that was "monotone non-decreasing in
+  scale"; it now says that at three budgets the greedy boundary minimum was 4, 5 and 5. The front page's "What no
+  prior author did" now opens "To our knowledge,". Each old wording is kept in a dated note. CORRECTIONS.md also
+  says why five frozen pre-registration files were left unedited by the cloud sweep. Line-neutral; no number changed.
+- **Eight documentation/ files and two more leaderboard lines (CX-37G-L, N2's siblings).** Twelve more lines called
+  the same three budgets a rule about scale ("monotone non-decreasing with scale", "with node budget",
+  "in scale", "across tested depths"). Each now says what was measured at three budgets, with the old words in a dated note, except
+  PROJECT_OVERVIEW.md line 18, which points to CX-37G-L. Two pointers to the renamed banner now name it the
+  boundary-minimum note. Line-neutral; no number changed. Found by a Codex review of this batch, and
+  PARTITION_STABILITY_BOUNDARIES.md line 3 by a pre-check in an Opus lane.
+  Recommended by a Fable lane; decided by the operator; built in an Opus lane.

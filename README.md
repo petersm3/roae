@@ -82,9 +82,9 @@ instrument exists (C3 = 16 + 8·G, a Lean theorem; `solve --f1-c3-hist --with-c5
 ([METHODS](reports/METHODS.md) §"Canonical quantities"). Neither label doubts the number: the estimator is externally
 validated at all three full-scale anchors where exact ground truth exists, inside its stated envelope each time ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md) §"Estimator
 calibration"), and the C6–C7 verdict is corroborated exactly at small scope (the 8 oriented
-survivors of 16,504 above). What no prior author did is the measurement **at combinatorial scale, over
+survivors of 16,504 above). To our knowledge, what no prior author did is the measurement **at combinatorial scale, over
 constraint-defined spaces** — exhaustive searches over small curated families of candidate
-orders do exist in the literature — as do closed-form counts of independent-choice families (8!×8!, 7!×7!; [CITATIONS](documentation/CITATIONS.md), Chen Zhuangwei) — and neither is what this sentence excludes.
+orders do exist in the literature — as do closed-form counts of independent-choice families (8!×8!, 7!×7!; [CITATIONS](documentation/CITATIONS.md), Chen Zhuangwei) — and neither is what this sentence excludes. ⚠ *(Reworded 2026-11-19, CX-37G-L: "To our knowledge," added; the sentence opened "What no prior author did", a claim about every earlier author that no one can check.)*
 
 **Whose hypothesis this was.** The name "Uniqueness Conjecture" is **this project's own coinage**. To
 our knowledge no author asserted in so many words that the C1–C7 inventory pins down the sequence,

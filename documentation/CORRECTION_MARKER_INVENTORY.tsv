@@ -258,7 +258,7 @@ documentation/GUIDE.md	208	marker	Corrected	1	-	reviewed:sentence-already-says-t
 documentation/GUIDE.md	217	marker	Corrected	1	-	reviewed:cell-already-says-depends-on-the-null	eaab6a5d0d4e
 documentation/GUIDE.md	218	marker	Corrected	1	-	reviewed:cell-already-separates-containment-and-attainment	03acc9f0c5f5
 documentation/GUIDE.md	229	marker	Corrected	1	-	reviewed:sentence-already-states-the-sampler-scoped-rate-bound	28719d8be772
-documentation/GUIDE.md	237	marker	Corrected	1	-	reviewed:sentence-already-reads-monotone-4-then-5	a1ced4a05f11
+documentation/GUIDE.md	237	marker	Corrected	1	-	reviewed:sentence-already-reads-monotone-4-then-5	b7f97cf5a994
 documentation/GUIDE.md	247	marker	Corrected	1	-	reviewed:paragraph-already-separates-linear-and-circular-scope	ebe35790be7c
 documentation/GUIDE.md	251	marker	Corrected	1	-	reviewed:sentence-already-gives-the-one-Mawangdui-5-transition	f1226f140b5d
 documentation/GUIDE.md	255	marker	Corrected	1	-	reviewed:paragraph-already-gives-the-optimality-characterization	c398db7af695
@@ -322,7 +322,7 @@ documentation/MCKENNA.md	111	marker	Corrected	1	-	reviewed:bullet-already-separa
 documentation/MCKENNA.md	122	marker	CORRECTED	1	-	reviewed:bullet-already-says-Gray-codes-can-beat-King-Wen	6bfd0828d1b1
 documentation/MCKENNA.md	124	ledger-link	CORRECTION	n/a	-	not-a-marker	c78c5123bc89
 documentation/MCKENNA.md	124	marker	Corrected	1	-	reviewed:line-already-gives-the-1.33e38-estimate	c78c5123bc89
-documentation/MCKENNA.md	129	marker	Corrected	1	-	reviewed:sentence-already-reads-monotone-4-then-5	743d04e71cab
+documentation/MCKENNA.md	129	marker	Corrected	1	-	reviewed:sentence-already-reads-monotone-4-then-5	4ab2b69aabbd
 documentation/MCKENNA.md	139	ledger-link	CORRECTION	n/a	-	not-a-marker	ffc5d3ef03f9
 documentation/MCKENNA.md	139	marker	Corrected	1	-	reviewed:sentence-already-reads-correctly	ffc5d3ef03f9
 documentation/PARITY_ALTERNATION.md	37	marker	Corrected	1	-	reviewed:text-above-already-names-the-two-outside-figures	367c803f71d8
@@ -337,7 +337,7 @@ documentation/PARTITION_STABILITY_BOUNDARIES.md	35	ledger-link	CORRECTION	n/a	-	
 documentation/PARTITION_STABILITY_BOUNDARIES.md	35	marker	Corrected	1	-	reviewed:Q1037-dated-correction-keeps-the-old-value;sentence-already-states-the-corrected-value	b080bf30e732
 documentation/PARTITION_STABILITY_BOUNDARIES.md	52	ledger-link	CORRECTION	n/a	-	not-a-marker	8994f6c50536
 documentation/PARTITION_STABILITY_BOUNDARIES.md	52	marker	CORRECTED	1	-	reviewed:table-already-lists-the-8-working-sets	8994f6c50536
-documentation/PARTITION_STABILITY_BOUNDARIES.md	60	marker	Corrected	1	-	reviewed:paragraph-already-reads-monotone-and-stable	8af9abd8ef6a
+documentation/PARTITION_STABILITY_BOUNDARIES.md	60	marker	Corrected	1	-	reviewed:paragraph-already-reads-monotone-and-stable	c493913c2067
 documentation/PARTITION_STABILITY_BOUNDARIES.md	92	ledger-link	CORRECTION	n/a	-	not-a-marker	5f15c6486deb
 documentation/PARTITION_STABILITY_BOUNDARIES.md	96	ledger-link	CORRECTION	n/a	-	not-a-marker	198f330262e1
 documentation/PASS1_TRAJECTORY_DETERMINISM.md	3	marker	CORRECTED	1	-	reviewed:result-already-reads-under-1-percent-from-1e11	80a096bb8146
@@ -383,7 +383,7 @@ documentation/PREREG_CLASSA_QUERY_SET.md	530	marker	CORRECTED	3	GATE 86(file)	ga
 documentation/PREREG_CLASSA_QUERY_SET.md	613	marker	CORRECTED	3	GATE 86(file)	gate-anchored	ac89ca1c4b99
 documentation/PREREG_TR8_DOF_MATCHED_SAMPLER_20260811_ADDENDUM_A1_20261003.md	66	ledger-link	CORRECTION	n/a	-	not-a-marker	d399f520849e
 documentation/PROJECT_OVERVIEW.md	14	ledger-link	CORRECTION	n/a	-	not-a-marker	3a7d8baee073
-documentation/PROJECT_OVERVIEW.md	18	ledger-link	CORRECTION	n/a	-	not-a-marker	16243f168b74
+documentation/PROJECT_OVERVIEW.md	18	ledger-link	CORRECTION	n/a	-	not-a-marker	0f293bd21e58
 documentation/PROJECT_OVERVIEW.md	43	ledger-link	CORRECTION	n/a	-	not-a-marker	feb53903acfe
 documentation/PROJECT_OVERVIEW.md	53	ledger-link	CORRECTION	n/a	-	not-a-marker	92255bf4c636
 documentation/PROJECT_OVERVIEW.md	54	ledger-link	CORRECTION	n/a	-	not-a-marker	705ddefdf039
@@ -640,7 +640,8 @@ documentation/VERIFY.md	1283	ledger-link	CORRECTION	n/a	-	not-a-marker	643fc4077
 documentation/VERIFY.md	1342	ledger-link	CORRECTION	n/a	-	not-a-marker	5323f5a21fba
 documentation/VERIFY.md	1428	marker	Corrected	2	-	reviewed:paragraph-above-still-says-the-witness-row-does-not-exist	4b56db87bbf7
 enumeration/LEADERBOARD.md	5	ledger-link	CORRECTION	n/a	-	not-a-marker	7ea8d3dc0dfd
-enumeration/LEADERBOARD.md	7	marker	CORRECTED	1	-	reviewed:sentence-already-calls-it-an-overlap-ratio	8628a4b667a1
+enumeration/LEADERBOARD.md	7	ledger-link	CORRECTION	n/a	-	not-a-marker	773b0030412e
+enumeration/LEADERBOARD.md	7	marker	CORRECTED	1	-	reviewed:sentence-already-calls-it-an-overlap-ratio	773b0030412e
 enumeration/LEADERBOARD.md	81	ledger-link	CORRECTION	n/a	-	not-a-marker	b81099d87ee1
 enumeration/LEADERBOARD.md	102	marker	CORRECTED	1	-	reviewed:paragraph-already-reads-from-the-742M-archive	2cb7abe5c0a2
 enumeration/LEADERBOARD.md	175	marker	CORRECTED	1	-	reviewed:qualifier-already-uses-0-based-pair-numbers	8ff0ea958479

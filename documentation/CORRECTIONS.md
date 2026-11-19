@@ -41834,3 +41834,69 @@ figure, checks that the HISTORY section is present and the
 
 Developed with AI assistance (Claude, Anthropic): claude-fable-5-2 found and ruled it; built by an Opus lane
 (claude-opus-5-5).
+
+## CX-37G-L — the wording audit's last operator questions: "two independent runs", a "novel finding" that was "monotone in scale", an unhedged "no prior author", and the frozen pre-registrations the cloud sweep kept (reports/README.md; enumeration/LEADERBOARD.md; README.md; eight documentation/ files that repeated N2's words; documentation/CORRECTIONS.md; tests.py)
+
+**2026-11-19.** **Source.** The 2026-11-14 public wording audit (backlog Q-1140), items B6, N2 and N3, and one
+question left over from the cloud sweep (CX-37E-A). A Fable lane re-checked each item against the tree on
+2026-11-17 and recommended an answer; the operator accepted every recommendation on 2026-11-18. Every document
+edit keeps its file's line count.
+
+**What was published, and what it says now.**
+
+- **reports/README.md line 44 (B6).** The TR-3 row said the 10.5B records were "twice byte-identical across two
+  independent runs". Both runs are this project's own, the second from scratch weeks after the first. The row now
+  says "two from-scratch runs", as TR-3 itself does ("run twice from scratch, weeks apart"), with a dated note.
+- **enumeration/LEADERBOARD.md line 7 (N2).** The second banner opened:
+
+  > **Second novel finding (2026-04-20 100T baseline; updated 2026-06-11 with full 560T [`--analyze`](../documentation/SOLVE_C_CLI.md#--analyze); corrected 2026-07-04):** the **boundary-minimum is monotone non-decreasing in scale: 4 → 5 → 5 across 10T → 100T → 560T**.
+
+  Three budgets are three measurements, not a rule about scale, and until 2026-07-04 the same line read 4 → 5 → 4.
+  "Novel" had no prior-art survey behind it. The banner is now headed "Boundary minimum at three budgets" and says
+  that at three budgets the greedy boundary minimum was 4, 5 and 5; a dated note at the end of the line gives the
+  old words. The numbers, the boundary sets and the rest of the banner are unchanged. This treats the second banner
+  as CX-37C-Z treated the first (item N1).
+- **README.md line 85 (N3).** "What no prior author did is the measurement at combinatorial scale, over
+  constraint-defined spaces" is a claim about every earlier author. Its scope was fixed twice already (Q-360 and a
+  Codex finding), so its content stands. It now opens "To our knowledge," as its sister sentences do, with a dated
+  note at the end of the paragraph.
+- **The frozen pre-registrations (left over from CX-37E-A).** The cloud sweep of 2026-11-14 left five frozen
+  pre-registration files unedited (documentation/PREREG_H1_H3_TEST_2026_07_26.md,
+  documentation/PREREG_TR8_DOF_MATCHED_SAMPLER_20260811_ADDENDUM_A1_20261003.md,
+  reports/evidence/f11halfb/PREREGISTRATION_EXTENDED.md, reports/evidence/f11halfb/PREREGISTRATION_VMATCHED.md and
+  reports/evidence/c8screen/PREREGISTRATION.md), although some of their lines still carry cloud details of the kind
+  that entry removed elsewhere, because documentation/PREREGISTRATION_ESCROW.md publishes the sha256 digest of each
+  file as it now stands, and another edit would break that match. Four of the five are not the frozen bytes themselves:
+  three were redacted once already, on 2026-09-29 (CX-230), and the c8screen file was published with three passages
+  removed. That page gives the digest of each of these copies and says how each differs from what was frozen.
+
+- **The same words on other lines (N2's siblings).** Twelve more lines stated the pattern as a rule about scale:
+  "monotone non-decreasing with scale" (documentation/CITATIONS.md line 2066, documentation/GUIDE.md line 237,
+  documentation/MCKENNA.md line 129, documentation/PARTITION_STABILITY_BOUNDARIES.md lines 54 and 60,
+  documentation/PROJECT_OVERVIEW.md line 18, documentation/README.md line 51), "monotone non-decreasing with node
+  budget" (documentation/PARTITION_STABILITY_BOUNDARIES.md line 3), "monotone non-decreasing in scale"
+  (documentation/CRITIQUE.md line 250, enumeration/LEADERBOARD.md lines 194-195) and "monotone non-decreasing
+  across tested depths" (documentation/BOUNDARY_MINIMUM.md line 56). Each now says what was measured at three
+  budgets, with the old words in a dated note. PROJECT_OVERVIEW.md line 18 gets no dated note, because a date on
+  that line would re-date its CX-06 row in CORRECTIONS_INVENTORY.tsv; it points to this entry, which quotes the
+  old words here: "monotone non-decreasing with scale". LEADERBOARD.md line 197 called the banner "this
+  document's own second-novel-finding note", and the dated note of 2026-11-01 at line 1373 called it "the second
+  novel-finding note"; both now name it the boundary-minimum note, and both say what it was called. A Codex review
+  of this batch (OpenAI gpt-6-astra) found that the first draft of this entry listed only some of these lines,
+  and a pre-check of the second draft in an Opus lane found PARTITION_STABILITY_BOUNDARIES.md line 3.
+
+**Not changed.** Lines that call the three measured values monotone as a sequence ("monotone 4 → 5 → 5",
+"monotone non-decreasing: 4 → 5 → 5", "monotone trajectory"), or that say "observed non-decreasing" and add that
+the datapoints bound no trend, name no rule about scale and stand: documentation/BOUNDARY_MINIMUM.md lines 1 and
+7, documentation/SOLVE.md lines 329, 336 and 608, documentation/PARTITION_STABILITY_BOUNDARIES.md line 70,
+documentation/SPECIFICATION.md lines 165 and 211, documentation/CRITIQUE.md line 367,
+documentation/PROJECT_OVERVIEW.md line 127 and documentation/CLAIMS_DECIDED.md line 42. HISTORY.md and this file are append-only and keep the old words.
+documentation/CANONICAL_HASHES.md line 365 says "Deterministic across two independent runs", B6's words rather
+than N2's; it is not edited here. No count, set, canonical sha, theorem or verdict changed.
+
+**Tests.** `TestBatchQ1140Operator` holds each new fragment once, checks that each old phrase is left only inside
+its dated note (and in this file and HISTORY.md), checks that the sha256 of each of the five pre-registration files
+appears on a row of their escrow page that names that file, and fails on the parent tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-2 re-checked the items and recommended each answer
+and its wording; the operator decided; built by an Opus lane (claude-opus-5-5).
