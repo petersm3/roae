@@ -31,6 +31,24 @@
 #   against RETRACTED_PHRASES.tsv), which is registry-driven and does not depend on
 #   this classifier at all — that is the point of having both.
 #
+# HOW A ROW IS DATED, AND WHY A GIT ROW'S DATE IS OFTEN NOT ITS COMMIT DATE (Q-1122, Q-1147)
+#   An ISO date in a row's text wins: the date bound to the row's marker ("WITHDRAWN 2026-08-24",
+#   "[CORRECTED 2026-09-02 ...") when there is one, otherwise the FIRST ISO date in the text. A
+#   changelog row (a revision-table row) is not marker-bound: it keeps its first date, which is its
+#   table's date column. Two kinds of text take another date: one with no ISO date at all, and one
+#   whose chosen date opens a range ("2026-04-06..2026-07-05", Q-763). A git row then takes its
+#   commit date, which in this script is git's author date (`%ad`); any other row takes "-", or a
+#   range's end date (the rule and its history are in classify(), below). A git row's
+#   text is its WHOLE commit message, so a git row whose message mentions any date and binds none
+#   to its marker is dated by the first date the message mentions, which is often a date the
+#   message refers to (an earlier run, push or decision), not the day of the commit. Example:
+#   GIT-dcecdb0 (commit 37cb645f, committed 2026-11-16) is dated 2026-05-17, the date of the probe
+#   whose paragraph that commit extends. Measured 2026-11-17 on the history to 7cf76a53: 223 of 854
+#   git rows carry such a body date that differs from their commit date. The rule is KEPT by
+#   operator decision (2026-11-12) so that no published row date moves; for a git row, the commit
+#   date is one command away: `git log -1 --date=short --format=%ad <document column>`. Switching
+#   git rows to the commit date would re-date those rows and needs a dated note in CORRECTIONS.md.
+#
 # USAGE
 #   scripts/corrections_inventory.sh            # write documentation/CORRECTIONS_INVENTORY.tsv
 #   scripts/corrections_inventory.sh --stdout   # write to stdout instead

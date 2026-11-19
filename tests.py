@@ -72344,6 +72344,68 @@ class _Q1065SkipLedgerRunner(unittest.TextTestRunner):
     resultclass = _Q1065SkipLedgerResult
 
 
+class TestQ1122InventoryDateRule(unittest.TestCase):
+    """Q-1122 / Q-1147 O2: corrections_inventory.sh dates a row by an ISO date in its text (the marker-bound one,
+    else the FIRST one). A git row takes its commit date (git's author date, %ad) when the text has no date, or when
+    the chosen date opens a range (Q-763); the header says both (Codex review of Q-1153, F1). A git row's text is its whole
+    commit message, so GIT-dcecdb0 (commit 37cb645f, committed 2026-11-16) is dated 2026-05-17, a date its message
+    quotes. The operator kept the rule (2026-11-12) so that no published row date moves; the generator's header
+    now says so. The tests: the header documents the rule and its example (red before the header section existed);
+    classify(), run from the script itself, really does date a git row by an unbound older body date (positive
+    control), takes the commit date when the message has no date, and prefers a marker-bound date; and the
+    committed inventory still carries the header's example row.
+    Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    SCRIPT = os.path.join("scripts", "corrections_inventory.sh")
+
+    def _header(self):
+        with open(os.path.join(self.ROOT, self.SCRIPT), encoding="utf-8") as fh:
+            src = fh.read()
+        i = src.find("\nset -uo pipefail\n")
+        self.assertGreater(i, 0, "precondition: the header ends at `set -uo pipefail`")
+        return src[:i]
+
+    def _date(self, message, commit_date="2026-11-16"):
+        row = "git\tabc12345\t%s\t%s\tsubject\n" % (commit_date, message)
+        r = subprocess.run(["bash", "-c", 'source <(sed "/^sweep() {/,\\$d" "$0") && classify | tail -n +2 | cut -f2',
+                            os.path.join(self.ROOT, self.SCRIPT)],
+                           input=row, capture_output=True, text=True, timeout=120, cwd=self.ROOT)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        return r.stdout.strip()
+
+    def test_header_documents_the_rule(self):
+        h = self._header()
+        self.assertIn("HOW A ROW IS DATED, AND WHY A GIT ROW'S DATE IS OFTEN NOT ITS COMMIT DATE (Q-1122, Q-1147)", h)
+        flat = " ".join(l.lstrip("#").strip() for l in h.split("\n"))
+        for s in ("otherwise the FIRST ISO date in the text", "A git row's text is its WHOLE commit message",
+                  "GIT-dcecdb0 (commit 37cb645f, committed 2026-11-16) is dated 2026-05-17",
+                  "KEPT by operator decision (2026-11-12) so that no published row date moves",
+                  "`git log -1 --date=short --format=%ad <document column>`",
+                  "one whose chosen date opens a range", "git's author date (`%ad`)",
+                  "A changelog row (a revision-table row) is not marker-bound"):
+            self.assertIn(s, flat)
+        # Codex review of Q-1153, F1: the header used to say "Only a text with no ISO date at all takes the commit
+        # date", which classify() contradicts for a range start (the control in the next test).
+        self.assertNotIn("Only a text with no ISO date at all", flat)
+
+    def test_classify_dates_a_git_row_by_an_unbound_body_date(self):
+        self.assertEqual(self._date("Q-1058: the paragraph after the 2026-05-17 probe; wording corrected"), "2026-05-17")
+        self.assertEqual(self._date("Q-1058: the paragraph after the probe; wording corrected"), "2026-11-16")
+        self.assertEqual(self._date("the 2026-05-17 claim is WITHDRAWN 2026-11-10, see TR-4"), "2026-11-10")
+        # a git row whose chosen date opens a range takes its commit date too (Q-763), as the header now says
+        self.assertEqual(self._date("Q-1058: the window (2026-04-06..2026-07-05) was misread; wording corrected"),
+                         "2026-11-16")
+
+    def test_committed_inventory_carries_the_example_row(self):
+        with open(os.path.join(self.ROOT, "documentation", "CORRECTIONS_INVENTORY.tsv"), encoding="utf-8") as fh:
+            rows = [l.split("\t") for l in fh.read().split("\n") if l.startswith("GIT-dcecdb0\t")]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual((rows[0][1], rows[0][4], rows[0][5]), ("2026-05-17", "git", "37cb645f"))
+
+# end class TestQ1122InventoryDateRule
+
+
 # Q-1136 M3: a SOLVE_* variable exported in the caller's shell reached every solver run built from
 # dict(os.environ, ...). tests.py reads no SOLVE_* knob of its own, so each inherited one is removed
 # here and named on stderr. This runs at import, after every class is defined and before any test
