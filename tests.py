@@ -68569,7 +68569,7 @@ class TestBatchQ1140(unittest.TestCase):
         ("S1", "documentation/SOLVE_SUMMARY.md", "reproducible byte-identically across hardware and region —",
          "reproducible byte-identically within the tested toolchain class (the region variation is the 10T campaign's; both 560T derivations ran in one region, TR-3 §\"What is demonstrated\";"),
         ("S2", "CLAUDE.md", "proves these are reproducible across hardware, region, merge\nalgorithm, and enumeration vs. independent-shard-merge paths — but the\n",
-         "proves these are invariant to shard partitioning, including enumeration vs. independent-shard-merge paths (a model-level theorem); identity across hardware, region and merge\nalgorithm is measured, not proved ("),
+         "proves these are invariant to shard partitioning, including enumeration vs. independent-shard-merge paths, and to merge order and hierarchy (a model-level theorem); identity across hardware and region\nis measured, not proved, and so is the agreement of the shipped binary's two merge modes ("),  # CX-37G-I (Q-1140 R1) split merge into the proved model and the measured binary
         ("I1", "reports/TR2_THE_RULES_CONFLICT.md", "**Reading the received order** — trade-off, not corruption;",
          "**Reading the received order** — consistent with a forced trade-off, and not damage to a four-rule-perfect original (none exists); whether it is damage to the three-rule precursor stays open (§\"A Bayesian comparison\";"),
     )
@@ -68695,7 +68695,7 @@ class TestBatchQ1140(unittest.TestCase):
                 ("reports/TR3_REPRODUCIBLE_ENUMERATION.md", "(scoped 2026-10-17, CX-35T-J; \"Independent re-derivation\" until 2026-11-14, CX-37C-Y, since both derivations are this project's own)"),
                 ("documentation/SYMMETRY_SEARCH.md", "⚠ *(reworded 2026-11-14, CX-37C-Y: this read \"machine-verified by\"; the check is a Python program, not a formal proof.)*"),
                 ("documentation/SOLVE_SUMMARY.md", "\"across hardware and region\" until 2026-11-14, CX-37C-Y, the sibling of CX-35T-J) — and, to our knowledge"),
-                ("CLAUDE.md", "(PARTITION_INVARIANCE.md §5a; SOLVE_C_CLI.md §REPRODUCIBILITY; \"proves these are reproducible across hardware, region, merge algorithm\" until 2026-11-14, CX-37C-Y, the sibling of CX-35T-J) — and the\nproof is about the **model**"),
+                ("CLAUDE.md", "(PARTITION_INVARIANCE.md §5a; SOLVE_C_CLI.md §REPRODUCIBILITY; \"proves these are reproducible across hardware, region, merge algorithm\" until 2026-11-14, CX-37C-Y, the sibling of CX-35T-J; \"identity across hardware, region and merge algorithm is measured, not proved\" until 2026-11-19, CX-37G-I: the merge model is proved in Lean, PARTITION_INVARIANCE.md §2a) — and the\nproof is about the **model**"),  # CX-37G-I appended a second quoted wording
                 ("reports/TR2_THE_RULES_CONFLICT.md", "\"trade-off, not corruption\" until 2026-11-14, CX-37C-Y); Schulz's 2011 reading")):
             with self.subTest(file=rel, frag=frag[:40]):
                 self.assertEqual(self._r(rel).count(frag), 1)
@@ -72464,6 +72464,77 @@ class TestBatchQ1147O1(unittest.TestCase):
             "\n## 2026-11-19 — batch Q1147-O1: a citing note that its source's correction left behind\n"), 1)
 
 # end class TestBatchQ1147O1
+
+
+class TestBatchQ1140R1(unittest.TestCase):
+    """Backlog Q-1140 R1 (CX-37G-I): the public CLAUDE.md said identity across "hardware, region and merge algorithm
+    is measured, not proved" (CX-37C-Y). The merge model is proved in Lean (PARTITION_INVARIANCE.md §2a, T1 and T4);
+    only the shipped binary's two merge modes, and hardware and region, are measured. The new sentence is present
+    once, the CX-37C-Y wording survives only inside the quoted dated note, the file keeps 463 lines, the cited
+    section says what the sentence leans on, and the ledger and history entries exist. Red on the parent tree,
+    which carries the old wording outside any note.
+    Developed with AI assistance (Claude, Anthropic): claude-opus-5-5; text drafted by claude-fable-5-2."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    NEW = ("proves these are invariant to shard partitioning, including enumeration vs. independent-shard-merge paths, "
+           "and to merge order and hierarchy (a model-level theorem); identity across hardware and region\n"
+           "is measured, not proved, and so is the agreement of the shipped binary's two merge modes (")
+    OLD = ("proves these are invariant to shard partitioning, including enumeration vs. independent-shard-merge paths "
+           "(a model-level theorem); identity across hardware, region and merge\nalgorithm is measured, not proved (")
+    QUOTE = ("\"identity across hardware, region and merge algorithm is measured, not proved\" until 2026-11-19, CX-37G-I: "
+             "the merge model is proved in Lean, PARTITION_INVARIANCE.md §2a) — and the\n")
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _problems(self, t):
+        out = []
+        if t.count(self.NEW) != 1:
+            out.append("new sentence not present once")
+        if t.count(self.QUOTE) != 1:
+            out.append("dated note quoting the CX-37C-Y wording not present once")
+        flat = t.replace("\n", " ")
+        phrase = "hardware, region and merge algorithm is measured"
+        i = flat.find(phrase)
+        while i >= 0:
+            if flat[i - len("\"identity across "):i] != "\"identity across " or \
+                    not flat[i:].startswith(phrase + ", not proved\" until 2026-11-19, CX-37G-I"):
+                out.append("CX-37C-Y merge wording outside the quoted dated note")
+            i = flat.find(phrase, i + 1)
+        return out
+
+    def test_q1140_r1_wording(self):
+        t = self._r("CLAUDE.md")
+        self.assertEqual(self._problems(t), [])
+        self.assertEqual(t.count("\n"), 463)
+
+    def test_q1140_r1_red_on_old(self):
+        t = self._r("CLAUDE.md")
+        self.assertEqual(t.count(self.NEW), 1, "precondition: new sentence present once")
+        probs = self._problems(t.replace(self.NEW, self.OLD))
+        self.assertIn("new sentence not present once", probs)
+        self.assertIn("CX-37C-Y merge wording outside the quoted dated note", probs)
+
+    def test_q1140_r1_sources_say_what_the_sentence_leans_on(self):
+        pi = self._r("documentation/PARTITION_INVARIANCE.md")
+        sec = pi.split("\n## 2a. ", 1)[1].split("\n## ", 1)[0]
+        for frag in ("is invariant to input order\n(T1)", "and merge hierarchy / dedup\nplacement (T4)",
+                     "cross-region, cross-merge-mode"):
+            self.assertIn(frag, sec)
+        sc = self._r("documentation/SOLVE_C_CLI.md").split("\n## REPRODUCIBILITY\n", 1)[1][:900]
+        self.assertIn("merge\n  mode (in-memory vs external)", sc)
+
+    def test_q1140_r1_ledger_and_history(self):
+        c = self._r("documentation/CORRECTIONS.md")
+        self.assertEqual(c.count("\n## CX-37G-I — "), 1)
+        entry = c.split("\n## CX-37G-I — ", 1)[1].split("\n## ", 1)[0]
+        for frag in ("backlog Q-1140, item R1", "they are not edited, and this entry scopes them", "`TestBatchQ1140R1`"):
+            self.assertIn(frag, entry)
+        self.assertEqual(self._r("documentation/HISTORY.md").count(
+            "\n## 2026-11-19 — batch Q1140-R1: the merge half of the CLAUDE.md reproducibility sentence\n"), 1)
+
+# end class TestBatchQ1140R1
 
 
 # Q-1136 M3: a SOLVE_* variable exported in the caller's shell reached every solver run built from

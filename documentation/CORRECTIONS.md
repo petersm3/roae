@@ -41727,3 +41727,30 @@ the file only inside that marker, and fails on the parent tree.
 
 Developed with AI assistance (Claude, Anthropic): found and worded by Fable (claude-fable-5-2); built by an Opus
 lane (claude-opus-5-5).
+
+## CX-37G-I — the public CLAUDE.md said identity across "merge algorithm" is "measured, not proved"; the merge model is proved, and only the binary's two merge modes are measured (CLAUDE.md; tests.py)
+
+**2026-11-19.** **Source.** Fable's re-read of the CX-37C-Y text against its sources (backlog Q-1140, item R1).
+
+**Before.** CX-37C-Y (2026-11-14) changed one sentence of the public CLAUDE.md. The old sentence said partition
+invariance "proves these are reproducible across hardware, region, merge algorithm". The new one said the
+theorem proves invariance to shard partitioning, and that "identity across hardware, region and merge algorithm
+is measured, not proved". That was right for hardware and region. It went too far for merge. The page it
+points to, SOLVE_C_CLI.md §REPRODUCIBILITY, says merge mode is covered by the theorem.
+
+**After.** The sentence keeps two things apart. The Lean file proves that the merge model gives the same output
+whatever the input order and whatever the merge hierarchy (PARTITION_INVARIANCE.md §2a). That is a result about
+the model. That the shipped program's two merge modes, in-memory and external, give the same sha is a
+measurement (same section; §5a). Identity across hardware and region is also a measurement, as CX-37C-Y said.
+The old wording is quoted in a dated note in the sentence. The file's line count does not change.
+
+**Not changed.** CX-37C-Y and the HISTORY.md section for batch Q1140 use the same "measured" wording for merge
+mode; they are not edited, and this entry scopes them. SOLVE_C_CLI.md and PARTITION_INVARIANCE.md are not
+edited. No canonical sha, count, certificate or theorem changed.
+
+**Tests.** `TestBatchQ1140`'s two CLAUDE.md fragments are updated to the new text. `TestBatchQ1140R1` holds the
+new sentence, checks that the CX-37C-Y wording occurs in CLAUDE.md only inside the quoted dated note, and fails on
+the parent tree.
+
+Developed with AI assistance (Claude, Anthropic): found and worded by Fable (claude-fable-5-2); built by an Opus
+lane (claude-opus-5-5).

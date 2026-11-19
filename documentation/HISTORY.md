@@ -12889,3 +12889,12 @@ line number in either file moves. Both sets of reproductions were run again on t
   DEPLOYMENT.md had taken back the Zen 5 family label of the two lines above it. DEPLOYMENT.md itself reversed that
   on 2026-09-25 (CX-125): "Zen 5 Turin" was right at the family level. The note now says DEPLOYMENT.md names the
   specific part, and a dated marker quotes the old ending. Line-neutral; no figure changes.
+
+## 2026-11-19 — batch Q1140-R1: the merge half of the CLAUDE.md reproducibility sentence
+
+- **CLAUDE.md (CX-37G-I, Q-1140 R1).** CX-37C-Y's sentence said identity across "hardware, region and merge
+  algorithm is measured, not proved". The merge model's invariance to input order and merge hierarchy is proved in
+  Lean (PARTITION_INVARIANCE.md §2a); what is measured is that the shipped binary's two merge modes agree, and
+  identity across hardware and region. The sentence now says so, with the old wording in a dated note. This
+  section and CX-37G-I scope the same wording in CX-37C-Y and in the batch Q1140 section above, which are not
+  edited. Line-neutral; no figure changes.
