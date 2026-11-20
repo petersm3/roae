@@ -1,0 +1,80 @@
+# Q-1150 (2026-11-20). The lines that lean_closure_census.py prints for lean/SuperspaceDivisibility.lean, as whole
+# lines, one per row: <run><TAB><line>. The run, from the repository root (Lean 4.31.0 and python3):
+#   lean_closure  the three commands in lean/README.md, section "SuperspaceDivisibility.lean"
+# These rows are a record of a run, not a test: the command needs Lean and is not a leg of verify_all.sh or of
+# tests.py. tests.py runs lean_closure_census.py on inputs that must fail and checks the last row here.
+# POS FAMILIES / POSV FAMILIES: a theorem of Part 2 whose proof must reach none of the 29 named Walsh/character
+# definitions of Part 1 (anchor_defs_in_closure=0) and nothing declared in §3, §9-§12 (table_section_constants=0).
+# POS CONTROL / POSV CONTROL: a theorem proved by the route of Part 1, which must reach both.
+# POSA: the Part 1 definitions a root uses that are not on the list of 57 (a families root: 0).
+# POSV PROBE: a root through the pruned transform that the two older rules accept and the list rejects.
+# (`P` is printed in the probes' brackets because Lean gives `PR` the case-split helper `P.match_1` of the
+# transform `P`, and the list rule files a helper under its definition. The transform `P` itself is not
+# reached: `anchor_defs_in_closure=0`.)
+lean_closure	POS_ANCHORS n=29 distinct=29 each_a_placed_definition_of_part1=True in_step2to5_sections=28 elsewhere=[gam:§13]
+lean_closure	POS FAMILIES Q1150.gplus_fibre :: in_module=574 in_step2to5_sections=104 (def=26 thm=78) :: by_section §0=4 §1=3 §2=1 §4=6 §7=1 §8=1 §13=2 §14=6 §17=9 §18=45 §19=39 §21=1 §22=5 §24=2 §35=158 §37=9 §38=35 §39=96 §40=76 §41=75
+lean_closure	POSV FAMILIES Q1150.gplus_fibre anchor_defs_in_closure=0 table_section_constants=0 unplaced=0 wrong_part=0 summary_agrees=True AS_EXPECTED
+lean_closure	POS FAMILIES Q1150.gplus_fibre_13 :: in_module=578 in_step2to5_sections=104 (def=26 thm=78) :: by_section §0=4 §1=3 §2=1 §4=6 §7=1 §8=1 §13=2 §14=6 §17=9 §18=45 §19=39 §21=1 §22=5 §24=2 §35=158 §37=9 §38=35 §39=96 §40=76 §41=75 §42=4
+lean_closure	POSV FAMILIES Q1150.gplus_fibre_13 anchor_defs_in_closure=0 table_section_constants=0 unplaced=0 wrong_part=0 summary_agrees=True AS_EXPECTED
+lean_closure	POS FAMILIES Q1150.gplus_family :: in_module=571 in_step2to5_sections=100 (def=22 thm=78) :: by_section §0=4 §1=3 §2=1 §4=2 §7=1 §8=1 §13=2 §14=5 §17=9 §18=45 §19=39 §21=1 §22=5 §24=2 §35=162 §37=4 §38=35 §39=96 §40=76 §41=73 §42=5
+lean_closure	POSV FAMILIES Q1150.gplus_family anchor_defs_in_closure=0 table_section_constants=0 unplaced=0 wrong_part=0 summary_agrees=True AS_EXPECTED
+lean_closure	POS FAMILIES Q1150.cellV2_dvd_families :: in_module=938 in_step2to5_sections=134 (def=27 thm=107) :: by_section §0=8 §1=3 §2=6 §4=20 §5=3 §6=9 §7=1 §8=1 §13=2 §14=6 §17=11 §18=45 §19=41 §21=99 §22=118 §23=13 §24=96 §35=158 §37=9 §38=35 §39=96 §40=76 §41=75 §42=7
+lean_closure	POSV FAMILIES Q1150.cellV2_dvd_families anchor_defs_in_closure=0 table_section_constants=0 unplaced=0 wrong_part=0 summary_agrees=True AS_EXPECTED
+lean_closure	POS FAMILIES Q1150.superCount_dvd_families :: in_module=942 in_step2to5_sections=134 (def=27 thm=107) :: by_section §0=8 §1=3 §2=7 §4=20 §5=3 §6=9 §7=1 §8=1 §13=2 §14=6 §17=11 §18=45 §19=41 §21=99 §22=118 §23=13 §24=98 §35=158 §37=9 §38=35 §39=96 §40=76 §41=75 §42=8
+lean_closure	POSV FAMILIES Q1150.superCount_dvd_families anchor_defs_in_closure=0 table_section_constants=0 unplaced=0 wrong_part=0 summary_agrees=True AS_EXPECTED
+lean_closure	POS FAMILIES Q1150.censusC_dvd_families :: in_module=946 in_step2to5_sections=134 (def=27 thm=107) :: by_section §0=8 §1=3 §2=6 §4=20 §5=3 §6=9 §7=1 §8=1 §13=2 §14=6 §17=11 §18=45 §19=41 §21=99 §22=119 §23=3 §24=86 §27=4 §35=158 §37=9 §38=35 §39=96 §40=76 §41=75 §42=4 §43=26
+lean_closure	POSV FAMILIES Q1150.censusC_dvd_families anchor_defs_in_closure=0 table_section_constants=0 unplaced=0 wrong_part=0 summary_agrees=True AS_EXPECTED
+lean_closure	POS FAMILIES Q1150.kw_gplus :: in_module=603 in_step2to5_sections=105 (def=27 thm=78) :: by_section §0=6 §1=4 §2=6 §4=6 §7=1 §8=1 §13=2 §14=8 §17=9 §18=45 §19=39 §21=1 §22=5 §24=2 §35=158 §37=9 §38=35 §39=96 §40=76 §41=75 §44=19
+lean_closure	POSV FAMILIES Q1150.kw_gplus anchor_defs_in_closure=0 table_section_constants=0 unplaced=0 wrong_part=0 summary_agrees=True AS_EXPECTED
+lean_closure	POS FAMILIES Q1150.kw_family :: in_module=594 in_step2to5_sections=101 (def=23 thm=78) :: by_section §0=6 §1=4 §2=6 §4=2 §7=1 §8=1 §13=2 §14=7 §17=9 §18=45 §19=39 §21=1 §22=5 §24=2 §35=162 §37=4 §38=35 §39=96 §40=76 §41=73 §42=5 §44=13
+lean_closure	POSV FAMILIES Q1150.kw_family anchor_defs_in_closure=0 table_section_constants=0 unplaced=0 wrong_part=0 summary_agrees=True AS_EXPECTED
+lean_closure	POS FAMILIES Q1150.ident_bound :: in_module=312 in_step2to5_sections=79 (def=21 thm=58) :: by_section §0=4 §1=3 §2=1 §4=1 §7=1 §8=1 §14=5 §17=5 §18=31 §19=37 §21=1 §22=5 §24=2 §35=75 §38=6 §39=37 §40=27 §41=70
+lean_closure	POSV FAMILIES Q1150.ident_bound anchor_defs_in_closure=0 table_section_constants=0 unplaced=0 wrong_part=0 summary_agrees=True AS_EXPECTED
+lean_closure	POS FAMILIES Q1150.inv_fibre :: in_module=223 in_step2to5_sections=25 (def=7 thm=18) :: by_section §0=4 §1=3 §2=1 §4=1 §7=1 §8=1 §13=2 §14=4 §18=14 §19=5 §21=1 §22=5 §24=2 §35=22 §37=1 §38=35 §39=46 §40=75
+lean_closure	POSV FAMILIES Q1150.inv_fibre anchor_defs_in_closure=0 table_section_constants=0 unplaced=0 wrong_part=0 summary_agrees=True AS_EXPECTED
+lean_closure	POS FAMILIES Q1150.ident_exact :: in_module=438 in_step2to5_sections=79 (def=21 thm=58) :: by_section §0=4 §1=3 §2=1 §4=1 §7=1 §8=1 §14=5 §17=5 §18=31 §19=37 §21=1 §22=5 §24=2 §35=120 §38=7 §39=38 §40=27 §41=64 §45=85
+lean_closure	POSV FAMILIES Q1150.ident_exact anchor_defs_in_closure=0 table_section_constants=0 unplaced=0 wrong_part=0 summary_agrees=True AS_EXPECTED
+lean_closure	POS FAMILIES Q1150.moves_exact :: in_module=431 in_step2to5_sections=79 (def=21 thm=58) :: by_section §0=4 §1=3 §2=1 §4=1 §7=1 §8=1 §14=5 §17=5 §18=31 §19=37 §21=1 §22=5 §24=2 §35=148 §38=6 §39=34 §40=27 §41=64 §45=55
+lean_closure	POSV FAMILIES Q1150.moves_exact anchor_defs_in_closure=0 table_section_constants=0 unplaced=0 wrong_part=0 summary_agrees=True AS_EXPECTED
+lean_closure	POS FAMILIES Q1150.family_exact :: in_module=477 in_step2to5_sections=79 (def=21 thm=58) :: by_section §0=4 §1=3 §2=1 §4=1 §7=1 §8=1 §14=5 §17=5 §18=31 §19=37 §21=1 §22=5 §24=2 §35=148 §38=7 §39=48 §40=27 §41=64 §45=86
+lean_closure	POSV FAMILIES Q1150.family_exact anchor_defs_in_closure=0 table_section_constants=0 unplaced=0 wrong_part=0 summary_agrees=True AS_EXPECTED
+lean_closure	POS FAMILIES Q1150.piece_dvd :: in_module=563 in_step2to5_sections=100 (def=22 thm=78) :: by_section §0=4 §1=3 §2=1 §4=2 §7=1 §8=1 §13=2 §14=5 §17=9 §18=45 §19=39 §21=1 §22=5 §24=2 §35=158 §37=4 §38=35 §39=96 §40=76 §41=73 §45=1
+lean_closure	POSV FAMILIES Q1150.piece_dvd anchor_defs_in_closure=0 table_section_constants=0 unplaced=0 wrong_part=0 summary_agrees=True AS_EXPECTED
+lean_closure	POS CONTROL  Q1150.censusC_dvd :: in_module=1078 in_step2to5_sections=718 (ctor=1 def=90 ind=1 thm=626) :: by_section §0=8 §1=12 §2=6 §3=43 §4=47 §5=31 §6=62 §7=2 §8=14 §9=42 §10=64 §11=7 §12=11 §13=3 §14=7 §17=83 §18=65 §19=235 §21=99 §22=119 §23=3 §24=86 §27=4 §43=25
+lean_closure	POSV CONTROL  Q1150.censusC_dvd anchor_defs_in_closure=25 table_section_constants=167 unplaced=0 wrong_part=0 summary_agrees=True AS_EXPECTED
+lean_closure	POS CONTROL  SuperspaceDivisibility.cellV2_dvd :: in_module=1072 in_step2to5_sections=718 (ctor=1 def=90 ind=1 thm=626) :: by_section §0=8 §1=12 §2=7 §3=43 §4=47 §5=31 §6=62 §7=2 §8=14 §9=42 §10=64 §11=7 §12=11 §13=3 §14=7 §17=83 §18=65 §19=235 §21=99 §22=118 §23=13 §24=99
+lean_closure	POSV CONTROL  SuperspaceDivisibility.cellV2_dvd anchor_defs_in_closure=25 table_section_constants=167 unplaced=0 wrong_part=0 summary_agrees=True AS_EXPECTED
+lean_closure	POS CONTROL  SuperspaceDivisibility.superCount_dvd :: in_module=1077 in_step2to5_sections=718 (ctor=1 def=90 ind=1 thm=626) :: by_section §0=8 §1=12 §2=9 §3=43 §4=47 §5=31 §6=62 §7=2 §8=14 §9=42 §10=64 §11=7 §12=11 §13=3 §14=7 §17=83 §18=65 §19=235 §21=99 §22=118 §23=13 §24=102
+lean_closure	POSV CONTROL  SuperspaceDivisibility.superCount_dvd anchor_defs_in_closure=25 table_section_constants=167 unplaced=0 wrong_part=0 summary_agrees=True AS_EXPECTED
+lean_closure	POS CONTROL  SuperspaceDivisibility.fibreC_dvd :: in_module=730 in_step2to5_sections=715 (ctor=1 def=90 ind=1 thm=623) :: by_section §0=4 §1=12 §2=1 §3=43 §4=44 §5=31 §6=62 §7=2 §8=14 §9=42 §10=64 §11=7 §12=11 §13=3 §14=7 §17=83 §18=65 §19=235
+lean_closure	POSV CONTROL  SuperspaceDivisibility.fibreC_dvd anchor_defs_in_closure=25 table_section_constants=167 unplaced=0 wrong_part=0 summary_agrees=True AS_EXPECTED
+lean_closure	POS CONTROL  SuperspaceDivisibility.fibreC_dvd_general :: in_module=712 in_step2to5_sections=699 (ctor=1 def=90 ind=1 thm=607) :: by_section §0=4 §1=12 §2=1 §3=43 §4=44 §5=31 §6=62 §7=2 §8=14 §9=42 §10=64 §11=7 §12=11 §13=3 §14=5 §17=83 §18=51 §19=233
+lean_closure	POSV CONTROL  SuperspaceDivisibility.fibreC_dvd_general anchor_defs_in_closure=25 table_section_constants=167 unplaced=0 wrong_part=0 summary_agrees=True AS_EXPECTED
+lean_closure	POS CONTROL  SuperspaceDivisibility.cellV1_dvd :: in_module=1097 in_step2to5_sections=697 (ctor=1 def=91 ind=1 thm=604) :: by_section §0=8 §1=13 §2=5 §3=43 §4=47 §5=31 §6=62 §7=2 §8=14 §9=42 §10=64 §11=7 §12=11 §13=3 §14=5 §17=83 §18=65 §19=213 §21=99 §22=118 §23=7 §24=85 §27=1 §28=2 §29=14 §30=23 §31=21 §32=4 §33=5
+lean_closure	POSV CONTROL  SuperspaceDivisibility.cellV1_dvd anchor_defs_in_closure=25 table_section_constants=167 unplaced=0 wrong_part=0 summary_agrees=True AS_EXPECTED
+lean_closure	POSA FAMILIES Q1150.gplus_fibre part1_nontheorem_declarations=31 not_on_allow_list=0 unmatched=0 AS_EXPECTED
+lean_closure	POSA FAMILIES Q1150.gplus_fibre_13 part1_nontheorem_declarations=31 not_on_allow_list=0 unmatched=0 AS_EXPECTED
+lean_closure	POSA FAMILIES Q1150.gplus_family part1_nontheorem_declarations=28 not_on_allow_list=0 unmatched=0 AS_EXPECTED
+lean_closure	POSA FAMILIES Q1150.cellV2_dvd_families part1_nontheorem_declarations=52 not_on_allow_list=0 unmatched=0 AS_EXPECTED
+lean_closure	POSA FAMILIES Q1150.superCount_dvd_families part1_nontheorem_declarations=53 not_on_allow_list=0 unmatched=0 AS_EXPECTED
+lean_closure	POSA FAMILIES Q1150.censusC_dvd_families part1_nontheorem_declarations=50 not_on_allow_list=0 unmatched=0 AS_EXPECTED
+lean_closure	POSA FAMILIES Q1150.kw_gplus part1_nontheorem_declarations=37 not_on_allow_list=0 unmatched=0 AS_EXPECTED
+lean_closure	POSA FAMILIES Q1150.kw_family part1_nontheorem_declarations=34 not_on_allow_list=0 unmatched=0 AS_EXPECTED
+lean_closure	POSA FAMILIES Q1150.ident_bound part1_nontheorem_declarations=27 not_on_allow_list=0 unmatched=0 AS_EXPECTED
+lean_closure	POSA FAMILIES Q1150.inv_fibre part1_nontheorem_declarations=17 not_on_allow_list=0 unmatched=0 AS_EXPECTED
+lean_closure	POSA FAMILIES Q1150.ident_exact part1_nontheorem_declarations=27 not_on_allow_list=0 unmatched=0 AS_EXPECTED
+lean_closure	POSA FAMILIES Q1150.moves_exact part1_nontheorem_declarations=27 not_on_allow_list=0 unmatched=0 AS_EXPECTED
+lean_closure	POSA FAMILIES Q1150.family_exact part1_nontheorem_declarations=27 not_on_allow_list=0 unmatched=0 AS_EXPECTED
+lean_closure	POSA FAMILIES Q1150.piece_dvd part1_nontheorem_declarations=28 not_on_allow_list=0 unmatched=0 AS_EXPECTED
+lean_closure	POSA CONTROL  Q1150.censusC_dvd part1_nontheorem_declarations=99 not_on_allow_list=49 unmatched=0 AS_EXPECTED
+lean_closure	POSA CONTROL  SuperspaceDivisibility.cellV2_dvd part1_nontheorem_declarations=102 not_on_allow_list=50 unmatched=0 AS_EXPECTED
+lean_closure	POSA CONTROL  SuperspaceDivisibility.superCount_dvd part1_nontheorem_declarations=104 not_on_allow_list=51 unmatched=0 AS_EXPECTED
+lean_closure	POSA CONTROL  SuperspaceDivisibility.fibreC_dvd part1_nontheorem_declarations=80 not_on_allow_list=49 unmatched=0 AS_EXPECTED
+lean_closure	POSA CONTROL  SuperspaceDivisibility.fibreC_dvd_general part1_nontheorem_declarations=78 not_on_allow_list=48 unmatched=0 AS_EXPECTED
+lean_closure	POSA CONTROL  SuperspaceDivisibility.cellV1_dvd part1_nontheorem_declarations=107 not_on_allow_list=57 unmatched=0 AS_EXPECTED
+lean_closure	POSV PROBE    SuperspaceDivisibility.pm_same anchor_defs_in_closure=0 table_section_constants=0 older_rules_accept=True part1_nontheorem_declarations=12 not_on_allow_list=10 [P PR aliveR c12 c123 c1234 gapC indRc ones sameC] unmatched=0 summary_agrees=True REJECTED_AS_REQUIRED
+lean_closure	POSV PROBE    SuperspaceDivisibility.PR anchor_defs_in_closure=0 table_section_constants=0 older_rules_accept=True part1_nontheorem_declarations=3 not_on_allow_list=3 [P PR ones] unmatched=0 summary_agrees=True REJECTED_AS_REQUIRED
+lean_closure	POS_ALLOW n=57 used_by_a_families_root=57 unused=[] anchors_on_it=0
+lean_closure	POS_SUMMARIES=22 COMPLETE=[roots=22 anchors=29 module_constants=2402] ERROR_LINES=0
+lean_closure	FAMILIES_UNION_IN_STEP2TO5_SECTIONS n=135 thm=107 def=28 by_section §1=4 §4=20 §5=3 §6=9 §7=1 §8=1 §17=11 §18=45 §19=41
+lean_closure	POS_VERDICT=PASS roots=22 families=14 controls=6 probes=2 unexpected=0 anchors_ok=True allow_ok=True errors=0 complete=True

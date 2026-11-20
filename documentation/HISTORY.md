@@ -12944,3 +12944,29 @@ line number in either file moves. Both sets of reproductions were run again on t
   boundary-minimum note. Line-neutral; no number changed. Found by a Codex review of this batch, and
   PARTITION_STABILITY_BOUNDARIES.md line 3 by a pre-check in an Opus lane.
   Recommended by a Fable lane; decided by the operator; built in an Opus lane.
+
+## 2026-11-20 — batch Q1150-LEAN: the Q-735 divisibility in Lean, and 2^14·3 of it again by families of walks
+
+- **lean/SuperspaceDivisibility.lean (CX-37G-G).** The sixteenth Lean module, kernel-only, no imports. Part 1:
+  2^21·3 divides the number of C1, C4, C5 orderings and every boundary-by-distance count; 2^20 divides every
+  skeleton fibre; 2^19 (2^21 for the pairs of two self-reverse hexagrams, 2^19·3 for the pair of hexagrams 11
+  and 12) divides every per-pair positional count. Part 2: 2^(26 − t) divides every fibre as the file models
+  it, under King Wen's budget; 2^14·3 divides the number of orderings, every boundary count and every N(c) by
+  counting families; exactly 2^46 translations in a fibre that is not empty; 2^21·3 divides every N(c). The
+  counts are the ones defined in the file; Lean does not read the atlas; "divides", not "exactly".
+- **Runs (Lean 4.31.0).** `lean SuperspaceDivisibility.lean`: exit 0, 398 `#print axioms` reports
+  (46 with no axioms, 134 `[propext]`, 88 `[propext, Quot.sound]`, 130 with all three), no warning.
+  `verify_all.sh` with Lean, run 2026-11-17/18 UTC on the build tree before it was committed (its Lean file
+  differs from the one landed in comment lines only, and both compile to the same `.olean`, byte for byte;
+  some other texts changed after that run too): `LEAN_FILES=16`, `LEAN_MODULE_SuperspaceDivisibility=PASS`,
+  `LEAN_AXIOM_CENSUS_SuperspaceDivisibility=PASS constants=1160`, `LEAN_AXIOM_CENSUS_CONSTANTS=2660`,
+  `LEAN_SOURCE_CENSUS=PASS n=0`. The run on this commit is the one `CLAIM_TO_ARTIFACT.md` row 13 cites; the
+  landing chain checks that it prints these five lines and does not land the commit if one differs. The
+  closure census:
+  `POS_VERDICT=PASS roots=22 families=14 controls=6 probes=2 unexpected=0 anchors_ok=True allow_ok=True errors=0 complete=True`.
+- **Dated notes.** Five in the q735 README (and three table rows), one section at the end of `lean/README.md`,
+  and count notes in
+  `CLAIM_TO_ARTIFACT.md` row 13, `METHODS.md` and `CLAUDE.md`; TR-12 v1.45 adds a dated note to §12 and a
+  revision row. Row 13 is re-cited to a run of `verify_all.sh` with Lean on this commit. No published figure changes. The Lean file and
+  its reads are by Fable lanes of this project; these are checks by AI model lanes, not independent
+  examination.

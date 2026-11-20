@@ -26882,7 +26882,7 @@ class TestLeanSourceCensusLeg(unittest.TestCase):
         try:
             shutil.copytree("lean", os.path.join(d, "lean"))
             files = sorted(f for f in os.listdir(os.path.join(d, "lean")) if f.endswith(".lean"))
-            self.assertGreaterEqual(len(files), 15, "precondition: the fifteen modules are present")
+            self.assertGreaterEqual(len(files), 16, "precondition: the sixteen modules are present")
             r = self._run(d)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             self.assertIn("\nLEAN_SOURCE_CENSUS=PASS n=0\n", "\n" + r.stdout)
@@ -52270,7 +52270,7 @@ class TestBatchG8L(unittest.TestCase):
         self.assertNotIn(".lean.in", " ".join(sorted(f for f in os.listdir(os.path.join(self.ROOT, "lean")) if f.endswith(".lean"))),
                          "the template must not be a lean/*.lean module (it would enter the module loop and the count)")
         src = self._read("reports/certificates/verify_all.sh")
-        for want in ("LEAN_CENSUS_TEMPLATE=lean/AxiomCensus.lean.in", "LEAN_CENSUS_CONSTANTS_MIN=${LEAN_CENSUS_CONSTANTS_MIN:-1500}",
+        for want in ("LEAN_CENSUS_TEMPLATE=lean/AxiomCensus.lean.in", "LEAN_CENSUS_CONSTANTS_MIN=${LEAN_CENSUS_CONSTANTS_MIN:-2660}",
                      'echo "LEAN_AXIOM_CENSUS_CONSTANTS=$_tot" | tee -a "$LOG"', "LEAN_AXIOM_CENSUS_CONSTANTS=NOT_RUN"):
             self.assertIn(want, src, want)
         fn = self._census_fn()
@@ -62511,7 +62511,7 @@ class TestBatchQ1056(unittest.TestCase):
         # Q1049R (CX-37C-A) appended v1.38 and moved the marker; v1.37 stays the row after v1.36 either way
         # (Q-1065 appended v1.41 and moved it again)
         self.assertEqual(len(cur), 1, cur)
-        self.assertIn(cur[0], ("| v1.37 *(current)* |", "| v1.38 *(current)* |", "| v1.39 *(current)* |", "| v1.40 *(current)* |", "| v1.41 *(current)* |", "| v1.42 *(current)* |", "| v1.43 *(current)* |", "| v1.44 *(current)* |"))  # Q-1113 (CX-37C-G) appended v1.39; v1.40: Q-1120 (CX-37C-J); v1.41: Q-1065 (CX-37C-L); v1.42: Q-1128 (CX-37C-M); v1.43: Q-1134 (CX-37C-V); v1.44: cloud sweep B7 (Q-1140)
+        self.assertIn(cur[0], ("| v1.37 *(current)* |", "| v1.38 *(current)* |", "| v1.39 *(current)* |", "| v1.40 *(current)* |", "| v1.41 *(current)* |", "| v1.42 *(current)* |", "| v1.43 *(current)* |", "| v1.44 *(current)* |", "| v1.45 *(current)* |"))  # Q-1113 (CX-37C-G) appended v1.39; v1.40: Q-1120 (CX-37C-J); v1.41: Q-1065 (CX-37C-L); v1.42: Q-1128 (CX-37C-M); v1.43: Q-1134 (CX-37C-V); v1.44: cloud sweep B7 (Q-1140)
         self.assertRegex(t, r"\| v1\.37(?: \*\(current\)\*)? \| 2026-11-05 \| \*\*Two items of §10, this report's DONE-contract section")
         self.assertIn("| v1.36 | 2026-11-01 |", t)
         self.assertNotIn("| v1.36 *(current)* |", t)
@@ -67412,7 +67412,8 @@ class TestQ735TwoAdicEvidence(unittest.TestCase):
              "EXPECTED_TOKENS.txt",
              # Q-1127 (2026-11-17, CX-37G-F): Theorem G+'s reproducer, its touching fibres and its own tokens file
              # (EXPECTED_TOKENS.txt and LEGS are unchanged; TestQ1127FreeMoves runs the new script's fast parts)
-             "free_moves.py", "fibres_n31_touching.tsv", "EXPECTED_TOKENS_FREE_MOVES.txt")
+             "free_moves.py", "fibres_n31_touching.tsv", "EXPECTED_TOKENS_FREE_MOVES.txt",
+             "LeanClosureCensus.lean.in", "lean_closure_census.py", "EXPECTED_TOKENS_LEAN_CLOSURE.txt")
     # leg name -> argv after the interpreter; the commands EXPECTED_TOKENS.txt was written from
     LEGS = (("fourier_table", ["fourier_table.py", "--check", D]),
             ("identity_check", ["identity_check.py", "20261113", "4"]),
@@ -67534,6 +67535,22 @@ class TestQ735TwoAdicEvidence(unittest.TestCase):
         self.assertTrue(note, "precondition: the TR-12 note exists")
         for text in (t, note):
             self.assertIsNone(re.search(r"(?i)\b(new|novel\w*|first (time|statement|proof|result)|the first to)\b", text))
+
+    def test_q1150_dated_notes(self):
+        """Q-1150 (CX-37G-G): five dated notes (A-E) and three table rows; the 2026-11-13 and 2026-11-17 text stays."""
+        raw = self._r(self.D + "/README.md")
+        self.assertEqual(len(re.findall(r"\*Dated note, \d{4}-\d{2}-\d{2} \((?:Q-1127, )?Q-1150\)\.\*", raw)), 5)
+        t = " ".join(raw.split())
+        for frag in ("\"Not formalised in Lean\" in the status line above was true when it was written.",
+                     "so \"not formalised in Lean\" in its first label was true only until this date.",
+                     "For V1 cells there is still no family count, by hand or in Lean.",
+                     "Lean proves them for the counts defined in that file and does not read the atlas, so that the atlas's "
+                     "tables hold these counts is not machine-checked; \"divides\", not \"exactly\".",
+                     "`EXPECTED_TOKENS_LEAN_CLOSURE.txt` is the record of a run, not a test.",
+                     "| `LeanClosureCensus.lean.in` | a Lean 4 template, not a module of `lean/`",
+                     "| `lean_closure_census.py` | reads that output and the section headings of the Lean file",
+                     "| `EXPECTED_TOKENS_LEAN_CLOSURE.txt` | the lines of the recorded census run"):
+            self.assertIn(frag, t)
 
     def test_tr12_dated_note_and_revision_row(self):
         t = self._r(self.T12)
@@ -67819,6 +67836,624 @@ class TestQ1127FreeMoves(unittest.TestCase):
         self.assertTrue(self._ledger_problems(cut, h))
 
 # end class TestQ1127FreeMoves
+
+
+class TestSuperspaceDivisibilityLean(unittest.TestCase):
+    """Q-1150 (CX-37G-G): lean/SuperspaceDivisibility.lean, the sixteenth Lean module, and its public wording.
+    Pins, without Lean: the nine prelude definitions restated byte for byte from lean/KingWen.lean; one line-start
+    statement line per published theorem; no `import`, 398 `#print axioms` lines and none on a primed name; the
+    public wording (scope sentences present, withdrawn phrases absent, a paragraph naming the Lean file beside the
+    atlas says the atlas is not read, a 2^21 V1 sentence about complement pairs names the self-reverse pairs); the
+    ledger pair; the count notes; the TR-12 note and row; CLAIM_TO_ARTIFACT row 13 re-cited in column 6 (Status,
+    Codex B4) with no placeholder left. The prelude, statement-line, directive and wording checks each have
+    mutants that must fail; the ledger pair, the count notes and row 13 are pinned without one (Codex gate-D4 F6).
+    The run-attribution check (test_run_attribution) has three mutants and a control.
+    Every test fails on the parent tree (the file, the notes and the entries are absent). The Lean legs themselves run in verify_all.sh.
+    Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 wrote these tests from the Fable landing
+    plan (claude-fable-5-2); not independent examination."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    LEAN = "lean/SuperspaceDivisibility.lean"
+    PRELUDE = ("pc6", "rev6", "partner", "ham", "KW", "transitions", "c1ok", "c4ok", "c5ok")
+    STATEMENTS = (
+        "def CellV2Dvd : Prop := ∀ k d : Nat, 2 ^ 21 * 3 ∣ cellV2 k d",
+        "theorem cellV2_dvd : CellV2Dvd",
+        "def SuperCountDvd : Prop := 2 ^ 21 * 3 ∣ superCount",
+        "theorem superCount_dvd : SuperCountDvd",
+        "def FibreDvd : Prop := ∀ σ c : List Nat, 2 ^ 20 ∣ fibre σ c",
+        "theorem fibre_dvd : FibreDvd",
+        "def CellV1Dvd : Prop := ∀ k h : Nat, k < 31 → h < 64 → 2 ^ 19 ∣ cellV1 k h",
+        "def CellV1ComplDvd : Prop := ∀ k h : Nat, k < 31 → h < 64 → supp h = 0 → 2 ^ 21 ∣ cellV1 k h",
+        "def CellV1TaiDvd : Prop := ∀ k h : Nat, k < 31 → (h = 7 ∨ h = 56) → 2 ^ 19 * 3 ∣ cellV1 k h",
+        "theorem cellV1_dvd : CellV1Dvd",
+        "theorem cellV1_compl_dvd : CellV1ComplDvd",
+        "theorem cellV1_tai_dvd : CellV1TaiDvd",
+        "theorem cellV2_dvd_families : ∀ k d : Nat, 2 ^ 14 * 3 ∣ cellV2 k d",
+        "theorem superCount_dvd_families : 2 ^ 14 * 3 ∣ superCount",
+        "theorem censusC_dvd_families : ∀ c0 : List Nat, 2 ^ 14 * 3 ∣ censusC c0",
+        "theorem censusC_dvd : ∀ c0 : List Nat, 2 ^ 21 * 3 ∣ censusC c0",
+        "theorem gplus_fibre (σ cl : Nat → Nat) (hσ : ∀ k, σ k < 8) (hb : budgetOK cl = true) :",
+        "theorem gplus_family (σ cl : Nat → Nat) (hσ : ∀ k, σ k < 8) (hb : budgetOK cl = true)",
+        "theorem ident_bound (σ cl : Nat → Nat) (a : Asg) (hσ : ∀ k, σ k < 8) (hb : budgetOK cl = true)",
+        "theorem ident_exact (σ cl : Nat → Nat) (a : Asg) (hσ : ∀ k, σ k < 8)",
+        "theorem moves_exact (σ cl : Nat → Nat) (a : Asg) (hσ : ∀ k, σ k < 8)")
+    # whitespace-normalised public Markdown; the ledgers quote withdrawn text and are excluded
+    LEDGERS = ("documentation/CORRECTIONS.md", "documentation/HISTORY.md", "documentation/HISTORY_INDEX.md")
+    BAD = ("atlas's V2 cells are proved in Lean", "Lean proves the atlas", "use none of Steps 2-5",
+           "none of the Fourier steps", "Lean proves that each fibre is a union", "exactly 2^46 moves in every fibre",
+           # FABLE_Q1150_RULINGS_POSTRESET.md R1 (after Codex F2): the census judges Part 1's definitions only
+           "no Walsh/character definition")
+    SCOPE = (("lean/README.md", "Lean does not read the n = 31 atlas"),
+             ("reports/evidence/q735_two_adic/README.md",
+              "does not read the atlas, so that the atlas's tables hold these counts is not machine-checked"),
+             ("reports/evidence/q735_two_adic/README.md", "in a fibre that is not empty"),
+             ("lean/README.md", "when the fibre is not empty"))
+    # 2^21 / V1 / complement-pair units written before this module, on dates before the Lean landing; append-only, so
+    # they stay; the TR-12 note of the landing (v1.45) says which pairs "the 3 complement pairs" means. Stated here,
+    # not by silence; each must still match exactly one unit, so the list cannot go stale unnoticed.
+    V1_EXEMPT = (("reports/TR12_QUERY_PROGRAM.md", "| v1.42 | 2026-11-13 | **A proved 2-adic divisibility in the n=31 atlas"),
+                 ("reports/evidence/q735_two_adic/README.md", "1. **(fibres)** For every support skeleton s•"),
+                 ("reports/evidence/q735_two_adic/README.md", "What the atlas adds (read from it, not from the proof)"),
+                 ("reports/evidence/q735_two_adic/README.md", "**V1 (one pair pinned).** Fixing pair p at slot k+1"),
+                 ("reports/evidence/q735_two_adic/README.md", "*Corrections relative to the private write-up.*"))
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _lean(self):
+        p = os.path.join(self.ROOT, self.LEAN)
+        self.assertTrue(os.path.isfile(p), "the sixteenth module is missing")
+        return self._r(self.LEAN)
+
+    @staticmethod
+    def _def_block(text, name):
+        lines = text.split("\n")
+        starts = [i for i, l in enumerate(lines) if re.match(r"def %s[ :(]" % re.escape(name), l)]
+        if len(starts) != 1:
+            return None
+        out = [lines[starts[0]]]
+        for l in lines[starts[0] + 1:]:
+            if not l.startswith(" "):
+                break
+            out.append(l)
+        return "\n".join(out)
+
+    def _prelude_mismatches(self, kw, sd):
+        return [n for n in self.PRELUDE
+                if self._def_block(kw, n) is None or self._def_block(kw, n) != self._def_block(sd, n)]
+
+    def test_prelude_restates_kingwen_byte_for_byte(self):
+        sd, kw = self._lean(), self._r("lean/KingWen.lean")
+        self.assertEqual(self._prelude_mismatches(kw, sd), [])
+        blk = self._def_block(sd, "transitions")
+        mutant = sd.replace(blk, blk[:-1] + ("0" if blk[-1] != "0" else "1"), 1)
+        self.assertEqual(self._prelude_mismatches(kw, mutant), ["transitions"], "mutant: one character changed")
+
+    def _missing_statements(self, text):
+        lines = text.split("\n")
+        return [s for s in self.STATEMENTS if sum(1 for l in lines if l.startswith(s)) != 1]
+
+    def test_statement_lines(self):
+        sd = self._lean()
+        self.assertEqual(self._missing_statements(sd), [])
+        m1 = re.sub(r"(?m)^def CellV2Dvd : Prop := ∀ k d : Nat, 2 \^ 21 \* 3", "def CellV2Dvd : Prop := ∀ k d : Nat, 2 ^ 20 * 3", sd)
+        self.assertIn("def CellV2Dvd : Prop := ∀ k d : Nat, 2 ^ 21 * 3 ∣ cellV2 k d", self._missing_statements(m1))
+        m2 = re.sub(r"(?m)^theorem superCount_dvd_families : 2 \^ 14 \* 3", "theorem superCount_dvd_families : 2 ^ 15 * 3", sd)
+        self.assertIn("theorem superCount_dvd_families : 2 ^ 14 * 3 ∣ superCount", self._missing_statements(m2))
+
+    @staticmethod
+    def _lean_code(text):
+        """The text with Lean comments blanked: `--` to the end of the line, and `/- ... -/` (nested, so doc
+        comments too). Newlines are kept, so line structure stays; string literals are passed through."""
+        out, i, n, depth, instr = [], 0, len(text), 0, False
+        while i < n:
+            c, two = text[i], text[i:i + 2]
+            if depth:
+                if two == "/-":
+                    depth += 1; i += 2
+                elif two == "-/":
+                    depth -= 1; i += 2
+                else:
+                    if c == "\n":
+                        out.append(c)
+                    i += 1
+            elif instr:
+                out.append(text[i:i + 2] if c == "\\" else c)
+                i += 2 if c == "\\" else 1
+                instr = c != '"'
+            elif two == "/-":
+                depth = 1; i += 2
+            elif two == "--":
+                j = text.find("\n", i)
+                i = n if j < 0 else j
+            else:
+                instr = c == '"'
+                out.append(c); i += 1
+        return "".join(out)
+
+    @classmethod
+    def _standalone_problems(cls, text):
+        """Codex gate-D4 F3: Lean reads an indented `import` or `#print axioms` and skips one inside a comment, so
+        both are counted on the comment-free text, at any indentation."""
+        lines = cls._lean_code(text).split("\n")
+        p = []
+        if any(re.match(r"\s*import\b", l) for l in lines):
+            p.append("import")
+        d = [l for l in lines if re.match(r"\s*#print\s+axioms\b", l)]
+        if len(d) != 398:
+            p.append("directives=%d" % len(d))
+        if [l for l in d if "'" in l]:
+            p.append("primed")
+        return p
+
+    def test_standalone_and_398_directives(self):
+        sd = self._lean()
+        self.assertEqual(self._standalone_problems(sd), [])
+        self.assertEqual(self._standalone_problems(sd + "#print axioms fibre_dvd'\n"), ["directives=399", "primed"])
+        self.assertEqual(self._standalone_problems("import Lean\n" + sd), ["import"])
+        self.assertEqual(self._standalone_problems("  import Lean\n" + sd), ["import"], "mutant: an indented import")
+        self.assertEqual(self._standalone_problems(sd + "  #print axioms fibre_dvd\n"), ["directives=399"],
+                         "mutant: an indented directive is live")
+        first = [l for l in sd.split("\n") if l.startswith("#print axioms ")][0]
+        self.assertEqual(sd.count("\n" + first + "\n"), 1, "precondition: the first directive's line occurs once")
+        for name, wrap in (("in a block comment", "/-\n%s\n-/"), ("in a nested block comment", "/- /- -/\n%s\n-/"),
+                           ("in a line comment", "-- %s"), ("in a doc comment", "/--\n%s\n-/")):
+            mut = sd.replace("\n" + first + "\n", "\n" + (wrap % first) + "\n", 1)
+            self.assertEqual(self._standalone_problems(mut), ["directives=397"], "mutant: a directive " + name)
+
+    def _md_units(self, texts):
+        """(path, unit) for every paragraph of each Markdown text; a table is one unit per row."""
+        for p, t in texts:
+            for para in re.split(r"\n\s*\n", t):
+                ls = [l for l in para.split("\n") if l.strip()]
+                if ls and all(l.lstrip().startswith("|") for l in ls):
+                    for l in ls:
+                        yield p, " ".join(l.split())
+                else:
+                    yield p, " ".join(para.split())
+
+    def _public_md(self):
+        out = subprocess.run(["git", "ls-files", "*.md"], cwd=self.ROOT, capture_output=True, text=True)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        res = []
+        for p in out.stdout.split():
+            if p in self.LEDGERS or not os.path.isfile(os.path.join(self.ROOT, p)):
+                continue
+            res.append((p, self._r(p)))
+        self.assertGreater(len(res), 50, "precondition: the public Markdown corpus was read")
+        return res
+
+    def _wording_problems(self, texts):
+        prob = []
+        norm = {p: " ".join(t.split()) for p, t in texts}
+        for p, t in norm.items():
+            for b in self.BAD:
+                if b in t:
+                    prob.append("bad %s: %s" % (p, b))
+        for p, s in self.SCOPE:
+            if s not in norm.get(p, ""):
+                prob.append("scope missing %s: %s" % (p, s))
+        hits = {e: 0 for e in self.V1_EXEMPT}
+        for p, u in self._md_units(texts):
+            if "SuperspaceDivisibility" in u and "atlas" in u and not ("does not read" in u or "not machine-checked" in u):
+                prob.append("atlas %s: %s" % (p, u[:100]))
+            if ("cellV1_compl_dvd" in u or ("2^21" in u and "V1" in u)) and re.search(r"complement pairs?", u) \
+                    and not ("own reversal" in u or "self-reverse" in u):
+                ex = [e for e in self.V1_EXEMPT if e[0] == p and e[1] in u]
+                if ex:
+                    hits[ex[0]] += 1
+                else:
+                    prob.append("V1 %s: %s" % (p, u[:100]))
+        prob += ["exemption matches %d units: %s" % (n, e[1][:60]) for e, n in hits.items() if n != 1]
+        return prob
+
+    def test_public_wording(self):
+        texts = self._public_md()
+        self.assertEqual(self._wording_problems(texts), [])
+        extra = [("documentation/MUTANT.md", "lean/SuperspaceDivisibility.lean proves the atlas's cells.")]
+        self.assertEqual(len(self._wording_problems(texts + extra)), 1, "mutant: the Lean file beside the atlas")
+        extra = [("documentation/MUTANT.md", "In Lean, 2^21 divides every V1 cell of the 3 complement pairs.")]
+        self.assertEqual(len(self._wording_problems(texts + extra)), 1, "mutant: 2^21 V1 without self-reverse")
+        extra = [("documentation/MUTANT.md", "Lean proves the atlas.")]
+        self.assertEqual(len(self._wording_problems(texts + extra)), 1, "mutant: a withdrawn phrase")
+        extra = [("documentation/MUTANT.md", "The second proof uses no Walsh/character\n definition and no table.")]
+        self.assertEqual(len(self._wording_problems(texts + extra)), 1, "mutant: the broad census sentence (R1)")
+
+    def _ledger_cx(self):
+        c = self._r("documentation/CORRECTIONS.md")
+        m = re.findall(r"\n## (CX-[0-9A-Z-]+) — The Q-735 divisibility is machine-checked in Lean[^\n]*lean/SuperspaceDivisibility\.lean", c)
+        self.assertEqual(len(m), 1, "one CX entry for the module")
+        body = c.split("\n## %s — " % m[0], 1)[1].split("\n## ", 1)[0]
+        return m[0], body
+
+    def test_ledger_pair(self):
+        cx, body = self._ledger_cx()
+        h = self._r("documentation/HISTORY.md")
+        sec = [s for s in h.split("\n## ") if s.split("\n", 1)[0].endswith("batch Q1150-LEAN: the Q-735 divisibility in Lean, and 2^14·3 of it again by families of walks")]
+        self.assertEqual(len(sec), 1, "one HISTORY section")
+        self.assertIn("(%s)" % cx, sec[0], "the HISTORY section names the CX entry")
+        self.assertIn("HISTORY.md batch Q1150-LEAN", body, "the CX entry names the HISTORY section")
+        for t in (body, sec[0]):
+            self.assertIn("not independent examination", " ".join(t.split()))
+        self.assertIn("No published figure, count of orderings, digest of an existing data file, verdict or canonical sha changes.",
+                      " ".join(body.split()))
+        self.assertIn("No published figure changes.", " ".join(sec[0].split()))
+        # nothing the entry names as a test class is missing from this file
+        src = self._r("tests.py")
+        for name in re.findall(r"`(Test[A-Za-z0-9]+)`", body + sec[0]):
+            self.assertIn("\nclass %s(" % name, src, name)
+
+    # The verify_all.sh lines the ledger pair quotes. The landing chain checks exactly these, as whole lines of
+    # its own verify_all.sh log on the committed tree, and refuses to land on a mismatch (V7 text check I4/I5).
+    RUN_TOKENS = ("LEAN_FILES=16", "LEAN_MODULE_SuperspaceDivisibility=PASS",
+                  "LEAN_AXIOM_CENSUS_SuperspaceDivisibility=PASS constants=1160",
+                  "LEAN_AXIOM_CENSUS_CONSTANTS=2660", "LEAN_SOURCE_CENSUS=PASS n=0")
+    RUN_CHECK = "the landing chain checks"
+
+    def _run_attribution_problems(self, units):
+        """A unit that quotes a verify_all.sh line (or the 1,160 figure) and says the run was on this commit or
+        this tree must say that the landing chain checks it; every such line quoted must be one the chain checks."""
+        prob = []
+        for u in units:
+            quoted = re.findall(r"`(LEAN_[A-Za-z0-9_]+=[^`]*)`", u)
+            if not quoted and "1,160" not in u:
+                continue
+            for q in quoted:
+                if q not in self.RUN_TOKENS and "⟦" not in q:
+                    prob.append("not a checked line: %s" % q)
+            if re.search(r"\b(on|measured on) this (commit|tree)\b", u) and self.RUN_CHECK not in u:
+                prob.append("run attributed to this commit/tree without the chain check: %s" % u[:100])
+        return prob
+
+    def test_run_attribution(self):
+        cx, body = self._ledger_cx()
+        h = self._r("documentation/HISTORY.md")
+        sec = [s for s in h.split("\n## ") if s.split("\n", 1)[0].endswith("batch Q1150-LEAN: the Q-735 divisibility in Lean, and 2^14·3 of it again by families of walks")]
+        self.assertEqual(len(sec), 1, "precondition: one HISTORY section")
+        units = [" ".join(b.split()) for t in (body, sec[0]) for para in re.split(r"\n\s*\n", t)
+                 for b in re.split(r"\n(?=- )", para) if b.strip()]
+        runs = [u for u in units if u.startswith("- **Runs (Lean 4.31.0).**")]
+        self.assertEqual(len(runs), 1, "precondition: the HISTORY Runs bullet")
+        self.assertEqual(set(re.findall(r"`(LEAN_[A-Za-z0-9_]+=[^`]*)`", runs[0])), set(self.RUN_TOKENS),
+                         "the Runs bullet quotes exactly the lines the chain checks")
+        self.assertEqual(self._run_attribution_problems(units), [])
+        bad = ["`verify_all.sh` on this commit: `LEAN_FILES=16`.",
+               "`LEAN_CENSUS_CONSTANTS_MIN` 2660 (was 1500; 1,500 + 1,160, measured on this tree)",
+               "`verify_all.sh` on the build tree: `LEAN_FILES=17`, " + self.RUN_CHECK + "."]
+        for m in bad:
+            self.assertEqual(len(self._run_attribution_problems([m])), 1, "mutant: %s" % m)
+        ok = "`verify_all.sh` on the build tree: `LEAN_FILES=16`; " + self.RUN_CHECK + " its run on this commit."
+        self.assertEqual(self._run_attribution_problems([ok]), [], "control: the scoped form passes")
+
+    def test_count_notes(self):
+        cx, _ = self._ledger_cx()
+        n = subprocess.run(["git", "ls-files", "lean/*.lean"], cwd=self.ROOT, capture_output=True, text=True).stdout.split()
+        self.assertEqual(len(n), 16, "precondition: sixteen modules")
+        va = self._r("reports/certificates/verify_all.sh")
+        self.assertIn("LEAN_FILES_MIN=${LEAN_FILES_MIN:-16}", va)
+        self.assertIn("LEAN_CENSUS_CONSTANTS_MIN=${LEAN_CENSUS_CONSTANTS_MIN:-2660}", va)
+        live = lambda text: sum(1 for l in self._lean_code(text).split("\n") if re.match(r"\s*#print\s+axioms\b", l))
+        d = sum(live(self._r(f)) for f in n)
+        self.assertEqual(d, 594, "the directive count the ledger quotes (comment-free text, any indentation; gate-D4 F3)")
+        self.assertEqual(live("/-\n#print axioms x\n-/\n-- #print axioms y\n"), 0, "mutant: commented directives do not count")
+        self.assertEqual(live("  #print axioms z\n"), 1, "mutant: an indented directive counts")
+        m = " ".join(self._r("reports/METHODS.md").split())
+        self.assertRegex(m, r"leg \(D\) over all fifteen modules, 1,500 constants \(Codex gpt-6-astra F01-001#5\)\. "
+                            r"\*\(Dated note, \d{4}-\d{2}-\d{2}, %s: sixteen modules and 2,660 constants since "
+                            r"`lean/SuperspaceDivisibility\.lean` was added\.\)\*" % re.escape(cx))
+        cl = " ".join(self._r("CLAUDE.md").split())
+        self.assertRegex(cl, r"takes it to fifteen; `SuperspaceDivisibility\.lean` landed \d{4}-\d{2}-\d{2} and takes it to "
+                             r"sixteen \(%s\) —" % re.escape(cx))
+        t = self._r("reports/TR12_QUERY_PROGRAM.md")
+        note = [l for l in t.split("\n") if "(Dated note, added 2026-11-13, v1.42; Q-1128.)" in l]
+        self.assertEqual(len(note), 1)
+        self.assertRegex(note[0], r"\(Dated note, added \d{4}-\d{2}-\d{2}, v1\.\d+; Q-1127, Q-1150, %s\.\) \"Not formalised in "
+                                  r"Lean\" above was true on 2026-11-13\." % re.escape(cx))
+        self.assertTrue(note[0].startswith("`documentation/SOLVE_PY_CLI.md`. ⚠ *(Dated note, added 2026-11-13, v1.42;"),
+                        "appended to the v1.42 line, nothing before it changed")
+        cur = [l for l in t.split("\n") if re.match(r"\| v[\d.]+ \*\(current\)\* \|", l)]
+        self.assertEqual(len(cur), 1)
+        self.assertIn("machine-checked in Lean (backlog Q-1127 and Q-1150, %s).**" % cx, cur[0])
+        self.assertTrue(t.endswith(cur[0] + "\n"), "the current row is the last line")
+
+    def _row13(self):
+        rows = [l for l in self._r("documentation/CLAIM_TO_ARTIFACT.md").split("\n") if l.startswith("| 13 | ")]
+        self.assertEqual(len(rows), 1)
+        return rows[0]
+
+    def test_row13_recited_in_column_6(self):
+        r = self._row13()
+        c = r.split("|")
+        m = re.search(r"\(15 until (\d{4}-\d{2}-\d{2})\)", c[2])
+        self.assertIsNotNone(m, c[2])
+        self.assertEqual(c[2].strip(), "16 Lean modules are kernel-clean (15 until %s), no `native_decide`" % m.group(1))
+        self.assertIn("; 16 since `SuperspaceDivisibility.lean`, ", c[4])
+        self.assertIn("the 1,500-constant census (2,660 constants since ", c[5])
+        self.assertTrue(c[6].strip().startswith("KERNEL — **16/16 executed "), c[6][:120])
+        self.assertIn("16 `LEAN_MODULE_<Module>=PASS`", c[6])
+        self.assertIn("Superseded record: **15/15 executed 2026-11-15** at `c6e36d5e`", c[6])
+
+    def test_row13_has_no_placeholder(self):
+        """Red until fill_row13.py has written the 16-module verify_all.sh run on the committed tree into the row."""
+        r = self._row13()
+        self.assertEqual(re.findall(r"⟦[A-Z0-9_]+⟧", r), [], "row 13 still carries placeholders: run fill_row13.py")
+        self.assertRegex(r, r"KERNEL — \*\*16/16 executed \d{4}-\d{2}-\d{2}\*\*")
+
+# end class TestSuperspaceDivisibilityLean
+
+
+class TestQ1150ClosureCensus(unittest.TestCase):
+    """Q-1150 (CX-37G-G): the closure census shipped in reports/evidence/q735_two_adic/ (LeanClosureCensus.lean.in,
+    lean_closure_census.py, EXPECTED_TOKENS_LEAN_CLOSURE.txt), in the form with the list of 57 and the two probe
+    roots (Codex B1, fixed before landing). Without Lean: the decider fails closed on an empty census output and
+    on an error line; it passes a census output built from the shipped Lean file's own declaration lines (the
+    positive control) and fails each mutant of it, among them `mut_pr` (a families root that reaches `PR`); the
+    template's roots and anchors agree with the decider's lists and with the recorded run; the recorded rows and
+    verdict are pinned, and the figures the ledger and lean/README.md quote are the recorded ones. Every test
+    fails on the parent tree (the files are absent). Developed with AI assistance (Claude, Anthropic):
+    claude-opus-5-5 wrote these tests; the census is by Fable lanes (claude-fable-5-2); not independent
+    examination."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    D = "reports/evidence/q735_two_adic"
+    LEAN = "lean/SuperspaceDivisibility.lean"
+    VERDICT = ("POS_VERDICT=PASS roots=22 families=14 controls=6 probes=2 unexpected=0 anchors_ok=True "
+               "allow_ok=True errors=0 complete=True")
+    # the decider's declaration reading (lean_closure_census.py DECL), used to place synthetic constants
+    DECL = re.compile(r"^\s*(?:@\[[^\]]*\]\s*)*(?:(?:private|protected|noncomputable|partial|unsafe)\s+)*"
+                      r"(theorem|def|abbrev|structure|inductive|instance|class|opaque|axiom)\s+([^\s:({\[]+)")
+
+    def _r(self, rel):
+        p = os.path.join(self.ROOT, rel)
+        self.assertTrue(os.path.isfile(p), rel + " is missing")
+        with open(p, encoding="utf-8") as fh:
+            return fh.read()
+
+    def _template_lists(self):
+        t = self._r(self.D + "/LeanClosureCensus.lean.in")
+        roots = re.findall(r"`([A-Za-z0-9_.']+)", t.split("def posRoots : List Name :=", 1)[1].split("]", 1)[0])
+        anchors = re.findall(r'"([^"]+)"', t.split("def posAnchors : List String :=", 1)[1].split("]", 1)[0])
+        return roots, anchors
+
+    def _decider_lists(self):
+        s = self._r(self.D + "/lean_closure_census.py")
+        lst = lambda name: re.findall(r"'([^']+)'", s.split("\n%s = [" % name, 1)[1].split("]", 1)[0])
+        allow = s.split('\nALLOW = set("""', 1)[1].split('"""', 1)[0].split()
+        n = sorted(set(int(x) for x in re.findall(r"len\(anch\) == (\d+)", s) + re.findall(r"'anchors'\) == (\d+)", s)))
+        return lst("FAM"), lst("CTL"), lst("PROBE"), allow, n
+
+    def _run(self, census_text, extra_allow=()):
+        """Run the shipped decider (or, with extra_allow, a copy whose ALLOW list has those names added)."""
+        d = tempfile.mkdtemp(prefix="q1150cc_")
+        try:
+            dec = os.path.join(self.ROOT, self.D, "lean_closure_census.py")
+            if extra_allow:
+                s = self._r(self.D + "/lean_closure_census.py")
+                old = 'ALLOW = set("""'
+                self.assertEqual(s.count(old), 1, "precondition: one ALLOW list")
+                dec = os.path.join(d, "decider_mutant.py")
+                with open(dec, "w", encoding="utf-8") as fh:
+                    fh.write(s.replace(old, old + " ".join(extra_allow) + " ", 1))
+            cp = os.path.join(d, "census.out")
+            with open(cp, "w", encoding="utf-8") as fh:
+                fh.write(census_text)
+            p = subprocess.run([sys.executable, dec, os.path.join(self.ROOT, self.LEAN), cp],
+                               capture_output=True, text=True, timeout=300)
+            last = (p.stdout.strip().split("\n") or [""])[-1]
+            return p.returncode, last, p.stdout
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    def _synthetic(self, fam_extra=(), drop_allow=None, drop_probe=False, ctl_table=100):
+        """A census output the decider must PASS, from the shipped file's own lines: each anchor at its declaration;
+        the first families root reaching every ALLOW definition (so none is unused), each families root itself;
+        each control root reaching the 29 anchors and `ctl_table` auxiliaries of one §3 theorem; each probe root
+        reaching `PR`. fam_extra adds Part 1 declarations to the first families root (the mutant `mut_pr`)."""
+        src = self._r(self.LEAN).split("\n")
+        roots, anchors = self._template_lists()
+        fam, ctl, probe, allow, _ = self._decider_lists()
+        heads = []   # the decider's section reading
+        for i, l in enumerate(src, 1):
+            m = re.match(r"^/-! ## §(\d+)\s", l) or re.match(r"^  §(\d+)  \S", l)
+            if m and (not heads or int(m.group(1)) > heads[-1][1]) and i >= 160:
+                heads.append((i, int(m.group(1))))
+        sec = lambda line: max([n for i, n in heads if i <= line] or [-1])
+        end1 = [i + 1 for i, l in enumerate(src) if l.startswith("end SuperspaceDivisibility")]
+        self.assertEqual(len(end1), 1, "precondition: Part 1 ends once")
+        def decl(name, kinds=None, part1=True):
+            # a declaration starts in column 0 (an indented match is text inside a comment), in Part 1 (§0-§34)
+            # or in Part 2 (§35 on), as the decider places it
+            h = [(i + 1, m.group(1)) for i, l in enumerate(src) for m in [self.DECL.match(l)]
+                 if m and not l[:1].isspace() and m.group(2) == name and (kinds is None or m.group(1) in kinds)
+                 and ((160 <= i + 1 < end1[0]) if part1 else sec(i + 1) >= 35)]
+            self.assertEqual(len(h), 1, "precondition: one declaration of %s, found %s" % (name, h))
+            return h[0]
+        def const(ns, name, kinds=None, part1=True):
+            ln, kw = decl(name, kinds, part1)
+            return "%d %s %s.%s" % (ln, "thm" if kw == "theorem" else "def", ns, name)
+        S = "SuperspaceDivisibility"
+        out = ["V2POSANCH %d %s.%s" % (decl(a, ("def",))[0], S, a) for a in anchors]
+        def emit(r, L):
+            out.extend("V2POS %s %s" % (r, x) for x in L)
+            out.append("V2POSSUM %s closure=%d in_module=%d unplaced=0 not_in_env=0" % (r, len(L), len(L)))
+        for k, r in enumerate(fam):
+            L = [const("Q1150", r.split(".", 1)[1], ("theorem",), part1=False)]
+            if k == 0:
+                L += [const(S, a) for a in allow if a != drop_allow] + [const(S, a) for a in fam_extra]
+            emit(r, L)
+        t3 = [(i + 1, m.group(2)) for i, l in enumerate(src) for m in [self.DECL.match(l)]
+              if m and m.group(1) == "theorem" and i + 1 < end1[0] and sec(i + 1) == 3]
+        self.assertTrue(t3, "precondition: a theorem declared in §3")
+        # `ctl_table` is the control root's whole count of §3/§9-§12 constants: the anchors declared there count too
+        in_tab = sum(1 for a in anchors if sec(decl(a, ("def",))[0]) in (3, 9, 10, 11, 12))
+        self.assertLess(in_tab, 99, "precondition: the synthetic auxiliaries set the table count")
+        for r in ctl:
+            L = [const(S, a, ("def",)) for a in anchors]
+            L += ["%d thm %s.%s._synthetic_%d" % (t3[0][0], S, t3[0][1], k) for k in range(ctl_table - in_tab)]
+            emit(r, L)
+        if not drop_probe:
+            for r in probe:
+                L = [const(S, "PR", ("def",))]
+                if r != S + ".PR":
+                    L.append(const(S, r.split(".", 1)[1], ("theorem",)))
+                emit(r, L)
+        n = len(roots) - (len(probe) if drop_probe else 0)
+        out.append("V2POS_COMPLETE roots=%d anchors=%d module_constants=1" % (n, len(anchors)))
+        return "\n".join(out) + "\n"
+
+    def test_decider_fails_closed_and_passes_its_positive_control(self):
+        rc, last, _ = self._run("")
+        self.assertEqual(rc, 1); self.assertTrue(last.startswith("POS_VERDICT=FAIL"), last)
+        good = self._synthetic()
+        rc, last, out = self._run(good)
+        self.assertEqual((rc, last), (0, self.VERDICT), out[-3000:])
+        _, _, _, allow, _ = self._decider_lists()
+        for name, text in (("error line", good + "x.lean:1:0: error: V2POS_ERROR missing Q1150.gplus_fibre\n"),
+                           ("mut_pr: a families root reaches PR", self._synthetic(fam_extra=("PR",))),
+                           ("mut_ones: a families root reaches ones", self._synthetic(fam_extra=("ones",))),
+                           ("an ALLOW name no families root uses", self._synthetic(drop_allow=allow[-1])),
+                           ("mut_noprobe: the probe roots missing", self._synthetic(drop_probe=True)),
+                           ("control root under 100 table constants", self._synthetic(ctl_table=99)),
+                           ("no completion line", "\n".join(l for l in good.split("\n") if not l.startswith("V2POS_COMPLETE")) + "\n"),
+                           ("one anchor short", "\n".join(good.split("\n")[1:]))):
+            with self.subTest(mutant=name):
+                rc, last, _ = self._run(text)
+                self.assertEqual(rc, 1, name); self.assertTrue(last.startswith("POS_VERDICT=FAIL"), last)
+        rc, _, out = self._run(self._synthetic(fam_extra=("PR",)))
+        self.assertIn(" not_on_allow_list=1 [PR] unmatched=0 UNEXPECTED", out, "mut_pr fails by the ALLOW rule, naming PR")
+
+    def test_dead_entry_and_probes_each_fail_a_run_alone(self):
+        """B1_ALLOWLIST_SECOND_READ.md F3 (Fable): the shipped case that puts `PR ones` on ALLOW unused fires the
+        dead-entry check and the probes at once; these two cases fire each alone."""
+        good = self._synthetic()
+        # dead entry alone: `cost` (a Part 1 definition no families root uses) on ALLOW; the probes are unaffected
+        rc, last, out = self._run(good, extra_allow=("cost",))
+        self.assertEqual(rc, 1, out[-2000:])
+        self.assertTrue(last.startswith("POS_VERDICT=FAIL") and " unexpected=0 " in last and " allow_ok=False " in last, last)
+        self.assertIn(" unused=[cost] ", out)
+        # probes alone: `PR ones` on ALLOW and used by a families root, so no entry is dead; only the probes object
+        rc, last, out = self._run(self._synthetic(fam_extra=("PR", "ones")), extra_allow=("PR", "ones"))
+        self.assertEqual(rc, 1, out[-2000:])
+        self.assertTrue(last.startswith("POS_VERDICT=FAIL") and " unexpected=2 " in last and " allow_ok=True " in last, last)
+        self.assertIn("POS_ALLOW n=59 used_by_a_families_root=59 unused=[] ", out)
+
+    def test_template_and_decider_agree(self):
+        roots, anchors = self._template_lists()
+        fam, ctl, probe, allow, n = self._decider_lists()
+        self.assertEqual(roots, fam + ctl + probe, "the template's roots are the decider's families, controls, probes")
+        self.assertEqual((len(fam), len(ctl), len(probe)), (14, 6, 2))
+        self.assertEqual(len(set(anchors)), len(anchors))
+        self.assertEqual(n, [len(anchors)], "the decider's anchor count is the template's")
+        self.assertEqual((len(allow), len(set(allow))), (57, 57))
+        self.assertEqual(set(allow) & set(anchors), set(), "no anchor is on the list of 57")
+        self.assertNotIn("PR", allow)
+
+    UNION = re.compile(r"FAMILIES_UNION_IN_STEP2TO5_SECTIONS n=(\d+) thm=(\d+) def=(\d+) by_section ((?:§\d+=\d+ ?)+)$")
+
+    def _recorded_problems(self, text, n_anchors, lists=None):
+        """lists = (FAM, CTL, PROBE) of the decider. Codex gate-D4 F4: the rows must name those roots, in that
+        order, and carry the union row (n=135) and the anchor row the public text quotes."""
+        rows = [l.split("\t", 1)[1] for l in text.split("\n") if l.startswith("lean_closure\t")]
+        p = []
+        if not rows or rows[-1] != self.VERDICT:
+            p.append("verdict")
+        if lists is not None:
+            fam_l, ctl_l, probe_l = lists
+            for tag, want in (("POS FAMILIES", fam_l), ("POSV FAMILIES", fam_l), ("POSA FAMILIES", fam_l),
+                              ("POS CONTROL", ctl_l), ("POSV CONTROL", ctl_l), ("POSA CONTROL", ctl_l),
+                              ("POSV PROBE", probe_l)):
+                got = [r.split()[2] for r in rows if r.startswith(tag + " ")]
+                if got != want:
+                    p.append("roots %s" % tag)
+            un = [m for r in rows for m in [self.UNION.match(r)] if m]
+            if len(un) != 1 or (un[0].group(1), un[0].group(2), un[0].group(3)) != ("135", "107", "28") \
+                    or sum(int(x.split("=")[1]) for x in un[0].group(4).split()) != 135:
+                p.append("union line")
+            if not any(r.startswith("POS_ANCHORS n=%d distinct=%d each_a_placed_definition_of_part1=True " % (n_anchors, n_anchors))
+                       for r in rows):
+                p.append("anchors line")
+        fam = [r for r in rows if r.startswith("POSV FAMILIES ")]
+        ctl = [r for r in rows if r.startswith("POSV CONTROL ")]
+        posa = [r for r in rows if r.startswith("POSA FAMILIES ")]
+        prb = [r for r in rows if r.startswith("POSV PROBE ")]
+        if (len(fam), len(ctl), len(posa), len(prb)) != (14, 6, 14, 2):
+            p.append("rows %d/%d/%d/%d" % (len(fam), len(ctl), len(posa), len(prb)))
+        for r in fam:
+            if not re.search(r" anchor_defs_in_closure=0 table_section_constants=0 unplaced=0 wrong_part=0 summary_agrees=True AS_EXPECTED$", r):
+                p.append("families " + r[:60])
+        for r in posa:
+            if not re.search(r" not_on_allow_list=0 unmatched=0 AS_EXPECTED$", r):
+                p.append("posa " + r[:60])
+        for r in prb:
+            m = re.search(r" anchor_defs_in_closure=0 table_section_constants=0 older_rules_accept=True "
+                          r"part1_nontheorem_declarations=\d+ not_on_allow_list=\d+ \[([^\]]*)\] unmatched=0 "
+                          r"summary_agrees=True REJECTED_AS_REQUIRED$", r)
+            if not m or "PR" not in m.group(1).split():
+                p.append("probe " + r[:60])
+        ctlv = set()
+        for r in ctl:
+            m = re.search(r" anchor_defs_in_closure=(\d+) table_section_constants=(\d+) unplaced=0 wrong_part=0 summary_agrees=True AS_EXPECTED$", r)
+            if not m or int(m.group(1)) < 10 or int(m.group(2)) < 100:
+                p.append("control " + r[:60])
+            else:
+                ctlv.add((int(m.group(1)), int(m.group(2))))
+        if "POS_ALLOW n=57 used_by_a_families_root=57 unused=[] anchors_on_it=0" not in rows:
+            p.append("allow line")
+        if not any(r.startswith("POS_SUMMARIES=22 COMPLETE=[roots=22 anchors=%d " % n_anchors) for r in rows):
+            p.append("complete line")
+        if len(rows) != 67:
+            p.append("row count %d" % len(rows))
+        return p, ctlv
+
+    def test_recorded_run(self):
+        _, anchors = self._template_lists()
+        fam, ctl, probe, _, _ = self._decider_lists()
+        lists = (fam, ctl, probe)
+        t = self._r(self.D + "/EXPECTED_TOKENS_LEAN_CLOSURE.txt")
+        p, ctlv = self._recorded_problems(t, len(anchors), lists)
+        self.assertEqual(p, [])
+        self.assertEqual(len(ctlv), 1, "the six control roots reach the same anchors and table constants")
+        for name, rx, rep in (("a families row with one anchor", r"(POSV FAMILIES \S+ anchor_defs_in_closure=)0", r"\g<1>1"),
+                              ("a POSA row with an off-list name", r"(POSA FAMILIES \S+ part1_nontheorem_declarations=\d+ not_on_allow_list=)0", r"\g<1>1"),
+                              ("a probe that is not rejected", r"REJECTED_AS_REQUIRED", "UNEXPECTED"),
+                              # Codex gate-D4 F4: a renamed root, and the union row with another n
+                              ("a families root renamed", r"(?m)^(lean_closure\tPOSV FAMILIES )Q1150\.gplus_fibre ", r"\g<1>Q1150.renamed "),
+                              ("a control root renamed", r"(?m)^(lean_closure\tPOSA CONTROL  )Q1150\.censusC_dvd ", r"\g<1>Q1150.renamed "),
+                              ("a probe root renamed", r"(?m)^(lean_closure\tPOSV PROBE    )SuperspaceDivisibility\.PR ", r"\g<1>SuperspaceDivisibility.QR "),
+                              ("the union row at n=999", r"(FAMILIES_UNION_IN_STEP2TO5_SECTIONS n=)135 ", r"\g<1>999 "),
+                              ("the union row missing", r"(?m)^lean_closure\tFAMILIES_UNION_IN_STEP2TO5_SECTIONS [^\n]*\n", ""),
+                              ("the anchor row at n=28", r"POS_ANCHORS n=29 distinct=29 ", "POS_ANCHORS n=28 distinct=28 ")):
+            mut = re.sub(rx, rep, t, count=1)
+            self.assertNotEqual(mut, t, "precondition: the mutant changed a row: " + name)
+            self.assertNotEqual(self._recorded_problems(mut, len(anchors), lists)[0], [], "mutant: " + name)
+        # the union figure and its sections, as the ledger and lean/README.md quote them
+        un, = [m for l in t.split("\n") for m in [self.UNION.match(l.split("\t", 1)[-1])] if m]
+        secs = [int(x.split("=")[0][1:]) for x in un.group(4).split()]
+        runs, s0 = [], None
+        for k, s in enumerate(secs):
+            if s0 is None:
+                s0 = s
+            if k + 1 == len(secs) or secs[k + 1] != s + 1:
+                runs.append("§%d" % s if s == s0 else "§%d–§%d" % (s0, s)); s0 = None
+        quote = "use %s constants that Part 1 keeps in the sections of its Steps 2 to 5 (%s)" % (un.group(1), ", ".join(runs))
+        self.assertIn(quote, " ".join(self._r("lean/README.md").split()))
+        self.assertIn("use %s constants that Part 1" % un.group(1), " ".join(self._r("documentation/CORRECTIONS.md").split()))
+        # the figures the ledger and lean/README.md quote are the recorded ones
+        (ka, kt), = ctlv
+        c = " ".join(self._r("documentation/CORRECTIONS.md").split())
+        body = c.split("lean/SuperspaceDivisibility.lean; lean/README.md;", 1)[1].split(" ## CX-", 1)[0]
+        self.assertIn("0 of %d named definitions of characters" % len(anchors), body)
+        self.assertIn("no Part 1 definition outside a list of 57", body)
+        self.assertIn("it finds %d of those definitions and %d such constants" % (ka, kt), body)
+        lr = " ".join(self._r("lean/README.md").split())
+        self.assertIn("there are 0 of %d named definitions of characters" % len(anchors), lr)
+        self.assertIn("is one of 57 on a list in `lean_closure_census.py`", lr)
+        self.assertIn("there are %d of those definitions and %d such constants" % (ka, kt), lr)
+        self.assertIn("# last line: " + self.VERDICT, lr)
+        self.assertIn(self.VERDICT, " ".join(self._r("documentation/HISTORY.md").split()))
+
+# end class TestQ1150ClosureCensus
 
 
 class TestBatchQ1134(unittest.TestCase):
@@ -68874,7 +69509,7 @@ class TestBatchQ1140R(unittest.TestCase):
         self.assertEqual(self._unquoted_old(t), [])
         self.assertTrue(os.path.isfile(os.path.join(self.ROOT, "reports/METHODS.md")))
         with open(os.path.join(self.ROOT, self.README), encoding="utf-8") as fh:
-            self.assertEqual(len(fh.read().split("\n")) - 1, 334, "the README line count: 226 at the CX-37C-R reword; 334 after Q-1127 L1 (CX-37G-F) added its free-move sections")
+            self.assertEqual(len(fh.read().split("\n")) - 1, 390, "the README line count: 226 at the CX-37C-R reword; 388 after Q-1150; 390 after its Fable R1 scope notes (2 lines); 334 after Q-1127 L1 (CX-37G-F) added its free-move sections")
 
     def test_tr12_v142_row_carries_the_note(self):
         with open(os.path.join(self.ROOT, self.T12), encoding="utf-8") as fh:
@@ -69616,7 +70251,9 @@ class TestQ1133CorePairWitnesses(unittest.TestCase):
                       "`reports/evidence/core_pair_witnesses/rhythm-ccn8.txt`", rows["8"])
         self.assertIn("each witness is an existence result for that one ordering", rows["8"])
         r13 = rows["13"]
-        self.assertTrue(r13.split("|")[6].strip().startswith("KERNEL — **15/15 executed 2026-11-15** at `c6e36d5e`"), r13[:300])
+        # Q-1150 (CX-37G-G) re-cited the cell to the 16-module run; the 2026-11-15 record stays as the superseded one
+        self.assertTrue(r13.split("|")[6].strip().startswith("KERNEL — **16/16 executed "), r13[:300])
+        self.assertIn("Superseded record: **15/15 executed 2026-11-15** at `c6e36d5e`", r13)
         self.assertIn("Superseded record: **15/15 executed 2026-09-10** at `9f91cc70` on", r13)
         self.assertNotIn("the 15/15 figure above is the current attestation", r13)
 

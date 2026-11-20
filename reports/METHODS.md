@@ -564,7 +564,7 @@ commands (`--estimate-knuth 0`, the orbit-quotient DP, `--verify`) are determini
    all twelve compiled modules observed zero compiler-trust axioms ([lean/README.md](../lean/README.md)
    §Trust base, "RE-EXECUTED" note); since 2026-10-23 that scan ships as `lean/AxiomCensus.lean.in` and runs as
    `reports/certificates/verify_all.sh` leg (D) over all fifteen modules, 1,500 constants (Codex gpt-6-astra
-   F01-001#5). "Kernel-checked Lean theorems" on this rung now means all of them.)*
+   F01-001#5). *(Dated note, 2026-11-20, CX-37G-G: sixteen modules and 2,660 constants since `lean/SuperspaceDivisibility.lean` was added.)* "Kernel-checked Lean theorems" on this rung now means all of them.)*
 2. **Only the encoder** (validated by KW-value gates + two-way SAT tests): the conflict theorem's rule
    faithfulness.
    *(Added 2026-08-01: the conflict theorem is the **same object** as one of rung 1's DRAT certificates, and

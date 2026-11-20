@@ -1069,6 +1069,8 @@ lean_module_check() {   # $1 = <Module>.lean relative to lean/; runs from INSIDE
 #       published count on the pinned 4.31.0; a floor, like LEAN_FILES_MIN, so a module that
 #       quietly lost declarations fails while one that grew passes). The second compile is the
 #       price of leaving leg (A)'s command untouched (it adds `-o`; stdout is unchanged by it).
+#       [2026-11-20: the floor LEAN_CENSUS_CONSTANTS_MIN is 2660, not 1500, since the sixteenth module,
+#        SuperspaceDivisibility.lean, arrived with 1,160 non-internal constants.]
 #       Positive control, executed on both attested runs: a module with one `sorry` theorem and
 #       one `native_decide` theorem gives `hits=2` (`sorryAx`, `_native.native_decide.ax_*`).
 #       tests.py `TestBatchG8L` runs this function against an elan-like stub `lean` (it refuses
@@ -1146,7 +1148,9 @@ LEAN_PIN_FILE=lean/lean-toolchain
 # merge (a19682b2). Raised rather than left at 14 for the same reason the compile gate's warning
 # baseline is a census and not a budget: a floor pinned BELOW reality still passes while a file
 # is silently removed, which is precisely what the floor exists to catch.
-LEAN_FILES_MIN=${LEAN_FILES_MIN:-15}
+# 15 -> 16 on 2026-11-20: `SuperspaceDivisibility.lean` (Q-1150) is the sixteenth module. Raised for the
+# reason given above for 14 -> 15: a floor below reality passes while a file is removed.
+LEAN_FILES_MIN=${LEAN_FILES_MIN:-16}
 if [ "$HAVE_LEAN" = "0" ]; then
   echo "LEAN_ID=ABSENT"        | tee -a "$LOG"
   echo "LEAN_PIN_MATCH=ABSENT" | tee -a "$LOG"
@@ -1185,7 +1189,9 @@ else
   check "lean module count >= $LEAN_FILES_MIN (found $_n)" "[ $_n -ge $LEAN_FILES_MIN ]"
   # leg (D): the module-wide collectAxioms census (comment above lean_axiom_census_check)
   LEAN_CENSUS_TEMPLATE=lean/AxiomCensus.lean.in
-  LEAN_CENSUS_CONSTANTS_MIN=${LEAN_CENSUS_CONSTANTS_MIN:-1500}
+  # 1500 -> 2660 on 2026-11-20: SuperspaceDivisibility.lean adds 1,160 non-internal constants (measured by this leg
+  # on the sixteen modules, Lean 4.31.0: LEAN_AXIOM_CENSUS_CONSTANTS=2660).
+  LEAN_CENSUS_CONSTANTS_MIN=${LEAN_CENSUS_CONSTANTS_MIN:-2660}
   if [ "$LEAN_PIN_MATCH" != PASS ]; then
     echo "LEAN_AXIOM_CENSUS_CONSTANTS=NOT_RUN (kernel identity did not match $LEAN_PIN_FILE; see LEAN_PIN_MATCH)" | tee -a "$LOG"
   else
@@ -1361,9 +1367,9 @@ def strip_comments(src):
     _scan(st, 0, False)
     return ''.join(st.out), st.ok
 files = sorted(glob.glob('lean/*.lean'))
-if len(files) < 15:
+if len(files) < 16:
     print('LEAN_SOURCE_CENSUS=FAIL n=NO_SOURCES')
-    raise SystemExit('FAIL: the census saw %d lean/*.lean files (needs >= 15); an empty census is not a pass' % len(files))
+    raise SystemExit('FAIL: the census saw %d lean/*.lean files (needs >= 16); an empty census is not a pass' % len(files))
 hits = []
 for f in files:
     text, ok = strip_comments(open(f, encoding='utf-8').read())

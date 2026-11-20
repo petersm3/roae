@@ -664,6 +664,7 @@ lean/README.md	249	marker	CORRECTED	1	-	reviewed:sentence-already-names-stdout-a
 lean/README.md	343	marker	CORRECTED	1	-	reviewed:sentence-already-reads-fifteen	7e04babdaffb
 lean/README.md	395	marker	CORRECTED	1	-	reviewed:table-already-carries-the-re-measured-figures	826d33dcd3dd
 lean/README.md	733	marker	CORRECTED	1	-	reviewed:sentence-above-already-says-definitional	5b5a41a13f81
+lean/README.md	767	ledger-link	CORRECTION	n/a	-	not-a-marker	daf85ff1ad62
 reports/CAPSTONE_GUIDE.md	5	ledger-link	CORRECTION	n/a	-	not-a-marker	e9a5687d5cf6
 reports/CAPSTONE_GUIDE.md	300	marker	Corrected	1	-	reviewed:dated-note-CX-37C-T;the-sentence-already-gives-the-covered-fraction-bounds	4a0a9b4a4056
 reports/CAPSTONE_GUIDE.md	377	marker	Corrected	1	-	reviewed:dated-note-CX-37C-T;the-sentence-already-names-the-tested-number	e987385a80da
@@ -760,7 +761,7 @@ reports/TR12_QUERY_PROGRAM.md	2161	ledger-link	CORRECTION	n/a	-	not-a-marker	5b9
 reports/TR12_QUERY_PROGRAM.md	2161	marker	CORRECTED	1	-	reviewed:cell-already-says-the-2026-07-21-run-is-attested-and-names-its-replay-check	5b94d2067942
 reports/TR12_QUERY_PROGRAM.md	2178	marker	Corrected	1	-	reviewed:sentence-already-scopes-12.10	787d37353231
 reports/TR12_QUERY_PROGRAM.md	2196	marker	Corrected	1	-	reviewed:text-already-says-the-file-is-distributed	655061a87291
-reports/TR12_QUERY_PROGRAM.md	2236	ledger-link	CORRECTION	n/a	-	not-a-marker	f3749123444f
+reports/TR12_QUERY_PROGRAM.md	2236	ledger-link	CORRECTION	n/a	-	not-a-marker	4466c46f913c
 reports/TR12_QUERY_PROGRAM.md	2286	marker	Corrected	1	-	reviewed:scope-already-states-the-one-sided-relation	a5ce32451652
 reports/TR12_QUERY_PROGRAM.md	2396	marker	Corrected	1	-	reviewed:text-already-separates-all-slots-and-interior	747e86000ac1
 reports/TR12_QUERY_PROGRAM.md	2420	ledger-link	CORRECTION	n/a	-	not-a-marker	1b28d5b80ba3

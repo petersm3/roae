@@ -1,0 +1,138 @@
+-- https://github.com/petersm3/roae
+-- Developed with AI assistance (Claude, Anthropic)
+/-
+  LeanClosureCensus.lean.in — which constants do the "families" theorems of
+  lean/SuperspaceDivisibility.lean use? A census BY SOURCE POSITION and BY DEFINITION, not by a
+  list of lemma names. Read by lean_closure_census.py; the command is in lean/README.md
+  (section "SuperspaceDivisibility.lean"). It is a template (".in"), not a module of lean/:
+  copy it as LeanClosureCensus.lean into a scratch directory that holds the compiled
+  SuperspaceDivisibility.olean and run it there with LEAN_PATH set to that directory.
+
+  For each root: every constant of the module `SuperspaceDivisibility` that its type and proof
+  use, transitively, with the line of its declaration. An auxiliary constant (`f._proof_3`,
+  `f.match_1`, a private matcher `_private.<module>.0.f.match_1.splitter`) takes the line of
+  the nearest prefix that has one, first under its own name, then under its name without the
+  private prefix. The section a line falls in is decided afterwards by lean_closure_census.py
+  from the `§` headings of the source.
+  The definitions that carry the Walsh/character side of Part 1 (`posAnchors`) are listed
+  here, checked to exist as definitions, and printed; lean_closure_census.py takes the list
+  from this output. The walk is transitive, so a lemma that mentions one of them is found
+  whatever it is called. The list is not complete, and nothing rests on its being complete: it
+  does not name the pruned transform `PR` (§8), for one. For that reason
+  lean_closure_census.py also holds the opposite list, the Part 1 definitions a families
+  theorem may use, and fails a families root that reaches any other Part 1 definition. The two
+  probe roots at the end of `posRoots` (`pm_same`, a theorem about a value of `PR`, and `PR`
+  itself) reach no anchor; they are there so that every run shows the second list rejecting
+  what the first cannot see. What no census of constants can see: a character written out
+  inside a statement or a proof with no definition of its own.
+  Fails closed: a missing root or anchor is an error; running out of fuel is an error; a
+  constant with no line is printed with line 0 and lean_closure_census.py fails on it.
+  Written by Fable lanes of this project (Claude Fable 5.2): one wrote it while reading
+  another's proof, a third made it fail closed. Not independent examination.
+-/
+import Lean
+import SuperspaceDivisibility
+open Lean Elab Command
+
+def posClosure (env : Environment) (roots : List Name) : Option NameSet := Id.run do
+  let mut seen : NameSet := {}
+  let mut stack := roots
+  let mut fuel := 100000000
+  while fuel > 0 do
+    fuel := fuel - 1
+    match stack with
+    | [] => return some seen
+    | n :: rest =>
+      stack := rest
+      if seen.contains n then continue
+      seen := seen.insert n
+      match env.find? n with
+      | none => pure ()
+      | some ci =>
+        for u in ci.type.getUsedConstants do
+          if !seen.contains u then stack := u :: stack
+        match ci.value? (allowOpaque := true) with
+        | some v =>
+          for u in v.getUsedConstants do
+            if !seen.contains u then stack := u :: stack
+        | none => pure ()
+  return none
+
+def posPrefixes : Name → List Name
+  | .anonymous => []
+  | n@(.str p _) => n :: posPrefixes p
+  | n@(.num p _) => n :: posPrefixes p
+
+/-- `_private.<module components>.<number>.rest` ↦ `rest`; any other name unchanged. -/
+def posUserName (n : Name) : Name :=
+  let cs := n.components
+  match cs with
+  | c :: _ =>
+    if c == `_private then
+      let rest := (cs.dropWhile fun x => match x with | .num _ _ => false | _ => true).drop 1
+      rest.foldl (fun acc x => acc ++ x) Name.anonymous
+    else n
+  | [] => n
+
+def posRoots : List Name :=
+  [`Q1150.gplus_fibre, `Q1150.gplus_fibre_13, `Q1150.gplus_family,
+   `Q1150.cellV2_dvd_families, `Q1150.superCount_dvd_families,
+   `Q1150.censusC_dvd_families, `Q1150.kw_gplus, `Q1150.kw_family,
+   `Q1150.ident_bound, `Q1150.inv_fibre, `Q1150.ident_exact,
+   `Q1150.moves_exact, `Q1150.family_exact, `Q1150.piece_dvd,
+   `Q1150.censusC_dvd, `SuperspaceDivisibility.cellV2_dvd,
+   `SuperspaceDivisibility.superCount_dvd, `SuperspaceDivisibility.fibreC_dvd,
+   `SuperspaceDivisibility.fibreC_dvd_general, `SuperspaceDivisibility.cellV1_dvd,
+   `SuperspaceDivisibility.pm_same, `SuperspaceDivisibility.PR]
+
+/-- the definitions of Part 1 that define characters, twisted sums, the transform and the
+    packed table (short names, in `SuperspaceDivisibility`). -/
+def posAnchors : List String :=
+  ["chi", "chi'", "chiProd", "tw", "TwDiv", "hat", "sgn", "par3", "cx", "allDiv", "allDivF",
+   "packFn", "bh", "chk", "patR", "patC", "patRP", "patCP", "P", "gam", "Gam", "gamB", "GG",
+   "EE", "mu", "Phi", "phiB", "anc", "prodF"]
+
+def posLine (n : Name) : MetaM Nat := do
+  for c in posPrefixes n ++ posPrefixes (posUserName n) do
+    match (← findDeclarationRanges? c) with
+    | some rg => return rg.range.pos.line
+    | none => pure ()
+  return 0
+
+run_cmd liftTermElabM do
+  let env ← getEnv
+  let some modIdx := env.header.moduleNames.findIdx? (· == `SuperspaceDivisibility)
+    | throwError "V2POS_ERROR module not found"
+  let data := env.header.moduleData[modIdx]!
+  let mut inMod : NameSet := {}
+  for n in data.constNames do inMod := inMod.insert n
+  let mut na : Nat := 0
+  for a in posAnchors do
+    let n := Name.str `SuperspaceDivisibility a
+    unless inMod.contains n do throwError "V2POS_ERROR anchor {n} is not a constant of the module"
+    match env.find? n with
+    | some (.defnInfo _) => pure ()
+    | _ => throwError "V2POS_ERROR anchor {n} is not a definition"
+    na := na + 1
+    logInfo m!"V2POSANCH {← posLine n} {n}"
+  let mut done : Nat := 0
+  for r in posRoots do
+    unless env.contains r do throwError "V2POS_ERROR missing {r}"
+    let some cl := posClosure env [r] | throwError "V2POS_ERROR out of fuel at {r}"
+    let mut nmod : Nat := 0
+    let mut unplaced : Nat := 0
+    let mut missing : Nat := 0
+    for n in cl.toList do
+      if env.find? n |>.isNone then missing := missing + 1
+      if inMod.contains n then
+        nmod := nmod + 1
+        let line ← posLine n
+        if line == 0 then unplaced := unplaced + 1
+        let kind := match env.find? n with
+          | some (.thmInfo _) => "thm" | some (.defnInfo _) => "def" | some (.axiomInfo _) => "AXIOM"
+          | some (.opaqueInfo _) => "opaque" | some (.inductInfo _) => "ind" | some (.ctorInfo _) => "ctor"
+          | some (.recInfo _) => "rec" | _ => "other"
+        logInfo m!"V2POS {r} {line} {kind} {n}"
+    done := done + 1
+    logInfo m!"V2POSSUM {r} closure={cl.size} in_module={nmod} unplaced={unplaced} not_in_env={missing}"
+  logInfo m!"V2POS_COMPLETE roots={done} anchors={na} module_constants={data.constNames.size}"

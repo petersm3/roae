@@ -11,6 +11,12 @@ it is.*
 *Dated note, 2026-11-17 (Q-1127).* `free_moves.py` and `fibres_n31_touching.tsv` were added later: the
 script was assembled by an Opus lane (Claude Opus 5.5) from the checking scripts of the two Fable lanes
 that wrote and read the "Free moves" argument of §3, and is not a further independent implementation.
+*Dated note, 2026-11-20 (Q-1127, Q-1150).* "Not formalised in Lean" in the status line above was true when it
+was written. Since this date the divisibility statements of §1 are also machine-checked in Lean
+(`lean/SuperspaceDivisibility.lean`), within the scope given in §4 (the dated note under "Not formalised
+in Lean"). So is the family count of §3 ("Free moves"), for the fibre as the Lean file models it. The
+per-fibre bound 33 − t of item 1 is not in Lean. The Lean file was written and read by Fable lanes of this
+project (Claude Fable 5.2); that is not independent examination.
 
 ## 1. Statement
 
@@ -245,6 +251,24 @@ N(c) and V2 cells only; the family count for V1 cells was not worked out. *Open.
 walks accounts for the remaining 2^7 on those five fibres is not known; we state no conjecture either
 way. The first 48 = 2^4·3 of the divisor (the hexagram symmetries) is the classical orbit-counting rule.
 
+*Dated note, 2026-11-20 (Q-1150).* The family count of this paragraph is now also checked in Lean
+(`lean/SuperspaceDivisibility.lean`, Part 2), so "not formalised in Lean" in its first label was true only
+until this date. Lean proves three of its sentences in a narrower or more exact form. "2^46 moves": exactly
+2^46 translations, in a fibre that is not empty. "each fibre is a union of families of 2^{26 − t} walks":
+Lean proves what this rests on, for the fibre as the file models it (three bits for each of the 31 free
+slots). In a fibre that is not empty the moves that meet the conditions give 2^d translations with d at
+least 26 − t; each maps the fibre onto itself; none but the identity fixes a walk; and 2^{26 − t} divides
+the size of every such fibre. "Counting these families, and nothing else": the Lean proofs of the three
+2^14·3 statements use the families, Step 1 (sequences as sums of fibres) and Step 6. A census in this
+directory (`LeanClosureCensus.lean.in`, `lean_closure_census.py`) lists what each of these proofs uses: none
+of the 29 Walsh/character definitions of Part 1 that the census names and nothing declared in the table
+sections of the Lean file (its §3 and §9–§12) is among them. The census does not examine the definitions of
+Part 2 itself. They do use plain finite-sum and slot-counting lemmas that the Lean file keeps in the
+sections of Steps 2 to 5 (`lean/README.md` has the command and the counts). Not in Lean:
+that the conditions on a move are needed and not only enough, the small-universe form of the count, and
+everything under "Computed, not proved" and "Open". The Lean work was written and read by AI model lanes
+of this project; this is not independent examination.
+
 *Corrections relative to the private write-up.* The second lane's check ⚠ *(reworded 2026-11-14, CX-37C-R: this read "The independent check")* found three wording defects in
 the author's text, none used by the argument; this README carries the corrected forms. (i) Step 4: a
 class-6 boundary costs at most one factor, as the table and Step 5 use, not two. (ii) The summary
@@ -261,6 +285,8 @@ displayed sum carries the middle term F_p(s•, c) + F_p(τs•, c).
   families of walks (§3, "Free moves" and "Why this number?"). A hand proof by one Fable lane of this
   project, read by a second Fable lane with its own code; not formalised in Lean. For V1 cells no family
   count was worked out.
+  *Dated note, 2026-11-20 (Q-1150).* Now also machine-checked in Lean, in the scope given under "Not
+  formalised in Lean" below. For V1 cells there is still no family count, by hand or in Lean.
 - **Not shown — the remaining 2^7.** Between 2^14·3 and 2^21·3 is 2^7. On five recorded fibres of exactly 2^20·3^7
   walks (the five named in §3) no group of slot-by-slot bijections accounts for any of it (computed,
   `free_moves.py` leg G); moves that depend on neighbouring slots, or that move walks between fibres,
@@ -276,6 +302,29 @@ displayed sum carries the middle term F_p(s•, c) + F_p(τs•, c).
   and the n = 9 divisibility rests on a separate argument.
 - **Not formalised in Lean.** The finite parts (the e_k table, the μ table, the pinned table) are small
   enough for `decide`/`native_decide`; that has not been done.
+  *Dated note, 2026-11-20 (Q-1127, Q-1150).* The divisibility statements are now machine-checked, kernel-only,
+  in `lean/SuperspaceDivisibility.lean`: 2^20 divides every fibre (`fibre_dvd`), 2^21·3 divides N
+  (`superCount_dvd`), every V2 cell (`cellV2_dvd`) and every N(c) (`censusC_dvd`), and the three V1
+  statements of §1 item 3 are proved (`cellV1_dvd`, `cellV1_compl_dvd`, `cellV1_tai_dvd`). Lean proves them
+  for the counts defined in that file and does not read the atlas, so that the atlas's tables hold these
+  counts is not machine-checked; "divides", not "exactly". The finite tables of the Lean proof are checked
+  in Lean's kernel (`decide`; no `native_decide`), and its V1 argument does not use the pinned table. Not
+  in Lean: the finer per-fibre bound 33 − t, and kernel cells.
+  The family count of §3 ("Free moves") is machine-checked in the same file (its Part 2), within these
+  limits. Lean proves it for the fibre as the Lean file models it: three bits for each of the 31 free slots. For that
+  fibre, 2^(26 − t) divides its size whenever the class sequence has King Wen's budget (`gplus_fibre`).
+  From this, 2^14·3 divides N, every V2 cell and every N(c) (`superCount_dvd_families`,
+  `cellV2_dvd_families`, `censusC_dvd_families`; these three count sequences). In a fibre that is not
+  empty, exactly 2^7 of the 2^53 choices do nothing, so the choices give exactly 2^46 translations
+  (`ident_exact`, `moves_exact`); the divisibility proof itself needs only "at most 2^7" (`ident_bound`).
+  In such a fibre the moves that meet the conditions keep the fibre, and they form a family of 2^d moves
+  with d at least 26 − t (`gplus_family`). A census in this directory lists every constant of the Lean file
+  that the three 2^14·3 proofs use. It finds none of the 29 Walsh/character definitions of Part 1 that it
+  names, and nothing declared in the table sections of the Lean file (its §3 and §9–§12), among them; it
+  does not examine the definitions of Part 2 itself (a documented command in `lean/README.md`, not
+  a leg of `verify_all.sh`). Still not in Lean: the same statement fibre by fibre for sequences; that the
+  conditions on a move are needed and not only enough; the count on small universes; and that 2^(26 − t)
+  is the largest such power of two for any fibre.
 
 ## 5. Related results
 
@@ -302,6 +351,10 @@ other file here.
 `EXPECTED_TOKENS_FREE_MOVES.txt`, which lists the tokens of its `--quick` run, a documented command
 (`tests.py` runs legs L and A and the error paths only, so these rows are a record of a run, not a test);
 the verdict lines of its default run are listed there as comment lines.
+*Dated note, 2026-11-20 (Q-1150).* `LeanClosureCensus.lean.in` and `lean_closure_census.py` are not reproducers of the
+hand proof. They check a statement about the Lean proofs in `lean/SuperspaceDivisibility.lean`: which earlier
+results the family proofs use. They need Lean 4.31.0; the command is in `lean/README.md`, and
+`EXPECTED_TOKENS_LEAN_CLOSURE.txt` is the record of a run, not a test.
 
 | file | what it is |
 |---|---|
@@ -318,6 +371,9 @@ the verdict lines of its default run are listed there as comment lines.
 | (both TSV files) | a skeleton is 31 integers 0–7, one per slot: bit j of the integer is line pair j (lines j and 5 − j), bit 0 the bottom line pair; a class sequence is 31 integers; a witness is 31 hexagrams as 6-bit integers, bit i = line i, bit 0 the bottom line |
 | `fibres_n31_touching.tsv` | 76 generated n = 31 fibres built to be hard for the proof: in 69 the class-6 window is next to a third slot of its support class (45 of those with t = 13), and they include windows at slots 1, 2 and 30, 31 and t from 0 to 13; one witness walk each. The source column names the generator and its arguments; the generators are not shipped, and each row's witness walk makes the fibre checkable without them. F is filled in for the 68 rows whose generator recorded it, and empty for the 8 rows whose only count would be `free_moves.py`'s own |
 | `EXPECTED_TOKENS_FREE_MOVES.txt` | the tokens of the `--quick` run of `free_moves.py`, a documented command: `tests.py` runs legs L and A and the error paths only, and the `--quick` rows are a record of a run, not a test; as comment lines, the verdict lines of the default run |
+| `LeanClosureCensus.lean.in` | a Lean 4 template, not a module of `lean/`: for 14 family theorems, 6 control theorems and 2 probes of `lean/SuperspaceDivisibility.lean` it prints every constant of that file that the theorem's statement and proof use, with the line of its declaration; it stops with an error on a missing theorem or when it runs out of steps |
+| `lean_closure_census.py` | reads that output and the section headings of the Lean file: a family theorem must reach none of the 29 Walsh/character definitions and nothing declared in §3 and §9–§12, and no Part 1 definition outside its list of 57, a control theorem at least 10 and at least 100; last line `POS_VERDICT=PASS` or `POS_VERDICT=FAIL`, exit status 0 or 1 |
+| `EXPECTED_TOKENS_LEAN_CLOSURE.txt` | the lines of the recorded census run: a record of a run, not a test; the command is in `lean/README.md` |
 
 ```
 python3 reports/evidence/q735_two_adic/fourier_table.py --check reports/evidence/q735_two_adic          # ~10 s

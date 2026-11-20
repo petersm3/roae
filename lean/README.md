@@ -761,3 +761,124 @@ statements:
 `compSeq_involution`, `kw_valid_kernel`, `kw_c3_776_kernel`: `[propext]`. The finite lemmas are
 plain `decide` (64- and 4096-case) and the KW instances `decide +kernel`; the sequence-level
 lemmas are structural inductions. This section adds nothing to the file's trusted base.
+
+## SuperspaceDivisibility.lean (2026-11-20): 2^21 · 3 divides the superspace counts, and 2^14 · 3 of it again by families of walks
+
+*Added 2026-11-20 (backlog Q-1127 and Q-1150; [CORRECTIONS.md](../documentation/CORRECTIONS.md) CX-37G-G). The
+hand proof that this file formalises, with its tables and reproducers, is in
+[reports/evidence/q735_two_adic/README.md](../reports/evidence/q735_two_adic/README.md). The Lean file was
+written by a Fable lane of this project (Claude Fable 5.2) and read by further Fable lanes, which rebuilt
+it from a clean copy with their own probes. These are checks by AI model lanes of this project, not
+independent examination. Developed with AI assistance (Claude, Anthropic).*
+
+**This module and the lists above.** The executive summary, the per-file command list and the hardware
+table of §"Verify yourself" were written before this module was added, and they do not name it. Where
+this file says fifteen files or modules, or 1,500 census constants, the figures since 2026-11-20 are sixteen
+(`git ls-files 'lean/*.lean' | wc -l` returns 16) and 2,660; the last paragraph of this section gives the
+measurement. The per-file command for this module is `lean SuperspaceDivisibility.lean`: success is only
+its 398 `#print axioms` reports and exit 0. It takes about 7 minutes and 4.8 GB of memory, less than
+`Automorphism.lean` (9.6 GB), so the host guidance above does not change.
+
+**The boundary counts (Part 1 of the file).** Take every ordering of the 64 hexagrams that satisfies C1, C4
+and C5 (C2 follows from C5; C3 is **not** imposed). For a boundary k = 0..30 (the step from the second
+hexagram of pair k to the first hexagram of pair k+1, where pair 0 is the opening pair 63, 0) and a Hamming
+distance d, count the orderings whose boundary k has distance d. **Proved in Lean:** every such count is
+divisible by 2^21 · 3 = 6,291,456 (`cellV2_dvd`), and so is the number of all such orderings
+(`superCount_dvd`). The same holds for the length of any duplicate-free list whose members are exactly the
+orderings in a cell (`cellV2_card_dvd`), so the result does not depend on how the file enumerates
+sequences. King Wen lies in the cell k = 0, d = 2, so that cell and the total are not empty (`kw_cell_pos`,
+`superCount_pos`). The orderings with one given support skeleton and one given class sequence number a
+multiple of 2^20 (`fibre_dvd`).
+**Scope.** The counts are the ones *defined in the Lean file*. Lean does not read the n = 31 atlas or any
+solver output: that the atlas's layer-by-distance-class numbers (the ones the V2 figure draws) are these
+counts rests on the solver and the knowledge compiler, as before, and is not machine-checked. The theorem
+says "divides"; it does not say that 2^21 · 3 is the largest common divisor. It is stated for all natural
+numbers k and d; only k = 0..30 and d ∈ {1, 2, 3, 4, 6} are cells of the table, and outside that range a
+count is either empty or the total, so the wider statement adds nothing. It says nothing about C3, or about
+why King Wen.
+
+**The per-pair positional counts (Part 1, §28–§34).** The same file proves a matching fact about the
+per-pair positional counts. Take the same orderings (C1, C4 and C5; C3 not imposed). An ordering is 32 pairs
+in a row; the first is always the opening pair (63, 0). For k = 0..30 and one of the 32 pairs, count the
+orderings whose pair k+2 in the row (counting the opening pair as the first; this is slot k+2 of the V1
+figure, and slot k+1 in the Lean file, which counts from 0) is that pair, whichever of its two hexagrams
+comes first. **Proved in Lean:** every such count is divisible by 2^19 = 524,288 (`cellV1_dvd`); for a pair
+made of two hexagrams that are each their own reversal (the three free ones are King Wen's hexagrams 27 and
+28, 29 and 30, 61 and 62) it is divisible by 2^21 = 2,097,152 (`cellV1_compl_dvd`); for the pair of
+hexagrams 11 and 12 it is divisible by 2^19 · 3 = 1,572,864 (`cellV1_tai_dvd`). King Wen lies in one cell of
+each kind, so none of the three statements is empty. **Scope**, as for the boundary counts: the counts are
+the ones defined in the Lean file; Lean does not read the atlas, so that the atlas's positional table (the
+one the V1 figure draws) holds these counts is not machine-checked; "divides", not "exactly"; nothing is
+proved about a single hexagram in a single position. Hexagrams 11 and 12 are each other's complement as well
+as each other's reversal; the 2^21 statement is not about that pair.
+
+**Families of walks (Part 2 of the file, §35–§46).** *Proved in Lean:* for every support skeleton and every
+class sequence with King Wen's budget, the number of ways to fill the 31 free slots is divisible by
+2^(26 − t), where t counts the class-3 boundaries whose two supports differ in exactly one coordinate
+(`gplus_fibre`). The proof counts families: 53 yes/no choices define the moves, at most 20 + t conditions
+keep a fibre in place, and when the fibre is not empty at most 2^7 choices do nothing (`ident_bound`;
+exactly 2^7, so exactly 2^46 different moves, `ident_exact` and `moves_exact`). With the six orderings of the
+three line pairs this gives 2^14 · 3 = 49,152 for the number of all orderings, for every boundary count and
+for every class-sequence count N(c) (`superCount_dvd_families`, `cellV2_dvd_families`,
+`censusC_dvd_families`). These three say less than the 2^21 · 3 above. What they add is a second proof, by
+counting families. A census (next paragraph, with its limits) finds in it none of the 29 Walsh/character
+definitions of Part 1 that the census names, and nothing declared in the table sections. N(c), the number of
+orderings with one given class sequence, is defined in Part 2 (`censusC`), and 2^21 · 3 divides it too, by
+the route of Part 1
+(`censusC_dvd`). *Not proved in Lean:* the per-fibre statement for orderings instead of slot fillings; that
+the conditions on a move are needed and not only enough; that 2^(26 − t) is the largest power of two for
+any fibre; the finer bound 33 − t of the hand proof.
+
+**What the families proofs use: a census, run as a documented command.** That a proof does not use some lemma
+is a fact about the proof, not a theorem, so no Lean statement can say it. It is checked by a census:
+`reports/evidence/q735_two_adic/LeanClosureCensus.lean.in` walks every constant that a theorem's statement and
+proof use, and prints each with the line where it is declared;
+`reports/evidence/q735_two_adic/lean_closure_census.py` reads the section headings of the Lean file and
+decides. It uses no list of lemma names. Result of the run recorded in
+`reports/evidence/q735_two_adic/EXPECTED_TOKENS_LEAN_CLOSURE.txt`: under each of 14 theorems of Part 2 (the
+three 2^14 · 3 theorems, `gplus_fibre`, `gplus_family`, `ident_exact`, `moves_exact` and seven more of Part 2)
+there are 0 of 29 named definitions of characters, twisted sums, the transform and the packed table, and 0
+constants declared in §3 and §9–§12 (the meaning of the transform and the 512-entry table). The 29 are not
+every such definition (the pruned transform `PR` of §8 is not one of them), so the census also checks from the
+other side: every definition of Part 1 that these 14 theorems use is one of 57 on a list in
+`lean_closure_census.py` (hexagram-level definitions and the 3-bit coordinates, plain sums, the coordinate
+model of a fibre with its 0/1 weight `W` and its count `fibreC`, the budget and selector indicators, slot
+book-keeping, sequences and pairs, the coordinate permutations), and any other Part 1 definition fails the
+run. Two probes show that the second check sees what the first does not: a theorem about a value of `PR`
+(`pm_same`) and `PR` itself reach none of the 29 and nothing in §3, §9–§12 (`P` is printed in the probes'
+brackets because Lean gives `PR` the case-split helper `P.match_1` of the transform `P`, and the list rule
+files a helper under its definition. The transform `P` itself is not reached: `anchor_defs_in_closure=0`.),
+and the second check rejects both. A census of constants cannot see a character that is written out inside a
+statement or a proof and has no definition of its own. Nor does this census examine the definitions of Part 2
+itself: its rule about definitions covers Part 1 only. Part 2 has a dot product over F_2 of its own
+(`F2Count.dot`: a parity, and Part 1's characters are signs of parities), with which it writes its linear
+equations. Under each of six theorems proved by the route of Part
+1 (`cellV2_dvd`, `superCount_dvd`, `fibreC_dvd`, `fibreC_dvd_general`, `cellV1_dvd`, `censusC_dvd`) there are
+25 of those definitions and 167 such constants, so the census can tell the two routes apart. The families
+proofs do use 135 constants that Part 1 keeps in the sections of its Steps 2 to 5 (§1, §4–§8, §17–§19), among
+them finite sums, slot book-keeping and the pigeonhole fact that five slots of one support cannot hold
+distinct pairs. They also use Step 1 (orderings as sums of fibres) and Step 6 (the six orderings of the line
+pairs). The census is not a leg of `verify_all.sh`; the recorded lines are a record of a run, not a test.
+
+```bash
+# Lean 4.31.0 (elan) and python3; run from the repository root. The first lean line compiles the module once.
+D=$(mktemp -d) && cp lean/lean-toolchain lean/SuperspaceDivisibility.lean "$D"/ \
+  && cp reports/evidence/q735_two_adic/LeanClosureCensus.lean.in "$D"/LeanClosureCensus.lean
+(cd "$D" && lean -o SuperspaceDivisibility.olean SuperspaceDivisibility.lean > build.out \
+  && LEAN_PATH="$D" lean LeanClosureCensus.lean > census.out)
+python3 reports/evidence/q735_two_adic/lean_closure_census.py "$D"/SuperspaceDivisibility.lean "$D"/census.out
+# last line: POS_VERDICT=PASS roots=22 families=14 controls=6 probes=2 unexpected=0 anchors_ok=True allow_ok=True errors=0 complete=True
+```
+
+**Trust base, counts and cost (measured 2026-11-17, Lean 4.31.0).** Core Lean 4 only, no imports, no
+`native_decide`, no `sorry`, no `axiom`; the file restates nine definitions from `KingWen.lean` verbatim.
+`lean SuperspaceDivisibility.lean` prints exactly its 398 `#print axioms` reports and exits 0: 113 for
+Part 1 (25 `[propext]`, 33 `[propext, Quot.sound]`, 54 `[propext, Classical.choice, Quot.sound]`, 1 with no
+axioms) and 285 for Part 2 (109, 55, 76 and 45). The module-wide census of `verify_all.sh` leg (D) covers
+1,160 non-internal constants with 0 outside `[propext, Classical.choice, Quot.sound]`
+(`LEAN_AXIOM_CENSUS_SuperspaceDivisibility=PASS constants=1160`). With this module the directory holds
+sixteen modules (`LEAN_FILES=16`), 594 `#print axioms` directives (196 before) and 2,660 census constants
+(1,500 before; `LEAN_AXIOM_CENSUS_CONSTANTS=2660`). One check of the file took 397 s of wall clock and
+4.78 GB peak resident memory while two other builds ran on the same host, so it does not raise the memory
+needed for this directory (`Automorphism.lean`, 9.6 GB); `verify_all.sh` checks each module twice (legs (B)
+and (D)), so its Lean phase grows by about 13 minutes.

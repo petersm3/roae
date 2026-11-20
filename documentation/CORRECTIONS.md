@@ -41900,3 +41900,96 @@ appears on a row of their escrow page that names that file, and fails on the par
 
 Developed with AI assistance (Claude, Anthropic): claude-fable-5-2 re-checked the items and recommended each answer
 and its wording; the operator decided; built by an Opus lane (claude-opus-5-5).
+
+## CX-37G-G — The Q-735 divisibility is machine-checked in Lean, and 2^14·3 of it a second time by families of walks (lean/SuperspaceDivisibility.lean; lean/README.md; reports/evidence/q735_two_adic/; reports/certificates/verify_all.sh; tests.py)
+
+**2026-11-20.** **Source.** Backlog Q-1127 (a Lean proof of the Q-735 divisibility, CX-37C-M) and Q-1150 (a Lean
+proof of the family count published on 2026-11-17, CX-37G-F).
+
+**What is added.** `lean/SuperspaceDivisibility.lean`, the sixteenth Lean module: one standalone file, core
+Lean 4, kernel-only, no imports. Part 1 proves that 2^21·3 divides the number of orderings that satisfy C1, C4
+and C5 and every boundary-by-distance count of them (`superCount_dvd`, `cellV2_dvd`), that 2^20 divides every
+skeleton fibre (`fibre_dvd`), and the three per-pair positional statements (`cellV1_dvd`, `cellV1_compl_dvd`,
+`cellV1_tai_dvd`). Part 2 proves the family count: for the fibre as the file models it (three bits for each of
+the 31 free slots), 2^(26 − t) divides its size whenever the class sequence has King Wen's budget
+(`gplus_fibre`); from this, 2^14·3 divides the number of orderings, every boundary count and every
+class-sequence count N(c) (`superCount_dvd_families`, `cellV2_dvd_families`, `censusC_dvd_families`). In a
+fibre that is not empty, exactly 2^7 of the 2^53 choices do nothing, so the choices give exactly 2^46
+translations (`ident_exact`, `moves_exact`). 2^21·3 also divides every N(c), by the route of Part 1
+(`censusC_dvd`). `lean/README.md` gains a section at the end of the file; the q735 README
+gains five dated notes and three table rows; `reports/evidence/q735_two_adic/` gains the census pair
+`LeanClosureCensus.lean.in` and `lean_closure_census.py` and the record
+`EXPECTED_TOKENS_LEAN_CLOSURE.txt`.
+
+**Scope, as the texts state it.** Lean proves these statements for the counts defined in the Lean file. It
+does not read the n = 31 atlas or any solver output, so that the atlas's tables hold these counts is not
+machine-checked. The divisibility statements say "divides", not "exactly"; of the statements named here, the
+only exact counts are `ident_exact` and `moves_exact` (2^7 and 2^46, in a fibre that is not empty). The file
+proves other exact counts on the way: `family_exact` (2^(46 − r) members in the family of a fibre that is not
+empty, r the rank of the conditions on a move), `ident_exact_cond`, and the controls of §44 and §45. The per-fibre statements of Part 2 are
+about slot fillings, not about orderings; the three 2^14·3 theorems and N(c) do count orderings. Not in
+Lean: the per-fibre bound 33 − t of the hand proof; that the conditions on a move are needed and not only
+enough; that 2^(26 − t) is the largest such power of two for any fibre; kernel cells.
+
+**The second proof and what it uses.** The three 2^14·3 theorems state less than the 2^21·3 theorems. What
+they add is a proof by counting families. A census, shipped with its recorded output and run as a documented
+command, lists every constant that 14 theorems of Part 2 use, by the place of its declaration in the file: 0
+of 29 named definitions of characters, twisted sums, the transform and the packed table, 0 constants declared
+in §3 and §9–§12, and no Part 1 definition outside a list of 57 that the census holds (the 29 do not name
+every transform; `PR` is the instance, and two probe roots show the list of 57 catching it). The first form of
+the census had only the list of 29; an outside review by Codex (gpt-6-astra) found that it did not name `PR`,
+and the list of 57 and the probes were added before landing. Under six theorems proved by the route of Part 1
+it finds 25 of those definitions and 167 such constants. The families proofs do use 135 constants that Part 1
+keeps in the sections of its Steps 2 to 5 (finite sums and slot book-keeping), and they use Step 1 and Step 6.
+The census judges the definitions of Part 1 only. It does not examine the definitions of Part 2 itself, among
+them a dot product over F_2 (`F2Count.dot`); an outside review by Codex (gpt-6-astra) pointed out this limit
+before landing, and the README and the q735 notes state it.
+The census is not a leg of `verify_all.sh`.
+
+**Dated notes; nothing reworded.** In `reports/evidence/q735_two_adic/README.md`: after the header, after the
+"Why this number?" paragraph, and under the §4 bullets "Proved, by free actions" and "Not formalised in Lean".
+Each of these four says that "not formalised in Lean" was true when written. A fifth note, in §6, says what
+the two census files are, and three rows for the new files join the §6 table. The status line, the 2026-11-17 text and every
+pinned sentence stay word for word. CX-37G-F's sentence "The proof is a hand proof and is not formalised in
+Lean" was true on 2026-11-17 and stays. In `reports/TR12_QUERY_PROGRAM.md` (v1.45): a dated note after §12's
+v1.42 note, which also says which pairs "the 3 complement pairs" means, and a revision row; the v1.42 note
+and its row stay as written.
+
+**Counts that follow the new module.** `reports/certificates/verify_all.sh`: `LEAN_FILES_MIN` 16 (was 15),
+`LEAN_CENSUS_CONSTANTS_MIN` 2660 (was 1500; 1,500 + 1,160, measured on the build tree before it was committed; the landing chain checks
+`LEAN_AXIOM_CENSUS_CONSTANTS=2660` in its run of `verify_all.sh` on this commit), the source census's module
+floor 16. The section added to `lean/README.md` gives sixteen modules, 594 `#print axioms` directives (196
+before) and 2,660 census constants; `reports/METHODS.md` gains a dated note (sixteen modules, 2,660
+constants), and so does `CLAUDE.md` (sixteen modules). `documentation/CLAIM_TO_ARTIFACT.md` row 13 says
+sixteen modules and 2,660 constants, and its Status column is re-cited to a run of `verify_all.sh` with Lean
+on this commit; the record of the 2026-11-15 run stays in the cell as the superseded one.
+`CLAUDE.md`: the `reports/evidence/**/*.py` count is 29 (was 28).
+
+**Not changed.** No published figure, count of orderings, digest of an existing data file, verdict or canonical
+sha changes. Theorem items 1–3 of the q735 README's §1 stand as published. The other fifteen Lean modules are
+byte for byte as before.
+
+**Who.** The Lean proofs are by Fable lanes of this project (claude-fable-5-2). Part 1 was read by a second
+Fable lane, and Part 2 by two, each rebuilding the file from a clean copy with probes of its own; their
+fixes (wording of two comments, a stronger census, mutants pinned to the place where they must fail) are
+applied. Fable's pre-publication read fitted the wording to the public files. These are checks by AI model
+lanes of this project, not independent examination. The batch is HISTORY.md batch Q1150-LEAN.
+
+**Tests.** `TestSuperspaceDivisibilityLean` pins the statement lines of the theorems named above, the nine
+definitions restated from `KingWen.lean`, the absence of `import`, the 398 `#print axioms` lines with no primed
+name, and the public wording (the scope sentences are present, withdrawn phrases are absent, a paragraph that
+names the Lean file beside the atlas says "does not read" or "not machine-checked", and a 2^21 V1 sentence about
+complement pairs names the self-reverse pairs, with the five older paragraphs that do not listed as exempt in
+the test); it also pins the count notes, the TR-12 note and row, and row 13's re-cite. The checks of the
+definitions, statement lines, directives and wording each have mutants that must fail; the ledger, count-note
+and row 13 pins have none. A run-attribution check reads the CX entry and the HISTORY section: a sentence
+that quotes a `verify_all.sh` line (or the 1,160 figure) and says it was measured on this commit or this tree
+must say that the landing chain checks it, and every line quoted must be one of the five the chain checks; it
+has three mutants that must fail and a control that must pass. `TestQ735TwoAdicEvidence` lists the three new files and pins the five dated notes.
+`TestQ1150ClosureCensus` runs the census decider on an empty census output and on mutants that must fail, and on
+a census output built from the Lean file's own lines that must pass; it checks that the template's roots and
+definitions are the decider's, and pins the recorded verdict and the figures quoted from it. The Lean legs
+themselves run wherever `verify_all.sh` runs with Lean.
+
+Developed with AI assistance (Claude, Anthropic): claude-fable-5-2 wrote and read the Lean file and the census;
+claude-opus-5-5 assembled the landing.

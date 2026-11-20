@@ -320,7 +320,7 @@ measured with `git log --diff-filter=A --format=%ad --date=short -1 -- <path>`:
   `reports/certificates/verify_all.sh` §3d, beside the Lake project's second executable
   `scripts/lratcheck/MainPad.lean` (`lratcheck_padded`; `Main.lean` unchanged). Untrusted preprocessing
   the checker judges (a defect can only cause a rejection), tested on its own in `tests.py`.
-- **`reports/evidence/**/*.py`** (**28** files; was 27 before 2026-11-17, CX-37G-F; under `c8screen/`, `f1/`, `f5/`, `f11/`, `qoy1_q992/`,
+- **`reports/evidence/**/*.py`** (**29** files; was 28 before 2026-11-20, CX-37G-G; was 27 before 2026-11-17, CX-37G-F; under `c8screen/`, `f1/`, `f5/`, `f11/`, `qoy1_q992/`,
   `r11/`, `q374_se_replicates/`, `reports/evidence/q7_witnesses/`, `reports/evidence/q735_two_adic/` and `reports/evidence/tr12/`) — evidence instruments shipped and frozen
   alongside the results they produced. ⚠ **[CORRECTED 2026-09-04 — this read
   "11 files under `f1/`, `f5/`, `f11/`, `r11/`" and BOTH halves were stale.**
@@ -388,7 +388,7 @@ modules + README; every file is inventoried in `lean/README.md` and checked inde
 `reports/certificates/verify_all.sh`. The one-file wording here was written 2026-07-03 when `lean/`
 held exactly one file; the second and third landed 2026-07-04 and it is now fifteen
 (`PruneReprFC.lean`, the repr(k) prune-safety theorem, landed 2026-08-15, took it to
-thirteen; `SatEncodingFidelity.lean` landed 2026-08-31 and took it to fourteen; `CompilerCorrectness.lean` arrived on `main` with the `v4-query-program` merge `a19682b2` on 2026-09-04 and takes it to fifteen —
+thirteen; `SatEncodingFidelity.lean` landed 2026-08-31 and took it to fourteen; `CompilerCorrectness.lean` arrived on `main` with the `v4-query-program` merge `a19682b2` on 2026-09-04 and takes it to fifteen; `SuperspaceDivisibility.lean` landed 2026-11-20 and takes it to sixteen (CX-37G-G) —
 `git ls-files 'lean/*.lean' | wc -l`, agreeing with `lean/README.md`). Per-module is
 the RIGHT structure for Lean and is not to be consolidated: compile cost is PER FILE. The landed
 kernel-`decide` `PruneGInvariance.lean` peaks at ~4.13 GB (lean/README.md, re-measured 2026-08-21; this said ~3.9 GB until 2026-11-03, Codex F12-019#3) (an earlier revision of this sentence
