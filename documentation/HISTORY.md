@@ -12982,3 +12982,12 @@ line number in either file moves. Both sets of reproductions were run again on t
 - No count, value, witness, figure or verdict changed. `TestBatchQ1155MachineChecked` holds the wording and checks the
   archived witness from the Lean definitions with King Wen as the control. Swept by an Opus lane; ruled and drafted by
   Fable (claude-fable-5-2).
+
+## 2026-11-21 — batch Q1155: two table rows repaired
+
+- **What changed (CX-37G-N).** A bare bar in a table cell starts a new cell. TR-12's v1.32 revision row (|SUPER|) and
+  DEVELOPMENT.md's benchmark pre-flight row (one pgrep command with the pattern solve, a bar, bench) each rendered
+  with extra cells. TR-12's bars are now escaped. The pre-flight row now gives two pgrep commands, one per word, which
+  make the same check with no bar, and a dated note says why. A third such row is in the frozen c8screen
+  pre-registration and is left as it is.
+- No count, figure or verdict changed. `TestBatchQ1155TableShape` holds the repair. Built in an Opus lane.

@@ -73821,6 +73821,84 @@ class TestBatchQ1155MachineChecked(unittest.TestCase):
         self.assertEqual(h.count("\n## 2026-11-21 — batch Q1155: three \"machine-checked\" claims"), 1)
 
 
+class TestBatchQ1155TableShape(unittest.TestCase):
+    """Batch Q1155 (CX-37G-N): every markdown table row in reports/ and documentation/ has the cell count its
+    separator row declares, except one row of the frozen c8screen pre-registration, which is sha256-pinned and is
+    not edited. The scan is the table-shape rule (fenced blocks skipped; a block is a table only after its |---|
+    separator; an escaped bar is not a cell boundary), with the standard library only. TR-12's v1.32 row escapes
+    |SUPER|; DEVELOPMENT.md's pre-flight row gives two bar-free pgrep commands, and keeps TestBatchG7c's F12-008#6
+    pin (no escaped-bar pattern). Red on the parent tree (1deaaa2a): three malformed rows.
+    Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    FROZEN = "reports/evidence/c8screen/PREREGISTRATION.md"
+    FROZEN_ROW = (FROZEN, 170)
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _malformed(self):
+        unesc = lambda s: len(re.findall(r"(?<!\\)\|", s))
+        sep = re.compile(r"^\|[\s:\-|]+\|$")
+        bad, total = [], 0
+        for sub in ("reports", "documentation"):
+            for path in sorted(os.path.join(dp, f) for dp, _, fs in os.walk(os.path.join(self.ROOT, sub)) for f in fs if f.endswith(".md")):
+                fence, hdr = False, None
+                for i, l in enumerate(self._r(os.path.relpath(path, self.ROOT)).split("\n")):
+                    st = l.strip()
+                    if st.startswith("```"):
+                        fence, hdr = not fence, None
+                        continue
+                    if fence:
+                        continue
+                    if not (st.startswith("|") and st.endswith("|")):
+                        hdr = None
+                        continue
+                    if sep.match(st):
+                        hdr = unesc(st)
+                        continue
+                    if hdr is None:
+                        continue
+                    total += 1
+                    if unesc(st) != hdr:
+                        bad.append((os.path.relpath(path, self.ROOT).replace(os.sep, "/"), i + 1))
+        return bad, total
+
+    def test_q1155_only_the_frozen_row_is_malformed(self):
+        bad, total = self._malformed()
+        self.assertGreater(total, 4000, "precondition: the scan sees the corpus's tables")
+        self.assertEqual(bad, [self.FROZEN_ROW])
+
+    def test_q1155_frozen_preregistration_is_unedited(self):
+        sums = self._r("reports/evidence/c8screen/SHA256SUMS")
+        pinned = [l.split()[0] for l in sums.split("\n") if l.endswith("  PREREGISTRATION.md")]
+        self.assertEqual(len(pinned), 1)
+        with open(os.path.join(self.ROOT, self.FROZEN), "rb") as fh:
+            self.assertEqual(hashlib.sha256(fh.read()).hexdigest(), pinned[0])
+
+    def test_q1155_scan_can_fail(self):
+        unesc = lambda s: len(re.findall(r"(?<!\\)\|", s))
+        self.assertEqual(unesc("| 1 | see |C15| here |"), 5)
+        self.assertEqual(unesc("| 1 | see \\|C15\\| here |"), 3)
+
+    def test_q1155_repaired_rows(self):
+        t = self._r("reports/TR12_QUERY_PROGRAM.md")
+        v132 = [l for l in t.split("\n") if l.startswith("| v1.32 | 2026-10-17 |")]
+        self.assertEqual(len(v132), 1)
+        self.assertIn("approximate; \\|SUPER\\| is written ≈ beside the exact integer;", v132[0])
+        d = self._r("documentation/DEVELOPMENT.md")
+        row = [l for l in d.split("\n") if l.startswith("| **Pre-flight: no stale processes** |")]
+        self.assertEqual(len(row), 1)
+        self.assertIn("`pgrep -af solve` and `pgrep -af bench` must both return empty ⚠ *(corrected 2026-11-21, CX-37G-N:", row[0])
+        self.assertNotIn('pgrep -af "solve', row[0])
+        self.assertIn("(2026-11-04, CX-36N-C, Codex final review F12-008#6)", row[0])
+
+    def test_q1155_ledger_and_history_entries(self):
+        c = self._r("documentation/CORRECTIONS.md")
+        self.assertEqual(c.count("\n## CX-37G-N — "), 1)
+        self.assertEqual(self._r("documentation/HISTORY.md").count("\n## 2026-11-21 — batch Q1155: two table rows repaired\n"), 1)
+
+
 if __name__ == "__main__":
     # Q-1032 (Q-1048 group 6): a FULL run (no test named on the command line) takes the cross-worktree
     # heavy-gate lock that doc_gates.sh, tr12_repro_gate.sh --stamp and correction_marker_inventory.sh take

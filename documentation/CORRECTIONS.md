@@ -42032,3 +42032,28 @@ on the parent tree.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 swept the claims and built the change;
 claude-fable-5-2 ruled the three sites and drafted the replacement text.
+
+## CX-37G-N — two published table rows split into extra cells by a bare bar (reports/TR12_QUERY_PROGRAM.md; documentation/DEVELOPMENT.md; tests.py)
+
+**2026-11-21.** **Source.** The markdown table-shape check (every row of a table must have the cell count its separator
+row declares) found three rows with too many cells in the public tree (backlog Q-1155). A bar inside a table cell
+starts a new cell, even inside a code span, unless it is escaped with a backslash.
+
+- **TR-12, the v1.32 revision row.** The notation |SUPER| split the row into five cells where the table has three. Its
+  two bars are now escaped, so the row renders as written; its words are not changed.
+- **DEVELOPMENT.md, the pre-flight row of the Phase 1 benchmark protocol.** The row gave one command,
+  `pgrep -af` with the pattern solve, a bar, bench. Until CX-36N-C (2026-11-04) the source carried a backslash before
+  the bar; CX-36N-C took it out, because in pgrep's extended regex an escaped bar matches a literal bar (Codex final
+  review F12-008#6). The bare bar then split the row into three cells where the table has two. The row now gives two
+  commands, `pgrep -af solve` and `pgrep -af bench`, which make the same check with no bar, and a dated note says why.
+
+**Not changed.** The third row, `reports/evidence/c8screen/PREREGISTRATION.md` line 170, is in a frozen
+pre-registration: its sha256 is pinned in that directory's `SHA256SUMS` and on PREREGISTRATION_ESCROW.md, so it is
+not edited and still renders with extra cells. No count, figure or verdict changed; the pre-flight check is the same
+check, given as two commands.
+
+**Tests.** `TestBatchQ1155TableShape` repeats the table-shape scan over `reports/` and `documentation/` with the
+standard library and requires the frozen row to be the only malformed one, checks that the frozen file still matches
+its pinned sha256, and checks the two repaired rows. It fails on the parent tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 found the rows in a backlog audit and built the change.

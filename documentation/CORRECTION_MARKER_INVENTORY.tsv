@@ -201,6 +201,7 @@ documentation/DEVELOPMENT.md	178	ledger-link	CORRECTION	n/a	-	not-a-marker	7ff63
 documentation/DEVELOPMENT.md	735	narration	now reads	1	-	reviewed:ordinary-present-tense-prose;not-a-correction-note	cdb2a142c870
 documentation/DEVELOPMENT.md	755	narration	now reads	2	-	reviewed:the-dated-note-is-what-says-the-rest-of-the-row-predates-the-Q-317-change	bb11bb8bf16c
 documentation/DEVELOPMENT.md	1043	marker	CORRECTED	1	-	reviewed:text-already-says-size-equals-stored-size	8c79421519c1
+documentation/DEVELOPMENT.md	1093	marker	Corrected	1	-	reviewed:dated-note-CX-37G-N;the-row-already-gives-the-two-commands	ee93901727cd
 documentation/DEVELOPMENT.md	1195	marker	Corrected	1	-	reviewed:text-already-separates-count-matching-and-set-matching-K	d4dcb7a62cd6
 documentation/DEVELOPMENT.md	1272	ledger-link	CORRECTION	n/a	-	not-a-marker	9d2b26a1da33
 documentation/DEVELOPMENT.md	1503	marker	CORRECTED	2	-	reviewed:sentence-above-still-says-proc-self-exe;the-marker-carries-the-fix-and-pre-fix-WARN-path	79ba53ed0166
