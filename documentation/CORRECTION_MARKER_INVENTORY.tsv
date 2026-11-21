@@ -109,7 +109,7 @@ documentation/CITATIONS.md	31	marker	CORRECTED	1	-	reviewed:sentence-already-att
 documentation/CITATIONS.md	108	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	c179c688913d
 documentation/CITATIONS.md	127	marker	CORRECTED	1	-	reviewed:line-already-says-orientation-is-definitional	e08aff1054e0
 documentation/CITATIONS.md	161	marker	WITHDRAWN	2	-	reviewed:the-withdrawn-3.3e37-figure-is-still-printed-in-the-sentence	92a4e556aa0f
-documentation/CITATIONS.md	168	ledger-link	CORRECTION	n/a	-	not-a-marker	b806e5941d97
+documentation/CITATIONS.md	168	ledger-link	CORRECTION	n/a	-	not-a-marker	84dc5a524f71
 documentation/CITATIONS.md	303	ledger-link	CORRECTION	n/a	-	not-a-marker	5007156e1b11
 documentation/CITATIONS.md	403	marker	CORRECTED	3	CITATION LINE GATE,GATE 2c	gate-anchored	c3aa04002a63
 documentation/CITATIONS.md	521	marker	CORRECTED	1	-	reviewed:framing-already-names-the-self-reverse-subgroup	5914e3df6f6a
@@ -771,6 +771,7 @@ reports/TR12_QUERY_PROGRAM.md	2630	marker	Corrected	1	-	reviewed:text-already-sa
 reports/TR12_QUERY_PROGRAM.md	2657	ledger-link	CORRECTION	n/a	-	not-a-marker	bf86a36d3823
 reports/TR12_QUERY_PROGRAM.md	2666	marker	Corrected	1	-	reviewed:cell-already-says-no-battery-run-took-the-digests	8f4153493d43
 reports/TR12_QUERY_PROGRAM.md	2667	ledger-link	CORRECTION	n/a	-	not-a-marker	57190d4b7b96
+reports/TR12_QUERY_PROGRAM.md	2699	marker	Corrected	1	-	reviewed:dated-note-CX-37G-M;the-cell-already-gives-the-SAT-witnessed-grade	cfb09f31467f
 reports/TR12_QUERY_PROGRAM.md	2711	marker	Corrected	1	-	reviewed:cell-already-scopes-the-container-count-to-t	6854b73d97ab
 reports/TR12_QUERY_PROGRAM.md	2713	marker	Corrected	1	-	reviewed:cell-already-says-bound-from-below	6e1226b0918f
 reports/TR12_QUERY_PROGRAM.md	2735	marker	Withdrawn	1	-	reviewed:sentence-already-lists-the-figure-as-withdrawn	ceefbb4faa97

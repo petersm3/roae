@@ -62511,7 +62511,7 @@ class TestBatchQ1056(unittest.TestCase):
         # Q1049R (CX-37C-A) appended v1.38 and moved the marker; v1.37 stays the row after v1.36 either way
         # (Q-1065 appended v1.41 and moved it again)
         self.assertEqual(len(cur), 1, cur)
-        self.assertIn(cur[0], ("| v1.37 *(current)* |", "| v1.38 *(current)* |", "| v1.39 *(current)* |", "| v1.40 *(current)* |", "| v1.41 *(current)* |", "| v1.42 *(current)* |", "| v1.43 *(current)* |", "| v1.44 *(current)* |", "| v1.45 *(current)* |"))  # Q-1113 (CX-37C-G) appended v1.39; v1.40: Q-1120 (CX-37C-J); v1.41: Q-1065 (CX-37C-L); v1.42: Q-1128 (CX-37C-M); v1.43: Q-1134 (CX-37C-V); v1.44: cloud sweep B7 (Q-1140)
+        self.assertIn(cur[0], ("| v1.37 *(current)* |", "| v1.38 *(current)* |", "| v1.39 *(current)* |", "| v1.40 *(current)* |", "| v1.41 *(current)* |", "| v1.42 *(current)* |", "| v1.43 *(current)* |", "| v1.44 *(current)* |", "| v1.45 *(current)* |", "| v1.46 *(current)* |"))  # Q-1113 (CX-37C-G) appended v1.39; v1.40: Q-1120 (CX-37C-J); v1.41: Q-1065 (CX-37C-L); v1.42: Q-1128 (CX-37C-M); v1.43: Q-1134 (CX-37C-V); v1.44: cloud sweep B7 (Q-1140); v1.46: Q-1155 (CX-37G-M)
         self.assertRegex(t, r"\| v1\.37(?: \*\(current\)\*)? \| 2026-11-05 \| \*\*Two items of §10, this report's DONE-contract section")
         self.assertIn("| v1.36 | 2026-11-01 |", t)
         self.assertNotIn("| v1.36 *(current)* |", t)
@@ -68154,7 +68154,11 @@ class TestSuperspaceDivisibilityLean(unittest.TestCase):
                         "appended to the v1.42 line, nothing before it changed")
         cur = [l for l in t.split("\n") if re.match(r"\| v[\d.]+ \*\(current\)\* \|", l)]
         self.assertEqual(len(cur), 1)
-        self.assertIn("machine-checked in Lean (backlog Q-1127 and Q-1150, %s).**" % cx, cur[0])
+        # Q-1155 (CX-37G-M) appended v1.46 and moved the marker, so the v1.45 row is found with or without it.
+        r45 = [l for l in t.split("\n") if l.startswith(("| v1.45 *(current)* | 2026-11-20 |", "| v1.45 | 2026-11-20 |"))]
+        self.assertEqual(len(r45), 1)
+        self.assertIn("machine-checked in Lean (backlog Q-1127 and Q-1150, %s).**" % cx, r45[0])
+        self.assertTrue(cur[0] == r45[0] or cur[0].startswith("| v1.46 *(current)* | 2026-11-21 |"), cur[0][:60])
         self.assertTrue(t.endswith(cur[0] + "\n"), "the current row is the last line")
 
     def _row13(self):
@@ -73666,6 +73670,155 @@ class TestBatchQ1140Operator(unittest.TestCase):
 for _k in sorted(k for k in os.environ if k.startswith("SOLVE_")):
     sys.stderr.write("tests.py: ignoring inherited %s\n" % _k)
     del os.environ[_k]
+
+
+class TestBatchQ1155MachineChecked(unittest.TestCase):
+    """Batch Q1155 (CX-37G-M): three public "machine-checked" claims given the grade of their backing or the name of
+    their Lean theorem (backlog Q-1155; ruled by Fable, FABLE_MACHINE_CHECKED_RULING). CITATIONS.md's 30-pair tally
+    is a program check; TR-12's wrap-d5 witness is SAT-witnessed (one explicit ordering); TR-6's two values name
+    within_multiset_general and boundary_budget_general. The witness check re-derives C1, C2, C4, C5, C3 and the wrap
+    distance from lean/KingWen.lean's definitions with the standard library only (nothing from solve.py, sat.py or
+    verify.py), with King Wen as the positive control and a swapped ordering as the negative one.
+    Red on the parent tree (1deaaa2a): none of the new wording is there. Developed with AI assistance (Claude,
+    Anthropic): claude-opus-5-5; text drafted by claude-fable-5-2."""
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    CIT = "documentation/CITATIONS.md"
+    T12 = "reports/TR12_QUERY_PROGRAM.md"
+    T6 = "reports/TR6_PARITY_SKELETON.md"
+    WIT = "reports/evidence/sat_witness_models/sat_witness_wrapd5.out"
+    KW = [63, 0, 17, 34, 23, 58, 2, 16, 55, 59, 7, 56, 61, 47, 4, 8,
+          25, 38, 3, 48, 41, 37, 32, 1, 57, 39, 33, 30, 18, 45, 28, 14,
+          60, 15, 40, 5, 53, 43, 20, 10, 35, 49, 31, 62, 24, 6, 26, 22,
+          29, 46, 9, 36, 52, 11, 13, 44, 54, 27, 50, 19, 51, 12, 21, 42]
+    CIT_NEW = ("counted twice (張行成: 重用一卦): 12 + 6 + 6 + 3 + 3 = 30 = 28 + 2, checked against 朱震's member lists by a "
+               "Python script of this project that is not in the public tree (a program check, not a formal proof). "
+               "The complement-related weight classes")
+    T12_NEW = ("| scoped-sample (the absence); witness existence SAT-witnessed: one explicit ordering, checked by this "
+               "project's programs, not by Lean or a certificate checker ⚠ *(corrected 2026-11-21, CX-37G-M: this cell "
+               "read \"witness existence machine-checked\")* | `./solve --verify-wrap-parity` (the absence); "
+               "`sat.py --witness wrap-d5`, archived output `reports/evidence/sat_witness_models/sat_witness_wrapd5.out` "
+               "(the witness) |")
+    T6_NEW = ("   True values (machine-checked in lean/TrigramTheorems.lean: `within_multiset_general` for every C1 "
+              "ordering, `boundary_budget_general` for every C1+C5 ordering; summing exactly to C5's multiset): "
+              "within-pair **{2:12, 4:12, 6:8}** (was")
+    CX311 = ("CX-311 (2026-10-08), §2, says the 30 對 tally was \"(machine-checked)\". That meant a Python check of 朱震's "
+             "member lists against this project's reversal map, by a script that is not in the public tree. It was not "
+             "a Lean proof or a checked certificate. CX-311 is not reworded.")
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    # --- the Lean definitions (lean/KingWen.lean), in plain Python ---
+    @staticmethod
+    def _pc6(n):
+        return bin(n & 63).count("1")
+
+    @staticmethod
+    def _rev6(n):
+        return int(format(n, "06b")[::-1], 2)
+
+    def _partner(self, h):
+        return h ^ 63 if self._rev6(h) == h else self._rev6(h)
+
+    def _transitions(self, l):
+        return [self._pc6(a ^ b) for a, b in zip(l, l[1:])]
+
+    def _props(self, l):
+        t = self._transitions(l)
+        pos = {}
+        for i, h in enumerate(l):
+            pos.setdefault(h, i)                 # List.findIdx: the first index
+        pos = {h: pos.get(h, len(l)) for h in range(64)}   # findIdx of an absent value is the length
+        return {
+            "perm": sorted(l) == list(range(64)),
+            "c1": all(l[2 * i + 1] == self._partner(l[2 * i]) for i in range(32)),
+            "c2": t.count(5) == 0,
+            "c4": l[0] == 63 and l[1] == 0,
+            "c5": {d: t.count(d) for d in range(7)} == {0: 0, 1: 2, 2: 20, 3: 13, 4: 19, 5: 0, 6: 9},
+            "c3x64": sum(abs(pos[h] - pos[h ^ 63]) for h in range(64)),
+            "wrap": self._pc6(l[-1] ^ l[0]),
+        }
+
+    def _witness(self):
+        lines = [x for x in self._r(self.WIT).split("\n") if x.startswith("WITNESS: [")]
+        self.assertEqual(len(lines), 1, "precondition: one WITNESS line in the archived output")
+        self.assertIn("WITNESS_RESULT=WITNESS", self._r(self.WIT).split("\n"))
+        return [int(x) for x in lines[0][len("WITNESS: ["):].rstrip("]").split(",")]
+
+    def test_q1155_archived_wrapd5_witness_checks_from_the_lean_definitions(self):
+        w = self._witness()
+        self.assertEqual(len(w), 64)
+        p = self._props(w)
+        self.assertTrue(p["perm"] and p["c1"] and p["c2"] and p["c4"] and p["c5"], p)
+        self.assertEqual(p["c3x64"], 752)
+        self.assertLessEqual(p["c3x64"], 776)
+        self.assertEqual(p["wrap"], 5)
+
+    def test_q1155_witness_check_controls(self):
+        k = self._props(self.KW)
+        self.assertTrue(k["perm"] and k["c1"] and k["c2"] and k["c4"] and k["c5"], k)
+        self.assertEqual((k["c3x64"], k["wrap"]), (776, 3), "King Wen: C3 = 776 exactly (kw_c3_exactly_776), wrap 3")
+        w = self._witness()
+        bad = list(w)
+        bad[2], bad[4] = bad[4], bad[2]          # breaks C1 (and the difference wave)
+        b = self._props(bad)
+        self.assertTrue(b["perm"])
+        self.assertFalse(b["c1"] and b["c5"], "the check must refuse a swapped ordering")
+        dup = list(w)
+        dup[5] = dup[6]
+        self.assertFalse(self._props(dup)["perm"], "the check must refuse a non-permutation")
+
+    def test_q1155_new_wording_present_once(self):
+        for rel, frag in ((self.CIT, self.CIT_NEW), (self.T12, self.T12_NEW), (self.T6, self.T6_NEW)):
+            with self.subTest(file=rel):
+                self.assertEqual(self._r(rel).count(frag), 1)
+
+    def test_q1155_old_wording_only_in_the_dated_note(self):
+        self.assertNotIn("counted twice (張行成: 重用一卦), machine-checked.", self._r(self.CIT))
+        t = self._r(self.T12)
+        for line in t.split("\n"):
+            if "witness existence machine-checked" in line:
+                with self.subTest(line=line[:40]):
+                    if line.startswith("| TR-7 | d5-wrap mass"):
+                        self.assertIn("CX-37G-M: this cell read \"witness existence machine-checked\")*", line)
+                        self.assertEqual(line.count("witness existence machine-checked"), 1)
+                    else:   # only this batch's revision row may quote it
+                        self.assertTrue(line.startswith("| v1.46"), line[:60])
+        self.assertNotIn("   True values (machine-checked, summing exactly", self._r(self.T6))
+
+    def test_q1155_the_named_theorems_exist(self):
+        lean = self._r("lean/TrigramTheorems.lean")
+        for name in ("within_multiset_general", "boundary_budget_general"):
+            with self.subTest(theorem=name):
+                self.assertRegex(lean, r"(?m)^theorem %s \(l : List Nat\) \(hperm : l\.Perm \(List\.range 64\)\)" % name)
+        self.assertTrue(os.path.isfile(os.path.join(self.ROOT, self.WIT)))
+
+    def test_q1155_revision_rows(self):
+        for rel, cur, prev in ((self.T12, "| v1.46 *(current)* | 2026-11-21 |", "| v1.45 | 2026-11-20 |"),
+                               (self.T6, "| v1.20 *(current)* | 2026-11-21 |", "| v1.19 | 2026-11-14 |")):
+            with self.subTest(file=rel):
+                t = self._r(rel)
+                rows = [l for l in t.split("\n") if l.startswith("| v")]
+                self.assertEqual(sum("*(current)*" in l.split("|")[1] for l in rows), 1, rel)
+                last = [l for l in rows if l.startswith(cur)]
+                if not last:   # a later batch moved the marker on
+                    last = [l for l in rows if l.startswith(cur.replace(" *(current)*", ""))]
+                self.assertEqual(len(last), 1, rel)
+                self.assertIn("Q-1155", last[0])
+                self.assertIn("CX-37G-M", last[0])
+                self.assertEqual(t.count("\n" + prev), 1, rel)
+
+    def test_q1155_ledger_and_history_entries(self):
+        c = self._r("documentation/CORRECTIONS.md")
+        self.assertEqual(c.count("\n## CX-37G-M — "), 1)
+        entry = c.split("\n## CX-37G-M — ", 1)[1].split("\n## ", 1)[0]
+        self.assertEqual(entry.count(self.CX311), 1, "the CX-311 scope sentence")
+        cx311 = c.split("\n## CX-311 — ", 1)[1].split("\n## ", 1)[0]
+        self.assertIn("with two counted twice (machine-checked). Whether the count is 邵雍's or 李挺之's is stated as", cx311,
+                      "CX-311 is append-only and keeps its words")
+        h = self._r("documentation/HISTORY.md")
+        self.assertEqual(h.count("\n## 2026-11-21 — batch Q1155: three \"machine-checked\" claims"), 1)
 
 
 if __name__ == "__main__":

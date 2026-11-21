@@ -12970,3 +12970,15 @@ line number in either file moves. Both sets of reproductions were run again on t
   revision row. Row 13 is re-cited to a run of `verify_all.sh` with Lean on this commit. No published figure changes. The Lean file and
   its reads are by Fable lanes of this project; these are checks by AI model lanes, not independent
   examination.
+
+## 2026-11-21 — batch Q1155: three "machine-checked" claims given their real grade or their theorem
+
+- **What changed (CX-37G-M).** CITATIONS.md's 邵雍 entry called the 30 對 tally "machine-checked"; it was checked by
+  a Python script of this project that is not public, and the entry now says so and gives the sum. TR-12's ledger
+  called the wrap-d5 witness "machine-checked"; it is one explicit ordering checked by this project's programs, and
+  the cell now says "SAT-witnessed" and names the archived output (TR-12 v1.46). TR-6 called two values
+  machine-checked without naming the proof; it now names `within_multiset_general` and `boundary_budget_general`
+  (TR-6 v1.20). CX-311's "(machine-checked)" for the same tally is scoped in the new entry, not reworded.
+- No count, value, witness, figure or verdict changed. `TestBatchQ1155MachineChecked` holds the wording and checks the
+  archived witness from the Lean definitions with King Wen as the control. Swept by an Opus lane; ruled and drafted by
+  Fable (claude-fable-5-2).

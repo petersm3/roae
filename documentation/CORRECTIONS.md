@@ -41993,3 +41993,42 @@ themselves run wherever `verify_all.sh` runs with Lean.
 
 Developed with AI assistance (Claude, Anthropic): claude-fable-5-2 wrote and read the Lean file and the census;
 claude-opus-5-5 assembled the landing.
+
+## CX-37G-M — "machine-checked" for two program checks, and a Lean citation that did not name its theorems (documentation/CITATIONS.md; reports/TR12_QUERY_PROGRAM.md; reports/TR6_PARITY_SKELETON.md; tests.py)
+
+**2026-11-21.** **Source.** An Opus sweep of every public "machine-checked" claim for its named certificate or Lean
+theorem; ruled by Fable (claude-fable-5-2), who re-ran the first check and checked the second witness with a program of
+its own (backlog Q-1155). In this project "machine-checked" means a proof checked by the Lean kernel or by a proof
+certificate checker. Two sentences used it for a check made by one of this project's programs, and one used it
+correctly without naming the theorem. All three facts are true; only the labels and the citation change.
+
+**What was published, and what it says now.**
+
+- **CITATIONS.md, the 邵雍 entry (the p. 1186 tally).** It said the 30 對 count, with 泰否 and 既濟未濟 counted
+  twice, was "machine-checked". It now gives the sum, 12 + 6 + 6 + 3 + 3 = 30 = 28 + 2, and says it was checked
+  against 朱震's member lists by a Python script of this project that is not in the public tree: a program check, not
+  a formal proof. The script reads 朱震's lists only; 張行成 is quoted for the gloss 重用一卦.
+- **TR-12, the confidence ledger's TR-7 wrap row.** The grade cell said "witness existence machine-checked". No Lean
+  theorem states the wrap-d5 witness and no certificate checker reads it. The cell now says "SAT-witnessed", the grade
+  the ledger already gives the TR-2 row's witness, says the witness is one explicit ordering checked by this project's
+  programs, and quotes the old wording in a dated note. The backing cell names the archived output
+  `reports/evidence/sat_witness_models/sat_witness_wrapd5.out`. TR-12 v1.46.
+- **TR-6, §Sections item 2.** The within-pair and between-pair values were called machine-checked, but TR-6 named only
+  `lean/KingWen.lean`, and the two proofs are `within_multiset_general` and `boundary_budget_general` in
+  `lean/TrigramTheorems.lean`. The line now names them, as TR-6's header promises. TR-6 v1.20.
+
+CX-311 (2026-10-08), §2, says the 30 對 tally was "(machine-checked)". That meant a Python check of 朱震's member lists against this project's reversal map, by a script that is not in the public tree. It was not a Lean proof or a checked certificate. CX-311 is not reworded.
+
+**Not changed.** No count, value, witness, figure or verdict. The wrap row's other cells are not regraded here. A Lean
+theorem stating the witness was considered and not taken in this batch; if one is built, the cell may say
+"machine-checked" and name it.
+
+**Tests.** `TestBatchQ1155MachineChecked` holds the three new sentences and the dated note, checks that the old words
+occur only inside that note, that the two theorems exist under those names, that CX-311 is not reworded, and the two
+revision rows. It also checks the archived witness with the standard library alone, from the definitions in
+`lean/KingWen.lean`: a permutation of 0..63 satisfying C1, C2, C4 and C5, with C3 = 752 ≤ 776 and a wrap distance of
+5. King Wen is the positive control (C3 = 776, wrap 3), and an ordering with two hexagrams swapped is refused. It fails
+on the parent tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 swept the claims and built the change;
+claude-fable-5-2 ruled the three sites and drafted the replacement text.

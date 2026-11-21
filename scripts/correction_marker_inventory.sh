@@ -110,6 +110,10 @@ EXCLUDE = re.compile(r'(^|/)(CORRECTIONS|HISTORY)\.md$')
 # reported on stderr (the line changed, so its verdict must be re-read), never silently applied.
 # Values are (class, review) and the review is one token (no spaces, no tab): what was decided.
 REVIEWED = {
+    # Q-1155 (2026-11-21, CX-37G-M): the dated note in TR-12's TR-7 wrap ledger row quotes the old grade; the cell
+    # already reads correctly without it (SAT-witnessed, one explicit ordering, the archived output named).
+    ('reports/TR12_QUERY_PROGRAM.md', 'cfb09f31467f'):
+        ('1', 'reviewed:dated-note-CX-37G-M;the-cell-already-gives-the-SAT-witnessed-grade'),
     # Q1049R6 (2026-11-14, CX-37C-T): two dated notes in the capstone guide that quote the old wording; the
     # sentence each is appended to already reads correctly without it.
     ('reports/CAPSTONE_GUIDE.md', '4a0a9b4a4056'):
