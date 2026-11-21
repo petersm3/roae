@@ -13001,3 +13001,14 @@ line number in either file moves. Both sets of reproductions were run again on t
   account of its test missed one place the old words are allowed (the TR-12 v1.46 row) and that CX-311 was checked
   on one phrase; the test now checks CX-311 whole.
 - No count, figure or verdict changed. Found by a Codex review (OpenAI, gpt-6-astra); fixed in an Opus lane.
+
+## 2026-11-21 — batch Q1155: the table test reads a table to its end, after a second Codex review
+
+- **What changed (CX-37G-P).** The table-shape test stopped reading a table at the first line without a leading
+  bar, but GitHub shows such a line as a row and keeps the table going. The test now follows GitHub's rules for where
+  a table ends, skips every kind of code block, and also reports a table whose header is wider than its separator
+  (GitHub then shows no table). It finds 26 malformed rows and 2 tables that do not show as tables, in nine files of
+  `reports/` and `documentation/`. One is the frozen pre-registration row; the rest are named in the test and not
+  repaired here. CX-37G-O's sentence that the test "fails on any other malformed row" held only for the rows the old
+  scan read.
+- No count, figure or verdict changed. Found by a Codex review (OpenAI, gpt-6-astra); fixed in an Opus lane.

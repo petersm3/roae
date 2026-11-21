@@ -42083,3 +42083,39 @@ Q-1155). CX-37G-M and CX-37G-N stay as written; this entry corrects them.
 **Not changed.** No count, figure, witness or verdict.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 made the fixes; the findings are Codex's.
+
+## CX-37G-P — addendum to CX-37G-O: what the table test reads, and the malformed rows it now finds (tests.py)
+
+**2026-11-21.** **Source.** A second Codex review of this batch (OpenAI, gpt-6-astra), eight findings, all confirmed
+(backlog Q-1155). CX-37G-M, CX-37G-N and CX-37G-O stay as written; this entry narrows CX-37G-O.
+
+- **What CX-37G-O claimed.** It says `TestBatchQ1155TableShape` "fails on any other malformed row". That held only
+  for the rows the scan read. The scan ended a table at the first line that did not start with a bar, but on GitHub
+  such a line is one more row of the table, and the table goes on until a blank line or the start of another block.
+  Rows after such a line went unread: for example the row "C3, and G" in `documentation/PREREG_CLASSA_QUERY_SET.md`,
+  which bars inside its code spans cut to two cells. The scan also took a separator-shaped row inside a table for a
+  new table, knew only fences of three backticks, and read indented code as text.
+- **What the test reads now.** A table runs from its separator to a blank line, a line indented four columns past
+  its header, or a line that starts another block, and every line in it is a row, with or without bars. Fences of
+  backticks or tildes, of any length, and indented code are skipped; a table inside a list item is read; a header
+  with more cells than its separator is reported, since GitHub then shows no table. On 2026-11-21 the scan read the
+  same table rows as markdown-it-py's table rule in every .md file of `reports/` and `documentation/`.
+- **The count.** In `reports/` and `documentation/` the corrected scan finds 26 rows whose cell count differs from
+  their table's header, and 2 tables whose header has more cells than its separator, in nine files. One row is the
+  frozen pre-registration row. The other 25 rows and the 2 tables are named in the test (by file, kind, opening text
+  and the sha256 of the whole row) and are not repaired in this batch. Of the 25 rows, 7 have cells past the header,
+  so text is missing on the page; 3 have cells missing; 15 are lines without a leading bar that show as rows, and 11
+  of those are the broken-off ends of the three `QUERY_INVENTORY.md` rows CX-37G-O counted. Beyond the nine rows of
+  CX-37G-O, the new ones are in `reports/TR5_SYMMETRY.md`, `reports/evidence/wrap_mass_reseed/README.md` (two
+  tables whose header writes `|A−B|` with bare bars) and `documentation/PREREG_CLASSA_QUERY_SET.md`.
+- **The test's own text.** Its docstring said a line after a table shows "as one more row"; it now says which lines
+  end a table. It said the parent tree had three malformed rows beyond the pinned set; it had two, the two this batch
+  repairs. A pinned row is now matched by the sha256 of its whole text, not by its opening, so a repaired row and a
+  new malformed row with the same opening no longer pass. The check that CX-37G-N is present, dropped in the last
+  round, is back, with one for each entry of the series.
+- **Commit message.** The third commit's message says CX-37G-O "names the nine rows found and not repaired";
+  CX-37G-O counts them, and the test names them.
+
+**Not changed.** No count, figure, witness or verdict in a report; no table row edited.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 made the fixes; the findings are Codex's.

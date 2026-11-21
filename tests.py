@@ -73844,71 +73844,155 @@ class TestBatchQ1155TableShape(unittest.TestCase):
     """Batch Q1155 (CX-37G-N): table rows in reports/ and documentation/ whose cell count differs from the one their
     separator row declares. A GitHub table row shows only as many cells as its header has and drops the rest, so a
     stray bar cuts a row's text short on the rendered page.
-    What the scan reads (standard library only): a table starts at a |---| separator row whose line starts with a
-    bar; every following line that starts with a bar is a row of it, with or without a trailing bar; a line that
-    does not start with a bar ends it. Fenced blocks are skipped. An escaped bar is not a cell boundary. Not read: a
-    table whose lines do not start with a bar, a header row whose count differs from its separator's, and a
-    non-blank line with no leading bar directly after a table (GitHub shows it as one more row).
+    What the scan reads (standard library only), following GitHub's table rules: a table starts at a separator row
+    (cells of dashes, with at least one bar) whose previous line has the same number of cells; that line is the
+    header. Every following line is a row of the table, with or without a leading or trailing bar, until a blank
+    line, a line indented four or more columns past the header, or a line that begins another block (a heading, a
+    quote, a list item, a fence, a thematic break, an HTML block); so a line with no bar inside a table is a row of
+    one cell, and a separator-shaped line inside a table is a row, not a new table. A header whose cell count differs
+    from its separator's is reported too: GitHub then shows no table at all. Code fenced with ``` or ~~~ (a closing
+    fence as long as the opening one, or longer) and indented code are skipped; a table inside a list item is read.
+    An escaped bar is not a cell boundary; a bar inside a code span is one, as on GitHub. Not read: tables inside a
+    quote. A line that is one bare HTML tag (`<br>`) does not end a table here, as in markdown-it; GitHub may end it.
+    Checked 2026-11-21 against markdown-it-py 3.0 (CommonMark with its table rule) over every .md file of
+    reports/ and documentation/: the same table rows in every file, and the same result on the control's cases.
     Expected result: the frozen c8screen pre-registration row (sha256-pinned, not edited) and the KNOWN rows below,
-    which this batch does not repair; any other malformed row, or a KNOWN row that no longer is one, fails.
+    which this batch does not repair, each matched by the sha256 of its whole text; any other malformed row, or a
+    KNOWN row that no longer is one, fails.
     TR-12's v1.32 row escapes |SUPER|; DEVELOPMENT.md's pre-flight row gives two bar-free pgrep commands, and keeps
-    TestBatchG7c's F12-008#6 pin (no escaped-bar pattern). The scan's control runs the scan itself on planted text,
-    and reading rows that have no trailing bar follows a Codex review of this batch (OpenAI, gpt-6-astra; F4, F5).
-    Red on the parent tree (1deaaa2a): three malformed rows beyond the pinned set.
+    TestBatchG7c's F12-008#6 pin (no escaped-bar pattern). The scan's control runs the scan itself on planted text.
+    Reading rows that have no trailing bar (F4, F5), and reading a table on past a line with no bar, other fences
+    and indented code, a separator-shaped row and a header wider than its separator (R1-R5), follow two Codex reviews
+    of this batch (OpenAI, gpt-6-astra).
+    Red on the parent tree (1deaaa2a): two malformed rows beyond the pinned set, the two this batch repairs
+    (TR12_QUERY_PROGRAM.md's v1.32 row and DEVELOPMENT.md's pre-flight row); measured 2026-11-21 with this scan.
     Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
     ROOT = os.path.dirname(os.path.abspath(__file__))
     FROZEN = "reports/evidence/c8screen/PREREGISTRATION.md"
     FROZEN_ROW = (FROZEN, 170)
-    # Found 2026-11-19 once the scan read rows with no trailing bar; not repaired in this batch. Keyed by the
-    # row's opening text, not its line number, so an edit elsewhere in the file does not move the pin.
+    # Found 2026-11-19 by this scan and not repaired in this batch: (file, kind, opening text, sha256 of the whole
+    # stripped row, first 16 hex). Matched by the sha256, so an edit elsewhere in the file does not move a pin, and
+    # a new malformed row that only shares a pinned row's opening is not taken for it. Kinds: "excess" (cells past
+    # the header, dropped on the page), "short" (cells missing), "lazy" (a line with no leading bar, shown as a row
+    # of the table), "header" (header wider than its separator, so the table is not shown as one).
     KNOWN = (
-        ("documentation/DEVELOPMENT.md", "| `MISSING_SHARD_MERGE` |"),
-        ("documentation/LARGE_SCALE_CAMPAIGNS.md", "| `per_task_stats.csv` (one row per"),
-        ("documentation/QUERY_INVENTORY.md", "| **Q4a/c** |"),
-        ("documentation/QUERY_INVENTORY.md", "| **XA-c/d** |"),
-        ("documentation/QUERY_INVENTORY.md", "| A3.2 |"),
-        ("documentation/SEARCH_SPACE_SIZE.md", "| — distinct canonical (after ~4× orientation-dedup) |"),
-        ("documentation/SOLVE_C_CLI.md", "| `KC_SCAN_TAILCHECK` |"),
-        ("documentation/SOLVE_C_CLI.md", "| `SOLVE_PER_TASK_NODE_LIMIT` |"),
-        ("documentation/SOLVE_C_CLI.md", "| `SOLVE_FSYNC_BATCH_SIZE` |"),
+        ("reports/TR5_SYMMETRY.md", "lazy", 'the time was corrected in v2.12) a "', "456b56d92835f901"),
+        ("reports/evidence/wrap_mass_reseed/README.md", "header", "| class | replicate A (seed 20260904", "ab7eff2dd0d38080"),
+        ("reports/evidence/wrap_mass_reseed/README.md", "header", "| class | |A−B| | `se·√2` |", "3ae16fe69673987f"),
+        ("documentation/DEVELOPMENT.md", "excess", "| `MISSING_SHARD_MERGE` |", "bb11bb8bf16cd2c1"),
+        ("documentation/LARGE_SCALE_CAMPAIGNS.md", "excess", "| `per_task_stats.csv` (one row per", "e8697514c43f5bca"),
+        ("documentation/PREREG_CLASSA_QUERY_SET.md", "lazy", "theorems `twenty_four_dvd_*` prove t", "67021235000b9889"),
+        ("documentation/PREREG_CLASSA_QUERY_SET.md", "lazy", "said so until 2026-09-06 (QSET-3 fin", "79df6fef710e8c93"),
+        ("documentation/PREREG_CLASSA_QUERY_SET.md", "lazy", "per-branch counts are reported-not-g", "f1694b6643fdc9e5"),
+        ("documentation/PREREG_CLASSA_QUERY_SET.md", "excess", "| **C3, and G** |", "20abfce4d6806b41"),
+        ("documentation/QUERY_INVENTORY.md", "short", "| **Q4a/c** |", "f6d6a86e800e344e"),
+        ("documentation/QUERY_INVENTORY.md", "lazy", "C3-conditioned, and the run that wou", "9d908c12a116e51a"),
+        ("documentation/QUERY_INVENTORY.md", "lazy", "structurally (TR-11 §10(ii) v1.5). |", "4418f2043f23f011"),
+        ("documentation/QUERY_INVENTORY.md", "short", "| **XA-c/d** |", "ad3b81942bfb2034"),
+        ("documentation/QUERY_INVENTORY.md", "lazy", "*(The shortfall factor itself is **n", "0133bdcf7db01463"),
+        ("documentation/QUERY_INVENTORY.md", "lazy", "companion TR-12 draft §3 withholds i", "9f207bf85c81f99f"),
+        ("documentation/QUERY_INVENTORY.md", "lazy", "promise of the exact one is strictly", "714d26a4794d9a87"),
+        ("documentation/QUERY_INVENTORY.md", "lazy", "not a number — `documentation/HISTOR", "f8a6aff846d4f263"),
+        ("documentation/QUERY_INVENTORY.md", "lazy", "`runs/20260422_passA_10T_d64_laggard", "0cb0ee46ba5fb55e"),
+        ("documentation/QUERY_INVENTORY.md", "lazy", "audit missed it because the numeral ", "1ef363434e6c7d9b"),
+        ("documentation/QUERY_INVENTORY.md", "short", "| A3.2 |", "bbc046b639601dcc"),
+        ("documentation/QUERY_INVENTORY.md", "lazy", "prints a SHAPE). ⚠ **Access boundary", "d6e640fc4560f76d"),
+        ("documentation/QUERY_INVENTORY.md", "lazy", "not publicly readable; nothing here ", "5071e0a5a54ddfea"),
+        ("documentation/QUERY_INVENTORY.md", "lazy", "and read its output. **Independent s", "a5a8e6f4affe880b"),
+        ("documentation/SEARCH_SPACE_SIZE.md", "excess", "| — distinct canonical (after ~4× orientation-dedup) |", "1d4bec2079860e77"),
+        ("documentation/SOLVE_C_CLI.md", "excess", "| `KC_SCAN_TAILCHECK` |", "4b360b149ead2ca4"),
+        ("documentation/SOLVE_C_CLI.md", "excess", "| `SOLVE_PER_TASK_NODE_LIMIT` |", "9ff63678cabd8d65"),
+        ("documentation/SOLVE_C_CLI.md", "excess", "| `SOLVE_FSYNC_BATCH_SIZE` |", "49c882b47e19c302"),
     )
     _BAR = re.compile(r"(?<!\\)\|")
     _END_BAR = re.compile(r"(?<!\\)\|$")
-    _SEP = re.compile(r"^\|\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?$")
+    _SEP = re.compile(r"^\|?\s*:?-+:?\s*(?:(?<!\\)\|\s*:?-+:?\s*)*\|?$")
+    _FENCE = re.compile(r"^(`{3,}|~{3,})")
+    _ITEM = re.compile(r"^((?:[-+*]|\d{1,9}[.)])(?:[ \t]{1,4}|$))")
+    # what begins another block, and so ends a table: quote, heading, list item, thematic break, HTML block (types 1-6)
+    _BREAK = re.compile(
+        r"^(?:>|#{1,6}(?:\s|$)|(?:[-+*]|\d{1,9}[.)])(?:\s|$)|(?:\*[ \t]*){3,}$|(?:-[ \t]*){3,}$|(?:_[ \t]*){3,}$"
+        r"|<(?:script|pre|style|textarea)(?:\s|>|$)|<!--|<\?|<![A-Za-z]|<!\[CDATA\["
+        r"|</?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir"
+        r"|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li"
+        r"|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot"
+        r"|th|thead|title|tr|track|ul)(?:\s|/?>|$))", re.I)
 
     def _r(self, rel):
         with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
             return fh.read()
 
+    @staticmethod
+    def _indent(l):
+        n = 0
+        for ch in l:
+            if ch == " ":
+                n += 1
+            elif ch == "\t":
+                n += 4 - n % 4
+            else:
+                break
+        return n
+
     @classmethod
     def _cells(cls, st):
-        """Cells in a stripped line that starts with a bar: the pieces between unescaped bars, less the empty piece
-        after a trailing bar."""
-        parts = cls._BAR.split(st)[1:]
-        return len(parts) - 1 if cls._END_BAR.search(st) else len(parts)
+        """Cells in a stripped table line: the pieces between unescaped bars, less the empty piece before a leading
+        bar and after a trailing bar."""
+        parts = cls._BAR.split(st)
+        if st.startswith("|"):
+            parts = parts[1:]
+        if parts and cls._END_BAR.search(st):
+            parts = parts[:-1]
+        return len(parts)
 
     @classmethod
     def _scan(cls, text):
-        """[(line number, stripped row)] of malformed rows in one markdown text, and the number of rows read."""
-        bad, total, fence, hdr = [], 0, False, None
+        """[(line number, kind, stripped line)] of malformed rows (and too-wide headers) in one markdown text, and the
+        number of table rows read."""
+        bad, total = [], 0
+        fence, hdr, tind, base, prev, prevblank = None, None, 0, 0, None, True
         for i, l in enumerate(text.split("\n")):
-            st = l.strip()
-            if st.startswith("```"):
-                fence, hdr = not fence, None
-                continue
+            st, ind = l.strip(), cls._indent(l)
             if fence:
+                m = cls._FENCE.match(st)
+                if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence) and not st[len(m.group(1)):].strip():
+                    fence = None
+                prev, prevblank = None, False
                 continue
-            if not st.startswith("|"):
-                hdr = None
+            if not st:
+                hdr, prev, prevblank = None, None, True
                 continue
-            if cls._SEP.match(st):
-                hdr = cls._cells(st)
+            if ind < base and prevblank:   # a list item's content ends at a less indented line after a blank one
+                base = 0
+            if hdr is not None:
+                if ind >= tind + 4 or cls._BREAK.match(st):
+                    hdr = None
+                else:
+                    total += 1
+                    n = cls._cells(st)
+                    if n != hdr:
+                        bad.append((i + 1, "lazy" if not st.startswith("|") else ("excess" if n > hdr else "short"), st))
+                    prevblank = False
+                    continue
+            code = ind - base >= 4 and (prevblank or prev is None)   # indented code starts after a blank line or a block
+            m = cls._FENCE.match(st)
+            if m and not code and not (m.group(1)[0] == "`" and "`" in st[len(m.group(1)):]):
+                fence, hdr, prev, prevblank = m.group(1), None, None, False
                 continue
-            if hdr is None:
-                continue
-            total += 1
-            if cls._cells(st) != hdr:
-                bad.append((i + 1, st))
+            it = cls._ITEM.match(st)
+            if it and not code:
+                base = ind + len(it.group(1))
+            if prev is not None and not code and cls._BAR.search(st) and cls._SEP.match(st):
+                if cls._cells(prev[0]) == cls._cells(st):
+                    hdr, tind = cls._cells(st), prev[1]
+                    prev, prevblank = None, False
+                    continue
+                bad.append((i, "header", prev[0]))
+            prev = None if code or (cls._BREAK.match(st) and not it) else (st, ind)
+            if it:
+                rest = st[len(it.group(1)):].strip()
+                prev = (rest, ind) if rest else None
+            prevblank = False
         return bad, total
 
     def _malformed(self):
@@ -73917,19 +74001,24 @@ class TestBatchQ1155TableShape(unittest.TestCase):
             for path in sorted(os.path.join(dp, f) for dp, _, fs in os.walk(os.path.join(self.ROOT, sub)) for f in fs if f.endswith(".md")):
                 rel = os.path.relpath(path, self.ROOT).replace(os.sep, "/")
                 b, n = self._scan(self._r(rel))
-                bad += [(rel, i, st) for i, st in b]
+                bad += [(rel, i, kind, st) for i, kind, st in b]
                 total += n
         return bad, total
 
     def test_q1155_malformed_rows_are_the_frozen_row_and_the_known_rows(self):
         bad, total = self._malformed()
         self.assertGreater(total, 4000, "precondition: the scan sees the corpus's tables")
-        self.assertIn(self.FROZEN_ROW, [(rel, i) for rel, i, _ in bad])
-        rest = [(rel, st) for rel, i, st in bad if (rel, i) != self.FROZEN_ROW]
-        for rel, head in self.KNOWN:
+        self.assertIn(self.FROZEN_ROW, [(rel, i) for rel, i, _, _ in bad])
+        rest = [(rel, kind, st) for rel, i, kind, st in bad if (rel, i) != self.FROZEN_ROW]
+        key = lambda rel, kind, st: (rel, kind, hashlib.sha256(st.encode("utf-8")).hexdigest()[:16])
+        pins = {(rel, kind, sh): head for rel, kind, head, sh in self.KNOWN}
+        self.assertEqual(len(pins), len(self.KNOWN), "each KNOWN row is pinned once")
+        for rel, kind, head, sh in self.KNOWN:
             with self.subTest(known=(rel, head)):
-                self.assertEqual(sum(r == rel and st.startswith(head) for r, st in rest), 1, "a KNOWN row is still malformed")
-        unknown = [(r, st[:60]) for r, st in rest if not any(r == rel and st.startswith(head) for rel, head in self.KNOWN)]
+                hit = [st for r, k, st in rest if key(r, k, st) == (rel, kind, sh)]
+                self.assertEqual(len(hit), 1, "a KNOWN row is still malformed, exactly once")
+                self.assertTrue(hit[0].startswith(head), "the pinned row opens with its named text")
+        unknown = [(r, k, st[:60]) for r, k, st in rest if key(r, k, st) not in pins]
         self.assertEqual(unknown, [], "malformed rows outside the pinned set")
 
     def test_q1155_frozen_preregistration_is_unedited(self):
@@ -73941,6 +74030,7 @@ class TestBatchQ1155TableShape(unittest.TestCase):
 
     def test_q1155_scan_can_fail(self):
         # The control runs the scan the corpus test uses (_scan, through _malformed's own call), on planted text.
+        # Each case's expected rows were also checked with markdown-it-py's table rule (2026-11-21).
         head = "| a | b | c |\n|---|---|---|\n"
         cases = (
             ("clean", head + "| 1 | 2 | 3 |\n", []),
@@ -73954,11 +74044,23 @@ class TestBatchQ1155TableShape(unittest.TestCase):
             ("fenced block", "```\n" + head + "| 1 | 2 | 3 | 4 |\n```\n", []),
             ("no separator", "| a | b | c |\n| 1 | 2 | 3 | 4 |\n", []),
             ("blank line ends the table", head + "| 1 | 2 | 3 |\n\n| 1 | 2 | 3 | 4 |\n", []),
+            # round 3 (Codex review of the three-commit batch, R1-R5)
+            ("a line with no bar is a row, and the table goes on", head + "| 1 | 2 | 3 |\nmore text\n| 1 | 2 | 3 | 4 |\n", [4, 5]),
+            ("a heading ends the table", head + "| 1 | 2 | 3 |\n# Next\n| 1 | 2 | 3 | 4 |\n", []),
+            ("a quote ends the table", head + "| 1 | 2 | 3 |\n> note\n| 1 | 2 | 3 | 4 |\n", []),
+            ("a separator-shaped body row is a row", head + "| 1 | 2 | 3 |\n|---|---|\n| 4 | 5 | 6 |\n", [4]),
+            ("a ~~~ fence", "~~~\n" + head + "| 1 | 2 | 3 | 4 |\n~~~\n", []),
+            ("a ```` fence holding a ``` line", "````\n```\n" + head + "| 1 | 2 | 3 | 4 |\n````\n", []),
+            ("indented code", "    | a | b | c |\n    |---|---|---|\n    | 1 | 2 | 3 | 4 |\n", []),
+            ("a table in a list item", "- item\n\n    | a | b | c |\n    |---|---|---|\n    | 1 | 2 | 3 | 4 |\n", [5]),
+            ("a header wider than its separator", "| a | |x| |\n|---|---|\n| 1 | 2 |\n", [1]),
         )
         for name, text, want in cases:
             with self.subTest(case=name):
-                self.assertEqual([i for i, _ in self._scan(text)[0]], want)
+                self.assertEqual([i for i, _, _ in self._scan(text)[0]], want)
         self.assertEqual(self._scan(head + "| 1 | 2 | 3 |\n| 4 | 5 | 6\n")[1], 2, "both rows are read")
+        self.assertEqual([k for _, k, _ in self._scan(head + "| 1 | 2 | 3 | 4 |\n| 1 | 2 |\nmore\n")[0]],
+                         ["excess", "short", "lazy"], "each kind is named")
 
     def test_q1155_repaired_rows(self):
         t = self._r("reports/TR12_QUERY_PROGRAM.md")
@@ -73986,9 +74088,19 @@ class TestBatchQ1155TableShape(unittest.TestCase):
         self.assertIn("A table row shows only as many cells as the table's header has and drops the rest, so each row "
                       "was cut short", add)
         self.assertIn("found nine more malformed rows, in five files of `documentation/`", add)
-        self.assertEqual(len(self.KNOWN), 9)
-        self.assertEqual(len({rel for rel, _ in self.KNOWN}), 5)
         self.assertEqual(h.count("\n## 2026-11-21 — batch Q1155: two corrections to its own entries, after a Codex review\n"), 1)
+        # round 3 (Codex review of the three-commit batch, R8): every entry of the series is still there, once
+        for cx in ("CX-37G-M", "CX-37G-N", "CX-37G-O", "CX-37G-P"):
+            self.assertEqual(c.count("\n## %s — " % cx), 1, cx)
+        # CX-37G-P narrows CX-37G-O's account of the scan (R1) and gives the count the corrected scan finds
+        add2 = " ".join(c.split("\n## CX-37G-P — ", 1)[1].split("\n## ", 1)[0].split())
+        self.assertIn("The scan ended a table at the first line that did not start with a bar", add2)
+        self.assertIn("26 rows whose cell count differs from their table's header", add2)
+        self.assertIn("2 tables whose header has more cells than its separator", add2)
+        self.assertEqual(len(self.KNOWN), 27)
+        self.assertEqual(sum(k == "header" for _, k, _, _ in self.KNOWN), 2)
+        self.assertEqual(len({rel for rel, _, _, _ in self.KNOWN} | {self.FROZEN}), 9)
+        self.assertEqual(h.count("\n## 2026-11-21 — batch Q1155: the table test reads a table to its end, after a second Codex review\n"), 1)
 
 
 if __name__ == "__main__":
