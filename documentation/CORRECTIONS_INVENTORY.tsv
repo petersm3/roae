@@ -1435,7 +1435,7 @@ INL-37c9e781	2026-11-10	C3	corrections	inline	documentation/HISTORY_INDEX.md	267
 INL-26a6f788	2026-11-14	C3	corrected	inline	documentation/HISTORY_INDEX.md	286	| 257 | 2026-11-14 | iso | 12640 | [open](HISTORY.md#2026-11-14--batch-q1133-the-claim-to-artifact-audit-four-rows-corrected) 2026-11-14 — batch Q1133: the claim-to-artifact audit, four rows corrected |
 INL-2c4c46ce	2026-11-19	C3	correction	inline	documentation/HISTORY_INDEX.md	302	| 273 | 2026-11-19 | iso | 12886 | [open](HISTORY.md#2026-11-19--batch-q1147-o1-a-citing-note-that-its-sources-correction-left-behind) 2026-11-19 — batch Q1147-O1: a citing note that its source's correction left behind |
 INL-1c9db212	2026-11-21	C3	corrections	inline	documentation/HISTORY_INDEX.md	310	| 281 | 2026-11-21 | iso | 12995 | [open](HISTORY.md#2026-11-21--batch-q1155-two-corrections-to-its-own-entries-after-a-codex-review) 2026-11-21 — batch Q1155: two corrections to its own entries, after a Codex review |
-INL-324bcf8e	-	C3	corrections	inline	documentation/HISTORY_INDEX.md	318	| 148 | [open](HISTORY.md#missteps-and-corrections-summary) Missteps and corrections (summary) |
+INL-324bcf8e	-	C3	corrections	inline	documentation/HISTORY_INDEX.md	319	| 148 | [open](HISTORY.md#missteps-and-corrections-summary) Missteps and corrections (summary) |
 INL-50dd000	2026-09-01	C3	corrected	inline	documentation/KING_WEN_PROVENANCE.md	32	arrangement (Shaughnessy 2022, ch. 11). *(Corrected 2026-09-01: this previously described Xiping as
 INL-154b7ffc	-	C4	hedges	inline	documentation/KING_WEN_PROVENANCE.md	43	why this repository hedges whenever it refers to the sequence's age.
 INL-1b430e04	-	C3	typo	inline	documentation/KING_WEN_PROVENANCE.md	52	| **西仁村 pottery paddles** (長安, Shaanxi) | late Western Zhou at the latest — the excavator's typological date for surface finds; the numerals were incised before firing (曹瑋 2002) | Six numeral hexagrams on two paddles, surface-collected in 2001 from a kiln site since destroyed, which — read odd = yang / even = yin, with one numeral restored — give #7·8·9·10 and #63·64: two runs consecutive in the r [...truncated]
@@ -3800,6 +3800,7 @@ INL-1dbfba98	-	C3	corrections	inline	viz/viz_tr5_orbit_collapse.md	88	theory is 
 INL-34469d7c	-	C3	corrections	inline	viz/viz_tr6_parity_alternations.md	76	is claimed novel. Developed with AI assistance (Claude, Anthropic); corrections invited.*
 INL-59b1cb3	-	C3	corrected	inline	viz/viz_tr7_circular_cycle.md	63	picture, and no renderer existed; the documents were corrected to say so. CX-191.
 INL-13a1de3a	-	C3	corrections	inline	viz/viz_tr7_circular_cycle.md	75	Developed with AI assistance (Claude, Anthropic); corrections invited.*
+GIT-2acaafb8	2026-11-21	C3	corrected	git	d04f354c	-	Q-1155: the table-shape test reads a table to its end, pins rows by their whole text, and CX-37G-P narrows CX-37G-O
 GIT-272b09cf	2026-11-21	C3	corrections	git	872e294a	-	Q-1155: the table-shape scan reads rows with no trailing bar, its control runs the scan, and CX-311 is compared whole
 GIT-18283958	2026-11-04	C3	corrections	git	d08041db	-	Q-1155: two published table rows split into extra cells by a bare bar (CX-37G-N)
 GIT-eeac205	2026-11-21	C2	scope note	git	fed7744b	-	Q-1155: three "machine-checked" claims given the grade of their backing or the name of their theorem (CX-37G-M)

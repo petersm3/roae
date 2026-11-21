@@ -13012,3 +13012,14 @@ line number in either file moves. Both sets of reproductions were run again on t
   repaired here. CX-37G-O's sentence that the test "fails on any other malformed row" held only for the rows the old
   scan read.
 - No count, figure or verdict changed. Found by a Codex review (OpenAI, gpt-6-astra); fixed in an Opus lane.
+
+## 2026-11-21 — batch Q1155: the table test ends a table at a fence, after a third Codex review
+
+- **What changed (CX-37G-Q).** A fence right after a table was read as rows of the table. The test now ends the
+  table there and skips the fenced lines. No file has that shape, and the count is the same: 26 malformed rows and
+  2 tables that do not show as tables, in nine files.
+- **What the last section said too broadly.** It said the test follows GitHub's rules and skips every kind of code
+  block. That holds for the files of `reports/` and `documentation/` on 2026-11-21, and the test now names the
+  shapes it does not model. It said GitHub shows a line without a leading bar as a row and keeps the table going.
+  That holds only when the line does not begin another block, such as a heading or a quote.
+- No count, figure or verdict changed. Found by a Codex review (OpenAI, gpt-6-astra); fixed in an Opus lane.

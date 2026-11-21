@@ -42119,3 +42119,46 @@ Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 made the fixes
 **Not changed.** No count, figure, witness or verdict in a report; no table row edited.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 made the fixes; the findings are Codex's.
+
+## CX-37G-Q — addendum to CX-37G-P: a fence right after a table, and four sentences that said more than the test does (tests.py)
+
+**2026-11-21.** **Source.** A third Codex review of this batch (OpenAI, gpt-6-astra), on its fourth commit: eleven
+findings, all confirmed (backlog Q-1155). CX-37G-M to CX-37G-P and the HISTORY.md section for CX-37G-P stay as
+written; this entry narrows them.
+
+- **A fence right after a table.** The fourth commit's scan ended a table at a blank line, a deeper indent or a line
+  that begins another block, but did not treat a fence line as one. So a fence that came right after a table, and
+  the lines inside it, were read as rows of the table. The third commit's scan did not do this. The scan now ends a
+  table at a fence and skips the fenced lines. It also no longer takes a fence line indented four or more columns as
+  the closing fence, and it reads a fence that opens on a list item's own line. No file of `reports/` or
+  `documentation/` has any of these shapes: the scan gives the same 28 results before and after.
+- **"Follows GitHub's rules" and "skips every kind of code block".** The HISTORY.md section for CX-37G-P says the
+  test "follows GitHub's rules for where a table ends" and "skips every kind of code block", and the fourth commit's
+  message says the scan follows GitHub's table rules. That holds for the files of `reports/` and `documentation/`
+  as they were on 2026-11-21 (there the scan and markdown-it-py read the same table rows in every file), not for
+  every possible input. The test's docstring now names the shapes the scan does not model.
+- **"Keeps the table going".** The same section says GitHub shows a line without a leading bar "as a row and keeps
+  the table going". That is true only of a line that does not begin another block. A heading, a quote, a list item,
+  a fence or a thematic break ends the table; the test's own control cases show this for a heading, a quote and a fence.
+- **Where the new pinned rows are.** CX-37G-P says that, beyond the nine rows of CX-37G-O, "the new ones are in"
+  three files. The 11 broken-off ends of the three `QUERY_INVENTORY.md` rows are new pinned rows too, so the 18 new
+  pinned rows are in four files: those three and `documentation/QUERY_INVENTORY.md`.
+- **The four kinds.** The fourth commit's message says the control "checks each kind is named". It checked three of
+  the four (cells past the header, cells missing, a line without a leading bar), not the fourth (a header wider than
+  its separator). The control now checks all four.
+
+**Accepted residuals (2026-11-21).** The review also found input shapes on which, by its reading of GitHub's table
+parser, the scan does not read a table as GitHub does. They are left as they are: the content of an HTML block, and
+some HTML block openers; indentation measured from the header line instead of from its container; nested lists, tab
+padding and lazy lines inside list items; a fence that outlives its list item; a one-column table whose separator
+has no bar; a line that is a lone `|`; a setext heading underline taken for a table header; and non-ASCII spaces
+read as blank. One of them is in the files of `reports/` and `documentation/` as they were on 2026-11-21:
+`reports/TR7_CIRCULAR_READING.md` has a table inside a nested list item, and the scan reads its three rows as
+markdown-it-py does. The others were found in none of those files, and in every file the scan and markdown-it-py
+read the same table rows. A file that gains one of these shapes can make the test pass or fail wrongly until the
+scan models it.
+
+**Not changed.** No count, figure, witness or verdict in a report; no table row edited. The count is the same: 26
+malformed rows and 2 tables that do not show as tables, in nine files, the frozen row exempt and 27 pinned.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 made the fixes; the findings are Codex's.

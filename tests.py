@@ -73844,16 +73844,24 @@ class TestBatchQ1155TableShape(unittest.TestCase):
     """Batch Q1155 (CX-37G-N): table rows in reports/ and documentation/ whose cell count differs from the one their
     separator row declares. A GitHub table row shows only as many cells as its header has and drops the rest, so a
     stray bar cuts a row's text short on the rendered page.
-    What the scan reads (standard library only), following GitHub's table rules: a table starts at a separator row
+    What the scan reads (standard library only), following GitHub's table rules for the shapes named here: a table starts at a separator row
     (cells of dashes, with at least one bar) whose previous line has the same number of cells; that line is the
     header. Every following line is a row of the table, with or without a leading or trailing bar, until a blank
     line, a line indented four or more columns past the header, or a line that begins another block (a heading, a
     quote, a list item, a fence, a thematic break, an HTML block); so a line with no bar inside a table is a row of
     one cell, and a separator-shaped line inside a table is a row, not a new table. A header whose cell count differs
     from its separator's is reported too: GitHub then shows no table at all. Code fenced with ``` or ~~~ (a closing
-    fence as long as the opening one, or longer) and indented code are skipped; a table inside a list item is read.
+    fence as long as the opening one, or longer, and indented less than four columns) and indented code are skipped,
+    including a fence right after a table or on a list item's own line; a table inside a list item is read.
     An escaped bar is not a cell boundary; a bar inside a code span is one, as on GitHub. Not read: tables inside a
     quote. A line that is one bare HTML tag (`<br>`) does not end a table here, as in markdown-it; GitHub may end it.
+    Not modelled, and found in no file of reports/ or documentation/ on 2026-11-21: what is inside an HTML block, and
+    some HTML block openers; indentation measured from a list item's content (the scan measures it from the header
+    line); tab padding and lazy lines inside list items; a fence that outlives its list item; a one-column table with
+    no bar in its separator; a lone `|` line; a setext underline before a separator; non-ASCII spaces. Not modelled,
+    but present: nested lists and other list indentation beyond one level. reports/TR7_CIRCULAR_READING.md has a
+    table inside a nested list item (its circular-space size step), and the scan reads its three rows as
+    markdown-it-py does.
     Checked 2026-11-21 against markdown-it-py 3.0 (CommonMark with its table rule) over every .md file of
     reports/ and documentation/: the same table rows in every file, and the same result on the control's cases.
     Expected result: the frozen c8screen pre-registration row (sha256-pinned, not edited) and the KNOWN rows below,
@@ -73946,16 +73954,25 @@ class TestBatchQ1155TableShape(unittest.TestCase):
         return len(parts)
 
     @classmethod
+    def _opens_fence(cls, st):
+        """The fence marker a stripped line opens (``` or ~~~, three or more), or None. A backtick in the info string
+        of a backtick fence makes the line text, as in CommonMark."""
+        m = cls._FENCE.match(st)
+        if m and not (m.group(1)[0] == "`" and "`" in st[len(m.group(1)):]):
+            return m.group(1)
+        return None
+
+    @classmethod
     def _scan(cls, text):
         """[(line number, kind, stripped line)] of malformed rows (and too-wide headers) in one markdown text, and the
         number of table rows read."""
         bad, total = [], 0
-        fence, hdr, tind, base, prev, prevblank = None, None, 0, 0, None, True
+        fence, fbase, hdr, tind, base, prev, prevblank = None, 0, None, 0, 0, None, True
         for i, l in enumerate(text.split("\n")):
             st, ind = l.strip(), cls._indent(l)
-            if fence:
+            if fence:   # a closing fence is indented less than four columns past the fence's own container
                 m = cls._FENCE.match(st)
-                if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence) and not st[len(m.group(1)):].strip():
+                if m and ind - fbase < 4 and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence) and not st[len(m.group(1)):].strip():
                     fence = None
                 prev, prevblank = None, False
                 continue
@@ -73965,7 +73982,7 @@ class TestBatchQ1155TableShape(unittest.TestCase):
             if ind < base and prevblank:   # a list item's content ends at a less indented line after a blank one
                 base = 0
             if hdr is not None:
-                if ind >= tind + 4 or cls._BREAK.match(st):
+                if ind >= tind + 4 or cls._BREAK.match(st) or cls._opens_fence(st):   # round 4: a fence ends a table too
                     hdr = None
                 else:
                     total += 1
@@ -73975,13 +73992,17 @@ class TestBatchQ1155TableShape(unittest.TestCase):
                     prevblank = False
                     continue
             code = ind - base >= 4 and (prevblank or prev is None)   # indented code starts after a blank line or a block
-            m = cls._FENCE.match(st)
-            if m and not code and not (m.group(1)[0] == "`" and "`" in st[len(m.group(1)):]):
-                fence, hdr, prev, prevblank = m.group(1), None, None, False
+            f = None if code else cls._opens_fence(st)
+            if f:
+                fence, fbase, hdr, prev, prevblank = f, base, None, None, False
                 continue
             it = cls._ITEM.match(st)
             if it and not code:
                 base = ind + len(it.group(1))
+                f = cls._opens_fence(st[len(it.group(1)):].strip())
+                if f:   # round 4: a fence on the list item's own line
+                    fence, fbase, hdr, prev, prevblank = f, base, None, None, False
+                    continue
             if prev is not None and not code and cls._BAR.search(st) and cls._SEP.match(st):
                 if cls._cells(prev[0]) == cls._cells(st):
                     hdr, tind = cls._cells(st), prev[1]
@@ -74054,13 +74075,19 @@ class TestBatchQ1155TableShape(unittest.TestCase):
             ("indented code", "    | a | b | c |\n    |---|---|---|\n    | 1 | 2 | 3 | 4 |\n", []),
             ("a table in a list item", "- item\n\n    | a | b | c |\n    |---|---|---|\n    | 1 | 2 | 3 | 4 |\n", [5]),
             ("a header wider than its separator", "| a | |x| |\n|---|---|\n| 1 | 2 |\n", [1]),
+            # round 4 (Codex review of the four-commit batch, F1): fences next to a table or in a list item
+            ("a fence right after a table ends it", head + "| 1 | 2 | 3 |\n```\n| 1 | 2 | 3 | 4 |\n```\n", []),
+            ("a ~~~ fence right after a table ends it", head + "| 1 | 2 | 3 |\n~~~\n| 1 | 2 | 3 | 4 |\n~~~\n", []),
+            ("a fence line indented four columns does not close the fence", "```\n    ```\n" + head + "| 1 | 2 | 3 | 4 |\n```\n", []),
+            ("a fence on a list item's own line", "- ```\n  | a | b | c |\n  |---|---|---|\n  | 1 | 2 | 3 | 4 |\n  ```\n", []),
+            ("a row after the fence closes is read again", head + "| 1 | 2 | 3 |\n```\nx\n```\n| a | b |\n|---|---|\n| 1 |\n", [9]),
         )
         for name, text, want in cases:
             with self.subTest(case=name):
                 self.assertEqual([i for i, _, _ in self._scan(text)[0]], want)
         self.assertEqual(self._scan(head + "| 1 | 2 | 3 |\n| 4 | 5 | 6\n")[1], 2, "both rows are read")
-        self.assertEqual([k for _, k, _ in self._scan(head + "| 1 | 2 | 3 | 4 |\n| 1 | 2 |\nmore\n")[0]],
-                         ["excess", "short", "lazy"], "each kind is named")
+        self.assertEqual([k for _, k, _ in self._scan(head + "| 1 | 2 | 3 | 4 |\n| 1 | 2 |\nmore\n\n| a | |x| |\n|---|---|\n")[0]],
+                         ["excess", "short", "lazy", "header"], "each of the four kinds is named (round 4, F11)")
 
     def test_q1155_repaired_rows(self):
         t = self._r("reports/TR12_QUERY_PROGRAM.md")
@@ -74101,6 +74128,21 @@ class TestBatchQ1155TableShape(unittest.TestCase):
         self.assertEqual(sum(k == "header" for _, k, _, _ in self.KNOWN), 2)
         self.assertEqual(len({rel for rel, _, _, _ in self.KNOWN} | {self.FROZEN}), 9)
         self.assertEqual(h.count("\n## 2026-11-21 — batch Q1155: the table test reads a table to its end, after a second Codex review\n"), 1)
+        # round 4 (Codex review of the four-commit batch): CX-37G-Q narrows CX-37G-P and that HISTORY section (F1, F9,
+        # F10, F11) and lists the shapes left as they are; the earlier entries stay as written
+        self.assertEqual(c.count("\n## CX-37G-Q — "), 1)
+        add3 = " ".join(c.split("\n## CX-37G-Q — ", 1)[1].split("\n## ", 1)[0].split())
+        for t in ("So a fence that came right after a table, and the lines inside it, were read as rows of the table.",
+                  "That is true only of a line that does not begin another block.",
+                  "so the 18 new pinned rows are in four files",
+                  "It checked three of the four",
+                  "**Accepted residuals (2026-11-21).**"):
+            self.assertIn(t, add3)
+        self.assertEqual(18, sum(1 for rel, kind, _, _ in self.KNOWN if kind != "short" and (rel, kind) not in (
+            ("documentation/DEVELOPMENT.md", "excess"), ("documentation/LARGE_SCALE_CAMPAIGNS.md", "excess"),
+            ("documentation/SEARCH_SPACE_SIZE.md", "excess"), ("documentation/SOLVE_C_CLI.md", "excess"))),
+            "the 18 pinned rows beyond CX-37G-O's nine")
+        self.assertEqual(h.count("\n## 2026-11-21 — batch Q1155: the table test ends a table at a fence, after a third Codex review\n"), 1)
 
 
 if __name__ == "__main__":
