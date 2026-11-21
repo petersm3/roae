@@ -73705,6 +73705,16 @@ class TestBatchQ1155MachineChecked(unittest.TestCase):
              "member lists against this project's reversal map, by a script that is not in the public tree. It was not "
              "a Lean proof or a checked certificate. CX-311 is not reworded.")
 
+    CX311_SEC2 = ("**2. The 邵雍 entry.** A second 觀物外篇 tally (p. 1186) counts the reversal pairs by yang-line total;\n"
+                  "朱震 and 張行成 both attach it to 李挺之's diagram and list its members: 30 對 = the 28 reversal pairs\n"
+                  "with two counted twice (machine-checked). Whether the count is 邵雍's or 李挺之's is stated as\n"
+                  "unsettled; \"the earliest counted statement of the reversal classification we have found\" stays, as\n"
+                  "the earliest surviving statement. The two witnesses were read from transcriptions, not the scan, and\n"
+                  "the entry says so.\n")
+    # sha256 of the CX-311 entry text, from after its "## CX-311 — " heading prefix to the next "\n## ", measured on
+    # the parent tree 1deaaa2a and on this batch's tree (equal).
+    CX311_SHA256 = "6dfe79fe8cc2339e60464ecb1c699bdb34aa6eaee7dcd1719c8bd57ef7cf4c1d"
+
     def _r(self, rel):
         with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
             return fh.read()
@@ -73814,60 +73824,113 @@ class TestBatchQ1155MachineChecked(unittest.TestCase):
         self.assertEqual(c.count("\n## CX-37G-M — "), 1)
         entry = c.split("\n## CX-37G-M — ", 1)[1].split("\n## ", 1)[0]
         self.assertEqual(entry.count(self.CX311), 1, "the CX-311 scope sentence")
+        self.assertEqual(c.count("\n## CX-311 — "), 1)
         cx311 = c.split("\n## CX-311 — ", 1)[1].split("\n## ", 1)[0]
-        self.assertIn("with two counted twice (machine-checked). Whether the count is 邵雍's or 李挺之's is stated as", cx311,
-                      "CX-311 is append-only and keeps its words")
+        # CX-311 is append-only: its section 2 must be word for word what it was, and so must the whole entry
+        # (a one-phrase check let "unsettled" become "settled" unnoticed; Codex review of Q-1155, F2).
+        self.assertEqual(cx311.count(self.CX311_SEC2), 1, "CX-311 section 2, word for word")
+        self.assertEqual(hashlib.sha256(cx311.encode("utf-8")).hexdigest(), self.CX311_SHA256,
+                         "CX-311 is append-only: the entry is byte for byte the one published on 2026-10-08")
+        self.assertEqual(c.count("\n## CX-37G-O — addendum to CX-37G-M and CX-37G-N: "), 1)
+        add = " ".join(c.split("\n## CX-37G-O — ", 1)[1].split("\n## ", 1)[0].split())
+        self.assertIn("It also allows them in the TR-12 v1.46 revision row, which quotes them.", add,
+                      "the addendum names both places the test allows (Codex review of Q-1155, F1)")
+        self.assertIn("the test now holds CX-311's §2 word for word and the whole entry by its sha256", add)
         h = self._r("documentation/HISTORY.md")
         self.assertEqual(h.count("\n## 2026-11-21 — batch Q1155: three \"machine-checked\" claims"), 1)
 
 
 class TestBatchQ1155TableShape(unittest.TestCase):
-    """Batch Q1155 (CX-37G-N): every markdown table row in reports/ and documentation/ has the cell count its
-    separator row declares, except one row of the frozen c8screen pre-registration, which is sha256-pinned and is
-    not edited. The scan is the table-shape rule (fenced blocks skipped; a block is a table only after its |---|
-    separator; an escaped bar is not a cell boundary), with the standard library only. TR-12's v1.32 row escapes
-    |SUPER|; DEVELOPMENT.md's pre-flight row gives two bar-free pgrep commands, and keeps TestBatchG7c's F12-008#6
-    pin (no escaped-bar pattern). Red on the parent tree (1deaaa2a): three malformed rows.
+    """Batch Q1155 (CX-37G-N): table rows in reports/ and documentation/ whose cell count differs from the one their
+    separator row declares. A GitHub table row shows only as many cells as its header has and drops the rest, so a
+    stray bar cuts a row's text short on the rendered page.
+    What the scan reads (standard library only): a table starts at a |---| separator row whose line starts with a
+    bar; every following line that starts with a bar is a row of it, with or without a trailing bar; a line that
+    does not start with a bar ends it. Fenced blocks are skipped. An escaped bar is not a cell boundary. Not read: a
+    table whose lines do not start with a bar, a header row whose count differs from its separator's, and a
+    non-blank line with no leading bar directly after a table (GitHub shows it as one more row).
+    Expected result: the frozen c8screen pre-registration row (sha256-pinned, not edited) and the KNOWN rows below,
+    which this batch does not repair; any other malformed row, or a KNOWN row that no longer is one, fails.
+    TR-12's v1.32 row escapes |SUPER|; DEVELOPMENT.md's pre-flight row gives two bar-free pgrep commands, and keeps
+    TestBatchG7c's F12-008#6 pin (no escaped-bar pattern). The scan's control runs the scan itself on planted text,
+    and reading rows that have no trailing bar follows a Codex review of this batch (OpenAI, gpt-6-astra; F4, F5).
+    Red on the parent tree (1deaaa2a): three malformed rows beyond the pinned set.
     Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
     ROOT = os.path.dirname(os.path.abspath(__file__))
     FROZEN = "reports/evidence/c8screen/PREREGISTRATION.md"
     FROZEN_ROW = (FROZEN, 170)
+    # Found 2026-11-19 once the scan read rows with no trailing bar; not repaired in this batch. Keyed by the
+    # row's opening text, not its line number, so an edit elsewhere in the file does not move the pin.
+    KNOWN = (
+        ("documentation/DEVELOPMENT.md", "| `MISSING_SHARD_MERGE` |"),
+        ("documentation/LARGE_SCALE_CAMPAIGNS.md", "| `per_task_stats.csv` (one row per"),
+        ("documentation/QUERY_INVENTORY.md", "| **Q4a/c** |"),
+        ("documentation/QUERY_INVENTORY.md", "| **XA-c/d** |"),
+        ("documentation/QUERY_INVENTORY.md", "| A3.2 |"),
+        ("documentation/SEARCH_SPACE_SIZE.md", "| — distinct canonical (after ~4× orientation-dedup) |"),
+        ("documentation/SOLVE_C_CLI.md", "| `KC_SCAN_TAILCHECK` |"),
+        ("documentation/SOLVE_C_CLI.md", "| `SOLVE_PER_TASK_NODE_LIMIT` |"),
+        ("documentation/SOLVE_C_CLI.md", "| `SOLVE_FSYNC_BATCH_SIZE` |"),
+    )
+    _BAR = re.compile(r"(?<!\\)\|")
+    _END_BAR = re.compile(r"(?<!\\)\|$")
+    _SEP = re.compile(r"^\|\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?$")
 
     def _r(self, rel):
         with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
             return fh.read()
 
+    @classmethod
+    def _cells(cls, st):
+        """Cells in a stripped line that starts with a bar: the pieces between unescaped bars, less the empty piece
+        after a trailing bar."""
+        parts = cls._BAR.split(st)[1:]
+        return len(parts) - 1 if cls._END_BAR.search(st) else len(parts)
+
+    @classmethod
+    def _scan(cls, text):
+        """[(line number, stripped row)] of malformed rows in one markdown text, and the number of rows read."""
+        bad, total, fence, hdr = [], 0, False, None
+        for i, l in enumerate(text.split("\n")):
+            st = l.strip()
+            if st.startswith("```"):
+                fence, hdr = not fence, None
+                continue
+            if fence:
+                continue
+            if not st.startswith("|"):
+                hdr = None
+                continue
+            if cls._SEP.match(st):
+                hdr = cls._cells(st)
+                continue
+            if hdr is None:
+                continue
+            total += 1
+            if cls._cells(st) != hdr:
+                bad.append((i + 1, st))
+        return bad, total
+
     def _malformed(self):
-        unesc = lambda s: len(re.findall(r"(?<!\\)\|", s))
-        sep = re.compile(r"^\|[\s:\-|]+\|$")
         bad, total = [], 0
         for sub in ("reports", "documentation"):
             for path in sorted(os.path.join(dp, f) for dp, _, fs in os.walk(os.path.join(self.ROOT, sub)) for f in fs if f.endswith(".md")):
-                fence, hdr = False, None
-                for i, l in enumerate(self._r(os.path.relpath(path, self.ROOT)).split("\n")):
-                    st = l.strip()
-                    if st.startswith("```"):
-                        fence, hdr = not fence, None
-                        continue
-                    if fence:
-                        continue
-                    if not (st.startswith("|") and st.endswith("|")):
-                        hdr = None
-                        continue
-                    if sep.match(st):
-                        hdr = unesc(st)
-                        continue
-                    if hdr is None:
-                        continue
-                    total += 1
-                    if unesc(st) != hdr:
-                        bad.append((os.path.relpath(path, self.ROOT).replace(os.sep, "/"), i + 1))
+                rel = os.path.relpath(path, self.ROOT).replace(os.sep, "/")
+                b, n = self._scan(self._r(rel))
+                bad += [(rel, i, st) for i, st in b]
+                total += n
         return bad, total
 
-    def test_q1155_only_the_frozen_row_is_malformed(self):
+    def test_q1155_malformed_rows_are_the_frozen_row_and_the_known_rows(self):
         bad, total = self._malformed()
         self.assertGreater(total, 4000, "precondition: the scan sees the corpus's tables")
-        self.assertEqual(bad, [self.FROZEN_ROW])
+        self.assertIn(self.FROZEN_ROW, [(rel, i) for rel, i, _ in bad])
+        rest = [(rel, st) for rel, i, st in bad if (rel, i) != self.FROZEN_ROW]
+        for rel, head in self.KNOWN:
+            with self.subTest(known=(rel, head)):
+                self.assertEqual(sum(r == rel and st.startswith(head) for r, st in rest), 1, "a KNOWN row is still malformed")
+        unknown = [(r, st[:60]) for r, st in rest if not any(r == rel and st.startswith(head) for rel, head in self.KNOWN)]
+        self.assertEqual(unknown, [], "malformed rows outside the pinned set")
 
     def test_q1155_frozen_preregistration_is_unedited(self):
         sums = self._r("reports/evidence/c8screen/SHA256SUMS")
@@ -73877,9 +73940,25 @@ class TestBatchQ1155TableShape(unittest.TestCase):
             self.assertEqual(hashlib.sha256(fh.read()).hexdigest(), pinned[0])
 
     def test_q1155_scan_can_fail(self):
-        unesc = lambda s: len(re.findall(r"(?<!\\)\|", s))
-        self.assertEqual(unesc("| 1 | see |C15| here |"), 5)
-        self.assertEqual(unesc("| 1 | see \\|C15\\| here |"), 3)
+        # The control runs the scan the corpus test uses (_scan, through _malformed's own call), on planted text.
+        head = "| a | b | c |\n|---|---|---|\n"
+        cases = (
+            ("clean", head + "| 1 | 2 | 3 |\n", []),
+            ("bare bar", head + "| 1 | 2 | see |C15| here |\n", [3]),
+            ("escaped bar", head + "| 1 | 2 | see \\|C15\\| here |\n", []),
+            ("bar in a code span", head + "| 1 | 2 | `pgrep -af \"solve|bench\"` |\n", [3]),
+            ("no trailing bar, right count", head + "| 1 | 2 | 3\n", []),
+            ("no trailing bar, a cell too many", head + "| 1 | 2 | 3 | *(note)*\n", [3]),
+            ("after a row with no trailing bar", head + "| 1 | 2 | 3\n| 1 | 2 | 3 | 4 |\n", [4]),
+            ("cells missing", head + "| 1 | 2 |\n", [3]),
+            ("fenced block", "```\n" + head + "| 1 | 2 | 3 | 4 |\n```\n", []),
+            ("no separator", "| a | b | c |\n| 1 | 2 | 3 | 4 |\n", []),
+            ("blank line ends the table", head + "| 1 | 2 | 3 |\n\n| 1 | 2 | 3 | 4 |\n", []),
+        )
+        for name, text, want in cases:
+            with self.subTest(case=name):
+                self.assertEqual([i for i, _ in self._scan(text)[0]], want)
+        self.assertEqual(self._scan(head + "| 1 | 2 | 3 |\n| 4 | 5 | 6\n")[1], 2, "both rows are read")
 
     def test_q1155_repaired_rows(self):
         t = self._r("reports/TR12_QUERY_PROGRAM.md")
@@ -73892,11 +73971,24 @@ class TestBatchQ1155TableShape(unittest.TestCase):
         self.assertIn("`pgrep -af solve` and `pgrep -af bench` must both return empty ⚠ *(corrected 2026-11-21, CX-37G-N:", row[0])
         self.assertNotIn('pgrep -af "solve', row[0])
         self.assertIn("(2026-11-04, CX-36N-C, Codex final review F12-008#6)", row[0])
+        # A row with more cells than its header is cut short, not shown with extra cells (GFM drops the excess;
+        # Codex review of Q-1155, F3).
+        self.assertIn("so the rendered row ended in the middle of the command.", row[0])
+        self.assertNotIn("one cell too many", row[0])
 
     def test_q1155_ledger_and_history_entries(self):
         c = self._r("documentation/CORRECTIONS.md")
-        self.assertEqual(c.count("\n## CX-37G-N — "), 1)
-        self.assertEqual(self._r("documentation/HISTORY.md").count("\n## 2026-11-21 — batch Q1155: two table rows repaired\n"), 1)
+        h = self._r("documentation/HISTORY.md")
+        self.assertEqual(h.count("\n## 2026-11-21 — batch Q1155: two table rows repaired\n"), 1)
+        # CX-37G-N and its HISTORY section stay as written (append-only); CX-37G-O and a later section correct them:
+        # the rows were cut short, not widened (GFM drops a row's excess cells; Codex review of Q-1155, F3).
+        add = " ".join(c.split("\n## CX-37G-O — ", 1)[1].split("\n## ", 1)[0].split())
+        self.assertIn("A table row shows only as many cells as the table's header has and drops the rest, so each row "
+                      "was cut short", add)
+        self.assertIn("found nine more malformed rows, in five files of `documentation/`", add)
+        self.assertEqual(len(self.KNOWN), 9)
+        self.assertEqual(len({rel for rel, _ in self.KNOWN}), 5)
+        self.assertEqual(h.count("\n## 2026-11-21 — batch Q1155: two corrections to its own entries, after a Codex review\n"), 1)
 
 
 if __name__ == "__main__":

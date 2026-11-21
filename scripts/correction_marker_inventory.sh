@@ -112,7 +112,7 @@ EXCLUDE = re.compile(r'(^|/)(CORRECTIONS|HISTORY)\.md$')
 REVIEWED = {
     # Q-1155 (2026-11-21, CX-37G-N): the dated note in DEVELOPMENT.md's pre-flight row says why the one pgrep
     # command became two; the row already reads correctly without it (two bar-free commands, the same check).
-    ('documentation/DEVELOPMENT.md', 'ee93901727cd'):
+    ('documentation/DEVELOPMENT.md', '6c62fe5e11b1'):
         ('1', 'reviewed:dated-note-CX-37G-N;the-row-already-gives-the-two-commands'),
     # Q-1155 (2026-11-21, CX-37G-M): the dated note in TR-12's TR-7 wrap ledger row quotes the old grade; the cell
     # already reads correctly without it (SAT-witnessed, one explicit ordering, the archived output named).

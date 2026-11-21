@@ -12991,3 +12991,13 @@ line number in either file moves. Both sets of reproductions were run again on t
   make the same check with no bar, and a dated note says why. A third such row is in the frozen c8screen
   pre-registration and is left as it is.
 - No count, figure or verdict changed. `TestBatchQ1155TableShape` holds the repair. Built in an Opus lane.
+
+## 2026-11-21 — batch Q1155: two corrections to its own entries, after a Codex review
+
+- **What changed (CX-37G-O).** The two table rows repaired under CX-37G-N, and the frozen row left as it is, did not
+  render with extra cells, as that entry and the section above say: a table row shows only the header's number of
+  cells, so each was cut short. DEVELOPMENT.md's dated note now says so. The table-shape test now reads rows with no
+  trailing bar, and found nine more malformed rows, named in the test and not repaired in this batch. CX-37G-M's
+  account of its test missed one place the old words are allowed (the TR-12 v1.46 row) and that CX-311 was checked
+  on one phrase; the test now checks CX-311 whole.
+- No count, figure or verdict changed. Found by a Codex review (OpenAI, gpt-6-astra); fixed in an Opus lane.

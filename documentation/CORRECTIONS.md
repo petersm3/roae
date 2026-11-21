@@ -42057,3 +42057,29 @@ standard library and requires the frozen row to be the only malformed one, check
 its pinned sha256, and checks the two repaired rows. It fails on the parent tree.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 found the rows in a backlog audit and built the change.
+
+## CX-37G-O — addendum to CX-37G-M and CX-37G-N: the table rows were cut short, not widened; what the two tests check (documentation/DEVELOPMENT.md; tests.py)
+
+**2026-11-21.** **Source.** A Codex review of this batch (OpenAI, gpt-6-astra), seven findings, all confirmed (backlog
+Q-1155). CX-37G-M and CX-37G-N stay as written; this entry corrects them.
+
+- **How the rows rendered (CX-37G-N).** CX-37G-N says the rows were "split into extra cells" and that the frozen row
+  "still renders with extra cells". A table row shows only as many cells as the table's header has and drops the rest,
+  so each row was cut short: on the rendered page the text after the stray bar was missing. TR-12's v1.32 row ended
+  just before "SUPER"; DEVELOPMENT.md's pre-flight row ended in the middle of the command; the frozen row in
+  `reports/evidence/c8screen/PREREGISTRATION.md` still ends early. The dated note in DEVELOPMENT.md's row said "this
+  row rendered with one cell too many"; it now says the rendered row ended in the middle of the command.
+- **What the table test reads (CX-37G-N, Tests).** The scan ended a table at the first row without a trailing bar, so
+  a malformed row of that form, and the rest of its table, went unread; and the test meant to show the scan can fail
+  never ran it. The scan now reads every row that starts with a bar, with or without a trailing bar, and counts
+  cells; the control runs the scan itself on planted rows. Reading those rows found nine more malformed rows, in
+  five files of `documentation/`. They are not repaired in this batch; `TestBatchQ1155TableShape` names them and
+  fails on any other malformed row.
+- **What the wording test allows (CX-37G-M, Tests).** CX-37G-M says the test "checks that the old words occur only
+  inside that note". It also allows them in the TR-12 v1.46 revision row, which quotes them. And "that CX-311 is not
+  reworded" was checked on one phrase only; the test now holds CX-311's §2 word for word and the whole entry by its
+  sha256.
+
+**Not changed.** No count, figure, witness or verdict.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 made the fixes; the findings are Codex's.
