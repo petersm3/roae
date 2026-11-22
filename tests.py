@@ -41430,7 +41430,7 @@ class TestQ982Q983Q985Batch42(unittest.TestCase):
 
     def test_q983_w_mutant_numeric_only_extraction(self):
         src = self._src(self.RD)
-        a = src.index("    local ntot _ntrc\n    ntot=$(grep -o 'orbit-quotient C5-DP total =' <<<\"$R_OUT\" | wc -l)")   # FV2-G3b: counts labels, not lines (Q-1156: and its status)
+        a = src.index("    local ntot _ntrc _lbl\n    _lbl=$(grep -o 'orbit-quotient C5-DP total =' <<<\"$R_OUT\"); _ntrc=$?")   # FV2-G3b: counts labels, not lines (Q-1156: grep's own status, then a checked count)
         b = src.index('    [ "$R_DIG" = "$dg" ] || bad=', a)
         old = ("    tot=$(printf '%s\\n' \"$R_OUT\" | sed -nE 's/.*orbit-quotient C5-DP total = ([0-9]+).*/\\1/p')\n"
                "    local bad=\"\"\n"
@@ -72951,6 +72951,10 @@ class TestQ1156GateFixes(unittest.TestCase):
       U2-3   the stamp manifest sees the +x bit;      U2-4  two more dynamic-token shapes;
       U2-5   one line cannot be both anchor comparisons;   U2-6  an HTML tag or a guillemet after etc.;
       U2-7, U2-8, U2-9  a failed grep is not an empty or zero count.
+    Round 2 (Codex delta review of round 1, N1-N11): a marker ending inside an identifier; a non-UTF-8 line read
+    differently in the two halves; HTML/guillemet titles; an inner-space path; a ] in a link destination; a push url
+    rewritten twice; printf -- and print ( f; a log line taken for a token; two A2 comparisons on one line; a quoted
+    attribute after etc.; a failed count step.
     Every size, region and name is synthetic or assembled from pieces."""
 
     ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -72979,7 +72983,7 @@ class TestQ1156GateFixes(unittest.TestCase):
     _git = TestBatchFV2G3b._git
 
     # ---- GATE 10 in a scratch repo (both halves), as TestQ903AppendOnlyMoneyRedaction builds it ----------
-    def _g10(self, versions, working, gates=("appendonly-head", "appendonly-history")):
+    def _g10(self, versions, working, gates=("appendonly-head", "appendonly-history"), **extra_env):
         """Commit each of `versions` (bytes) as documentation/CORRECTIONS.md in turn, write `working`, run the
         real GATE 10 halves; returns {gate: (rc, out)}."""
         d = self._d()
@@ -72987,7 +72991,7 @@ class TestQ1156GateFixes(unittest.TestCase):
         os.makedirs(os.path.join(d, "scripts"))
         shutil.copy(os.path.join(self.ROOT, "scripts", "doc_gates.sh"), os.path.join(d, "scripts", "doc_gates.sh"))
         shutil.copytree(os.path.join(self.ROOT, "scripts", "doc_gates.d"), os.path.join(d, "scripts", "doc_gates.d"))
-        env = self._env(ROAE_HEAVY_LOCK_HELD="q1156")
+        env = self._env(**extra_env)
         led = os.path.join(d, "documentation", "CORRECTIONS.md")
         def git(*a):
             subprocess.run(["git", *a], cwd=d, env=env, check=True, capture_output=True)
@@ -73031,7 +73035,8 @@ class TestQ1156GateFixes(unittest.TestCase):
 
     def test_u4a3_a_formatted_section_title_is_not_a_cost_span(self):
         K = self.K
-        for t in ("`Cost control`", "**Cost control**", "\u201cCost control\u201d"):
+        for t in ("`Cost control`", "**Cost control**", "\u201cCost control\u201d",   # round 2 (N3): HTML and guillemets
+                  "<em>Cost control</em>", "\u00abCost control\u00bb", '<span title="a > b">Cost control</span>'):
             m = t.replace("Cost control", K)
             with self.subTest(title=t):
                 # positive control: the same span with no section sign before it is a cost span
@@ -73072,6 +73077,8 @@ class TestQ1156GateFixes(unittest.TestCase):
         self.assertIn("G8_RC=1", r.stdout, "positive control: an extra path fails\n" + r.stdout)
         r, _ = self._g8(("report.txt ",))
         self.assertIn("G8_RC=1", r.stdout, "a tracked name with a trailing space read as the allowed name:\n" + r.stdout)
+        r, _ = self._g8(("report.txt example/report.md",))   # round 2 (N4): a path that spells two allowed names
+        self.assertIn("G8_RC=1", r.stdout, "a path with an inner space matched a run of the allowed list:\n" + r.stdout)
         r, d = self._g8(("rogue.txt",), sort_fail=True)
         self.assertIn("sort -u", self._shimlog(d), "precondition: the failing sort was the coverage block's")
         self.assertIn("G8_RC=1", r.stdout, "a failed sort left zero paths and coverage passed:\n" + r.stdout)
@@ -73183,7 +73190,9 @@ class TestQ1156GateFixes(unittest.TestCase):
     # ---- U2-4: failopen_closure_gate.sh --------------------------------------------------------------------
     def test_u2_4_census_sees_a_printf_key_and_print_space_paren(self):
         r = self._bash("bash scripts/failopen_closure_gate.sh --selftest", timeout=1200)
-        for t in ("a variable key after a printf format is OPEN", "print (f...) with a space before the paren is OPEN"):
+        for t in ("a variable key after a printf format is OPEN", "print (f...) with a space before the paren is OPEN",
+                  "printf -- with a variable key is OPEN", "print ( f...) with a space inside the paren is OPEN",   # round 2 (N7)
+                  "a debug log line (text before %s) is not in the population"):                                    # round 2 (N8)
             self.assertIn("  [ok]   " + t, r.stdout.splitlines(), r.stdout[-3000:])
         self.assertIn("FAILOPEN_CLOSURE_SELFTEST=PASS", r.stdout, r.stdout[-2000:])
 
@@ -73259,6 +73268,110 @@ class TestQ1156GateFixes(unittest.TestCase):
         self.assertIn("orbit-quotient", self._shimlog(d), "precondition: the label count was the grep that failed")
         self.assertNotIn("BAD=[]", r.stdout, "a failed label count read as zero labels:\n" + r.stdout)
 
+    # ---- round 2 (Codex delta review of round 1: N1-N11) --------------------------------------------------
+    def test_n1_a_marker_cannot_end_inside_an_identifier(self):
+        K, C = self.K, self.C
+        self._redact("CX-2 verdict COST_NOT_PROVEN at n=9.", "CX-2 verdict %s_NOT_PROVEN at n=9." % K, False)
+        self._redact("CX-2 verdict STANDARD_NOT_PROVEN at n=9.", "CX-2 verdict %s_NOT_PROVEN at n=9." % C, False)
+        # positive controls: a cost word or a size followed by punctuation is still a span
+        self._redact("CX-2 the run took two hours; costs were low.", "CX-2 the run took two hours; %s were low." % K, True)
+        self._redact("CX-2 it ran on M8qq_v9, then.", "CX-2 it ran on %s, then." % C, True)
+
+    def test_n2_an_unchanged_non_utf8_line_is_not_lost(self):
+        v = b"CX-1 first entry.\nCX-2 an unchanged line\xff with one bad byte.\nCX-3 last entry.\n"
+        for g, (rc, out) in self._g10([v], v, LC_ALL="C.UTF-8").items():
+            self.assertEqual(rc, 0, "%s: an unchanged ledger with a non-UTF-8 line read as losing it:\n%s" % (g, out[-1500:]))
+        # positive control: deleting that line is still a loss in the history half
+        w = b"CX-1 first entry.\nCX-3 last entry.\n"
+        rc, out = self._g10([v, w], w, gates=("appendonly-history",), LC_ALL="C.UTF-8")["appendonly-history"]
+        self.assertEqual(rc, 1, "positive control:\n" + out[-1500:])
+
+    def test_n6_the_push_url_is_not_rewritten_twice(self):
+        Q = TestQ994Q995Batch47
+        Q.setUpClass()
+        try:
+            q = Q("test_q994_hook_blocks_the_stand_in_tree_and_passes_the_regenerated_one")
+            fx = q._hook_fixture()
+            repo, bare = fx["repo"], os.path.join(fx["d"], "origin.git")
+            q._git(repo, "push", "-q", "-f", "origin", "%s:refs/heads/master" % fx["bx"])
+            q._git(repo, "fetch", "-q", "origin")
+            q._git(repo, "checkout", "-q", "--detach", fx["bx"])
+            with open(os.path.join(repo, "documentation", "NOTES.md"), "a", encoding="utf-8") as fh:
+                fh.write("- batch 3 item: corrected the third figure in table D\n")
+            q._regen(repo)
+            q._git(repo, "add", "-A")
+            q._git(repo, "commit", "-qm", "Batch 3: corrections")
+            c2 = q._git(repo, "rev-parse", "HEAD")
+
+            def hook():
+                e = q._env(HK_MARK=os.path.join(fx["d"], "mark_%d.log" % random.randrange(1 << 30)), TMPDIR=fx["d"])
+                for k in ("ROAE_PREPUSH_RECORD", "ROAE_PRIVATE_DIR", "ROAE_REVIEW_QUEUE", "CITGATE_BASE"):
+                    e.pop(k, None)
+                return subprocess.run(["bash", os.path.join(repo, q.HOOK), "origin", bare], cwd=repo,
+                                      input="refs/heads/x %s refs/heads/b3new %s\n" % (c2, "0" * 40),
+                                      capture_output=True, text=True, env=e, timeout=900)
+            r = hook()
+            self.assertIn("PREPUSH_LEG_CORRECTIONS_INVENTORY=PASS", r.stdout.splitlines(), "positive control:\n" + r.stdout[-3000:])
+            # $2 is what git hands the hook after rewriting; a rule whose prefix matches it must not move it again
+            q._git(repo, "config", "url./nonexistent-q1156-destination/.insteadOf", fx["d"] + "/")
+            r = hook()
+            self.assertIn("PREPUSH_LEG_CORRECTIONS_INVENTORY=PASS", r.stdout.splitlines(),
+                          "the already-rewritten push url was rewritten again:\n" + r.stdout[-3000:])
+        finally:
+            Q.tearDownClass()
+
+    def test_n9_every_comparison_on_a_line_is_counted(self):
+        from decimal import Decimal, ROUND_HALF_UP
+        py = self._cl()
+        fn = py[py.index("def d_a_anchors("):]
+        fn = fn[:fn.index("\n\n\n")]
+        def run(out):
+            ns = {"re": re, "Decimal": Decimal, "ROUND_HALF_UP": ROUND_HALF_UP, "sys": sys, "_atlas_queries": lambda: out}
+            exec(fn, ns)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                try:
+                    ns["d_a_anchors"]()
+                    code = 0
+                except SystemExit as e:
+                    code = e.code
+            return code, buf.getvalue()
+        a3 = "wrap masses d3=0.3; max deviation 0.0246 (tol 0.0020)\n"
+        code, out = run("A2 slot32=0.1; max deviation 0.024 (tol 0.0020)\n" + a3)
+        self.assertEqual(code, 0, "positive control:\n" + out)
+        code, out = run("A2 slot32=0.1; max deviation 0.024 (tol 0.0020) ; A2 slot32=0.2; max deviation 0.040 (tol 0.0020)\n" + a3)
+        self.assertEqual(code, 3, "a second A2 comparison on the same line was dropped:\n" + out)
+
+    def test_n10_a_quoted_attribute_or_closing_guillemet_after_etc(self):
+        py = self._cl()
+        defs = "import re\n" + "\n".join(l for l in py.split("\n") if l.startswith(("SENT_END", "ABBREV", "ETC_END")))
+        fn = py[py.index("def sentence_of("):]
+        fn = fn[:fn.index("\n\n")]
+        ns = {}
+        exec(compile(defs + "\n" + fn, "claim_ledger_sentence_of", "exec"), ns)
+        for t in ('The value is 0.0415, etc. <em title="a > b">This</em> sentence cannot attribute by measurement.',
+                  "The value is 0.0415, etc. »This sentence cannot attribute by measurement.«"):
+            with self.subTest(t=t):
+                s = ns["sentence_of"]([t], 1, t.index("0.0415"))
+                self.assertNotIn("cannot attribute", s, "the premise crossed the etc. boundary: %r" % s)
+
+    def test_n11_a_failed_count_step_is_not_zero_labels(self):
+        g = self._r("scripts/reproduce_digests_gate.sh")
+        blk = self._between(g, "    local ntot", '    [ "$tot" = "$total" ] || bad=')
+        d = self._d()
+        prog = ("set -o pipefail\nf(){ local R_OUT='orbit-quotient C5-DP total = 5 ... orbit-quotient C5-DP total = 26112'"
+                " R_DIG=a dg=a nb=1 byts=1 nf=2 files=2 total=26112 tot\n%s  echo \"BAD=[$bad]\"; }\nf\n" % blk)
+        # the counting step (wc -l before round 2, grep -c . after) reads its input and exits 1 with no output
+        sd = os.path.join(d, "shim")
+        log = os.path.join(d, "shim.log")
+        self._wr(os.path.join(sd, "wc"), "#!/bin/bash\necho \"wc $*\" >> %s\ncat >/dev/null; exit 1\n" % shlex.quote(log), 0o755)
+        real = shutil.which("grep")
+        self._wr(os.path.join(sd, "grep"), "#!/bin/bash\nif [ \"$*\" = \"-c .\" ]; then echo \"grep $*\" >> %s; cat >/dev/null; exit 1; fi\nexec %s \"$@\"\n"
+                 % (shlex.quote(log), shlex.quote(real)), 0o755)
+        r = self._bash(prog, cwd=d, path_prefix=sd)
+        self.assertTrue(self._shimlog(d), "precondition: the counting step was the one that failed")
+        self.assertNotIn("BAD=[]", r.stdout, "a failed count step read as zero labels:\n" + r.stdout + r.stderr)
+
     # ---- U4a-6 and U4a-7: corrections_inventory.sh anchors (22) and (23), with mutants ------------------
     def _inv_selftest(self, src):
         d = self._d()
@@ -73270,13 +73383,17 @@ class TestQ1156GateFixes(unittest.TestCase):
         src = self._r("scripts/corrections_inventory.sh")
         ok22 = "  [ok]   a run-together tier name, a spaced region and a plural resource name take the cloud marker (3 of 3)"
         ok23 = "  [ok]   date bound to the enclosing marker (2026-09-02) past a closed, dated nested link"
+        ok24 = "  [ok]   date bound to the marker past a ] in a link destination and an escaped \\] (2026-09-02, twice)"
         r = self._bash("bash scripts/corrections_inventory.sh --selftest", timeout=900)
         self.assertIn(ok22, r.stdout.splitlines(), r.stdout[-3000:])
         self.assertIn(ok23, r.stdout.splitlines(), r.stdout[-3000:])
+        self.assertIn(ok24, r.stdout.splitlines(), r.stdout[-3000:])
         for cut, new, ok, red in (("|[Pp]remium ?SSD|[Ss]tandard ?SSD|", "|[Pp]remium SSD|[Ss]tandard SSD|", ok22,
                                    "  [FAIL] cloud redaction (Q-1156 U4a-6): want 3 markers"),
                                   ('for (bk = bn; bk >= 1 && bound == ""; bk--)', 'for (bk = bn; bk >= bn && bk >= 1 && bound == ""; bk--)',
-                                   ok23, "  [FAIL] nested dated link: got '2026-01-01', expected 2026-09-02")):
+                                   ok23, "  [FAIL] nested dated link: got '2026-01-01', expected 2026-09-02"),
+                                  ('                if (ch == "\\\\") { ci++; continue }\n', "", ok24,
+                                   "  [FAIL] bracket in a destination / escaped bracket")):
             with self.subTest(mutant=new):
                 self.assertEqual(src.count(cut), 1, "precondition: %r once" % cut)
                 r = self._inv_selftest(src.replace(cut, new))

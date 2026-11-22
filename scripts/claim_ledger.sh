@@ -201,14 +201,13 @@ def d_a_anchors():
     # neither -- one comparison line that carries both labels was counted as the A2 AND the A3 comparison.
     a2, a3, both = [], [], 0
     for l in out.split("\n"):
-        m2 = re.search(r"A2 slot32=.*?max deviation ([0-9.]+) \(tol ([0-9.]+)\)", l)
-        m3 = re.search(r"wrap masses .*?max deviation ([0-9.]+) \(tol ([0-9.]+)\)", l)
+        m2 = re.findall(r"A2 slot32=.*?max deviation ([0-9.]+) \(tol ([0-9.]+)\)", l)   # Q-1156 (N9): EVERY comparison on the line,
+        m3 = re.findall(r"wrap masses .*?max deviation ([0-9.]+) \(tol ([0-9.]+)\)", l)   # so a second A2 on one line is counted
         if m2 and m3:
             both += 1
-        elif m2:
-            a2.append(m2.groups())
-        elif m3:
-            a3.append(m3.groups())
+        else:
+            a2 += m2
+            a3 += m3
     print("A_CHECKS_WITH_TOLERANCE=%d" % (len(a2) + len(a3)))
     if len(a2) != 1 or len(a3) != 1 or both:
         print("A_ANCHORS_ERROR=expected one A2 and one A3 anchor comparison, found A2=%d A3=%d and %d line(s) with both labels" % (len(a2), len(a3), both))
@@ -588,7 +587,7 @@ def sentence_of(lines, lno, start):
 ETC_END = re.compile(r"\betc\.[*_)`\]\"”’']*$")
 # Q-1156 (U2-6, Codex gpt-6-astra Q835 U2): what may stand between "etc." and the capital that starts the next sentence --
 # white space, Markdown marks, an opening quote or guillemet, a bracket, an HTML tag (`<em>`, `<b>`) -- skipped before isupper().
-ETC_END_LEAD = re.compile(r"(?:\s|<[A-Za-z/][^<>\n]*>|[*_`~\"'(\[\u201c\u2018\u201e\u201a\u00ab\u2039])*")
+ETC_END_LEAD = re.compile(r"(?:\s|<[A-Za-z/](?:[^<>\"'\n]|\"[^\"\n]*\"|'[^'\n]*')*>|[*_`~\"'(\[\u201c\u2018\u201e\u201a\u00ab\u00bb\u2039\u203a])*")   # Q-1156 (N10): a quoted attribute may hold >; » and › open a quote too
 
 
 def check_row(r, files, cache):

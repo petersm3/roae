@@ -555,8 +555,8 @@ gate_generated() {
                || git ls-tree -r --name-only HEAD -- example/; }; } 2>/dev/null) \
     || { echo "  [FAIL] GATE 8: could not list the tracked example/ paths, so the compared set was NOT checked against them."; rc=1; }
   _g8_seen=$(printf '%s\n' "$_g8_seen" | sort -u) || { echo "  [FAIL] GATE 8: could not sort the tracked example/ paths, so the compared set was NOT checked against them."; rc=1; }; while IFS= read -r _g8_p; do [ -n "$_g8_p" ] || continue   # Q-1156 (U4a-4/5): one path per line, not word-split (a trailing space read as the allowed name), and sort's status is read
-    case " example/report.txt example/report.md example/README.md example/report.html example/hexagrams.csv example/hexagrams.json example/hexagrams.svg example/wave.dot example/wave.mid example/wave.dot.png example/wave.dot.svg " in
-      *" $_g8_p "*) ;;
+    case "$_g8_p" in   # Q-1156 (N4): each name matched whole; a path with spaces matched a run of the joined list
+      example/report.txt|example/report.md|example/README.md|example/report.html|example/hexagrams.csv|example/hexagrams.json|example/hexagrams.svg|example/wave.dot|example/wave.mid|example/wave.dot.png|example/wave.dot.svg) ;;
       *) _g8_new="$_g8_new $(printf '%q' "$_g8_p")" ;;
     esac
   done <<<"$_g8_seen"
@@ -833,16 +833,16 @@ FILL = {
 WORDS = re.compile(r"[A-Za-z]+|[0-9]+")
 HOST = re.compile(r"`?\bclaude\b`?")
 HOSTNEXT = re.compile(r"\s+(?:orchestrator|VM|host)\b")
-TITLE = re.compile(r"\u00a7[\s\"\u201c\u2018\u0027`*_~(\[]*\Z")   # Q-1156 (U4a-3): a quote, backtick or emphasis mark may open the title
+TITLE = re.compile(r"\u00a7(?:[\s\"\u201c\u2018\u0027\u00ab\u00bb\u2039\u203a\u201e\u201a`*_~(\[]|<[A-Za-z](?:[^<>\"\u0027]|\"[^\"]*\"|\u0027[^\u0027]*\u0027)*>)*\Z")   # Q-1156 (U4a-3, N3): quotes, guillemets, backticks, emphasis marks or an HTML tag may open the title
 KNUM = re.compile(r"\$\s?[0-9][0-9,.]*[KkM]?(?![A-Za-z0-9])|[0-9][0-9,.]*\s?(?:[\u00d7%]|x\b)")
 BADCH = re.compile(r"[^A-Za-z0-9\s`*_~()/,.:+\u00d7\u2013\u2014\u2248-]")
-def _gaps(cue, s, lo):   # the stretches of s[lo:] left once every cue match starting at lo or later is cut out
-    pos = lo
+def _gaps(cue, s, lo, hi=None):   # the stretches of s[lo:hi] left once every cue match inside [lo, hi] is cut out (Q-1156 N1: hi)
+    pos, hi = lo, (len(s) if hi is None else hi)
     for m in cue.finditer(s):
-        if m.start() >= lo:
+        if m.start() >= lo and m.end() <= hi:
             yield pos, max(pos, m.start())
             pos = max(pos, m.end())
-    yield pos, len(s)
+    yield pos, hi
 def span_ok(kind, t, before="", after=""):
     if not t.strip() or ANYM.search(t):
         return False
@@ -860,14 +860,14 @@ def span_ok(kind, t, before="", after=""):
                 t, host = t[:h.start()] + " " + t[h.end():], True
     # cues are matched with one character of the committed text before the span, so a name that starts
     # mid-token (after a dot or a hyphen) is not taken for a whole resource name
-    ctx = before[-1:]
-    if not (host or any(m.start() >= len(ctx) for m in cue.finditer(ctx + t))):
+    ctx, actx = before[-1:], after[:1]   # Q-1156 (N1): and one character after it, so a marker that ends inside an identifier (COST_NOT_PROVEN) has no cue
+    if not (host or any(m.start() >= len(ctx) and m.end() <= len(ctx) + len(t) for m in cue.finditer(ctx + t + actx))):
         return False
     rest = t
     if kind == K:   # a number in a cost span must be an amount or a ratio, never a neighbouring count
         rest = KNUM.sub(" ", rest)
     rest = ctx + rest
-    rest = "".join(rest[m0:m1] for m0, m1 in _gaps(cue, rest, len(ctx)))
+    rest = "".join(rest[m0:m1] for m0, m1 in _gaps(cue, rest + actx, len(ctx), len(rest)))
     if BADCH.search(rest):   # only letters, digits, white space and a short list of marks are checked words
         return False
     for x in WORDS.findall(rest):
@@ -1226,7 +1226,7 @@ _g10b_one() {
   g10b_base=$(mktemp) || { rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew"; return 1; }
   # Q-963 (batch 48): `grep -v` exits 1 when every line is blank (a legitimate empty set) and 2 when
   # the file cannot be read; only 0 and 1 may pass, and sort must succeed.
-  grep -v '^[[:space:]]*$' "$f" | sort > "$cur"
+  grep -av '^[[:space:]]*$' "$f" | sort > "$cur"   # Q-1156 (N2): -a as for the baselines, or a non-UTF-8 line present in both read as lost
   case "${PIPESTATUS[0]}:${PIPESTATUS[1]}" in [01]:0) ;; *)
     echo "  [FAIL] GATE 10b: could not read the working copy of $f, so NOTHING was checked."
     rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_curo" "$g10b_ord"; return 1;; esac
@@ -1234,7 +1234,7 @@ _g10b_one() {
   local g10b_curo g10b_ord _g10b_floor _g10b_post="" _g10b_nord=0 _g10b_npre=0
   g10b_curo=$(mktemp) || { rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_curo" "$g10b_ord"; return 1; }
   g10b_ord=$(mktemp)  || { rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_curo"; return 1; }
-  grep -v '^[[:space:]]*$' "$f" > "$g10b_curo"
+  grep -av '^[[:space:]]*$' "$f" > "$g10b_curo"
   [ "$?" -le 1 ] || { echo "  [FAIL] GATE 10b: could not read the working copy of $f, so NOTHING was checked."
     rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_curo" "$g10b_ord"; return 1; }
   _g10b_floor=$(_dg_floor)

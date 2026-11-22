@@ -1241,7 +1241,7 @@ for sha in $SHAS; do
     _ci_named=1
     _ci_dst=${2:-}; [ -n "$_ci_dst" ] || { _ci_dst=$(git -C "$ROOT" remote get-url --push --all "$1" 2>/dev/null) && [ "$(printf '%s\n' "$_ci_dst" | grep -c .)" = 1 ] || _ci_dst=""; }   # Q-1156 (U2-1): list the PUSH destination -- the URL git hands the hook as $2, else the remote's one push URL; `ls-remote <name>` lists the FETCH url, and a remote with its own pushurl bounded the range by the wrong repository
     if [ -z "$_ci_dst" ]; then _ci_nwhy="the push URL of $1 is not known (no \$2, and the remote has not exactly one push URL), so what the destination holds cannot be listed"
-    elif _ci_ls=$(GIT_TERMINAL_PROMPT=0 timeout 120 git -C "$ROOT" ls-remote -- "$_ci_dst" 2>/dev/null); then
+    elif _ci_ls=$(GIT_TERMINAL_PROMPT=0 GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="url.$_ci_dst.insteadOf" GIT_CONFIG_VALUE_0="$_ci_dst" timeout 120 git -C "$ROOT" ls-remote -- "$_ci_dst" 2>/dev/null); then   # Q-1156 (N6): $2 is already rewritten; an identity rule (the longest possible prefix) stops a second insteadOf pass
       for _b in $(printf '%s\n' "$_ci_ls" | awk 'NF >= 2 {print $1}' | sort -u); do
         git -C "$ROOT" cat-file -e "$_b^{commit}" 2>/dev/null && _ci_bases="$_ci_bases $_b"
       done

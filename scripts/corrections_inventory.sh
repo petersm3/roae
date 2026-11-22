@@ -465,7 +465,12 @@ classify() {
             }
             for (bk = bn; bk >= 1 && bound == ""; bk--) {
               bopen = bco[bk]; bclose = (bopen == "[") ? "]" : ")"; depth = 1; rest2 = substr(head, bce[bk] + 1)
-              for (ci = 1; ci <= length(rest2) && depth > 0; ci++) { ch = substr(rest2, ci, 1); if (ch == bopen) depth++; else if (ch == bclose) depth-- }
+              # Q-1156 (N5): an escaped bracket is text, and a link destination `](...)` closes nothing of the marker
+              for (ci = 1; ci <= length(rest2) && depth > 0; ci++) { ch = substr(rest2, ci, 1)
+                if (ch == "\\") { ci++; continue }
+                if (ch == bopen) depth++; else if (ch == bclose) depth--
+                if (ch == "]" && depth > 0 && substr(rest2, ci + 1, 1) == "(") { pd = 0; for (ci = ci + 1; ci <= length(rest2); ci++) { ch = substr(rest2, ci, 1); if (ch == "\\") { ci++; continue }; if (ch == "(") pd++; else if (ch == ")" && --pd == 0) break } }
+              }
               if (depth > 0) bound = bcd[bk]
             }
             if (bound != "") break
@@ -934,6 +939,22 @@ selftest() {
     echo "  [ok]   date bound to the enclosing marker (2026-09-02) past a closed, dated nested link"
   else
     echo "  [FAIL] nested dated link: got '$dout', expected 2026-09-02"
+    rc=1
+  fi
+
+  # (24) Q-1156 (N5): a `]` inside the nested link's destination, and an escaped `\]` in the marker text, close
+  #      nothing of the marker; both rows keep the marker's date.
+  local d24a d24b
+  d24a=$(printf 'inline\tX.md\t1\t%s\n' \
+    'Earlier note 2026-01-01. [CORRECTED 2026-09-02: the bound in [Audit 2026-08-01](a]b.md) is retracted.]' \
+    | classify | tail -n +2 | cut -f2)
+  d24b=$(printf 'inline\tX.md\t1\t%s\n' \
+    'Earlier note 2026-01-01. [CORRECTED 2026-09-02: the set \] in [Audit 2026-08-01](a.md) is retracted.]' \
+    | classify | tail -n +2 | cut -f2)
+  if [ "$d24a" = "2026-09-02" ] && [ "$d24b" = "2026-09-02" ]; then
+    echo "  [ok]   date bound to the marker past a ] in a link destination and an escaped \\] (2026-09-02, twice)"
+  else
+    echo "  [FAIL] bracket in a destination / escaped bracket: got '$d24a' and '$d24b', expected 2026-09-02 twice"
     rc=1
   fi
 
