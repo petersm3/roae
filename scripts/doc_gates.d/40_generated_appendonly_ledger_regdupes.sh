@@ -860,7 +860,7 @@ def span_ok(kind, t, before="", after=""):
                 t, host = t[:h.start()] + " " + t[h.end():], True
     # cues are matched with one character of the committed text before the span (a name that starts mid-token, after a dot or a hyphen, is not a whole resource name)
     ctx, actx = before[-1:], after[:1]   # Q-1156 (N1): and one character after it, so a marker that ends inside an identifier (COST_NOT_PROVEN) has no cue
-    if kind == C and actx == "_" and not re.match(r"_[A-Z0-9_]+(?![A-Za-z0-9_])", after): actx = ""   # Q-1156 round 3 (R1): a cloud name joined by `_` to a lower- or mixed-case suffix (a disk `<name>_OsDisk_1`, a key file `<size>_key`) ends at the `_`; an upper-case tail (the verdict-token shape, STANDARD_NOT_PROVEN) and every cost span keep the strict rule
+    if kind == C and actx == "_" and not re.match(r"_[A-Z0-9_]*(?![A-Za-z0-9_])", after): actx = ""   # Q-1156 round 3 (R1): a cloud name joined by `_` to a lower- or mixed-case suffix (a disk `<name>_OsDisk_1`, a key file `<size>_key`) ends at the `_`; an upper-case tail (the verdict-token shape, STANDARD_NOT_PROVEN), a `_` with no identifier after it (round 4, S1: `X_=`) and every cost span keep the strict rule
     if not (host or any(m.start() >= len(ctx) and m.end() <= len(ctx) + len(t) for m in cue.finditer(ctx + t + actx))):
         return False
     rest = t

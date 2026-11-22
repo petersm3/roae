@@ -72959,6 +72959,8 @@ class TestQ1156GateFixes(unittest.TestCase):
     section sign; ( ) ] in a link title or <destination>; an equal-prefix insteadOf tie and inherited
     GIT_CONFIG_* entries; printf formats that start the line with the key; an f-string log line; closing markup
     after etc.
+    Round 4 (Codex review of round 3, S1, S6, S7): a lone `_` after a cloud name; every GIT_CONFIG_COUNT form git
+    reads; a token line after a newline in a format or f-string.
     Every size, region and name is synthetic or assembled from pieces."""
 
     ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -73415,6 +73417,12 @@ class TestQ1156GateFixes(unittest.TestCase):
         self._redact("CX-2 verdict STANDARD_NOT_PROVEN at n=9.", "CX-2 verdict %s_NOT_PROVEN at n=9." % C, False)
         self._redact("CX-2 the cost_estimate field.", "CX-2 the %s_estimate field." % K, False)
 
+    def test_r4_s1_a_lone_underscore_after_a_cloud_span_keeps_the_strict_rule(self):
+        # round 4 (Codex S1): `X_=` has no identifier after the `_`, so the span may not end there
+        C = self.C
+        self._redact("CX-2 the key AZURE_=PASS was read.", "CX-2 the key %s_=PASS was read." % C, False)
+        self._redact("CX-2 the temp-d77_OsDisk_* orphan was removed.", "CX-2 the %s_OsDisk_* orphan was removed." % C, True)
+
     def test_r2_a_closing_tag_after_the_section_sign_is_still_a_title(self):
         K = self.K
         for t in ("<em>\u00a7</em>Cost control", "\u00a7<em></em>Cost control"):
@@ -73423,7 +73431,7 @@ class TestQ1156GateFixes(unittest.TestCase):
                              "CX-2 see %s for details." % t.replace("\u00a7", "").replace("Cost control", K), True)
                 self._redact("CX-2 see %s for details." % t, "CX-2 see %s for details." % t.replace("Cost control", K), False)
 
-    def _ci_leg(self, tie=False, inherit=False, env_entry=False):
+    def _ci_leg(self, tie=False, inherit=False, env_entry=False, count="1"):
         """The pre-push inventory leg's destination listing (from `_ci_named=0` to the end of its if), run on a
         scratch clone whose remote is an alias; prints the bases it kept and its reason."""
         g = self._r("scripts/pre_push_gate.sh")
@@ -73445,7 +73453,7 @@ class TestQ1156GateFixes(unittest.TestCase):
         self._git(repo, "remote", "add", "origin", "q1156-alias:")
         if inherit:
             self._git(repo, "config", "protocol.file.allow", "never")
-        extra = dict(GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="protocol.file.allow", GIT_CONFIG_VALUE_0="always") if env_entry else {}
+        extra = dict(GIT_CONFIG_COUNT=count, GIT_CONFIG_KEY_0="protocol.file.allow", GIT_CONFIG_VALUE_0="always") if env_entry else {}
         prog = 'set -u\nROOT=%s; _ci_bases=""; set -- origin %s\n%secho "BASES=[${_ci_bases# }] WHY=[$_ci_nwhy]"\n' % (
             shlex.quote(repo), shlex.quote(right), blk)
         r = self._bash(prog, cwd=d, **extra)
@@ -73464,6 +73472,18 @@ class TestQ1156GateFixes(unittest.TestCase):
         self.assertNotIn("BASES=[%s]" % c1, out, out)
         out, c1, c2 = self._ci_leg(inherit=True, env_entry=True)
         self.assertIn("BASES=[%s] WHY=[]" % c1, out, "an inherited GIT_CONFIG_KEY_0 entry was dropped:\n" + out)
+
+    def test_r4_s6_every_count_form_git_accepts_is_read_as_git_reads_it(self):
+        # round 4 (Codex S6): git reads GIT_CONFIG_COUNT with strtoul, so `+1`, ` 1` and `01` are the count 1
+        for c in ("+1", " 1", "01"):
+            with self.subTest(count=c):
+                out, c1, c2 = self._ci_leg(inherit=True, env_entry=True, count=c)
+                self.assertIn("BASES=[%s] WHY=[]" % c1, out, out)
+        for c in ("1 ", "0x1", "-1", "2147483648"):   # git itself refuses these; the leg says so
+            with self.subTest(count=c):
+                out, c1, c2 = self._ci_leg(inherit=True, env_entry=True, count=c)
+                self.assertNotIn("BASES=[%s]" % c1, out, out)
+                self.assertIn("git itself refuses", out, out)
 
     def test_r8_closing_markup_after_etc_ends_the_sentence(self):
         py = self._cl()
@@ -73487,7 +73507,8 @@ class TestQ1156GateFixes(unittest.TestCase):
         r = self._bash("bash scripts/failopen_closure_gate.sh --selftest", timeout=1200)
         for t in ("printf -- '%s\\n\\n', '%b\\n' and '%s done\\n' with a variable key are OPEN",
                   "a python debug line (text before {tok}) is not in the population",
-                  "counts: OPEN=11 RC0=1 ALLOWED=1 UNRUN=2 (az + abspath)"):
+                  "a line after a newline in the format or f-string starts with the key: OPEN (round 4, S7)",
+                  "counts: OPEN=13 RC0=1 ALLOWED=1 UNRUN=2 (az + abspath)"):
             self.assertIn("  [ok]   " + t, r.stdout.splitlines(), r.stdout[-3000:])
         self.assertIn("FAILOPEN_CLOSURE_SELFTEST=PASS", r.stdout, r.stdout[-2000:])
 
