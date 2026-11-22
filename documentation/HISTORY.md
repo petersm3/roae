@@ -13023,3 +13023,19 @@ line number in either file moves. Both sets of reproductions were run again on t
   shapes it does not model. It said GitHub shows a line without a leading bar as a row and keeps the table going.
   That holds only when the line does not begin another block, such as a heading or a quote.
 - No count, figure or verdict changed. Found by a Codex review (OpenAI, gpt-6-astra); fixed in an Opus lane.
+
+## 2026-11-22 — batch Q1156: GATE 10's redaction cues read whole words, and fifteen more gate fixes from Codex's delta review
+
+- **The ledger gates (CX-37G-R).** Codex (gpt-6-astra) reviewed the gate scripts that changed after the tree it had
+  reviewed before and found 16 defects; its four reads of the fix found more, each fixed or listed. GATE 10 accepted a
+  redaction that hid a verdict word such as `COST_NOT_PROVEN`, because its cost cue matched a cost stem inside any word.
+  The cue is now a closed list of whole cost words, measured against every ledger version reachable from the parent. A
+  NUL byte in an older CORRECTIONS.md version no longer empties GATE 10b's baseline. The corrections inventory redacts
+  three more spellings of cloud details and dates a nested marker by its own opener.
+- **The push path.** The pre-push inventory leg lists the URL git pushes to, not the fetch URL, and reads a
+  `GIT_CONFIG_COUNT` written as `+1`, ` 1` or `01` as git does. The stamp manifest sees the executable bit. A failed
+  grep in the verdict record's counts, the skip-pin comparison or the digest gate's label count is an error, not zero.
+  More token shapes reach the fail-open census, and a producer line with two comparisons on it is checked twice.
+- No canonical sha, count, certificate or verdict changed; every touched leg gives the same verdict on the real tree
+  before and after. `TestQ1156GateFixes` holds the fixes and fails on the parent tree. Found by Codex (gpt-6-astra);
+  triaged and built in Opus lanes.

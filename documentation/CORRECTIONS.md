@@ -42162,3 +42162,129 @@ scan models it.
 malformed rows and 2 tables that do not show as tables, in nine files, the frozen row exempt and 27 pinned.
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 made the fixes; the findings are Codex's.
+
+## CX-37G-R — sixteen findings from Codex's delta review of the ledger and push-path gates, and what its four reads of the fix found (scripts/doc_gates.d/40_generated_appendonly_ledger_regdupes.sh; scripts/corrections_inventory.sh; scripts/pre_push_gate.sh; scripts/prepush_verdict_record.sh; scripts/tr12_output_paths_gate.sh; scripts/tr12_repro_gate.sh; scripts/failopen_closure_gate.sh; scripts/claim_ledger.sh; scripts/reproduce_digests_gate.sh; tests.py)
+
+**2026-11-22.** **Source.** Codex (gpt-6-astra), a delta review of the gate scripts that changed after the tree it had
+reviewed before, units U2 and U4a of backlog Q-835: 16 findings, all confirmed in triage. Then four reads of
+the fix, one per round. The read of round 1 closed 7 of the 16, found a neighbouring shape still passing at 9, and found
+11 more defects (N1-N11), four of them brought in by the fix (N2, N6, N8, N9). The read of round 2 found 8 more (R1-R8),
+the read of round 3 found 11 (S1-S11), and the read of round 4 found three sentences that said more than the code does.
+Each was triaged in an Opus lane. Backlog Q-1156. The batch is five commits, one per round; this entry and its
+HISTORY.md section are a sixth. Every finding was reproduced before it was fixed.
+
+- **GATE 10's redaction aligner (U4a-1, U4a-2, U4a-3; N1, N2, N3; R1, R2, S1).** The cost cue matched a cost stem
+  anywhere inside a word, `_` included, and the cloud cue took any word that began `standard_`. So a redaction marker
+  could stand in for `suspended`, `COST_NOT_PROVEN`, `STANDARD_NOT_PROVEN` or the word `Costas`, and the gate accepted
+  it. The cost cue is now a closed list of whole cost words with their inflections. It covers every word the old cue
+  matched in any version of CORRECTIONS.md or HISTORY.md held by a commit reachable from this batch's parent (measured:
+  593 versions, 530 of them at the files' present paths; `git log -- <file>` lists 526, the figure in the first
+  commit's message), less identifiers and two ordinary words. The cloud cue needs a size or tier shape. Round 2 (N1):
+  the cue is read with one
+  character of the committed text on each side of the span, and only a match wholly inside the span counts, so a marker
+  that ends inside an identifier (`…_NOT_PROVEN`) has no cue. Round 3 (R1): that rule also refused two real,
+  earlier-accepted cloud redactions in HISTORY.md, a name joined by `_` to a lower- or mixed-case suffix; a cloud span
+  may end at such a `_` again, while an upper-case tail and every cost span keep the strict rule. Round 4 (S1): a `_`
+  with no identifier after it keeps the strict rule too. A section title between `§` and the span may now carry
+  backticks, bold or other emphasis, quotes, guillemets or HTML tags, opening or closing (U4a-3, N3, R2), and the
+  redaction is still refused. GATE 10b (U4a-2): GNU grep's `grep -v`, given input that holds a NUL byte, prints `binary
+  file matches`, writes nothing and exits 0. So a NUL in an older CORRECTIONS.md version emptied the baseline, and a
+  deleted line passed. The baseline reads use `-a`. Round 2 (N2): the working-copy reads use `-a` too, so an unchanged
+  line with invalid UTF-8 no longer counts as lost; the round-1 fix had made that false red.
+- **GATE 8's coverage loop (U4a-4, U4a-5, N4).** It split tracked names on white space and ignored the status of its
+  `sort`. It now reads one path per line, checks `sort -u`, prints a refused path with `%q`, and matches each allowed
+  name exactly (round 2: a path with an inner space matched two adjacent names of the joined list).
+- **The corrections inventory's classifier (U4a-6, U4a-7, N5, R3).** Three commit-subject spellings of cloud details (a
+  run-together tier name, a spaced region, a plural resource name) were not redacted; they are now. The bare E- and
+  P-number part of U4a-6 was rejected in triage and is not changed. A closed, dated link nested inside a correction
+  marker gave the row the link's date; every opener is now a candidate, from the innermost outwards. Round 2 (N5): the
+  depth scan skips a backslash-escaped character and a link destination, so `](a]b.md)` and `\]` no longer close the
+  marker. Round 3 (R3): a link's destination and title are parsed, so a bracket or parenthesis inside a title or an
+  angle-bracket destination neither closes the marker nor lets the skip run past the marker's own `]`.
+- **The pre-push inventory leg (U2-1, N6, R4, R5, S6).** It listed the remote's fetch URL, so a stale-inventory commit
+  present only on the fetch side was excluded and the leg passed. It now lists `$2`, the URL git gives the hook; with no
+  `$2`, the push URL when there is exactly one, and otherwise it FAILs with a reason. Round 2 (N6): `$2` is already
+  rewritten by `insteadOf`, and a second rule could rewrite it again; `ls-remote` now runs with an identity rule for
+  that URL. Round 3: that rule is added after any `GIT_CONFIG_COUNT` entries the push inherited, not over them (R5), and
+  when an equally long rule read earlier still wins, the leg fails with that reason instead of listing another
+  repository (R4). Because the leg now reads the inherited `GIT_CONFIG_COUNT`, the push hook's inherited-variable guard
+  (Q-949) lists it among the variables a push keeps; this was found at the rebuild, when that guard's test failed
+  without it. Round 4 (S6): git reads `GIT_CONFIG_COUNT` with strtoul, so `+1`, ` 1`, `01` and `-0` are counts to git;
+  the round-3 leg refused `+1`, ` 1` and `-0`. It now reads those forms as git does, and a count git itself refuses
+  fails the leg with that reason.
+- **The skip-pin, stamp and output-path checks (U2-2, U2-3, U2-7).** `tr12_output_paths_gate.sh` paired a backtick
+  across two list items; its span loop now breaks at every paragraph start the shared Markdown reader reports. The stamp
+  manifest ignored the executable bit; it now carries one `(+x)` row per executable member, so a `chmod -x` is named
+  (the live manifest grows from 44 to 69 rows). A failing grep in the skip-pin comparison dropped a row and the
+  comparison said it matched; each grep's status is now read, and a failure returns 2 with a reason.
+- **The fail-open census (U2-4, N7, N8, R6, R7, S7).** Two dynamic-token shapes were not seen (`printf '%s\n' "$tok=$v"`
+  and `print (f"…")`). Round 2: `printf --` and a space inside the parenthesis are seen too (N7), and a debug line with
+  text before `%s` no longer enters the population (N8, a false red the round-1 fix made). Round 3 (R6, R7): the rule is
+  that the printed line starts with the key, so `%s\n\n`, `%b\n` and `%s done\n` formats are seen, and an f-string with
+  text before the key is not. Round 4 (S7, a regression of round 3): the key may also follow a `\n`, when no quote
+  character comes before it in the string.
+- **The claim ledger (U2-5, N9, U2-6, N10, R8).** One producer line that carried both anchor labels counted as both
+  comparisons. The round-1 fix matched once per line, so a second A2 comparison on the same line went unchecked (N9, a
+  fail-open that the parent did not have). Each label is now matched at every place on each line, and a line that
+  carries both counts as neither and is reported. `etc.` followed by an HTML tag, a guillemet or a quote now ends the
+  sentence (U2-6; round 2, N10: a tag with a quoted `>` in an attribute, and `»`), and so does `etc.` inside closing
+  markup such as `<em>etc.</em>` or `«etc.»` (round 3, R8).
+- **Counts that read a failed grep as zero (U2-8, U2-9, N11).** In `prepush_verdict_record.sh` a failed `FAILED` count
+  became 0, an input to `LEG_TESTS=PASS`; all three counts now read grep's status, and above 1 is an error with no
+  record. In `reproduce_digests_gate.sh` a failed label count read as no labels; the grep runs on its own and the count
+  is a second, checked step (N11: a failing `wc` looked like grep's no-match status).
+
+**Real tree.** Each touched leg was run on the parent and on each commit, one at a time. GATE 8 and GATE 10 were run on
+the parent and on the top. Every leg gave the same verdict on both, and GATE 8 (eleven files byte-identical) and GATE 10
+passed on both. The only output changes: the stamp-guard selftest's manifest line (44 to 69 rows), four more anchor
+lines in `corrections_inventory.sh --selftest` (and its row counts, which grow with the history and the ledgers), and
+the new fixture lines of the fail-open census's selftest (OPEN 4 to 13). `corrections_inventory.sh --check` printed
+MATCH on each commit before its inventory was regenerated, so the classifier changes move no committed row. The
+fail-open census of the real scripts is the same on the parent and on each commit (71 scripts, 62 run, none open).
+`pre_push_gate.sh` was not run on the real tree, because that means a real push; its leg is covered by the tests on a
+fixture.
+
+**Accepted residuals (2026-11-22).** Codex's read of the third round found eleven more input shapes (S1-S11). The fourth
+round fixed three (S1, S6, S7, above). The other eight are left as they are. Each is either a gate that can refuse a
+valid input or an input shape no real file uses. GATE 10's section-title rule knows only a literal `§`, not the HTML
+entity, and can run across a closing paragraph tag, so a cost redaction in the next HTML paragraph is refused. In the
+corrections inventory, a dated token inside a link title or an angle-bracket destination can give a row the wrong date,
+and a destination and title with no space between them are read as a link. The fail-open census admits printf formats
+with a width or precision, or text after the field, that print no token, and admits a verdict word with letters after
+it; it does not see `printf '%q'`, `printf -v`, a format held in a variable, or an f-string field with a conversion or
+format spec. Codex's read of the fourth round found one more of the same kind: a token line after a `\n` is seen only
+when no quote character comes before it in the string, so `print(f"don't\n{tok}=PASS")` and `printf "don't\n%s\n"
+"$tok=$v"` are not in the census. The third round did not see them either. In the claim ledger, `etc.` before a closing
+tag with a hyphen in its name or before an HTML entity does not end the sentence. The pre-publication read found one
+more gate that can refuse a valid input: the pre-push inventory leg does not read a negative `GIT_CONFIG_COUNT` that
+git's strtoul wraps round to a valid count (`-18446744073709551615` is the count 1 to git 2.43.0); the leg fails, and
+its reason says the form is one git accepts. No real file is known to meet any of these. Three forms the census does not
+see are used in real scripts (`printf -v`, `printf '%q'` and a format held in a variable), but on no line that prints a
+verdict token: those lines set a variable, quote a value or write a fixture file. A grep of this batch's top tree finds
+the other shapes nowhere outside this batch's own test and selftest inputs.
+
+**Sibling search.** For U4a-1 the population is measured, not sampled: the closed word list covers every word the old
+cue matched in the ledger versions counted above, and Codex's own audit of 571 ledger versions (every ref of the clone
+it read) found no real cost word and no tier token that the narrowed cues miss. For U4a-2 and N2, all four `grep -v`
+reads in `_g10b_one` (two baseline, two working copy) now use `-a`. For the unchecked-grep-status class (U2-7, U2-8,
+U2-9, N11): `git grep -nE '\$\((grep|[^)]*\| *grep)[^)]*-c' -- scripts/` on this tree returns 231 lines in 52 files (228
+on the parent). That command lists the command substitutions in which the text `-c` follows a `grep`, checked or not.
+It is narrower than the class: on the parent it lists none of the lines these findings are about (one counts with
+`grep -acE`, one with `wc -l`, and one is a filter whose status was ignored). Those sites were repaired. The listed
+lines were not reviewed one by one in this batch and no wider search was run, so this class is not closed.
+
+**Not changed.** No canonical sha, count, certificate, verdict, registry row or published figure.
+
+**Tests.** `TestQ1156GateFixes` (28 tests). Each plants a finding's input and requires the fixed script to refuse it, or
+to accept it where the defect was a false refusal; four of them do so by reading the gate's own selftest lines. Most
+carry a positive control or a precondition check that the plant reached the site. Measured on this batch's commits, each
+round's tests.py on the previous round's scripts: the round-1 tests fail on the parent (14 of 14; 20 failures with
+subtests), the round-2 tests on the round-1 scripts (13 failures), the round-3 tests on the round-2 scripts (8), and the
+round-4 tests on the round-3 scripts (8). On the parent, the 28 tests give 41 failures in 26 tests; the two that pass
+there test defects the fix itself had brought in (N9, R5). Each commit's tests pass on that commit. `test_q983_w`'s
+mutant anchor follows the edited `reproduce_digests_gate.sh` line.
+
+Findings by OpenAI Codex (gpt-6-astra) review; fixes by Claude. Developed with AI assistance (Claude, Anthropic):
+claude-opus-5-5 reproduced the findings and designed and built the fixes and tests; the findings are Codex's
+(gpt-6-astra), in its delta review and its four reads of the fix, triaged in Opus lanes. The pre-publication read, and
+the one residual it added, are by claude-fable-5-2.
