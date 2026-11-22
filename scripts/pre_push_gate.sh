@@ -203,7 +203,7 @@ Z40=0000000000000000000000000000000000000000
 # entry that matches nothing the scan finds also fails it, so the lists cannot go stale either way.
 # NOT COVERED, and said so here: a variable read bare (`$NAME` with no default) and never assigned
 # before the read. Under `set -u` that aborts; without it the scan cannot tell it from a local.
-PREPUSH_ENV_ALLOW="ROAE_PREPUSH_RECORD ROAE_PRIVATE_DIR ROAE_REVIEW_QUEUE TMPDIR PATH HOME _PPG_WORKER_OF _PPG_SUP_FLAG ROAE_HEAVY_LOCK ROAE_HEAVY_LOCK_HELD"   # Q-997: the two are set by this hook's own supervisor (see the end of this file); an inherited value is overwritten or fails closed. Q-1032: the heavy-gate lock's path and its held marker only order runs; neither can change a verdict
+PREPUSH_ENV_ALLOW="ROAE_PREPUSH_RECORD ROAE_PRIVATE_DIR ROAE_REVIEW_QUEUE TMPDIR PATH HOME _PPG_WORKER_OF _PPG_SUP_FLAG ROAE_HEAVY_LOCK ROAE_HEAVY_LOCK_HELD GIT_CONFIG_COUNT"   # Q-997: the two are set by this hook's own supervisor (see the end of this file); an inherited value is overwritten or fails closed. Q-1032: the heavy-gate lock's path and its held marker only order runs; neither can change a verdict. Q-1156 round 3 (R5): GIT_CONFIG_COUNT is git's own count of the config entries the push inherited; the inventory leg reads it to add its identity rule after them, and git reads it on every call
 PREPUSH_ENV_DROP="CITGATE_BASE SHAFAIL_SEEN TOK _DG_WORKER_OF _DG_SUP_FLAG"   # Q-997: doc_gates.sh's supervisor sets both for its own worker
 # Named entries: inherited reads whose names belong to no family below.
 PREPUSH_ENV_REFUSE_NAMES="ATLAS BATTERY BIN SOLVE MUT ROWRC C2C3_FORCE_STDLIB CMI_KEEP_LOGS REDACT_FILE
@@ -1241,7 +1241,11 @@ for sha in $SHAS; do
     _ci_named=1
     _ci_dst=${2:-}; [ -n "$_ci_dst" ] || { _ci_dst=$(git -C "$ROOT" remote get-url --push --all "$1" 2>/dev/null) && [ "$(printf '%s\n' "$_ci_dst" | grep -c .)" = 1 ] || _ci_dst=""; }   # Q-1156 (U2-1): list the PUSH destination -- the URL git hands the hook as $2, else the remote's one push URL; `ls-remote <name>` lists the FETCH url, and a remote with its own pushurl bounded the range by the wrong repository
     if [ -z "$_ci_dst" ]; then _ci_nwhy="the push URL of $1 is not known (no \$2, and the remote has not exactly one push URL), so what the destination holds cannot be listed"
-    elif _ci_ls=$(GIT_TERMINAL_PROMPT=0 GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="url.$_ci_dst.insteadOf" GIT_CONFIG_VALUE_0="$_ci_dst" timeout 120 git -C "$ROOT" ls-remote -- "$_ci_dst" 2>/dev/null); then   # Q-1156 (N6): $2 is already rewritten; an identity rule (the longest possible prefix) stops a second insteadOf pass
+    elif _ci_k=${GIT_CONFIG_COUNT:-0}; ! [[ $_ci_k =~ ^[0-9]+$ ]]; then _ci_nwhy="GIT_CONFIG_COUNT='$_ci_k' is not a count, so the destination cannot be listed with the push's own configuration"
+    # Q-1156 round 3 (R5): the identity rule is APPENDED to any GIT_CONFIG_COUNT/KEY_n/VALUE_n entries the push inherited (protocol.file.allow, ...), never put in their place
+    elif _ci_k=$((10#$_ci_k)); _ci_env=(GIT_TERMINAL_PROMPT=0 "GIT_CONFIG_COUNT=$((_ci_k + 1))" "GIT_CONFIG_KEY_$_ci_k=url.$_ci_dst.insteadOf" "GIT_CONFIG_VALUE_$_ci_k=$_ci_dst"); [ "$(env "${_ci_env[@]}" git -C "$ROOT" ls-remote --get-url -- "$_ci_dst" 2>/dev/null)" != "$_ci_dst" ]; then   # Q-1156 round 3 (R4): git takes the FIRST of equally long insteadOf prefixes, so a rule read before ours whose prefix is exactly $2 still wins the tie
+      _ci_nwhy="an insteadOf rule whose prefix is exactly the push URL $_ci_dst rewrites it again (git ls-remote --get-url), so the destination itself cannot be listed"
+    elif _ci_ls=$(env "${_ci_env[@]}" timeout 120 git -C "$ROOT" ls-remote -- "$_ci_dst" 2>/dev/null); then   # Q-1156 (N6): $2 is already rewritten; an identity rule (the longest possible prefix) stops a second insteadOf pass
       for _b in $(printf '%s\n' "$_ci_ls" | awk 'NF >= 2 {print $1}' | sort -u); do
         git -C "$ROOT" cat-file -e "$_b^{commit}" 2>/dev/null && _ci_bases="$_ci_bases $_b"
       done

@@ -384,6 +384,34 @@ classify() {
       for (i = 1; i <= n; i++) h = (h * 131 + index(CHARS, substr(s, i, 1))) % 1000000007
       return sprintf("%x", h)
     }
+    # Q-1156 round 3 (R3): the "(" at s[i] opens a link destination and title; return the index of the ")" that
+    # closes them, or 0 when s[i..] is not one. A destination is `<...>` or a run without spaces whose own
+    # parentheses balance; a title is "...", \047...\047 or (...). Brackets and parentheses inside either are text.
+    function linkend(s, i,   n, c, pd, q) {
+      n = length(s); i++
+      while (i <= n && substr(s, i, 1) ~ /[ \t]/) i++
+      if (substr(s, i, 1) == "<") {
+        for (i++; i <= n; i++) { c = substr(s, i, 1); if (c == "\\") { i++; continue }; if (c == ">") break; if (c == "<") return 0 }
+        if (i > n) return 0
+        i++
+      } else {
+        for (pd = 0; i <= n; i++) { c = substr(s, i, 1)
+          if (c == "\\") { i++; continue }
+          if (c ~ /[ \t]/ || (c == ")" && pd == 0)) break
+          if (c == "(") pd++; else if (c == ")") pd--
+        }
+        if (pd != 0) return 0
+      }
+      while (i <= n && substr(s, i, 1) ~ /[ \t]/) i++
+      c = substr(s, i, 1)
+      if (c == "\"" || c == "\047" || c == "(") {
+        q = (c == "(") ? ")" : c
+        for (i++; i <= n; i++) { c = substr(s, i, 1); if (c == "\\") { i++; continue }; if (c == q) break; if (q == ")" && c == "(") return 0 }
+        if (i > n) return 0
+        for (i++; i <= n && substr(s, i, 1) ~ /[ \t]/; ) i++
+      }
+      return (i <= n && substr(s, i, 1) == ")") ? i : 0
+    }
     function firsttok(low, re,   m) {
       if (match(low, re) == 0) return ""
       return substr(low, RSTART, RLENGTH)
@@ -469,7 +497,7 @@ classify() {
               for (ci = 1; ci <= length(rest2) && depth > 0; ci++) { ch = substr(rest2, ci, 1)
                 if (ch == "\\") { ci++; continue }
                 if (ch == bopen) depth++; else if (ch == bclose) depth--
-                if (ch == "]" && depth > 0 && substr(rest2, ci + 1, 1) == "(") { pd = 0; for (ci = ci + 1; ci <= length(rest2); ci++) { ch = substr(rest2, ci, 1); if (ch == "\\") { ci++; continue }; if (ch == "(") pd++; else if (ch == ")" && --pd == 0) break } }
+                if (ch == "]" && depth > 0 && substr(rest2, ci + 1, 1) == "(" && (le = linkend(rest2, ci + 1)) > 0) ci = le   # round 3 (R3): a quoted title or an <...> destination may hold ( ) ] too; a "(" that opens no link is text
               }
               if (depth > 0) bound = bcd[bk]
             }
@@ -955,6 +983,25 @@ selftest() {
     echo "  [ok]   date bound to the marker past a ] in a link destination and an escaped \\] (2026-09-02, twice)"
   else
     echo "  [FAIL] bracket in a destination / escaped bracket: got '$d24a' and '$d24b', expected 2026-09-02 twice"
+    rc=1
+  fi
+  # (25) Q-1156 round 3 (R3): ( ) ] inside a quoted link title or an <...> destination are text, so the marker
+  #      stays open past them (two rows keep 2026-09-02); and a "(" inside a title does not run the skip past
+  #      the marker's own "]", so text after a closed marker keeps the line's first date (2026-01-01).
+  local d25a d25b d25c
+  d25a=$(printf 'inline\tX.md\t1\t%s\n' \
+    'Earlier note 2026-01-01. [CORRECTED 2026-09-02: the bound in [Audit 2026-08-01](a.md "a)b]c") is retracted.]' \
+    | classify | tail -n +2 | cut -f2)
+  d25b=$(printf 'inline\tX.md\t1\t%s\n' \
+    'Earlier note 2026-01-01. [CORRECTED 2026-09-02: the bound in [Audit 2026-08-01](<a)b]c.md>) is retracted.]' \
+    | classify | tail -n +2 | cut -f2)
+  d25c=$(printf 'inline\tX.md\t1\t%s\n' \
+    'Earlier note 2026-01-01. [CORRECTED 2026-09-02: see [Audit 2026-08-01](a.md "a(b") is mentioned.] Outside this marker the claim is retracted.' \
+    | classify | tail -n +2 | cut -f2)
+  if [ "$d25a" = "2026-09-02" ] && [ "$d25b" = "2026-09-02" ] && [ "$d25c" = "2026-01-01" ]; then
+    echo "  [ok]   a link title or <destination> holding ( ) ] neither closes the marker nor runs past it (09-02, 09-02, 01-01)"
+  else
+    echo "  [FAIL] link title / angle destination: got '$d25a', '$d25b' and '$d25c', expected 2026-09-02, 2026-09-02, 2026-01-01"
     rc=1
   fi
 

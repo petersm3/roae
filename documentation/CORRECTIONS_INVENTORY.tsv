@@ -3800,6 +3800,7 @@ INL-1dbfba98	-	C3	corrections	inline	viz/viz_tr5_orbit_collapse.md	88	theory is 
 INL-34469d7c	-	C3	corrections	inline	viz/viz_tr6_parity_alternations.md	76	is claimed novel. Developed with AI assistance (Claude, Anthropic); corrections invited.*
 INL-59b1cb3	-	C3	corrected	inline	viz/viz_tr7_circular_cycle.md	63	picture, and no renderer existed; the documents were corrected to say so. CX-191.
 INL-13a1de3a	-	C3	corrections	inline	viz/viz_tr7_circular_cycle.md	75	Developed with AI assistance (Claude, Anthropic); corrections invited.*
+GIT-195552e0	2026-11-22	C3	corrections	git	4d3c938f	-	Q-1156 round 2: close the 9 PARTIAL findings and N1-N11 from the delta review
 GIT-39d64059	2026-11-22	C3	corrections	git	d359d299	-	Q-1156: fixes for the 16 Codex findings of Q-835 U2 + U4a (gate hardening)
 GIT-37421c48	2026-11-21	C3	corrections	git	835250de	-	Q-1155: the table test ends a table at a fence, checks all four kinds, and CX-37G-Q narrows CX-37G-P
 GIT-2acaafb8	2026-11-21	C3	corrected	git	d04f354c	-	Q-1155: the table-shape test reads a table to its end, pins rows by their whole text, and CX-37G-P narrows CX-37G-O

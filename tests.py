@@ -72955,6 +72955,10 @@ class TestQ1156GateFixes(unittest.TestCase):
     differently in the two halves; HTML/guillemet titles; an inner-space path; a ] in a link destination; a push url
     rewritten twice; printf -- and print ( f; a log line taken for a token; two A2 comparisons on one line; a quoted
     attribute after etc.; a failed count step.
+    Round 3 (Codex review of round 2, R1-R8): a cloud name before a lower-case `_` suffix; a closing tag around a
+    section sign; ( ) ] in a link title or <destination>; an equal-prefix insteadOf tie and inherited
+    GIT_CONFIG_* entries; printf formats that start the line with the key; an f-string log line; closing markup
+    after etc.
     Every size, region and name is synthetic or assembled from pieces."""
 
     ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -73400,6 +73404,92 @@ class TestQ1156GateFixes(unittest.TestCase):
                 self.assertNotIn(ok, r.stdout.splitlines(), "the anchor did not fire on the mutant:\n" + r.stdout[-2000:])
                 self.assertTrue(any(l.startswith(red) for l in r.stdout.splitlines()),
                                 "the mutant run did not reach the anchor:\n" + r.stdout[-2000:])
+
+    # ---- round 3 (Codex review of round 2: R1-R8) ---------------------------------------------------------
+    def test_r1_a_cloud_name_before_a_lower_case_suffix_is_still_a_span(self):
+        C, K = self.C, self.K
+        # the two real shapes (a disk named after its machine, a key file named after a size); names synthetic
+        self._redact("CX-2 the temp-d77_OsDisk_* orphan was removed.", "CX-2 the %s_OsDisk_* orphan was removed." % C, True)
+        self._redact("CX-2 delete ~/.ssh/m48_key now.", "CX-2 delete ~/.ssh/%s_key now." % C, True)
+        # the strict rule stays for an upper-case (verdict-token) tail and for every cost span
+        self._redact("CX-2 verdict STANDARD_NOT_PROVEN at n=9.", "CX-2 verdict %s_NOT_PROVEN at n=9." % C, False)
+        self._redact("CX-2 the cost_estimate field.", "CX-2 the %s_estimate field." % K, False)
+
+    def test_r2_a_closing_tag_after_the_section_sign_is_still_a_title(self):
+        K = self.K
+        for t in ("<em>\u00a7</em>Cost control", "\u00a7<em></em>Cost control"):
+            with self.subTest(title=t):
+                self._redact("CX-2 see %s for details." % t.replace("\u00a7", ""),
+                             "CX-2 see %s for details." % t.replace("\u00a7", "").replace("Cost control", K), True)
+                self._redact("CX-2 see %s for details." % t, "CX-2 see %s for details." % t.replace("Cost control", K), False)
+
+    def _ci_leg(self, tie=False, inherit=False, env_entry=False):
+        """The pre-push inventory leg's destination listing (from `_ci_named=0` to the end of its if), run on a
+        scratch clone whose remote is an alias; prints the bases it kept and its reason."""
+        g = self._r("scripts/pre_push_gate.sh")
+        blk = self._between(g, '  _ci_named=0; _ci_nwhy=""', "  # No remote name (a direct run", inclusive=False)
+        d = self._d()
+        right, wrong, repo = (os.path.join(d, n) for n in ("right.git", "wrong.git", "repo"))
+        for b in (right, wrong):
+            self._git(d, "init", "-q", "--bare", b)
+        self._git(d, "init", "-q", repo)
+        self._git(repo, "commit", "-q", "--allow-empty", "-m", "c1")
+        c1 = self._git(repo, "rev-parse", "HEAD").stdout.strip()
+        self._git(repo, "commit", "-q", "--allow-empty", "-m", "c2")
+        c2 = self._git(repo, "rev-parse", "HEAD").stdout.strip()
+        self._git(repo, "push", "-q", right, "%s:refs/heads/main" % c1)
+        self._git(repo, "push", "-q", wrong, "%s:refs/heads/main" % c2)
+        if tie:   # read BEFORE the alias rule: git keeps the first of two equally long prefixes
+            self._git(repo, "config", "url.%s.insteadOf" % wrong, right)
+        self._git(repo, "config", "url.%s.insteadOf" % right, "q1156-alias:")
+        self._git(repo, "remote", "add", "origin", "q1156-alias:")
+        if inherit:
+            self._git(repo, "config", "protocol.file.allow", "never")
+        extra = dict(GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="protocol.file.allow", GIT_CONFIG_VALUE_0="always") if env_entry else {}
+        prog = 'set -u\nROOT=%s; _ci_bases=""; set -- origin %s\n%secho "BASES=[${_ci_bases# }] WHY=[$_ci_nwhy]"\n' % (
+            shlex.quote(repo), shlex.quote(right), blk)
+        r = self._bash(prog, cwd=d, **extra)
+        return r.stdout + r.stderr, c1, c2
+
+    def test_r4_an_equal_prefix_insteadof_does_not_list_another_repository(self):
+        out, c1, c2 = self._ci_leg()
+        self.assertIn("BASES=[%s] WHY=[]" % c1, out, "positive control: the destination itself is listed:\n" + out)
+        out, c1, c2 = self._ci_leg(tie=True)
+        self.assertNotIn(c2, out, "an earlier rule with the same prefix listed another repository:\n" + out)
+        self.assertIn("rewrites it again", out, out)
+
+    def test_r5_inherited_git_config_entries_are_kept(self):
+        out, c1, c2 = self._ci_leg(inherit=True)
+        self.assertIn("ls-remote", out, "precondition: protocol.file.allow=never stops the listing:\n" + out)
+        self.assertNotIn("BASES=[%s]" % c1, out, out)
+        out, c1, c2 = self._ci_leg(inherit=True, env_entry=True)
+        self.assertIn("BASES=[%s] WHY=[]" % c1, out, "an inherited GIT_CONFIG_KEY_0 entry was dropped:\n" + out)
+
+    def test_r8_closing_markup_after_etc_ends_the_sentence(self):
+        py = self._cl()
+        defs = "import re\n" + "\n".join(l for l in py.split("\n") if l.startswith(("SENT_END", "ABBREV", "ETC_END")))
+        fn = py[py.index("def sentence_of("):]
+        fn = fn[:fn.index("\n\n")]
+        ns = {}
+        exec(compile(defs + "\n" + fn, "claim_ledger_sentence_of", "exec"), ns)
+        for t in ("The value is 0.0415, <em>etc.</em> This sentence cannot attribute by measurement.",
+                  "The value is 0.0415, \u00abetc.\u00bb This sentence cannot attribute by measurement."):
+            with self.subTest(t=t):
+                s = ns["sentence_of"]([t], 1, t.index("0.0415"))
+                self.assertNotIn("cannot attribute", s, "the premise crossed the etc. boundary: %r" % s)
+        t = "The value is 0.0415, <em>etc.</em> and cannot attribute by measurement."
+        self.assertIn("cannot attribute", ns["sentence_of"]([t], 1, 13), "positive control: `etc.</em> and` continues")
+
+    def test_r3_r6_r7_selftest_anchors(self):
+        r = self._bash("bash scripts/corrections_inventory.sh --selftest", timeout=900)
+        self.assertIn("  [ok]   a link title or <destination> holding ( ) ] neither closes the marker nor runs past it"
+                      " (09-02, 09-02, 01-01)", r.stdout.splitlines(), r.stdout[-3000:])
+        r = self._bash("bash scripts/failopen_closure_gate.sh --selftest", timeout=1200)
+        for t in ("printf -- '%s\\n\\n', '%b\\n' and '%s done\\n' with a variable key are OPEN",
+                  "a python debug line (text before {tok}) is not in the population",
+                  "counts: OPEN=11 RC0=1 ALLOWED=1 UNRUN=2 (az + abspath)"):
+            self.assertIn("  [ok]   " + t, r.stdout.splitlines(), r.stdout[-3000:])
+        self.assertIn("FAILOPEN_CLOSURE_SELFTEST=PASS", r.stdout, r.stdout[-2000:])
 
 # end class TestQ1156GateFixes
 

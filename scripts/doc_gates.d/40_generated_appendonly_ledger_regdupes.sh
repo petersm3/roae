@@ -833,7 +833,7 @@ FILL = {
 WORDS = re.compile(r"[A-Za-z]+|[0-9]+")
 HOST = re.compile(r"`?\bclaude\b`?")
 HOSTNEXT = re.compile(r"\s+(?:orchestrator|VM|host)\b")
-TITLE = re.compile(r"\u00a7(?:[\s\"\u201c\u2018\u0027\u00ab\u00bb\u2039\u203a\u201e\u201a`*_~(\[]|<[A-Za-z](?:[^<>\"\u0027]|\"[^\"]*\"|\u0027[^\u0027]*\u0027)*>)*\Z")   # Q-1156 (U4a-3, N3): quotes, guillemets, backticks, emphasis marks or an HTML tag may open the title
+TITLE = re.compile(r"\u00a7(?:[\s\"\u201c\u2018\u0027\u00ab\u00bb\u2039\u203a\u201e\u201a`*_~(\[]|</?[A-Za-z](?:[^<>\"\u0027]|\"[^\"]*\"|\u0027[^\u0027]*\u0027)*>)*\Z")   # Q-1156 (U4a-3, N3): quotes, guillemets, backticks, emphasis marks or an HTML tag may open the title; round 3 (R2): a CLOSING tag too (`<em>\u00a7</em>`, `\u00a7<em></em>`)
 KNUM = re.compile(r"\$\s?[0-9][0-9,.]*[KkM]?(?![A-Za-z0-9])|[0-9][0-9,.]*\s?(?:[\u00d7%]|x\b)")
 BADCH = re.compile(r"[^A-Za-z0-9\s`*_~()/,.:+\u00d7\u2013\u2014\u2248-]")
 def _gaps(cue, s, lo, hi=None):   # the stretches of s[lo:hi] left once every cue match inside [lo, hi] is cut out (Q-1156 N1: hi)
@@ -858,9 +858,9 @@ def span_ok(kind, t, before="", after=""):
         for h in reversed(list(HOST.finditer(t))):
             if HOSTNEXT.match(t[h.end():] + after):
                 t, host = t[:h.start()] + " " + t[h.end():], True
-    # cues are matched with one character of the committed text before the span, so a name that starts
-    # mid-token (after a dot or a hyphen) is not taken for a whole resource name
+    # cues are matched with one character of the committed text before the span (a name that starts mid-token, after a dot or a hyphen, is not a whole resource name)
     ctx, actx = before[-1:], after[:1]   # Q-1156 (N1): and one character after it, so a marker that ends inside an identifier (COST_NOT_PROVEN) has no cue
+    if kind == C and actx == "_" and not re.match(r"_[A-Z0-9_]+(?![A-Za-z0-9_])", after): actx = ""   # Q-1156 round 3 (R1): a cloud name joined by `_` to a lower- or mixed-case suffix (a disk `<name>_OsDisk_1`, a key file `<size>_key`) ends at the `_`; an upper-case tail (the verdict-token shape, STANDARD_NOT_PROVEN) and every cost span keep the strict rule
     if not (host or any(m.start() >= len(ctx) and m.end() <= len(ctx) + len(t) for m in cue.finditer(ctx + t + actx))):
         return False
     rest = t

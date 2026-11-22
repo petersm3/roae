@@ -119,12 +119,12 @@ SUP = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
 # A sentence ends at . ! or ? (after any closing markup) followed by whitespace and then a
 # capital or a digit, optionally behind opening markup. Decimal points never qualify: they are
 # not followed by whitespace.
-SENT_END = re.compile(r"[.!?][*_)`\]\"”’']*\s+(?=\S)")
+SENT_END = re.compile(r"[.!?](?:[*_)`\]\"”’'»›«‹]|</[A-Za-z][A-Za-z0-9]*\s*>)*\s+(?=\S)")   # Q-1156 round 3 (R8): a closing guillemet or a closing HTML tag (`<em>etc.</em> This`) is closing markup too
 # Q-835 A03#7: the boundary used to need a capital or a digit next, behind opening markup that
 # did not include a quotation mark, so `42 is certain. “This inference ...”` was ONE sentence and
 # a premise in the quoted one counted. Any next character now ends the sentence, except after an
 # abbreviation or a single capital initial.
-ABBREV = re.compile(r"(?:\b(?:e\.g|i\.e|vs|cf|etc|al|approx|ca|resp|p|pp|no|Fig|Eq|Sec|Ch)|(?<![\w.])[A-Z])\.[*_)`\]\"”’']*$")
+ABBREV = re.compile(r"(?:\b(?:e\.g|i\.e|vs|cf|etc|al|approx|ca|resp|p|pp|no|Fig|Eq|Sec|Ch)|(?<![\w.])[A-Z])\.(?:[*_)`\]\"”’'»›«‹]|</[A-Za-z][A-Za-z0-9]*\s*>)*$")   # Q-1156 round 3 (R8): the same closing markup as SENT_END
 
 
 # ------------------------------------------------------------------ derivations (--derive NAME)
@@ -584,7 +584,7 @@ def sentence_of(lines, lno, start):
 # Q-980 (batch 44; Codex gpt-6-astra Q964-D08#7): "etc." also ENDS a sentence when a capital follows -- "The
 # value is 42 in A, B, etc. This inference is about a different result." was one sentence, so the second
 # sentence's premise qualified the first. ("etc. and ..." and "etc., ..." still continue one.)
-ETC_END = re.compile(r"\betc\.[*_)`\]\"”’']*$")
+ETC_END = re.compile(r"\betc\.(?:[*_)`\]\"”’'»›«‹]|</[A-Za-z][A-Za-z0-9]*\s*>)*$")   # Q-1156 round 3 (R8): the same closing markup as SENT_END
 # Q-1156 (U2-6, Codex gpt-6-astra Q835 U2): what may stand between "etc." and the capital that starts the next sentence --
 # white space, Markdown marks, an opening quote or guillemet, a bracket, an HTML tag (`<em>`, `<b>`) -- skipped before isupper().
 ETC_END_LEAD = re.compile(r"(?:\s|<[A-Za-z/](?:[^<>\"'\n]|\"[^\"\n]*\"|'[^'\n]*')*>|[*_`~\"'(\[\u201c\u2018\u201e\u201a\u00ab\u00bb\u2039\u203a])*")   # Q-1156 (N10): a quoted attribute may hold >; » and › open a quote too
