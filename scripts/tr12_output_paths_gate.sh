@@ -212,6 +212,7 @@ for f in sorted(t for t in tracked if t.endswith(".md") and t not in SKIP):
     # table row (scanned alone: spans never cross cells) end it. A line break inside a span reads as a
     # space, as CommonMark renders it.
     segs, cur = [], []
+    pstart = {b["start"] for b in blks if b["kind"] == "para"}   # Q-1156 (U2-2): md_parse's own paragraph starts, a list item among them
     for i, line in enumerate(lines, 1):
         if kinds[i - 1] in ("code", "fence") or not line.strip():
             if cur: segs.append(cur); cur = []
@@ -219,6 +220,8 @@ for f in sorted(t for t in tracked if t.endswith(".md") and t not in SKIP):
         if i in hlev or line.lstrip().startswith("|"):
             if cur: segs.append(cur); cur = []
             segs.append([i]); continue
+        if i in pstart and cur:   # a new block (a list item) ends the run: a lone backtick in one item paired with the next item's span
+            segs.append(cur); cur = []
         cur.append(i)
     if cur: segs.append(cur)
     for seg in segs:
@@ -350,6 +353,8 @@ d="$tmp/c12"; plant "$d"; printf 'and `tr12/never_tracked.tsv`\n' >> "$d/reports
 expect "a historical tr12/ name in evidence that maps to no tracked file (LEG L)" FAIL "$d"
 d="$tmp/c13"; plant "$d"; printf 'unquoted\n' > "$d/reports/TR12_QUERY_PROGRAM.md"; commit "$d"
 expect "a HISTORICAL_SPANS row that matches no span (LEG L dead row)" FAIL "$d"
+d="$tmp/c14"; plant "$d"; printf -- '- a literal unmatched `\n- see `reports/tr12/never_tracked.tsv`\n' >> "$d/viz/spec.md"; commit "$d"
+expect "an untracked path in a list item after an item with a lone backtick (Q-1156 U2-2)" FAIL "$d"
 d="$tmp/c6"; plant "$d"; printf 'cp x "$ARTDIR/q10_coset_census.tsv"\n' >> "$d/scripts/tr12_repro.sh"; commit "$d"
 expect "a NO-PRODUCER name that gained a producer" FAIL "$d"
 d="$tmp/c7"; plant "$d"; sed -i 's/Specified only.*//' "$d/reports/TR.md"; commit "$d"

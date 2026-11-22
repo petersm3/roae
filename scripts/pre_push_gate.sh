@@ -1239,14 +1239,16 @@ for sha in $SHAS; do
   _ci_named=0; _ci_nwhy=""
   if [ -z "$_ci_bases" ] && [ -n "${1:-}" ] && git -C "$ROOT" config --get "remote.$1.url" >/dev/null 2>&1; then
     _ci_named=1
-    if _ci_ls=$(GIT_TERMINAL_PROMPT=0 timeout 120 git -C "$ROOT" ls-remote -- "$1" 2>/dev/null); then
+    _ci_dst=${2:-}; [ -n "$_ci_dst" ] || { _ci_dst=$(git -C "$ROOT" remote get-url --push --all "$1" 2>/dev/null) && [ "$(printf '%s\n' "$_ci_dst" | grep -c .)" = 1 ] || _ci_dst=""; }   # Q-1156 (U2-1): list the PUSH destination -- the URL git hands the hook as $2, else the remote's one push URL; `ls-remote <name>` lists the FETCH url, and a remote with its own pushurl bounded the range by the wrong repository
+    if [ -z "$_ci_dst" ]; then _ci_nwhy="the push URL of $1 is not known (no \$2, and the remote has not exactly one push URL), so what the destination holds cannot be listed"
+    elif _ci_ls=$(GIT_TERMINAL_PROMPT=0 timeout 120 git -C "$ROOT" ls-remote -- "$_ci_dst" 2>/dev/null); then
       for _b in $(printf '%s\n' "$_ci_ls" | awk 'NF >= 2 {print $1}' | sort -u); do
         git -C "$ROOT" cat-file -e "$_b^{commit}" 2>/dev/null && _ci_bases="$_ci_bases $_b"
       done
       if [ -z "$(printf '%s\n' "$_ci_ls" | awk 'NF >= 2' | head -1)" ]; then _ci_nwhy="the destination $1 holds no refs, so every commit of the push is new and the range cannot be bounded"
       elif [ -z "${_ci_bases// /}" ]; then _ci_nwhy="the destination $1 holds no commit this clone has (fetch it first), so the pushed range cannot be bounded"; fi
     else
-      _ci_nwhy="git ls-remote $1 failed, so what the destination holds -- the pushed range -- cannot be bounded"
+      _ci_nwhy="git ls-remote $_ci_dst failed, so what the destination holds -- the pushed range -- cannot be bounded"
     fi
   fi
   # No remote name (a direct run, or the record producer's tag push with an all-zero base): every

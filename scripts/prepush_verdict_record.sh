@@ -242,9 +242,9 @@ if [ "$MODE" = write ]; then
   # or without a parenthesised skip/xfail count), and no FAILED line anywhere. Q-956 (3): and N is
   # at least the tree's own test count (so "Ran 0 tests" + OK, or a one-class run, is a FAIL).
   # Q-1065: and the skips and expected failures are exactly the tree's SKIP_LIST (judged below).
-  nran=$(grep -acE '^Ran [0-9]+ tests? in ' "$TL") || true
-  nok=$(grep -acE '^OK( \([a-z_=0-9, ]+\))?$' "$TL") || true
-  nfail=$(grep -acE '^FAILED' "$TL") || true
+  nran=$(grep -acE '^Ran [0-9]+ tests? in ' "$TL"); _crc=$?; [ "$_crc" -le 1 ] || err "write: counting the Ran lines of the tests log failed (grep rc $_crc)"   # Q-1156 (U2-8): each count's grep status is read, as for tfloor below
+  nok=$(grep -acE '^OK( \([a-z_=0-9, ]+\))?$' "$TL"); _crc=$?; [ "$_crc" -le 1 ] || err "write: counting the OK lines of the tests log failed (grep rc $_crc)"
+  nfail=$(grep -acE '^FAILED' "$TL"); _crc=$?; [ "$_crc" -le 1 ] || err "write: counting the FAILED lines of the tests log failed (grep rc $_crc), and a count that did not happen is not zero"
   tran=0; tskip=0; txf=0
   if [ "${nran:-0}" = 1 ]; then tran=$(grep -aE '^Ran [0-9]+ tests? in ' "$TL" | sed -E 's/^Ran ([0-9]+) .*/\1/'); fi
   if [ "${nok:-0}" = 1 ]; then

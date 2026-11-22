@@ -249,11 +249,12 @@ check_page(){
     # `= [0-9]+`, so a `total = -1` line was not counted and `26112.5` was read as 26112.
     # FV2-G3b (CX-36G-C; Codex F05-006#11; FV2 D1222): count the LABELS, not the lines carrying one -- one line with
     # two totals ("total = 5 ... total = 26112") was one line, and the greedy sed took the last.
-    local ntot
-    ntot=$(grep -o 'orbit-quotient C5-DP total =' <<<"$R_OUT" | wc -l)
+    local ntot _ntrc
+    ntot=$(grep -o 'orbit-quotient C5-DP total =' <<<"$R_OUT" | wc -l); _ntrc=$?   # Q-1156 (U2-9): under pipefail this is grep's status; 1 is no label, anything else is a count that did not happen
     tot=$(printf '%s\n' "$R_OUT" | sed -nE 's/.*orbit-quotient C5-DP total = *([^[:space:]]*).*/\1/p')
     local bad=""
-    if [ "${ntot:-0}" -gt 1 ]; then bad="$bad totals=${ntot}-lines(page 1)"; tot=""
+    if [ "$_ntrc" -gt 1 ]; then bad="$bad totals=uncounted(grep rc $_ntrc)"; tot=""
+    elif [ "${ntot:-0}" -gt 1 ]; then bad="$bad totals=${ntot}-lines(page 1)"; tot=""
     elif [ -n "$tot" ] && ! [[ "$tot" =~ ^[0-9]+$ ]]; then bad="$bad total=$tot-not-an-integer(page $total)"; tot=""; fi
     [ "$R_DIG" = "$dg" ] || bad="$bad digest=${R_DIG:-<none>}(page $dg)"
     [ "$nb" = "$byts" ]  || bad="$bad bytes=${nb:-<none>}(page $byts)"

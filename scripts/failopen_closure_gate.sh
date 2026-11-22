@@ -93,8 +93,8 @@ SRCDYN="(echo|printf)[[:space:]]+(-[a-zA-Z]+[[:space:]]+)*['\"]?[A-Z][A-Z0-9_]{2
 # `v=PASS`), and the f-string shape carries its verdict word or an expansion inside the pattern. MEASURED
 # 2026-10-29 over scripts/ at 4d9cc323: neither adds a script to the real population; two selftest
 # fixtures (plant_twovars.sh, plant_pyf.py) prove both shapes are seen and graded OPEN.
-SRCDYN2="(echo|printf)[[:space:]]+(-[a-zA-Z]+[[:space:]]+)*['\"]?(\\\$\\{?[A-Za-z_][A-Za-z0-9_]*\\}?|%[-0-9.]*s)=|(echo|printf)[[:space:]]+(-[a-zA-Z]+[[:space:]]+)*['\"]?%s=[^'\"]*['\"][[:space:]]+['\"]?\\\$"
-PYDYN="print\\(f['\"][^'\"]*\\{[A-Za-z_][A-Za-z0-9_.]*\\}=(OK|PASS|CLEAN|\\{)"
+SRCDYN2="(echo|printf)[[:space:]]+(-[a-zA-Z]+[[:space:]]+)*['\"]?(\\\$\\{?[A-Za-z_][A-Za-z0-9_]*\\}?|%[-0-9.]*s)=|(echo|printf)[[:space:]]+(-[a-zA-Z]+[[:space:]]+)*['\"]?%s=[^'\"]*['\"][[:space:]]+['\"]?\\\$|printf[[:space:]]+(-[a-zA-Z]+[[:space:]]+)*['\"][^'\"]*['\"][[:space:]]+['\"]?\\\$\\{?[A-Za-z_][A-Za-z0-9_]*\\}?="   # Q-1156 (U2-4): and a printf whose KEY is a variable in the argument after the format (`printf '%s\\n' "$tok=$v"`)
+PYDYN="print[[:space:]]*\\(f['\"][^'\"]*\\{[A-Za-z_][A-Za-z0-9_.]*\\}=(OK|PASS|CLEAN|\\{)"   # Q-1156 (U2-4): `print (f"...")`, white space before the paren, is the same call
 # the assignment shape `v=PASS` (a lower-case or mixed variable holding the verdict word): VWORD deliberately
 # refuses a word right after `=`, which is exactly where a two-variable token keeps it
 VWORD2="(^|[^A-Za-z0-9_])[A-Za-z_][A-Za-z0-9_]*=['\"]?(OK|PASS|CLEAN)['\"]?([^A-Za-z0-9_]|$)"
@@ -224,7 +224,7 @@ gate(){
   # Tripwire against the population filter itself: an independent, pipeline-free count of files
   # whose source (comments included) carries a verdict token is an UPPER bound on $pop. If the
   # filter returns less than half of it, the filter — not the tree — is broken.
-  local upper; upper=$(grep -lE "$SRCTOK|$SRCDYN" "$tree"/scripts/*.sh "$tree"/scripts/*.py 2>/dev/null | wc -l)
+  local upper; upper=$(grep -lE "$SRCTOK|$SRCDYN|$SRCDYN2|$PYDYN" "$tree"/scripts/*.sh "$tree"/scripts/*.py 2>/dev/null | wc -l)
   if [ "$upper" -gt 0 ] && [ $((pop * 2)) -lt "$upper" ]; then
     echo "  [ERROR] population filter returned $pop of an upper bound of $upper files carrying a verdict token — the filter dropped scripts (the instance-24 shape)"; err=1
   fi
@@ -263,6 +263,10 @@ az vm delete -n x; echo "PLANT_UNRUN=OK"'
   mk plant_twovars.sh   'v=PASS; tok=PLANT_TWOVARS; echo "$tok=$v"; exit 0'
   mk plant_pyf.py       'tok = "PLANT_PYF"
 print(f"{tok}=PASS")'
+  # Q-1156 (U2-4): the key after a printf format, and print with a space before its paren
+  mk plant_printfkey.sh 'tok=PLANT_PRINTFKEY; v=PASS; printf '"'"'%s\n'"'"' "$tok=$v"; exit 0'
+  mk plant_pyfsp.py     'tok = "PLANT_PYFSP"
+print (f"{tok}=PASS")'
   mk plant_comment.sh   '# az vm delete in a COMMENT must not make this unrun
 [ -r target.txt ] || { echo "PLANT_COMMENT=ERROR"; exit 2; }; echo "PLANT_COMMENT=OK"'
   mk plant_notoken.sh   'echo hello; exit 0'
@@ -289,6 +293,8 @@ print("PLANT_CLOSED3=PASS")'
   chk "the python OK is OPEN"                       'grep -qE "^\s*\[OPEN  \] +plant_py_open.py" <<<"$out"'
   chk "a token assembled from two variables is OPEN" 'grep -qE "^\s*\[OPEN  \] +plant_twovars.sh" <<<"$out"'
   chk "a python f-string token is OPEN"             'grep -qE "^\s*\[OPEN  \] +plant_pyf.py" <<<"$out"'
+  chk "a variable key after a printf format is OPEN" 'grep -qE "^\s*\[OPEN  \] +plant_printfkey.sh" <<<"$out"'
+  chk "print (f...) with a space before the paren is OPEN" 'grep -qE "^\s*\[OPEN  \] +plant_pyfsp.py" <<<"$out"'
   chk "exit-0-with-SKIP is RC0"                     'grep -qE "^\s*\[RC0   \] +plant_rc0.sh" <<<"$out"'
   # Q-954 (c): each CLOSED check names the rc its fixture's refusal branch exits with. "closed"
   # alone is also what a fixture that cannot parse (python SyntaxError rc 1, bash rc 2) gets.
@@ -303,8 +309,8 @@ print("PLANT_CLOSED3=PASS")'
   chk "az in a COMMENT does not make a script unrun (closed, rc 2)" 'grep -qE "^\s*\[closed\] +plant_comment.sh +rc=2, .*last token: PLANT_COMMENT=ERROR\)" <<<"$out"'
   chk "allowlisted self-contained script is allowed" 'grep -qE "^\s*\[allow \] +plant_allowed.sh" <<<"$out"'
   chk "a script with no verdict token is not in the population" '! grep -q plant_notoken <<<"$out"'
-  chk "counts: OPEN=4 RC0=1 ALLOWED=1 UNRUN=2 (az + abspath)" 'grep -qx "FAILOPEN_CLOSURE_OPEN=4" <<<"$out" && grep -qx "FAILOPEN_CLOSURE_RC0=1" <<<"$out" && grep -qx "FAILOPEN_CLOSURE_ALLOWED=1" <<<"$out" && grep -qx "FAILOPEN_CLOSURE_UNRUN=2" <<<"$out"'
-  rm -f "$T/scripts/plant_open.sh" "$T/scripts/plant_rc0.sh" "$T/scripts/plant_py_open.py" "$T/scripts/plant_twovars.sh" "$T/scripts/plant_pyf.py"
+  chk "counts: OPEN=6 RC0=1 ALLOWED=1 UNRUN=2 (az + abspath)" 'grep -qx "FAILOPEN_CLOSURE_OPEN=6" <<<"$out" && grep -qx "FAILOPEN_CLOSURE_RC0=1" <<<"$out" && grep -qx "FAILOPEN_CLOSURE_ALLOWED=1" <<<"$out" && grep -qx "FAILOPEN_CLOSURE_UNRUN=2" <<<"$out"'
+  rm -f "$T/scripts/plant_open.sh" "$T/scripts/plant_rc0.sh" "$T/scripts/plant_py_open.py" "$T/scripts/plant_twovars.sh" "$T/scripts/plant_pyf.py" "$T/scripts/plant_printfkey.sh" "$T/scripts/plant_pyfsp.py"
   out=$(gate "$T" "$T/allow"); rc=$?
   chk "with the open fixtures removed -> OK (rc 0)"  '[ "$rc" -eq 0 ] && grep -qx "FAILOPEN_CLOSURE=OK" <<<"$out"'
   # Q-650: a PLANTED LAUNCHER FAILURE. The tree is in its OK state here, so anything but OK is

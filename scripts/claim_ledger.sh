@@ -197,11 +197,21 @@ def d_a_anchors():
     # exactly the two anchor comparisons must be present -- and they must be the two IDENTIFIED ones,
     # one A2 (`A2 slot32=...`) and one A3 (`wrap masses ...`), not any two comparisons (Codex CX-35W-K,
     # Fable triage G5c #10: two A2 lines and no A3 line satisfied a bare count).
-    a2 = re.findall(r"A2 slot32=.*?max deviation ([0-9.]+) \(tol ([0-9.]+)\)", out)
-    a3 = re.findall(r"wrap masses .*?max deviation ([0-9.]+) \(tol ([0-9.]+)\)", out)
+    # Q-1156 (U2-5, Codex gpt-6-astra Q835 U2): the two labels are matched per LINE and a line holding both is
+    # neither -- one comparison line that carries both labels was counted as the A2 AND the A3 comparison.
+    a2, a3, both = [], [], 0
+    for l in out.split("\n"):
+        m2 = re.search(r"A2 slot32=.*?max deviation ([0-9.]+) \(tol ([0-9.]+)\)", l)
+        m3 = re.search(r"wrap masses .*?max deviation ([0-9.]+) \(tol ([0-9.]+)\)", l)
+        if m2 and m3:
+            both += 1
+        elif m2:
+            a2.append(m2.groups())
+        elif m3:
+            a3.append(m3.groups())
     print("A_CHECKS_WITH_TOLERANCE=%d" % (len(a2) + len(a3)))
-    if len(a2) != 1 or len(a3) != 1:
-        print("A_ANCHORS_ERROR=expected one A2 and one A3 anchor comparison, found A2=%d A3=%d" % (len(a2), len(a3)))
+    if len(a2) != 1 or len(a3) != 1 or both:
+        print("A_ANCHORS_ERROR=expected one A2 and one A3 anchor comparison, found A2=%d A3=%d and %d line(s) with both labels" % (len(a2), len(a3), both))
         sys.exit(3)
     pairs = a2 + a3
     mult = sorted({int((Decimal(a) / Decimal(b)).quantize(Decimal(1), ROUND_HALF_UP)) for a, b in pairs})
@@ -565,7 +575,7 @@ def sentence_of(lines, lno, start):
     # FV2-G3a (Codex gpt-6-astra F05-007#1): the capital that ends "etc." may sit behind a formatting mark
     # or an opening quote (`etc. **This`, `etc. "This`); those are skipped before the isupper() test.
     cuts = [0] + [m.end() for m in SENT_END.finditer(para) if not ABBREV.search(para[:m.end()].rstrip())
-                  or (ETC_END.search(para[:m.end()].rstrip()) and para[m.end():].lstrip('*_`"\u201c\u2018\'([')[:1].isupper())] + [len(para)]
+                  or (ETC_END.search(para[:m.end()].rstrip()) and para[ETC_END_LEAD.match(para, m.end()).end():][:1].isupper())] + [len(para)]
     for s, e in zip(cuts, cuts[1:]):
         if s <= off < e:
             return para[s:e]
@@ -576,6 +586,9 @@ def sentence_of(lines, lno, start):
 # value is 42 in A, B, etc. This inference is about a different result." was one sentence, so the second
 # sentence's premise qualified the first. ("etc. and ..." and "etc., ..." still continue one.)
 ETC_END = re.compile(r"\betc\.[*_)`\]\"”’']*$")
+# Q-1156 (U2-6, Codex gpt-6-astra Q835 U2): what may stand between "etc." and the capital that starts the next sentence --
+# white space, Markdown marks, an opening quote or guillemet, a bracket, an HTML tag (`<em>`, `<b>`) -- skipped before isupper().
+ETC_END_LEAD = re.compile(r"(?:\s|<[A-Za-z/][^<>\n]*>|[*_`~\"'(\[\u201c\u2018\u201e\u201a\u00ab\u2039])*")
 
 
 def check_row(r, files, cache):

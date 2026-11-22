@@ -131,7 +131,7 @@ TOK_RE='\$[0-9][0-9.,]*[KkMm]?((-|–)\$?[0-9][0-9.,]*[KkMm]?)?'
 # only when the same subject also holds a CLOUD_RE shape or a CLOUD_CTX word, so a review id or a
 # feature name of the same shape in an ordinary subject is left alone. Selftest anchor 21.
 CLOUD_MARK='[cloud detail redacted]'
-CLOUD_RE='[Ss]tandard_[A-Za-z0-9_]+|[DEFLMdeflm][0-9]+[a-z]+_v[0-9]+|[DEFL](als|as|ps|ads)v[0-9]+|[DEFL]-als-v[0-9]+|[A-Z](/[A-Z])*-series|([Ww]est|[Ee]ast|[Cc]entral|[Nn]orth|[Ss]outh)([Uu][Ss]|[Ee]urope|[Aa]sia)[0-9]?|(solver|merge|temp|spot)-(data|nic|vm|vnet|nsg|scratch|d[0-9]+)|rg-[a-z0-9][a-z0-9-]*|c[0-9][0-9][0-9]-[a-z][a-z0-9-]*|[a-z0-9]+-(vnet|nic|nsg)|[Pp]remium SSD|[Ss]tandard SSD|[A-Za-z]+_[LZ]RS'
+CLOUD_RE='[Ss]tandard_[A-Za-z0-9_]+|[DEFLMdeflm][0-9]+[a-z]+_v[0-9]+|[DEFL](als|as|ps|ads)v[0-9]+|[DEFL]-als-v[0-9]+|[A-Z](/[A-Z])*-series|([Ww]est|[Ee]ast|[Cc]entral|[Nn]orth|[Ss]outh) ?([Uu][Ss]|[Ee]urope|[Aa]sia)( ?[0-9])?|(solver|merge|temp|spot)-(data|nic|vms?|vnet|nsg|scratch|d[0-9]+)|rg-[a-z0-9][a-z0-9-]*|c[0-9][0-9][0-9]-[a-z][a-z0-9-]*|[a-z0-9]+-(vnet|nic|nsg)|[Pp]remium ?SSD|[Ss]tandard ?SSD|[Ss]tandard ?HDD|[A-Za-z]+_[LZ]RS'   # Q-1156 (U4a-6): and StandardSSD, a region with a space (West Europe), the plural solver-vms -- forms GATE 10 already reads as cloud detail
 CLOUD_BARE='[DFdf](2|4|8|16|32|48|64|96|128)'
 CLOUD_HOST='claude (orchestrator|VM|host)'
 CLOUD_CTX='(^|[^A-Za-z])(VMs?|[Ss]pot|on-demand|host|[Ww]orker|vCPUs?|SKUs?|infra|Azure|orchestrator|analyze)([^A-Za-z]|$)'
@@ -452,19 +452,23 @@ classify() {
             # correction words scripts/correction_marker_inventory.sh admits for its parenthesised form (Q-935):
             # corrected, correction, superseded, withdrawn, retracted -- "(measured 2026-09-02", "(since
             # 2026-08-21" and "(Updated 2026-10-11" are notes, not markers, and must not re-date a row.
-            head = substr(text, 1, tpos - 1); bo = 0; bdt = ""; bopen = ""
+            # Q-1156 (U4a-7, Codex gpt-6-astra Q835 U4a): EVERY opener is a candidate, and the innermost one still
+            # open at the token wins. Only the last was tried, so a closed nested link with a dated label
+            # (`[CORRECTED 2026-09-02 -- see [Report 2026-08-01](r.md); withdrawn]`) hid the enclosing marker.
+            head = substr(text, 1, tpos - 1); bo = 0; bn = 0
             while (match(substr(head, bo + 1), /[[(][A-Za-z]+ 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]/)) {
               oword = tolower(substr(head, bo + RSTART + 1, RLENGTH - 12)); ochar = substr(head, bo + RSTART, 1)
               if (ochar == "[" || oword ~ /^(corrected|correction|superseded|withdrawn|retracted)$/) {
-                bdt = substr(head, bo + RSTART + RLENGTH - 10, 10); bopen = ochar; bend = bo + RSTART + RLENGTH - 1
+                bn++; bcd[bn] = substr(head, bo + RSTART + RLENGTH - 10, 10); bco[bn] = ochar; bce[bn] = bo + RSTART + RLENGTH - 1
               }
               bo += RSTART + RLENGTH - 1
             }
-            if (bdt != "") {
-              bclose = (bopen == "[") ? "]" : ")"; depth = 1; rest2 = substr(head, bend + 1)
+            for (bk = bn; bk >= 1 && bound == ""; bk--) {
+              bopen = bco[bk]; bclose = (bopen == "[") ? "]" : ")"; depth = 1; rest2 = substr(head, bce[bk] + 1)
               for (ci = 1; ci <= length(rest2) && depth > 0; ci++) { ch = substr(rest2, ci, 1); if (ch == bopen) depth++; else if (ch == bclose) depth-- }
-              if (depth > 0) { bound = bdt; break }
+              if (depth > 0) bound = bcd[bk]
             }
+            if (bound != "") break
             scan = substr(scan, adv); off += adv - 1
           }
           if (bound != "") dt = bound
@@ -904,6 +908,32 @@ selftest() {
     echo "  [ok]   a commit subject's cloud details take the cloud marker (7 of 7), a review id and a context-free size are kept, id from the unredacted text"
   else
     echo "  [FAIL] cloud redaction (Q-1140): precondition shapes=$cpre (want 5) text: $ctxt | context-free: $ccout | analyze: $cdout | ids $cid/$cid2"
+    rc=1
+  fi
+
+  # (22) Q-1156 (U4a-6, Codex gpt-6-astra Q835 U4a): three forms GATE 10 already reads as cloud detail take the
+  #      marker in a commit subject too: a tier name with no space or underscore, a region written with a space
+  #      (a made-up one here), and the plural resource name. Assembled from pieces, as in (21). Verdict: three
+  #      markers, none of the three forms left.
+  local ce ceout T1=Standard T2=SSD R1=North R2=Asia V1=solver
+  ce="docs: corrected the ${T1}${T2} tier note; ${R1} ${R2} 7 moved; ${V1}-vms renamed"
+  ceout=$(printf 'git\tbadc0ffe\t2026-01-01\t%s\t%s\n' "$ce" "$ce" | classify | tail -n +2 | cut -f8)
+  if [ "$(grep -o -F "$CLOUD_MARK" <<< "$ceout" | grep -c .)" -eq 3 ] && [ "${ceout#*"${T1}${T2}"}" = "$ceout" ] \
+     && [ "${ceout#*"${R1} ${R2}"}" = "$ceout" ] && [ "${ceout#*"${V1}-vms"}" = "$ceout" ]; then
+    echo "  [ok]   a run-together tier name, a spaced region and a plural resource name take the cloud marker (3 of 3)"
+  else
+    echo "  [FAIL] cloud redaction (Q-1156 U4a-6): want 3 markers, got: $ceout"
+    rc=1
+  fi
+  # (23) Q-1156 (U4a-7): a closed nested link with a DATED label inside the marker does not hide the marker's
+  #      own date; the innermost opener still open at the token is the binding one.
+  dout=$(printf 'inline\tX.md\t1\t%s\n' \
+    'Earlier note 2026-01-01. [CORRECTED 2026-09-02: the bound in [Audit 2026-08-01](a.md) is retracted.]' \
+    | classify | tail -n +2 | cut -f2)
+  if [ "$dout" = "2026-09-02" ]; then
+    echo "  [ok]   date bound to the enclosing marker (2026-09-02) past a closed, dated nested link"
+  else
+    echo "  [FAIL] nested dated link: got '$dout', expected 2026-09-02"
     rc=1
   fi
 

@@ -554,12 +554,12 @@ gate_generated() {
   _g8_seen=$( { git ls-files -- example/ && { ! git rev-parse -q --verify HEAD >/dev/null 2>&1 \
                || git ls-tree -r --name-only HEAD -- example/; }; } 2>/dev/null) \
     || { echo "  [FAIL] GATE 8: could not list the tracked example/ paths, so the compared set was NOT checked against them."; rc=1; }
-  for _g8_p in $(printf '%s\n' "$_g8_seen" | sort -u); do
+  _g8_seen=$(printf '%s\n' "$_g8_seen" | sort -u) || { echo "  [FAIL] GATE 8: could not sort the tracked example/ paths, so the compared set was NOT checked against them."; rc=1; }; while IFS= read -r _g8_p; do [ -n "$_g8_p" ] || continue   # Q-1156 (U4a-4/5): one path per line, not word-split (a trailing space read as the allowed name), and sort's status is read
     case " example/report.txt example/report.md example/README.md example/report.html example/hexagrams.csv example/hexagrams.json example/hexagrams.svg example/wave.dot example/wave.mid example/wave.dot.png example/wave.dot.svg " in
       *" $_g8_p "*) ;;
-      *) _g8_new="$_g8_new $_g8_p" ;;
+      *) _g8_new="$_g8_new $(printf '%q' "$_g8_p")" ;;
     esac
-  done
+  done <<<"$_g8_seen"
   if [ -n "$_g8_new" ]; then
     echo "  [FAIL] tracked under example/ (so watched by the pre-commit hook) but compared by NO leg of this gate:$_g8_new"
     echo "         Add a comparison against its generator here, or stop shipping it."
@@ -795,7 +795,7 @@ ADDRNEXT = re.compile(r"[A-Za-z0-9_%+@-]|\.[A-Za-z0-9-]")
 CLOUD = re.compile(r"""(?ix)
     (?<![\w.-])(?!(?:[a-z0-9]+-)*(?:on|off|from|per|to|in|no|non|not|never|single|multi|one|two|three|four|[0-9]+)-)[a-z0-9]+(?:-[a-z0-9]+)*-(?:[bdeflmnp](?:2|4|8|16|32|48|64|96|128)(?:[a-z]{1,6}(?:_v[0-9]+)?)?
         | (?:west|east|central|north|south)(?:us|europe|asia)[0-9]?)\b
-  | \bstandard_\w+
+  | \bstandard_(?:[a-z]{1,2}[0-9]+[a-z]*(?:_[a-z][0-9]+)?(?:_v[0-9]+)?|[a-z]|[lz]rs)\b   # Q-1156 (U4a-1): a size or tier name, not any standard_ word (STANDARD_NOT_PROVEN)
   | \b[bdeflmnp](?:2|4|8|16|32|48|64|96|128)(?:[a-z]{1,6}(?:_v[0-9]+)?)?\b
   | \b[defl]-?[a-z]{0,5}-?v[0-9]+(?:-series)?\b
   | \b[a-z](?:/[a-z])*-series\b
@@ -815,7 +815,7 @@ COSTW = re.compile(r"""(?ix)
   | \$
   | \b(?:spot|hourly|per[-\s]hour|on-demand|billing|regular|standard)\s+rates?\b
   | \b(?:cost|dollar|spending|cloud)\s+budgets?\b
-  | \b\w*(?:pric|cost|cheap|expens|spend|spent|discount|saving|dollar)\w*\b
+  | \b(?:un|in|over|under)?(?:pric(?:e|es|ed|er|ers|ing|ey|ier|iest|y)|cost(?:s|ly|lier|liest|ed|ing|ings)?|cheap(?:er|est|ly|ness)?|expens(?:e|es|ive|ively)|spend(?:s|ing|er|ers)?|spent|discount(?:s|ed|ing)?|savings?|dollars?)\b   # Q-1156 (U4a-1): a whole cost word; \w* around a stem took suspended, Costas and COST_NOT_PROVEN
   | \bbill(?:s|ed|ing|able)?\b | \bhourly\b | \bper[-\s]hour\b | \bon-demand\b
   | \bcents?\b | \bpenn(?:y|ies)\b | \bfees?\b | \bpaid\b | \bpay(?:s|ing|ment|ments)?\b
 """)
@@ -833,7 +833,7 @@ FILL = {
 WORDS = re.compile(r"[A-Za-z]+|[0-9]+")
 HOST = re.compile(r"`?\bclaude\b`?")
 HOSTNEXT = re.compile(r"\s+(?:orchestrator|VM|host)\b")
-TITLE = re.compile(r"\u00a7\s*[\"\u201c]?\Z")
+TITLE = re.compile(r"\u00a7[\s\"\u201c\u2018\u0027`*_~(\[]*\Z")   # Q-1156 (U4a-3): a quote, backtick or emphasis mark may open the title
 KNUM = re.compile(r"\$\s?[0-9][0-9,.]*[KkM]?(?![A-Za-z0-9])|[0-9][0-9,.]*\s?(?:[\u00d7%]|x\b)")
 BADCH = re.compile(r"[^A-Za-z0-9\s`*_~()/,.:+\u00d7\u2013\u2014\u2248-]")
 def _gaps(cue, s, lo):   # the stretches of s[lo:] left once every cue match starting at lo or later is cut out
@@ -1468,7 +1468,7 @@ _g10b_one() {
     local lost _g10b_ps
     git cat-file -p "$blob" 2>/dev/null | _g10_money_align "$f" > "$g10b_base" || {
       echo "  [FAIL] GATE 10b: could not read the version $blob of $f (from $src), so it was NOT checked."; bad=1; continue; }
-    grep -v '^[[:space:]]*$' "$g10b_base" | sort > "$tmp"; _g10b_ps="${PIPESTATUS[0]}:${PIPESTATUS[1]}"
+    grep -av '^[[:space:]]*$' "$g10b_base" | sort > "$tmp"; _g10b_ps="${PIPESTATUS[0]}:${PIPESTATUS[1]}"   # Q-1156 (U4a-2): -a, a NUL in an OLDER version made grep print nothing (rc 0), so it lost no line
     case "$_g10b_ps" in [01]:0) ;; *)
       echo "  [FAIL] GATE 10b: could not prepare the version $blob of $f (grep:sort $_g10b_ps), so it was NOT checked."; bad=1; continue;; esac
     lost=$(comm -23 "$tmp" "$cur" | wc -l) && [[ "$lost" =~ ^[[:space:]]*[0-9]+$ ]] || {
@@ -1479,7 +1479,7 @@ _g10b_one() {
     # present but moved: the version is not a subsequence of the working copy.
     if [ "$_g10b_strict" -eq 1 ]; then
       local _g10b_rm _g10b_mv
-      grep -v '^[[:space:]]*$' "$g10b_base" > "$g10b_ord"
+      grep -av '^[[:space:]]*$' "$g10b_base" > "$g10b_ord"
       [ "$?" -le 1 ] || { echo "  [FAIL] GATE 10b: could not prepare the version $blob of $f for the order check, so it was NOT checked."; bad=1; continue; }
       _g10b_rm=$(diff --text "$g10b_ord" "$g10b_curo" | grep -c '^< '; echo ":${PIPESTATUS[0]}:${PIPESTATUS[1]}")
       _g10b_ps=${_g10b_rm#*:}; _g10b_rm=${_g10b_rm%%$'\n'*}
