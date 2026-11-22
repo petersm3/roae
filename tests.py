@@ -72959,8 +72959,8 @@ class TestQ1156GateFixes(unittest.TestCase):
     section sign; ( ) ] in a link title or <destination>; an equal-prefix insteadOf tie and inherited
     GIT_CONFIG_* entries; printf formats that start the line with the key; an f-string log line; closing markup
     after etc.
-    Round 4 (Codex review of round 3, S1, S6, S7): a lone `_` after a cloud name; every GIT_CONFIG_COUNT form git
-    reads; a token line after a newline in a format or f-string.
+    Round 4 (Codex review of round 3, S1, S6, S7): a lone `_` after a cloud name; GIT_CONFIG_COUNT written as `+1`,
+    ` 1` or `01` (git reads 1) and four forms git refuses; a token line after a newline in a format or f-string.
     Every size, region and name is synthetic or assembled from pieces."""
 
     ROOT = os.path.dirname(os.path.abspath(__file__))
