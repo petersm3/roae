@@ -756,7 +756,7 @@ orderings, which depend on how the steps relate to each other, stay open.
   These are slot-by-slot comparisons; the joint pattern of placements has not been tested.
 - At each layer, the distribution of the remaining jump budget is within 0.04151 total variation of
   what you get by shuffling the 31 jump sizes uniformly at random (**measured**; corrected 2026-11-01: was "0.0415",
-  the largest layer's exact value being 0.0415012, CX-36J-D). We have not
+  the largest layer's exact value being 0.0415012, CX-36J-D) *(2026-11-23, Q-1163: 0.0415012 is that value to seven decimals; the exact value is the rational in TR-12 §12.6.)*. We have not
   tested whether this closeness is unusual.
 - Two checks compare the atlas with numbers the project published from a different instrument, and
   both print `FAIL`, by about twelve times their tolerance (**measured**). The populations differ by C3: the atlas

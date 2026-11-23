@@ -416,6 +416,7 @@ documentation/QUERY_INVENTORY.md	458	marker	Corrected	1	-	reviewed:stale-clause-
 documentation/QUERY_INVENTORY.md	549	marker	Corrected	1	-	reviewed:box-already-says-the-identity-row-runs	dd19eb8d2b73
 documentation/QUERY_INVENTORY.md	936	marker	Corrected	2	-	reviewed:cell-above-still-describes-the-witness-row-as-unbuilt	ed40b0b9fb76
 documentation/README.md	19	ledger-link	CORRECTION	n/a	-	not-a-marker	5a5a9991ed3f
+documentation/README.md	31	ledger-link	CORRECTION	n/a	-	not-a-marker	b7047fbdffce
 documentation/README.md	59	ledger-link	CORRECTION	n/a	-	not-a-marker	3725148749d8
 documentation/README.md	65	ledger-link	CORRECTION	n/a	-	not-a-marker	0c27dfd31791
 documentation/REBUILD_FROM_SPEC.md	47	marker	CORRECTED	1	-	reviewed:text-already-says-reject-nonzero-reserved-bytes	316359bbd462
@@ -427,7 +428,7 @@ documentation/REBUILD_FROM_SPEC.md	402	marker	CORRECTED	1	-	reviewed:bullet-alre
 documentation/REBUILD_FROM_SPEC.md	420	marker	CORRECTED	1	-	reviewed:paragraph-above-already-scopes-the-verifier	a07fdd7ef677
 documentation/REBUILD_FROM_SPEC.md	439	marker	CORRECTED	1	-	reviewed:following-text-already-says-it-is-closed	27b224f7bdae
 documentation/ROAE_PY_CLI.md	174	marker	Corrected	1	-	reviewed:summaries-above-already-corrected;closure-note-follows	9a1179f2ba84
-documentation/ROAE_PY_CLI.md	297	marker	CORRECTED	1	-	reviewed:row-already-lists-the-validated-fields	765dc2ccbf63
+documentation/ROAE_PY_CLI.md	297	marker	CORRECTED	1	-	reviewed:row-already-lists-the-validated-fields	3ac1af303256
 documentation/ROAE_PY_CLI.md	302	marker	Corrected	1	-	reviewed:paragraph-already-says-negative-seeds-are-refused	56e82d36e5cb
 documentation/ROAE_PY_CLI.md	355	ledger-link	CORRECTION	n/a	-	not-a-marker	fa5d2ed2020a
 documentation/ROAE_PY_CLI.md	382	marker	CORRECTED	1	-	reviewed:following-text-already-states-the-Wilson-bound-rule	1a9d70c8317f
@@ -770,6 +771,8 @@ reports/TR12_QUERY_PROGRAM.md	2420	marker	Corrected	1	-	reviewed:FV2-H-dated-cor
 reports/TR12_QUERY_PROGRAM.md	2496	ledger-link	CORRECTION	n/a	-	not-a-marker	48d2f8a91dbc
 reports/TR12_QUERY_PROGRAM.md	2630	marker	Corrected	1	-	reviewed:text-already-says-solve.c-differs	1c6c27f1c56a
 reports/TR12_QUERY_PROGRAM.md	2657	ledger-link	CORRECTION	n/a	-	not-a-marker	bf86a36d3823
+reports/TR12_QUERY_PROGRAM.md	2661	ledger-link	CORRECTION	n/a	-	not-a-marker	ebf2c92d0958
+reports/TR12_QUERY_PROGRAM.md	2661	marker	Corrected	2	-	reviewed:dated-note-Q-1163;the-Q-1134-note-before-it-still-calls-the-bound-the-maximum-and-a-rounding-exact	ebf2c92d0958
 reports/TR12_QUERY_PROGRAM.md	2666	marker	Corrected	1	-	reviewed:cell-already-says-no-battery-run-took-the-digests	8f4153493d43
 reports/TR12_QUERY_PROGRAM.md	2667	ledger-link	CORRECTION	n/a	-	not-a-marker	57190d4b7b96
 reports/TR12_QUERY_PROGRAM.md	2699	marker	Corrected	1	-	reviewed:dated-note-CX-37G-M;the-cell-already-gives-the-SAT-witnessed-grade	cfb09f31467f

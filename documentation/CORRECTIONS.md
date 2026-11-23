@@ -42288,3 +42288,140 @@ Findings by OpenAI Codex (gpt-6-astra) review; fixes by Claude. Developed with A
 claude-opus-5-5 reproduced the findings and designed and built the fixes and tests; the findings are Codex's
 (gpt-6-astra), in its delta review and its four reads of the fix, triaged in Opus lanes. The pre-publication read, and
 the one residual it added, are by claude-fable-5-2.
+
+## CX-37G-S — six CLI and index lines from the Codex review of Q-1133 to Q-1135, and two audit items Q-1135 left out (documentation/SOLVE_PY_CLI.md; documentation/VERIFY.md; verify.py; documentation/CLAIM_TO_ARTIFACT.md; documentation/README.md; reports/certificates/README.md; documentation/ROAE_PY_CLI.md; scripts/citation_line_gate.sh; tests.py)
+
+**2026-11-23.** **Source.** Codex (gpt-6-astra) reviewed the landed Q-1133, Q-1134 and Q-1135 batches (CX-37C-U,
+CX-37C-V, CX-37C-W, CX-37G-B) at 8582a11c and reported seven findings. Five are carried here (F2, F4, F5, F6, F7). F1
+needs a code change and is carried by the next entry. F3, the wording of a TR-12 note about a rounding, is carried by
+CX-37G-U below. Two items from the Q-1135 audit that Q-1135 left out (U01 and V6) ride with them. Backlog Q-1163.
+
+**What was published, and what it says now.** Each doc edit but one is a dated note appended to the line, with nothing
+reworded. The exception is documentation/README.md, a front-door page, whose sentence is restated (F5 below). No line
+number moves.
+- **verify.py `--sigma-limit` help and the `sigma_isomorphism_all48` docstring (Codex F2)** said that for N < 48 the
+  verdict token reads PARTIAL. `--sigma-limit 0` (or any N < 1) prints `SIGMA_ISOMORPHISM_ALL48=FAIL` and exits 1.
+  The help now reads "For 1 <= N < 48 never yields PASS (the verdict token reads PARTIAL, or FAIL on a mismatch);
+  N >= 48 is the full run; N < 1 is refused (FAIL, exit 1)", and the docstring says the same. VERIFY.md's row already
+  said 1 ≤ N < 48 and is unchanged.
+- **CLAIM_TO_ARTIFACT.md row 3 (Codex F4).** CX-37C-U scoped the row's independence to separate code, one shared
+  lemma and common authorship. It did not say that both instruments read the same King Wen input. A note now says so:
+  `KW[64]` is the same 64-entry literal in `verify.c` and `solve.c`, which `verify.c`'s own banner calls a deliberate
+  data-level closure. The row is still EXACT. The citation-line pin on that row is re-hashed by content.
+- **documentation/README.md's DISTRIBUTIONAL_ANALYSIS entry (Codex F5)** still said `--joint-density-dims` and
+  `--joint-density-seed` "are not wired to the CLI". They have been wired since 2026-11-06 (FV2-P D1490), and CX-37C-U
+  corrected the source document but missed this line. The sentence read, verbatim: "That ≈30% figure is **published
+  ahead of its public reproduction command** — `--joint-density-dims` / `--joint-density-seed` are not wired to the
+  CLI; see the source document's "Reproducing this figure" note, gap recorded 2026-08-30". A front-door page keeps
+  the final fact and a pointer (CX-355), so this sentence is restated and not annotated. It now says that the figure
+  "**still cannot be regenerated from the public tree alone**": the two flags have been on the CLI since 2026-11-06,
+  but the inputs, the recorded seeds and an archived output are not public, as the source document's note and
+  PROJECT_OVERVIEW.md already say. The line points to this entry.
+- **reports/certificates/README.md (Codex F6).** The CX-37G-B note gave `sat.py --emit-cnf f1c5 --f1-pairs N` without
+  its output path. That command exits 1 with `wrong argument count`. A note gives
+  `sat.py --emit-cnf f1c5 OUT.cnf --f1-pairs N`. CX-37G-B's own body (above) repeats the short form and stands, since
+  this file is append-only; this sentence corrects it.
+- **ROAE_PY_CLI.md `--gs-checkpoint` (Codex F7)** dated the non-object-row check to "FV2-P (2026-11-03". That is the
+  date HISTORY.md files the FV2-P batch under; the commit that added the check, `31012b5d`, is dated 2026-11-06. A
+  note gives both dates.
+- **SOLVE_PY_CLI.md "Three of these carry QUALIFIED values" (audit U01).** The table under that heading has grown to
+  six rows. A note names the three rows with a `PASS:<reduction>` form (`TR12_Q6`, `TR12_V5`, `TR12_V2`), the one whose
+  other values are neither PASS nor FAIL (`TR12_Q3_KW`: `NOT-KW`, `SKIP:n=<n>`, and `SKIP:no-trace(--atlas-q3-trace)`
+  without a trace), and the two plain PASS/FAIL gates added later. Each value set was checked against solve.py's
+  emitters.
+- **VERIFY.md `--f1-dec-roundtrip` and the verify.py help for that mode (audit V6)** said "`SOLVE_BIN` or `./solve`".
+  The code uses `SOLVE_BIN`, else the `solve` beside `verify.py` (resolved from `__file__`), not one in the working
+  directory. A note says so, and the help now reads "SOLVE_BIN, else ./solve beside this file", as `--solve-bin`'s
+  help already did. The two differ only when verify.py is run from outside the repo directory, and a missing binary
+  FAILS either way.
+
+**Not changed.** No figure, count, digest, canonical sha, token value or verdict. The verify.py edits are help text and
+a docstring.
+
+**Tests.** `TestBatchQ1163` requires each note once, after the text it qualifies, and fails when the notes are taken
+out. For documentation/README.md it requires the restated sentence once and the old one gone, and fails when the old
+one is put back. It also checks each note against the code: `--sigma-limit 0` gives FAIL and exit 1; the two `KW[64]` literals are
+equal; solve.py passes both joint-density flags; sat.py without `OUT.cnf` exits 1 with `wrong argument count`; the
+`--f1-dec-roundtrip` path is built from `__file__`; and the six table rows carry the value forms the U01 note gives.
+`TestBatchQ1135`'s two verify.py text pins move to the new help and docstring. The text tests fail on the parent tree.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 built the batch. Findings F2 and F4 to F7 are
+Codex's (gpt-6-astra), from its review of Q-1133 to Q-1135; U01 and V6 are from an Opus audit of the Python CLI
+references.
+
+## CX-37G-T — roae.py: an abbreviated `--trials` reaches the exporters, a checkpoint row with a list or object `batch` is refused, and two "18.49 bits" comments read 18.4954 (roae.py; documentation/ROAE_PY_CLI.md; tests.py)
+
+**2026-11-23.** **Source.** Backlog Q-1163, the code row that Q-1135 (CX-37C-W) left out: audit item R5, with the
+two roae.py comments CX-37C-W left "for a code batch"; and finding F1 of the Codex (gpt-6-astra) review of
+Q-1133 to Q-1135.
+
+**What was wrong, and what it does now.**
+- **`--trial N` (audit R5).** argparse accepts any unique prefix of an option, so `--trial 500` set `args.trials`.
+  The `--html` and `--markdown` exporters, though, took `args.trials` only when argv held a token spelled exactly
+  `--trials` or `--trials=…`, and otherwise used 10,000. CX-37C-W documented this. It is now fixed in the code:
+  `--trials` now has an argparse action that stores the value and records that the flag was given; its declared
+  default stays 100,000. The exporters read that record instead of argv. (A first draft used a `default=None`
+  sentinel; Codex (gpt-6-astra) found that it failed the CLI declaration-metadata gate, which compares
+  ROAE_PY_CLI.md's stated default with the declaration.) Without the flag the exporters keep 10,000 and
+  `--bootstrap`/`--stats` keep 100,000, so the shipped `example/` output is unchanged. `--trials 0` (or `--trial 0`)
+  is still refused with exit 2. `allow_abbrev` is unchanged, so no other option parses differently.
+- **A checkpoint row whose `batch` is a list or object (Codex F1).** ROAE_PY_CLI.md says a `--grammar-search` row
+  from another run is refused and counted in the `IGNORED` report. A row whose `batch` was `[]` or `{}` was not
+  refused: both batch lookups raised an uncaught `TypeError` (unhashable key), outside the loader's handler, and the
+  run stopped. The failure was loud, not silent. A row whose `batch` is not an integer is now refused as
+  `mismatched want/batch/n/hits`. That includes `true` and `0.0`, which used to be read as batches 1 and 0. A
+  dated note on the `--gs-checkpoint` row says so.
+- **roae.py's two zero-hit comments** said 18.49 bits at N_eval = 10⁶. They now say "18.4954 bits; printed 18.50",
+  which discharges CX-37C-W's note that they were "left for a code batch". These are comments only.
+- **CX-37C-W's heading named roae.py; that commit did not change it; this entry is the roae.py change.** That
+  entry's body already said the code was not changed. It is append-only and stands.
+- **Dates.** The FV2-P exporter change (D889) is in commit `31012b5d`, dated 2026-11-06. ROAE_PY_CLI.md's `--trials`
+  row says "since 2026-11-03", which is the date HISTORY.md files the batch under. The new note gives both.
+
+**Not changed.** No published figure, count, canonical sha or verdict. Every roae.py line number before the new
+`_TrialsGiven` class, added just above the `__main__` block, is unchanged. The `example/` regeneration (GATE 8) is unaffected in output, since the default
+trial counts are the same.
+
+**Tests.** `TestBatchQ1163Code` runs `roae.main()` with the exporters and the two trial consumers replaced by
+recorders: `--html --trial 500` gives 500, and `--markdown --tria=7` gives 7. With no flag the exporters get 10,000
+and `--bootstrap`/`--stats` get 100,000. It execs the checkpoint loader on rows whose `batch` is `[]`, `{}`, `true`
+or `0.0`, and each must be refused with nothing reused, while the same row with batch 0 is reused. It also checks
+the comments and the two notes. The behaviour tests fail on the parent tree. `TestBatchQ1135`'s pins on the argv
+test and on `allow_abbrev` move to the new record.
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 built the change. F1 is Codex's (gpt-6-astra),
+from its review of Q-1133 to Q-1135; R5 is from an Opus audit of the Python CLI references.
+
+## CX-37G-U — TR-12 Open Problems row 7 called the exchangeability bound 0.04151 "to five figures" and 0.0415012 "exact" (reports/TR12_QUERY_PROGRAM.md; reports/CAPSTONE_GUIDE.md; tests.py)
+
+**2026-11-23.** **Source.** Codex (gpt-6-astra), review of the Q-1133 to Q-1135 batches at 8582a11c, finding F3;
+ruled by Fable (claude-fable-5-2), severity Low. Backlog Q-1163.
+
+**What was published, and what it says now.** CX-37C-V (2026-11-14) appended a note to TR-12's Open Problems row 7:
+"0.04151 to five figures. The exact layer-4 maximum is 0.0415012". The bullet for it above says "A note gives
+0.04151 and the exact 0.0415012". Both are wrong as written. The layer-4 maximum is
+1121676961526360448677589295423047 / 27027598732681779457028289005338315 = 0.041501169…, so it is 0.041501 to five
+significant figures and 0.04150 to five decimals. 0.0415012 is that value to seven decimals. 0.04151 is the
+five-decimal value rounded **up**: the smallest five-decimal number the maximum does not exceed. CX-36J-D brought
+it in as a bound, to replace "within 0.0415", which the maximum exceeds. The summary, the abstract, §12.6 and the
+capstone guide use it as a bound ("within", "≤"), and they are right. A dated note on row 7 now says this. The
+same loose "exact" stands in CX-36J-D above ("0.0415012 exact") and in TR-12's v1.36 row. Both are append-only, and
+this entry corrects them: 0.0415012 is a seven-decimal rounding, and the exact value is the rational.
+The same seven-decimal value also stands in TR-12's summary ("the exact 0.0415012") and abstract ("the layer-4
+maximum being 0.0415012"), which are not edited: read it there as a rounding to seven decimals.
+The capstone guide's line that gives 0.0415012 as "the largest layer's exact value" gains a dated note saying the
+same. TR-12's v1.47 row records the change.
+
+**Not changed.** No figure, token, count, digest, canonical sha or verdict. The token
+EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS=0.0415 and the bound 0.04151 are both right.
+
+**Tests.** TestBatchQ1163TV recomputes the maximum from the published atlas in exact rationals by enumerating the
+full support. It requires: 0.04150 to five decimals; 0.041501 to five significant figures; 0.04151 as the smallest
+five-decimal bound; every 0.04151 in TR-12 and the capstone guide in a bound sentence ("within" or "≤"), except
+in the new note, in TR-12's revision rows, and in the earlier dated notes that report the figure (the CX-37C-V note
+among them); and the new note once, after the CX-37C-V note. It fails on the parent tree.
+TestBatchQ1134's row-7 test no longer pins the old note's wording as if it were right: it now requires the
+correction right after that note, and the rational's decimal expansion 0.041501169697….
+
+Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 recomputed the value and drafted the note; the
+finding is Codex's (gpt-6-astra). Text ruled by Claude Fable 5.2 (fable-pinned lane).

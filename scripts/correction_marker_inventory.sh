@@ -118,6 +118,10 @@ REVIEWED = {
     # already reads correctly without it (SAT-witnessed, one explicit ordering, the archived output named).
     ('reports/TR12_QUERY_PROGRAM.md', 'cfb09f31467f'):
         ('1', 'reviewed:dated-note-CX-37G-M;the-cell-already-gives-the-SAT-witnessed-grade'),
+    # Q-1163 (2026-11-23): a dated note whose marker is load-bearing, because the text it corrects is kept
+    # beside it: TR-12's Open Problems row 7 still carries the Q-1134 note it corrects.
+    ('reports/TR12_QUERY_PROGRAM.md', 'ebf2c92d0958'):
+        ('2', 'reviewed:dated-note-Q-1163;the-Q-1134-note-before-it-still-calls-the-bound-the-maximum-and-a-rounding-exact'),
     # Q1049R6 (2026-11-14, CX-37C-T): two dated notes in the capstone guide that quote the old wording; the
     # sentence each is appended to already reads correctly without it.
     ('reports/CAPSTONE_GUIDE.md', '4a0a9b4a4056'):
@@ -644,7 +648,7 @@ REVIEWED = {
         ('1', 'reviewed:paragraph-above-already-puts-the-range-test-first'),
     ('documentation/ROAE_PY_CLI.md', '1a9d70c8317f'):
         ('1', 'reviewed:following-text-already-states-the-Wilson-bound-rule'),
-    ('documentation/ROAE_PY_CLI.md', '765dc2ccbf63'):  # re-keyed 2026-11-14, CX-37C-W (dated note appended; verdict re-read, stands)
+    ('documentation/ROAE_PY_CLI.md', '3ac1af303256'):  # re-keyed 2026-11-23, Q-1163 (was 765dc2ccbf63, itself re-keyed 2026-11-14 for CX-37C-W; two dated notes appended; verdict re-read, stands)
         ('1', 'reviewed:row-already-lists-the-validated-fields'),
     ('documentation/CLAIM_TO_ARTIFACT.md', '9e353b0b2b4b'):  # 2026-11-14, CX-37C-U (row 15)
         ('1', 'reviewed:row-already-cites-kw_valid-and-kw_no_five'),

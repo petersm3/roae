@@ -655,6 +655,8 @@ gate_hex_prefix() {
       echo "not a sha: the head of an elided 32-byte solution RECORD (HISTORY.md:2268-2269)";;
     325025987)
       echo "not hex: the tail of the decimal x23.325025987... (DESCRIPTION_LENGTH.md:74)";;
+    041501169|041501169697)
+      echo "not hex: the decimal expansion 0.041501169697... of TR-12's exact layer-4 exchangeability maximum, quoted to nine and to twelve decimals by the Q-1163 F3 correction";;
     d63bb25c)
       echo "not a sha256: an ext4 filesystem UUID (HISTORY.md:1907)";;
     43745021|5f9dcb7d)

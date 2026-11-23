@@ -13058,3 +13058,30 @@ line number in either file moves. Both sets of reproductions were run again on t
   identifying-boundary sentence and the scope-note hedges stay where they were. Raised by the operator; the
   re-organisation was recommended by the orchestrator, drafted in an Opus lane and read before publication in a
   Fable lane.
+
+## 2026-11-23 — batch Q1163: notes from the Codex review of Q-1133 to Q-1135
+
+- **Doc notes (CX-37G-S).** Codex (gpt-6-astra) reviewed the Q-1133, Q-1134 and Q-1135 batches and found seven
+  problems. Five are notes on CLI and index lines: verify.py's `--sigma-limit` help (N < 1 gives FAIL, not PARTIAL);
+  CLAIM_TO_ARTIFACT row 3 (both counters read the same King Wen input); documentation/README.md (the joint-density
+  flags have been wired since 2026-11-06); the certificates README (`--emit-cnf` needs its `OUT.cnf`); and the date of
+  the FV2-P checkpoint fix. Two older audit items ride along: SOLVE_PY_CLI.md's "Three of these" heading over a
+  six-row table, and where verify.py looks for `solve`.
+- No figure, count, canonical sha or verdict changed. `TestBatchQ1163` holds the notes and their bindings to the code,
+  and fails on the parent tree. Found by Codex (gpt-6-astra); built in an Opus lane (claude-opus-5-5).
+
+## 2026-11-23 — batch Q1163 code row: roae.py `--trials` and the checkpoint loader
+
+- **roae.py (CX-37G-T).** An abbreviation such as `--trial 500` now reaches the `--html`/`--markdown` exporters:
+  `--trials` records that it was given (an argparse action) instead of argv sniffing. The defaults are unchanged (10,000 for the exporters,
+  100,000 for `--bootstrap`/`--stats`). A `--grammar-search` checkpoint row whose `batch` is a list or object is
+  refused instead of crashing (Codex, F1). Two comments now give the zero-hit bound as 18.4954 bits.
+- No figure, count, canonical sha or verdict changed; `example/` output is the same. `TestBatchQ1163Code` holds the
+  change and fails on the parent tree. Found by Codex (gpt-6-astra) and an Opus audit; built in an Opus lane.
+
+## 2026-11-23 — batch Q1163 (F3): TR-12's exchangeability-bound note corrected
+
+- **Open Problems row 7 (CX-37G-U).** A note from 2026-11-14 called 0.04151 the layer-4 maximum "to five
+  figures" and 0.0415012 "exact". The maximum is 0.041501169…; 0.04151 is a bound (rounded up), which is how the
+  abstract and §12.6 use it. A dated note says so. No figure changed. Found by Codex (gpt-6-astra); ruled by
+  Fable; built in an Opus lane.

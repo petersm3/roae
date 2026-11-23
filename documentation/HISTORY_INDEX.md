@@ -8,7 +8,7 @@
 
 **How a date is read.** Only `##` section headings are indexed. The date is taken from the heading, in this order: an ISO date at its start (after at most one leading emoji or symbol), in the grammar scripts/history_currency_gate.sh uses (`iso`; a range such as `2026-07-04/05` is shown with its last day); otherwise a month name and day at its start, with the year that follows (`prose`; for a range, the first day named); otherwise an ISO date elsewhere in it (`embedded`). Dates are as written: headings mix PDT, PT and UTC, and none is converted. Sections sort by their first day; ties keep file order. Headings with no date are listed last, in file order.
 
-**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 12 place(s) over all 285 dated sections, 11 of them among the 209 `iso` sections alone.
+**Where file order and date order disagree.** A section whose first day is earlier than that of the dated section above it in the file: 12 place(s) over all 288 dated sections, 11 of them among the 212 `iso` sections alone.
 
 - line 2666: 2026-04-22 ([section](HISTORY.md#infrastructure-2026-04-22)), below line 2568: 2026-05-15
 - line 5643: 2026-07-09 ([section](HISTORY.md#2026-07-0916-the-exact-count-lands--twelve-evictions-zero-lost-work-and-a-40-digit-integer)), below line 5583: 2026-07-13
@@ -312,6 +312,9 @@
 | 283 | 2026-11-21 | iso | 13016 | [open](HISTORY.md#2026-11-21--batch-q1155-the-table-test-ends-a-table-at-a-fence-after-a-third-codex-review) 2026-11-21 — batch Q1155: the table test ends a table at a fence, after a third Codex review |
 | 284 | 2026-11-22 | iso | 13027 | [open](HISTORY.md#2026-11-22--batch-q1156-gate-10s-redaction-cues-read-whole-words-and-fifteen-more-gate-fixes-from-codexs-delta-review) 2026-11-22 — batch Q1156: GATE 10's redaction cues read whole words, and fifteen more gate fixes from Codex's delta review |
 | 285 | 2026-11-23 | iso | 13043 | [open](HISTORY.md#2026-11-23--the-front-page-separates-its-two-lines-of-work) 2026-11-23 — the front page separates its two lines of work |
+| 286 | 2026-11-23 | iso | 13062 | [open](HISTORY.md#2026-11-23--batch-q1163-notes-from-the-codex-review-of-q-1133-to-q-1135) 2026-11-23 — batch Q1163: notes from the Codex review of Q-1133 to Q-1135 |
+| 287 | 2026-11-23 | iso | 13073 | [open](HISTORY.md#2026-11-23--batch-q1163-code-row-roaepy---trials-and-the-checkpoint-loader) 2026-11-23 — batch Q1163 code row: roae.py `--trials` and the checkpoint loader |
+| 288 | 2026-11-23 | iso | 13082 | [open](HISTORY.md#2026-11-23--batch-q1163-f3-tr-12s-exchangeability-bound-note-corrected) 2026-11-23 — batch Q1163 (F3): TR-12's exchangeability-bound note corrected |
 
 ## Sections with no date in the heading, in file order
 

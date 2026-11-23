@@ -4543,7 +4543,7 @@ def run_grammar_search(nsamp, nprobe, workers, batches, seed,
                 # A row written before this fix has no `seed`; it cannot be shown to belong to this
                 # run, so it is refused rather than trusted. Silently accepting it is the defect.
                 bad = _gs_ck_row_mismatch(rec, _ck_ident, jobs_by_batch)   # G5a F04-015#5: identity + want (helper at end of file)
-                want_b = dict(jobs_by_batch).get(rec.get("batch"))   # G5b F04-015#2: an unknown batch, or hits/n of the wrong shape, is refused
+                want_b = dict(jobs_by_batch).get(rec.get("batch")) if type(rec.get("batch")) is int else None   # G5b F04-015#2: an unknown batch, or hits/n of the wrong shape, is refused; Q-1163 (Codex F1): a non-integer batch too ([] / {} raised TypeError)
                 if want_b is None or rec.get("n") != want_b or not isinstance(rec.get("hits"), list) or len(rec["hits"]) != len(ridx):
                     bad.append("want/batch/n/hits")
                 if bad:
@@ -4930,7 +4930,7 @@ def _ph_mass(hist, pred):
 # Now such a test is graded by the spec's iff against its REPORTED bound: the
 # one-sided 95% Wilson lower bound on bits-explained (be_lo). If be_lo clears the
 # bar the test PASSes like any other PASS (NO CLAIM; the §8 re-audit fires); at
-# the pre-registered N_eval = 1e6 that is always the case (18.49 bits). Only a
+# the pre-registered N_eval = 1e6 that is always the case (18.4954 bits; printed 18.50). Only a
 # zero-hit whose bound cannot resolve the bar (too small an N) gets status
 # ZERO-HIT:STOP: not graded, and the 4/4-FAIL prediction reads UNDECIDED rather
 # than HELD. A KW-UNsatisfied predicate still FAILs even at 0 hits: the
@@ -4957,7 +4957,7 @@ def _ph_grade(kw_satisfies, f_eval, n, bar):
     elif hits == 0:
         # Spec §4.3: report the one-sided 95% Wilson bound and stop (no escalation). The GRADE is
         # still the iff: -log2 f_eval = +inf > bar, and the reported bound be_lo is the figure
-        # that must clear the bar. At the pre-registered N_eval = 1e6 it always does (18.49 bits).
+        # that must clear the bar. At the pre-registered N_eval = 1e6 it always does (18.4954 bits; printed 18.50).
         be = None
         if be_lo > bar:
             status = "PASS"
@@ -5408,7 +5408,7 @@ def main():
                         help="Include 64->1 wrap-around transition in wave")
     parser.add_argument("--order", type=int, default=1,
                         help="Compute Nth order of difference (default: 1)")
-    parser.add_argument("--trials", type=_g5b_pos_int, default=100000,   # G5b F12-012#7: >= 1, exit 2 otherwise
+    parser.add_argument("--trials", type=_g5b_pos_int, default=100000, action=_TrialsGiven,   # G5b F12-012#7: >= 1, exit 2 otherwise; Q-1163 r2: the action records that it was given
                         help="Number of Monte Carlo trials (default: 100000)")
     parser.add_argument("--seed", type=int, default=None,
                         help="Random seed for reproducible results (each analysis "
@@ -5438,7 +5438,7 @@ def main():
                         help="List all available analysis sections with descriptions")
 
     args = parser.parse_args()
-
+    _trials_explicit = getattr(args, "_trials_given", False)   # Q-1163 (CX-37G-T, r2): set by _TrialsGiven, so any form argparse accepts (--trial N too) counts as given
     # Set the global seed BEFORE the early-dispatch ladder below, not after it.
     #
     # This assignment used to sit further down, past every `return`-ing mode.
@@ -5528,7 +5528,7 @@ def main():
         return
     # FV2-P D889: the exporters ran 10,000 trials whatever --trials said; an explicit --trials now
     # reaches them, and without one they keep their 10,000 (the shipped example/ is unchanged).
-    _ex_trials = args.trials if any(a == "--trials" or a.startswith("--trials=") for a in sys.argv[1:]) else 10000
+    _ex_trials = args.trials if _trials_explicit else 10000   # Q-1163 (CX-37G-T): read from _TrialsGiven's mark, not argv, so --trial N reaches the exporters
     if args.html:
         export_html(trials=_ex_trials)
         return
@@ -5623,7 +5623,7 @@ def _gs_ck_row_mismatch(rec, ident, jobs_by_batch):
     the row's `want` against its batch's). Empty means the row is reusable. A helper so tests.py
     checks the comparison itself, not the presence of its spelling (G5a; Codex F04-015#5)."""
     bad = [k for k, v in ident.items() if rec.get(k) != v]
-    want_b = dict(jobs_by_batch).get(rec.get("batch"))
+    want_b = dict(jobs_by_batch).get(rec.get("batch")) if type(rec.get("batch")) is int else None   # Q-1163 (Codex F1): [] / {} raised TypeError
     if want_b is not None and rec.get("want") != want_b:
         bad.append("want")
     return bad
@@ -5735,6 +5735,18 @@ def _gs_ck_json_obj(line):
     if not isinstance(rec, dict):
         raise ValueError("not an object")
     return rec
+
+
+class _TrialsGiven(argparse.Action):
+    """--trials: store the value and mark the namespace, so main() can tell an explicit --trials from the default.
+
+    Q-1163 round 2 (CX-37G-T; Codex, gpt-6-astra, found that round 1's `default=None` sentinel failed the CLI
+    declaration-metadata gate): the declared default stays the documented 100000, and the "given" mark is a
+    separate attribute. argparse calls this for every spelling it accepts (--trials N, --trials=N, --trial N)."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        setattr(namespace, self.dest, values)
+        setattr(namespace, "_trials_given", True)
 
 
 if __name__ == "__main__":

@@ -62511,7 +62511,7 @@ class TestBatchQ1056(unittest.TestCase):
         # Q1049R (CX-37C-A) appended v1.38 and moved the marker; v1.37 stays the row after v1.36 either way
         # (Q-1065 appended v1.41 and moved it again)
         self.assertEqual(len(cur), 1, cur)
-        self.assertIn(cur[0], ("| v1.37 *(current)* |", "| v1.38 *(current)* |", "| v1.39 *(current)* |", "| v1.40 *(current)* |", "| v1.41 *(current)* |", "| v1.42 *(current)* |", "| v1.43 *(current)* |", "| v1.44 *(current)* |", "| v1.45 *(current)* |", "| v1.46 *(current)* |"))  # Q-1113 (CX-37C-G) appended v1.39; v1.40: Q-1120 (CX-37C-J); v1.41: Q-1065 (CX-37C-L); v1.42: Q-1128 (CX-37C-M); v1.43: Q-1134 (CX-37C-V); v1.44: cloud sweep B7 (Q-1140); v1.46: Q-1155 (CX-37G-M)
+        self.assertIn(cur[0], ("| v1.37 *(current)* |", "| v1.38 *(current)* |", "| v1.39 *(current)* |", "| v1.40 *(current)* |", "| v1.41 *(current)* |", "| v1.42 *(current)* |", "| v1.43 *(current)* |", "| v1.44 *(current)* |", "| v1.45 *(current)* |", "| v1.46 *(current)* |", "| v1.47 *(current)* |"))  # Q-1113 (CX-37C-G) appended v1.39; v1.40: Q-1120 (CX-37C-J); v1.41: Q-1065 (CX-37C-L); v1.42: Q-1128 (CX-37C-M); v1.43: Q-1134 (CX-37C-V); v1.44: cloud sweep B7 (Q-1140); v1.46: Q-1155 (CX-37G-M)
         self.assertRegex(t, r"\| v1\.37(?: \*\(current\)\*)? \| 2026-11-05 \| \*\*Two items of §10, this report's DONE-contract section")
         self.assertIn("| v1.36 | 2026-11-01 |", t)
         self.assertNotIn("| v1.36 *(current)* |", t)
@@ -68158,7 +68158,7 @@ class TestSuperspaceDivisibilityLean(unittest.TestCase):
         r45 = [l for l in t.split("\n") if l.startswith(("| v1.45 *(current)* | 2026-11-20 |", "| v1.45 | 2026-11-20 |"))]
         self.assertEqual(len(r45), 1)
         self.assertIn("machine-checked in Lean (backlog Q-1127 and Q-1150, %s).**" % cx, r45[0])
-        self.assertTrue(cur[0] == r45[0] or cur[0].startswith("| v1.46 *(current)* | 2026-11-21 |"), cur[0][:60])
+        self.assertTrue(cur[0] == r45[0] or cur[0].startswith(("| v1.46 *(current)* | 2026-11-21 |", "| v1.47 *(current)* | 2026-11-23 |")), cur[0][:60])   # v1.47: Q-1163
         self.assertTrue(t.endswith(cur[0] + "\n"), "the current row is the last line")
 
     def _row13(self):
@@ -68518,16 +68518,35 @@ class TestBatchQ1134(unittest.TestCase):
         self.assertIn("EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS_EXACT (added\n                             2026-11-14, "
                       "Q-1134:", self._r("documentation/SOLVE_PY_CLI.md"))
 
-    def test_n1_open_problems_row_7_gives_0_04151(self):
+    def test_n1_open_problems_row_7_gives_0_04151_and_its_correction(self):
+        # Q-1163 F3 (CX-37G-U, 2026-11-19; Codex review of Q-1133, F3; text ruled by Fable): this test used to pin
+        # the Q-1134 note's "0.04151 to five figures ... The exact layer-4 maximum is 0.0415012" as if it were
+        # right. The note stays (append-only); the test now pins the correction appended right after it, and the
+        # rational's own decimal expansion.
+        from decimal import Decimal, localcontext
         from fractions import Fraction
         p, q = map(int, self.EXACT.split("/"))
         x = Fraction(p, q)
-        self.assertEqual(("%.5f" % x, "%.7f" % x, "%.4f" % x), ("0.04150", "0.0415012", "0.0415"))
-        self.assertTrue(x > Fraction(415, 10000))
+        with localcontext() as ctx:
+            ctx.prec = 40
+            dec = str(Decimal(p) / Decimal(q))
+        self.assertTrue(dec.startswith("0.041501169697699721"), dec)   # 0.0415011697 to ten decimals
+        self.assertEqual(("%.5f" % x, "%.5g" % x, "%.7f" % x, "%.4f" % x), ("0.04150", "0.041501", "0.0415012", "0.0415"))
+        self.assertTrue(Fraction(4150, 10 ** 5) < x <= Fraction(4151, 10 ** 5), "0.04151 is the five-decimal value rounded up")
+        self.assertNotEqual(x, Fraction(415012, 10 ** 7), "0.0415012 is a rounding, not the value")
         row = self._line(self.T12, "| 7 | **Is §12.6's near-exchangeability informative")
-        self.assertIn("the TV **0.0415** ships as a measurement ⚠ *(noted 2026-11-14, Q-1134: 0.04151 to five "
-                      "figures. The exact layer-4 maximum is 0.0415012, above 0.0415, and the token prints it as "
-                      "0.0415;", row)
+        old = ("⚠ *(noted 2026-11-14, Q-1134: 0.04151 to five figures. The exact layer-4 maximum is 0.0415012, above "
+               "0.0415, and the token prints it as 0.0415;")
+        fix = ("CX-36J-D.)* ⚠ *(corrected 2026-11-23, Q-1163: two phrases in the note just before this one are wrong. "
+               "0.04151 is not the maximum \"to five figures\", and 0.0415012 is not \"exact\". The layer-4 maximum is "
+               "%s = 0.041501169…: 0.041501 to five significant figures, 0.04150 to five decimals, 0.0415012 to seven "
+               "decimals. 0.04151 is that value rounded up at the fifth decimal, the smallest five-decimal number that "
+               "is not below the maximum." % self.EXACT.replace("/", " / "))
+        self.assertEqual(row.count(old), 1, "the Q-1134 note stays as published")
+        self.assertEqual(row.count(fix), 1, "the correction follows the Q-1134 note")
+        self.assertLess(row.index(old), row.index(fix))
+        self.assertIn("`EXCHANGEABLE_NULL_TV_MAX_OVER_LAYERS_EXACT`. No figure moves. Codex review of Q-1133, F3; "
+                      "[CORRECTIONS.md](../documentation/CORRECTIONS.md) CX-37G-U.)* and the interpretation is **withheld**", row)
         t = self._r(self.T12)
         self.assertGreaterEqual(t.count("0.04151"), 4)
 
@@ -68654,6 +68673,119 @@ class TestBatchQ1134(unittest.TestCase):
         self.assertTrue(t.endswith(rows[-1] + "\n"))
 
 # end class TestBatchQ1134
+
+
+class TestBatchQ1163TV(unittest.TestCase):
+    """Backlog Q-1163 F3 (2026-11-19; CORRECTIONS CX-37G-U; Codex review of Q-1133, F3; text ruled by Claude Fable 5.2,
+    severity Low): the layer-4 exchangeability maximum is 0.041501169..., so 0.04151 is a five-decimal BOUND (the value
+    rounded up), not the value "to five figures", and 0.0415012 is a seven-decimal rounding, not the exact value. The
+    maximum is recomputed from the published atlas by enumerating each layer's full support in exact rationals (no
+    omitted-mass identity, unlike the probe), and checked against _q1134_exchangeable_tv and TR-12's rational. Every
+    0.04151 in TR-12 and the capstone guide must sit in a bound sentence ("within" or "≤") except inside the new note,
+    in a revision row, or in an earlier dated note that reports the figure; the new note is present once, right after
+    the Q-1134 note in Open Problems row 7; the capstone guide's line carries its sibling note. Fails on the parent
+    tree (no note there). Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = TestBatchQ1134.ROOT
+    T12, CAP, ATLAS, EXACT = TestBatchQ1134.T12, "reports/CAPSTONE_GUIDE.md", TestBatchQ1134.ATLAS, TestBatchQ1134.EXACT
+    NOTE = " ⚠ *(corrected 2026-11-23, Q-1163: two phrases in the note just before this one are wrong."
+    _r = TestBatchQ1134._r
+    _atlas = TestBatchQ1134._atlas
+
+    def _max_full_support(self):
+        import math
+        from fractions import Fraction
+        from math import comb
+        a = self._atlas()
+        n, N, L = int(a["n"]), int(a["N_total"]), a["layers"]
+        b0 = [sum(int(l["by_class"][c]) for l in L) // N for c in ("d1", "d2", "d3", "d4", "d6")]
+        self.assertEqual(b0, [2, 8, 13, 7, 1], "precondition: the residual-budget multiset")
+        rad = [1]
+        for d in range(4):
+            rad.append(rad[-1] * (b0[d] + 1))
+        tv = []
+        for k in range(n):
+            obs = {}
+            for kk, v in L[k]["rid_mass"].items():
+                r = int(kk[1:])
+                key = tuple((r // rad[d]) % (b0[d] + 1) for d in range(5))
+                obs[key] = obs.get(key, Fraction(0)) + Fraction(int(v), N)
+            self.assertEqual(sum(obs.values()), 1, "the observed law of layer %d sums to 1" % k)
+            null = {c: Fraction(math.prod(comb(b0[d], c[d]) for d in range(5)), comb(n, k))
+                    for c in itertools.product(*[range(b + 1) for b in b0]) if sum(c) == k}
+            self.assertEqual(sum(null.values()), 1, "the null of layer %d sums to 1" % k)
+            self.assertTrue(set(obs) <= set(null), "observed support inside the null's at layer %d" % k)
+            tv.append(sum(abs(obs.get(c, Fraction(0)) - pr) for c, pr in null.items()) / 2)
+        return tv
+
+    def test_the_maximum_is_0_041501_and_0_04151_is_its_five_decimal_bound(self):
+        from decimal import Decimal, ROUND_HALF_EVEN, localcontext
+        from fractions import Fraction
+        tv = self._max_full_support()
+        x = max(tv)
+        p, q = map(int, self.EXACT.split("/"))
+        self.assertEqual(x, Fraction(p, q), "the rational TR-12 quotes")
+        self.assertEqual(tv.index(x), 4, "the maximum is at layer 4")
+        self.assertEqual([k for k, v in enumerate(tv) if v == x], [4])
+        self.assertEqual(x, max(_q1134_exchangeable_tv(self._atlas())), "the Q-1134 enumeration agrees")
+        with localcontext() as ctx:
+            ctx.prec = 60
+            d = Decimal(p) / Decimal(q)
+            self.assertEqual(str(d.quantize(Decimal("0.00001"), rounding=ROUND_HALF_EVEN)), "0.04150")
+        self.assertTrue(str(d).startswith("0.041501169697699721041"), str(d))
+        self.assertEqual("%.5g" % x, "0.041501")
+        up = -((-x * 10 ** 5) // 1)   # the smallest five-decimal number not below x
+        self.assertEqual(Fraction(up, 10 ** 5), Fraction(4151, 10 ** 5))
+        self.assertTrue(Fraction(4150, 10 ** 5) < x <= Fraction(4151, 10 ** 5))
+
+    def test_every_0_04151_is_a_bound_outside_the_new_note(self):
+        import re
+        for rel in (self.T12, self.CAP):
+            t = self._r(rel)
+            lines = t.split("\n")
+            seen = 0
+            for i, ln in enumerate(lines):
+                cut = ln.find(self.NOTE)
+                end = ln.find(")*", cut) if cut >= 0 else -1
+                for m in re.finditer(r"0\.04151(?!\d)", ln):
+                    if cut >= 0 and cut <= m.start() < end:
+                        continue   # the new note quotes the figure
+                    if ln.startswith("| v1."):
+                        continue   # a revision row reports the figure; it is not a use of it
+                    seen += 1
+                    before = ((lines[i - 1] if i else "") + "\n" + ln[:m.start()])[-40:]   # a figure may open its line
+                    if "within" in before or "≤" in before:
+                        continue
+                    # a dated note that reports a figure TR-12 or the guide reads: it names the bound as read
+                    self.assertRegex(before + ln[m.start():m.start() + 40],
+                                     r"have read 0\.04151|0\.04151 \(0\.0415012|0\.04151 to five figures|was \"0\.0415\"",
+                                     "%s: 0.04151 outside a bound sentence: ...%s..." % (rel, ln[max(0, m.start() - 80):m.start() + 40]))
+            self.assertGreater(seen, 0, "precondition: %s uses 0.04151" % rel)
+
+    def test_the_note_is_in_row_7_once_after_the_q1134_note_and_the_guide_has_its_sibling(self):
+        t = self._r(self.T12)
+        self.assertEqual(t.count(self.NOTE), 1)
+        row = [l for l in t.split("\n") if l.startswith("| 7 | **Is §12.6's near-exchangeability informative")]
+        self.assertEqual(len(row), 1)
+        self.assertIn("CX-36J-D.)*" + self.NOTE, row[0])
+        self.assertIn("0.04151 is that value rounded up at the fifth decimal, the smallest five-decimal number that is not "
+                      "below the maximum. §12.6, the summary and the abstract use it that way, as a bound (\"≤\", \"within\"), "
+                      "and are right as written.", row[0])
+        cur = [l for l in t.split("\n") if l.startswith("| v1.") and "*(current)*" in l]
+        self.assertEqual(len(cur), 1)
+        self.assertTrue(cur[0].startswith("| v1.47 *(current)* | 2026-11-23 | **Open Problems row 7's note on the "
+                                          "exchangeability bound corrected (backlog Q-1163, CX-37G-U;"), cur[0][:120])
+        cap = self._r(self.CAP)
+        self.assertEqual(cap.count("the largest layer's exact value being 0.0415012, CX-36J-D) *(2026-11-23, Q-1163: "
+                                   "0.0415012 is that value to seven decimals; the exact value is the rational in TR-12 "
+                                   "§12.6.)*. We have not"), 1)
+        # TR-12 :43 and :84 are left (true bounds; :43 is a CLAIMS source line), named by CX-37G-U
+        cx = self._r("documentation/CORRECTIONS.md")
+        self.assertIn("The same seven-decimal value also stands in TR-12's summary (\"the exact 0.0415012\") and abstract "
+                      "(\"the layer-4\nmaximum being 0.0415012\"), which are not edited: read it there as a rounding to "
+                      "seven decimals.", cx)
+
+# end class TestBatchQ1163TV
 
 
 class TestBatchQ1140N1(unittest.TestCase):
@@ -68861,8 +68993,8 @@ class TestBatchQ1135(unittest.TestCase):
         ("T4a", SC, "`sat.py --emit-cnf f1c5 --f1-pairs N`", "`sat.py --emit-cnf f1c5 OUT.cnf --f1-pairs N`", True),
         ("T4b", SC, "`sat.py --emit-cnf f1c5 --f1-pairs 12`", "`sat.py --emit-cnf f1c5 n12.cnf --f1-pairs 12`", True),
         ("T4c", SC, "`sat.py --emit-cnf f1c5 --f1-pairs 10`", "`sat.py --emit-cnf f1c5 n10.cnf --f1-pairs 10`", True),
-        ("V1-code", "verify.py", "'Never yields PASS; the verdict token reads PARTIAL.'", "'For N < 48 never yields PASS (the verdict token reads PARTIAL); N >= 48 is the full run.'", True),
-        ("V1-docstring", "verify.py", "    a --sigma-limit run prints PARTIAL.", "    a --sigma-limit N < 48 run prints PARTIAL (N >= 48 is the full run).", True),
+        ("V1-code", "verify.py", "'Never yields PASS; the verdict token reads PARTIAL.'", "'For 1 <= N < 48 never yields PASS (the verdict token reads PARTIAL, or FAIL on a mismatch); N >= 48 is the full run; N < 1 is refused (FAIL, exit 1).'", True),   # Q-1163 (CX-37G-S, Codex F2): N < 1 is FAIL
+        ("V1-docstring", "verify.py", "    a --sigma-limit run prints PARTIAL.", "    a --sigma-limit 1 <= N < 48 run prints PARTIAL, or FAIL on a mismatch (N >= 48 is the full run; N < 1 prints FAIL and returns 1).", True),   # Q-1163 (CX-37G-S; r2, Codex finding 3: the mismatch FAIL)
     )
     # line counts at the parent (fadfc575): every edit is line-neutral. SOLVE_PY_CLI.md is 1805 + 5: the Q-1134
     # batch (CX-37C-V), combined into the same commit, adds 5 lines to the --atlas-probe token list.
@@ -68958,8 +69090,8 @@ class TestBatchQ1135(unittest.TestCase):
         self.assertEqual("%.2f" % be, "18.50")
         self.assertAlmostEqual(-math.log2(1.0 - R._gs_wilson_lower(1000, 1000)), 8.5335, places=4)
         rsrc = self._r("roae.py")
-        self.assertIn('any(a == "--trials" or a.startswith("--trials=") for a in sys.argv[1:]) else 10000', rsrc)
-        self.assertNotIn("allow_abbrev=False", rsrc, "R5 is documented, not fixed; drop this line if the code changes")
+        self.assertIn("_ex_trials = args.trials if _trials_explicit else 10000", rsrc)   # Q-1163 (CX-37G-T): R5 fixed by a sentinel
+        self.assertNotIn("allow_abbrev=False", rsrc, "R5 is fixed by a sentinel default, not by allow_abbrev (Q-1163)")
         self.assertIn('sys.exit(2)   # G5b F12-012#11', rsrc)
         self.assertIn("if workers >= _SEED_STREAM_GAP - _SEED_STREAM_OFFSETS[\"probe\"]:", rsrc)
         evid = [p for d, _s, fs in os.walk(os.path.join(self.ROOT, "reports", "evidence")) for p in fs if p.endswith(".py")]
@@ -73513,6 +73645,376 @@ class TestQ1156GateFixes(unittest.TestCase):
         self.assertIn("FAILOPEN_CLOSURE_SELFTEST=PASS", r.stdout, r.stdout[-2000:])
 
 # end class TestQ1156GateFixes
+
+
+class TestBatchQ1163(unittest.TestCase):
+    """Backlog Q-1163 (CORRECTIONS CX-37G-S): the Codex (gpt-6-astra) review of Q-1133 to Q-1135 found seven problems;
+    the doc and help-text ones are carried here as dated notes, with two Q-1135 audit items (U01, V6). Each note must
+    appear once, right after the text it qualifies; the red test takes them out; the binding tests check what each
+    note says against the code. F5 is on documentation/README.md, a front-door page that keeps the final fact and a
+    pointer (TestCleanupM1), so its sentence is restated and not annotated: the new sentence must appear once with the
+    old one gone, and the red test puts the old one back. The text tests fail on the parent tree. Developed with AI
+    assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    # (row, file, anchor, note): the note must follow the anchor directly, once.
+    NOTES = (
+        ("U01", "documentation/SOLVE_PY_CLI.md", "(added 2026-09-04):",
+         " *(Noted 2026-11-23, Q-1163: the table has since grown to six rows. Three of them, `TR12_Q6`, `TR12_V5` and "
+         "`TR12_V2`, carry a `PASS:<reduction>` form"),
+        ("V6", "documentation/VERIFY.md", "(`SOLVE_BIN` or `./solve`); absence FAILS rather than skipping",
+         " *(Precision 2026-11-23, Q-1163: `./solve` here is the `solve` beside `verify.py`, not one in the working "
+         "directory."),
+        ("F4", "documentation/CLAIM_TO_ARTIFACT.md", "(scoped 2026-11-14, CX-37C-U: this read \"independent IE transfer-walk\")*",
+         " ⚠ *(scoped 2026-11-23, Q-1163: that independence is of code, not of input. Both instruments read the same "
+         "64-entry King Wen literal, `KW[64]` in `verify.c` and in `solve.c`"),
+        ("F6", "reports/certificates/README.md", "The full-31 `build()` family is not covered.)*",
+         " *(2026-11-23, Q-1163: that command needs its output path, `sat.py --emit-cnf f1c5 OUT.cnf --f1-pairs N`."),
+        ("F7", "documentation/ROAE_PY_CLI.md",
+         "Only `trials` and the hit counts inside a correctly shaped `hits` are still taken on trust.]*",
+         " *[Dated 2026-11-23, Q-1163: \"FV2-P (2026-11-03\" is the date HISTORY.md files that batch under. The commit "
+         "that added the non-object check, `31012b5d` (`_gs_ck_json_obj`), is dated 2026-11-06."),
+    )
+    # (row, file, new, old): a sentence restated in place, with the old wording gone
+    RESTATED = (
+        ("F5", "documentation/README.md",
+         "That ≈30% figure **still cannot be regenerated from the public tree alone** — `--joint-density-dims` / "
+         "`--joint-density-seed` have been on the CLI since 2026-11-06, but the inputs, the recorded seeds and an "
+         "archived output are not public; see the source document's \"Reproducing this figure\" note, gap recorded "
+         "2026-08-30 (corrected; [CORRECTIONS](CORRECTIONS.md) CX-37G-S)).",
+         "That ≈30% figure is **published ahead of its public reproduction command** — `--joint-density-dims` / "
+         "`--joint-density-seed` are not wired to the CLI; see the source document's \"Reproducing this figure\" note, "
+         "gap recorded 2026-08-30)."),
+    )
+    # verify.py help/docstring text (replaced, not annotated: code text)
+    CODE = (
+        ("F2-help", "'For 1 <= N < 48 never yields PASS (the verdict token reads PARTIAL, or FAIL on a mismatch); "
+                    "N >= 48 is the full run; N < 1 is refused (FAIL, exit 1).'",
+         "'For N < 48 never yields PASS (the verdict token reads PARTIAL); N >= 48 is the full run.'"),
+        ("F2-docstring", "a --sigma-limit 1 <= N < 48 run prints PARTIAL, or FAIL on a mismatch (N >= 48 is the full "
+                         "run; N < 1 prints FAIL and returns 1).", "a --sigma-limit N < 48 run prints PARTIAL (N >= 48 is the full run)."),
+        ("V6-help", "'binary (SOLVE_BIN, else ./solve beside this file); absence FAILS.'",
+         "'binary (SOLVE_BIN or ./solve); absence FAILS.'"),
+    )
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _problems(self, texts):
+        probs = []
+        for row, rel, anchor, note in self.NOTES:
+            if texts[rel].count(note) != 1 or texts[rel].count(anchor + note) != 1:
+                probs.append("%s: note not present once after its anchor" % row)
+        for row, rel, new, old in self.RESTATED:
+            if texts[rel].count(new) != 1 or old in texts[rel]:
+                probs.append("%s: restated sentence" % row)
+        for row, new, old in self.CODE:
+            if texts["verify.py"].count(new) != 1 or old in texts["verify.py"]:
+                probs.append("%s: verify.py text" % row)
+        return probs
+
+    def _texts(self):
+        return {rel: self._r(rel) for rel in {n[1] for n in self.NOTES + self.RESTATED} | {"verify.py"}}
+
+    def test_q1163_notes_cured(self):
+        self.assertEqual(self._problems(self._texts()), [])
+
+    def test_q1163_red_without_the_notes(self):
+        texts = self._texts()
+        for row, rel, anchor, note in self.NOTES:
+            self.assertEqual(texts[rel].count(note), 1, "precondition: %s" % row)
+            texts[rel] = texts[rel].replace(note, "")
+        for row, rel, new, old in self.RESTATED:
+            self.assertEqual(texts[rel].count(new), 1, "precondition: %s" % row)
+            texts[rel] = texts[rel].replace(new, old)
+        for row, new, old in self.CODE:
+            self.assertEqual(texts["verify.py"].count(new), 1, "precondition: %s" % row)
+            texts["verify.py"] = texts["verify.py"].replace(new, old)
+        self.assertEqual(len(self._problems(texts)), len(self.NOTES) + len(self.RESTATED) + len(self.CODE))
+
+    def test_q1163_f2_sigma_limit_zero_is_fail(self):
+        r = subprocess.run([sys.executable, _py_src("verify"), "--sigma-isomorphism-all48", "--sigma-limit", "0"],
+                           capture_output=True, text=True, timeout=600, cwd=self.ROOT)
+        self.assertEqual(r.returncode, 1, r.stdout[-600:] + r.stderr[-600:])
+        self.assertIn("SIGMA_ISOMORPHISM_ALL48=FAIL", r.stdout.splitlines())
+        self.assertNotIn("SIGMA_ISOMORPHISM_ALL48=PARTIAL", r.stdout)
+
+    def test_q1163_f4_both_counters_read_the_same_king_wen_literal(self):
+        lits = []
+        for rel in ("verify.c", "solve.c"):
+            m = re.search(r"static const int KW\[64\] = \{([^}]*)\}", self._r(rel))
+            self.assertIsNotNone(m, rel)
+            lits.append([int(x) for x in re.findall(r"-?\d+", re.sub(r"/\*.*?\*/|//[^\n]*", "", m.group(1), flags=re.S))])
+        self.assertEqual(len(lits[0]), 64)
+        self.assertEqual(lits[0], lits[1])
+        self.assertIn("The KING WEN INPUT is deliberately shared", self._r("verify.c"))
+
+    def test_q1163_f5_joint_density_flags_reach_the_dispatch(self):
+        src = self._r("solve.py")
+        self.assertIn("seed=args.joint_density_seed,", src)
+        self.assertIn("dims=_jd_dims_arg(args.joint_density_dims)))", src)
+        self.assertIn('"--joint-density-dims"', src)
+        self.assertIn('"--joint-density-seed"', src)
+
+    def test_q1163_f6_emit_cnf_needs_out_path(self):
+        r = subprocess.run([sys.executable, _py_src("sat"), "--emit-cnf", "f1c5", "--f1-pairs", "3"],
+                           capture_output=True, text=True, timeout=300, cwd=self.ROOT)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("wrong argument count", r.stdout + r.stderr)
+
+    def test_q1163_v6_solve_path_is_beside_verify_py(self):
+        src = self._r("verify.py")
+        body = src[src.index("def f1_dec_roundtrip("):]
+        body = body[:body.index("\ndef ", 1)]
+        self.assertIn("here = os.path.dirname(os.path.abspath(__file__))", body)
+        # Written in two pieces: TestBatchG5a scans this file for the overrides tests.py itself reads, and this is a
+        # quotation of verify.py's line, not a read. tests.py takes no SOLVE_BIN from its own environment.
+        self.assertIn('os.environ.get("SOLVE_BIN")' + ' or os.path.join(here, "solve")', body)
+        self.assertNotIn("os.getcwd()", body)
+
+    def test_q1163_u01_value_forms(self):
+        t = self._r("documentation/SOLVE_PY_CLI.md")
+        i = t.index("**Three of these carry QUALIFIED values")
+        rows = [l for l in t[i:].split("\n\n")[1].split("\n") if l.startswith("| `TR12_")]
+        vals = {re.match(r"\| `(TR12_[A-Z0-9_]+)`", l).group(1): l.split(" | ")[1] for l in rows}
+        self.assertEqual(sorted(vals), sorted(["TR12_Q3_KW", "TR12_Q6", "TR12_Q6_EXTREMES", "TR12_RATIO_COLUMNS",
+                                               "TR12_V5", "TR12_V2"]))
+        reduced = sorted(k for k, v in vals.items() if "`PASS:" in v)
+        self.assertEqual(reduced, ["TR12_Q6", "TR12_V2", "TR12_V5"])
+        other = sorted(k for k, v in vals.items()
+                       if any(not (x.strip("` ") == "PASS" or x.strip("` ").startswith(("PASS:", "FAIL"))) for x in v.split("·")))
+        self.assertEqual(other, ["TR12_Q3_KW"])
+        src = self._r("solve.py")
+        for want in ('return ("q3_profile.tsv", "NOT-KW", why)', 'return ("q3_profile.tsv", "SKIP:n=%s" % n,',
+                     'verdicts["TR12_Q3_KW"] = "SKIP:no-trace(--atlas-q3-trace)"',
+                     'verdicts["TR12_V2"] = "PASS:REDUCED-NO-BRANCH-CLASS-RIVER"',
+                     'verdicts["TR12_V5"] = "PASS" if v5_cross else "PASS:REDUCED-NO-CROSSTAB"',
+                     'verdicts["TR12_Q6"] = "PASS:REDUCED-DISTANCE-CLASS"'):
+            self.assertIn(want, src)
+
+# end class TestBatchQ1163
+
+
+class TestBatchQ1163Code(unittest.TestCase):
+    """Backlog Q-1163 (CORRECTIONS CX-37G-T): the roae.py code row. (1) `--trials` has a sentinel default, so an
+    abbreviation argparse accepts (`--trial N`, `--tria=N`) reaches the --html/--markdown exporters; without the flag they keep
+    10,000 and --bootstrap/--stats keep 100,000. (2) A --grammar-search checkpoint row whose `batch` is a JSON list or
+    object is refused, not a TypeError (Codex review of Q-1133, F1). (3) The two "18.49 bits" comments read 18.4954.
+    The behaviour tests fail on the parent tree. Developed with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _main(self, argv):
+        """Run roae.main() in-process with the exporters and the two trial consumers replaced by recorders."""
+        R = _load("roae")
+        seen = []
+        for name in ("export_html", "export_markdown", "print_bootstrap", "print_stats"):
+            setattr(R, name, (lambda nm: (lambda *a, **k: seen.append((nm, k.get("trials")))))(name))
+        old, sys.argv = sys.argv, ["roae.py"] + argv
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                R.main()
+        finally:
+            sys.argv = old
+        return seen
+
+    def test_q1163_abbreviated_trials_reach_the_exporters(self):
+        self.assertEqual(self._main(["--html", "--trial", "500"]), [("export_html", 500)])
+        self.assertEqual(self._main(["--markdown", "--tria=7"]), [("export_markdown", 7)])
+
+    def test_q1163_trials_defaults_are_unchanged(self):
+        self.assertEqual(self._main(["--html"]), [("export_html", 10000)])
+        self.assertEqual(self._main(["--markdown", "--trials", "300"]), [("export_markdown", 300)])
+        self.assertEqual(self._main(["--bootstrap"]), [("print_bootstrap", 100000)])
+        self.assertEqual(self._main(["--stats"]), [("print_stats", 100000)])
+        self.assertEqual(self._main(["--stats", "--trial", "9"]), [("print_stats", 9)])
+
+    def test_q1163_trials_still_refuses_zero(self):
+        r = subprocess.run([sys.executable, _py_src("roae"), "--stats", "--trial", "0"], capture_output=True,
+                           text=True, timeout=300, cwd=self.ROOT)
+        self.assertEqual(r.returncode, 2, (r.stdout + r.stderr)[-400:])
+        self.assertNotIn("Traceback", r.stderr)
+
+    def _gs_loader(self):
+        src = self._r("roae.py")
+        i = src.index("    if ckpt_path and os.path.exists(ckpt_path):\n        rejected = {}")
+        j = src.index("    todo = [j for j in jobs if j[0] not in done]", i)
+        return "\n".join(l[4:] for l in src[i:j].split("\n"))
+
+    def test_q1163_f1_non_integer_batch_is_refused_not_a_crash(self):
+        R = _load("roae")
+        code = self._gs_loader()
+        ident = dict(seed=7, ncand=2, batches=1, nsamp=8, cands="237f7e591af8628d")
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d, True)
+        for name, b in (("list", []), ("dict", {}), ("bool", True), ("float", 0.0)):
+            p = os.path.join(d, "gsck_%s.jsonl" % name)
+            with open(p, "w") as fh:
+                fh.write(json.dumps(dict(ident, batch=b, want=8, n=8, hits=[8, 0])) + "\n")
+            ns = {"ckpt_path": p, "_ck_ident": ident, "jobs_by_batch": [(0, 8), (1, 8)], "ridx": [0, 1], "done": {},
+                  "json": json, "os": os, "_gs_ck_row_mismatch": R._gs_ck_row_mismatch,
+                  "_gs_ck_json_obj": R._gs_ck_json_obj}
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                exec(code, ns)
+            self.assertEqual(ns["done"], {}, "%s batch was reused: %r" % (name, ns["done"]))
+            self.assertIn("IGNORED 1 row(s) — mismatched want/batch/n/hits", out.getvalue(), name)
+        # control: the same row with an integer batch is reused
+        p = os.path.join(d, "gsck_int.jsonl")
+        with open(p, "w") as fh:
+            fh.write(json.dumps(dict(ident, batch=0, want=8, n=8, hits=[8, 0])) + "\n")
+        ns = {"ckpt_path": p, "_ck_ident": ident, "jobs_by_batch": [(0, 8)], "ridx": [0, 1], "done": {},
+              "json": json, "os": os, "_gs_ck_row_mismatch": R._gs_ck_row_mismatch, "_gs_ck_json_obj": R._gs_ck_json_obj}
+        with contextlib.redirect_stdout(io.StringIO()):
+            exec(code, ns)
+        self.assertEqual(ns["done"], {0: (8, [8, 0])})
+        self.assertEqual(R._gs_ck_row_mismatch(dict(ident, batch=[], want=8), ident, [(0, 8)]), [])
+
+    def test_q1163_1849_comments(self):
+        src = self._r("roae.py")
+        self.assertNotIn("(18.49 bits)", src)
+        self.assertEqual(src.count("(18.4954 bits; printed 18.50)"), 2)
+
+    def test_q1163_code_row_docs(self):
+        t = self._r("documentation/ROAE_PY_CLI.md")
+        self.assertEqual(t.count("alongside --constraints has no effect on its output. *[2026-11-23, Q-1163, "
+                                 "CX-37G-T: an abbreviation now reaches the exporters as well."), 1)
+        self.assertEqual(t.count("CORRECTIONS CX-37G-S.]* *[2026-11-23, Q-1163, CX-37G-T: until this date a row whose "
+                                 "`batch` was a JSON list or object"), 1)
+        c = self._r("documentation/CORRECTIONS.md")
+        self.assertIn("CX-37C-W's heading named roae.py; that commit did not change it; this entry is the roae.py "
+                      "change.", c)
+
+# end class TestBatchQ1163Code
+
+
+class TestBatchQ1163R2(unittest.TestCase):
+    """Backlog Q-1163 round 2: the four findings of the Codex (gpt-6-astra) review of the two Q-1163 commits.
+    (1) `--trials` declares its documented default, 100000, so the CLI declaration-metadata gate reads what
+    ROAE_PY_CLI.md states; an argparse action marks the flag as given, so `--trials 100000` given explicitly still
+    reaches the exporters. (3) `sigma_isomorphism_all48(limit=1)` prints FAIL on a subtree mismatch and PARTIAL on a
+    match, as the docstring now says. (4) The U01 note's six rows are checked against every assignment of each
+    verdict in solve.py, not against strings that also occur elsewhere. Finding 2 (the CORRECTIONS_INVENTORY.tsv
+    row) is held by `corrections_inventory.sh --check`. Developed with AI assistance (Claude, Anthropic):
+    claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _tree(self, rel):
+        import ast
+        return ast.parse(self._r(rel))
+
+    def test_q1163r2_trials_declares_the_documented_default(self):
+        import ast
+        tree = self._tree("roae.py")
+        calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+                 and n.func.attr == "add_argument" and n.args and isinstance(n.args[0], ast.Constant)
+                 and n.args[0].value == "--trials"]
+        self.assertEqual(len(calls), 1)
+        kw = {k.arg: k.value for k in calls[0].keywords}
+        self.assertEqual(ast.literal_eval(kw["default"]), 100000)
+        self.assertEqual(ast.unparse(kw["action"]), "_TrialsGiven")
+        self.assertIn("default: 100,000", self._r("documentation/ROAE_PY_CLI.md"))
+
+    def test_q1163r2_explicit_default_value_counts_as_given(self):
+        # a read that compared the value with 100000 would give the exporters 10000 here
+        seen = TestBatchQ1163Code._main(self, ["--html", "--trials", "100000"])
+        self.assertEqual(seen, [("export_html", 100000)])
+        self.assertEqual(TestBatchQ1163Code._main(self, ["--html"]), [("export_html", 10000)])
+        import argparse
+        R = _load("roae")
+        p = argparse.ArgumentParser()
+        p.add_argument("--trials", type=R._g5b_pos_int, default=100000, action=R._TrialsGiven)
+        self.assertFalse(getattr(p.parse_args([]), "_trials_given", False))
+        for argv in (["--trials", "5"], ["--trials=5"], ["--trial", "5"], ["--tr=5"]):
+            ns = p.parse_args(argv)
+            self.assertEqual((ns.trials, ns._trials_given), (5, True), argv)
+
+    def test_q1163r2_sigma_limit_one_mismatch_is_fail(self):
+        import contextlib, io
+        V = _load("verify")
+        real = V._exact_subtree
+        for result, verdict, rc_want in (((1, 1, 1, None), "FAIL", 1), ((9422793, 0, 16504, None), "PARTIAL", 0)):
+            V._exact_subtree = lambda pfx, _r=result: _r
+            out = io.StringIO()
+            try:
+                with contextlib.redirect_stdout(out):
+                    rc = V.sigma_isomorphism_all48(limit=1)
+            finally:
+                V._exact_subtree = real
+            self.assertEqual(rc, rc_want, verdict)
+            self.assertIn("SIGMA_ISOMORPHISM_ALL48=" + verdict, out.getvalue().splitlines(), verdict)
+            self.assertIn("SIGMA_ISOMORPHISM_RUN=1/48", out.getvalue())
+        doc = V.sigma_isomorphism_all48.__doc__
+        self.assertIn("1 <= N < 48 run prints PARTIAL, or FAIL on a mismatch", doc)
+
+    def _verdict_literals(self, tree, token):
+        """String constants on the right of every `verdicts[TOKEN] = ...` (a `%` format counts by its left side)."""
+        import ast
+        lits, names, sites = set(), set(), 0
+        for n in ast.walk(tree):
+            if not (isinstance(n, ast.Assign) and len(n.targets) == 1 and isinstance(n.targets[0], ast.Subscript)):
+                continue
+            t = n.targets[0]
+            if not (isinstance(t.value, ast.Name) and t.value.id == "verdicts" and isinstance(t.slice, ast.Constant)
+                    and t.slice.value == token):
+                continue
+            sites += 1
+            for m in ast.walk(n.value):
+                if isinstance(m, ast.Constant) and isinstance(m.value, str):
+                    lits.add(m.value)
+                elif isinstance(m, ast.Name):
+                    names.add(m.id)
+        return lits, names, sites
+
+    def test_q1163r2_u01_rows_match_every_verdict_assignment(self):
+        import ast
+        tree = self._tree("solve.py")
+        want = {
+            "TR12_Q6": {"PASS:REDUCED-DISTANCE-CLASS"},
+            "TR12_V2": {"PASS:REDUCED-NO-BRANCH-CLASS-RIVER"},
+            "TR12_V5": {"PASS", "PASS:REDUCED-NO-CROSSTAB"},
+            "TR12_Q6_EXTREMES": {"PASS", "FAIL:%d-bad-row(s)"},
+            "TR12_RATIO_COLUMNS": {"PASS", "FAIL:%d-bad-cell(s)", "FAIL:no-cell-judged"},
+        }
+        for token, lits in want.items():
+            got, _names, sites = self._verdict_literals(tree, token)
+            self.assertGreaterEqual(sites, 1, token)
+            self.assertEqual(got, lits, token)
+        # TR12_Q3_KW: one literal (the no-trace SKIP) and one value from the q3 naming function
+        got, names, _sites = self._verdict_literals(tree, "TR12_Q3_KW")
+        self.assertEqual(got, {"SKIP:no-trace(--atlas-q3-trace)"})
+        self.assertIn("kwst", names)
+        fns = [f for f in ast.walk(tree) if isinstance(f, ast.FunctionDef)
+               and any(isinstance(r, ast.Return) and isinstance(r.value, ast.Tuple) and r.value.elts
+                       and isinstance(r.value.elts[0], ast.Constant) and r.value.elts[0].value == "q3_profile_kw.tsv"
+                       for r in ast.walk(f))]
+        self.assertEqual(len(fns), 1)
+        status = set()
+        for r in ast.walk(fns[0]):
+            if isinstance(r, ast.Return) and isinstance(r.value, ast.Tuple) and len(r.value.elts) >= 2:
+                e = r.value.elts[1]
+                status.add(e.left.value if isinstance(e, ast.BinOp) else e.value)
+        self.assertEqual(status, {"PASS", "NOT-KW", "SKIP:n=%s"})
+        # and the rows as documented: the three PASS:<reduction> rows, Q3_KW's three values, two plain gates
+        t = self._r("documentation/SOLVE_PY_CLI.md")
+        note = t[t.index("*(Noted 2026-11-23, Q-1163: the table has since grown to six rows."):]
+        note = note[:note.index(")*")]
+        for s in ("`TR12_Q6`, `TR12_V5` and `TR12_V2`, carry a `PASS:<reduction>` form",
+                  "`TR12_Q3_KW` carries `NOT-KW` and `SKIP:n=<n>` (and `SKIP:no-trace(--atlas-q3-trace)`",
+                  "`TR12_Q6_EXTREMES` and `TR12_RATIO_COLUMNS`, added later, are plain PASS/FAIL gates"):
+            self.assertIn(s, note)
+
+# end class TestBatchQ1163R2
 
 
 def _q1065_skip_id(test):

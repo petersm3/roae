@@ -32,7 +32,7 @@ this sibling was missed. `lean/SatEncodingFidelity.lean` machine-checks a *model
 its own header states that the bridge from that model to the shipping Python encoder is not
 machine-checked; the two-way encoding validation TR-2 describes is what addresses that gap, not the
 certificate. The "In short" sentence below inherits the same scope: the fact is machine-checkable
-*given* the regenerated CNF.]** *(Note 2026-11-15, Q-1097: for the reduced-subset rung CNFs that model covers (`sat.py --emit-cnf f1c5 --f1-pairs N`), the bridge is now measured by `tests.py` at every certified rung, N = 3, 4, 6, 7, 9, 10 and 12 (`TestQ1097IsClauseBridge`, which runs `scripts/k37_isclause_port.py`): a clause-set identity, still not machine-checked. The full-31 `build()` family is not covered.)*
+*given* the regenerated CNF.]** *(Note 2026-11-15, Q-1097: for the reduced-subset rung CNFs that model covers (`sat.py --emit-cnf f1c5 --f1-pairs N`), the bridge is now measured by `tests.py` at every certified rung, N = 3, 4, 6, 7, 9, 10 and 12 (`TestQ1097IsClauseBridge`, which runs `scripts/k37_isclause_port.py`): a clause-set identity, still not machine-checked. The full-31 `build()` family is not covered.)* *(2026-11-23, Q-1163: that command needs its output path, `sat.py --emit-cnf f1c5 OUT.cnf --f1-pairs N`. Without it sat.py exits 1 with `wrong argument count`, the omission CX-37C-W repaired in SAT_CLI.md. Codex review of Q-1133, F6; CORRECTIONS CX-37G-S.)*
 
 In short: "these rules cannot coexist **over the C1∩C2∩C4∩C5-valid space**" is not our opinion or
 our program's output — it is a machine-checkable mathematical fact. The base scope is part of the

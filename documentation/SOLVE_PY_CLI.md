@@ -1237,7 +1237,7 @@ this consumer recomputes that product independently in exact big-integer
 rationals from the written TSV. The engine does not grade its own homework.
 
 **Three of these carry QUALIFIED values, and the qualification is the point**
-(added 2026-09-04):
+(added 2026-09-04): *(Noted 2026-11-23, Q-1163: the table has since grown to six rows. Three of them, `TR12_Q6`, `TR12_V5` and `TR12_V2`, carry a `PASS:<reduction>` form, which is the qualification this heading means. `TR12_Q3_KW` carries `NOT-KW` and `SKIP:n=<n>` (and `SKIP:no-trace(--atlas-q3-trace)` when no trace is given), values that are neither PASS nor FAIL. `TR12_Q6_EXTREMES` and `TR12_RATIO_COLUMNS`, added later, are plain PASS/FAIL gates. CORRECTIONS CX-37G-S.)*
 
 | token | values | why it is not a bare `PASS` |
 |---|---|---|

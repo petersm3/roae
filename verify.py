@@ -4827,7 +4827,7 @@ def sigma_isomorphism_all48(limit=None):
     KW 9-free anchors (tree_nodes 9,422,793 / canonical leaves 16,504).
     ~27 s per sigma in CPython (measured 2026-09-02) -> ~21.5 min for all 48.
     Prints SIGMA_ISOMORPHISM_ALL48=PASS only when all 48 ran and matched;
-    a --sigma-limit N < 48 run prints PARTIAL (N >= 48 is the full run).  Returns 0 iff every sigma that ran
+    a --sigma-limit 1 <= N < 48 run prints PARTIAL, or FAIL on a mismatch (N >= 48 is the full run; N < 1 prints FAIL and returns 1).  Returns 0 iff every sigma that ran
     matched AND the structural gates (48 sigma, 48 distinct prefixes, the
     hard-coded _SIGMA_PREFIX among them) held."""
     import time
@@ -7075,7 +7075,7 @@ def main():
                              'boundaries, 10^0..10^57, and every layer mass published in '
                              'reports/FULL31_EXACT_AGGREGATES.md. Until this mode the renderer '
                              'was exercised only at 26112, which is one limb wide. Needs a solve '
-                             'binary (SOLVE_BIN or ./solve); absence FAILS.')
+                             'binary (SOLVE_BIN, else ./solve beside this file); absence FAILS.')
     parser.add_argument('--recount-rung-layers', type=int, metavar='N', default=None,
                         help='Gate the PER-LAYER masses published in '
                              'reports/FULL31_EXACT_AGGREGATES.md for the N=9, N=13 or N=16 C5 rung '
@@ -7132,7 +7132,7 @@ def main():
                              'Prints SIGMA_ISOMORPHISM_ALL48=PASS only after all 48 match.')
     parser.add_argument('--sigma-limit', type=int, metavar='N', default=None,
                         help='With --sigma-isomorphism-all48: run only the first N sigma (smoke test). '
-                             'For N < 48 never yields PASS (the verdict token reads PARTIAL); N >= 48 is the full run.')
+                             'For 1 <= N < 48 never yields PASS (the verdict token reads PARTIAL, or FAIL on a mismatch); N >= 48 is the full run; N < 1 is refused (FAIL, exit 1).')
     parser.add_argument('--orbit-cv', metavar='TABLE', default=None,
                         help='TR-5 §3(iii): recompute the orbit-CV statistics (4,183 classes, within-orbit '
                              'CV 0.112, population CV 0.72) from the archived 65,281-cell Knuth per-cell '
