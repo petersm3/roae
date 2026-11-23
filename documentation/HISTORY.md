@@ -13039,3 +13039,22 @@ line number in either file moves. Both sets of reproductions were run again on t
 - No canonical sha, count, certificate or verdict changed; every touched leg gives the same verdict on the real tree
   before and after. `TestQ1156GateFixes` holds the fixes and fails on the parent tree. Found by Codex (gpt-6-astra);
   triaged and built in Opus lanes.
+
+## 2026-11-23 — the front page separates its two lines of work
+
+- **What changed.** A reader could take the front page's results as coming from one computation. They come from
+  two lines of work, plus one estimate that belongs to neither. The exact counts and the knowledge-compiler
+  queries (TR-11, TR-12) cover whole spaces at full scale, with C3 not imposed. The enumeration slices (TR-3; 10T
+  to 560T) are budgeted listings of the C1–C5 space, with C3 included, and each is a lower bound. The Knuth probe
+  estimates (TR-4) come from `solve.c`'s estimator. The README now carries a short "Two lines of work" box after
+  "The finding". Each headline in §"What was found" ends with the kind of evidence it rests on, and the
+  exact-count and compiled-superspace headlines come right after the first one. The slice detail now has its own
+  section, §"The enumeration slices (560T)": the slice definition sentence moved there word for word, with
+  pointers to the results measured inside the slices. Links to their CITATIONS entries were added to names already
+  on the page. The claim ledger's line pin for the 5,455 figure (CLAIMS.tsv) now points to the line's new place,
+  and the reading time in documentation/README.md was measured again.
+- No count, figure, scope word, hedge or verdict changed. Every moved sentence is word for word. Two pointers were
+  re-aimed at the new section: the third scope note's slice list and the scale figure's caption. The
+  identifying-boundary sentence and the scope-note hedges stay where they were. Raised by the operator; the
+  re-organisation was recommended by the orchestrator, drafted in an Opus lane and read before publication in a
+  Fable lane.

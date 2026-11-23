@@ -38695,11 +38695,11 @@ class TestQ968NumberLexer(unittest.TestCase):
          [(S0, 'replace', 'base=0x0000000078c3d520', 'base=1001'), (S1, 'replace', 'base=0x0000000078c3d521', 'base=1001'),
           (TR3, 'append', SEEDCLAIM)]),
         ('A09#22', 'index-fidelity', 'documentation/README.md',
-         [('documentation/README.md', 'replace', '(~29 min', '(1 min')],
-         [('documentation/README.md', 'replace', '(~29 min', '(~1 min')]),
+         [('documentation/README.md', 'replace', '(~33 min', '(1 min')],
+         [('documentation/README.md', 'replace', '(~33 min', '(~1 min')]),
         ('A09#22-approx', 'index-fidelity', 'documentation/README.md',
-         [('documentation/README.md', 'replace', '(~29 min', '(\u22481 min')],
-         [('documentation/README.md', 'replace', '(~29 min', '(~1 min')]),
+         [('documentation/README.md', 'replace', '(~33 min', '(\u22481 min')],
+         [('documentation/README.md', 'replace', '(~33 min', '(~1 min')]),
         ('A08#21-ten', 'printed-quotient', G,
          [(G, 'append', '\nThe split is 7.84 / 6.52 = \u00d710.\n')],
          [(G, 'append', '\nThe split is 7.84 / 6.52 = \u00d79.\n')]),
@@ -74024,7 +74024,7 @@ class TestBatchQ1140Operator(unittest.TestCase):
             "The numbers are unchanged; the old opening is quoted in "
             "[CORRECTIONS.md](../documentation/CORRECTIONS.md) CX-37G-L.)*",
             ["Second novel finding", "monotone non-decreasing in scale: 4 → 5 → 5"]),
-        "README.md": (494, [
+        "README.md": (571, [
             ("survivors of 16,504 above). To our knowledge, what no prior author did is the measurement",
              "survivors of 16,504 above). What no prior author did is the measurement")],
             " ⚠ *(Reworded 2026-11-19, CX-37G-L: \"To our knowledge,\" added; the sentence opened \"What no prior "

@@ -23,6 +23,34 @@ same seven. Whatever fixed the received order, these seven rules alone did not. 
 about the rules we tested, not about every rule that could exist — rules nobody has written down
 remain entirely possible.
 
+> **Two lines of work, and one estimate that belongs to neither.** The results on this page come from
+> different computations. Read each one by the line it comes from.
+>
+> In plain words: one line counts whole spaces exactly, but only spaces defined without rule C3. The other lists
+> actual orderings that satisfy rules C1–C5, but each listing stops at a set budget, so it holds only part of that
+> space. The sizes of the C1–C5 and C1–C7 spaces, where C3 applies, are estimated from random probes: a third
+> method that belongs to neither line.
+>
+> - **Exact counting and the knowledge compiler** ([TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md),
+>   [TR-12](reports/TR12_QUERY_PROGRAM.md)). Exact counts, to the last digit, of whole constraint-defined spaces,
+>   and exact queries over the compiled C1C2C4C5 superspace. Scope: whole spaces at full scale, with **C3 not imposed**. C3 is
+>   the only constraint without an exact full-scale count; the instrument exists, and the run was declined, not found impossible ([METHODS](reports/METHODS.md) §"Canonical quantities").
+> - **The enumeration slices** ([TR-3](reports/TR3_REPRODUCIBLE_ENUMERATION.md)). Explicit, sha-anchored listings
+>   of orderings in the C1–C5 space (C3 included), each cut off at a fixed search budget: 10T, 11.2T, 100T and
+>   560T. A slice is a lower bound on the space, not a sample of it. The per-slice identifying-boundary counts
+>   (TR-4; [BOUNDARY_MINIMUM](documentation/BOUNDARY_MINIMUM.md)) and the within-slice absences TR-5 and TR-7
+>   report belong to this line, and every uniqueness statement in this repository is scoped to these slices — never to the full space, and even within a slice it takes identifying boundaries beyond C1–C7
+>   (scope notes below). Detail: [§"The enumeration slices (560T)"](#the-enumeration-slices-560t).
+> - **The probe estimates** ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md)) belong to neither line. `solve.c`'s Knuth
+>   random-probe estimator estimates the size of the whole space, with C3 applied, from random probes of the
+>   search tree. Its figures are statistical estimates with stated confidence intervals, not proven
+>   cardinalities, and they are not read off a slice.
+>
+> Two further kinds sit beside these. The exact counts inside King Wen's own prefix (TR-4 §4) are exact and
+> C3-inclusive but prefix-scoped: neither a full-space count nor an enumeration slice. The theorems (Lean 4; SAT with DRAT
+> certificates) are each scoped to the space their statement names, with the caveats stated where each appears. Each headline in §"What was found" ends with
+> the kind of evidence it rests on.
+
 **What this does — and does not — mean.** Four scope notes worth carrying from the start:
 
 - **It does not say the sequence is random, or that nobody designed it.** The test is of the
@@ -31,14 +59,14 @@ remain entirely possible.
 - **Who defined the seven rules is mixed — and that matters.** Two are classical: the pair
   structure (implicit in the early commentaries, stated explicitly by Kong Yingda in the 7th
   century) and the Qian–Kun opening (in the received text itself). One comes from the modern
-  literature: the ban on 5-line transitions, first claimed by McKenna & McKenna (1975) and found
-  independently by Cook (2006). **The remaining four this project formalised itself — and several
+  literature: the ban on 5-line transitions, first claimed by [McKenna & McKenna (1975)](documentation/CITATIONS.md#mckenna-mckenna1975) and found
+  independently by [Cook (2006)](documentation/CITATIONS.md#cook2006). **The remaining four this project formalised itself — and several
   encode King Wen's own values rather than an independent principle.** The complement-distance
   ceiling is King Wen's own figure, read off the sequence and used as the threshold; the two
   adjacency constraints are its own adjacencies. Rules of that kind describe the target rather than
   predict it, and they are priced as description — not as explanation — everywhere in this
   repository ([METHODS](reports/METHODS.md) §"Data-like vs principled constraints").
-- **The enumeration is budgeted, not exhaustive.** The space of valid orderings is far too large to list in full. The explicit listings are sha-anchored **enumeration slices** of the C1–C5 space, named by their total search budget in tree nodes — 10T, 11.2T, 100T and, the deepest, **560T**: 3.5×10⁹ nodes in each of 158,364 search cells, recording 10,525,271,997 distinct canonical orderings, re-derived byte-identically from scratch ([CANONICAL_HASHES](documentation/CANONICAL_HASHES.md); [TR-3](reports/TR3_REPRODUCIBLE_ENUMERATION.md)).
+- **The enumeration is budgeted, not exhaustive.** The space of valid orderings is far too large to list in full. The explicit listings are sha-anchored **enumeration slices** of the C1–C5 space; their names, and the deepest one's budget and size, are in [§"The enumeration slices (560T)"](#the-enumeration-slices-560t) below.
   A slice is a lower bound on the space, not a sample of it — in like units the compiled C1C2C4C5 superspace sits 19.7–23.9 decades above the 560T count ([TR-12 §"What this document is"](reports/TR12_QUERY_PROGRAM.md#what-this-document-is-and-what-it-is-not)) — and the headline counts on this page are exact ([TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)) or probe-estimated ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md)), not read off a slice. Where a result is measured *within* a slice — the per-slice identifying-boundary counts (TR-4; [BOUNDARY_MINIMUM](documentation/BOUNDARY_MINIMUM.md)), the within-slice absences TR-5 and TR-7 report — the text says "560T slice", and every
   uniqueness statement in this repository is scoped to those slices, never to the full space, and even there it needs identifying boundaries beyond C1–C7 (TR-4).
 - **The direction is not new — the measurement is.** Earlier scholars had already argued that no
@@ -84,7 +112,7 @@ validated at all three full-scale anchors where exact ground truth exists, insid
 calibration"), and the C6–C7 verdict is corroborated exactly at small scope (the 8 oriented
 survivors of 16,504 above). To our knowledge, what no prior author did is the measurement **at combinatorial scale, over
 constraint-defined spaces** — exhaustive searches over small curated families of candidate
-orders do exist in the literature — as do closed-form counts of independent-choice families (8!×8!, 7!×7!; [CITATIONS](documentation/CITATIONS.md), Chen Zhuangwei) — and neither is what this sentence excludes. ⚠ *(Reworded 2026-11-19, CX-37G-L: "To our knowledge," added; the sentence opened "What no prior author did", a claim about every earlier author that no one can check.)*
+orders do exist in the literature — as do closed-form counts of independent-choice families (8!×8!, 7!×7!; [CITATIONS](documentation/CITATIONS.md), [Chen Zhuangwei](documentation/CITATIONS.md#chenzhuangwei2007)) — and neither is what this sentence excludes. ⚠ *(Reworded 2026-11-19, CX-37G-L: "To our knowledge," added; the sentence opened "What no prior author did", a claim about every earlier author that no one can check.)*
 
 **Whose hypothesis this was.** The name "Uniqueness Conjecture" is **this project's own coinage**. To
 our knowledge no author asserted in so many words that the C1–C7 inventory pins down the sequence,
@@ -196,65 +224,8 @@ Headlines only — each links to its full treatment (technical reports in [repor
   C6–C7 still leaves ~5×10³¹. So the hypothesis that the constraints pin down King Wen is false — that
   was the strong reading of the literature's derivation claims, and this project's own early working
   assumption ([attribution note](documentation/CITATIONS.md#uniqueness-conjecture)). [TR-4](reports/TR4_SIZE_OF_THE_SPACE.md)
-- **The literature's rules conflict.** The four strongest rules asserted across eight centuries are
-  jointly unsatisfiable in their strict, zero-exception forms — no C1∩C2∩C4∩C5-valid ordering can be perfect under all four as encoded (the sources state the gender rule with one admitted exception pair, a form the theorem makes no claim for; TR-1 §3). King Wen keeps one exactly and misses the others by two each, so its famous anomalies
-  are **consistent with** a forced trade-off. What the incompatibility establishes is narrower than it
-  may read: it **rules out one explanation** — damage to an original that was perfect under all four —
-  because **no such original could exist** under those strict forms. (A *three*-rule-perfect precursor does exist; whether the anomalies are an
-  arranger's trade-off or damage to that precursor is weighed, not settled, in TR-2's model
-  comparison.) A 47-year-old proposal to replace the sequence is re-examined along the way: its premise is
-  measured, and a *fully smooth* variant is proven impossible. The hybrid ordering its authors actually
-  published is feasible, and nothing here refutes it. [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md), [TR-2](reports/TR2_THE_RULES_CONFLICT.md), [TR-8](reports/TR8_REORDERING_REVISITED.md)
-- **Eight rules asserted as design are proven forced.** *(qualified 2026-11-06, CX-36X-D: seven of the eight are asserted in the literature; s1 is this project's rule, an algebraic consequence of Schöter's definitions that his paper does not apply to the King Wen ordering. The count stays eight. [CORRECTIONS.md](documentation/CORRECTIONS.md) CX-36X-D.)* Each is a theorem, machine-checked in Lean 4 modulo a transcription step (scope below)
-  ([lean/C1RuleConstants.lean](lean/C1RuleConstants.lean)): constant on the entire C1 space, so every valid
-  ordering inherits King Wen's value — consequences of the constraint system, not choices. *(Scope: Lean
-  proves constancy of the `countP` forms defined in that file; identifying them with the registry rules as
-  implemented is a **non-Lean transcription step**, so the eight are Lean-proven **modulo a transcription step
-  whose numerical check is a shipped command**, `python3 solve.py --c1-constants-check` (5,455 C1 orderings,
-  0 deviations). The original 5,449-sequence check is **attested, not reproducible**; see
-  [lean/README.md](lean/README.md).)* (A separate analytic theorem — the no-5 rule's implication chain, behind
-  McKenna's 3:1 ratio — stands in addition.) Other asserted rules are extremely rare as stated, down to
-  ~1 in 5×10⁷ — an order-of-magnitude figure at that sampling depth, with the most specific
-  configurations rare largely by specification rather than principle; see METHODS and TR-1's data-like
-  caveat. [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md)
-- **Every C1–C5-valid ordering has exactly 23 record-level twins that no hexagram relabeling — and no S₄-invariant criterion — can distinguish** (C6–C7, which pin King Wen's own values, are not invariant and do separate them; the symmetry group acts
-  freely), and exactly **15 parity-class alternations** (proven two independent ways — the
-  prose argument and the Lean 4 kernel — with a SAT/DRAT corroboration that mechanizes the counting
-  step under the alternation–distance bridge). [TR-5](reports/TR5_SYMMETRY.md), [TR-6](reports/TR6_PARITY_SKELETON.md)
-- **No symmetry-respecting generator can single out King Wen.** Any generator whose output law is a function of a
-  G-invariant score (the theorem's hypothesis) — a score built from G-invariant structural primitives (Hamming
-  distance, complement, reversal, the values 0/63, …) — gives King Wen's record and each of its 23 twins equal probability — so it can place at most **1 in
-  24** of its mass on King Wen, never more (`equivariance_ceiling`, kernel-checked in
-  [lean/KingWen.lean](lean/KingWen.lean) for natural-number weights; the rescaling to rational weights and the probability reading are prose steps, lean/README §The equivariance ceiling). The bound is Curie's principle (symmetry of causes ⇒ symmetry of
-  effects), not new — the contribution is the King-Wen instantiation and its machine-check. [lean/README §The equivariance ceiling](lean/README.md), [lean/KingWen.lean](lean/KingWen.lean)
-- **McKenna's "ninth six" is forced.** The 1975 observation that exactly one **between-pair** transition flips
-  all six lines holds in **every** valid ordering — machine-proven: the between-pair transition budget
-  is a theorem of the constraints, so the measurement across all 10,525,271,997 records of the 560T slice becomes a corollary. (The
-  *position* of that transition remains ordering-dependent.) [TRIGRAM_STRUCTURE](documentation/TRIGRAM_STRUCTURE.md)
-- **The pairing is optimal among comp/rev matchings.** The classical pair structure is the unique Hamming-cost-minimizing
-  complement/reversal (comp/rev) matching ([Radisic 2026](documentation/CITATIONS.md#radisic2026) —
-  preprint, machine-verified). Scope guard: comp∘rev matchings can do better — see
-  [lean/HammingOptimalMatching.lean](lean/HammingOptimalMatching.lean). [CITATIONS](documentation/CITATIONS.md)
-- **The circular reading has a price.** Read as a cycle (McKenna's construction), the sequence needs
-  one more rule. Orderings violating that rule carry 17.4% of the linear C1–C5 space's orientation-explicit mass, yet
-  none of the 10,525,271,997 records of the 560T slice violates it — an absence within that slice only; those records are orientation-deduplicated, a
-  different population that TR-7 does not compare with the first. (The
-  17.4% is a 2×10¹⁰-probe sampled estimate, which a second archived run matches to within 0.05 percentage
-  points. That run is a partially overlapping replicate that shares half its probes, not an independent
-  draw — TR-7 §5.) [TR-7](reports/TR7_CIRCULAR_READING.md)
-- **In bits, half the sequence's description length is accounted for by known structure; half is not.**
-  *("Accounted for", not "explained": which layers are **granted** explanatory standing is a choice made
-  below.)* The classical pairing carries
-  nearly all the explanatory weight (and is provably optimal among comp/rev matchings); the transition histogram is confirmed
-  description, not explanation *(qualified 2026-11-06, CX-36X-E: under the declared codes; an alternative code in TR-9 §Sections item 5(b) nets C5 slightly positive, so the verdict depends on the code. [CORRECTIONS.md](documentation/CORRECTIONS.md) CX-36X-E.)*; **between about 105 and 139 bits** remain open — the exact figure
-  depends on which layers are granted explanatory standing (105.4 bits = log₂|C1–C7|, the most conservative reading, resting on the C1–C7 estimate — ±0.022 bits at 95%;
-  139.1 bits = log₂|C1∩C2∩C4|, the residual against the claimed-explanatory layers alone — a logarithm of an exact
-  count; the intermediate C1–C5 reading ~126.6 rests on an estimate, ±0.00049 bits at 95%).
-  [TR-9](reports/TR9_PRICING_THE_CONSTRAINTS.md)
-- **A structural reading, measured.** [Davis's (2012)](documentation/CITATIONS.md#davis2012) flagship compositional units come out
-  typical-to-mildly-uncommon (TR-10's own phrase; the #43–50 array is its lone Bonferroni-notable
-  exception); one uniqueness claim is corrected; the ~126-bit (C1–C5-layer) residual survives its second
-  literature-guided attack. [TR-10](reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)
+
+  *Evidence: probe estimate — `solve.c`'s Knuth random-probe estimator over the whole C1–C5 and C1–C7 spaces, C3 applied ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md)); not read off a slice. The exact count with C3 dropped is in §"The finding, precisely" above.*
 - **Exact counts at full scale.** |C1∩C2∩C4∩C5| = 1,097,051,278,789,181,790,036,112,071,176,579,186,688
   (≈1.097×10³⁹; counting orientation-explicit sequences with C4's pair pinned —
   [METHODS](reports/METHODS.md) §"Canonical quantities") — computed to the last digit by a dynamic program that keeps one
@@ -270,6 +241,8 @@ Headlines only — each links to its full treatment (technical reports in [repor
   has recomputed the count. It is reproducible on ~64 GB of RAM plus ~4 TB of disk; the statistical estimator is
   validated absolutely at 10³⁹ (the exact value lands inside its stated ±0.01% envelope). The flagship C1–C5 figure
   remains an estimate. [TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)
+
+  *Evidence: exact count — a whole space at full scale, C3 not imposed, two instruments ([TR-11](reports/TR11_EXACT_COUNTING_BY_SYMMETRY_QUOTIENT.md)). The C1–C5 figure it is set beside is a probe estimate.*
 - **The compiled superspace, queried exactly.** Over the whole 1.097×10³⁹-member C1C2C4C5 superspace (C3 not
   imposed), the n=31 atlas recovers the C5 budget exactly from its own column sums (a parameter the run was
   given); finds **68.67 %** of the pruned search tree doomed (in t-units); and places King Wen's transition low
@@ -280,6 +253,85 @@ Headlines only — each links to its full treatment (technical reports in [repor
   The exhaustibility verdict is one-sided (every branch INFEASIBLE from a lower-bound certificate); wave 3 never
   ran. Laptop-scale battery: `scripts/tr12_repro.sh --n9`; contract: [QUERY_INVENTORY](documentation/QUERY_INVENTORY.md).
   [TR-12](reports/TR12_QUERY_PROGRAM.md)
+
+  *Evidence: exact queries over the whole compiled superspace, C3 not imposed ([TR-12](reports/TR12_QUERY_PROGRAM.md)); not a slice.*
+- **The literature's rules conflict.** The four strongest rules asserted across eight centuries are
+  jointly unsatisfiable in their strict, zero-exception forms — no C1∩C2∩C4∩C5-valid ordering can be perfect under all four as encoded (the sources state the gender rule with one admitted exception pair, a form the theorem makes no claim for; TR-1 §3). King Wen keeps one exactly and misses the others by two each, so its famous anomalies
+  are **consistent with** a forced trade-off. What the incompatibility establishes is narrower than it
+  may read: it **rules out one explanation** — damage to an original that was perfect under all four —
+  because **no such original could exist** under those strict forms. (A *three*-rule-perfect precursor does exist; whether the anomalies are an
+  arranger's trade-off or damage to that precursor is weighed, not settled, in TR-2's model
+  comparison.) A 47-year-old proposal to replace the sequence is re-examined along the way: its premise is
+  measured, and a *fully smooth* variant is proven impossible. The hybrid ordering its authors actually
+  published is feasible, and nothing here refutes it. [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md), [TR-2](reports/TR2_THE_RULES_CONFLICT.md), [TR-8](reports/TR8_REORDERING_REVISITED.md)
+
+  *Evidence: the incompatibility is a SAT result with a DRAT certificate, scoped to the C1∩C2∩C4∩C5-valid space (instruments table above); King Wen's misses are measurements of the one received order.*
+- **Eight rules asserted as design are proven forced.** *(qualified 2026-11-06, CX-36X-D: seven of the eight are asserted in the literature; s1 is this project's rule, an algebraic consequence of Schöter's definitions that his paper does not apply to the King Wen ordering. The count stays eight. [CORRECTIONS.md](documentation/CORRECTIONS.md) CX-36X-D.)* Each is a theorem, machine-checked in Lean 4 modulo a transcription step (scope below)
+  ([lean/C1RuleConstants.lean](lean/C1RuleConstants.lean)): constant on the entire C1 space, so every valid
+  ordering inherits King Wen's value — consequences of the constraint system, not choices. *(Scope: Lean
+  proves constancy of the `countP` forms defined in that file; identifying them with the registry rules as
+  implemented is a **non-Lean transcription step**, so the eight are Lean-proven **modulo a transcription step
+  whose numerical check is a shipped command**, `python3 solve.py --c1-constants-check` (5,455 C1 orderings,
+  0 deviations). The original 5,449-sequence check is **attested, not reproducible**; see
+  [lean/README.md](lean/README.md).)* (A separate analytic theorem — the no-5 rule's implication chain, behind
+  [McKenna's](documentation/CITATIONS.md#mckenna-mckenna1975) 3:1 ratio — stands in addition.) Other asserted rules are extremely rare as stated, down to
+  ~1 in 5×10⁷ — an order-of-magnitude figure at that sampling depth, with the most specific
+  configurations rare largely by specification rather than principle; see METHODS and TR-1's data-like
+  caveat. [TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md)
+
+  *Evidence: Lean theorems over the whole C1 space, modulo the transcription step stated in the bullet; the rarity figures are sampled estimates ([TR-1](reports/TR1_EIGHT_CENTURIES_MEASURED.md)).*
+- **Every C1–C5-valid ordering has exactly 23 record-level twins that no hexagram relabeling — and no S₄-invariant criterion — can distinguish** (C6–C7, which pin King Wen's own values, are not invariant and do separate them; the symmetry group acts
+  freely), and exactly **15 parity-class alternations** (proven two independent ways — the
+  prose argument and the Lean 4 kernel — with a SAT/DRAT corroboration that mechanizes the counting
+  step under the alternation–distance bridge). [TR-5](reports/TR5_SYMMETRY.md), [TR-6](reports/TR6_PARITY_SKELETON.md)
+
+  *Evidence: proofs over every C1–C5-valid ordering (prose and the Lean 4 kernel; the SAT/DRAT corroboration covers the alternation count's counting step only, under the bridge the bullet names); not slice-scoped.*
+- **No symmetry-respecting generator can single out King Wen.** Any generator whose output law is a function of a
+  G-invariant score (the theorem's hypothesis) — a score built from G-invariant structural primitives (Hamming
+  distance, complement, reversal, the values 0/63, …) — gives King Wen's record and each of its 23 twins equal probability — so it can place at most **1 in
+  24** of its mass on King Wen, never more (`equivariance_ceiling`, kernel-checked in
+  [lean/KingWen.lean](lean/KingWen.lean) for natural-number weights; the rescaling to rational weights and the probability reading are prose steps, lean/README §The equivariance ceiling). The bound is [Curie's principle](documentation/CITATIONS.md#curie1894) (symmetry of causes ⇒ symmetry of
+  effects), not new — the contribution is the King-Wen instantiation and its machine-check. [lean/README §The equivariance ceiling](lean/README.md), [lean/KingWen.lean](lean/KingWen.lean)
+
+  *Evidence: a Lean theorem for natural-number weights, with the prose steps the bullet names.*
+- **[McKenna's](documentation/CITATIONS.md#mckenna-mckenna1975) "ninth six" is forced.** The 1975 observation that exactly one **between-pair** transition flips
+  all six lines holds in **every** valid ordering — machine-proven: the between-pair transition budget
+  is a theorem of the constraints, so the measurement across all 10,525,271,997 records of the 560T slice becomes a corollary. (The
+  *position* of that transition remains ordering-dependent.) [TRIGRAM_STRUCTURE](documentation/TRIGRAM_STRUCTURE.md)
+
+  *Evidence: a machine-proven theorem over every valid ordering; the measurement across the [560T slice](#the-enumeration-slices-560t) is its corollary, not its basis.*
+- **The pairing is optimal among comp/rev matchings.** The classical pair structure is the unique Hamming-cost-minimizing
+  complement/reversal (comp/rev) matching ([Radisic 2026](documentation/CITATIONS.md#radisic2026) —
+  preprint, machine-verified). Scope guard: comp∘rev matchings can do better — see
+  [lean/HammingOptimalMatching.lean](lean/HammingOptimalMatching.lean). [CITATIONS](documentation/CITATIONS.md)
+
+  *Evidence: an external preprint, machine-verified ([Radisic 2026](documentation/CITATIONS.md#radisic2026)), with the Lean scope guard the bullet links.*
+- **The circular reading has a price.** Read as a cycle ([McKenna's](documentation/MCKENNA.md) construction), the sequence needs
+  one more rule. Orderings violating that rule carry 17.4% of the linear C1–C5 space's orientation-explicit mass, yet
+  none of the 10,525,271,997 records of the 560T slice violates it — an absence within that slice only; those records are orientation-deduplicated, a
+  different population that TR-7 does not compare with the first. (The
+  17.4% is a 2×10¹⁰-probe sampled estimate, which a second archived run matches to within 0.05 percentage
+  points. That run is a partially overlapping replicate that shares half its probes, not an independent
+  draw — TR-7 §5.) [TR-7](reports/TR7_CIRCULAR_READING.md)
+
+  *Evidence: the 17.4% is a sampled estimate of a share of the whole linear C1–C5 space (TR-7 §5); the absence is within the [560T slice](#the-enumeration-slices-560t) only — see below.*
+- **In bits, half the sequence's description length is accounted for by known structure; half is not.**
+  *("Accounted for", not "explained": which layers are **granted** explanatory standing is a choice made
+  below.)* The classical pairing carries
+  nearly all the explanatory weight (and is provably optimal among comp/rev matchings); the transition histogram is confirmed
+  description, not explanation *(qualified 2026-11-06, CX-36X-E: under the declared codes; an alternative code in TR-9 §Sections item 5(b) nets C5 slightly positive, so the verdict depends on the code. [CORRECTIONS.md](documentation/CORRECTIONS.md) CX-36X-E.)*; **between about 105 and 139 bits** remain open — the exact figure
+  depends on which layers are granted explanatory standing (105.4 bits = log₂|C1–C7|, the most conservative reading, resting on the C1–C7 estimate — ±0.022 bits at 95%;
+  139.1 bits = log₂|C1∩C2∩C4|, the residual against the claimed-explanatory layers alone — a logarithm of an exact
+  count; the intermediate C1–C5 reading ~126.6 rests on an estimate, ±0.00049 bits at 95%).
+  [TR-9](reports/TR9_PRICING_THE_CONSTRAINTS.md)
+
+  *Evidence: mixed — 139.1 bits is the logarithm of an exact count; 105.4 and ~126.6 bits rest on probe estimates ([TR-9](reports/TR9_PRICING_THE_CONSTRAINTS.md)).*
+- **A structural reading, measured.** [Davis's (2012)](documentation/CITATIONS.md#davis2012) flagship compositional units come out
+  typical-to-mildly-uncommon (TR-10's own phrase; the #43–50 array is its lone [Bonferroni](documentation/CITATIONS.md#bonferroni1936)-notable
+  exception); one uniqueness claim is corrected; the ~126-bit (C1–C5-layer) residual survives its second
+  literature-guided attack. [TR-10](reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)
+
+  *Evidence: weighted-Knuth sampled estimates against the population of valid orderings ([TR-10](reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md)); the corrected uniqueness claim rests on a concrete counterexample.*
 - **The enumeration record is reproducible**: every canonical count re-derivable to the byte from its
   published recipe — the sha-determining parameters verbatim; one `solve` invocation with the merge
   bundled through 100T, and enumerate-then-`--merge` as two steps for the 560T canonical
@@ -288,6 +340,8 @@ Headlines only — each links to its full treatment (technical reports in [repor
   both runs). Three legacy figures are attested-not-reproducible and say so where they appear: the
   5,449-sequence check above, TR-1's ~1-in-25-million, and the
   [f11halfb](reports/evidence/f11halfb/RESULTS.md) bundle. [TR-3](reports/TR3_REPRODUCIBLE_ENUMERATION.md)
+
+  *Evidence: the [enumeration slices](#the-enumeration-slices-560t) — sha-anchored listings re-derivable from their published recipes, the deepest re-derived from scratch ([TR-3](reports/TR3_REPRODUCIBLE_ENUMERATION.md)); a slice is a lower bound, not a count of the full space.*
 
 **Honesty apparatus.** Every caveat lives in [CRITIQUE.md](documentation/CRITIQUE.md) — read it before
 quoting anything above. It covers the constraint-extraction circularity, the null-model studies, the
@@ -303,9 +357,32 @@ both available controls lit up, so the only quiet case in the corpus is the obje
 CRITIQUE now labels the test a positive control too; its constraint-family sequel counts three
 alternative orderings, Fu Xi included, and the reading on this page is the narrower one.
 Of the 28-analysis exploratory battery, the pair structure, the combined constraints and the unconditional complement-distance rarity survive multiple-comparison correction
-([CRITIQUE](documentation/CRITIQUE.md) §"Observable-selection accounting") *(qualified 2026-11-13, CX-37C-K: that is at the battery's own bar, 0.05/28. Against the suite-wide ledger of 1,452 registered observables (bar 3.44×10⁻⁵) the pair structure clears, and the combined-constraints line is a subset of the same event; the complement-distance rarity does not clear two-sided, the suite's convention, and clears one-sided by 1.21×. CRITIQUE §"The observable roster"; [CORRECTIONS.md](documentation/CORRECTIONS.md) CX-37C-K.)*; entropy is mildly low but not significant after Bonferroni, the Markov structure is
+([CRITIQUE](documentation/CRITIQUE.md) §"Observable-selection accounting") *(qualified 2026-11-13, CX-37C-K: that is at the battery's own bar, 0.05/28. Against the suite-wide ledger of 1,452 registered observables (bar 3.44×10⁻⁵) the pair structure clears, and the combined-constraints line is a subset of the same event; the complement-distance rarity does not clear two-sided, the suite's convention, and clears one-sided by 1.21×. CRITIQUE §"The observable roster"; [CORRECTIONS.md](documentation/CORRECTIONS.md) CX-37C-K.)*; entropy is mildly low but not significant after [Bonferroni](documentation/CITATIONS.md#bonferroni1936), the Markov structure is
 typical against a shuffle that does not preserve pairs, path length and palindromes are typical under the
 pair-preserving null, and no periodicity is established — or excluded ([PROJECT_OVERVIEW](documentation/PROJECT_OVERVIEW.md) §Observations).
+
+## The enumeration slices (560T)
+
+This is the enumeration line of work ("Two lines of work", near the top): explicit listings of orderings, C3
+included, each cut off at a fixed search budget. Every result in this section is scoped to the slices, and none
+of the slice counts is a count of the full space.
+
+The explicit listings are sha-anchored **enumeration slices** of the C1–C5 space, named by their total search budget in tree nodes — 10T, 11.2T, 100T and, the deepest, **560T**: 3.5×10⁹ nodes in each of 158,364 search cells, recording 10,525,271,997 distinct canonical orderings, re-derived byte-identically from scratch ([CANONICAL_HASHES](documentation/CANONICAL_HASHES.md); [TR-3](reports/TR3_REPRODUCIBLE_ENUMERATION.md)).
+
+Results measured within the slices, each scoped where it is stated:
+
+- the per-slice identifying-boundary counts, in §"The finding, precisely" above ([TR-4](reports/TR4_SIZE_OF_THE_SPACE.md);
+  [BOUNDARY_MINIMUM](documentation/BOUNDARY_MINIMUM.md));
+- the twins-absent-from-560T demonstration ([TR-5](reports/TR5_SYMMETRY.md) §Sections, item 5);
+- the circular-reading absence, within the 560T slice only ([TR-7](reports/TR7_CIRCULAR_READING.md));
+- the ninth-six measurement across the 560T slice's records, a corollary of a theorem (§"What was found").
+
+How the record is reproduced — every canonical count re-derivable to the byte from its published recipe — is the
+last headline in §"What was found" above ([TR-3](reports/TR3_REPRODUCIBLE_ENUMERATION.md)).
+
+The scale figure ([§"Why a compiled space: the scale figure"](#why-a-compiled-space-the-scale-figure), below) sets
+three of these slices beside the exact count of the compiled superspace, and explains why the two cannot be
+compared as a fraction.
 
 ## Quick start
 ```
@@ -344,7 +421,7 @@ its evidence.
 
 **`main` is the published corpus** — corrections land here and nowhere else ([CORRECTIONS.md](documentation/CORRECTIONS.md)).
 Every other branch this project published is now retired: its ref is deleted, and a tag pins its exact commit for
-provenance, not for reading. Each stops where that line of work paused, predates `CORRECTIONS.md`, and can still
+provenance, not for reading. Each stops where that line of work paused, predates [`CORRECTIONS.md`](documentation/CORRECTIONS.md), and can still
 contain claims since corrected. Cite `main`. Every branch ever published, with its status, freeze date and
 preserving tag, is declared in [BRANCH_REGISTRY.tsv](documentation/BRANCH_REGISTRY.tsv); `doc_gates.sh branch-registry` (GATE 19) fails if a
 branch is published without being declared there.
@@ -413,7 +490,7 @@ This does not exclude nonlinear structure or structure missed by the lattice.
 
 **The scale figure.** The two series count **different spaces**, and neither is a fraction of the
 other: each point is a node-budgeted slice of C1–C5 whose record count is a lower bound, and the line
-is the exact cardinality of the C1C2C4C5-SUPERSPACE. Points count canonical pair orderings with orientation masked; N counts orientation-explicit sequences. The three points are three of the enumeration slices defined near the top of this page (§"What this does — and does not — mean"): 11.2T, 100T and 560T; the deepest, 560T, is the slice every "within the slice" statement on this page refers to. The plotted ratio is 29.0 decades; comparing pair orderings with pair orderings gives a gap of 19.7–23.9 decades.
+is the exact cardinality of the C1C2C4C5-SUPERSPACE. Points count canonical pair orderings with orientation masked; N counts orientation-explicit sequences. The three points are three of the enumeration slices defined above (§"The enumeration slices (560T)"): 11.2T, 100T and 560T; the deepest, 560T, is the slice every "within the slice" statement on this page refers to. The plotted ratio is 29.0 decades; comparing pair orderings with pair orderings gives a gap of 19.7–23.9 decades.
 If the power law fitted to these three runs continues, reaching even the like-unit bracket would require approximately 6.4×10³⁸–1.1×10⁴⁵ nodes per cell, making enumeration infeasible under that extrapolation.
 [TR-12 §"What this document is, and what it is not"](reports/TR12_QUERY_PROGRAM.md#what-this-document-is-and-what-it-is-not) ·
 [SVG](reports/figures/viz_scale.svg) · [spec](viz/viz_scale.md)
@@ -466,12 +543,12 @@ The timeline of the first 560T slice's enumeration campaign (the deepest run) is
 ## References
 
 > **All scholarly attribution lives in [CITATIONS.md](documentation/CITATIONS.md)** and is deliberately
-> not duplicated here — classical sources (Yu Fan, Kong Yingda, Zhu Yuansheng, Lai Zhide), the modern
-> structural literature (Schulz, Moore, Cook, Hacker, McKenna & Mair, Davis, Drasny), the
+> not duplicated here — classical sources ([Yu Fan](documentation/CITATIONS.md#yufan), [Kong Yingda](documentation/CITATIONS.md#kongyingda), [Zhu Yuansheng](documentation/CITATIONS.md#zhuyuansheng), [Lai Zhide](documentation/CITATIONS.md#laizhide)), the modern
+> structural literature ([Schulz](documentation/CITATIONS.md#schulz1990-motifs), [Moore](documentation/CITATIONS.md#moore1989), [Cook](documentation/CITATIONS.md#cook2006), [Hacker](documentation/CITATIONS.md#hacker1987), [McKenna & Mair](documentation/CITATIONS.md#mckenna-mair1979), [Davis](documentation/CITATIONS.md#davis2012), [Drasny](documentation/CITATIONS.md#drasny2007)), the
 > Chinese/Japanese hexagram-algebra prior-art cluster (Ouyang Weicheng, Zhang Qingyu, Suenaga, Luo
 > Jianjin), the 2026 arXiv treatments
-> (Chan; Radisic), methodological citations, and per-finding scoping of what is classical / prior work /
-> independently verified / believed novel. CITATIONS.md includes a standing invitation to report prior
+> ([Chan](documentation/CITATIONS.md#chan2026); [Radisic](documentation/CITATIONS.md#radisic2026)), methodological citations, and per-finding scoping of what is classical / prior work /
+> independently verified / believed novel. [CITATIONS.md](documentation/CITATIONS.md) includes a standing invitation to report prior
 > work not yet cited.
 
 The links below are reader orientation only:
@@ -485,10 +562,10 @@ The links below are reader orientation only:
 * [Shao Yong](https://en.wikipedia.org/wiki/Shao_Yong) — Wikipedia (Fu Xi binary ordering)
 * [Mawangdui Silk Texts](https://en.wikipedia.org/wiki/Mawangdui_Silk_Texts) — Wikipedia (background on the silk manuscripts; the ordering itself is per Shaughnessy 2022 below, tested by `solve.c --null-historical`)
 * [Jing Fang](https://en.wikipedia.org/wiki/Jing_Fang) — Wikipedia (Eight Palaces ordering, also tested by `solve.c --null-historical`)
-* [The I Ching or Book of Changes](https://press.princeton.edu/books/hardcover/9780691097503/the-i-ching-or-book-of-changes) — Richard Wilhelm, trans. Cary F. Baynes, Princeton University Press (the standard English translation; its hexagram names are not used here — labels are trigram-derived; see [CRITIQUE](documentation/CRITIQUE.md))
-* Edward L. Shaughnessy, *I Ching: The Classic of Changes*, Ballantine Books, 1996 (translation of the Mawangdui manuscript); the project's Mawangdui ordering array follows Shaughnessy, *The Origin and Early Development of the Zhou Changes*, Brill, 2022, Table 11.2
-* [Yijing Dao (biroco.com)](https://www.biroco.com/yijing/) — S. J. Marshall's (Joel Biroco) archive of Yijing structural-analysis literature, host of the Moore and Schulz papers (a different person from Steve Moore — see CITATIONS.md; source of several documents examined there)
-* [Terence McKenna: Novelty theory and Timewave Zero](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero) — Wikipedia (see [MCKENNA.md](documentation/MCKENNA.md); full citation in CITATIONS.md)
+* [The I Ching or Book of Changes](https://press.princeton.edu/books/hardcover/9780691097503/the-i-ching-or-book-of-changes) — [Richard Wilhelm, trans. Cary F. Baynes](documentation/CITATIONS.md#wilhelm-baynes1967), Princeton University Press (the standard English translation; its hexagram names are not used here — labels are trigram-derived; see [CRITIQUE](documentation/CRITIQUE.md))
+* [Edward L. Shaughnessy, *I Ching: The Classic of Changes*, Ballantine Books, 1996](documentation/CITATIONS.md#shaughnessy1996) (translation of the Mawangdui manuscript); the project's Mawangdui ordering array follows [Shaughnessy, *The Origin and Early Development of the Zhou Changes*, Brill, 2022, Table 11.2](documentation/CITATIONS.md#shaughnessy2022)
+* [Yijing Dao (biroco.com)](https://www.biroco.com/yijing/) — [S. J. Marshall's (Joel Biroco)](documentation/CITATIONS.md#marshall-biroco) archive of Yijing structural-analysis literature, host of the Moore and Schulz papers (a different person from Steve Moore — see [CITATIONS.md](documentation/CITATIONS.md#moore-biroco); source of several documents examined there)
+* [Terence McKenna: Novelty theory and Timewave Zero](https://en.wikipedia.org/wiki/Terence_McKenna#Novelty_theory_and_Timewave_Zero) — Wikipedia (see [MCKENNA.md](documentation/MCKENNA.md); full citation in [CITATIONS.md](documentation/CITATIONS.md))
 
 ## Built with
 [Claude Code](https://claude.ai/code) (Anthropic) — see the AI-assistance headers in the main source files (solve.c, solve.py, verify.c, verify.py, sat.py, roae.py).

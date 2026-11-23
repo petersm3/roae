@@ -110,7 +110,7 @@ These docs hold **paper-citable scientific findings** that have stabilized beyon
 
 For a first-time read of the project (times are `wc -w` ÷ 250 words/minute, measured 2026-09-01):
 
-1. Root [README.md](../README.md) (~29 min; 7,288 words, re-measured 2026-11-02)
+1. Root [README.md](../README.md) (~33 min; 8,357 words, re-measured 2026-11-23)
 2. [SOLVE_SUMMARY.md](SOLVE_SUMMARY.md) (~41 min; 10,282 words, re-measured 2026-09-25 — gives you the scientific shape)
 3. [CRITIQUE.md](CRITIQUE.md) (~71 min; 17,759 words, re-measured 2026-10-29 — sets the honest framing)
 4. Skim [HISTORY.md](HISTORY.md) (long — read the recent dated sections to see where things currently stand)
