@@ -1177,6 +1177,11 @@ PY
 #     are complementary and both run. NOT COVERED BY EITHER (Q-971, A05#6): a reorder that is
 #     already COMMITTED. 10a compares the working copy with HEAD, so it sees only an
 #     uncommitted reorder; this half sees only lost lines.
+#     Q-1183 (GDELTA-1123 #4, Codex gpt-6-astra): the two lines above were true until 6e0b238a
+#     (Q-1079, D1002). Since then 10b ALSO checks ORDER for every version at or after the version
+#     floor (the order leg below), and FAILS a committed reorder of an ancestor or published version;
+#     a reorder of a diverged/advisory version is reported as a [note]. What stays unchecked for
+#     order is a version OLDER than the floor, and blank lines everywhere.
 #
 # COST: B distinct blob versions x L lines; B = commits touching the file + remote-tracking refs,
 # deduplicated by blob id. Neither is quoted here: a "Measured 2026-08-02" `B = 5, L = 525` was
@@ -1231,7 +1236,7 @@ _g10b_one() {
     echo "  [FAIL] GATE 10b: could not read the working copy of $f, so NOTHING was checked."
     rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_curo" "$g10b_ord"; return 1;; esac
   # Q-1079 (D1002): the ORDERED blank-free working copy, for the order check, and the version floor.
-  local g10b_curo g10b_ord _g10b_floor _g10b_post="" _g10b_nord=0 _g10b_npre=0
+  local g10b_curo g10b_ord _g10b_floor _g10b_post="" _g10b_nord=0 _g10b_npre=0 _g10b_nadv=0 _g10b_ngap=0
   g10b_curo=$(mktemp) || { rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_curo" "$g10b_ord"; return 1; }
   g10b_ord=$(mktemp)  || { rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_curo"; return 1; }
   grep -av '^[[:space:]]*$' "$f" > "$g10b_curo"
@@ -1486,7 +1491,11 @@ _g10b_one() {
       case "$_g10b_ps" in [01]:[01]) ;; *)
         echo "  [FAIL] GATE 10b: the order check could not compare the version $blob of $f (diff:grep $_g10b_ps), so it was NOT checked."; bad=1; continue;; esac
       _g10b_mv=$(( _g10b_rm - lost ))
-      _g10b_nord=$((_g10b_nord+1))
+      # Q-1183 (GDELTA-1123 #5, Codex): count a version as order-checked-and-kept only when it lost NO line and
+      # nothing moved. A version reported (not failed) as reordered, or as missing lines (round 2, GFIX-1123 #5
+      # partial: an unmerged or behind version with a merge gap), is counted apart, so the [ok] order line never
+      # claims "every line in its committed order" for it.
+      if [ "$_g10b_mv" -gt 0 ] || [ "${lost:-0}" -gt 0 ]; then _g10b_nadv=$((_g10b_nadv+1)); else _g10b_nord=$((_g10b_nord+1)); fi
       if [ "$_g10b_mv" -gt 0 ]; then
         case "${_g10b_kind:-ancestor}" in
           ancestor|published)
@@ -1562,6 +1571,7 @@ for l in (x.rstrip("\n") for x in sys.stdin):
         echo "         checkout is purely BEHIND it (HEAD is an ancestor of the upstream): nothing was"
         echo "         rewritten, the lines arrive with a fast-forward, and a push from here is refused"
         echo "         as non-fast-forward. Reported, not failed. Remedy: git pull --ff-only."
+        _g10b_ngap=$((_g10b_ngap+1))
         head -3 "$g10b_lostf" | cut -c1-140 | sed 's/^/           /'
       else
         # Q-283 finding 8: an UNMERGED branch commit. The content was never in this lineage, so it
@@ -1570,6 +1580,7 @@ for l in (x.rstrip("\n") for x in sys.stdin):
         echo "  [note] $lost line(s) exist in $src ($blob) but not here — that commit is NOT an"
         echo "         ancestor of HEAD, so this is a MERGE GAP, not a lost line. Remedy: the"
         echo "         Q-77 / A8 merge. Reported, not failed."
+        _g10b_ngap=$((_g10b_ngap+1))
         head -3 "$g10b_lostf" | cut -c1-140 | sed 's/^/           /'
       fi
     fi
@@ -1595,8 +1606,15 @@ for l in (x.rstrip("\n") for x in sys.stdin):
   if [ "$n" -eq 0 ]; then
     echo "  [ok] $f has no committed or published version yet — no baseline to lose a line from"
   elif [ "$bad" -eq 0 ]; then
-    echo "  [ok] every line of all $n distinct historical/published version(s) survives in the working copy"
+    # Q-1183 round 2: a behind or unmerged version reported above with a merge gap is not claimed here.
+    if [ "$_g10b_ngap" -eq 0 ]; then
+      echo "  [ok] every line of all $n distinct historical/published version(s) survives in the working copy"
+    else
+      echo "  [ok] every line of $((n - _g10b_ngap)) of the $n distinct historical/published version(s) survives in the working copy;"
+      echo "       $_g10b_ngap more (behind or unmerged) lack a line here, each reported above as a merge gap, not failed"
+    fi
     echo "  [ok] $_g10b_nord of them (at or after the version floor) keep every line in its committed order"
+    [ "$_g10b_nadv" -eq 0 ] || echo "  [note] $_g10b_nadv more (at or after the floor, diverged/advisory) lack a line or hold one in a different order; each is reported above, not failed"
   fi
   rm -f "$cur" "$tmp" "$g10b_diff" "$g10b_rew" "$g10b_base" "$g10b_curo" "$g10b_ord"
   return $bad

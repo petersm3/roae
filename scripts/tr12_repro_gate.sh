@@ -53,8 +53,8 @@ MODE=${1:-run}; if [ "$MODE" = "--stamp" ]; then if [ -z "${ROAE_HEAVY_LOCK_HELD
 # one-second mtime, and $SKIPPIN is rewritten with no check at all.
 #
 # So --stamp holds an exclusive, NON-BLOCKING flock for its WHOLE run -- the skip-pin write, the
-# guard and the stamp write -- and a second --stamp refuses at once rather than queueing behind a
-# ten-minute battery. The lock is taken on the DIRECTORY that holds the stamp: it exists in every
+# guard and the stamp write -- and a second --stamp that reaches it while it is held refuses at once
+# (TR12_STAMP_REFUSED=LOCKED); it may first QUEUE on the heavy-gate lock above (Q-1183, foot of this file). The lock is taken on the DIRECTORY that holds the stamp: it exists in every
 # checkout (git clone, worktree or `git archive` tarball), it is per-tree exactly as the stamp is,
 # and locking it creates no file -- a lock file under scripts/tr12_expected would itself be hashed
 # by fingerprint(). Every caller respects it because the gate takes it itself; no caller has to.
@@ -949,3 +949,10 @@ echo "  [FAIL] the committed tree does not reproduce its own published battery:"
 grep -E '^TR12_[A-Z0-9_]*=FAIL' "$WORK/out/VERDICTS.txt" 2>/dev/null | head -15
 sed -n 's/^rows=/  /p' "$WORK/repro.log" | tail -1
 echo "TR12_REPRO_GATE=FAIL"; exit 1
+# Q-1183 (GDELTA-1123 #3, Codex gpt-6-astra), on the writer-lock comment near the top: until 2026-11-23 it said a
+# second --stamp "refuses at once rather than queueing". Since 2a502730 (Q-1032) the MODE line first takes the
+# heavy-gate lock, and that one BLOCKS. A second --stamp started while the first holds it therefore QUEUES there
+# and, once the first has finished, finds the writer lock free and runs; it refuses at once when it does not
+# wait on that lock: it skips it (ROAE_HEAVY_LOCK_HELD set, flock missing, or the lock file unopenable), or its
+# ROAE_HEAVY_LOCK or HOME names another lock file. Either way two writers
+# never race on the stamp. This note sits at the foot so that no line-anchored citation of this file moves.

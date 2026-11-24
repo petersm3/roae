@@ -75411,6 +75411,188 @@ class TestQ1182PublicationSurfacesGDelta1123(unittest.TestCase):
 # end class TestQ1182PublicationSurfacesGDelta1123 (Q-1182)
 
 
+class TestQ1183GateSentencesGDelta1123(unittest.TestCase):
+    """Q-1183 (2026-11-23): the four false comment/output sentences of the Codex (gpt-6-astra) delta read
+    GDELTA-1123 at a4ee1c28 (#1 pre_push_gate.sh, #3 tr12_repro_gate.sh, #4 and #5 doc_gates module 40), and #2
+    (prepush_verdict_record.sh: the outside-block skip count ignored grep's status; Q-1171 class, as U2-8). The
+    comments now say what the code does (checked here by text). #5 and #2 are code: #5 counts a reordered
+    diverged/advisory version apart, so the [ok] order line no longer claims it; #2 reads grep's status. Each is
+    red on a4ee1c28 and green here, with a positive control. Round 2 (GFIX-1123): #5 also counts apart a version
+    that lost a line (a merge gap), and the [ok] survival line no longer claims it; #2 reads awk's status too; the
+    #2 test has a valid zero-event block and the #5 test a merge-gap version. Round 3 (GFIX2-1123): the zero-event
+    block is red when the shell count is replaced by `wc -l`; removing the awk `NF &&` alone leaves it green (the
+    shell count already reads an empty output as 0), and the awk shim no longer keys on that text. A BEHIND
+    version with a gap has its own test. This class is now its own batch, independent of Q-1182. Findings by OpenAI Codex; fixes and tests developed
+    with AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    M40 = "scripts/doc_gates.d/40_generated_appendonly_ledger_regdupes.sh"
+    COR = "documentation/CORRECTIONS.md"
+
+    def _r(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _env(self):
+        e = {k: v for k, v in os.environ.items() if not k.startswith(("GIT_", "DOC_GATE"))}
+        e.update(GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@invalid", GIT_COMMITTER_NAME="t",
+                 GIT_COMMITTER_EMAIL="t@invalid", GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
+        return e
+
+    def _d(self):
+        d = tempfile.mkdtemp(prefix="q1183_")
+        self.addCleanup(shutil.rmtree, d, True)
+        return d
+
+    def _git(self, d, *a):
+        r = subprocess.run(["git"] + list(a), cwd=d, env=self._env(), capture_output=True, text=True, timeout=120)
+        self.assertEqual(r.returncode, 0, (a, r.stderr))
+        return r.stdout.strip()
+
+    def _commit(self, d, text, msg="c"):
+        with open(os.path.join(d, self.COR), "w", encoding="utf-8") as fh:
+            fh.write(text)
+        self._git(d, "add", "-A")
+        self._git(d, "commit", "-qm", msg)
+        return self._git(d, "rev-parse", "HEAD")
+
+    # ---- comments (#1, #3, #4): the false sentence is gone and the true one is there ---------------------------
+    def test_gdelta1_3_4_comments_say_what_the_code_does(self):
+        for rel, old, new in (
+                ("scripts/pre_push_gate.sh", "cannot escape. A killed push leaves nothing running.\n",
+                 "with no setsid (the fallback branch) the command shares the"),
+                ("scripts/tr12_repro_gate.sh", "a second --stamp refuses at once rather than queueing behind a",
+                 "A second --stamp started while the first holds it therefore QUEUES there"),
+                (self.M40, "uncommitted reorder; this half sees only lost lines.\n#\n",
+                 "Since then 10b ALSO checks ORDER for every version at or after the version")):
+            with self.subTest(file=rel):
+                src = self._r(rel)
+                self.assertNotIn(old, src)
+                self.assertIn(new, src)
+
+    # ---- #5: the [ok] order line does not count a reordered advisory version ----------------------------------
+    def test_gdelta5_a_reordered_unmerged_version_is_not_claimed_in_order(self):
+        d = self._d()
+        os.makedirs(os.path.join(d, "scripts"))
+        os.makedirs(os.path.join(d, "documentation"))
+        shutil.copy(os.path.join(self.ROOT, "scripts", "doc_gates.sh"), os.path.join(d, "scripts", "doc_gates.sh"))
+        shutil.copytree(os.path.join(self.ROOT, "scripts", "doc_gates.d"), os.path.join(d, "scripts", "doc_gates.d"))
+        self._git(d, "init", "-q", ".")
+        self._git(d, "symbolic-ref", "HEAD", "refs/heads/main")
+        c0 = self._commit(d, "# C\n\nX entry.\n")
+        self._git(d, "checkout", "-q", "-b", "side")
+        side = self._commit(d, "# C\n\nX entry.\nA entry.\nB entry.\n", "side")
+        self._git(d, "update-ref", "refs/remotes/origin/side", side)
+        self._git(d, "checkout", "-q", "main")
+        self._git(d, "branch", "-q", "-D", "side")
+        self._commit(d, "# C\n\nX entry.\nB entry.\nA entry.\n", "main")
+        self.assertNotEqual(c0, side)
+        out = self._g10b(d)
+        self.assertIn("[unmerged] are here in a different order. Reported, not failed:", out,
+                      "precondition: the side version was read as a reordered advisory version")
+        self.assertIn("[ok] every line of all 3 distinct historical/published version(s) survives", out)
+        self.assertIn("[ok] 2 of them (at or after the version floor) keep every line in its committed order", out)
+        self.assertIn("[note] 1 more (at or after the floor, diverged/advisory) lack a line or hold one in a different order", out)
+        # Round 2 (GFIX-1123 #5 partial): a SECOND unmerged version that keeps the order but lost a line (a merge
+        # gap) is not claimed by either [ok] line.
+        self._git(d, "checkout", "-q", "-b", "gap", c0)
+        gap = self._commit(d, "# C\n\nX entry.\nG entry.\n", "gap")
+        self._git(d, "update-ref", "refs/remotes/origin/gap", gap)
+        self._git(d, "checkout", "-q", "main")
+        self._git(d, "branch", "-q", "-D", "gap")
+        out = self._g10b(d)
+        self.assertIn("but not here — that commit is NOT an", out, "precondition: the gap version is a merge gap")
+        self.assertNotIn("[ok] every line of all 4 distinct", out)
+        self.assertIn("[ok] every line of 3 of the 4 distinct historical/published version(s) survives", out)
+        self.assertIn("1 more (behind or unmerged) lack a line here", out)
+        self.assertIn("[ok] 2 of them (at or after the version floor) keep every line in its committed order", out)
+        self.assertIn("[note] 2 more (at or after the floor, diverged/advisory) lack a line or hold one", out)
+
+    def test_gdelta5_a_behind_version_with_a_gap_is_not_claimed(self):
+        """Round 3 (GFIX2-1123 tests): a version on this branch's upstream that HEAD is purely BEHIND, holding a line
+        HEAD lacks, is a [note] (not failed) and is counted as a gap, so the survival [ok] line does not claim it."""
+        d = self._d()
+        os.makedirs(os.path.join(d, "scripts"))
+        os.makedirs(os.path.join(d, "documentation"))
+        shutil.copy(os.path.join(self.ROOT, "scripts", "doc_gates.sh"), os.path.join(d, "scripts", "doc_gates.sh"))
+        shutil.copytree(os.path.join(self.ROOT, "scripts", "doc_gates.d"), os.path.join(d, "scripts", "doc_gates.d"))
+        self._git(d, "init", "-q", ".")
+        self._git(d, "symbolic-ref", "HEAD", "refs/heads/main")
+        c0 = self._commit(d, "# C\n\nX entry.\n")
+        up = self._commit(d, "# C\n\nX entry.\nG entry.\n", "upstream")
+        self._git(d, "update-ref", "refs/remotes/origin/main", up)
+        self._git(d, "update-ref", "refs/heads/main", c0)
+        with open(os.path.join(d, self.COR), "w", encoding="utf-8") as fh:
+            fh.write("# C\n\nX entry.\n")
+        self._git(d, "config", "branch.main.remote", "origin")
+        self._git(d, "config", "branch.main.merge", "refs/heads/main")
+        self._git(d, "add", "-A")
+        self.assertEqual(self._git(d, "status", "--porcelain"), "", "precondition: the working copy is HEAD")
+        out = self._g10b(d)
+        self.assertIn("this branch's published lineage, and this", out, "precondition: the upstream version is BEHIND\n" + out)
+        self.assertNotIn("[ok] every line of all 2 distinct", out)
+        self.assertIn("[ok] every line of 1 of the 2 distinct historical/published version(s) survives", out)
+        self.assertIn("1 more (behind or unmerged) lack a line here", out)
+
+    def _g10b(self, d):
+        r = subprocess.run(["timeout", "600", "bash", "scripts/doc_gates.sh", "appendonly-history"], cwd=d,
+                           env=self._env(), capture_output=True, text=True, timeout=660)
+        out = r.stdout + r.stderr
+        self.assertEqual(r.returncode, 0, "an unmerged version is advisory\n" + out[-3000:])
+        return out
+
+    # ---- #2: a failed outside-block grep is not a clean skip block --------------------------------------------
+    def test_gdelta2_a_failed_outside_block_count_is_not_zero(self):
+        g = self._r("scripts/prepush_verdict_record.sh")
+        lines = g.split("\n")
+        i = next(k for k, l in enumerate(lines) if l.startswith("  nsb=$(grep -acE '^ROAE_TESTS_SKIPS='"))
+        j = next(k for k in range(i, len(lines)) if lines[k].startswith("  obs_skip=0; obs_xf=0"))
+        blk = "\n".join(lines[i:j]) + "\n"
+        d = self._d()
+        with open(os.path.join(d, "tl"), "w", encoding="utf-8") as fh:   # one event OUTSIDE (before) the block
+            fh.write("ROAE_TESTS_SKIP=skip\tT.a\tr\nROAE_TESTS_SKIPS=1\nROAE_TESTS_SKIPS_END=1\n"
+                     "Ran 5 tests in 1.0s\nOK (skipped=1)\n")
+        prog = ('skipfail=0\nskp(){ echo "SKP: $1"; skipfail=1; }\nTL=tl; SNAP=.; tskip=1; txf=0\n%s'
+                'echo "SKIPFAIL=$skipfail"\n' % blk)
+        r = subprocess.run(["bash", "-c", prog], cwd=d, capture_output=True, text=True, timeout=120)
+        self.assertIn("(1 outside the block)", r.stdout, "positive control:\n" + r.stdout + r.stderr)
+        self.assertIn("SKIPFAIL=1", r.stdout)
+        real = shutil.which("grep")
+        sd = os.path.join(d, "shim")
+        os.makedirs(sd)
+        with open(os.path.join(sd, "grep"), "w", encoding="utf-8") as fh:
+            fh.write('#!/bin/bash\nif [ "$1" = "-anE" ] && [ "$2" = "^ROAE_TESTS_SKIP=" ]; then echo hit >> %s; exit 2; fi\n'
+                     'exec %s "$@"\n' % (shlex.quote(os.path.join(d, "shim.log")), shlex.quote(real)))
+        os.chmod(os.path.join(sd, "grep"), 0o755)
+        env = dict(os.environ, PATH=sd + os.pathsep + os.environ["PATH"])
+        r = subprocess.run(["bash", "-c", prog], cwd=d, capture_output=True, text=True, timeout=120, env=env)
+        self.assertTrue(os.path.exists(os.path.join(d, "shim.log")), "precondition: the outside-block grep was the one that failed")
+        self.assertIn("SKIPFAIL=1", r.stdout, "a failed outside-block count read as zero:\n" + r.stdout + r.stderr)
+        self.assertIn("grep rc 2", r.stdout)
+        # round 2 (GFIX-1123 tests): a valid ZERO-event block is clean, so an empty grep output is not one event
+        # outside the block. Round 3 (GFIX2-1123 M10): the count is taken in the shell, where an empty output is 0,
+        # so the awk `NF &&` is a second guard and removing it ALONE leaves this green; counting the awk output
+        # with `wc -l` (round 1's shape without the guard) makes it red.
+        with open(os.path.join(d, "tl0"), "w", encoding="utf-8") as fh:
+            fh.write("ROAE_TESTS_SKIPS=0\nROAE_TESTS_SKIPS_END=0\nRan 5 tests in 1.0s\nOK\n")
+        prog0 = prog.replace("TL=tl; SNAP=.; tskip=1;", "TL=tl0; SNAP=.; tskip=0;")
+        r = subprocess.run(["bash", "-c", prog0], cwd=d, capture_output=True, text=True, timeout=120)
+        self.assertIn("SKIPFAIL=0", r.stdout, "a valid zero-event block was refused:\n" + r.stdout + r.stderr)
+        # round 2 (GFIX-1123 #2 partial): a failed awk in the same count is not zero either
+        sa = os.path.join(d, "shim_awk")
+        os.makedirs(sa)
+        with open(os.path.join(sa, "awk"), "w", encoding="utf-8") as fh:
+            fh.write('#!/bin/bash\ncase "$*" in *"-v b="*) echo hit >> %s; exit 2;; esac\nexec %s "$@"\n'
+                     % (shlex.quote(os.path.join(d, "awk.log")), shlex.quote(shutil.which("awk"))))
+        os.chmod(os.path.join(sa, "awk"), 0o755)
+        r = subprocess.run(["bash", "-c", prog], cwd=d, capture_output=True, text=True, timeout=120,
+                           env=dict(os.environ, PATH=sa + os.pathsep + os.environ["PATH"]))
+        self.assertTrue(os.path.exists(os.path.join(d, "awk.log")), "precondition: the outside-block awk was the one that failed")
+        self.assertIn("SKIPFAIL=1", r.stdout, "a failed awk read as zero events outside the block:\n" + r.stdout + r.stderr)
+        self.assertIn("awk rc 2", r.stdout)
+# end class TestQ1183GateSentencesGDelta1123 (Q-1183)
+
+
 if __name__ == "__main__":
     # Q-1032 (Q-1048 group 6): a FULL run (no test named on the command line) takes the cross-worktree
     # heavy-gate lock that doc_gates.sh, tr12_repro_gate.sh --stamp and correction_marker_inventory.sh take

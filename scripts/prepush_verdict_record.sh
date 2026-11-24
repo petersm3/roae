@@ -347,8 +347,15 @@ if [ "$MODE" = write ]; then
     _bv=$(grep -aE '^ROAE_TESTS_SKIPS=' "$TL"); _bv=${_bv#*=}
     _ev=$(grep -aE '^ROAE_TESTS_SKIPS_END=' "$TL"); _ev=${_ev#*=}
     _rn=$(grep -anE '^Ran [0-9]+ tests? in ' "$TL" | head -1 | cut -d: -f1)
-    _out=$(grep -anE '^ROAE_TESTS_SKIP=' "$TL" | awk -F: -v b="$_bn" -v e="$_en" '$1 <= b || $1 >= e' | wc -l | tr -d ' ')
-    if ! [[ "$_bv" =~ ^(0|[1-9][0-9]{0,5})$ ]] || [ "$_bv" != "$_ev" ]; then
+    # Q-1183 (GDELTA-1123 #2, Codex gpt-6-astra; Q-1171 class, as U2-8): the grep's status is read. Through
+    # `| awk | wc -l` a grep that failed (rc 2) gave 0 lines outside the block, which reads as a clean block.
+    # Round 2 (GFIX-1123 #2 partial): awk's status is read too; the count is then taken in the shell.
+    _ol=$(grep -anE '^ROAE_TESTS_SKIP=' "$TL"); _orc=$?
+    _ow=$(printf '%s\n' "$_ol" | awk -F: -v b="$_bn" -v e="$_en" 'NF && ($1 <= b || $1 >= e)'); _arc=$?
+    _out=0; [ -z "$_ow" ] || { _out=${_ow//[!$'\n']/}; _out=$(( ${#_out} + 1 )); }
+    if [ "$_orc" -gt 1 ] || [ "$_arc" -ne 0 ]; then
+      skp "could not read the tests log for ROAE_TESTS_SKIP= lines (grep rc $_orc, awk rc $_arc), so the skip block was NOT checked"
+    elif ! [[ "$_bv" =~ ^(0|[1-9][0-9]{0,5})$ ]] || [ "$_bv" != "$_ev" ]; then
       skp "the skip block's counts disagree or are not numbers (ROAE_TESTS_SKIPS=$_bv, ROAE_TESTS_SKIPS_END=$_ev)"
     elif [ "$_bv" != "$nsl" ] || [ "$_out" != 0 ]; then
       skp "the skip block declares $_bv entries but the log has $nsl ROAE_TESTS_SKIP= lines ($_out outside the block)"

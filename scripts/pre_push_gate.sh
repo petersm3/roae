@@ -674,7 +674,12 @@ STBASE=""   # the Q-720 selftest leg's own clone (see its header below)
 # and its children running; and `timeout` moves itself to a NEW process group, so a kill by PGID missed
 # them too. The advisory now runs in its OWN SESSION (setsid) in the background, the hook `wait`s for it
 # (a wait IS interrupted by a trapped signal), and cleanup kills the whole session by SID (pkill -s), which
-# a process-group change inside it cannot escape. A killed push leaves nothing running.
+# a process-group change inside it cannot escape. A killed push leaves nothing of that session running
+# when setsid is installed and the session leader is still alive at cleanup. Q-1183 (GDELTA-1123 #1, Codex
+# gpt-6-astra) -- two cases it does not cover: (i) with no setsid (the fallback branch) the command shares the
+# hook's session, so `pkill -s $ADV_SID` names no session and only the direct child gets the TERM; its
+# children live on; (ii) if the session leader exits first, `wait` returns, ADV_SID is cleared, and children
+# it left behind are not killed by _adv_kill.
 ADV_SID=""
 _adv_run() {   # _adv_run <outfile> <dir> <command...>: run the command in <dir> in a new session; rc in $?
   local _of=$1 _dir=$2; shift 2

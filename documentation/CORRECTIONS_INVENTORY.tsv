@@ -3816,6 +3816,7 @@ INL-1dbfba98	-	C3	corrections	inline	viz/viz_tr5_orbit_collapse.md	88	theory is 
 INL-34469d7c	-	C3	corrections	inline	viz/viz_tr6_parity_alternations.md	76	is claimed novel. Developed with AI assistance (Claude, Anthropic); corrections invited.*
 INL-59b1cb3	-	C3	corrected	inline	viz/viz_tr7_circular_cycle.md	63	picture, and no renderer existed; the documents were corrected to say so. CX-191.
 INL-13a1de3a	-	C3	corrections	inline	viz/viz_tr7_circular_cycle.md	75	Developed with AI assistance (Claude, Anthropic); corrections invited.*
+GIT-26f3a4b2	2026-11-24	C3	corrected	git	b0600537	-	Q-1182: GATE 20 matches the draft-heading phrases in any case; GATE 81 reads a final row with no newline
 GIT-1b5d593e	2026-11-23	C3	corrected	git	7e958283	-	Q-1163 (CX-37G-S, CX-37G-T, CX-37G-U): Codex findings on Q-1133..Q-1135 and audit U01/V6 as dated notes, the roae.py --trials and checkpoint-batch fixes, and TR-12's exchangeability-bound note corrected
 GIT-1ea4147f	2026-11-23	C2	scope note	git	991891db	-	README: the front page separates its two lines of work
 GIT-37b8d5b8	2026-11-22	C3	corrections	git	a4ee1c28	-	Q-1156: the CORRECTIONS.md entry and HISTORY.md section for the gate fixes (CX-37G-R)
