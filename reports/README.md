@@ -97,6 +97,12 @@ ever cut, so no frozen ref holds the twelve-report suite: the pinning rule in [M
 read, and cannot be discharged in advance by a static file. That reasoning is recorded in `CITATION.cff`'s
 own comments, so the next reader of that file finds the argument and not just the fields.
 
+**Stated 2026-11-24.** Those comments are no longer in `CITATION.cff`. By operator decision on 2026-11-24, the
+file was restored byte for byte to its original April version (commit `0fe988c6`), and it is not to be edited
+again. That version stamps no commit, version or DOI, but it does carry `date-released: "2026-04-08"`, and its
+message does not ask for a sha. The rule above is unchanged: cite `main` and add the sha you read. The reasoning
+the comments held is kept in the corrections log (corrected; [CORRECTIONS](../documentation/CORRECTIONS.md) CX-37G-V).
+
 **Version lifecycle:** versioning discipline begins at publication. Pre-release drafts carry
 `v1.0-draft` and may churn freely (git history is the audit trail); the first public release is stamped
 `v1.0`; every subsequent content change to a published report is a version bump with a Revision History

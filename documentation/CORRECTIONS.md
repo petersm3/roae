@@ -42425,3 +42425,34 @@ correction right after that note, and the rational's decimal expansion 0.0415011
 
 Developed with AI assistance (Claude, Anthropic): claude-opus-5-5 recomputed the value and drafted the note; the
 finding is Codex's (gpt-6-astra). Text ruled by Claude Fable 5.2 (fable-pinned lane).
+
+## CX-37G-V — CITATION.cff is restored byte for byte to the operator's original April version (CITATION.cff; reports/README.md)
+
+**2026-11-24.** **Source.** The operator, by decision of 2026-11-24.
+
+**Before.** The operator wrote CITATION.cff in April 2026 (17 lines; last April commit `0fe988c6`) and had asked
+that it not be changed. Two later commits changed it anyway. 80878ee7 (2026-08-08) added a `commit`, a `version`,
+`repository-code` and a comment, and moved `date-released` to 2026-07-03. 793210b7 (2026-09-02, the prose sweep)
+removed the commit, the version and `date-released`, and added a 56-line comment block and a longer `message`.
+reports/README.md §"Living documents" said the reasoning was "recorded in `CITATION.cff`'s own comments".
+
+**After.** CITATION.cff is again exactly `git show 0fe988c6:CITATION.cff` (sha256
+`5b974ddc1e01354334c56954bbe54fa7bbe3ace28783c762ea0a49baa09d45db`), including `date-released: "2026-04-08"`.
+It is the operator's own citation record, and from now on it is not edited. Its
+comments were invisible to GitHub's cite button and to reference managers anyway. A dated note after the
+reports/README.md paragraph says the comments are gone and that this file now carries a release date; the
+paragraph itself is not reworded. README.md's "stamps no commit, version or DOI" is still true and is unchanged.
+
+**The reasoning the comments held.** A frozen ref in the citation file sends readers to an old tree.
+Commit `9169b0e5`, pinned from 2026-08-08, was 643 commits behind `main` by 2026-09-01, and its tree has no
+TR-10, no TR-11, no documentation/CORRECTIONS.md and no reports/README.md. The tag `reports-v1.0` resolves to the
+same commit, and no later suite tag was cut. The reports are versioned one by one, so no single version or date
+describes the corpus. So the rule stays as reports/README.md and METHODS.md state it: cite `main`, and add the
+commit sha you read (and, for a report, its version). The full comment block is in the history:
+`git show 991891db:CITATION.cff`.
+
+**Not changed.** No result, count, canonical sha or report version. The citation rule in reports/README.md,
+METHODS.md and README.md is unchanged.
+
+Developed with AI assistance (Claude, Anthropic): decided by the operator; built by an Opus lane
+(claude-opus-5-5).

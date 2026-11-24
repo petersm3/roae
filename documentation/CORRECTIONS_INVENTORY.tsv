@@ -1446,7 +1446,7 @@ INL-26a6f788	2026-11-14	C3	corrected	inline	documentation/HISTORY_INDEX.md	286	|
 INL-2c4c46ce	2026-11-19	C3	correction	inline	documentation/HISTORY_INDEX.md	302	| 273 | 2026-11-19 | iso | 12886 | [open](HISTORY.md#2026-11-19--batch-q1147-o1-a-citing-note-that-its-sources-correction-left-behind) 2026-11-19 — batch Q1147-O1: a citing note that its source's correction left behind |
 INL-1c9db212	2026-11-21	C3	corrections	inline	documentation/HISTORY_INDEX.md	310	| 281 | 2026-11-21 | iso | 12995 | [open](HISTORY.md#2026-11-21--batch-q1155-two-corrections-to-its-own-entries-after-a-codex-review) 2026-11-21 — batch Q1155: two corrections to its own entries, after a Codex review |
 INL-38de2738	2026-11-23	C3	corrected	inline	documentation/HISTORY_INDEX.md	317	| 288 | 2026-11-23 | iso | 13082 | [open](HISTORY.md#2026-11-23--batch-q1163-f3-tr-12s-exchangeability-bound-note-corrected) 2026-11-23 — batch Q1163 (F3): TR-12's exchangeability-bound note corrected |
-INL-324bcf8e	-	C3	corrections	inline	documentation/HISTORY_INDEX.md	324	| 148 | [open](HISTORY.md#missteps-and-corrections-summary) Missteps and corrections (summary) |
+INL-324bcf8e	-	C3	corrections	inline	documentation/HISTORY_INDEX.md	325	| 148 | [open](HISTORY.md#missteps-and-corrections-summary) Missteps and corrections (summary) |
 INL-50dd000	2026-09-01	C3	corrected	inline	documentation/KING_WEN_PROVENANCE.md	32	arrangement (Shaughnessy 2022, ch. 11). *(Corrected 2026-09-01: this previously described Xiping as
 INL-154b7ffc	-	C4	hedges	inline	documentation/KING_WEN_PROVENANCE.md	43	why this repository hedges whenever it refers to the sequence's age.
 INL-1b430e04	-	C3	typo	inline	documentation/KING_WEN_PROVENANCE.md	52	| **西仁村 pottery paddles** (長安, Shaanxi) | late Western Zhou at the latest — the excavator's typological date for surface finds; the numerals were incised before firing (曹瑋 2002) | Six numeral hexagrams on two paddles, surface-collected in 2001 from a kiln site since destroyed, which — read odd = yang / even = yin, with one numeral restored — give #7·8·9·10 and #63·64: two runs consecutive in the r [...truncated]
@@ -2636,6 +2636,7 @@ INL-2f85b5e6	-	C1	withdrawn	inline	reports/README.md	76	the estimator's scope, F
 INL-23016baf	-	C3	corrected	inline	reports/README.md	77	This index keeps the corrected fact and an undated pointer, `(corrected; CORRECTIONS CX-<n>)`; the date is in that CX entry.
 INL-2ddac4c3	2026-04-18	C3	corrected	inline	reports/README.md	84	direction on 2026-04-18 (corrected; [CORRECTIONS](../documentation/CORRECTIONS.md) CX-31).
 INL-488ecff	-	C3	corrections	inline	reports/README.md	91	`main` and whose tree contains no TR-10, no TR-11, no [CORRECTIONS](../documentation/CORRECTIONS.md) — and
+INL-bc2ae1	-	C3	corrections	inline	reports/README.md	104	the comments held is kept in the corrections log (corrected; [CORRECTIONS](../documentation/CORRECTIONS.md) CX-37G-V).
 INL-1893dcc7	-	C4	caveat	inline	reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	5	claims of scope, attribution and interpretation are argued, not verified. One caveat is structural, and
 INL-19fe171b	-	C2	scope note	inline	reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	9	*Scope note (F-34): "archaeology" here is figurative. This report measures **notational and structural**
 INL-e92dbd7	-	C1	withdrawn	inline	reports/TR10_TEXTUAL_ARCHAEOLOGY_MEASURED.md	29	**withdrawn under our own hostile review** — his claim survives its fairest reading. Nothing promotes
@@ -3816,6 +3817,7 @@ INL-1dbfba98	-	C3	corrections	inline	viz/viz_tr5_orbit_collapse.md	88	theory is 
 INL-34469d7c	-	C3	corrections	inline	viz/viz_tr6_parity_alternations.md	76	is claimed novel. Developed with AI assistance (Claude, Anthropic); corrections invited.*
 INL-59b1cb3	-	C3	corrected	inline	viz/viz_tr7_circular_cycle.md	63	picture, and no renderer existed; the documents were corrected to say so. CX-191.
 INL-13a1de3a	-	C3	corrections	inline	viz/viz_tr7_circular_cycle.md	75	Developed with AI assistance (Claude, Anthropic); corrections invited.*
+GIT-232319ea	2026-11-24	C3	corrected	git	e27130ef	-	Q-1183: four gate sentences say what the code does; checked skip counts; no claimed order or survival for advisory versions
 GIT-26f3a4b2	2026-11-24	C3	corrected	git	b0600537	-	Q-1182: GATE 20 matches the draft-heading phrases in any case; GATE 81 reads a final row with no newline
 GIT-1b5d593e	2026-11-23	C3	corrected	git	7e958283	-	Q-1163 (CX-37G-S, CX-37G-T, CX-37G-U): Codex findings on Q-1133..Q-1135 and audit U01/V6 as dated notes, the roae.py --trials and checkpoint-batch fixes, and TR-12's exchangeability-bound note corrected
 GIT-1ea4147f	2026-11-23	C2	scope note	git	991891db	-	README: the front page separates its two lines of work

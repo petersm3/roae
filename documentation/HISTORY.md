@@ -13085,3 +13085,12 @@ line number in either file moves. Both sets of reproductions were run again on t
   figures" and 0.0415012 "exact". The maximum is 0.041501169…; 0.04151 is a bound (rounded up), which is how the
   abstract and §12.6 use it. A dated note says so. No figure changed. Found by Codex (gpt-6-astra); ruled by
   Fable; built in an Opus lane.
+
+## 2026-11-24 — CITATION.cff restored to the operator's original version
+
+- **CITATION.cff (CX-37G-V).** By operator decision, the file is again byte for byte the operator's April version
+  (`0fe988c6`), with `date-released: "2026-04-08"`, and it is not to be edited again. Two later commits
+  (80878ee7, 793210b7) had changed it. The comment block that 793210b7 added is gone; the reasoning it held is in
+  CX-37G-V. A dated note in reports/README.md §"Living documents" says so, and that paragraph is not reworded.
+- No result, count, canonical sha or report version changed. The citation rule (cite `main` and the sha you read)
+  is unchanged. Decided by the operator; built in an Opus lane.

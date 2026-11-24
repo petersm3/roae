@@ -74509,7 +74509,7 @@ class TestBatchQ1140Operator(unittest.TestCase):
     ROOT = os.path.dirname(os.path.abspath(__file__))
     # file -> (lines on 8582a11c, [(new fragment, old fragment)], dated note, [old phrases the note alone may hold])
     SITES = {
-        "reports/README.md": (113, [
+        "reports/README.md": (119, [   # 113 + 6 (2026-11-24): the dated CITATION.cff note after "Living documents" (CX-37G-V)
             ("twice byte-identical across two from-scratch runs on interruptible",
              "twice byte-identical across two independent runs on interruptible")],
             " ⚠ *(reworded 2026-11-19, CX-37G-L: this read \"two independent runs\"; both runs are this project's own)*",
