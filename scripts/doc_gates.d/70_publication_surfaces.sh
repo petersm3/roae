@@ -249,6 +249,10 @@ gate_publication_state() {
   # are marker conventions, while lowercase "draft" is ordinary narration — e.g.
   # CORRECTIONS.md's "TR-9's draft-stage note", which must not fire. The multi-word
   # phrases are matched case-insensitively because they are never conventions.
+  # Q-1182 (GDELTA-1123 #7, Codex gpt-6-astra): until 2026-11-23 they were NOT: `[Nn]ot for
+  # publication` varied the first letter only, so `## DO NOT PUBLISH` passed while this comment said
+  # otherwise. The phrases now run in a second, case-insensitive grep (-i) whose status is read the
+  # same way, and the heading scanner below matches them under (?i:...).
   # Measured at adoption: zero hits across the tracked markdown corpus.
   # 🔴 Q-284: this re-enumerated the corpus with its own unguarded `git ls-files ... || true`,
   # so a failed enumeration produced an empty $hits and the gate announced the published
@@ -257,9 +261,13 @@ gate_publication_state() {
   # Q-963 (batch 48; Codex Q835 A07#5): grep runs over $DOCS directly so its status is readable:
   # 0 = a hit, 1 = none, 2 = a document it could not read. Through `xargs` the last two were one
   # status (123) and were not read at all, so an unreadable document was a clean one.
-  local _g20_rc
+  local _g20_rc _g20_hp _g20_rcp
   # shellcheck disable=SC2086
-  hits=$(grep -HnE '^#{1,6}[[:space:]].*(\<(DRAFT|WIP|TODO|FIXME|UNPUBLISHED)\>|[Nn]ot for publication|[Dd]o not publish|[Pp]re-publish|[Bb]efore porting to public)' -- $DOCS 2>/dev/null); _g20_rc=$?
+  hits=$(grep -HnE '^#{1,6}[[:space:]].*\<(DRAFT|WIP|TODO|FIXME|UNPUBLISHED)\>' -- $DOCS 2>/dev/null); _g20_rc=$?
+  # shellcheck disable=SC2086
+  _g20_hp=$(grep -HniE '^#{1,6}[[:space:]].*(not for publication|do not publish|pre-publish|before porting to public)' -- $DOCS 2>/dev/null); _g20_rcp=$?
+  [ "$_g20_rcp" -le 1 ] || _g20_rc=$_g20_rcp
+  hits="${hits}${hits:+${_g20_hp:+$'\n'}}${_g20_hp}"   # joined in the shell: no third tool whose status could be lost (GFIX-1123 N3)
   [ "$_g20_rc" -le 1 ] || {
     echo "  [FAIL] GATE 20's per-file scanner FAILED on:"   # the receipt wording the --selftest asserts on, naming the file(s)
     local _g20_f _g20_n=0; for _g20_f in $DOCS; do [ -r "$_g20_f" ] || { echo "           $_g20_f"; _g20_n=$((_g20_n+1)); }; done
@@ -272,7 +280,7 @@ gate_publication_state() {
   local hits2
   hits2=$(printf '%s\n' "$DOCS" | python3 -c "$(_md_norm_prelude)"'
 import sys, re
-MK = re.compile(r"\b(?:DRAFT|WIP|TODO|FIXME|UNPUBLISHED)\b|[Nn]ot for publication|[Dd]o not publish|[Pp]re-publish|[Bb]efore porting to public")
+MK = re.compile(r"\b(?:DRAFT|WIP|TODO|FIXME|UNPUBLISHED)\b|(?i:not for publication|do not publish|pre-publish|before porting to public)")
 for f in (l.strip() for l in sys.stdin):
     if not f:
         continue
@@ -2767,7 +2775,12 @@ gate_tree_invariants() {
     echo "  [FAIL] $REG is unreadable — an unread invariant registry is NOT an empty one."
     return 1
   fi
-  while IFS=$'\t' read -r pat max paths why; do
+  # Q-1182 (GDELTA-1123 #21, Codex): `|| [ -n "$pat" ]` -- a final row with no newline is read too; `read`
+  # returns 1 on it after filling the fields, so the bare loop skipped a declared invariant and this gate
+  # printed "[ok] N registered invariant(s) hold" without it. Through scripts/doc_gates.sh the run as a
+  # whole already failed (the PREFLIGHT requires a final newline on documentation/*.tsv); a caller of
+  # this function alone did not.
+  while IFS=$'\t' read -r pat max paths why || [ -n "${pat:-}" ]; do
     case "${pat:-}" in ''|\#*) continue;; esac
     [ -n "${max:-}" ] && [ -n "${paths:-}" ] || { echo "  [FAIL] malformed row: ${pat:0:40}"; bad=1; continue; }
     n=$((n+1))

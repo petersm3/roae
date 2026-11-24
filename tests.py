@@ -75225,6 +75225,192 @@ class TestBatchQ1155TableShape(unittest.TestCase):
         self.assertEqual(h.count("\n## 2026-11-21 — batch Q1155: the table test ends a table at a fence, after a third Codex review\n"), 1)
 
 
+class TestQ1182PublicationSurfacesGDelta1123(unittest.TestCase):
+    """Q-1182 (2026-11-24, round 4): the GATE 20 and GATE 81 findings of the Codex (gpt-6-astra) lens-A read
+    GDELTA-1123 of scripts/doc_gates.d/70_publication_surfaces.sh at a4ee1c28 and its fix reads, triaged by Claude
+    (Opus). #7: GATE 20 matched the multi-word draft phrases by their first letter only; each of its two scanners
+    is shown to catch the plant ALONE, the phrase grep's failure is injected, and N3's shell join is checked.
+    #21: GATE 81 skipped a final registry row with no newline (through doc_gates.sh its PREFLIGHT already failed
+    the run; GATE 81's own [ok] was false). The GATE 89 census is UNCHANGED from a4ee1c28 (its findings are
+    accepted residuals, see the commit); test_gate89_ceiling pins the unresolved-position ceiling that census
+    relies on: one position above it must FAIL the gate. Each test is red on a4ee1c28 except the pin, which is
+    green there and red with the ceiling check removed. Findings by OpenAI Codex; fixes and tests developed with
+    AI assistance (Claude, Anthropic): claude-opus-5-5."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+    M = "scripts/doc_gates.d/70_publication_surfaces.sh"
+
+    def _env(self):
+        e = {k: v for k, v in os.environ.items() if not k.startswith(("GIT_", "DOC_GATE"))}
+        e.update(GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@invalid", GIT_COMMITTER_NAME="t",
+                 GIT_COMMITTER_EMAIL="t@invalid", GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
+        return e
+
+    def _leg(self, files, leg, mutate=(), path_prefix=None):
+        """Run one doc-gate leg through the entry point in a scratch repo holding `files`; (rc, output).
+        `mutate` is a list of (old, new) replacements made in the scratch copy of module 70 (each must occur
+        exactly once), so one scanner of a pair can be shown to work alone."""
+        d = tempfile.mkdtemp(prefix="q1182_")
+        self.addCleanup(shutil.rmtree, d, True)
+        os.makedirs(os.path.join(d, "scripts"))
+        shutil.copy(os.path.join(self.ROOT, "scripts", "doc_gates.sh"), os.path.join(d, "scripts", "doc_gates.sh"))
+        shutil.copytree(os.path.join(self.ROOT, "scripts", "doc_gates.d"), os.path.join(d, "scripts", "doc_gates.d"))
+        mp = os.path.join(d, self.M)
+        for old, new in mutate:
+            with open(mp, encoding="utf-8") as fh:
+                src = fh.read()
+            self.assertEqual(src.count(old), 1, "mutant anchor must occur exactly once: %r" % old)
+            with open(mp, "w", encoding="utf-8") as fh:
+                fh.write(src.replace(old, new))
+        for rel, text in files.items():
+            p = os.path.join(d, rel)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(text)
+        for a in (["init", "-q", "."], ["symbolic-ref", "HEAD", "refs/heads/main"], ["add", "-A"], ["commit", "-qm", "c0"]):
+            subprocess.run(["git"] + a, cwd=d, env=self._env(), check=True, capture_output=True)
+        env = self._env()
+        if path_prefix:
+            env["PATH"] = path_prefix + os.pathsep + env["PATH"]
+        r = subprocess.run(["timeout", "600", "bash", "scripts/doc_gates.sh", leg], cwd=d, env=env,
+                           capture_output=True, text=True, timeout=660)
+        return r.returncode, r.stdout + r.stderr
+
+    # ---- #7: GATE 20 multi-word phrases, any case ---------------------------------------------------------
+    def test_gdelta7_an_uppercase_do_not_publish_heading_fails(self):
+        rc, out = self._leg({"doc/A.md": "# A\n\nProse.\n"}, "publication-state")
+        self.assertEqual(rc, 0, "precondition: the unplanted corpus is green\n" + out)
+        rc, out = self._leg({"doc/A.md": "# A\n\n## Do not publish\n"}, "publication-state")
+        self.assertEqual(rc, 1, "positive control: the first-letter form fails on both trees\n" + out)
+        for h in ("## DO NOT PUBLISH", "### NOT FOR PUBLICATION", "## BEFORE PORTING TO PUBLIC", "## do NOT publish"):
+            with self.subTest(heading=h):
+                rc, out = self._leg({"doc/A.md": "# A\n\n%s\n" % h}, "publication-state")
+                self.assertEqual(rc, 1, out)
+                self.assertIn("heading-form draft marker: doc/A.md:3:", out)
+
+    # Round 2 (GFIX-1123 tests): the two scanners each catch the plant ALONE, so reverting either one is red here.
+    PY_SCAN = 'if MK.search(b["text"]) or MK.search(b["title"]):'
+    GREP_PHRASES = ("_g20_hp=$(grep -HniE '^#{1,6}[[:space:]].*(not for publication|do not publish|pre-publish|before"
+                    " porting to public)' -- $DOCS 2>/dev/null); _g20_rcp=$?")
+
+    def test_gdelta7_each_heading_scanner_catches_the_phrase_alone(self):
+        plant = {"doc/A.md": "# A\n\n## DO NOT PUBLISH\n"}
+        for name, mut in (("grep alone", [(self.PY_SCAN, "if False:")]),
+                          ("python alone", [(self.GREP_PHRASES, '_g20_hp=""; _g20_rcp=1')])):
+            with self.subTest(scanner=name):
+                rc, out = self._leg({"doc/A.md": "# A\n\nProse.\n"}, "publication-state", mutate=mut)
+                self.assertEqual(rc, 0, "positive control: the mutant passes a clean corpus\n" + out)
+                rc, out = self._leg(plant, "publication-state", mutate=mut)
+                self.assertEqual(rc, 1, out)
+                self.assertIn("heading-form draft marker: doc/A.md:3:", out)
+
+    def test_gdelta7_a_failed_phrase_grep_fails_the_gate(self):
+        d = tempfile.mkdtemp(prefix="q1182s_")
+        self.addCleanup(shutil.rmtree, d, True)
+        sd = os.path.join(d, "shim")
+        os.makedirs(sd)
+        log = os.path.join(d, "shim.log")
+        with open(os.path.join(sd, "grep"), "w", encoding="utf-8") as fh:
+            fh.write('#!/bin/bash\nif [ "$1" = "-HniE" ]; then echo hit >> %s; exit 2; fi\nexec %s "$@"\n'
+                     % (shlex.quote(log), shlex.quote(shutil.which("grep"))))
+        os.chmod(os.path.join(sd, "grep"), 0o755)
+        rc, out = self._leg({"doc/A.md": "# A\n\nProse.\n"}, "publication-state")
+        self.assertEqual(rc, 0, "positive control: unshimmed, the clean corpus is green\n" + out)
+        rc, out = self._leg({"doc/A.md": "# A\n\nProse.\n"}, "publication-state", path_prefix=sd)
+        self.assertTrue(os.path.exists(log), "precondition: the phrase grep was the call that failed")
+        self.assertEqual(rc, 1, "a failed phrase grep read as no hit:\n" + out)
+        self.assertIn("GATE 20's per-file scanner FAILED", out)
+
+    def test_gdelta7_n3_the_two_grep_outputs_are_joined_in_the_shell(self):
+        """GFIX-1123 N3: the two GATE 20 grep outputs were merged through a `grep .` whose status was lost. They are
+        joined in the shell now, so GATE 20 runs `grep .` once (the later merge, accepted residual #9), not twice."""
+        d = tempfile.mkdtemp(prefix="q1182n3_")
+        self.addCleanup(shutil.rmtree, d, True)
+        sd = os.path.join(d, "shim")
+        os.makedirs(sd)
+        log = os.path.join(d, "dot.log")
+        with open(os.path.join(sd, "grep"), "w", encoding="utf-8") as fh:
+            fh.write('#!/bin/bash\n[ "$1" = "." ] && [ "$#" -eq 1 ] && echo dot >> %s\nexec %s "$@"\n'
+                     % (shlex.quote(log), shlex.quote(shutil.which("grep"))))
+        os.chmod(os.path.join(sd, "grep"), 0o755)
+        rc, out = self._leg({"doc/A.md": "# A\n\n## DO NOT PUBLISH\n"}, "publication-state", path_prefix=sd)
+        self.assertEqual(rc, 1, "positive control: the plant still fails through the shim\n" + out)
+        with open(log, encoding="utf-8") as fh:
+            n = len(fh.read().split())
+        self.assertEqual(n, 1, "GATE 20 ran `grep .` %d time(s); the N3 join is a shell join" % n)
+
+    # ---- GATE 89: the unresolved-position ceiling (a pin; the census itself is a4ee1c28's) --------------------
+    def _census_repo(self, plant=""):
+        """A scratch repo holding this tree's gate scripts, documentation/, solve.c and solve.py (+ `plant`)."""
+        d = tempfile.mkdtemp(prefix="q1182c_")
+        self.addCleanup(shutil.rmtree, d, True)
+        shutil.copytree(os.path.join(self.ROOT, "scripts"), os.path.join(d, "scripts"))
+        shutil.copytree(os.path.join(self.ROOT, "documentation"), os.path.join(d, "documentation"))
+        shutil.copy(os.path.join(self.ROOT, "solve.c"), os.path.join(d, "solve.c"))
+        with open(os.path.join(self.ROOT, "solve.py"), encoding="utf-8") as fh:
+            py = fh.read()
+        with open(os.path.join(d, "solve.py"), "w", encoding="utf-8") as fh:
+            fh.write(py + plant)
+        for a in (["init", "-q", "."], ["symbolic-ref", "HEAD", "refs/heads/main"], ["add", "-A"], ["commit", "-qm", "c0"]):
+            subprocess.run(["git"] + a, cwd=d, env=self._env(), check=True, capture_output=True)
+        return d
+
+    def _census(self, d, mutate=()):
+        mp = os.path.join(d, self.M)
+        for old, new in mutate:
+            with open(mp, encoding="utf-8") as fh:
+                src = fh.read()
+            self.assertEqual(src.count(old), 1, "mutant anchor must occur exactly once: %r" % old)
+            with open(mp, "w", encoding="utf-8") as fh:
+                fh.write(src.replace(old, new))
+        r = subprocess.run(["timeout", "600", "bash", "scripts/doc_gates.sh", "emitted-surface"], cwd=d, env=self._env(),
+                           capture_output=True, text=True, timeout=660)
+        out = r.stdout + r.stderr
+        m = re.search(r"^DOC_GATE_EMITTED_SURFACE_PY_UNRESOLVED=(-?\d+)$", out, re.M)
+        return r.returncode, out, int(m.group(1)) if m else None
+
+    CEIL_CHECK = "if len(pyunres) > CEIL_PY_UNRESOLVED:"
+
+    def test_gate89_ceiling_one_unresolved_position_above_it_fails(self):
+        with open(os.path.join(self.ROOT, self.M), encoding="utf-8") as fh:
+            ceil = int(re.search(r"^FLOOR_PY_KEYS, FLOOR_PY_SITES, CEIL_PY_UNRESOLVED = \d+, \d+, (\d+)$", fh.read(), re.M).group(1))
+        rc, out, n = self._census(self._census_repo())
+        self.assertEqual(rc, 0, "positive control: the real solve.py is green\n" + out[-3000:])
+        self.assertIsNotNone(n, out[-2000:])
+        self.assertLessEqual(n, ceil)
+        k = ceil - n + 1   # just enough positions to cross the ceiling by one
+        plant = "".join("\n\ndef _q1182_ceiling_probe_%d():\n    return json.dumps(_q1182_unbound_%d)\n" % (i, i) for i in range(k))
+        d = self._census_repo(plant)
+        rc, out, n2 = self._census(d)
+        self.assertEqual(n2, ceil + 1, "precondition: the plant adds exactly %d unresolved position(s)\n%s" % (k, out[-2000:]))
+        self.assertNotEqual(rc, 0, "an unresolved count above the ceiling passed:\n" + out[-3000:])
+        self.assertIn("above the pinned ceiling of %d" % ceil, out)
+        self.assertIn("DOC_GATE_EMITTED_SURFACE=FAIL", out)
+        # the pin: with the ceiling check removed the same plant passes, so this test is what holds it
+        d = self._census_repo(plant)
+        rc, out, _ = self._census(d, mutate=[(self.CEIL_CHECK, "if False:")])
+        self.assertEqual(rc, 0, "mutant (no ceiling check) should pass the plant:\n" + out[-2000:])
+
+    # ---- #21: GATE 81 reads a final row with no newline ------------------------------------------------------
+    def test_gdelta21_a_final_invariant_row_without_a_newline_is_checked(self):
+        row = "printf\t0\tsolve.c\tForbid printf calls in the engine"
+        files = {"solve.c": 'int main(void){ printf("x"); return 0; }\n', "README.md": "# R\n\nText.\n"}
+        rc, out = self._leg(dict(files, **{"documentation/TREE_INVARIANTS.tsv": "zzqx\t0\tsolve.c\tnever there\n"}),
+                            "tree-invariants")
+        self.assertEqual(rc, 0, "precondition: a held invariant is green\n" + out)
+        rc, out = self._leg(dict(files, **{"documentation/TREE_INVARIANTS.tsv": row + "\n"}), "tree-invariants")
+        self.assertEqual(rc, 1, "positive control: the newline-terminated row fails on both trees\n" + out)
+        rc, out = self._leg(dict(files, **{"documentation/TREE_INVARIANTS.tsv": "zzqx\t0\tsolve.c\tnever there\n" + row}),
+                            "tree-invariants")
+        # rc is 1 on both trees here: doc_gates.sh's PREFLIGHT fails a documentation/*.tsv with no final newline.
+        # The defect was GATE 81's own verdict, which skipped the row and printed [ok] for the one before it.
+        self.assertEqual(rc, 1, out)
+        self.assertIn("[FAIL] invariant VIOLATED: 'printf' appears 1 time(s) in solve.c, ceiling 0", out,
+                      "a final row with no newline was skipped:\n" + out)
+        self.assertNotIn("[ok] 1 registered invariant(s) hold", out)
+# end class TestQ1182PublicationSurfacesGDelta1123 (Q-1182)
+
+
 if __name__ == "__main__":
     # Q-1032 (Q-1048 group 6): a FULL run (no test named on the command line) takes the cross-worktree
     # heavy-gate lock that doc_gates.sh, tr12_repro_gate.sh --stamp and correction_marker_inventory.sh take
